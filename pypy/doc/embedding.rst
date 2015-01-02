@@ -6,6 +6,10 @@ the usage of `cffi`_ and the philosophy that Python is a better language than
 C. It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
 project. The `PyPy uwsgi plugin`_ is a good example of using the embedding API.
 
+**NOTE**: As of 1st of December, PyPy comes with ``--shared`` by default
+on linux, linux64 and windows. We will make it the default on all platforms
+by the time of the next release.
+
 The first thing that you need is to compile PyPy yourself with the option
 ``--shared``. We plan to make ``--shared`` the default in the future. Consult
 the `how to compile PyPy`_ doc for details. This will result in ``libpypy.so``
@@ -93,10 +97,16 @@ We write a little C program:
       return res;
     }
 
-If we save it as ``x.c`` now, compile it and run it with::
+If we save it as ``x.c`` now, compile it and run it (on linux) with::
 
     fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
     fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
+    hello from pypy
+
+on OSX it is necessary to set the rpath of the binary if one wants to link to it::
+
+    gcc -o x x.c -lpypy-c -L. -Wl,-rpath -Wl,@executable_path
+    ./x
     hello from pypy
 
 Worked!

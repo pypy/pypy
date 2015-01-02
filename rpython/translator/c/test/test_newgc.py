@@ -1147,6 +1147,10 @@ class UsingFrameworkTest(object):
             fd = os.open(filename, open_flags, 0666)
             os.write(fd, s)
             os.close(fd)
+            #
+            a = rgc.get_typeids_list()
+            assert len(a) > 1
+            assert 0 < rffi.cast(lltype.Signed, a[1]) < 10000
             return 0
 
         return fn

@@ -57,11 +57,10 @@ class AbstractDictRepr(rmodel.Repr):
 
 
 def rtype_newdict(hop):
-    from rpython.rtyper.lltypesystem.rdict import ll_newdict
     hop.inputargs()    # no arguments expected
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
+    v_result = hop.gendirectcall(r_dict.ll_newdict, cDICT)
     return v_result
 
 

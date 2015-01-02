@@ -330,6 +330,20 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
+@jit.dont_look_inside
+@specialize.ll()
+def ll_arrayclear(p):
+    # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
+    from rpython.rlib.objectmodel import keepalive_until_here
+
+    length = len(p)
+    ARRAY = lltype.typeOf(p).TO
+    offset = llmemory.itemoffsetof(ARRAY, 0)
+    dest_addr = llmemory.cast_ptr_to_adr(p) + offset
+    llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    keepalive_until_here(p)
+
+
 def no_release_gil(func):
     func._dont_inline_ = True
     func._no_release_gil_ = True
@@ -428,6 +442,10 @@ def dump_rpy_heap(fd):
     raise NotImplementedError
 
 def get_typeids_z():
+    "NOT_RPYTHON"
+    raise NotImplementedError
+
+def get_typeids_list():
     "NOT_RPYTHON"
     raise NotImplementedError
 
@@ -628,6 +646,18 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_typeids_list
+
+    def compute_result_annotation(self):
+        from rpython.rtyper.llannotation import SomePtr
+        from rpython.rtyper.lltypesystem import llgroup
+        return SomePtr(lltype.Ptr(lltype.Array(llgroup.HALFWORD)))
+
+    def specialize_call(self, hop):
+        hop.exception_is_here()
+        return hop.genop('gc_typeids_list', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
     _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)

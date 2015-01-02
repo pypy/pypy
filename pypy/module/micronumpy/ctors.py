@@ -302,5 +302,5 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
         return a
     else:
         writable = not buf.readonly
-    return W_NDimArray.from_shape_and_storage(space, [n], storage, dtype=dtype,
-                                              w_base=w_buffer, writable=writable)
+    return W_NDimArray.from_shape_and_storage(space, [n], storage, storage_bytes=s, 
+                                dtype=dtype, w_base=w_buffer, writable=writable)

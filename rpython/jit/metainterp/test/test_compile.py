@@ -10,6 +10,9 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
+    class Storage:
+        pass
+    
     class tracker:
         pass
 
@@ -18,6 +21,7 @@ class FakeCPU(object):
         self.seen = []
     def compile_loop(self, inputargs, operations, token, log=True, name='',
                      logger=None):
+        token.compiled_loop_token = self.Storage()
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):

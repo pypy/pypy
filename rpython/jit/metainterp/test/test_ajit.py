@@ -2764,7 +2764,8 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, loop, enable_opts, *args, **kwds):
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
+                              *args, **kwds):
             seen.append('unroll' in enable_opts)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace
@@ -3068,7 +3069,11 @@ class BasicTests:
     def test_int_signext(self):
         def f(n):
             return rffi.cast(rffi.SIGNEDCHAR, n)
+        def f1(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n + 1)
         res = self.interp_operations(f, [128])
+        assert res == -128
+        res = self.interp_operations(f1, [127])
         assert res == -128
         res = self.interp_operations(f, [-35 + 256 * 29])
         assert res == -35

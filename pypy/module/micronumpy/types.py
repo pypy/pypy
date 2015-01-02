@@ -285,10 +285,13 @@ class Primitive(object):
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        return bool(v1) ^ bool(v2)
+        a = bool(v1)
+        b = bool(v2)
+        return (not b and a) or (not a and b)
 
+    @raw_unary_op
     def bool(self, v):
-        return bool(self.for_computation(self.unbox(v)))
+        return bool(v)
 
     @simple_binary_op
     def max(self, v1, v2):
@@ -308,26 +311,26 @@ class Bool(BaseType, Primitive):
     BoxType = boxes.W_BoolBox
     format_code = "?"
 
-    True = BoxType(True)
-    False = BoxType(False)
+    _True = BoxType(True)
+    _False = BoxType(False)
 
     @specialize.argtype(1)
     def box(self, value):
         box = Primitive.box(self, value)
         if box.value:
-            return self.True
+            return self._True
         else:
-            return self.False
+            return self._False
 
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
         box = Primitive.box(self, real)
         if box.value:
-            return self.True
+            return self._True
         box = Primitive.box(self, imag)
         if box.value:
-            return self.True
-        return self.False
+            return self._True
+        return self._False
 
     def coerce_subtype(self, space, w_subtype, w_item):
         # Doesn't return subclasses so it can return the constants.
@@ -1192,7 +1195,11 @@ class ComplexFloating(object):
 
     @complex_to_real_unary_op
     def abs(self, v):
-        return rcomplex.c_abs(v[0], v[1])
+        try:
+            return rcomplex.c_abs(v[0], v[1])
+        except OverflowError:
+            # warning ...
+            return rfloat.INFINITY
 
     @raw_unary_op
     def isnan(self, v):
@@ -1257,7 +1264,9 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        return self._bool(v1) ^ self._bool(v2)
+        a = self._bool(v1)
+        b = self._bool(v2)
+        return (not b and a) or (not a and b)
 
     def min(self, v1, v2):
         if self.le(v1, v2) or self.isnan(v1):
@@ -1732,7 +1741,9 @@ class StringType(FlexibleType):
 
     @str_binary_op
     def logical_xor(self, v1, v2):
-        return bool(v1) ^ bool(v2)
+        a = bool(v1)
+        b = bool(v2)
+        return (not b and a) or (not a and b)
 
     def bool(self, v):
         return bool(self.to_str(v))
@@ -1862,7 +1873,7 @@ class RecordType(FlexibleType):
                 items_w = space.fixedview(w_item.get_scalar_value())
             else:
                 # XXX support initializing from readable buffers
-                items_w = [w_item]
+                items_w = [w_item] * len(dtype.fields)
         else:
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.elsize, dtype)

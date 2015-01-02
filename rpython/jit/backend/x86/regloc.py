@@ -151,6 +151,8 @@ class RegLoc(AssemblerLocation):
 
     def lowest8bits(self):
         assert not self.is_xmm
+        if WORD == 4:
+            assert 0 <= self.value < 4
         return RegLoc(rx86.low_byte(self.value), False)
 
     def higher8bits(self):
