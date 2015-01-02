@@ -197,9 +197,7 @@ class W_DictMultiObject(W_Root):
 
     def descr_copy(self, space):
         """D.copy() -> a shallow copy of D"""
-        w_new = W_DictMultiObject.allocate_and_init_instance(space)
-        update1_dict_dict(space, w_new, self)
-        return w_new
+        return self.copy()
 
     def descr_items(self, space):
         """D.items() -> a set-like object providing a view on D's items"""
@@ -267,7 +265,7 @@ class W_DictMultiObject(W_Root):
 
 def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
-                    popitem delitem clear \
+                    popitem delitem clear copy \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
                     listview_bytes listview_unicode listview_int \
@@ -411,6 +409,11 @@ class DictStrategy(object):
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
+
+    def copy(self, w_dict):
+        w_new = W_DictMultiObject.allocate_and_init_instance(self.space)
+        update1_dict_dict(self.space, w_new, w_dict)
+        return w_new
 
     def listview_bytes(self, w_dict):
         return None

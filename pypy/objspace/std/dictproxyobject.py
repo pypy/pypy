@@ -195,6 +195,9 @@ class MappingProxyStrategy(DictStrategy):
     def clear(self, w_dict):
         raise oefmt(self.space.w_AttributeError, "clear")
 
+    def copy(self, w_dict):
+        return self.space.call_method(self.unerase(w_dict.dstorage), "copy")
+
 create_iterator_classes(
     MappingProxyStrategy,
     override_next_key=MappingProxyStrategy.override_next_key,
