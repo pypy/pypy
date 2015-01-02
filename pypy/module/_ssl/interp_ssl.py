@@ -57,7 +57,8 @@ constants["CERT_REQUIRED"] = PY_SSL_CERT_REQUIRED
 
 if not OPENSSL_NO_SSL2:
     constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
-constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
+if not OPENSSL_NO_SSL3:
+    constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
 constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
 
@@ -150,7 +151,7 @@ class SSLContext(W_Root):
     def __init__(self, space, protocol):
         if protocol == PY_SSL_VERSION_TLS1:
             method = libssl_TLSv1_method()
-        elif protocol == PY_SSL_VERSION_SSL3:
+        elif protocol == PY_SSL_VERSION_SSL3 and not OPENSSL_NO_SSL3:
             method = libssl_SSLv3_method()
         elif protocol == PY_SSL_VERSION_SSL2 and not OPENSSL_NO_SSL2:
             method = libssl_SSLv2_method()

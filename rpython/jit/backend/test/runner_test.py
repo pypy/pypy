@@ -3892,12 +3892,16 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_int_signext(self):
         numbytes_cases = [1, 2] if IS_32_BIT else [1, 2, 4]
-        for numbytes in numbytes_cases:
+        for spill in ["", "force_spill(i1)"]:
+          for numbytes in numbytes_cases:
+            print (spill, numbytes)
             ops = """
             [i0]
-            i1 = int_signext(i0, %d)
-            finish(i1, descr=descr)
-            """ % numbytes
+            i1 = int_sub(i0, 0)     # force in register
+            %s
+            i2 = int_signext(i1, %d)
+            finish(i2, descr=descr)
+            """ % (spill, numbytes)
             descr = BasicFinalDescr()
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()

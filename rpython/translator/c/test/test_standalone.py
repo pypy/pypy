@@ -1386,6 +1386,8 @@ class TestShared(StandaloneTests):
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'
+        elif cbuilder.eci.platform.name.startswith('darwin'):
+            ext_suffix = '.dylib'
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))

@@ -440,6 +440,25 @@ class W_CDataHandle(W_CData):
         return "handle to %s" % (self.space.str_w(w_repr),)
 
 
+class W_CDataFromBuffer(W_CData):
+    _attrs_ = ['buf', 'length', 'w_keepalive']
+    _immutable_fields_ = ['buf', 'length', 'w_keepalive']
+
+    def __init__(self, space, cdata, ctype, buf, w_object):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.buf = buf
+        self.length = buf.getlength()
+        self.w_keepalive = w_object
+
+    def get_array_length(self):
+        return self.length
+
+    def _repr_extra(self):
+        w_repr = self.space.repr(self.w_keepalive)
+        return "buffer len %d from '%s' object" % (
+            self.length, self.space.type(self.w_keepalive).name)
+
+
 W_CData.typedef = TypeDef(
     '_cffi_backend.CData',
     __module__ = '_cffi_backend',

@@ -14,7 +14,7 @@ def ask_gcc(question, add_source="", ignore_errors=False):
     from rpython.translator.platform import platform
     includes = ['stdlib.h', 'stdio.h', 'sys/types.h']
     if platform.name != 'msvc':
-        includes += ['inttypes.h']
+        includes += ['inttypes.h', 'stddef.h']
     include_string = "\n".join(["#include <%s>" % i for i in includes])
     c_source = py.code.Source('''
     // includes

@@ -287,7 +287,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
 
             t = thread.start_new_thread(pollster.poll, ())
             try:
-                time.sleep(0.1)
+                time.sleep(0.3)
                 for i in range(5): print(''),  # to release GIL untranslated
                 # trigger ufds array reallocation
                 for fd in rfds:
@@ -298,7 +298,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
             finally:
                 # and make the call to poll() from the thread return
                 os.write(w, b'spam')
-                time.sleep(0.1)
+                time.sleep(0.3)
                 for i in range(5): print(''),  # to release GIL untranslated
         finally:
             os.close(r)

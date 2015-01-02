@@ -58,7 +58,7 @@ class UnixCCompiler(CCompiler):
     executables = {'preprocessor' : None,
                    'compiler'     : ["cc"],
                    'compiler_so'  : ["cc"],
-                   'compiler_cxx' : ["cc"],
+                   'compiler_cxx' : ["c++"],  # pypy: changed, 'cc' is bogus
                    'linker_so'    : ["cc", "-shared"],
                    'linker_exe'   : ["cc"],
                    'archiver'     : ["ar", "-cr"],
