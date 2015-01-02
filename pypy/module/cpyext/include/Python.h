@@ -86,6 +86,7 @@ typedef long Py_ssize_t;
 #include "object.h"
 #include "abstract.h"
 #include "pyport.h"
+#include "pymacro.h"
 #include "warnings.h"
 
 #include <stdarg.h>

@@ -84,6 +84,15 @@ def PyLong_AsSsize_t(space, w_long):
     """
     return space.int_w(w_long)
 
+@cpython_api([PyObject], rffi.SIZE_T, error=-1)
+def PyLong_AsSize_t(space, w_long):
+    """Return a C size_t representation of of pylong.  pylong must be
+    an instance of PyLongObject.
+    
+    Raise OverflowError if the value of pylong is out of range for a
+    size_t."""
+    return space.uint_w(w_long)
+
 @cpython_api([PyObject], rffi.LONGLONG, error=-1)
 def PyLong_AsLongLong(space, w_long):
     """
