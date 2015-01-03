@@ -97,44 +97,6 @@ class BaseTestWithUnroll(BaseTest):
 
 
 class OptimizeOptTest(BaseTestWithUnroll):
-<<<<<<< local
-    def setup_method(self, meth=None):
-        class FailDescr(compile.ResumeGuardDescr):
-            oparse = None
-            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
-                # typically called 3 times: once when parsing 'ops',
-                # once when parsing 'preamble', once when parsing 'expected'.
-                self.oparse = oparse
-                self.rd_frame_info_list, self.rd_snapshot = snapshot(fail_args)
-            def _clone_if_mutable(self, memo):
-                assert self is fdescr
-                return fdescr2
-            def __repr__(self):
-                if self is fdescr:
-                    return 'fdescr'
-                if self is fdescr2:
-                    return 'fdescr2'
-                return compile.ResumeGuardDescr.__repr__(self)
-        #
-        def snapshot(fail_args, got=[]):
-            if not got:    # only the first time, i.e. when parsing 'ops'
-                rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-                rd_snapshot = resume.Snapshot(None, fail_args)
-                got.append(rd_frame_info_list)
-                got.append(rd_snapshot)
-            return got
-        #
-        fdescr = instantiate(FailDescr)
-        self.namespace['fdescr'] = fdescr
-        fdescr2 = instantiate(FailDescr)
-        self.namespace['fdescr2'] = fdescr2
-
-    def teardown_method(self, meth):
-        self.namespace.pop('fdescr', None)
-        self.namespace.pop('fdescr2', None)
-
-=======
->>>>>>> other
     def test_simple(self):
         ops = """
         []
@@ -1184,11 +1146,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
-<<<<<<< local
         #i4 = same_as_i(i2) # This same_as should be killed by backend
-=======
-        i4 = same_as(i2) # This same_as should be killed by backend
->>>>>>> other
         jump(i3, i1, i2)
         """
         expected = """
@@ -2448,31 +2406,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i3) [p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
-<<<<<<< local
         escape_n()
         #i5 = same_as(i4)
         jump(p1, i2, i4)
-=======
-        escape()
-        i5 = same_as(i4)
-        jump(p1, i2, i4, i5)
->>>>>>> other
         """
         expected = """
-<<<<<<< local
-        [p1, i2, i4]
-=======
-        [p1, i2, i4, i5]
->>>>>>> other
+        [p1, i2, i4] # i5
         guard_true(i4) [p1]
         setfield_gc(p1, NULL, descr=nextdescr)
-<<<<<<< local
         escape_n()
         jump(p1, i2, 1)
-=======
-        escape()
-        jump(p1, i2, i5, i5)
->>>>>>> other
+        #jump(p1, i2, i5, i5)
         """
         self.optimize_loop(ops, expected, preamble)
 

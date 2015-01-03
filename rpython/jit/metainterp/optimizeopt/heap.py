@@ -151,7 +151,7 @@ class CachedField(object):
                     opnum = OpHelpers.getfield_for_descr(op.getdescr())
                     getop = ResOperation(opnum, [op.getarg(0)],
                                          op.getdescr())
-                    getop.source_op = result
+                    xxx
                     if isinstance(result, Const):
                         optimizer.make_constant(getop, result)
                         getop.is_source_op = True
@@ -165,6 +165,7 @@ class CachedField(object):
                     getop = ResOperation(opnum, [op.getarg(0), op.getarg(1)],
                                          op.getdescr())
                     getop.source_op = result
+                    xxx
                     if isinstance(result, Const):
                         xxx
                         optimizer.make_constant(getop, result)

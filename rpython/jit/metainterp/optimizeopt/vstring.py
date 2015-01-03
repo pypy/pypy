@@ -66,7 +66,6 @@ class __extend__(optimizer.OptValue):
                 mode.STRLEN, [box])
         else:
             lengthop = ResOperation(mode.STRLEN, [box])
-            lengthop.is_source_op = True
         string_optimizer.emit_operation(lengthop)
         return lengthop
 
@@ -111,7 +110,7 @@ class VAbstractStringValue(virtualize.AbstractVirtualValue):
         assert self.source_op is not None
         lengthbox = self.getstrlen(optforce, self.mode, None)
         op = ResOperation(self.mode.NEWSTR, [lengthbox])
-        op.source_op = self.source_op
+        xxx
         self.box = op
         if not we_are_translated():
             op.name = 'FORCE'
@@ -360,7 +359,7 @@ def _int_add(string_optimizer, box1, box2):
     if string_optimizer is None:
         return None
     op = ResOperation(rop.INT_ADD, [box1, box2])
-    op.is_source_op = True
+    xxx
     string_optimizer.emit_operation(op)
     return op
 
@@ -371,7 +370,7 @@ def _int_sub(string_optimizer, box1, box2):
         if isinstance(box1, ConstInt):
             return ConstInt(box1.value - box2.value)
     op = ResOperation(rop.INT_SUB, [box1, box2])
-    op.is_source_op = True
+    xxx
     string_optimizer.emit_operation(op)
     return op
 

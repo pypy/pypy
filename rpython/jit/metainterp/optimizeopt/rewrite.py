@@ -291,7 +291,6 @@ class OptRewrite(Optimization):
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
-        opv = self.getvalue(op)
         if value.is_virtual():
             arg = value.get_constant_class(self.optimizer.cpu)
             if arg:
@@ -346,7 +345,6 @@ class OptRewrite(Optimization):
         value.make_constant_class(None, expectedclassbox)
 
     def optimize_GUARD_CLASS(self, op):
-        opv = self.getvalue(op)
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)

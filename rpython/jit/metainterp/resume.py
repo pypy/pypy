@@ -372,15 +372,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
-<<<<<<< local
-        snapshot = storage.rd_snapshot
-        if snapshot is None:
-            assert not we_are_translated()
-            return # for tests in optimizeopt
-=======
         snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
->>>>>>> other
         numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}

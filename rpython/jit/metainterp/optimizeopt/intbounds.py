@@ -245,8 +245,7 @@ class OptIntBounds(Optimization):
             # Transform into INT_ADD.  The following guard will be killed
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
-            xxx
-            op = op.copy_and_change(rop.INT_ADD)
+            op = self.replace_op_with(op, rop.INT_ADD)
         self.emit_operation(op) # emit the op
         r = self.getvalue(op)
         r.getintbound().intersect(resbound)
@@ -527,7 +526,7 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        r = self.getvalue(op.result)
+        r = self.getvalue(op)
         b = r.getintbound().sub_bound(v2.getintbound())
         if v1.getintbound().intersect(b):
             self.propagate_bounds_backward(op.getarg(0), v1)
@@ -538,7 +537,7 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_SUB(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        r = self.getvalue(op.result)
+        r = self.getvalue(op)
         b = r.getintbound().add_bound(v2.getintbound())
         if v1.getintbound().intersect(b):
             self.propagate_bounds_backward(op.getarg(0), v1)
@@ -549,7 +548,7 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        r = self.getvalue(op.result)
+        r = self.getvalue(op)
         b = r.getintbound().div_bound(v2.getintbound())
         if v1.getintbound().intersect(b):
             self.propagate_bounds_backward(op.getarg(0), v1)

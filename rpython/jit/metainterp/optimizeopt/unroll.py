@@ -268,9 +268,7 @@ class UnrollOptimizer(Optimization):
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
                 # XXX investigate what is it
-                source_op = newresult
-                while source_op.source_op:
-                    source_op = source_op.source_op
+                xxxx
                 if source_op is not op and \
                    not self.short_boxes.has_producer(newresult) and \
                    not newvalue.is_constant():
@@ -396,6 +394,7 @@ class UnrollOptimizer(Optimization):
         target_token = start_label.getdescr()
         assert isinstance(target_token, TargetToken)
 
+        xxx
         # Turn guards into conditional jumps to the preamble
         #for i in range(len(short)):
         #    op = short[i]
@@ -607,7 +606,6 @@ class UnrollOptimizer(Optimization):
         while i < len(short_preamble):
             shop = short_preamble[i]
             newop = shop.clone(memo)
-            newop.is_source_op = True
             if newop.is_guard():
                 if not patchguardop:
                     raise InvalidLoop("would like to have short preamble, but it has a guard and there's no guard_future_condition")

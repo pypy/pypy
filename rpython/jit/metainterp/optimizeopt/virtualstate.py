@@ -638,6 +638,7 @@ class ShortBoxes(object):
         return alts
 
     def add_to_short(self, box, op):
+        xxx
         #if op:
         #    op = op.clone(self.memo)
         #    op.is_source_op = True

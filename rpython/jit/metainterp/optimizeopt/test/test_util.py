@@ -13,7 +13,7 @@ from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.codewriter.heaptracker import register_known_gctype
-from rpython.jit.tool.oparser import parse, pure_parse
+from rpython.jit.tool.oparser import OpParser
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
@@ -356,7 +356,7 @@ def _sortboxes(boxes):
     _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
     return sorted(boxes, key=lambda box: _kind2count[box.type])
 
-final_descr = BasicFinalDescr()
+final_descr = history.BasicFinalDescr()
 
 class BaseTest(object):
 

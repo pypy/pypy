@@ -292,8 +292,8 @@ class GuardResOp(ResOpWithDescr):
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
-    def copy_and_change(self, opnum, args=None, result=None, descr=None):
-        newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
         newop.rd_snapshot = self.rd_snapshot

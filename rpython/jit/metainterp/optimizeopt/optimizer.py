@@ -324,10 +324,7 @@ class IntOptValue(OptValue):
         if intbound:
             self.intbound = intbound
         else:
-            if isinstance(box, BoxInt):
-                self.intbound = IntBound(MININT, MAXINT)
-            else:
-                self.intbound = IntUnbounded()
+            self.intbound = IntBound(MININT, MAXINT)
 
     def copy_from(self, other_value):
         assert isinstance(other_value, IntOptValue)
@@ -595,18 +592,16 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def getvalue(self, box):
-        while box.source_op is not None:
-            box = box.source_op
-        assert box.is_source_op
         box = self.getinterned(box)
         try:
             value = self.values[box]
         except KeyError:
-            if isinstance(box, BoxPtr) or isinstance(box, ConstPtr):
+            if box.type == "r":
                 value = self.values[box] = PtrOptValue(box)
-            elif isinstance(box, BoxInt) or isinstance(box, ConstInt):
+            elif box.type == "i":
                 value = self.values[box] = IntOptValue(box)
             else:
+                assert box.type == "f"
                 value = self.values[box] = OptValue(box)
         self.ensure_imported(value)
         return value
@@ -625,8 +620,6 @@ class Optimizer(Optimization):
     def get_constant_box(self, box):
         if isinstance(box, Const):
             return box
-        while box.source_op is not None:
-            box = box.source_op
         try:
             value = self.values[box]
             self.ensure_imported(value)
@@ -657,11 +650,21 @@ class Optimizer(Optimization):
                 # replacing with a different box
                 cur_value.copy_from(value)
                 return
+        if not replace:
+            assert box not in self.values
         self.values[box] = value
+
+    def replace_op_with(self, op, newopnum, args=None, descr=None):
+        newop = op.copy_and_change(newopnum, args, descr)
+        if newop.type != 'v':
+            val = self.getvalue(op)
+            val.box = newop
+            self.values[newop] = val
+        return newop
 
     def make_constant(self, box, constbox):
         if isinstance(constbox, ConstInt):
-            self.make_equal_to(box, ConstantIntValue(constbox))
+            self.getvalue(box).make_constant(constbox)
         elif isinstance(constbox, ConstPtr):
             self.make_equal_to(box, ConstantPtrValue(constbox))
         elif isinstance(constbox, ConstFloat):
@@ -734,10 +737,6 @@ class Optimizer(Optimization):
     @specialize.argtype(0)
     def _emit_operation(self, op):
         assert not op.is_call_pure()
-        if op.getopnum() == rop.GUARD_VALUE:
-            val = self.getvalue(op.getarg(0))
-        else:
-            val = None
         changed = False
         orig_op = op
         for i in range(op.numargs()):
@@ -751,7 +750,7 @@ class Optimizer(Optimization):
                 newbox = value.force_box(self)
                 if arg is not newbox:
                     if not changed:
-                        op = op.clone()
+                        op = self.replace_op_with(op, op.getopnum())
                         changed = True
                     op.setarg(i, newbox)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
@@ -760,13 +759,12 @@ class Optimizer(Optimization):
             pendingfields = self.pendingfields
             self.pendingfields = None
             if self.replaces_guard and orig_op in self.replaces_guard:
-                self.replace_op(self.replaces_guard[orig_op], op)
+                self.replace_guard_op(self.replaces_guard[orig_op], op)
                 del self.replaces_guard[op]
                 return
             else:
-                guard_op = op.clone()
-                op = self.store_final_boxes_in_guard(guard_op, pendingfields,
-                                                     val)
+                guard_op = self.replace_op_with(op, op.getopnum())
+                op = self.store_final_boxes_in_guard(guard_op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
         self._last_emitted_op = orig_op
@@ -784,11 +782,11 @@ class Optimizer(Optimization):
                 if box is not arg:
                     if not changed:
                         changed = True
-                        op = op.clone()
+                        op = self.replace_op_with(op, op.getopnum())
                     op.setarg(i, box)
         return op
 
-    def replace_op(self, old_op_pos, new_op):
+    def replace_guard_op(self, old_op_pos, new_op):
         old_op = self._newoperations[old_op_pos]
         assert old_op.is_guard()
         old_descr = old_op.getdescr()
@@ -796,7 +794,7 @@ class Optimizer(Optimization):
         new_descr.copy_all_attributes_from(old_descr)
         self._newoperations[old_op_pos] = new_op
 
-    def store_final_boxes_in_guard(self, op, pendingfields, val):
+    def store_final_boxes_in_guard(self, op, pendingfields):
         assert pendingfields is not None
         if op.getdescr() is not None:
             descr = op.getdescr()
@@ -818,12 +816,12 @@ class Optimizer(Optimization):
         descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
+            val = self.getvalue(op.getarg(0))
             if val in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.
                 # This is done after the operation is emitted to let
                 # store_final_boxes_in_guard set the guard_opnum field of the
                 # descr to the original rop.GUARD_VALUE.
-                v = self.getvalue(op)
                 constvalue = op.getarg(1).getint()
                 if constvalue == 0:
                     opnum = rop.GUARD_FALSE
@@ -831,9 +829,8 @@ class Optimizer(Optimization):
                     opnum = rop.GUARD_TRUE
                 else:
                     raise AssertionError("uh?")
-                newop = ResOperation(opnum, [op.getarg(0)], descr)
+                newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
                 newop.setfailargs(op.getfailargs())
-                v.box = newop
                 return newop
             else:
                 # a real GUARD_VALUE.  Make it use one counter per value.

@@ -22,6 +22,16 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
     def getopname(self):
         return 'escape'
 
+    def copy_and_change(self, opnum, args=None, descr=None):
+        assert opnum == self.OPNUM
+        op = self.__class__()
+        if args is not None:
+            op.initarglist(args)
+        else:
+            op.initarglist(self._args)
+        assert descr is None
+        return op
+
     def clone(self, memo):
         op = self.__class__()
         op.initarglist([memo.get(arg, arg) for arg in self.getarglist()])
@@ -71,7 +81,7 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         op.initarglist(self.getarglist()[:])
         return op
 
-    def _copy_and_change(self, opnum, args=None, descr=None):
+    def copy_and_change(self, opnum, args=None, descr=None):
         assert opnum == self.OPNUM
         newop = FORCE_SPILL()
         newop.initarglist(args or self.getarglist())

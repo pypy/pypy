@@ -56,7 +56,7 @@ class OptPure(Optimization):
         if nextop:
             self.emit_operation(nextop)
         if args is not None:
-            self.pure_operations[args] = self.getvalue(op.result)
+            self.pure_operations[args] = self.getvalue(op)
         if remember:
             self.remember_emitting_pure(remember)
 
@@ -75,14 +75,13 @@ class OptPure(Optimization):
                                             op.getdescr())
         oldval = self.pure_operations.get(args, None)
         if oldval is not None:
-            assert oldop.getopnum() == op.getopnum()
             # this removes a CALL_PURE that has the same (non-constant)
             # arguments as a previous CALL_PURE.
             self.make_equal_to(op, oldval)
             self.last_emitted_operation = REMOVED
             return
         else:
-            self.pure_operations[args] = self.getvalue(op.result)
+            self.pure_operations[args] = self.getvalue(op)
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
