@@ -14,7 +14,9 @@ class Darwin(posix.BasePosix):
 
     def _args_for_shared(self, args):
         return (list(self.shared_only)
-                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
+                + ['-dynamiclib', '-install_name',
+                   '@executable_path/$(TARGET)', '-undefined',
+                   'dynamic_lookup']
                 + args)
 
     def _include_dirs_for_libffi(self):
