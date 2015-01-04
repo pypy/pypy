@@ -107,7 +107,8 @@ if sys.platform != 'win32':
     c_sigemptyset = external('sigemptyset', [c_sigset_t], rffi.INT)
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
-    c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT)
+    c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT,
+                         releasegil=True)
     c_sigpending = external('sigpending', [c_sigset_t], rffi.INT)
     c_pthread_sigmask = external('pthread_sigmask',
                                  [rffi.INT, c_sigset_t, c_sigset_t], rffi.INT)
