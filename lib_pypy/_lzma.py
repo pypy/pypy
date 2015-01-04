@@ -3,6 +3,7 @@
 
 # PyPy changes:
 # - added __getstate__() methods that raise TypeError on pickling.
+# - in ffi.verify(), changed modulename to '_lzmaffi'.
 
 from cffi import FFI
 import threading
@@ -296,7 +297,7 @@ uint32_t _pylzma_block_header_size_decode(uint32_t b) {
     include_dirs=['/opt/local/include', '/usr/local/include'],
     library_dirs=['/opt/local/include', '/usr/local/include'],
     ext_package='_lzmaffi_mods',
-    modulename='_compiled_module')
+    modulename='_lzmaffi')
 
 def _new_lzma_stream():
     ret = ffi.new('lzma_stream*')
