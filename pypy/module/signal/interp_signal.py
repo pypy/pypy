@@ -232,7 +232,7 @@ def signal(space, signum, w_handler):
 @jit.dont_look_inside
 @unwrap_spec(fd=int)
 def set_wakeup_fd(space, fd):
-    """Sets the fd to be written to (with '\0') when a signal
+    """Sets the fd to be written to (with the signal number) when a signal
     comes in.  Returns the old fd.  A library can use this to
     wakeup select or poll.  The previous fd is returned.
 
@@ -249,7 +249,7 @@ def set_wakeup_fd(space, fd):
         except OSError, e:
             if e.errno == errno.EBADF:
                 raise OperationError(space.w_ValueError, space.wrap("invalid fd"))
-    old_fd = pypysig_set_wakeup_fd(fd)
+    old_fd = pypysig_set_wakeup_fd(fd, False)
     return space.wrap(intmask(old_fd))
 
 

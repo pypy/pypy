@@ -114,7 +114,7 @@ class Entry(ExtRegistryEntry):
 
 BUILTIN_TYPES = ['int', 'str', 'float', 'tuple', 'list', 'dict', 'bytes',
                  'unicode', 'complex', 'slice', 'bool', 'text', 'object',
-                 'bytearray', 'memoryview']
+                 'set', 'bytearray', 'memoryview']
 
 class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):

@@ -214,7 +214,7 @@ class AppTestSignal:
             cannot_read()
             posix.kill(posix.getpid(), signal.SIGINT)
             res = posix.read(fd_read, 1)
-            assert res == b'\x00'
+            assert res == bytes([signal.SIGINT])
             cannot_read()
         finally:
             old_wakeup = signal.set_wakeup_fd(old_wakeup)

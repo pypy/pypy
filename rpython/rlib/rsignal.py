@@ -73,7 +73,8 @@ pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
 pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
-pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd', [rffi.INT], rffi.INT)
+pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd',
+                                 [rffi.INT, rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, releasegil=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
