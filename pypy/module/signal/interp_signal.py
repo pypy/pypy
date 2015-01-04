@@ -361,6 +361,19 @@ class SignalMask(object):
     def __exit__(self, *args):
         lltype.free(self.mask, flavor='raw')
 
+def _sigset_to_signals(space, mask):
+    signals_w = []
+    for sig in range(1, NSIG):
+        if c_sigismember(mask, sig) != 1:
+            continue
+        # Handle the case where it is a member by adding the signal to
+        # the result list.  Ignore the other cases because they mean
+        # the signal isn't a member of the mask or the signal was
+        # invalid, and an invalid signal must have been our fault in
+        # constructing the loop boundaries.
+        signals_w.append(space.wrap(sig))
+    return space.call_function(space.w_set, space.newtuple(signals_w))
+
 def sigwait(space, w_signals):
     with SignalMask(space, w_signals) as sigset:
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
@@ -369,3 +382,14 @@ def sigwait(space, w_signals):
                 raise exception_from_errno(space, space.w_OSError)
             signum = signum_ptr[0]
     return space.wrap(signum)
+
+@unwrap_spec(how=int)
+def pthread_sigmask(space, how, w_signals):
+    with SignalMask(space, w_signals) as sigset:
+        with lltype.scoped_alloc(c_sigset_t.TO) as previous:
+            ret = c_pthread_sigmask(how, sigset, previous)
+            if ret != 0:
+                raise exception_from_errno(space, space.w_OSError)
+            # if signals was unblocked, signal handlers have been called
+            space.getexecutioncontext().checksignals()
+            return _sigset_to_signals(space, previous)

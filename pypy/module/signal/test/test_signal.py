@@ -342,3 +342,18 @@ class AppTestPThread:
         received = signal.sigwait([signal.SIGALRM])
         assert received == signal.SIGALRM
         
+    def test_sigmask(self):
+        import signal, posix
+        signum1 = signal.SIGUSR1
+        signum2 = signal.SIGUSR2
+
+        def handler(signum, frame):
+            pass
+        signal.signal(signum1, handler)
+        signal.signal(signum2, handler)
+
+        signal.pthread_sigmask(signal.SIG_BLOCK, (signum1, signum2))
+        posix.kill(posix.getpid(), signum1)
+        posix.kill(posix.getpid(), signum2)
+        # Unblocking the 2 signals calls the C signal handler twice
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, (signum1, signum2))

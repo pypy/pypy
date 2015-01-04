@@ -31,7 +31,7 @@ if sys.platform == 'win32' and not hasattr(cpy_signal,'CTRL_C_EVENT'):
     signal_names.append('CTRL_BREAK_EVENT')
     CTRL_C_EVENT = 0
     CTRL_BREAK_EVENT = 1
-includes = ['stdlib.h', 'src/signals.h']
+includes = ['stdlib.h', 'src/signals.h', 'signal.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
 
@@ -47,7 +47,9 @@ class CConfig:
     _compilation_info_ = eci
 
 if sys.platform != 'win32':
-    for name in """ITIMER_REAL ITIMER_VIRTUAL ITIMER_PROF""".split():
+    for name in """
+        ITIMER_REAL ITIMER_VIRTUAL ITIMER_PROF
+        SIG_BLOCK SIG_UNBLOCK SIG_SETMASK""".split():
         setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
 
     CConfig.timeval = rffi_platform.Struct(
@@ -103,4 +105,7 @@ if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)
     c_sigemptyset = external('sigemptyset', [c_sigset_t], rffi.INT)
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
+    c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT)
+    c_pthread_sigmask = external('pthread_sigmask',
+                                 [rffi.INT, c_sigset_t, c_sigset_t], rffi.INT)
