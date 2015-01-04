@@ -383,6 +383,13 @@ def sigwait(space, w_signals):
             signum = signum_ptr[0]
     return space.wrap(signum)
 
+def sigpending(space):
+    with lltype.scoped_alloc(c_sigset_t.TO) as mask:
+        ret = c_sigpending(mask)
+        if ret != 0:
+            raise exception_from_errno(space, space.w_OSError)
+        return _sigset_to_signals(space, mask)
+
 @unwrap_spec(how=int)
 def pthread_sigmask(space, how, w_signals):
     with SignalMask(space, w_signals) as sigset:

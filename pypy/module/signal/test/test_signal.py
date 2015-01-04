@@ -355,5 +355,7 @@ class AppTestPThread:
         signal.pthread_sigmask(signal.SIG_BLOCK, (signum1, signum2))
         posix.kill(posix.getpid(), signum1)
         posix.kill(posix.getpid(), signum2)
+        assert signal.sigpending() == set((signum1, signum2))
         # Unblocking the 2 signals calls the C signal handler twice
         signal.pthread_sigmask(signal.SIG_UNBLOCK, (signum1, signum2))
+        assert signal.sigpending() == set()
