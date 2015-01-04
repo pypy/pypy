@@ -333,3 +333,12 @@ class AppTestPThread:
         tid = _thread.get_ident()
         raises(ZeroDivisionError, signal.pthread_kill, tid, signum)
         
+    def test_sigwait(self):
+        import signal
+        def handler(signum, frame):
+            1/0
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(1)
+        received = signal.sigwait([signal.SIGALRM])
+        assert received == signal.SIGALRM
+        
