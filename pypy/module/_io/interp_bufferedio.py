@@ -77,6 +77,11 @@ class W_BufferedIOBase(W_IOBase):
             raise OperationError(space.w_TypeError, space.wrap(
                 "read() should return bytes"))
         data = space.bytes_w(w_data)
+        if len(data) > length:
+            raise oefmt(space.w_ValueError,
+                        "read() returned too much data: "
+                        "%d bytes requested, %d returned",
+                        length, len(data))
         rwbuffer.setslice(0, data)
         return space.wrap(len(data))
 

@@ -149,6 +149,15 @@ class AppTestBufferedReader:
         f.close()
         assert a == b'a\nb\ncxxxxx'
 
+    def test_readinto_buffer_overflow(self):
+        import _io
+        class BadReader(_io._BufferedIOBase):
+            def read(self, n=-1):
+                return b'x' * 10**6
+        bufio = BadReader()
+        b = bytearray(2)
+        raises(ValueError, bufio.readinto, b)
+
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
