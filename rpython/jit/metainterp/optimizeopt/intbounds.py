@@ -73,7 +73,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_OR_or_XOR(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        if v1 is v2:
+        if v1.box is v2.box:
             if op.getopnum() == rop.INT_OR:
                 self.make_equal_to(op, v1)
             else:
@@ -253,13 +253,12 @@ class OptIntBounds(Optimization):
     def optimize_INT_SUB_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        if v1 is v2:
+        if v1.box is v2.box:
             self.make_constant_int(op, 0)
             return
         resbound = v1.getintbound().sub_bound(v2.getintbound())
         if resbound.bounded():
-            xxx
-            op = op.copy_and_change(rop.INT_SUB)
+            op = self.replace_op_with(op, rop.INT_SUB)
         self.emit_operation(op) # emit the op
         r = self.getvalue(op)
         r.getintbound().intersect(resbound)
@@ -279,7 +278,7 @@ class OptIntBounds(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1.getintbound().known_lt(v2.getintbound()):
             self.make_constant_int(op, 1)
-        elif v1.getintbound().known_ge(v2.getintbound()) or v1 is v2:
+        elif v1.getintbound().known_ge(v2.getintbound()) or v1.box is v2.box:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
@@ -289,7 +288,7 @@ class OptIntBounds(Optimization):
         v2 = self.getvalue(op.getarg(1))
         if v1.getintbound().known_gt(v2.getintbound()):
             self.make_constant_int(op, 1)
-        elif v1.getintbound().known_le(v2.getintbound()) or v1 is v2:
+        elif v1.getintbound().known_le(v2.getintbound()) or v1.box is v2.box:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
@@ -297,7 +296,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_LE(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        if v1.getintbound().known_le(v2.getintbound()) or v1 is v2:
+        if v1.getintbound().known_le(v2.getintbound()) or v1.box is v2.box:
             self.make_constant_int(op, 1)
         elif v1.getintbound().known_gt(v2.getintbound()):
             self.make_constant_int(op, 0)
@@ -307,7 +306,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_GE(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        if v1.getintbound().known_ge(v2.getintbound()) or v1 is v2:
+        if v1.getintbound().known_ge(v2.getintbound()) or v1.box is v2.box:
             self.make_constant_int(op, 1)
         elif v1.getintbound().known_lt(v2.getintbound()):
             self.make_constant_int(op, 0)
@@ -321,7 +320,7 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 0)
         elif v1.getintbound().known_lt(v2.getintbound()):
             self.make_constant_int(op, 0)
-        elif v1 is v2:
+        elif v1.box is v2.box:
             self.make_constant_int(op, 1)
         else:
             self.emit_operation(op)
@@ -333,7 +332,7 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
         elif v1.getintbound().known_lt(v2.getintbound()):
             self.make_constant_int(op, 1)
-        elif v1 is v2:
+        elif v1.box is v2.box:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)

@@ -433,6 +433,9 @@ class Optimization(object):
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
 
+    def getlastop(self):
+        return self.optimizer._last_emitted_op
+
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
 
@@ -442,8 +445,8 @@ class Optimization(object):
     def make_constant_int(self, box, intconst):
         return self.optimizer.make_constant_int(box, intconst)
 
-    def make_equal_to(self, box, value, replace=False):
-        return self.optimizer.make_equal_to(box, value, replace=replace)
+    def make_equal_to(self, box, value):
+        return self.optimizer.make_equal_to(box, value)
 
     def get_constant_box(self, box):
         return self.optimizer.get_constant_box(box)
@@ -638,20 +641,17 @@ class Optimizer(Optimization):
     def clear_newoperations(self):
         self._newoperations = []
 
-    def make_equal_to(self, box, value, replace=False):
+    def make_equal_to(self, box, value):
         assert isinstance(value, OptValue)
-        if replace:
-            try:
-                cur_value = self.values[box]
-            except KeyError:
-                pass
-            else:
-                assert cur_value.getlevel() != LEVEL_CONSTANT
-                # replacing with a different box
-                cur_value.copy_from(value)
-                return
-        if not replace:
-            assert box not in self.values
+        try:
+            cur_value = self.values[box]
+        except KeyError:
+            pass
+        else:
+            assert cur_value.getlevel() != LEVEL_CONSTANT
+            # replacing with a different box
+            cur_value.copy_from(value)
+            return
         self.values[box] = value
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
@@ -663,14 +663,7 @@ class Optimizer(Optimization):
         return newop
 
     def make_constant(self, box, constbox):
-        if isinstance(constbox, ConstInt):
-            self.getvalue(box).make_constant(constbox)
-        elif isinstance(constbox, ConstPtr):
-            self.make_equal_to(box, ConstantPtrValue(constbox))
-        elif isinstance(constbox, ConstFloat):
-            self.make_equal_to(box, ConstantFloatValue(constbox))
-        else:
-            assert False
+        self.getvalue(box).make_constant(constbox)
 
     def make_constant_int(self, box, intvalue):
         self.make_constant(box, ConstInt(intvalue))
@@ -717,6 +710,7 @@ class Optimizer(Optimization):
         if clear:
             self.clear_newoperations()
         for op in self.loop.operations:
+            self._last_emitted_op = None
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
@@ -767,10 +761,11 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(guard_op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        self._last_emitted_op = orig_op
+        self._last_emitted_op = op
         self._newoperations.append(op)
 
     def get_op_replacement(self, op):
+        # XXX this is wrong
         changed = False
         for i, arg in enumerate(op.getarglist()):
             try:
@@ -782,7 +777,7 @@ class Optimizer(Optimization):
                 if box is not arg:
                     if not changed:
                         changed = True
-                        op = self.replace_op_with(op, op.getopnum())
+                        op = op.copy_and_change(op.getopnum())
                     op.setarg(i, box)
         return op
 

@@ -149,6 +149,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             # keep self._fields, because it's all immutable anyway
         else:
             optforce.emit_operation(op)
+            op = optforce.getlastop()
             self.box = box = op
             #
             iteritems = self._fields.iteritems()
@@ -331,7 +332,8 @@ class VArrayValue(AbstractVArrayValue):
         # * if source_op is NEW_ARRAY, emit NEW_ARRAY_CLEAR if it's
         #   followed by setting most items to zero anyway
         optforce.emit_operation(self.source_op)
-        self.box = box = self.source_op
+        op = optforce.getlastop() # potentially replaced
+        self.box = box = op
         for index in range(len(self._items)):
             subvalue = self._items[index]
             if subvalue is None:
@@ -371,7 +373,8 @@ class VArrayStructValue(AbstractVirtualValue):
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
         optforce.emit_operation(self.source_op)
-        self.box = box = self.source_op
+        op = optforce.getlastop()
+        self.box = box = op
         for index in range(len(self._items)):
             iteritems = self._items[index].iteritems()
             # random order is fine, except for tests
@@ -462,7 +465,7 @@ class VRawBufferValue(AbstractVArrayValue):
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
         optforce.emit_operation(self.source_op)
-        self.box = self.source_op
+        self.box = optforce.getlastop()
         for i in range(len(self.buffer.offsets)):
             # write the value
             offset = self.buffer.offsets[i]
@@ -500,9 +503,9 @@ class VRawSliceValue(AbstractVirtualValue):
         assert op is not None
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
-        self.box = self.source_op
         self.rawbuffer_value.force_box(optforce)
         optforce.emit_operation(op)
+        self.box = optforce.getlastop()
 
     def setitem_raw(self, offset, length, descr, value):
         self.rawbuffer_value.setitem_raw(self.offset+offset, length, descr, value)
@@ -574,9 +577,7 @@ class OptVirtualize(optimizer.Optimization):
         if self._last_guard_not_forced_2 is not None:
             guard_op = self._last_guard_not_forced_2
             self.emit_operation(op)
-            v = self.getvalue(op)
-            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [],
-                                                                 v)
+            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])
             i = len(self.optimizer._newoperations) - 1
             assert i >= 0
             self.optimizer._newoperations.insert(i, guard_op)
@@ -614,10 +615,9 @@ class OptVirtualize(optimizer.Optimization):
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
         # but the point is that doing so does not force the original structure.
         newop = ResOperation(rop.NEW_WITH_VTABLE, [c_cls])
-        newop.source_op = op
         vrefvalue = self.make_virtual(c_cls, newop)
+        self.optimizer.values[op] = vrefvalue
         token = ResOperation(rop.FORCE_TOKEN, [])
-        token.is_source_op = True
         self.emit_operation(token)
         vrefvalue.setfield(descr_virtual_token, self.getvalue(token))
         vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CVAL_NULLREF)

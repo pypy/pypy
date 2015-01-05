@@ -4,6 +4,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.codewriter import longlong
 
 class AbstractValue(object):
+    _repr_memo = {}
+    
     def _get_hash_(self):
         return compute_identity_hash(self)
 
@@ -161,6 +163,9 @@ class AbstractResOp(AbstractValue):
             name = self.type + str(len(memo))
             memo[self] = name
             return name
+
+    def __repr__(self):
+        return self.repr(self._repr_memo)
 
     def getopname(self):
         try:
@@ -398,6 +403,9 @@ class AbstractInputArg(AbstractValue):
             name = self.type + str(len(memo))
             memo[self] = name
             return name
+
+    def __repr__(self):
+        return self.repr(self._repr_memo)
 
     def getdescr(self):
         return None

@@ -44,7 +44,7 @@ class OptPure(Optimization):
                                                 op.getarglist(), op.getdescr())
             oldval = self.pure_operations.get(args, None)
             if oldval is not None:
-                self.optimizer.make_equal_to(op, oldval, True)
+                self.optimizer.make_equal_to(op, oldval)
                 return
             else:
                 remember = op
