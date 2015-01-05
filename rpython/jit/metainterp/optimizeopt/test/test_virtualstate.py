@@ -402,8 +402,7 @@ class BaseTestGenerateGuards(BaseTest):
         guards = value1.make_guards(box)
         expected = """
         [p0]
-        guard_nonnull(p0) []        
-        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
         self.compare(guards, expected, [box])
 

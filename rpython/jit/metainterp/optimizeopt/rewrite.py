@@ -297,7 +297,8 @@ class OptRewrite(Optimization):
                 name = "<unknown>"
             raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
         old_guard_op = value.get_last_guard(self.optimizer)
-        if old_guard_op:
+        if old_guard_op and not isinstance(old_guard_op.getdescr(),
+                                           compile.ResumeAtPositionDescr):
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
@@ -316,6 +317,11 @@ class OptRewrite(Optimization):
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                         args = [old_guard_op.getarg(0), op.getarg(1)],
                         descr = descr)
+            # Note: we give explicitly a new descr for 'op'; this is why the
+            # old descr must not be ResumeAtPositionDescr (checked above).
+            # Better-safe-than-sorry but it should never occur: we should
+            # not put in short preambles guard_xxx and guard_value
+            # on the same box.
             self.optimizer.replace_guard(op, value)
             descr.make_a_counter_per_value(op)
             # to be safe
@@ -354,7 +360,8 @@ class OptRewrite(Optimization):
                               % r)
         assert isinstance(value, PtrOptValue)
         old_guard_op = value.get_last_guard(self.optimizer)
-        if old_guard_op:
+        if old_guard_op and not isinstance(old_guard_op.getdescr(),
+                                           compile.ResumeAtPositionDescr):
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
@@ -364,6 +371,11 @@ class OptRewrite(Optimization):
                 op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
                             args = [old_guard_op.getarg(0), op.getarg(1)],
                             descr=descr)
+                # Note: we give explicitly a new descr for 'op'; this is why the
+                # old descr must not be ResumeAtPositionDescr (checked above).
+                # Better-safe-than-sorry but it should never occur: we should
+                # not put in short preambles guard_nonnull and guard_class
+                # on the same box.
                 self.optimizer.replace_guard(op, value)
                 # not emitting the guard, so we have to pass None to
                 # make_constant_class, so last_guard_pos is not updated

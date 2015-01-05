@@ -269,9 +269,8 @@ class PtrOptValue(OptValue):
             op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
             guards.append(op)
         elif level == LEVEL_KNOWNCLASS:
-            op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            guards.append(op)
-            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+            op = ResOperation(rop.GUARD_NONNULL_CLASS,
+                              [box, self.known_class], None)
             guards.append(op)
         else:
             if level == LEVEL_NONNULL:
