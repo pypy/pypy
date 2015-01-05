@@ -153,7 +153,8 @@ class AppTestFunctionIntrospection:
         """
         def 日本():
             pass
-        assert repr(日本).startswith('<function 日本 at ')
+        assert repr(日本).startswith(
+            '<function test_func_nonascii.<locals>.日本 at ')
         assert 日本.__name__ == '日本'
         """
 

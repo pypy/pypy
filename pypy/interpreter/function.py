@@ -247,8 +247,7 @@ class Function(W_Root):
         return self.call_args(__args__)
 
     def descr_function_repr(self):
-        return self.getrepr(self.space, u'function %s' %
-                            (self.name.decode('utf-8'),))
+        return self.getrepr(self.space, u'function %s' % self.qualname)
 
     # delicate
     _all = {'': None}

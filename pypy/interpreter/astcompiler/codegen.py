@@ -307,7 +307,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _make_function(self, code, num_defaults=0, qualname=None):
         """Emit the opcodes to turn a code object into a function."""
-        w_qualname = self.space.wrap(qualname or code.co_name)
+        w_qualname = self.space.wrap((qualname or code.co_name).decode('utf-8'))
         if code.co_freevars:
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
