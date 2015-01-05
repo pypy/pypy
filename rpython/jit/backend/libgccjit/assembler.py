@@ -175,58 +175,64 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.add_comments = 1
 
-    def make_context(self):
-        self.ctxt = Context.acquire(self.lib)#self.lib.gcc_jit_context_acquire()
+        # Create "shared_ctxt" to hold the common types
+        # needed by every loop/bridge
+        # Compiling a loop or bridge will involve creating a child
+        # context of the shared_ctxt.
+        self.shared_ctxt = Context.acquire(self.lib)
         if 0:
-            self.ctxt.set_bool_option(
+            self.shared_ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
                 r_int(1))
         if 0:
-            self.ctxt.set_bool_option(
+            self.shared_ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
                 r_int(1))
         if 1:
-            self.ctxt.set_bool_option(
+            self.shared_ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DEBUGINFO,
                 r_int(1))
         if 1:
-            self.ctxt.set_int_option(
+            self.shared_ctxt.set_int_option(
                 self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
                 r_int(2))
         if 1:
-            self.ctxt.set_bool_option(
+            self.shared_ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
                 r_int(1))
         if 1:
-            self.ctxt.set_bool_option(
+            self.shared_ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
                 r_int(1))
         if 0:
-            self.ctxt.set_bool_option(
+            self.shared_ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE,
                 r_int(1))
 
-        self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
+        self.t_Signed = self.shared_ctxt.get_int_type(r_int(self.sizeof_signed),
                                                r_int(1))
         self.t_signed_ptr = self.t_Signed.get_pointer()
-        self.t_UINT = self.ctxt.get_int_type(r_int(self.sizeof_signed),
+        self.t_UINT = self.shared_ctxt.get_int_type(r_int(self.sizeof_signed),
                                              r_int(0))
-        self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME
-        self.t_bool = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
-        self.t_void_ptr = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
-        self.t_void = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
-        self.t_char_ptr = self.ctxt.get_type(
+        self.t_float = self.shared_ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME
+        self.t_bool = self.shared_ctxt.get_type(self.lib.GCC_JIT_TYPE_BOOL)
+        self.t_void_ptr = self.shared_ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID_PTR)
+        self.t_void = self.shared_ctxt.get_type(self.lib.GCC_JIT_TYPE_VOID)
+        self.t_char_ptr = self.shared_ctxt.get_type(
             self.lib.GCC_JIT_TYPE_CHAR).get_pointer()
 
-        self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
-        self.u_float = self.ctxt.new_field(self.t_float, "u_float")
-        self.u_void_ptr = self.ctxt.new_field(self.t_void_ptr, "u_void_ptr")
-        self.u_signed_ptr = self.ctxt.new_field(self.t_signed_ptr, "u_signed_ptr")
-        self.t_any = self.ctxt.new_union_type ("any",
+        self.u_signed = self.shared_ctxt.new_field(self.t_Signed, "u_signed")
+        self.u_float = self.shared_ctxt.new_field(self.t_float, "u_float")
+        self.u_void_ptr = self.shared_ctxt.new_field(self.t_void_ptr, "u_void_ptr")
+        self.u_signed_ptr = self.shared_ctxt.new_field(self.t_signed_ptr, "u_signed_ptr")
+        self.t_any = self.shared_ctxt.new_union_type ("any",
                                                [self.u_signed,
                                                 self.u_float,
                                                 self.u_void_ptr,
                                                 self.u_signed_ptr])
+
+    def make_context(self):
+        self.ctxt = self.shared_ctxt.new_child_context()
 
     def setup(self, looptoken):
         allblocks = self.get_asmmemmgr_blocks(looptoken)

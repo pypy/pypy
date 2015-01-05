@@ -99,6 +99,9 @@ class Library:
             (self.GCC_JIT_CONTEXT_P,
              'gcc_jit_context_acquire', []),
 
+            (self.GCC_JIT_CONTEXT_P,
+             'gcc_jit_context_new_child_context', [self.GCC_JIT_CONTEXT_P]),
+
             (lltype.Void,
              'gcc_jit_context_release', [self.GCC_JIT_CONTEXT_P]),
 
@@ -529,6 +532,10 @@ class Context(Wrapper):
     @staticmethod
     def acquire(lib):
         return Context(lib, lib.gcc_jit_context_acquire())
+
+    def new_child_context(self):
+        return Context(self.lib,
+                       self.lib.gcc_jit_context_new_child_context(self.inner_ctxt))
 
     def release(self):
         self.lib.gcc_jit_context_release(self.inner_ctxt)
