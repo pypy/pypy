@@ -124,6 +124,10 @@ class Library:
                                               CCHARP,
                                               INT]),
 
+            (lltype.Void,
+             'gcc_jit_context_dump_reproducer_to_file', [self.GCC_JIT_CONTEXT_P,
+                                                         CCHARP]),
+
             (CCHARP,
              'gcc_jit_context_get_last_error', [self.GCC_JIT_CONTEXT_P]),
 
@@ -383,6 +387,14 @@ class Library:
                                               self.GCC_JIT_LVALUE_P,
                                               self.GCC_JIT_RVALUE_P]),
             (lltype.Void,
+             'gcc_jit_block_add_assignment_op', [self.GCC_JIT_BLOCK_P,
+                                                 self.GCC_JIT_LOCATION_P,
+                                                 self.GCC_JIT_LVALUE_P,
+                                                 # FIXME:
+                                                 #   enum gcc_jit_binary_op:
+                                                 INT,
+                                                 self.GCC_JIT_RVALUE_P]),
+            (lltype.Void,
              'gcc_jit_block_add_comment', [self.GCC_JIT_BLOCK_P,
                                            self.GCC_JIT_LOCATION_P,
                                            CCHARP]),
@@ -543,6 +555,12 @@ class Context(Wrapper):
                                               update_locations)
         free_charp(path_charp)
 
+    def dump_reproducer_to_file(self, path):
+        path_charp = str2charp(path)
+        self.lib.gcc_jit_context_dump_reproducer_to_file(self.inner_ctxt,
+                                                         path_charp)
+        free_charp(path_charp)
+
     def get_type(self, r_enum):
         return Type(self.lib,
                     self,
@@ -646,6 +664,13 @@ class Context(Wrapper):
         return RValue(self.lib,
                       self,
                       self.lib.gcc_jit_context_zero(
+                          self.inner_ctxt,
+                          numeric_type.inner_type))
+
+    def one(self, numeric_type):
+        return RValue(self.lib,
+                      self,
+                      self.lib.gcc_jit_context_one(
                           self.inner_ctxt,
                           numeric_type.inner_type))
 
@@ -810,6 +835,7 @@ class Object(Wrapper):
             raise LibgccjitError(ctxt)
         Wrapper.__init__(self, lib)
         self.inner_obj = inner_obj
+        self.ctxt = ctxt
 
 class Type(Object):
     def __init__(self, lib, ctxt, inner_type):
@@ -819,7 +845,7 @@ class Type(Object):
 
     def get_pointer(self):
         return Type(self.lib,
-                    self,
+                    self.ctxt,
                     self.lib.gcc_jit_type_get_pointer(self.inner_type))
 
 class Field(Object):
@@ -837,7 +863,7 @@ class Struct(Object):
 
     def as_type(self):
         return Type(self.lib,
-                    self,
+                    self.ctxt,
                     self.lib.gcc_jit_struct_as_type(self.inner_struct))
 
 
@@ -861,12 +887,12 @@ class RValue(Object):
 
     def get_type(self):
         return Type(self.lib,
-                    self,
+                    self.ctxt,
                     self.lib.gcc_jit_rvalue_get_type(self.inner_rvalue))
 
     def access_field(self, field):
         return RValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_rvalue_access_field(
                           self.inner_rvalue,
                           self.lib.null_location_ptr,
@@ -874,7 +900,7 @@ class RValue(Object):
 
     def dereference_field(self, field):
         return LValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_rvalue_dereference_field(
                           self.inner_rvalue,
                           self.lib.null_location_ptr,
@@ -882,7 +908,7 @@ class RValue(Object):
 
     def dereference(self):
         return LValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_rvalue_dereference(
                           self.inner_rvalue,
                           self.lib.null_location_ptr))
@@ -895,12 +921,12 @@ class LValue(Object):
 
     def as_rvalue(self):
         return RValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_lvalue_as_rvalue(self.inner_lvalue))
 
     def access_field(self, field):
         return LValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_lvalue_access_field (
                           self.inner_lvalue,
                           self.lib.null_location_ptr,
@@ -908,7 +934,7 @@ class LValue(Object):
 
     def get_address(self):
         return RValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_lvalue_get_address(
                           self.inner_lvalue,
                           self.lib.null_location_ptr))
@@ -921,7 +947,7 @@ class Param(Object):
 
     def as_rvalue(self):
         return RValue(self.lib,
-                      self,
+                      self.ctxt,
                       self.lib.gcc_jit_param_as_rvalue(self.inner_param))
 
 class Function(Object):
@@ -938,7 +964,7 @@ class Function(Object):
                                                     type_.inner_type,
                                                     name_charp)
         free_charp(name_charp)
-        return LValue(self.lib, self, local)
+        return LValue(self.lib, self.ctxt, local)
 
     def new_block(self, name=None):
         if name is not None:
@@ -949,7 +975,7 @@ class Function(Object):
                                                     name_charp)
         if name_charp:
             free_charp(name_charp)
-        return Block(self.lib, self, block)
+        return Block(self.lib, self.ctxt, block)
 
 class Block(Object):
     def __init__(self, lib, ctxt, inner_block):
@@ -963,6 +989,13 @@ class Block(Object):
                                               self.lib.null_location_ptr,
                                               lvalue.inner_lvalue,
                                               rvalue.inner_rvalue)
+
+    def add_assignment_op(self, lvalue, op, rvalue):
+        self.lib.gcc_jit_block_add_assignment_op(self.inner_block,
+                                                 self.lib.null_location_ptr,
+                                                 lvalue.inner_lvalue,
+                                                 op,
+                                                 rvalue.inner_rvalue)
 
     def add_comment(self, text):
         text_charp = str2charp(text)

@@ -192,11 +192,11 @@ class AssemblerLibgccjit(BaseAssembler):
             self.ctxt.set_int_option(
                 self.lib.GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
                 r_int(2))
-        if 0:
+        if 1:
             self.ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
                 r_int(1))
-        if 0:
+        if 1:
             self.ctxt.set_bool_option(
                 self.lib.GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
                 r_int(1))
@@ -207,6 +207,7 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.t_Signed = self.ctxt.get_int_type(r_int(self.sizeof_signed),
                                                r_int(1))
+        self.t_signed_ptr = self.t_Signed.get_pointer()
         self.t_UINT = self.ctxt.get_int_type(r_int(self.sizeof_signed),
                                              r_int(0))
         self.t_float = self.ctxt.get_type(self.lib.GCC_JIT_TYPE_DOUBLE) # FIXME
@@ -218,11 +219,13 @@ class AssemblerLibgccjit(BaseAssembler):
 
         self.u_signed = self.ctxt.new_field(self.t_Signed, "u_signed")
         self.u_float = self.ctxt.new_field(self.t_float, "u_float")
-        self.u_ptr = self.ctxt.new_field(self.t_void_ptr, "u_ptr")
+        self.u_void_ptr = self.ctxt.new_field(self.t_void_ptr, "u_void_ptr")
+        self.u_signed_ptr = self.ctxt.new_field(self.t_signed_ptr, "u_signed_ptr")
         self.t_any = self.ctxt.new_union_type ("any",
                                                [self.u_signed,
                                                 self.u_float,
-                                                self.u_ptr])
+                                                self.u_void_ptr,
+                                                self.u_signed_ptr])
 
     def setup(self, looptoken):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -273,6 +276,8 @@ class AssemblerLibgccjit(BaseAssembler):
 
         if 1:
             self.ctxt.dump_to_file("/tmp/%s.c" % loopname, r_int(1))
+        if 0:
+            self.ctxt.dump_reproducer_to_file("/tmp/reproduce-%s.c" % loopname)
 
         #raise foo
 
@@ -534,7 +539,7 @@ class AssemblerLibgccjit(BaseAssembler):
         elif isinstance(expr, (BoxFloat, ConstFloat)):
             return self.u_float;
         elif isinstance(expr, (BoxPtr, ConstPtr)):
-            return self.u_ptr;
+            return self.u_void_ptr;
         else:
             raise NotImplementedError('unhandled expr: %s %s'
                                       % (expr, type(expr)))
@@ -980,7 +985,7 @@ class AssemblerLibgccjit(BaseAssembler):
         lvalue_tmp = self.fn.new_local(self.t_any, "tmp")
         lvalue_result = self.expr_to_lvalue(resop.result)
         self.b_current.add_assignment(
-            lvalue_tmp.access_field(self.u_ptr),
+            lvalue_tmp.access_field(self.u_void_ptr),
             rvalue_in)
         self.b_current.add_assignment(
             lvalue_result,
@@ -994,7 +999,7 @@ class AssemblerLibgccjit(BaseAssembler):
             rvalue_in)
         self.b_current.add_assignment(
             lvalue_result,
-            lvalue_tmp.as_rvalue().access_field(self.u_ptr))
+            lvalue_tmp.as_rvalue().access_field(self.u_void_ptr))
 
     #
 
@@ -1020,6 +1025,9 @@ class AssemblerLibgccjit(BaseAssembler):
         self._impl_ptr_cmp(resop, self.lib.GCC_JIT_COMPARISON_NE)
 
     #
+
+    #
+    # '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
     def impl_get_lvalue_at_offset_from_ptr(self, ptr_expr, ll_offset, t_field):
         ptr = self.expr_to_rvalue(ptr_expr)
@@ -1080,6 +1088,25 @@ class AssemblerLibgccjit(BaseAssembler):
             lvalres,
             self.ctxt.new_cast(field_lvalue.as_rvalue(),
                                self.get_type_for_expr(resop.result)))
+
+    # '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
+
+    def cast_signed_to_ptr_to_signed(self, rvalue):
+        tmp = self.fn.new_local(self.t_any, 'tmp')
+        self.b_current.add_assignment(tmp.access_field(self.u_signed),
+                                      rvalue)
+        return tmp.access_field(self.u_signed_ptr).as_rvalue()
+
+    def emit_increment_debug_counter(self, resop):
+        # Equivalent of:
+        #   signed *counter;
+        #   (*counter)++;
+        ptr = self.expr_to_rvalue(resop._arg0)
+        ptr = self.cast_signed_to_ptr_to_signed(ptr)
+        self.b_current.add_assignment_op(
+            ptr.dereference(),
+            self.lib.GCC_JIT_BINARY_OP_PLUS,
+            self.ctxt.one(self.t_Signed))
 
     def emit_setfield_gc(self, resop):
         #print(repr(resop))
