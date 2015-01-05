@@ -2,8 +2,8 @@ from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.metainterp import history
-from rpython.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr, BoxInt
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
@@ -96,7 +96,7 @@ class GcRewriterAssembler(object):
                 elif op.getopnum() == rop.SETARRAYITEM_GC:
                     self.consider_setarrayitem_gc(op)
             # ---------- call assembler -----------
-            if op.getopnum() == rop.CALL_ASSEMBLER:
+            if OpHelpers.is_call_assembler(op.getopnum()):
                 self.handle_call_assembler(op)
                 continue
             if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
@@ -199,11 +199,11 @@ class GcRewriterAssembler(object):
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
         size = descr.size
-        if self.gen_malloc_nursery(size, op.result):
+        if self.gen_malloc_nursery(size, op):
             self.gen_initialize_tid(op.result, descr.tid)
         else:
-            self.gen_malloc_fixedsize(size, descr.tid, op.result)
-        self.clear_gc_fields(descr, op.result)
+            self.gen_malloc_fixedsize(size, descr.tid, op)
+        self.clear_gc_fields(descr, op)
 
     def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
         v_length = op.getarg(0)

@@ -139,9 +139,9 @@ def compile_loop(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     h_ops = history.operations
-    label = ResOperation(rop.LABEL, inputargs, None,
+    label = ResOperation(rop.LABEL, inputargs,
                          descr=TargetToken(jitcell_token))
-    end_label = ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)
+    end_label = ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)
     part.operations = [label] + h_ops[start:] + [end_label]
 
     try:
@@ -165,7 +165,7 @@ def compile_loop(metainterp, greenkey, start,
         part.operations = [part.operations[-1]] + \
                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-                                        None, descr=jitcell_token)]
+                                        descr=jitcell_token)]
         target_token = part.operations[0].getdescr()
         assert isinstance(target_token, TargetToken)
         all_target_tokens.append(target_token)
@@ -222,7 +222,7 @@ def compile_retrace(metainterp, greenkey, start,
 
     part.operations = [partial_trace.operations[-1]] + \
                       h_ops[start:] + \
-                      [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
+                      [ResOperation(rop.JUMP, jumpargs, descr=loop_jitcell_token)]
     label = part.operations[0]
     orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
@@ -236,7 +236,7 @@ def compile_retrace(metainterp, greenkey, start,
         assert isinstance(target_token, TargetToken)
         part.operations = [orignial_label] + \
                           [ResOperation(rop.JUMP, inputargs[:],
-                                        None, descr=loop_jitcell_token)]
+                                        descr=loop_jitcell_token)]
         try:
             optimize_trace(metainterp_sd, jitdriver_sd, part,
                            jitdriver_sd.warmstate.enable_opts,
@@ -275,6 +275,7 @@ def compile_retrace(metainterp, greenkey, start,
     return target_token
 
 def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
+    xxx
     vinfo = jitdriver_sd.virtualizable_info
     extra_ops = []
     inputargs = loop.inputargs

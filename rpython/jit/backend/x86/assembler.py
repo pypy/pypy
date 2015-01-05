@@ -1257,10 +1257,13 @@ class Assembler386(BaseAssembler):
         self.mc.SET_ir(rx86.Conditions['E'], rl.value)
         self.mc.MOVZX8(resloc, rl)
 
-    def genop_same_as(self, op, arglocs, resloc):
+    def _genop_same_as(self, op, arglocs, resloc):
         self.mov(arglocs[0], resloc)
-    genop_cast_ptr_to_int = genop_same_as
-    genop_cast_int_to_ptr = genop_same_as
+    genop_same_as_i = _genop_same_as
+    genop_same_as_r = _genop_same_as
+    genop_same_as_f = _genop_same_as
+    genop_cast_ptr_to_int = _genop_same_as
+    genop_cast_int_to_ptr = _genop_same_as
 
     def genop_int_force_ge_zero(self, op, arglocs, resloc):
         self.mc.TEST(arglocs[0], arglocs[0])
@@ -1417,17 +1420,24 @@ class Assembler386(BaseAssembler):
         else:
             not_implemented("save_into_mem size = %d" % size)
 
-    def genop_getfield_gc(self, op, arglocs, resloc):
+    def _genop_getfield_gc(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         source_addr = AddressLoc(base_loc, ofs_loc)
         self.load_from_mem(resloc, source_addr, size_loc, sign_loc)
 
-    genop_getfield_raw = genop_getfield_gc
-    genop_getfield_raw_pure = genop_getfield_gc
-    genop_getfield_gc_pure = genop_getfield_gc
+    genop_getfield_gc_i = _genop_getfield_gc
+    genop_getfield_gc_r = _genop_getfield_gc
+    genop_getfield_gc_f = _genop_getfield_gc
+    genop_getfield_raw_i = _genop_getfield_gc
+    genop_getfield_raw_f = _genop_getfield_gc
+    genop_getfield_raw_pure_i = _genop_getfield_gc
+    genop_getfield_raw_pure_f = _genop_getfield_gc
+    genop_getfield_gc_pure_i = _genop_getfield_gc
+    genop_getfield_gc_pure_r = _genop_getfield_gc
+    genop_getfield_gc_pure_f = _genop_getfield_gc
 
-    def genop_getarrayitem_gc(self, op, arglocs, resloc):
+    def _genop_getarrayitem_gc(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
@@ -1435,15 +1445,24 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
-    genop_getarrayitem_gc_pure = genop_getarrayitem_gc
-    genop_getarrayitem_raw = genop_getarrayitem_gc
-    genop_getarrayitem_raw_pure = genop_getarrayitem_gc
+    genop_getarrayitem_gc_i = _genop_getarrayitem_gc
+    genop_getarrayitem_gc_r = _genop_getarrayitem_gc
+    genop_getarrayitem_gc_f = _genop_getarrayitem_gc
+    genop_getarrayitem_gc_pure_i = _genop_getarrayitem_gc
+    genop_getarrayitem_gc_pure_r = _genop_getarrayitem_gc
+    genop_getarrayitem_gc_pure_f = _genop_getarrayitem_gc
+    genop_getarrayitem_raw_i = _genop_getarrayitem_gc
+    genop_getarrayitem_raw_f = _genop_getarrayitem_gc
+    genop_getarrayitem_raw_pure_i = _genop_getarrayitem_gc
+    genop_getarrayitem_raw_pure_f = _genop_getarrayitem_gc
 
-    def genop_raw_load(self, op, arglocs, resloc):
+    def _genop_raw_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
+    genop_raw_load_i = _genop_raw_load
+    genop_raw_load_f = _genop_raw_load
 
     def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
         """Produce one operation to do roughly
@@ -1490,13 +1509,16 @@ class Assembler386(BaseAssembler):
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    def genop_getinteriorfield_gc(self, op, arglocs, resloc):
+    def _genop_getinteriorfield_gc(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
             index_loc, temp_loc, sign_loc) = arglocs
         src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
                                                 itemsize_loc, base_loc,
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
+    genop_getinteriorfield_gc_i = _genop_getinteriorfield_gc
+    genop_getinteriorfield_gc_r = _genop_getinteriorfield_gc
+    genop_getinteriorfield_gc_f = _genop_getinteriorfield_gc
 
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
@@ -1919,8 +1941,12 @@ class Assembler386(BaseAssembler):
         guard_token.pos_jump_offset = self.mc.get_relative_pos() - 4
         self.pending_guard_tokens.append(guard_token)
 
-    def genop_call(self, op, arglocs, resloc):
+    def _genop_real_call(self, op, arglocs, resloc):
         self._genop_call(op, arglocs, resloc)
+    genop_call_i = _genop_real_call
+    genop_call_r = _genop_real_call
+    genop_call_f = _genop_real_call
+    genop_call_n = _genop_real_call
 
     def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
@@ -1955,24 +1981,32 @@ class Assembler386(BaseAssembler):
         self.mc.CMP_bi(ofs, 0)
         self.implement_guard(guard_token, 'NE')
 
-    def genop_guard_call_may_force(self, op, guard_op, guard_token,
+    def _genop_guard_call_may_force(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc)
         self._emit_guard_not_forced(guard_token)
+    genop_guard_call_may_force_i = _genop_guard_call_may_force
+    genop_guard_call_may_force_r = _genop_guard_call_may_force
+    genop_guard_call_may_force_f = _genop_guard_call_may_force
+    genop_guard_call_may_force_n = _genop_guard_call_may_force
 
-    def genop_guard_call_release_gil(self, op, guard_op, guard_token,
+    def _genop_guard_call_release_gil(self, op, guard_op, guard_token,
                                      arglocs, result_loc):
         self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         self._emit_guard_not_forced(guard_token)
+    genop_guard_call_release_gil_i = _genop_guard_call_release_gil
+    genop_guard_call_release_gil_r = _genop_guard_call_release_gil
+    genop_guard_call_release_gil_f = _genop_guard_call_release_gil
+    genop_guard_call_release_gil_n = _genop_guard_call_release_gil
 
     def imm(self, v):
         return imm(v)
 
     # ------------------- CALL ASSEMBLER --------------------------
 
-    def genop_guard_call_assembler(self, op, guard_op, guard_token,
+    def _genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         if len(arglocs) == 2:
             [argloc, vloc] = arglocs
@@ -1981,6 +2015,10 @@ class Assembler386(BaseAssembler):
             vloc = self.imm(0)
         self.call_assembler(op, guard_op, argloc, vloc, result_loc, eax)
         self._emit_guard_not_forced(guard_token)
+    genop_guard_call_assembler_i = _genop_guard_call_assembler
+    genop_guard_call_assembler_r = _genop_guard_call_assembler
+    genop_guard_call_assembler_f = _genop_guard_call_assembler
+    genop_guard_call_assembler_n = _genop_guard_call_assembler
 
     def _call_assembler_emit_call(self, addr, argloc, _):
         threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)

@@ -23,7 +23,7 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
     ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
@@ -757,7 +757,7 @@ class RegAlloc(BaseRegalloc):
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_not_forced_op)
 
-    def consider_call(self, op):
+    def _consider_real_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex != EffectInfo.OS_NONE:
@@ -789,21 +789,37 @@ class RegAlloc(BaseRegalloc):
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
+    consider_call_i = _consider_real_call
+    consider_call_r = _consider_real_call
+    consider_call_f = _consider_real_call
+    consider_call_n = _consider_real_call
 
-    def consider_call_may_force(self, op, guard_op):
+    def _consider_call_may_force(self, op, guard_op):
         assert guard_op is not None
         self._consider_call(op, guard_op)
+    consider_call_may_force_i = _consider_call_may_force
+    consider_call_may_force_r = _consider_call_may_force
+    consider_call_may_force_f = _consider_call_may_force
+    consider_call_may_force_n = _consider_call_may_force
 
-    def consider_call_release_gil(self, op, guard_op):
+    def _consider_call_release_gil(self, op, guard_op):
         assert guard_op is not None
         self._consider_call(op, guard_op)
-
+    consider_call_release_gil_i = _consider_call_release_gil
+    consider_call_release_gil_r = _consider_call_release_gil
+    consider_call_release_gil_f = _consider_call_release_gil
+    consider_call_release_gil_n = _consider_call_release_gil
+    
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)
 
-    def consider_call_assembler(self, op, guard_op):
+    def _consider_call_assembler(self, op, guard_op):
         locs = self.locs_for_call_assembler(op, guard_op)
         self._call(op, locs, guard_not_forced_op=guard_op)
+    consider_call_assembler_i = _consider_call_assembler
+    consider_call_assembler_r = _consider_call_assembler
+    consider_call_assembler_f = _consider_call_assembler
+    consider_call_assembler_n = _consider_call_assembler
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
@@ -1012,7 +1028,7 @@ class RegAlloc(BaseRegalloc):
     consider_setarrayitem_raw = consider_setarrayitem_gc
     consider_raw_store = consider_setarrayitem_gc
 
-    def consider_getfield_gc(self, op):
+    def _consider_getfield_gc(self, op):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         ofs_loc = imm(ofs)
         size_loc = imm(size)
@@ -1025,15 +1041,22 @@ class RegAlloc(BaseRegalloc):
             sign_loc = imm0
         self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
-    consider_getfield_raw = consider_getfield_gc
-    consider_getfield_raw_pure = consider_getfield_gc
-    consider_getfield_gc_pure = consider_getfield_gc
+    consider_getfield_gc_i = _consider_getfield_gc    
+    consider_getfield_gc_r = _consider_getfield_gc    
+    consider_getfield_gc_f = _consider_getfield_gc    
+    consider_getfield_raw_i = _consider_getfield_gc
+    consider_getfield_raw_f = _consider_getfield_gc
+    consider_getfield_raw_pure_i = _consider_getfield_gc
+    consider_getfield_raw_pure_f = _consider_getfield_gc
+    consider_getfield_gc_pure_i = _consider_getfield_gc
+    consider_getfield_gc_pure_r = _consider_getfield_gc
+    consider_getfield_gc_pure_f = _consider_getfield_gc
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
         self.perform_discard(op, [base_loc])
 
-    def consider_getarrayitem_gc(self, op):
+    def _consider_getarrayitem_gc(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
@@ -1046,12 +1069,20 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
                           sign_loc], result_loc)
 
-    consider_getarrayitem_raw = consider_getarrayitem_gc
-    consider_getarrayitem_gc_pure = consider_getarrayitem_gc
-    consider_getarrayitem_raw_pure = consider_getarrayitem_gc
-    consider_raw_load = consider_getarrayitem_gc
+    consider_getarrayitem_gc_i = _consider_getarrayitem_gc
+    consider_getarrayitem_gc_r = _consider_getarrayitem_gc
+    consider_getarrayitem_gc_f = _consider_getarrayitem_gc
+    consider_getarrayitem_raw_i = _consider_getarrayitem_gc
+    consider_getarrayitem_raw_f = _consider_getarrayitem_gc
+    consider_getarrayitem_gc_pure_i = _consider_getarrayitem_gc
+    consider_getarrayitem_gc_pure_r = _consider_getarrayitem_gc
+    consider_getarrayitem_gc_pure_f = _consider_getarrayitem_gc
+    consider_getarrayitem_raw_pure_i = _consider_getarrayitem_gc
+    consider_getarrayitem_raw_pure_f = _consider_getarrayitem_gc
+    consider_raw_load_i = _consider_getarrayitem_gc
+    consider_raw_load_f = _consider_getarrayitem_gc
 
-    def consider_getinteriorfield_gc(self, op):
+    def _consider_getinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
         if sign:
@@ -1079,6 +1110,10 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, temp_loc, sign_loc], result_loc)
 
+    consider_getinteriorfield_gc_i = _consider_getinteriorfield_gc
+    consider_getinteriorfield_gc_r = _consider_getinteriorfield_gc
+    consider_getinteriorfield_gc_f = _consider_getinteriorfield_gc
+
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))
@@ -1090,12 +1125,15 @@ class RegAlloc(BaseRegalloc):
 
     consider_int_is_zero = consider_int_is_true
 
-    def consider_same_as(self, op):
+    def _consider_same_as(self, op):
         argloc = self.loc(op.getarg(0))
         resloc = self.force_allocate_reg(op.result)
         self.perform(op, [argloc], resloc)
-    consider_cast_ptr_to_int = consider_same_as
-    consider_cast_int_to_ptr = consider_same_as
+    consider_cast_ptr_to_int = _consider_same_as
+    consider_cast_int_to_ptr = _consider_same_as
+    consider_same_as_i = _consider_same_as
+    consider_same_as_r = _consider_same_as
+    consider_same_as_f = _consider_same_as
 
     def consider_int_force_ge_zero(self, op):
         argloc = self.make_sure_var_in_reg(op.getarg(0))
@@ -1452,9 +1490,9 @@ for name, value in RegAlloc.__dict__.iteritems():
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
         if (is_comparison_or_ovf_op(num)
-            or num == rop.CALL_MAY_FORCE
-            or num == rop.CALL_ASSEMBLER
-            or num == rop.CALL_RELEASE_GIL):
+            or OpHelpers.is_call_may_force(num)
+            or OpHelpers.is_call_assembler(num)
+            or OpHelpers.is_call_release_gil(num)):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)
         else:

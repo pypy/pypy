@@ -734,7 +734,7 @@ def is_comparison_or_ovf_op(opnum):
     # any instance field, we can use a fake object
     class Fake(cls):
         pass
-    op = Fake(None)
+    op = Fake()
     return op.is_comparison() or op.is_ovf()
 
 def valid_addressing_size(size):

@@ -1020,3 +1020,24 @@ class OpHelpers(object):
         elif tp == 'f':
             return rop.CALL_F
         return rop.CALL_N
+
+    @staticmethod
+    def is_call_assembler(opnum):
+        return (opnum == rop.CALL_ASSEMBLER_I or
+                opnum == rop.CALL_ASSEMBLER_R or
+                opnum == rop.CALL_ASSEMBLER_F or
+                opnum == rop.CALL_ASSEMBLER_N)
+
+    @staticmethod
+    def is_call_may_force(opnum):
+        return (opnum == rop.CALL_MAY_FORCE_I or
+                opnum == rop.CALL_MAY_FORCE_R or
+                opnum == rop.CALL_MAY_FORCE_F or
+                opnum == rop.CALL_MAY_FORCE_N)
+
+    @staticmethod
+    def is_call_release_gil(opnum):
+        return (opnum == rop.CALL_RELEASE_GIL_I or
+                opnum == rop.CALL_RELEASE_GIL_R or
+                opnum == rop.CALL_RELEASE_GIL_F or
+                opnum == rop.CALL_RELEASE_GIL_N)
