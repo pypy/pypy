@@ -46,7 +46,7 @@ class LLTrace(object):
                     newdescr = WeakrefDescr(op.getdescr())
             else:
                 newdescr = None
-            newop = op._copy_and_change(op.getopnum(),
+            newop = op.copy_and_change(op.getopnum(),
                                        map(mapping, op.getarglist()),
                                        newdescr)
             _cache[op] = newop
