@@ -415,9 +415,14 @@ class OptString(optimizer.Optimization):
             # if the original 'op' did not have a ConstInt as argument,
             # build a new one with the ConstInt argument
             if not isinstance(op.getarg(0), ConstInt):
-                op = self.replace_op_with(op, mode.NEWSTR, [length_box])
+                old_op = op
+                op = op.copy_and_change(mode.NEWSTR, [length_box])
+            else:
+                old_op = None
             vvalue = self.make_vstring_plain(op, mode)
             vvalue.setup(length_box.getint())
+            if old_op is not None:
+                self.optimizer.make_equal_to(old_op, vvalue)
         else:
             self.getvalue(op).ensure_nonnull()
             self.emit_operation(op)

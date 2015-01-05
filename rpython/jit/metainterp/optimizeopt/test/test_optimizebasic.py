@@ -2732,7 +2732,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
         self.loop.inputargs[0].setref_base(self.nodeaddr)
-        py.test.skip("opt boxes don't inherit values, modify the test?")
         self.check_expanded_fail_descr('''
             p1.nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
