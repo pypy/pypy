@@ -42,6 +42,7 @@ class Function:
         self.name = name
         self.rffi_fn = rffi_fn
         self.patchpoints = []
+        self.fn_ptr = None
 
     def new_block(self, name):
        return self.rffi_fn.new_block(name)
@@ -291,6 +292,7 @@ class AssemblerLibgccjit(BaseAssembler):
         fn_ptr = jit_result.get_code(loopname)
 
         looptoken._ll_function_addr = fn_ptr
+        self.fn.fn_ptr = fn_ptr
 
         looptoken.compiled_loop_token._ll_initial_locs = initial_locs
 
@@ -326,6 +328,7 @@ class AssemblerLibgccjit(BaseAssembler):
         # Patch the patchpoint for "faildescr" to point to our new code
         fn_ptr = jit_result.get_code(name)
         self.patchpoint_for_descr[faildescr].set_handler(fn_ptr)
+        self.fn.fn_ptr = fn_ptr
 
     def make_JITFRAME_struct(self, inputargs, operations):
         #print(jitframe.JITFRAME)
@@ -586,19 +589,21 @@ class AssemblerLibgccjit(BaseAssembler):
             b_dest = self.block_for_label_descr[jumpop.getdescr()]
             self.b_current.end_with_jump(b_dest)
         else:
-            # Implement as a tail-call:
-            # Sadly, we need to "import" the fn by name, since it was
-            # created on a different gcc_jit_context.
+            # Implement as a tail-call
+            # The function was created on a different gcc_jit_context,
+            # but we know its address in memory, so we can implement
+            # it as a call through a function pointer.
             p = Params(self)
-            other_fn = self.ctxt.new_function(
-                self.lib.GCC_JIT_FUNCTION_IMPORTED,
+            fn_ptr_type = self.ctxt.new_function_ptr_type(
                 self.t_jit_frame_ptr,
-                dest_fn.name,
-                p.paramlist,
-                r_int(0))
+                p.paramtypes,
+                r_int(0)) # is_variadic
+            ptr_to_other_fn = self.ctxt.new_rvalue_from_ptr(fn_ptr_type,
+                                                            dest_fn.fn_ptr)
             args = [param.as_rvalue()
                     for param in self.loop_params.paramlist]
-            call = self.ctxt.new_call(other_fn, args)
+            call = self.ctxt.new_call_through_ptr(ptr_to_other_fn,
+                                                  args)
             self.b_current.end_with_return(call)
 
     def emit_finish(self, resop):
