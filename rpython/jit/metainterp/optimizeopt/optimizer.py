@@ -754,7 +754,7 @@ class Optimizer(Optimization):
             self.pendingfields = None
             if self.replaces_guard and orig_op in self.replaces_guard:
                 self.replace_guard_op(self.replaces_guard[orig_op], op)
-                del self.replaces_guard[op]
+                del self.replaces_guard[orig_op]
                 return
             else:
                 guard_op = self.replace_op_with(op, op.getopnum())

@@ -110,10 +110,10 @@ class VAbstractStringValue(virtualize.AbstractVirtualValue):
         assert self.source_op is not None
         lengthbox = self.getstrlen(optforce, self.mode, None)
         op = ResOperation(self.mode.NEWSTR, [lengthbox])
-        self.box = op
         if not we_are_translated():
             op.name = 'FORCE'
         optforce.emit_operation(op)
+        self.box = optforce.getlastop()
         self.initialize_forced_string(optforce, self.box, CONST_0, self.mode)
 
     def initialize_forced_string(self, string_optimizer, targetbox,
@@ -193,8 +193,7 @@ class VStringPlainValue(VAbstractStringValue):
                 charbox = charvalue.force_box(string_optimizer)
                 op = ResOperation(mode.STRSETITEM, [targetbox,
                                                     offsetbox,
-                                                    charbox],
-                                  None)
+                                                    charbox])
                 string_optimizer.emit_operation(op)
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
@@ -331,8 +330,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
             assert not isinstance(targetbox, Const)# ConstPtr never makes sense
             string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
                                                                            offsetbox,
-                                                                           charbox],
-                                              None))
+                                                                           charbox]))
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
     else:
         if need_next_offset:
@@ -533,7 +531,7 @@ class OptString(optimizer.Optimization):
                         dst.force_box(self),
                         ConstInt(index + dst_start),
                         vresult.force_box(self),
-                    ], None)
+                    ])
                     self.emit_operation(new_op)
         else:
             copy_str_content(self,

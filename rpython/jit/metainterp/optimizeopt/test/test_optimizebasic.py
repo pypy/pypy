@@ -5534,6 +5534,24 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_replace_result_of_new(self):
+        ops = """
+        [i0]
+        guard_value(i0, 2) []
+        p0 = newstr(i0)
+        escape_n(p0)
+        finish()
+        """
+        expected = """
+        [i0]
+        guard_value(i0, 2) []
+        p0 = newstr(2)
+        escape_n(p0)
+        finish()
+        """
+        self.optimize_loop(ops, expected)
+
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
