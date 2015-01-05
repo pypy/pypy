@@ -247,7 +247,7 @@ class AstValidator(ast.ASTVisitor):
                 "Try has neither except handlers nor finalbody")
         if not node.handlers and node.orelse:
             raise ValidationError(
-                "Try has orelse but not except handlers")
+                "Try has orelse but no except handlers")
         for handler in node.handlers:
             handler.walkabout(self)
         self._validate_stmts(node.orelse)

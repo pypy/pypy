@@ -189,24 +189,23 @@ class TestASTValidator:
         self.stmt(r, "must have Load context")
 
     def test_try(self):
-        skip("enable when parser uses the new Try construct")
         p = ast.Pass(0, 0)
-        t = ast.Try([], [], [], [p])
+        t = ast.Try([], [], [], [p], 0, 0)
         self.stmt(t, "empty body on Try")
-        t = ast.Try([ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], [], [], [p])
+        t = ast.Try([ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], [], [], [p], 0, 0)
         self.stmt(t, "must have Load context")
-        t = ast.Try([p], [], [], [])
+        t = ast.Try([p], [], [], [], 0, 0)
         self.stmt(t, "Try has neither except handlers nor finalbody")
-        t = ast.Try([p], [], [p], [p])
+        t = ast.Try([p], [], [p], [p], 0, 0)
         self.stmt(t, "Try has orelse but no except handlers")
-        t = ast.Try([p], [ast.ExceptHandler(None, "x", [])], [], [])
+        t = ast.Try([p], [ast.ExceptHandler(None, "x", [], 0, 0)], [], [], 0, 0)
         self.stmt(t, "empty body on ExceptHandler")
-        e = [ast.ExceptHandler(ast.Name("x", ast.Store, 0, 0), "y", [p])]
-        self.stmt(ast.Try([p], e, [], []), "must have Load context")
-        e = [ast.ExceptHandler(None, "x", [p])]
-        t = ast.Try([p], e, [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], [p])
+        e = [ast.ExceptHandler(ast.Name("x", ast.Store, 0, 0), "y", [p], 0, 0)]
+        self.stmt(ast.Try([p], e, [], [], 0, 0), "must have Load context")
+        e = [ast.ExceptHandler(None, "x", [p], 0, 0)]
+        t = ast.Try([p], e, [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], [p], 0, 0)
         self.stmt(t, "must have Load context")
-        t = ast.Try([p], e, [p], [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)])
+        t = ast.Try([p], e, [p], [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], 0, 0)
         self.stmt(t, "must have Load context")
 
     def test_assert(self):
