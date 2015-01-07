@@ -1030,11 +1030,12 @@ def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
     BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BArray0)])
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BStruct,), BInt, False)
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BInt,), BStruct, False)
+    BFunc = new_function_type((BStruct,), BInt, False)
+    py.test.raises(NotImplementedError, cast(BFunc, 123), cast(BStructP, 123))
+    BFunc2 = new_function_type((BInt,), BStruct, False)
+    py.test.raises(NotImplementedError, cast(BFunc2, 123), 123)
 
 def test_call_function_9():
     BInt = new_primitive_type("int")
@@ -1805,7 +1806,8 @@ def test_invalid_function_result_types():
     new_function_type((), new_pointer_type(BFunc))
     BUnion = new_union_type("union foo_u")
     complete_struct_or_union(BUnion, [])
-    py.test.raises(NotImplementedError, new_function_type, (), BUnion)
+    BFunc = new_function_type((), BUnion)
+    py.test.raises(NotImplementedError, cast(BFunc, 123))
     py.test.raises(TypeError, new_function_type, (), BArray)
 
 def test_struct_return_in_func():
