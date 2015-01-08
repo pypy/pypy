@@ -44,7 +44,7 @@ below; then you can directly use pip inside virtualenvs):
 
 .. code-block:: console
 
-    $ curl -O https://raw.githubusercontent.com/pypa/pip/master/contrib/get-pip.py
+    $ curl -O https://bootstrap.pypa.io/get-pip.py
     $ ./pypy-2.1/bin/pypy get-pip.py
     $ ./pypy-2.1/bin/pip install pygments  # for example
 
