@@ -184,10 +184,10 @@ class TraceWithIds(Function):
         matcher = OpMatcher(ops)
         return matcher.match(expected_src, **kwds)
 
-    def match_by_id(self, id, expected_src, **kwds):
+    def match_by_id(self, id, expected_src, ignore_ops=[], **kwds):
         ops = list(self.ops_by_id(id, **kwds))
         matcher = OpMatcher(ops, id)
-        return matcher.match(expected_src)
+        return matcher.match(expected_src, ignore_ops=ignore_ops)
 
 class PartialTraceWithIds(TraceWithIds):
     def __init__(self, trace, is_entry_bridge=False):
@@ -275,9 +275,19 @@ class OpMatcher(object):
 
     @classmethod
     def parse_op(cls, line):
-        # strip comment
+        # strip comment after '#', but not if it appears inside parentheses
         if '#' in line:
-            line = line[:line.index('#')]
+            nested = 0
+            for i, c in enumerate(line):
+                if c == '(':
+                    nested += 1
+                elif c == ')':
+                    assert nested > 0, "more ')' than '(' in %r" % (line,)
+                    nested -= 1
+                elif c == '#' and nested == 0:
+                    line = line[:i]
+                    break
+        #
         if line.strip() == 'guard_not_invalidated?':
             return 'guard_not_invalidated', None, [], '...', False
         # find the resvar, if any
@@ -314,7 +324,7 @@ class OpMatcher(object):
         # to repeat it every time
         ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)
         """
@@ -323,9 +333,9 @@ class OpMatcher(object):
         # this is the ticker check generated if we have threads
         thread_ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker1 = int_sub(ticker0, _)
-            setfield_raw(ticker_address, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker1 = int_sub(ticker0, #)
+            setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker1, 0)
             guard_false(ticker_cond0, descr=...)
         """
@@ -333,7 +343,7 @@ class OpMatcher(object):
         #
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
-            ticker2 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker2 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
@@ -351,18 +361,31 @@ class OpMatcher(object):
 
     @staticmethod
     def as_numeric_const(v1):
+        # returns one of:  ('int', value)  ('float', value)  None
         try:
-            return int(v1)
-        except (ValueError, TypeError):
-            return None
+            return ('int', int(v1))
+        except ValueError:
+            pass
+        if '.' in v1:
+            try:
+                return ('float', float(v1))
+            except ValueError:
+                pass
+        return None
 
     def match_var(self, v1, exp_v2):
         assert v1 != '_'
-        if exp_v2 == '_':
+        if exp_v2 == '_':           # accept anything
             return True
+        if exp_v2 is None:
+            return v1 is None
+        assert exp_v2 != '...'      # bogus use of '...' in the expected code
         n1 = self.as_numeric_const(v1)
+        if exp_v2 == '#':           # accept any (integer or float) number
+            return n1 is not None
         n2 = self.as_numeric_const(exp_v2)
-        if n1 is not None and n2 is not None:
+        if n1 is not None or n2 is not None:
+            # at least one is a number; check that both are, and are equal
             return n1 == n2
         if self.is_const(v1) or self.is_const(exp_v2):
             return v1[:-1].startswith(exp_v2[:-1])
@@ -382,16 +405,22 @@ class OpMatcher(object):
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr, _)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
-        if exp_args != ['...']:
+        if exp_args[-1:] == ['...']:      # exp_args ends with '...'
+            exp_args = exp_args[:-1]
+            self._assert(len(op.args) >= len(exp_args), "not enough arguments")
+        else:
             self._assert(len(op.args) == len(exp_args), "wrong number of arguments")
-            for arg, exp_arg in zip(op.args, exp_args):
-                self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
+        for arg, exp_arg in zip(op.args, exp_args):
+            self._assert(self.match_var(arg, exp_arg), "variable mismatch: %r instead of %r" % (arg, exp_arg))
         self.match_descr(op.descr, exp_descr)
 
 
-    def _next_op(self, iter_ops, assert_raises=False):
+    def _next_op(self, iter_ops, assert_raises=False, ignore_ops=set()):
         try:
-            op = iter_ops.next()
+            while True:
+                op = iter_ops.next()
+                if op.name not in ignore_ops:
+                    break
         except StopIteration:
             self._assert(assert_raises, "not enough operations")
             return
@@ -428,9 +457,7 @@ class OpMatcher(object):
         else:
             assert 0, "'{{{' not followed by '}}}'"
         while exp_ops:
-            op = self._next_op(iter_ops)
-            if op.name in ignore_ops:
-                continue
+            op = self._next_op(iter_ops, ignore_ops=ignore_ops)
             # match 'op' against any of the exp_ops; the first successful
             # match is kept, and the exp_op gets removed from the list
             for i, exp_op in enumerate(exp_ops):
@@ -465,10 +492,7 @@ class OpMatcher(object):
                     self.match_any_order(iter_exp_ops, iter_ops, ignore_ops)
                     continue
                 else:
-                    while True:
-                        op = self._next_op(iter_ops)
-                        if op.name not in ignore_ops:
-                            break
+                    op = self._next_op(iter_ops, ignore_ops=ignore_ops)
                 self.match_op(op, exp_op)
             except InvalidMatch, e:
                 if type(exp_op) is not str and exp_op[4] is False:    # optional operation
@@ -478,7 +502,7 @@ class OpMatcher(object):
                 raise
         #
         # make sure we exhausted iter_ops
-        self._next_op(iter_ops, assert_raises=True)
+        self._next_op(iter_ops, assert_raises=True, ignore_ops=ignore_ops)
 
     def match(self, expected_src, ignore_ops=[]):
         def format(src, opindex=None):

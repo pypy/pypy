@@ -1,5 +1,6 @@
 import gc, time
 from rpython.rlib.rthread import *
+from rpython.rlib.rarithmetic import r_longlong
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
@@ -45,6 +46,22 @@ def test_tlref_untranslated():
         start_new_thread(subthread, ())
     time.sleep(0.5)
     assert results == [True] * 15
+
+def test_get_ident():
+    import thread
+    assert get_ident() == thread.get_ident()
+
+
+def test_threadlocalref_on_llinterp():
+    from rpython.rtyper.test.test_llinterp import interpret
+    tlfield = ThreadLocalField(lltype.Signed, "rthread_test_")
+    #
+    def f():
+        x = tlfield.setraw(42)
+        return tlfield.getraw()
+    #
+    res = interpret(f, [])
+    assert res == 42
 
 
 class AbstractThreadTests(AbstractGCTestClass):
@@ -187,6 +204,15 @@ class AbstractThreadTests(AbstractGCTestClass):
         fn = self.getcompiled(f, [])
         res = fn()
         assert res < -1.0
+
+    def test_acquire_timed_huge_timeout(self):
+        t = r_longlong(2 ** 61)
+        def f():
+            l = allocate_lock()
+            return l.acquire_timed(t)
+        fn = self.getcompiled(f, [])
+        res = fn()
+        assert res == 1       # RPY_LOCK_ACQUIRED
 
     def test_acquire_timed_alarm(self):
         import sys

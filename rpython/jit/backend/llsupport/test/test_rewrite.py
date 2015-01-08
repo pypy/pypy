@@ -9,6 +9,7 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
+from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import rclass
 from rpython.jit.backend.x86.arch import WORD
@@ -94,6 +95,8 @@ class RewriteTests(object):
         signedframedescr = self.cpu.signedframedescr
         floatframedescr = self.cpu.floatframedescr
         casmdescr.compiled_loop_token = clt
+        #
+        guarddescr = AbstractFailDescr()
         #
         namespace.update(locals())
         #
@@ -978,10 +981,10 @@ class TestFramework(RewriteTests):
         i2 = call_assembler(i0, f0, descr=casmdescr)
         """, """
         [i0, f0]
-        i1 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_size)
+        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_size)
         p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=tiddescr)
-        i2 = getfield_gc(ConstClass(frame_info), descr=jfi_frame_depth)
+        i2 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
         setfield_gc(p1, 0, descr=jf_extra_stack_depth)
         setfield_gc(p1, NULL, descr=jf_savedata)
         setfield_gc(p1, NULL, descr=jf_force_descr)
@@ -993,4 +996,38 @@ class TestFramework(RewriteTests):
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
         i3 = call_assembler(p1, descr=casmdescr)
+        """)
+
+    def test_int_add_ovf(self):
+        self.check_rewrite("""
+            [i0]
+            p0 = new(descr=tdescr)
+            i1 = int_add_ovf(i0, 123)
+            guard_overflow(descr=guarddescr) []
+            jump()
+        """, """
+            [i0]
+            p0 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p0, 5678, descr=tiddescr)
+            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            i1 = int_add_ovf(i0, 123)
+            guard_overflow(descr=guarddescr) []
+            jump()
+        """)
+
+    def test_int_gt(self):
+        self.check_rewrite("""
+            [i0]
+            p0 = new(descr=tdescr)
+            i1 = int_gt(i0, 123)
+            guard_false(i1, descr=guarddescr) []
+            jump()
+        """, """
+            [i0]
+            p0 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p0, 5678, descr=tiddescr)
+            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            i1 = int_gt(i0, 123)
+            guard_false(i1, descr=guarddescr) []
+            jump()
         """)

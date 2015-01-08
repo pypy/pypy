@@ -24,8 +24,7 @@ def trap_eintr(space, error):
     try:
         w_value = error.get_w_value(space)
         w_errno = space.getattr(w_value, space.wrap("errno"))
-        return space.is_true(
-            space.eq(w_errno, space.wrap(EINTR)))
+        return space.eq_w(w_errno, space.wrap(EINTR))
     except OperationError:
         return False
 

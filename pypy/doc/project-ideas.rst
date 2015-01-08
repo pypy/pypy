@@ -35,6 +35,13 @@ Make bytearray type fast
 PyPy's bytearray type is very inefficient. It would be an interesting
 task to look into possible optimizations on this.
 
+Implement AF_XXX packet types for PyPy
+--------------------------------------
+
+PyPy is missing AF_XXX types of sockets. Implementing it is easy-to-medium
+task. `bug report`_
+
+.. _`bug report`: https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets#more
 
 Implement copy-on-write list slicing
 ------------------------------------

@@ -100,7 +100,6 @@ class BaseTestRffi:
     def test_string_reverse(self):
         c_source = py.code.Source("""
         #include <string.h>
-        #include <src/allocator.h>
         #include <src/mem.h>
 
         char *f(char* arg)
@@ -391,7 +390,7 @@ class BaseTestRffi:
         h_source = py.code.Source("""
         #ifndef _CALLBACK_H
         #define _CALLBACK_H
-        extern Signed eating_callback(Signed arg, Signed(*call)(Signed));
+        RPY_EXTERN Signed eating_callback(Signed arg, Signed(*call)(Signed));
         #endif /* _CALLBACK_H */
         """)
 
@@ -401,7 +400,7 @@ class BaseTestRffi:
         c_source = py.code.Source("""
         #include "src/precommondefs.h"
 
-        RPY_EXPORTED Signed eating_callback(Signed arg, Signed(*call)(Signed))
+        RPY_EXTERN Signed eating_callback(Signed arg, Signed(*call)(Signed))
         {
             Signed res = call(arg);
             if (res == -1)

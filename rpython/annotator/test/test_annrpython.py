@@ -14,7 +14,6 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
@@ -49,20 +48,10 @@ class TestAnnotateTestCase:
     class RPythonAnnotator(_RPythonAnnotator):
         def build_types(self, *args):
             s = _RPythonAnnotator.build_types(self, *args)
+            self.validate()
             if option.view:
                 self.translator.view()
             return s
-
-    def make_fun(self, func):
-        import inspect
-        try:
-            func = func.im_func
-        except AttributeError:
-            pass
-        name = func.func_name
-        funcgraph = build_flow(func)
-        funcgraph.source = inspect.getsource(func)
-        return funcgraph
 
     def test_simple_func(self):
         """
@@ -4336,6 +4325,13 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_none()
+
+    def test_nonnulify(self):
+        s = annmodel.SomeString(can_be_None=True).nonnulify()
+        assert s.can_be_None is True
+        assert s.no_nul is True
+        s = annmodel.SomeChar().nonnulify()
+        assert s.no_nul is True
 
 
 def g(n):

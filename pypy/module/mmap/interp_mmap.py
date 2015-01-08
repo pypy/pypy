@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib import rmmap, rarithmetic
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
+from rpython.rlib.rstring import StringBuilder
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
     OFF_T = rarithmetic.r_longlong
@@ -163,17 +164,18 @@ class W_MMap(W_Root):
         self.check_valid()
 
         space = self.space
-        start, stop, step = space.decode_index(w_index, self.mmap.size)
+        start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
         elif step == 1:
             if stop - start < 0:
                 return space.wrap("")
-            return space.wrap(self.mmap.getslice(start, stop - start))
+            return space.wrap(self.mmap.getslice(start, length))
         else:
-            res = "".join([self.mmap.getitem(i)
-                           for i in range(start, stop, step)])
-            return space.wrap(res)
+            b = StringBuilder(length)
+            for i in range(start, stop, step):
+                b.append(self.mmap.getitem(i))
+            return space.wrap(b.build())
 
     def descr_setitem(self, w_index, w_value):
         space = self.space

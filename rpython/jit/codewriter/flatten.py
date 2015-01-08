@@ -243,55 +243,39 @@ class GraphFlattener(object):
         else:
             # A switch.
             #
-            def emitdefaultpath():
-                if block.exits[-1].exitcase == 'default':
-                    self.make_link(block.exits[-1])
-                else:
-                    self.emitline("unreachable")
-                    self.emitline("---")
-            #
-            self.emitline('-live-')
             switches = [link for link in block.exits
                         if link.exitcase != 'default']
             switches.sort(key=lambda link: link.llexitcase)
             kind = getkind(block.exitswitch.concretetype)
-            if len(switches) >= 5 and kind == 'int':
-                # A large switch on an integer, implementable efficiently
-                # with the help of a SwitchDictDescr
-                from rpython.jit.codewriter.jitcode import SwitchDictDescr
-                switchdict = SwitchDictDescr()
-                switchdict._labels = []
-                self.emitline('switch', self.getcolor(block.exitswitch),
-                                        switchdict)
-                emitdefaultpath()
-                #
-                for switch in switches:
-                    key = lltype.cast_primitive(lltype.Signed,
-                                                switch.llexitcase)
-                    switchdict._labels.append((key, TLabel(switch)))
-                    # emit code for that path
-                    self.emitline(Label(switch))
-                    self.make_link(switch)
+            assert kind == 'int'    # XXX
             #
+            # A switch on an integer, implementable efficiently with the
+            # help of a SwitchDictDescr.  We use this even if there are
+            # very few cases: in pyjitpl.py, opimpl_switch() will promote
+            # the int only if it matches one of the cases.
+            from rpython.jit.codewriter.jitcode import SwitchDictDescr
+            switchdict = SwitchDictDescr()
+            switchdict._labels = []
+            self.emitline('-live-')    # for 'guard_value'
+            self.emitline('switch', self.getcolor(block.exitswitch),
+                                    switchdict)
+            # emit the default path
+            if block.exits[-1].exitcase == 'default':
+                self.make_link(block.exits[-1])
             else:
-                # A switch with several possible answers, though not too
-                # many of them -- a chain of int_eq comparisons is fine
-                assert kind == 'int'    # XXX
-                color = self.getcolor(block.exitswitch)
-                self.emitline('int_guard_value', color)
-                for switch in switches:
-                    # make the case described by 'switch'
-                    self.emitline('goto_if_not_int_eq',
-                                  color,
-                                  Constant(switch.llexitcase,
-                                           block.exitswitch.concretetype),
-                                  TLabel(switch))
-                    # emit code for the "taken" path
-                    self.make_link(switch)
-                    # finally, emit the label for the "non-taken" path
-                    self.emitline(Label(switch))
-                #
-                emitdefaultpath()
+                self.emitline("unreachable")
+                self.emitline("---")
+            #
+            for switch in switches:
+                key = lltype.cast_primitive(lltype.Signed,
+                                            switch.llexitcase)
+                switchdict._labels.append((key, TLabel(switch)))
+                # emit code for that path
+                # note: we need a -live- for all the 'guard_false' we produce
+                # if the switched value doesn't match any case.
+                self.emitline(Label(switch))
+                self.emitline('-live-')
+                self.make_link(switch)
 
     def insert_renamings(self, link):
         renamings = {}

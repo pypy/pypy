@@ -55,7 +55,6 @@ class MovableObjectTracker(object):
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
-    malloc_zero_filled = True
 
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
@@ -246,6 +245,7 @@ class JitFrameDescrs:
 
 class GcLLDescr_boehm(GcLLDescription):
     kind                  = 'boehm'
+    malloc_zero_filled    = True
     moving_gc             = False
     round_up              = False
     write_barrier_descr   = None

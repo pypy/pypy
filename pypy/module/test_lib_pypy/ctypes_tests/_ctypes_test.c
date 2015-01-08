@@ -3,11 +3,9 @@
 #define MS_WIN32
 #endif
 
-#if defined(MS_WIN32)
-#define EXPORT(x) __declspec(dllexport) x
-#else
-#define EXPORT(x) x
-#endif
+#include "src/precommondefs.h"
+
+#define EXPORT(x)  RPY_EXPORTED x
 
 #include <stdlib.h>
 #include <math.h>
@@ -318,8 +316,8 @@ EXPORT(void) _py_func(void)
 {
 }
 
-EXPORT(LONG_LONG) last_tf_arg_s;
-EXPORT(unsigned LONG_LONG) last_tf_arg_u;
+EXPORT(LONG_LONG) last_tf_arg_s = 0;
+EXPORT(unsigned LONG_LONG) last_tf_arg_u = 0;
 
 struct BITS {
 	int A: 1, B:2, C:3, D:4, E: 5, F: 6, G: 7, H: 8, I: 9;

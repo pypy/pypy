@@ -2,20 +2,21 @@
 /************************************************************/
  /***  C header subsection: stack operations               ***/
 
+#include <src/precommondefs.h>
+
+
 #ifndef MAX_STACK_SIZE
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
 #endif
 
-/* This include must be done in any case to initialise
- * the header dependencies early (winsock2, before windows.h).
- * It is needed to have RPyThreadStaticTLS, too. */
-#include "threadlocal.h"
 
-extern char *_LLstacktoobig_stack_end;
-extern long _LLstacktoobig_stack_length;
-extern char _LLstacktoobig_report_error;
+RPY_EXTERN char *_LLstacktoobig_stack_end;
+RPY_EXTERN long _LLstacktoobig_stack_length;
+RPY_EXTERN char _LLstacktoobig_report_error;
 
+RPY_EXTERN
 char LL_stack_too_big_slowpath(long);    /* returns 0 (ok) or 1 (too big) */
+RPY_EXTERN
 void LL_stack_set_length_fraction(double);
 
 /* some macros referenced from rpython.rlib.rstack */

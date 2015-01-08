@@ -20,8 +20,7 @@ def set_max_heap_size(nbytes):
 
 # for test purposes we allow objects to be pinned and use
 # the following list to keep track of the pinned objects
-if not we_are_translated():
-    pinned_objects = []
+_pinned_objects = []
 
 def pin(obj):
     """If 'obj' can move, then attempt to temporarily fix it.  This
@@ -45,7 +44,7 @@ def pin(obj):
     Note further that pinning an object does not prevent it from being
     collected if it is not used anymore.
     """
-    pinned_objects.append(obj)
+    _pinned_objects.append(obj)
     return True
         
 
@@ -64,8 +63,14 @@ def unpin(obj):
     """Unpin 'obj', allowing it to move again.
     Must only be called after a call to pin(obj) returned True.
     """
-    pinned_objects.remove(obj)
-        
+    for i in range(len(_pinned_objects)):
+        try:
+            if _pinned_objects[i] == obj:
+                del _pinned_objects[i]
+                return
+        except TypeError:
+            pass
+
 
 class UnpinEntry(ExtRegistryEntry):
     _about_ = unpin
@@ -79,7 +84,14 @@ class UnpinEntry(ExtRegistryEntry):
 
 def _is_pinned(obj):
     """Method to check if 'obj' is pinned."""
-    return obj in pinned_objects
+    for i in range(len(_pinned_objects)):
+        try:
+            if _pinned_objects[i] == obj:
+                return True
+        except TypeError:
+            pass
+    return False
+
 
 class IsPinnedEntry(ExtRegistryEntry):
     _about_ = _is_pinned
@@ -318,6 +330,20 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
+@jit.dont_look_inside
+@specialize.ll()
+def ll_arrayclear(p):
+    # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
+    from rpython.rlib.objectmodel import keepalive_until_here
+
+    length = len(p)
+    ARRAY = lltype.typeOf(p).TO
+    offset = llmemory.itemoffsetof(ARRAY, 0)
+    dest_addr = llmemory.cast_ptr_to_adr(p) + offset
+    llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    keepalive_until_here(p)
+
+
 def no_release_gil(func):
     func._dont_inline_ = True
     func._no_release_gil_ = True
@@ -416,6 +442,10 @@ def dump_rpy_heap(fd):
     raise NotImplementedError
 
 def get_typeids_z():
+    "NOT_RPYTHON"
+    raise NotImplementedError
+
+def get_typeids_list():
     "NOT_RPYTHON"
     raise NotImplementedError
 
@@ -618,6 +648,18 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
+    _about_ = get_typeids_list
+
+    def compute_result_annotation(self):
+        from rpython.rtyper.llannotation import SomePtr
+        from rpython.rtyper.lltypesystem import llgroup
+        return SomePtr(lltype.Ptr(lltype.Array(llgroup.HALFWORD)))
+
+    def specialize_call(self, hop):
+        hop.exception_is_here()
+        return hop.genop('gc_typeids_list', [], resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
     _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)
     def compute_result_annotation(self, s_arg=None):
         from rpython.annotator.model import s_Bool
@@ -631,3 +673,22 @@ class Entry(ExtRegistryEntry):
 
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'
+
+def register_custom_trace_hook(TP, lambda_func):
+    """ This function does not do anything, but called from any annotated
+    place, will tell that "func" is used to trace GC roots inside any instance
+    of the type TP.  The func must be specified as "lambda: func" in this
+    call, for internal reasons.
+    """
+
+class RegisterGcTraceEntry(ExtRegistryEntry):
+    _about_ = register_custom_trace_hook
+
+    def compute_result_annotation(self, *args_s):
+        pass
+
+    def specialize_call(self, hop):
+        TP = hop.args_s[0].const
+        lambda_func = hop.args_s[1].const
+        hop.exception_cannot_occur()
+        hop.rtyper.custom_trace_funcs.append((TP, lambda_func()))

@@ -286,7 +286,6 @@ class W_Dtype(W_Root):
     def descr_hash(self, space):
         return space.wrap(self._compute_hash(space, 0x345678))
 
-
     def descr_str(self, space):
         if self.fields:
             return space.str(self.descr_get_descr(space))
@@ -393,7 +392,7 @@ class W_Dtype(W_Root):
         alignment = space.int_w(space.getitem(w_data, space.wrap(6)))
 
         if (w_names == space.w_None) != (w_fields == space.w_None):
-            raise oefmt(space.w_ValueError, "inconsistent fields and names")
+            raise oefmt(space.w_ValueError, "inconsistent fields and names in Numpy dtype unpickling")
 
         self.byteorder = endian
         self.shape = []

@@ -1,9 +1,11 @@
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomeAddress, SomePtr
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper import rmodel, annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
-from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
+from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS, llop
 from rpython.memory import gctypelayout
 from rpython.memory.gctransform.log import log
 from rpython.memory.gctransform.support import get_rtti, ll_call_destructor
@@ -168,6 +170,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         gcdata.static_root_end = a_random_address        # patched in finish()
         gcdata.max_type_id = 13                          # patched in finish()
         gcdata.typeids_z = a_random_address              # patched in finish()
+        gcdata.typeids_list = a_random_address           # patched in finish()
         self.gcdata = gcdata
         self.malloc_fnptr_cache = {}
 
@@ -203,6 +206,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         data_classdef.generalize_attr('static_root_end', SomeAddress())
         data_classdef.generalize_attr('max_type_id', annmodel.SomeInteger())
         data_classdef.generalize_attr('typeids_z', SomeAddress())
+        data_classdef.generalize_attr('typeids_list', SomeAddress())
 
         annhelper = annlowlevel.MixLevelHelperAnnotator(self.translator.rtyper)
 
@@ -239,6 +243,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             root_walker.need_stacklet_support(self, getfn)
 
         self.layoutbuilder.encode_type_shapes_now()
+        self.create_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
@@ -452,23 +457,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                        [s_gc],
                                        SomePtr(lltype.Ptr(rgc.ARRAY_OF_CHAR)),
                                        minimal_transform=False)
+        self.get_typeids_list_ptr = getfn(inspector.get_typeids_list,
+                                       [s_gc],
+                                       SomePtr(lltype.Ptr(
+                                           lltype.Array(llgroup.HALFWORD))),
+                                       minimal_transform=False)
 
         self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
                                            [s_gc,
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
 
-        self.pin_ptr = getfn(GCClass.pin,
-                             [s_gc, SomeAddress()],
-                             annmodel.SomeBool())
+        if GCClass.can_usually_pin_objects:
+            self.pin_ptr = getfn(GCClass.pin,
+                                 [s_gc, SomeAddress()],
+                                 annmodel.SomeBool())
 
-        self.unpin_ptr = getfn(GCClass.unpin,
-                               [s_gc, SomeAddress()],
-                               annmodel.s_None)
+            self.unpin_ptr = getfn(GCClass.unpin,
+                                   [s_gc, SomeAddress()],
+                                   annmodel.s_None)
 
-        self._is_pinned_ptr = getfn(GCClass._is_pinned,
-                                    [s_gc, SomeAddress()],
-                                    annmodel.SomeBool())
+            self._is_pinned_ptr = getfn(GCClass._is_pinned,
+                                        [s_gc, SomeAddress()],
+                                        annmodel.SomeBool())
 
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
@@ -502,6 +513,29 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                    [SomeAddress()],
                                                    annmodel.s_None)
 
+    def create_custom_trace_funcs(self, gc, rtyper):
+        custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
+        rtyper.custom_trace_funcs = custom_trace_funcs
+        # too late to register new custom trace functions afterwards
+
+        custom_trace_funcs_unrolled = unrolling_iterable(
+            [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
+
+        @specialize.arg(2)
+        def custom_trace_dispatcher(obj, typeid, callback, arg):
+            for type_id_exp, func in custom_trace_funcs_unrolled:
+                if (llop.combine_ushort(lltype.Signed, typeid, 0) ==
+                    llop.combine_ushort(lltype.Signed, type_id_exp, 0)):
+                    func(gc, obj, callback, arg)
+                    return
+            else:
+                assert False
+
+        gc.custom_trace_dispatcher = custom_trace_dispatcher
+
+        for TP, func in custom_trace_funcs:
+            self.gcdata._has_got_custom_trace(self.get_type_id(TP))
+            specialize.arg(2)(func)
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
@@ -569,7 +603,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
         newgcdependencies = []
         newgcdependencies.append(ll_static_roots_inside)
         ll_instance.inst_max_type_id = len(group.members)
-        typeids_z = self.write_typeid_list()
+        #
+        typeids_z, typeids_list = self.write_typeid_list()
         ll_typeids_z = lltype.malloc(rgc.ARRAY_OF_CHAR,
                                      len(typeids_z),
                                      immortal=True)
@@ -577,6 +612,15 @@ class BaseFrameworkGCTransformer(GCTransformer):
             ll_typeids_z[i] = typeids_z[i]
         ll_instance.inst_typeids_z = llmemory.cast_ptr_to_adr(ll_typeids_z)
         newgcdependencies.append(ll_typeids_z)
+        #
+        ll_typeids_list = lltype.malloc(lltype.Array(llgroup.HALFWORD),
+                                        len(typeids_list),
+                                        immortal=True)
+        for i in range(len(typeids_list)):
+            ll_typeids_list[i] = typeids_list[i]
+        ll_instance.inst_typeids_list= llmemory.cast_ptr_to_adr(ll_typeids_list)
+        newgcdependencies.append(ll_typeids_list)
+        #
         return newgcdependencies
 
     def get_finish_tables(self):
@@ -597,6 +641,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # XXX argh argh, this only gives the member index but not the
         #     real typeid, which is a complete mess to obtain now...
         all_ids = self.layoutbuilder.id_of_type.items()
+        list_data = []
+        ZERO = rffi.cast(llgroup.HALFWORD, 0)
+        for _, typeinfo in all_ids:
+            while len(list_data) <= typeinfo.index:
+                list_data.append(ZERO)
+            list_data[typeinfo.index] = typeinfo
+        #
         all_ids = [(typeinfo.index, TYPE) for (TYPE, typeinfo) in all_ids]
         all_ids = dict(all_ids)
         f = udir.join("typeids.txt").open("w")
@@ -605,9 +656,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         f.close()
         try:
             import zlib
-            return zlib.compress(udir.join("typeids.txt").read(), 9)
+            z_data = zlib.compress(udir.join("typeids.txt").read(), 9)
         except ImportError:
-            return ''
+            z_data = ''
+        return z_data, list_data
 
     def transform_graph(self, graph):
         func = getattr(graph, 'func', None)
@@ -1016,6 +1068,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_size])
 
     def gct_gc_pin(self, hop):
+        if not hasattr(self, 'pin_ptr'):
+            c_false = rmodel.inputconst(lltype.Bool, False)
+            hop.genop("same_as", [c_false], resultvar=hop.spaceop.result)
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1023,6 +1079,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_unpin(self, hop):
+        if not hasattr(self, 'unpin_ptr'):
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1030,6 +1088,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc__is_pinned(self, hop):
+        if not hasattr(self, '_is_pinned_ptr'):
+            c_false = rmodel.inputconst(lltype.Bool, False)
+            hop.genop("same_as", [c_false], resultvar=hop.spaceop.result)
+            return
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
             resulttype=llmemory.Address)
@@ -1043,6 +1105,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
             self.pop_roots(hop, livevars)
+        else:
+            hop.rename("gc_thread_run")     # keep it around for c/gc.py,
+                                            # unless handled specially above
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
@@ -1058,6 +1123,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
             self.pop_roots(hop, livevars)
+        hop.rename("gc_thread_die")     # keep it around for c/gc.py
 
     def gct_gc_thread_before_fork(self, hop):
         if (self.translator.config.translation.thread
@@ -1131,6 +1197,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.get_typeids_z_ptr, self.c_const_gc],
+                  resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_typeids_list(self, hop):
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call",
+                  [self.get_typeids_list_ptr, self.c_const_gc],
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 

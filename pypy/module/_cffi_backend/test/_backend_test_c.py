@@ -397,7 +397,7 @@ def test_cmp_none():
 def test_invalid_indexing():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises(TypeError, "x[0]")
 
 def test_default_str():
     BChar = new_primitive_type("char")
@@ -1030,11 +1030,12 @@ def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
     BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BArray0)])
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BStruct,), BInt, False)
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BInt,), BStruct, False)
+    BFunc = new_function_type((BStruct,), BInt, False)
+    py.test.raises(NotImplementedError, cast(BFunc, 123), cast(BStructP, 123))
+    BFunc2 = new_function_type((BInt,), BStruct, False)
+    py.test.raises(NotImplementedError, cast(BFunc2, 123), 123)
 
 def test_call_function_9():
     BInt = new_primitive_type("int")
@@ -1805,7 +1806,8 @@ def test_invalid_function_result_types():
     new_function_type((), new_pointer_type(BFunc))
     BUnion = new_union_type("union foo_u")
     complete_struct_or_union(BUnion, [])
-    py.test.raises(NotImplementedError, new_function_type, (), BUnion)
+    BFunc = new_function_type((), BUnion)
+    py.test.raises(NotImplementedError, cast(BFunc, 123))
     py.test.raises(TypeError, new_function_type, (), BArray)
 
 def test_struct_return_in_func():
@@ -2718,7 +2720,16 @@ def test_GetLastError():
 def test_nonstandard_integer_types():
     for typename in ['int8_t', 'uint8_t', 'int16_t', 'uint16_t', 'int32_t',
                      'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
-                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
+                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t',
+                     'int_least8_t',  'uint_least8_t',
+                     'int_least16_t', 'uint_least16_t',
+                     'int_least32_t', 'uint_least32_t',
+                     'int_least64_t', 'uint_least64_t',
+                     'int_fast8_t',  'uint_fast8_t',
+                     'int_fast16_t', 'uint_fast16_t',
+                     'int_fast32_t', 'uint_fast32_t',
+                     'int_fast64_t', 'uint_fast64_t',
+                     'intmax_t', 'uintmax_t']:
         new_primitive_type(typename)    # works
 
 def test_cannot_convert_unicode_to_charp():
@@ -3185,6 +3196,20 @@ def test_packed_with_bitfields():
                    BStruct, [('a1', BLong, 30),
                              ('a2', BChar, 5)],
                    None, -1, -1, SF_PACKED)
+
+def test_from_buffer():
+    import array
+    a = array.array('H', [10000, 20000, 30000])
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    c = from_buffer(BCharA, a)
+    assert typeof(c) is BCharA
+    assert len(c) == 6
+    assert repr(c) == "<cdata 'char[]' buffer len 6 from 'array.array' object>"
+    p = new_pointer_type(new_primitive_type("unsigned short"))
+    cast(p, c)[1] += 500
+    assert list(a) == [10000, 20500, 30000]
 
 def test_version():
     # this test is here mostly for PyPy

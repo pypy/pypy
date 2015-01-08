@@ -216,10 +216,11 @@ class Assembler(object):
             self.code[pos  ] = chr(target & 0xFF)
             self.code[pos+1] = chr(target >> 8)
         for descr in self.switchdictdescrs:
-            descr.dict = {}
+            as_dict = {}
             for key, switchlabel in descr._labels:
                 target = self.label_positions[switchlabel.name]
-                descr.dict[key] = target
+                as_dict[key] = target
+            descr.attach(as_dict)
 
     def check_result(self):
         # Limitation of the number of registers, from the single-byte encoding

@@ -29,7 +29,7 @@ def test_thread_local():
     assert pypypolicy.look_inside_function(get_ident)
 
 def test_time():
-    from pypy.module.rctime.interp_time import time
+    from pypy.module.time.interp_time import time
     assert pypypolicy.look_inside_function(time)
 
 def test_io():

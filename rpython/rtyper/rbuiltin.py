@@ -724,15 +724,16 @@ def rtype_builtin_hasattr(hop):
     raise TyperError("hasattr is only suported on a constant")
 
 @typer_for(annmodel.SomeOrderedDict.knowntype)
+@typer_for(objectmodel.r_dict)
 @typer_for(objectmodel.r_ordereddict)
-def rtype_ordered_dict(hop):
-    from rpython.rtyper.lltypesystem.rordereddict import ll_newdict
-
+def rtype_dict_constructor(hop, i_force_non_null=None):
+    # 'i_force_non_null' is ignored here; if it has any effect, it
+    # has already been applied to 'hop.r_result'
     hop.exception_cannot_occur()
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
-    if hasattr(r_dict, 'r_dict_eqfn'):
+    v_result = hop.gendirectcall(r_dict.ll_newdict, cDICT)
+    if r_dict.custom_eq_hash:
         v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
         v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
         if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
@@ -742,9 +743,6 @@ def rtype_ordered_dict(hop):
             cname = hop.inputconst(lltype.Void, 'fnkeyhash')
             hop.genop('setfield', [v_result, cname, v_hashfn])
     return v_result
-
-from rpython.rtyper.lltypesystem.rdict import rtype_r_dict
-typer_for(objectmodel.r_dict)(rtype_r_dict)
 
 # _________________________________________________________________
 # weakrefs

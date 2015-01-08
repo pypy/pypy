@@ -10,28 +10,29 @@ http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.htm
 import operator
 import sys
 
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
-    interp2app)
-from pypy.interpreter.generator import GeneratorIterator
-from pypy.interpreter.signature import Signature
-from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.floatobject import W_FloatObject
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.iterobject import (W_FastListIterObject,
-    W_ReverseSeqIterObject)
-from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
-    normalize_simple_slice)
-from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.tupleobject import W_AbstractTupleObject
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import get_positive_index, negate
 from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
-    instantiate, newlist_hint, resizelist_hint, specialize, import_from_mixin)
+    import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
 from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import (
+    WrappedDefault, applevel, interp2app, unwrap_spec)
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter.signature import Signature
+from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.bytesobject import W_BytesObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.iterobject import (
+    W_FastListIterObject, W_ReverseSeqIterObject)
+from pypy.objspace.std.sliceobject import (
+    W_SliceObject, normalize_simple_slice, unwrap_start_stop)
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from pypy.objspace.std.util import get_positive_index, negate
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
@@ -617,8 +618,8 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, 0, sys.maxint)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.remove(x): x not in list"))
+            raise oefmt(space.w_ValueError,
+                        "list.remove(): %R is not in list", w_value)
         if i < self.length():  # otherwise list was mutated
             self.pop(i)
 
@@ -632,8 +633,7 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, i, stop)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.index(x): x not in list"))
+            raise oefmt(space.w_ValueError, "%R is not in list", w_value)
         return space.wrap(i)
 
     @unwrap_spec(reverse=bool)
@@ -1830,7 +1830,7 @@ class CustomKeyCompareSort(CustomCompareSort):
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
 
-W_ListObject.typedef = StdTypeDef("list",
+W_ListObject.typedef = TypeDef("list",
     __doc__ = """list() -> new empty list
 list(iterable) -> new list initialized from iterable's items""",
     __new__ = interp2app(W_ListObject.descr_new),

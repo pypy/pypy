@@ -393,7 +393,7 @@ def generate_macro_wrapper(name, macro, functype, eci):
     it with llexternal."""
 
     wrapper_name, source = _write_call_wrapper(
-        name, macro, functype, 'RPY_EXPORTED_FOR_TESTS ')
+        name, macro, functype, 'RPY_EXTERN ')
 
     # Now stuff this source into a "companion" eci that will be used
     # by ll2ctypes.  We replace eci._with_ctypes, so that only one
@@ -479,11 +479,21 @@ try:
 except CompilationError:
     pass
 
-_TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
     TYPES.append('ssize_t')
+    # the types below are rare enough and not available on Windows
+    TYPES.extend(['ptrdiff_t',
+          'int_least8_t',  'uint_least8_t',
+          'int_least16_t', 'uint_least16_t',
+          'int_least32_t', 'uint_least32_t',
+          'int_least64_t', 'uint_least64_t',
+          'int_fast8_t',  'uint_fast8_t',
+          'int_fast16_t', 'uint_fast16_t',
+          'int_fast32_t', 'uint_fast32_t',
+          'int_fast64_t', 'uint_fast64_t',
+          'intmax_t', 'uintmax_t'])
 else:
     MODE_T = lltype.Signed
     PID_T = lltype.Signed
@@ -497,8 +507,10 @@ def populate_inttypes():
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
+        elif name == 'size_t' or name.startswith('uint'):
+            signed = False
         else:
-            signed = (name not in _TYPES_ARE_UNSIGNED)
+            signed = True
         name = name.replace(' ', '')
         names.append(name)
         populatelist.append((name.upper(), c_name, signed))
@@ -613,7 +625,7 @@ def COpaquePtr(*args, **kwds):
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,
-                    c_type=None):
+                    c_type=None, getter_only=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -636,9 +648,9 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     getter_name = 'get_' + name
     setter_name = 'set_' + name
     getter_prototype = (
-       "RPY_EXPORTED_FOR_TESTS %(c_type)s %(getter_name)s ();" % locals())
+       "RPY_EXTERN %(c_type)s %(getter_name)s ();" % locals())
     setter_prototype = (
-       "RPY_EXPORTED_FOR_TESTS void %(setter_name)s (%(c_type)s v);" % locals())
+       "RPY_EXTERN void %(setter_name)s (%(c_type)s v);" % locals())
     c_getter = "%(c_type)s %(getter_name)s () { return %(name)s; }" % locals()
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
@@ -646,19 +658,26 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     if sys.platform != 'win32':
         lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
-    lines.append(c_setter)
+    if not getter_only:
+        lines.append(c_setter)
+    prototypes = [getter_prototype]
+    if not getter_only:
+        prototypes.append(setter_prototype)
     sources = ('\n'.join(lines),)
     new_eci = eci.merge(ExternalCompilationInfo(
         separate_module_sources = sources,
-        post_include_bits = [getter_prototype, setter_prototype],
+        post_include_bits = prototypes,
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
                         sandboxsafe=sandboxsafe, _nowrapper=_nowrapper)
-    setter = llexternal(setter_name, [TYPE], lltype.Void,
-                        compilation_info=new_eci, sandboxsafe=sandboxsafe,
-                        _nowrapper=_nowrapper)
-    return getter, setter
+    if getter_only:
+        return getter
+    else:
+        setter = llexternal(setter_name, [TYPE], lltype.Void,
+                            compilation_info=new_eci, sandboxsafe=sandboxsafe,
+                            _nowrapper=_nowrapper)
+        return getter, setter
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
@@ -823,6 +842,8 @@ def make_string_mappings(strtype):
     free_nonmovingbuffer._annenforceargs_ = [strtype, None, bool, bool]
 
     # int -> (char*, str, int)
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def alloc_buffer(count):
         """
         Returns a (raw_buffer, gc_buffer, case_num) triple,
@@ -833,7 +854,7 @@ def make_string_mappings(strtype):
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
-        new_buf = lltype.malloc(STRTYPE, count)
+        new_buf = mallocfn(count)
         pinned = 0
         if rgc.can_move(new_buf):
             if rgc.pin(new_buf):
@@ -865,7 +886,7 @@ def make_string_mappings(strtype):
             if llop.shrink_array(lltype.Bool, gc_buf, needed_size):
                 pass     # now 'gc_buf' is smaller
             else:
-                gc_buf = lltype.malloc(STRTYPE, needed_size)
+                gc_buf = mallocfn(needed_size)
                 case_num = 2
         if case_num == 2:
             copy_raw_to_string(raw_buf, gc_buf, 0, needed_size)
@@ -1155,6 +1176,9 @@ class scoped_nonmovingbuffer:
         return self.buf
     def __exit__(self, *args):
         free_nonmovingbuffer(self.data, self.buf, self.pinned, self.is_raw)
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
 
 class scoped_nonmoving_unicodebuffer:
     def __init__(self, data):
@@ -1164,6 +1188,9 @@ class scoped_nonmoving_unicodebuffer:
         return self.buf
     def __exit__(self, *args):
         free_nonmoving_unicodebuffer(self.data, self.buf, self.pinned, self.is_raw)
+    __init__._always_inline_ = 'try'
+    __enter__._always_inline_ = 'try'
+    __exit__._always_inline_ = 'try'
 
 class scoped_alloc_buffer:
     def __init__(self, size):

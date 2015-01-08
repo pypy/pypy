@@ -4,7 +4,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization,\
+     MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -63,6 +64,18 @@ class CachedField(object):
             # cancelling its previous effects with no side effect.
             self._lazy_setfield = None
 
+    def value_updated(self, oldvalue, newvalue, exporting_state):
+        try:
+            fieldvalue = self._cached_fields[oldvalue]
+        except KeyError:
+            pass
+        else:
+            self._cached_fields[newvalue] = fieldvalue
+            if exporting_state:
+                op = self._cached_fields_getfield_op[oldvalue].clone()
+                op.setarg(0, newvalue.box)
+                self._cached_fields_getfield_op[newvalue] = op
+
     def possible_aliasing(self, optheap, structvalue):
         # If lazy_setfield is set and contains a setfield on a different
         # structvalue, then we are annoyed, because it may point to either
@@ -82,10 +95,13 @@ class CachedField(object):
         else:
             return self._cached_fields.get(structvalue, None)
 
-    def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
+    def remember_field_value(self, structvalue, fieldvalue, op=None,
+                             optimizer=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        self._cached_fields_getfield_op[structvalue] = getfield_op
+        if optimizer.exporting_state:
+            op = optimizer.get_op_replacement(op)
+            self._cached_fields_getfield_op[structvalue] = op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -109,7 +125,8 @@ class CachedField(object):
             # field.
             structvalue = optheap.getvalue(op.getarg(0))
             fieldvalue = optheap.getvalue(op.getarglist()[-1])
-            self.remember_field_value(structvalue, fieldvalue, op)
+            self.remember_field_value(structvalue, fieldvalue, op,
+                                      optheap.optimizer)
         elif not can_cache:
             self.clear()
 
@@ -117,19 +134,8 @@ class CachedField(object):
         self._cached_fields.clear()
         self._cached_fields_getfield_op.clear()
 
-    def turned_constant(self, newvalue, value):
-        if newvalue not in self._cached_fields and value in self._cached_fields:
-            self._cached_fields[newvalue] = self._cached_fields[value]
-            op = self._cached_fields_getfield_op[value].clone()
-            constbox = value.box
-            assert isinstance(constbox, Const)
-            op.setarg(0, constbox)
-            self._cached_fields_getfield_op[newvalue] = op
-        for structvalue in self._cached_fields.keys():
-            if self._cached_fields[structvalue] is value:
-                self._cached_fields[structvalue] = newvalue
-
     def produce_potential_short_preamble_ops(self, optimizer, shortboxes, descr):
+        assert optimizer.exporting_state
         if self._lazy_setfield is not None:
             return
         for structvalue in self._cached_fields_getfield_op.keys():
@@ -138,7 +144,7 @@ class CachedField(object):
                 continue
             value = optimizer.getvalue(op.getarg(0))
             if value in optimizer.opaque_pointers:
-                if value.level < LEVEL_KNOWNCLASS:
+                if value.getlevel() < LEVEL_KNOWNCLASS:
                     continue
                 if op.getopnum() != rop.SETFIELD_GC and op.getopnum() != rop.GETFIELD_GC:
                     continue
@@ -185,6 +191,18 @@ class OptHeap(Optimization):
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
         self.postponed_op = None
+
+    def setup(self):
+        self.optimizer.optheap = self
+
+    def value_updated(self, oldvalue, newvalue):
+        # XXXX very unhappy about that
+        for cf in self.cached_fields.itervalues():
+            cf.value_updated(oldvalue, newvalue, self.optimizer.exporting_state)
+        for submap in self.cached_arrayitems.itervalues():
+            for cf in submap.itervalues():
+                cf.value_updated(oldvalue, newvalue,
+                                 self.optimizer.exporting_state)
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
@@ -273,6 +291,7 @@ class OptHeap(Optimization):
             opnum == rop.STRSETITEM or           # no effect on GC struct/array
             opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
             opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
+            opnum == rop.JIT_DEBUG or            # no effect whatsoever
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
@@ -359,16 +378,6 @@ class OptHeap(Optimization):
             # ^^^ we only need to force this field; the other fields
             # of virtualref_info and virtualizable_info are not gcptrs.
 
-    def turned_constant(self, value):
-        assert value.is_constant()
-        newvalue = self.getvalue(value.box)
-        if value is not newvalue:
-            for cf in self.cached_fields.itervalues():
-                cf.turned_constant(newvalue, value)
-            for submap in self.cached_arrayitems.itervalues():
-                for cf in submap.itervalues():
-                    cf.turned_constant(newvalue, value)
-
     def force_lazy_setfield(self, descr, can_cache=True):
         try:
             cf = self.cached_fields[descr]
@@ -382,7 +391,7 @@ class OptHeap(Optimization):
         except KeyError:
             return
         for idx, cf in submap.iteritems():
-            if indexvalue is None or indexvalue.intbound.contains(idx):
+            if indexvalue is None or indexvalue.getintbound().contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
     def _assert_valid_cf(self, cf):
@@ -444,7 +453,7 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
-        cf.remember_field_value(structvalue, fieldvalue, op)
+        cf.remember_field_value(structvalue, fieldvalue, op, self.optimizer)
 
     def optimize_GETFIELD_GC_PURE(self, op):
         structvalue = self.getvalue(op.getarg(0))
@@ -488,7 +497,7 @@ class OptHeap(Optimization):
         # the remember the result of reading the array item
         if cf is not None:
             fieldvalue = self.getvalue(op.result)
-            cf.remember_field_value(arrayvalue, fieldvalue, op)
+            cf.remember_field_value(arrayvalue, fieldvalue, op, self.optimizer)
 
     def optimize_GETARRAYITEM_GC_PURE(self, op):
         arrayvalue = self.getvalue(op.getarg(0))

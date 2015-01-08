@@ -34,6 +34,7 @@ class W_CTypeFunc(W_CTypePtrBase):
                                 could_cast_anything=False)
         self.fargs = fargs
         self.ellipsis = bool(ellipsis)
+        self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
         # fresult is stored in self.ctitem
 
         if not ellipsis:
@@ -41,7 +42,14 @@ class W_CTypeFunc(W_CTypePtrBase):
             # at all.  The cif is computed on every call from the actual
             # types passed in.  For all other functions, the cif_descr
             # is computed here.
-            CifDescrBuilder(fargs, fresult).rawallocate(self)
+            builder = CifDescrBuilder(fargs, fresult)
+            try:
+                builder.rawallocate(self)
+            except OperationError, e:
+                if not e.match(space, space.w_NotImplementedError):
+                    raise
+                # else, eat the NotImplementedError.  We will get the
+                # exception if we see an actual call
 
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space
@@ -178,8 +186,6 @@ def _get_abi(space, name):
 # ____________________________________________________________
 
 
-W_CTypeFunc.cif_descr = lltype.nullptr(CIF_DESCRIPTION)     # default value
-
 BIG_ENDIAN = sys.byteorder == 'big'
 USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
@@ -295,18 +301,18 @@ class CifDescrBuilder(object):
         nflat = 0
         for i, cf in enumerate(ctype.fields_list):
             if cf.is_bitfield():
-                raise OperationError(space.w_NotImplementedError,
-                    space.wrap("cannot pass as argument or return value "
-                               "a struct with bit fields"))
+                raise oefmt(space.w_NotImplementedError,
+                    "ctype '%s' not supported as argument or return value"
+                    " (it is a struct with bit fields)", ctype.name)
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
                 flat *= ct.length
                 ct = ct.ctitem
             if flat <= 0:
-                raise OperationError(space.w_NotImplementedError,
-                    space.wrap("cannot pass as argument or return value "
-                               "a struct with a zero-length array"))
+                raise oefmt(space.w_NotImplementedError,
+                    "ctype '%s' not supported as argument or return value"
+                    " (it is a struct with a zero-length array)", ctype.name)
             nflat += flat
 
         if USE_C_LIBFFI_MSVC and is_result_type:

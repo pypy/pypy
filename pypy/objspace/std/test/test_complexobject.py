@@ -1,7 +1,4 @@
-import py
 from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std import StdObjSpace
 
 EPS = 1e-9
 
@@ -80,7 +77,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""

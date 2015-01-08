@@ -447,19 +447,14 @@ class UsingFrameworkTest(object):
     def define_custom_trace(cls):
         from rpython.rtyper.annlowlevel import llhelper
         #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        S = lltype.GcStruct('S', ('x', llmemory.Address))
         offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
         #
         def setup():
+            rgc.register_custom_trace_hook(S, lambda_customtrace)
             s = lltype.nullptr(S)
             for i in range(10000):
                 t = lltype.malloc(S)
@@ -1156,6 +1151,10 @@ class UsingFrameworkTest(object):
             fd = os.open(filename, open_flags, 0666)
             os.write(fd, s)
             os.close(fd)
+            #
+            a = rgc.get_typeids_list()
+            assert len(a) > 1
+            assert 0 < rffi.cast(lltype.Signed, a[1]) < 10000
             return 0
 
         return fn
@@ -1518,7 +1517,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             i = 0
             j = 0
             k = 0
-            while i < 3000000:
+            while i < 400000:
                 k = (k * 1291 + i) % 4603
                 a = A()
                 if k < 1000:
@@ -1550,11 +1549,12 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                     n += ord(a.foo.bar[0])
                     m += ord(a.foo.bar[1])
             return m - n
+        assert f() == 28495
         return f
 
     def test_random_pin(self):
         res = self.run("random_pin")
-        assert res == 279882
+        assert res == 28495
 
 
 # ____________________________________________________________________

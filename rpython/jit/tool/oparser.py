@@ -61,9 +61,10 @@ class OpParser(object):
 
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
                  invent_fail_descr=default_fail_descr,
-                 nonstrict=False):
+                 nonstrict=False, postproces=None):
         self.input = input
         self.vars = {}
+        self._postproces = postproces
         self.cpu = cpu
         self._consts = namespace
         self.type_system = type_system
@@ -237,8 +238,6 @@ class OpParser(object):
                     fail_args.append(fail_arg)
             if descr is None and self.invent_fail_descr:
                 descr = self.invent_fail_descr(self.model, opnum, fail_args)
-            if hasattr(descr, '_oparser_uses_descr_of_guard'):
-                descr._oparser_uses_descr_of_guard(self, fail_args)
         else:
             fail_args = None
             if opnum == rop.FINISH:
@@ -250,7 +249,7 @@ class OpParser(object):
 
         return opnum, args, descr, fail_args
 
-    def create_op(self, opnum, args, result, descr):
+    def create_op(self, opnum, args, result, descr, fail_args):
         if opnum == ESCAPE_OP.OPNUM:
             op = ESCAPE_OP(result)
             op.initarglist(args)
@@ -262,7 +261,12 @@ class OpParser(object):
             assert descr is None
             return op
         else:
-            return ResOperation(opnum, args, result, descr)
+            res = ResOperation(opnum, args, result, descr)
+            if fail_args is not None:
+                res.setfailargs(fail_args)
+            if self._postproces:
+                self._postproces(res)
+            return res
 
     def parse_result_op(self, line):
         res, op = line.split("=", 1)
@@ -273,16 +277,12 @@ class OpParser(object):
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         rvar = self.box_for_var(res)
         self.vars[res] = rvar
-        res = self.create_op(opnum, args, rvar, descr)
-        if fail_args is not None:
-            res.setfailargs(fail_args)
+        res = self.create_op(opnum, args, rvar, descr, fail_args)
         return res
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
-        res = self.create_op(opnum, args, None, descr)
-        if fail_args is not None:
-            res.setfailargs(fail_args)
+        res = self.create_op(opnum, args, None, descr, fail_args)
         return res
 
     def parse_next_op(self, line):
@@ -298,8 +298,9 @@ class OpParser(object):
         first_comment = None
         for line in lines:
             # for simplicity comments are not allowed on
-            # debug_merge_point lines
-            if '#' in line and 'debug_merge_point(' not in line:
+            # debug_merge_point or jit_debug lines
+            if '#' in line and ('debug_merge_point(' not in line and
+                                'jit_debug(' not in line):
                 if line.lstrip()[0] == '#': # comment only
                     if first_comment is None:
                         first_comment = line
@@ -376,11 +377,12 @@ class OpParser(object):
 
 def parse(input, cpu=None, namespace=None, type_system='lltype',
           boxkinds=None, invent_fail_descr=default_fail_descr,
-          no_namespace=False, nonstrict=False, OpParser=OpParser):
+          no_namespace=False, nonstrict=False, OpParser=OpParser,
+          postprocess=None):
     if namespace is None and not no_namespace:
         namespace = {}
     return OpParser(input, cpu, namespace, type_system, boxkinds,
-                    invent_fail_descr, nonstrict).parse()
+                    invent_fail_descr, nonstrict, postprocess).parse()
 
 def pure_parse(*args, **kwds):
     kwds['invent_fail_descr'] = None

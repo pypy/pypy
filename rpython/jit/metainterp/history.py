@@ -134,14 +134,6 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def _clone_if_mutable(self):
-        return self
-    def clone_if_mutable(self):
-        clone = self._clone_if_mutable()
-        if not we_are_translated():
-            assert clone.__class__ is self.__class__
-        return clone
-
     def hide(self, cpu):
         descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(descr_ptr)
@@ -158,6 +150,8 @@ class AbstractDescr(AbstractValue):
 class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
+
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token')
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
@@ -279,7 +273,8 @@ class ConstFloat(Const):
             # careful in this comparison: if self.value and other.value
             # are both NaN, stored as regular floats (i.e. on 64-bit),
             # then just using "==" would say False: two NaNs are always
-            # different from each other.
+            # different from each other.  Conversely, "0.0 == -0.0" but
+            # they are not the same constant.
             return (longlong.extract_bits(self.value) ==
                     longlong.extract_bits(other.value))
         return False
@@ -616,7 +611,6 @@ class TargetToken(AbstractDescr):
         self.original_jitcell_token = None
 
         self.virtual_state = None
-        self.exported_state = None
         self.short_preamble = None
 
     def repr_of_descr(self):

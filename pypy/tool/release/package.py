@@ -160,9 +160,9 @@ def create_package(basedir, options):
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
-    libpypy_c = basedir.join('pypy', 'goal', 'libpypy-c.so')
+    libpypy_c = pypy_c.new(basename='libpypy-c.so')
     if libpypy_c.check():
-        binaries.append('libpypy-c.so')
+        binaries.append((libpypy_c, 'libpypy-c.so'))
     #
     builddir = options.builddir
     pypydir = builddir.ensure(name, dir=True)

@@ -167,6 +167,7 @@ def _inflateInit2(stream, wbits):
 
 _deflateSetDictionary = zlib_external('deflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
 _inflateSetDictionary = zlib_external('inflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
+_zlibVersion = zlib_external('zlibVersion', [], rffi.CCHARP)
 
 # ____________________________________________________________
 
@@ -185,16 +186,14 @@ def crc32(string, start=CRC32_DEFAULT_START):
 ADLER32_DEFAULT_START = 1
 
 def deflateSetDictionary(stream, string):
-    bytes = rffi.get_nonmovingbuffer(string)
-    err = _deflateSetDictionary(stream, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_nonmovingbuffer(string, bytes)
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _deflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
     if err == Z_STREAM_ERROR:
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
 
 def inflateSetDictionary(stream, string):
-    bytes = rffi.get_nonmovingbuffer(string)
-    err = _inflateSetDictionary(stream, rffi.cast(Bytefp, bytes), len(string))
-    rffi.free_nonmovingbuffer(string, bytes)
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _inflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
     if err == Z_STREAM_ERROR:
         raise RZlibError("Parameter is invalid or the stream state is inconsistent")
     elif err == Z_DATA_ERROR:
@@ -209,6 +208,10 @@ def adler32(string, start=ADLER32_DEFAULT_START):
     with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
     return checksum
+
+def zlibVersion():
+    """Return the runtime version of zlib library"""
+    return rffi.charp2str(_zlibVersion())
 
 # ____________________________________________________________
 

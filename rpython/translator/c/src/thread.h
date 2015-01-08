@@ -26,9 +26,9 @@ typedef enum RPyLockStatus {
 
 #endif /* !_WIN32 */
 
-RPY_EXPORTED_FOR_TESTS void RPyGilAllocate(void);
-RPY_EXPORTED_FOR_TESTS long RPyGilYieldThread(void);
-RPY_EXPORTED_FOR_TESTS void RPyGilAcquire(void);
+RPY_EXTERN void RPyGilAllocate(void);
+RPY_EXTERN long RPyGilYieldThread(void);
+RPY_EXTERN void RPyGilAcquire(void);
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
 
@@ -38,7 +38,7 @@ RPY_EXPORTED_FOR_TESTS void RPyGilAcquire(void);
 # define RPY_FASTGIL_LOCKED(x)   (x != 0)
 #endif
 
-extern long rpy_fastgil;
+RPY_EXTERN long rpy_fastgil;
 
 static inline void _RPyGilRelease(void) {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
