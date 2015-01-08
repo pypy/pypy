@@ -289,7 +289,7 @@ class W_ReversedIterator(W_Root):
                 space.newtuple([])])
 
     def descr___setstate__(self, space, w_state):
-        self.remaining = space.int_w(wstate)
+        self.remaining = space.int_w(w_state)
         n = space.len_w(self.w_sequence)
         if self.remaining < -1:
             self.remaining = -1
