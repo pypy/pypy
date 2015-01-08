@@ -510,6 +510,7 @@ class AppTestRange:
 
 class AppTestReversed:
     def test_reversed(self):
+        assert isinstance(reversed, type)
         r = reversed("hello")
         assert iter(r) is r
         assert r.__next__() == "o"

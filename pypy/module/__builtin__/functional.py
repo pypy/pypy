@@ -203,6 +203,7 @@ class W_Enumerate(W_Root):
         self.w_iter = w_iter
         self.w_index = w_start
 
+    @staticmethod
     def descr___new__(space, w_subtype, w_iterable, w_start=None):
         self = space.allocate_instance(W_Enumerate, w_subtype)
         if w_start is None:
@@ -222,41 +223,36 @@ class W_Enumerate(W_Root):
         return space.newtuple([w_index, w_item])
 
     def descr___reduce__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
-        w_new_inst = mod.get('enumerate_new')
-        w_info = space.newtuple([self.w_iter, self.w_index])
-        return space.newtuple([w_new_inst, w_info])
-
-# exported through _pickle_support
-def _make_enumerate(space, w_iter, w_index):
-    return space.wrap(W_Enumerate(w_iter, w_index))
+        return space.newtuple([space.type(self),
+                               space.newtuple([self.w_iter, self.w_index])])
 
 W_Enumerate.typedef = TypeDef("enumerate",
-    __new__=interp2app(W_Enumerate.descr___new__.im_func),
+    __new__=interp2app(W_Enumerate.descr___new__),
     __iter__=interp2app(W_Enumerate.descr___iter__),
     __next__=interp2app(W_Enumerate.descr_next),
     __reduce__=interp2app(W_Enumerate.descr___reduce__),
 )
 
 
-def reversed(space, w_sequence):
-    """Return a iterator that yields items of sequence in reverse."""
-    w_reversed_descr = space.lookup(w_sequence, "__reversed__")
-    if w_reversed_descr is not None:
-        w_reversed = space.get(w_reversed_descr, w_sequence)
-        return space.call_function(w_reversed)
-    return space.wrap(W_ReversedIterator(space, w_sequence))
-
-
 class W_ReversedIterator(W_Root):
+    """reverse iterator over values of the sequence."""
+
     def __init__(self, space, w_sequence):
         self.remaining = space.len_w(w_sequence) - 1
         if space.lookup(w_sequence, "__getitem__") is None:
             msg = "reversed() argument must be a sequence"
             raise OperationError(space.w_TypeError, space.wrap(msg))
         self.w_sequence = w_sequence
+
+    @staticmethod
+    def descr___new__(space, w_subtype, w_sequence):
+        w_reversed_descr = space.lookup(w_sequence, "__reversed__")
+        if w_reversed_descr is not None:
+            w_reversed = space.get(w_reversed_descr, w_sequence)
+            return space.call_function(w_reversed)
+        self = space.allocate_instance(W_ReversedIterator, w_subtype)
+        self.__init__(space, w_sequence)
+        return space.wrap(self)
 
     def descr___iter__(self, space):
         return space.wrap(self)
@@ -281,30 +277,33 @@ class W_ReversedIterator(W_Root):
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr___reduce__(self, space):
-        from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('_pickle_support')
-        mod      = space.interp_w(MixedModule, w_mod)
-        w_new_inst = mod.get('reversed_new')
-        info_w = [self.w_sequence, space.wrap(self.remaining)]
-        w_info = space.newtuple(info_w)
-        return space.newtuple([w_new_inst, w_info])
+        if self.w_sequence:
+            w_state = space.wrap(self.remaining)
+            return space.newtuple([
+                space.type(self),
+                space.newtuple([self.w_sequence]),
+                w_state])
+        else:
+            return space.newtuple([
+                space.type(self),
+                space.newtuple([])])
+
+    def descr___setstate__(self, space, w_state):
+        self.remaining = space.int_w(wstate)
+        n = space.len_w(self.w_sequence)
+        if self.remaining < -1:
+            self.remaining = -1
+        elif self.remaining > n - 1:
+            self.remaining = n - 1
 
 W_ReversedIterator.typedef = TypeDef("reversed",
+    __new__         = interp2app(W_ReversedIterator.descr___new__),
     __iter__        = interp2app(W_ReversedIterator.descr___iter__),
     __length_hint__ = interp2app(W_ReversedIterator.descr_length),
     __next__        = interp2app(W_ReversedIterator.descr_next),
     __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
+    __setstate__      = interp2app(W_ReversedIterator.descr___setstate__),
 )
-W_ReversedIterator.typedef.acceptable_as_base_class = False
-
-# exported through _pickle_support
-def _make_reversed(space, w_seq, w_remaining):
-    w_type = space.gettypeobject(W_ReversedIterator.typedef)
-    iterator = space.allocate_instance(W_ReversedIterator, w_type)
-    iterator.w_sequence = w_seq
-    iterator.remaining = space.int_w(w_remaining)
-    return space.wrap(iterator)
-
 
 
 class W_Range(W_Root):
