@@ -1306,6 +1306,12 @@ class FunctionWriter(object):
         self.w('{t2.V} = icmp slt {b.TV}, {c.V}'.format(**locals()))
         self.w('{result.V} = and i1 {t1.V}, {t2.V}'.format(**locals()))
 
+    def op_int_force_ge_zero(self, result, var):
+        isneg = self._tmp()
+        self.w('{isneg.V} = icmp slt {var.TV}, 0'.format(**locals()))
+        self.w('{result.V} = select i1 {isneg.V}, {var.T} 0, {var.TV}'
+                .format(**locals()))
+
     def op_ptr_iszero(self, result, var):
         self.w('{result.V} = icmp eq {var.TV}, null'.format(**locals()))
 
