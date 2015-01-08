@@ -245,7 +245,7 @@ class W_ReversedIterator(W_Root):
         self.w_sequence = w_sequence
 
     @staticmethod
-    def descr___new__(space, w_subtype, w_sequence):
+    def descr___new__2(space, w_subtype, w_sequence):
         w_reversed_descr = space.lookup(w_sequence, "__reversed__")
         if w_reversed_descr is not None:
             w_reversed = space.get(w_reversed_descr, w_sequence)
@@ -297,7 +297,7 @@ class W_ReversedIterator(W_Root):
             self.remaining = n - 1
 
 W_ReversedIterator.typedef = TypeDef("reversed",
-    __new__         = interp2app(W_ReversedIterator.descr___new__),
+    __new__         = interp2app(W_ReversedIterator.descr___new__2),
     __iter__        = interp2app(W_ReversedIterator.descr___iter__),
     __length_hint__ = interp2app(W_ReversedIterator.descr_length),
     __next__        = interp2app(W_ReversedIterator.descr_next),
