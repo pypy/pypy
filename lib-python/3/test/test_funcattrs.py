@@ -121,7 +121,8 @@ class FunctionPropertiesTest(FuncAttrsTest):
         self.b.__qualname__ = 'd'
         self.assertEqual(self.b.__qualname__, 'd')
         # __qualname__ must be a string
-        self.cannot_set_attr(self.b, '__qualname__', 7, TypeError)
+        self.cannot_set_attr(self.b, '__qualname__', 7,
+                             (TypeError, AttributeError))
 
     def test___code__(self):
         num_one, num_two = 7, 8

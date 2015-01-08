@@ -1,7 +1,8 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import oefmt, OperationError
-from pypy.interpreter.function import Function, StaticMethod
+from pypy.interpreter.function import (
+    Function, StaticMethod, FunctionWithFixedCode)
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict, dict_descr, Member, TypeDef
 from pypy.interpreter.astcompiler.misc import mangle
@@ -1263,8 +1264,17 @@ class TypeCache(SpaceCache):
             overridetypedef = typedef
         w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
                               overridetypedef=overridetypedef)
+
         if typedef is not overridetypedef:
             w_type.w_doc = space.wrap(typedef.doc)
+        else:
+            # Set the __qualname__ of member functions
+            for name in rawdict:
+                w_obj = dict_w[name]
+                if isinstance(w_obj, FunctionWithFixedCode):
+                    qualname = w_type.getqualname(space) + '.' + name
+                    w_obj.fset_func_qualname(space, space.wrap(qualname))
+                
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
         w_type.lazyloaders = lazyloaders

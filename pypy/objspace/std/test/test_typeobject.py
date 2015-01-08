@@ -395,6 +395,9 @@ class AppTestTypeObject:
         class D(B, C):    # assert does not raise TypeError
             pass
 
+    def test_method_qualname(self):
+        assert dict.copy.__qualname__ == 'dict.copy'
+
     def test_builtin_add(self):
         x = 5
         assert x.__add__(6) == 11
