@@ -90,6 +90,7 @@ class W_TypeObject(W_Root):
                  overridetypedef=None):
         w_self.space = space
         w_self.name = name
+        w_self.qualname = None
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.nslots = 0
@@ -492,6 +493,9 @@ class W_TypeObject(W_Root):
                 result = self.name
         return result.decode('utf-8')
 
+    def getqualname(self, space):
+        return self.qualname or self.getname(space)
+
     def add_subclass(w_self, w_subclass):
         space = w_self.space
         if not space.config.translation.rweakref:
@@ -580,7 +584,7 @@ class W_TypeObject(W_Root):
         else:
             mod = space.unicode_w(w_mod)
         if mod is not None and mod != u'builtins':
-            return space.wrap(u"<class '%s.%s'>" % (mod, self.getname(space)))
+            return space.wrap(u"<class '%s.%s'>" % (mod, self.getqualname(space)))
         else:
             return space.wrap(u"<class '%s'>" % (self.name.decode('utf-8')))
 
@@ -688,6 +692,16 @@ def descr_set__name__(space, w_type, w_value):
     if '\x00' in name:
         raise oefmt(space.w_ValueError, "__name__ must not contain null bytes")
     w_type.name = name
+
+def descr_get__qualname__(space, w_type):
+    w_type = _check(space, w_type)
+    return space.wrap(w_type.getqualname(space))
+
+def descr_set__qualname__(space, w_type, w_value):
+    w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError, "can't set %N.__qualname__", w_type)
+    w_type.qualname = space.unicode_w(w_value)
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
@@ -858,6 +872,7 @@ def type_isinstance(w_obj, space, w_inst):
 W_TypeObject.typedef = TypeDef("type",
     __new__ = gateway.interp2app(descr__new__),
     __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
+    __qualname__ = GetSetProperty(descr_get__qualname__, descr_set__qualname__),
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
