@@ -1649,15 +1649,9 @@ def extfunc(name, args, result, compilation_info):
     return lltype.functionptr(func_type, name, external='C', calling_conv='c',
                               compilation_info=compilation_info)
 
-c_dir = local(cdir)
-eci = ExternalCompilationInfo(
-        include_dirs=[cdir, c_dir / '..' / 'llvm'],
-        includes=['src/allocator.h'],
-        separate_module_files=[c_dir / 'src' / 'allocator.c'])
-raw_malloc = extfunc('PyObject_Malloc', [lltype.Signed], llmemory.Address, eci)
-raw_free = extfunc('PyObject_Free', [llmemory.Address], lltype.Void, eci)
-
 eci = ExternalCompilationInfo()
+raw_malloc = extfunc('malloc', [lltype.Signed], llmemory.Address, eci)
+raw_free = extfunc('free', [llmemory.Address], lltype.Void, eci)
 llvm_memcpy = extfunc('llvm.memcpy.p0i8.p0i8.i' + str(LLVMSigned.bitwidth),
                       [llmemory.Address, llmemory.Address, lltype.Signed,
                        rffi.INT, lltype.Bool], lltype.Void, eci)
