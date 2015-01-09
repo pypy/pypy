@@ -2056,21 +2056,28 @@ def test_getlasterror_working_even_with_pypys_jit():
             assert ffi.getwinerror()[0] == n
 
 def test_verify_dlopen_flags():
+    # Careful with RTLD_GLOBAL.  If by chance the FFI is not deleted
+    # promptly, like on PyPy, then other tests may see the same
+    # exported symbols as well.  So we must not export a simple name
+    # like 'foo'!
     ffi1 = FFI()
-    ffi1.cdef("int foo;")
+    ffi1.cdef("int foo_verify_dlopen_flags;")
 
-    lib1 = ffi1.verify("int foo;", flags=ffi1.RTLD_GLOBAL | ffi1.RTLD_LAZY)
+    lib1 = ffi1.verify("int foo_verify_dlopen_flags;",
+                       flags=ffi1.RTLD_GLOBAL | ffi1.RTLD_LAZY)
     lib2 = get_second_lib()
 
-    lib1.foo = 42
-
-    assert lib2.foo == 42
+    lib1.foo_verify_dlopen_flags = 42
+    assert lib2.foo_verify_dlopen_flags == 42
+    lib2.foo_verify_dlopen_flags += 1
+    assert lib1.foo_verify_dlopen_flags == 43
 
 def get_second_lib():
     # Hack, using modulename makes the test fail
     ffi2 = FFI()
-    ffi2.cdef("int foo;")
-    lib2 = ffi2.verify("int foo;", flags=ffi2.RTLD_GLOBAL | ffi2.RTLD_LAZY)
+    ffi2.cdef("int foo_verify_dlopen_flags;")
+    lib2 = ffi2.verify("int foo_verify_dlopen_flags;",
+                       flags=ffi2.RTLD_GLOBAL | ffi2.RTLD_LAZY)
     return lib2
 
 def test_consider_not_implemented_function_type():
