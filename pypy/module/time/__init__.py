@@ -39,5 +39,4 @@ class Module(MixedModule):
         from pypy.module.time import interp_time
 
         interp_time._init_timezone(space)
-        interp_time._init_accept2dyear(space)
 

@@ -5,7 +5,6 @@ class AppTestTime:
 
     def test_attributes(self):
         import time
-        assert isinstance(time.accept2dyear, int)
         assert isinstance(time.altzone, int)
         assert isinstance(time.daylight, int)
         assert isinstance(time.timezone, int)
@@ -102,21 +101,11 @@ class AppTestTime:
         assert isinstance(res, float)
 
         ltime = time.localtime()
-        time.accept2dyear == 0
         ltime = list(ltime)
         ltime[0] = -1
-        raises(ValueError, time.mktime, tuple(ltime))
-        time.accept2dyear == 1
-
-        ltime = list(ltime)
-        ltime[0] = 67
-        ltime = tuple(ltime)
-        if os.name != "nt" and sys.maxsize < 1<<32:   # time_t may be 64bit
-            raises(OverflowError, time.mktime, ltime)
-
-        ltime = list(ltime)
+        time.mktime(tuple(ltime))  # Does not crash anymore
         ltime[0] = 100
-        raises(ValueError, time.mktime, tuple(ltime))
+        time.mktime(tuple(ltime))  # Does not crash anymore
 
         t = time.time()
         assert int(time.mktime(time.localtime(t))) == int(t)
@@ -168,28 +157,6 @@ class AppTestTime:
         asc = time.asctime((bigyear, 6, 1) + (0,)*6)
         assert asc[-len(str(bigyear)):] == str(bigyear)
         raises(OverflowError, time.asctime, (bigyear + 1,) + (0,)*8)
-
-    def test_accept2dyear_access(self):
-        import time
-
-        accept2dyear = time.accept2dyear
-        del time.accept2dyear
-        try:
-            # with year >= 1900 this shouldn't need to access accept2dyear
-            assert time.asctime((2000,) + (0,) * 8).split()[-1] == '2000'
-        finally:
-            time.accept2dyear = accept2dyear
-
-    def test_accept2dyear_bad(self):
-        import time
-        class X:
-            def __bool__(self):
-                raise RuntimeError('boo')
-        orig, time.accept2dyear = time.accept2dyear, X()
-        try:
-            raises(RuntimeError, time.asctime, (200,)  + (0,) * 8)
-        finally:
-            time.accept2dyear = orig
 
     def test_struct_time(self):
         import time
@@ -281,7 +248,7 @@ class AppTestTime:
         raises(TypeError, time.strftime, ())
         raises(TypeError, time.strftime, (1,))
         raises(TypeError, time.strftime, range(8))
-        exp = '2000 01 01 00 00 00 1 001'
+        exp = '0 01 01 00 00 00 1 001'
         assert time.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
 
         # Guard against invalid/non-supported format string
@@ -314,9 +281,6 @@ class AppTestTime:
         # of the time tuple.
 
         # check year
-        if time.accept2dyear:
-            raises(ValueError, time.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
-            raises(ValueError, time.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
         time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
         time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 
