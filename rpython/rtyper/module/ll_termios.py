@@ -50,33 +50,10 @@ TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_
 def c_external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci)
 
-c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)
-c_cfgetospeed = c_external('cfgetospeed', [TERMIOSP], SPEED_T)
 c_tcsendbreak = c_external('tcsendbreak', [INT, INT], INT)
 c_tcdrain = c_external('tcdrain', [INT], INT)
 c_tcflush = c_external('tcflush', [INT, INT], INT)
 c_tcflow = c_external('tcflow', [INT, INT], INT)
-
-c_tcgetattr = c_external('tcgetattr', [INT, TERMIOSP], INT)
-
-def tcgetattr_llimpl(fd):
-    c_struct = lltype.malloc(TERMIOSP.TO, flavor='raw')
-
-    try:
-        if c_tcgetattr(fd, c_struct) < 0:
-            raise OSError(rposix.get_errno(), 'tcgetattr failed')
-        cc = [chr(c_struct.c_c_cc[i]) for i in range(NCCS)]
-        ispeed = c_cfgetispeed(c_struct)
-        ospeed = c_cfgetospeed(c_struct)
-        result = (intmask(c_struct.c_c_iflag), intmask(c_struct.c_c_oflag),
-                  intmask(c_struct.c_c_cflag), intmask(c_struct.c_c_lflag),
-                  intmask(ispeed), intmask(ospeed), cc)
-        return result
-    finally:
-        lltype.free(c_struct, flavor='raw')
-
-register_external(rtermios.tcgetattr, [int], (int, int, int, int, int, int, [str]),
-                   llimpl=tcgetattr_llimpl, export_name='termios.tcgetattr')
 
 # a bit C-c C-v code follows...
 

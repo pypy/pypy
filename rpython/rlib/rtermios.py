@@ -8,6 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from rpython.rlib import rposix
+from rpython.rlib.rarithmetic import intmask
 
 eci = ExternalCompilationInfo(
     includes = ['termios.h', 'unistd.h']
@@ -43,27 +44,25 @@ TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_
 def c_external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci)
 
+c_tcgetattr = c_external('tcgetattr', [rffi.INT, TERMIOSP], rffi.INT)
 c_tcsetattr = c_external('tcsetattr', [rffi.INT, rffi.INT, TERMIOSP], rffi.INT)
+c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)
+c_cfgetospeed = c_external('cfgetospeed', [TERMIOSP], SPEED_T)
 c_cfsetispeed = c_external('cfsetispeed', [TERMIOSP, SPEED_T], rffi.INT)
 c_cfsetospeed = c_external('cfsetospeed', [TERMIOSP, SPEED_T], rffi.INT)
 
 
 def tcgetattr(fd):
-    # NOT_RPYTHON
-    import termios
-    try:
-        lst = list(termios.tcgetattr(fd))
-    except termios.error, e:
-        raise OSError(*e.args)
-    cc = lst[-1]
-    next_cc = []
-    for c in cc:
-        if isinstance(c, int):
-            next_cc.append(chr(c))
-        else:
-            next_cc.append(c)
-    lst[-1] = next_cc
-    return tuple(lst)
+    with lltype.scoped_alloc(TERMIOSP.TO) as c_struct:
+        if c_tcgetattr(fd, c_struct) < 0:
+            raise OSError(rposix.get_errno(), 'tcgetattr failed')
+        cc = [chr(c_struct.c_c_cc[i]) for i in range(NCCS)]
+        ispeed = c_cfgetispeed(c_struct)
+        ospeed = c_cfgetospeed(c_struct)
+        result = (intmask(c_struct.c_c_iflag), intmask(c_struct.c_c_oflag),
+                  intmask(c_struct.c_c_cflag), intmask(c_struct.c_c_lflag),
+                  intmask(ispeed), intmask(ospeed), cc)
+        return result
 
 
 # This function is not an exact replacement of termios.tcsetattr:
