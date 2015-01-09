@@ -17,15 +17,23 @@ eci = ExternalCompilationInfo(
 class CConfig:
     _compilation_info_ = eci
     NCCS = rffi_platform.DefinedConstantInteger('NCCS')
-    TCSANOW = rffi_platform.ConstantInteger('TCSANOW')
     _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
             '_HAVE_STRUCT_TERMIOS_C_ISPEED')
     _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
             '_HAVE_STRUCT_TERMIOS_C_OSPEED')
 
+    TCSANOW = rffi_platform.ConstantInteger('TCSANOW')
+    TCIOFLUSH = rffi_platform.ConstantInteger('TCIOFLUSH')
+    TCOON = rffi_platform.ConstantInteger('TCOON')
+
+
+
 c_config = rffi_platform.configure(CConfig)
 NCCS = c_config['NCCS']
+
 TCSANOW = c_config['TCSANOW']
+TCIOFLUSH = c_config['TCIOFLUSH']
+TCOON = c_config['TCOON']
 
 TCFLAG_T = rffi.UINT
 CC_T = rffi.UCHAR
@@ -50,6 +58,11 @@ c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)
 c_cfgetospeed = c_external('cfgetospeed', [TERMIOSP], SPEED_T)
 c_cfsetispeed = c_external('cfsetispeed', [TERMIOSP, SPEED_T], rffi.INT)
 c_cfsetospeed = c_external('cfsetospeed', [TERMIOSP, SPEED_T], rffi.INT)
+
+c_tcsendbreak = c_external('tcsendbreak', [rffi.INT, rffi.INT], rffi.INT)
+c_tcdrain = c_external('tcdrain', [rffi.INT], rffi.INT)
+c_tcflush = c_external('tcflush', [rffi.INT, rffi.INT], rffi.INT)
+c_tcflow = c_external('tcflow', [rffi.INT, rffi.INT], rffi.INT)
 
 
 def tcgetattr(fd):
@@ -84,3 +97,19 @@ def tcsetattr(fd, when, attributes):
             raise OSError(rposix.get_errno(), 'tcsetattr failed')
         if c_tcsetattr(fd, when, c_struct) < 0:
             raise OSError(rposix.get_errno(), 'tcsetattr failed')
+
+def tcsendbreak(fd, duration):
+    if c_tcsendbreak(fd, duration) < 0:
+        raise OSError(rposix.get_errno(), 'tcsendbreak failed')
+
+def tcdrain(fd):
+    if c_tcdrain(fd) < 0:
+        raise OSError(rposix.get_errno(), 'tcdrain failed')
+
+def tcflush(fd, queue_selector):
+    if c_tcflush(fd, queue_selector) < 0:
+        raise OSError(rposix.get_errno(), 'tcflush failed')
+
+def tcflow(fd, action):
+    if c_tcflow(fd, action) < 0:
+        raise OSError(rposix.get_errno(), 'tcflow failed')
