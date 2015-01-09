@@ -289,3 +289,14 @@ def test__is_constant_globalvar():
         decl = ast.children()[0][1]
         node = decl.type
         assert p._is_constant_globalvar(node) == expected_output
+
+def test_enum():
+    ffi = FFI()
+    ffi.cdef("""
+        enum Enum { POS = +1, TWO = 2, NIL = 0, NEG = -1};
+        """)
+    C = ffi.dlopen(None)
+    assert C.POS == 1
+    assert C.TWO == 2
+    assert C.NIL == 0
+    assert C.NEG == -1

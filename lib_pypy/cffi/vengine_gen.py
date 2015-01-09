@@ -58,12 +58,12 @@ class VGenericEngine(object):
             modname = self.verifier.get_module_name()
             prnt("void %s%s(void) { }\n" % (prefix, modname))
 
-    def load_library(self):
+    def load_library(self, flags=0):
         # import it with the CFFI backend
         backend = self.ffi._backend
         # needs to make a path that contains '/', on Posix
         filename = os.path.join(os.curdir, self.verifier.modulefilename)
-        module = backend.load_library(filename)
+        module = backend.load_library(filename, flags)
         #
         # call loading_gen_struct() to get the struct layout inferred by
         # the C compiler
@@ -235,6 +235,7 @@ class VGenericEngine(object):
         prnt('static void %s(%s *p)' % (checkfuncname, cname))
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
+        prnt('  (void)p;')
         for fname, ftype, fbitsize in tp.enumfields():
             if (isinstance(ftype, model.PrimitiveType)
                 and ftype.is_integer_type()) or fbitsize >= 0:
@@ -427,14 +428,14 @@ class VGenericEngine(object):
         prnt('int %s(char *out_error)' % funcname)
         prnt('{')
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
-            if enumvalue < 0:
-                prnt('  if ((%s) >= 0 || (long)(%s) != %dL) {' % (
+            if enumvalue <= 0:
+                prnt('  if ((%s) > 0 || (long)(%s) != %dL) {' % (
                     enumerator, enumerator, enumvalue))
             else:
-                prnt('  if ((%s) < 0 || (unsigned long)(%s) != %dUL) {' % (
+                prnt('  if ((%s) <= 0 || (unsigned long)(%s) != %dUL) {' % (
                     enumerator, enumerator, enumvalue))
             prnt('    char buf[64];')
-            prnt('    if ((%s) < 0)' % enumerator)
+            prnt('    if ((%s) <= 0)' % enumerator)
             prnt('        sprintf(buf, "%%ld", (long)(%s));' % enumerator)
             prnt('    else')
             prnt('        sprintf(buf, "%%lu", (unsigned long)(%s));' %
@@ -565,6 +566,24 @@ cffimod_header = r'''
    typedef unsigned __int16 uint16_t;
    typedef unsigned __int32 uint32_t;
    typedef unsigned __int64 uint64_t;
+   typedef __int8 int_least8_t;
+   typedef __int16 int_least16_t;
+   typedef __int32 int_least32_t;
+   typedef __int64 int_least64_t;
+   typedef unsigned __int8 uint_least8_t;
+   typedef unsigned __int16 uint_least16_t;
+   typedef unsigned __int32 uint_least32_t;
+   typedef unsigned __int64 uint_least64_t;
+   typedef __int8 int_fast8_t;
+   typedef __int16 int_fast16_t;
+   typedef __int32 int_fast32_t;
+   typedef __int64 int_fast64_t;
+   typedef unsigned __int8 uint_fast8_t;
+   typedef unsigned __int16 uint_fast16_t;
+   typedef unsigned __int32 uint_fast32_t;
+   typedef unsigned __int64 uint_fast64_t;
+   typedef __int64 intmax_t;
+   typedef unsigned __int64 uintmax_t;
 # else
 #  include <stdint.h>
 # endif
