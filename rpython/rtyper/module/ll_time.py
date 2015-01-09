@@ -47,6 +47,8 @@ class CConfig:
 
 if sys.platform.startswith('freebsd') or sys.platform.startswith('netbsd'):
     libraries = ['compat']
+elif sys.platform == 'linux2':
+    libraries = ['rt']
 else:
     libraries = []
 
@@ -58,7 +60,15 @@ class CConfigForFTime:
     TIMEB = platform.Struct(STRUCT_TIMEB, [('time', rffi.INT),
                                            ('millitm', rffi.INT)])
 
-constant_names = ['RUSAGE_SELF', 'EINTR']
+class CConfigForClockGetTime:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['time.h'],
+        libraries=libraries
+    )
+    TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.LONG),
+                                                   ('tv_nsec', rffi.LONG)])
+
+constant_names = ['RUSAGE_SELF', 'EINTR', 'CLOCK_PROCESS_CPUTIME_ID']
 for const in constant_names:
     setattr(CConfig, const, platform.DefinedConstantInteger(const))
 defs_names = ['GETTIMEOFDAY_NO_TZ']
@@ -162,6 +172,21 @@ class RegisterTime(BaseLazyRegistering):
                 diff = a[0] - state.counter_start
                 lltype.free(a, flavor='raw')
                 return float(diff) / state.divisor
+        elif self.CLOCK_PROCESS_CPUTIME_ID is not None:
+            # Linux and other POSIX systems with clock_gettime()
+            self.configure(CConfigForClockGetTime)
+            TIMESPEC = self.TIMESPEC
+            CLOCK_PROCESS_CPUTIME_ID = self.CLOCK_PROCESS_CPUTIME_ID
+            c_clock_gettime = self.llexternal('clock_gettime',
+                [lltype.Signed, lltype.Ptr(TIMESPEC)],
+                rffi.INT, releasegil=False)
+            def time_clock_llimpl():
+                a = lltype.malloc(TIMESPEC, flavor='raw')
+                c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)
+                result = (float(rffi.getintfield(a, 'c_tv_sec')) +
+                          float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
+                lltype.free(a, flavor='raw')
+                return result
         else:
             RUSAGE = self.RUSAGE
             RUSAGE_SELF = self.RUSAGE_SELF or 0
