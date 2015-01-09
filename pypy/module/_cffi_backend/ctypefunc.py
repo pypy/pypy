@@ -27,6 +27,8 @@ class W_CTypeFunc(W_CTypePtrBase):
     _immutable_fields_ = ['fargs[*]', 'ellipsis', 'cif_descr']
     kind = "function"
 
+    cif_descr = lltype.nullptr(CIF_DESCRIPTION)
+
     def __init__(self, space, fargs, fresult, ellipsis):
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
         size = rffi.sizeof(rffi.VOIDP)
@@ -34,7 +36,6 @@ class W_CTypeFunc(W_CTypePtrBase):
                                 could_cast_anything=False)
         self.fargs = fargs
         self.ellipsis = bool(ellipsis)
-        self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
         # fresult is stored in self.ctitem
 
         if not ellipsis:
@@ -50,6 +51,9 @@ class W_CTypeFunc(W_CTypePtrBase):
                     raise
                 # else, eat the NotImplementedError.  We will get the
                 # exception if we see an actual call
+                if self.cif_descr:   # should not be True, but you never know
+                    lltype.free(self.cif_descr, flavor='raw')
+                    self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space
@@ -65,10 +69,12 @@ class W_CTypeFunc(W_CTypePtrBase):
                             "argument %d passed in the variadic part needs to "
                             "be a cdata object (got %T)", i + 1, w_obj)
             fvarargs[i] = ct
+        # xxx call instantiate() directly.  It's a bit of a hack.
         ctypefunc = instantiate(W_CTypeFunc)
         ctypefunc.space = space
         ctypefunc.fargs = fvarargs
         ctypefunc.ctitem = self.ctitem
+        #ctypefunc.cif_descr = NULL --- already provided as the default
         CifDescrBuilder(fvarargs, self.ctitem).rawallocate(ctypefunc)
         return ctypefunc
 
