@@ -50,11 +50,8 @@ TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_
 def c_external(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci)
 
-c_tcsetattr = c_external('tcsetattr', [INT, INT, TERMIOSP], INT)
 c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)
 c_cfgetospeed = c_external('cfgetospeed', [TERMIOSP], SPEED_T)
-c_cfsetispeed = c_external('cfsetispeed', [TERMIOSP, SPEED_T], INT)
-c_cfsetospeed = c_external('cfsetospeed', [TERMIOSP, SPEED_T], INT)
 c_tcsendbreak = c_external('tcsendbreak', [INT, INT], INT)
 c_tcdrain = c_external('tcdrain', [INT], INT)
 c_tcflush = c_external('tcflush', [INT, INT], INT)
@@ -80,32 +77,6 @@ def tcgetattr_llimpl(fd):
 
 register_external(rtermios.tcgetattr, [int], (int, int, int, int, int, int, [str]),
                    llimpl=tcgetattr_llimpl, export_name='termios.tcgetattr')
-
-def tcsetattr_llimpl(fd, when, attributes):
-    c_struct = lltype.malloc(TERMIOSP.TO, flavor='raw')
-    try:
-        c_struct.c_c_iflag = r_uint(attributes[0])
-        c_struct.c_c_oflag = r_uint(attributes[1])
-        c_struct.c_c_cflag = r_uint(attributes[2])
-        c_struct.c_c_lflag = r_uint(attributes[3])
-        ispeed = r_uint(attributes[4])
-        ospeed = r_uint(attributes[5])
-        cc = attributes[6]
-        for i in range(NCCS):
-            c_struct.c_c_cc[i] = rffi.r_uchar(ord(cc[i][0]))
-        if c_cfsetispeed(c_struct, ispeed) < 0:
-            raise OSError(rposix.get_errno(), 'tcsetattr failed')
-        if c_cfsetospeed(c_struct, ospeed) < 0:
-            raise OSError(rposix.get_errno(), 'tcsetattr failed')
-        if c_tcsetattr(fd, when, c_struct) < 0:
-            raise OSError(rposix.get_errno(), 'tcsetattr failed')
-    finally:
-        lltype.free(c_struct, flavor='raw')
-
-r_uint = rffi.r_uint
-register_external(rtermios.tcsetattr, [int, int, (int, int, int,
-                  int, int, int, [str])], llimpl=tcsetattr_llimpl,
-                  export_name='termios.tcsetattr')
 
 # a bit C-c C-v code follows...
 
