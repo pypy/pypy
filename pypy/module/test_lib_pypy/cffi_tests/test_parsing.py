@@ -248,7 +248,8 @@ def test_win_common_types():
         ct = win_common_types(maxsize)
         clear_all(ct)
         for key in sorted(ct):
-            resolve_common_type(key)
+            if ct[key] != 'set-unicode-needed':
+                resolve_common_type(key)
     # assert did not crash
     # now try to use e.g. WPARAM (-> UINT_PTR -> unsigned 32/64-bit)
     for maxsize in [2**32-1, 2**64-1]:

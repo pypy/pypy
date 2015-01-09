@@ -1221,6 +1221,8 @@ def test_opaque_integer_as_function_result():
     import platform
     if platform.machine().startswith('sparc'):
         py.test.skip('Breaks horribly on sparc (SIGILL + corrupted stack)')
+    elif platform.machine() == 'mips64' and sys.maxsize > 2**32:
+        py.test.skip('Segfaults on mips64el')
     # XXX bad abuse of "struct { ...; }".  It only works a bit by chance
     # anyway.  XXX think about something better :-(
     ffi = FFI()
@@ -2076,13 +2078,18 @@ def test_consider_not_implemented_function_type():
     ffi.cdef("typedef union { int a; float b; } Data;"
              "typedef struct { int a:2; } MyStr;"
              "typedef void (*foofunc_t)(Data);"
+             "typedef Data (*bazfunc_t)(void);"
              "typedef MyStr (*barfunc_t)(void);")
     fooptr = ffi.cast("foofunc_t", 123)
+    bazptr = ffi.cast("bazfunc_t", 123)
     barptr = ffi.cast("barfunc_t", 123)
     # assert did not crash so far
     e = py.test.raises(NotImplementedError, fooptr, ffi.new("Data *"))
     assert str(e.value) == (
-        "ctype 'Data' not supported as argument or return value")
+        "ctype 'Data' (size 4) not supported as argument")
+    e = py.test.raises(NotImplementedError, bazptr)
+    assert str(e.value) == (
+        "ctype 'Data' (size 4) not supported as return value")
     e = py.test.raises(NotImplementedError, barptr)
     assert str(e.value) == (
         "ctype 'MyStr' not supported as argument or return value "

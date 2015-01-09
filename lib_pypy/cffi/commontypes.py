@@ -243,7 +243,7 @@ def win_common_types(maxsize):
         "LPTSTR": "set-unicode-needed",
         "PTSTR": "set-unicode-needed",
         "PTBYTE": "set-unicode-needed",
-        "PTCHAR;": "set-unicode-needed",
+        "PTCHAR": "set-unicode-needed",
         })
     return result
 
