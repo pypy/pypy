@@ -230,8 +230,11 @@ class PtrOptValue(OptValue):
 
     def make_len_gt(self, mode, descr, val):
         if self.lenbound:
-            assert self.lenbound.mode == mode
-            assert self.lenbound.descr == descr
+            if self.lenbound.mode != mode or self.lenbound.descr != descr:
+                # XXX a rare case?  it seems to occur sometimes when
+                # running lib-python's test_io.py in PyPy on Linux 32...
+                from rpython.jit.metainterp.optimize import InvalidLoop
+                raise InvalidLoop("bad mode/descr")
             self.lenbound.bound.make_gt(IntBound(val, val))
         else:
             self.lenbound = LenBound(mode, descr, IntLowerBound(val + 1))
