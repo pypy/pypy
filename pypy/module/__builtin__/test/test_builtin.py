@@ -652,6 +652,8 @@ def fn(): pass
         try:
             pr("Hello,", "person!")
             pr("2nd line", file=None)
+            sys.stdout = None
+            pr("nowhere")
         finally:
             sys.stdout = save
         assert out.getvalue() == "Hello, person!\n2nd line\n"
