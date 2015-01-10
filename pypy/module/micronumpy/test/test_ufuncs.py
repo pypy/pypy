@@ -245,6 +245,31 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()
 
+    def test_frompyfunc_sig_broadcast(self):
+        def sum_along_0(in_array, out_array):
+            out_array[...] = in_array.sum(axis=0)
+
+        def add_two(in0, in1, out):
+            out[...] = in0 + in1
+
+        from numpy import frompyfunc, dtype, arange
+        ufunc_add = frompyfunc(add_two, 2, 1,
+                            signature='(m,n),(m,n)->(m,n)',
+                            dtypes=[dtype(int), dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ufunc_sum = frompyfunc([sum_along_0], 1, 1,
+                            signature='(m,n)->(n)',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ai = arange(18, dtype=int).reshape(3,2,3)
+        aout = ufunc_add(ai, ai[0,:,:])
+        assert aout.shape == (3, 2, 3)
+        aout = ufunc_sum(ai)
+        assert aout.shape == (3, 3)
+
+
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):

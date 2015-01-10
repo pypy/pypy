@@ -869,7 +869,7 @@ class W_UfuncGeneric(W_Ufunc):
                          self.name, name, _i, j, x, y)
                 iter_shape[offset + j] = max(x, y)
             #print 'Find or verify signature ixs',self.core_dim_ixs,
-            #print 'starting',dim_offset,'n',num_dims,'matching',dims_to_match
+            #print 'starting',dim_offset,'n',n,'num_dims',num_dims,'matching',dims_to_match
             for j in range(num_dims):
                 core_dim_index = self.core_dim_ixs[dim_offset + j]
                 if core_dim_index > len(dims_to_match):
@@ -886,7 +886,13 @@ class W_UfuncGeneric(W_Ufunc):
                          self.name, name, _i, j, 
                          self.signature, matched_dims[core_dim_index],
                          dims_to_match[core_dim_index])
-            arg_shapes.append(iter_shape + dims_to_match)
+            #print 'adding',iter_shape,'+',dims_to_match,'to arg_shapes'
+            if n < len(iter_shape):
+                #Broadcast over the len(iter_shape) - n dims of iter_shape
+                broadcast_dims = len(iter_shape) - n
+                arg_shapes.append(iter_shape[:-broadcast_dims] + [1] * broadcast_dims + dims_to_match)
+            else:
+                arg_shapes.append(iter_shape + dims_to_match)
         # TODO once we support obejct dtypes,
         # FAIL with NotImplementedError if the other object has
         # the __r<op>__ method and has a higher priority than
