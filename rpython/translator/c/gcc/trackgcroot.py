@@ -1526,6 +1526,9 @@ class ElfAssemblerParser(AssemblerParser):
                 yield True, functionlines
                 in_function = False
                 functionlines = []
+        if in_function and ".get_pc_thunk.bx" in functionlines[0]:
+            in_function = False     # xxx? ignore this rare unclosed stub at
+                                    # the end of the file
         assert not in_function, (
             "missed the end of the previous function")
         yield False, functionlines
