@@ -89,6 +89,8 @@ def print_(*args, **kwargs):
     fp = kwargs.pop("file", None)
     if fp is None:
         fp = sys.stdout
+        if fp is None:
+            return
     def write(data):
         if not isinstance(data, basestring):
             data = str(data)
