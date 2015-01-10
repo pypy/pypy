@@ -2,6 +2,10 @@
 
 from rpython.rtyper.extfunc import register_external
 
+# Register functions as side-effect
+from rpython.rlib import rtime
+from rpython.rlib import rtermios
+
 # ___________________________
 # math functions
 

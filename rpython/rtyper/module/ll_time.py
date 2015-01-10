@@ -84,66 +84,6 @@ class RegisterTime(BaseLazyRegistering):
         self.configure(CConfig)
         self.TIMEVALP = lltype.Ptr(self.TIMEVAL)
 
-    @registering(time.clock)
-    def register_time_clock(self):
-        if sys.platform == 'win32':
-            # hacking to avoid LARGE_INTEGER which is a union...
-            A = lltype.FixedSizeArray(lltype.SignedLongLong, 1)
-            QueryPerformanceCounter = self.llexternal(
-                'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void,
-                releasegil=False)
-            QueryPerformanceFrequency = self.llexternal(
-                'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT,
-                releasegil=False)
-            class State(object):
-                pass
-            state = State()
-            state.divisor = 0.0
-            state.counter_start = 0
-            def time_clock_llimpl():
-                a = lltype.malloc(A, flavor='raw')
-                if state.divisor == 0.0:
-                    QueryPerformanceCounter(a)
-                    state.counter_start = a[0]
-                    QueryPerformanceFrequency(a)
-                    state.divisor = float(a[0])
-                QueryPerformanceCounter(a)
-                diff = a[0] - state.counter_start
-                lltype.free(a, flavor='raw')
-                return float(diff) / state.divisor
-        elif self.CLOCK_PROCESS_CPUTIME_ID is not None:
-            # Linux and other POSIX systems with clock_gettime()
-            self.configure(CConfigForClockGetTime)
-            TIMESPEC = self.TIMESPEC
-            CLOCK_PROCESS_CPUTIME_ID = self.CLOCK_PROCESS_CPUTIME_ID
-            c_clock_gettime = self.llexternal('clock_gettime',
-                [lltype.Signed, lltype.Ptr(TIMESPEC)],
-                rffi.INT, releasegil=False)
-            def time_clock_llimpl():
-                a = lltype.malloc(TIMESPEC, flavor='raw')
-                c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)
-                result = (float(rffi.getintfield(a, 'c_tv_sec')) +
-                          float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
-                lltype.free(a, flavor='raw')
-                return result
-        else:
-            RUSAGE = self.RUSAGE
-            RUSAGE_SELF = self.RUSAGE_SELF or 0
-            c_getrusage = self.llexternal('getrusage', 
-                                          [rffi.INT, lltype.Ptr(RUSAGE)],
-                                          lltype.Void,
-                                          releasegil=False)
-            def time_clock_llimpl():
-                a = lltype.malloc(RUSAGE, flavor='raw')
-                c_getrusage(RUSAGE_SELF, a)
-                result = (decode_timeval(a.c_ru_utime) +
-                          decode_timeval(a.c_ru_stime))
-                lltype.free(a, flavor='raw')
-                return result
-
-        return extdef([], float, llimpl=time_clock_llimpl,
-                      export_name='ll_time.ll_time_clock')
-
     @registering(time.sleep)
     def register_time_sleep(self):
         if sys.platform == 'win32':

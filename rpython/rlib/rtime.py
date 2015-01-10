@@ -7,6 +7,7 @@ from rpython.rtyper.extregistry import replacement_for
 from rpython.rlib.rarithmetic import intmask
 
 if sys.platform == 'win32':
+    _WIN32 = True
     TIME_H = 'time.h'
     FTIME = '_ftime64'
     STRUCT_TIMEB = 'struct __timeb64'
@@ -14,6 +15,7 @@ if sys.platform == 'win32':
                 TIME_H, 'sys/types.h', 'sys/timeb.h']
     need_rusage = False
 else:
+    _WIN32 = False
     TIME_H = 'sys/time.h'
     FTIME = 'ftime'
     STRUCT_TIMEB = 'struct timeb'
@@ -29,6 +31,13 @@ else:
 eci = ExternalCompilationInfo(
     includes=includes
 )
+
+if sys.platform.startswith('freebsd') or sys.platform.startswith('netbsd'):
+    libraries = ['compat']
+elif sys.platform == 'linux2':
+    libraries = ['rt']
+else:
+    libraries = []
 
 class CConfig:
     _compilation_info_ = eci
@@ -116,3 +125,66 @@ def floattime():
     else:
         return float(c_time(void))
 
+
+if _WIN32:
+    # hacking to avoid LARGE_INTEGER which is a union...
+    A = lltype.FixedSizeArray(lltype.SignedLongLong, 1)
+    QueryPerformanceCounter = external(
+        'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void,
+        releasegil=False)
+    QueryPerformanceFrequency = external(
+        'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT,
+        releasegil=False)
+    class ClockState(object):
+        divisor = 0.0
+        counter_start = 0
+    _clock_state = ClockState()
+elif CLOCK_PROCESS_CPUTIME_ID is not None:
+    # Linux and other POSIX systems with clock_gettime()
+    class CConfigForClockGetTime:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['time.h'],
+            libraries=libraries
+        )
+        TIMESPEC = rffi_platform.Struct(
+            'struct timespec', [
+                ('tv_sec', rffi.LONG),
+                ('tv_nsec', rffi.LONG)])
+
+    cconfig = rffi_platform.configure(CConfigForClockGetTime)
+    TIMESPEC = cconfig['TIMESPEC']
+    c_clock_gettime = external('clock_gettime',
+                               [lltype.Signed, lltype.Ptr(TIMESPEC)],
+                               rffi.INT, releasegil=False)
+else:
+    c_getrusage = self.llexternal('getrusage', 
+                                  [rffi.INT, lltype.Ptr(RUSAGE)],
+                                  lltype.Void,
+                                  releasegil=False)
+
+@replacement_for(time.clock, sandboxed_name='ll_time.ll_time_clock')
+def clock():
+    if _WIN32:
+        with lltype.static_alloc(A) as a:
+            if _clock_state.divisor == 0.0:
+                QueryPerformanceCounter(a)
+                _clock_state.counter_start = a[0]
+                QueryPerformanceFrequency(a)
+                _clock_state.divisor = float(a[0])
+            QueryPerformanceCounter(a)
+            diff = a[0] - _clock_state.counter_start
+        return float(diff) / _clock_state.divisor
+    elif self.CLOCK_PROCESS_CPUTIME_ID is not None:
+        with lltype.static_alloc(TIMESPEC) as a:
+            c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)
+            result = (float(rffi.getintfield(a, 'c_tv_sec')) +
+                      float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
+        return result
+    else:
+        with lltype.static_alloc(RUSAGE) as a:
+            c_getrusage(RUSAGE_SELF, a)
+            result = (decode_timeval(a.c_ru_utime) +
+                      decode_timeval(a.c_ru_stime))
+        return result
+
+    
