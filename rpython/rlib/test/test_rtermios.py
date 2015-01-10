@@ -77,7 +77,6 @@ class TestLLTermios(object):
 
     def test_tcrest(self):
         from rpython.translator.c.test.test_genc import compile
-        from rpython.rtyper.module import ll_termios
         from rpython.rlib import rtermios
         def runs_tcall():
             rtermios.tcsendbreak(2, 0)
