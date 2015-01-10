@@ -1,10 +1,11 @@
-import sys, time
+import sys, time, math
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.extregistry import replacement_for
 
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, UINT_MAX
+from rpython.rlib import rposix
 
 if sys.platform == 'win32':
     _WIN32 = True
@@ -157,15 +158,15 @@ elif CLOCK_PROCESS_CPUTIME_ID is not None:
                                [lltype.Signed, lltype.Ptr(TIMESPEC)],
                                rffi.INT, releasegil=False)
 else:
-    c_getrusage = self.llexternal('getrusage', 
-                                  [rffi.INT, lltype.Ptr(RUSAGE)],
-                                  lltype.Void,
-                                  releasegil=False)
+    c_getrusage = external('getrusage', 
+                           [rffi.INT, lltype.Ptr(RUSAGE)],
+                           lltype.Void,
+                           releasegil=False)
 
 @replacement_for(time.clock, sandboxed_name='ll_time.ll_time_clock')
 def clock():
     if _WIN32:
-        with lltype.static_alloc(A) as a:
+        with lltype.scoped_alloc(A) as a:
             if _clock_state.divisor == 0.0:
                 QueryPerformanceCounter(a)
                 _clock_state.counter_start = a[0]
@@ -174,17 +175,45 @@ def clock():
             QueryPerformanceCounter(a)
             diff = a[0] - _clock_state.counter_start
         return float(diff) / _clock_state.divisor
-    elif self.CLOCK_PROCESS_CPUTIME_ID is not None:
-        with lltype.static_alloc(TIMESPEC) as a:
+    elif CLOCK_PROCESS_CPUTIME_ID is not None:
+        with lltype.scoped_alloc(TIMESPEC) as a:
             c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)
             result = (float(rffi.getintfield(a, 'c_tv_sec')) +
                       float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
         return result
     else:
-        with lltype.static_alloc(RUSAGE) as a:
+        with lltype.scoped_alloc(RUSAGE) as a:
             c_getrusage(RUSAGE_SELF, a)
             result = (decode_timeval(a.c_ru_utime) +
                       decode_timeval(a.c_ru_stime))
         return result
 
+if _WIN32:
+    c_Sleep = external('Sleep', [rffi.ULONG], lltype.Void)
+else:
+    c_select = external('select', [rffi.INT, rffi.VOIDP,
+                                   rffi.VOIDP, rffi.VOIDP,
+                                   TIMEVALP], rffi.INT)
     
+
+@replacement_for(time.sleep, sandboxed_name='ll_time.ll_time_sleep')
+def sleep(secs):
+    # On windows, this call is not interruptible.
+    if _WIN32:
+        millisecs = secs * 1000.0
+        while millisecs > UINT_MAX:
+            c_Sleep(UINT_MAX)
+            millisecs -= UINT_MAX
+        c_Sleep(rffi.cast(rffi.ULONG, int(millisecs)))
+    else:
+        void = lltype.nullptr(rffi.VOIDP.TO)
+        with lltype.scoped_alloc(TIMEVAL) as t:
+            frac = math.fmod(secs, 1.0)
+            rffi.setintfield(t, 'c_tv_sec', int(secs))
+            rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
+
+            if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
+                errno = rposix.get_errno()
+                if errno != EINTR:
+                    raise OSError(errno, "Select failed")
+

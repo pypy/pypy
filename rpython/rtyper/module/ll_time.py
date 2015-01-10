@@ -84,34 +84,3 @@ class RegisterTime(BaseLazyRegistering):
         self.configure(CConfig)
         self.TIMEVALP = lltype.Ptr(self.TIMEVAL)
 
-    @registering(time.sleep)
-    def register_time_sleep(self):
-        if sys.platform == 'win32':
-            Sleep = self.llexternal('Sleep', [rffi.ULONG], lltype.Void)
-            def time_sleep_llimpl(secs):
-                millisecs = secs * 1000.0
-                while millisecs > UINT_MAX:
-                    Sleep(UINT_MAX)
-                    millisecs -= UINT_MAX
-                Sleep(rffi.cast(rffi.ULONG, int(millisecs)))
-        else:
-            c_select = self.llexternal('select', [rffi.INT, rffi.VOIDP,
-                                                  rffi.VOIDP, rffi.VOIDP,
-                                                  self.TIMEVALP], rffi.INT)
-            def time_sleep_llimpl(secs):
-                void = lltype.nullptr(rffi.VOIDP.TO)
-                t = lltype.malloc(self.TIMEVAL, flavor='raw')
-                try:
-                    frac = math.fmod(secs, 1.0)
-                    rffi.setintfield(t, 'c_tv_sec', int(secs))
-                    rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
-
-                    if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
-                        errno = rposix.get_errno()
-                        if errno != EINTR:
-                            raise OSError(rposix.get_errno(), "Select failed")
-                finally:
-                    lltype.free(t, flavor='raw')
-
-        return extdef([float], None, llimpl=time_sleep_llimpl,
-                      export_name='ll_time.ll_time_sleep')
