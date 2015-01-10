@@ -1,8 +1,3 @@
-# This are here only because it's always better safe than sorry.
-# The issue is that from-time-to-time CPython's termios.tcgetattr
-# returns list of mostly-strings of length one, but with few ints
-# inside, so we make sure it works
-
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

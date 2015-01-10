@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import os
 import sys
@@ -359,7 +359,7 @@ def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
     # in the callers, so we never get a real None here).
     if space.is_none(w_seconds):
-        seconds = pytime.time()
+        seconds = rtime.floattime()
     else:
         seconds = space.float_w(w_seconds)
     #
@@ -396,7 +396,7 @@ def _gettmarg(space, w_tup, allowNone=True):
             raise OperationError(space.w_TypeError,
                                  space.wrap("tuple expected"))
         # default to the current local time
-        tt = rffi.r_time_t(int(pytime.time()))
+        tt = rffi.r_time_t(int(rtime.floattime()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
@@ -476,8 +476,7 @@ def time(space):
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
 
-    secs = pytime.time()
-    return space.wrap(secs)
+    return space.wrap(rtime.floattime())
 
 if _WIN:
     class PCCache:

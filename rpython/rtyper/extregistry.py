@@ -144,3 +144,21 @@ def is_registered(instance):
     except KeyError:
         return False
     return True
+
+def replacement_for(replaced_function, sandboxed_name=None):
+    # The annotated function replaces calls to the given non-RPython
+    # function.
+    def wrap(func):
+        from rpython.rtyper.extregistry import ExtRegistryEntry
+        class ExtRegistry(ExtRegistryEntry):
+            _about_ = replaced_function
+            def compute_annotation(self):
+                if sandboxed_name:
+                    config = self.bookkeeper.annotator.translator.config
+                    if config.translation.sandbox:
+                        func._sandbox_external_name = sandboxed_name
+                        func._dont_inline_ = True
+                return self.bookkeeper.immutablevalue(func)
+        return func
+    return wrap
+
