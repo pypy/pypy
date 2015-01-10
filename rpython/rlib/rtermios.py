@@ -11,30 +11,95 @@ from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import intmask
 
 eci = ExternalCompilationInfo(
-    includes = ['termios.h', 'unistd.h']
+    includes = ['termios.h', 'unistd.h', 'sys/ioctl.h']
 )
 
 class CConfig:
     _compilation_info_ = eci
-    NCCS = rffi_platform.DefinedConstantInteger('NCCS')
     _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
             '_HAVE_STRUCT_TERMIOS_C_ISPEED')
     _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
             '_HAVE_STRUCT_TERMIOS_C_OSPEED')
 
-    TCSANOW = rffi_platform.ConstantInteger('TCSANOW')
-    TCIOFLUSH = rffi_platform.ConstantInteger('TCIOFLUSH')
-    TCOON = rffi_platform.ConstantInteger('TCOON')
-
-
+CONSTANT_NAMES = (
+    # cfgetospeed(), cfsetospeed() constants
+    """B0 B50 B75 B110 B134 B150 B200 B300 B600 B1200 B1800 B2400 B4800 B9600
+       B19200 B38400 B57600 B115200 B230400 B460800 CBAUDEX
+    """
+    # tcsetattr() constants
+    """TCSANOW TCSADRAIN TCSAFLUSH TCSASOFT
+    """
+    # tcflush() constants
+    """TCIFLUSH TCOFLUSH TCIOFLUSH
+    """
+    # tcflow() constants
+    """TCOOFF TCOON TCIOFF TCION
+    """
+    # struct termios.c_iflag constants
+    """IGNBRK BRKINT IGNPAR PARMRK INPCK ISTRIP INLCR IGNCR ICRNL IUCLC 
+       IXON IXANY IXOFF IMAXBEL
+    """
+    # struct termios.c_oflag constants
+    """OPOST OLCUC ONLCR OCRNL ONOCR ONLRET OFILL OFDEL
+       NLDLY CRDLY TABDLY BSDLY VTDLY FFDLY
+    """
+    # struct termios.c_oflag-related values (delay mask)
+    """NL0 NL1 CR0 CR1 CR2 CR3 TAB0 TAB1 TAB2 TAB3 XTABS
+       BS0 BS1 VT0 VT1 FF0 FF1
+    """
+    # struct termios.c_cflag constants
+    """CSIZE CSTOPB CREAD PARENB PARODD HUPCL CLOCAL CIBAUD CRTSCTS
+    """
+    # struct termios.c_cflag-related values (character size)
+    """CS5 CS6 CS7 CS8
+    """
+    # struct termios.c_lflag constants
+    """ISIG ICANON XCASE ECHO ECHOE ECHOK ECHONL ECHOCTL ECHOPRT ECHOKE
+       FLUSHO NOFLSH TOSTOP PENDIN IEXTEN
+    """
+    # indexes into the control chars array returned by tcgetattr()
+    """VINTR VQUIT VERASE VKILL VEOF VTIME VMIN VSWTC VSWTCH VSTART VSTOP
+       VSUSP VEOL VREPRINT VDISCARD VWERASE VLNEXT VEOL2
+    """
+    # Others?
+    """CBAUD CDEL CDSUSP CEOF CEOL CEOL2 CEOT CERASE CESC CFLUSH CINTR CKILL
+       CLNEXT CNUL COMMON CQUIT CRPRNT CSTART CSTOP CSUSP CSWTCH CWERASE
+       EXTA EXTB
+       FIOASYNC FIOCLEX FIONBIO FIONCLEX FIONREAD
+       IBSHIFT INIT_C_CC IOCSIZE_MASK IOCSIZE_SHIFT
+       NCC NCCS NSWTCH N_MOUSE N_PPP N_SLIP N_STRIP N_TTY
+       TCFLSH TCGETA TCGETS TCSBRK TCSBRKP TCSETA TCSETAF TCSETAW TCSETS
+       TCSETSF TCSETSW TCXONC
+       TIOCCONS TIOCEXCL TIOCGETD TIOCGICOUNT TIOCGLCKTRMIOS TIOCGPGRP
+       TIOCGSERIAL TIOCGSOFTCAR TIOCGWINSZ TIOCINQ TIOCLINUX TIOCMBIC
+       TIOCMBIS TIOCMGET TIOCMIWAIT TIOCMSET TIOCM_CAR TIOCM_CD TIOCM_CTS 
+       TIOCM_DSR TIOCM_DTR TIOCM_LE TIOCM_RI TIOCM_RNG TIOCM_RTS TIOCM_SR
+       TIOCM_ST TIOCNOTTY TIOCNXCL TIOCOUTQ TIOCPKT TIOCPKT_DATA
+       TIOCPKT_DOSTOP TIOCPKT_FLUSHREAD TIOCPKT_FLUSHWRITE TIOCPKT_NOSTOP
+       TIOCPKT_START TIOCPKT_STOP TIOCSCTTY TIOCSERCONFIG TIOCSERGETLSR 
+       TIOCSERGETMULTI TIOCSERGSTRUCT TIOCSERGWILD TIOCSERSETMULTI
+       TIOCSERSWILD TIOCSER_TEMT TIOCSETD TIOCSLCKTRMIOS TIOCSPGRP
+       TIOCSSERIAL TIOCSSOFTCAR TIOCSTI TIOCSWINSZ TIOCTTYGSTRUCT
+    """).split()
+    
+for name in CONSTANT_NAMES:
+    setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
 
 c_config = rffi_platform.configure(CConfig)
-NCCS = c_config['NCCS']
 
-TCSANOW = c_config['TCSANOW']
-TCIOFLUSH = c_config['TCIOFLUSH']
-TCOON = c_config['TCOON']
+# Copy VSWTCH to VSWTC and vice-versa
+if c_config['VSWTC'] is None:
+    c_config['VSWTC'] = c_config['VSWTCH']
+if c_config['VSWTCH'] is None:
+    c_config['VSWTCH'] = c_config['VSWTC']
 
+all_constants = {}
+for name in CONSTANT_NAMES:
+    value = c_config[name]
+    if value is not None:
+        globals()[name] = value
+        all_constants[name] = value
+            
 TCFLAG_T = rffi.UINT
 CC_T = rffi.UCHAR
 SPEED_T = rffi.UINT
