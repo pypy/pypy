@@ -55,7 +55,13 @@ def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        index = space.int_w(w_field_or_index)
+        try:
+            index = space.int_w(w_field_or_index)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise OperationError(space.w_TypeError,
+                    space.wrap("field name or array index expected"))
         ctype, offset = w_ctype.typeoffsetof_index(index)
     else:
         ctype, offset = w_ctype.typeoffsetof_field(fieldname, following)
