@@ -229,12 +229,18 @@ class Parser(object):
 
                 pyvalue = int(int_str, 0)
                 self._add_constants(key, pyvalue)
+                self._declare('macro ' + key, pyvalue)
             elif value == '...':
                 self._declare('macro ' + key, value)
             else:
-                raise api.CDefError('only supports the syntax "#define '
-                                    '%s ..." (literally) or "#define '
-                                    '%s 0x1FF" for now' % (key, key))
+                raise api.CDefError(
+                    'only supports one of the following syntax:\n'
+                    '  #define %s ...     (literally dot-dot-dot)\n'
+                    '  #define %s NUMBER  (with NUMBER an integer'
+                                    ' constant, decimal/hex/octal)\n'
+                    'got:\n'
+                    '  #define %s %s'
+                    % (key, key, key, value))
 
     def _parse_decl(self, decl):
         node = decl.type

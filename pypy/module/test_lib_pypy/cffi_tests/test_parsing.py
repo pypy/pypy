@@ -164,8 +164,12 @@ def test_define_not_supported_for_now():
     ffi = FFI(backend=FakeBackend())
     e = py.test.raises(CDefError, ffi.cdef, '#define FOO "blah"')
     assert str(e.value) == (
-        'only supports the syntax "#define FOO ..." (literally)'
-        ' or "#define FOO 0x1FF" for now')
+        'only supports one of the following syntax:\n'
+        '  #define FOO ...     (literally dot-dot-dot)\n'
+        '  #define FOO NUMBER  (with NUMBER an integer'
+                                    ' constant, decimal/hex/octal)\n'
+        'got:\n'
+        '  #define FOO "blah"')
 
 def test_unnamed_struct():
     ffi = FFI(backend=FakeBackend())

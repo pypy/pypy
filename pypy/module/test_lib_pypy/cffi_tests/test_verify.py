@@ -2140,3 +2140,15 @@ def test_use_local_dir():
     this_dir = os.path.dirname(__file__)
     pycache_files = os.listdir(os.path.join(this_dir, '__pycache__'))
     assert any('test_use_local_dir' in s for s in pycache_files)
+
+def test_define_known_value():
+    ffi = FFI()
+    ffi.cdef("#define FOO 0x123")
+    lib = ffi.verify("#define FOO 0x123")
+    assert lib.FOO == 0x123
+
+def test_define_wrong_value():
+    ffi = FFI()
+    ffi.cdef("#define FOO 123")
+    e = py.test.raises(VerificationError, ffi.verify, "#define FOO 124")
+    assert str(e.value).endswith("FOO has the real value 124, not 123")

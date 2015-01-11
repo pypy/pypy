@@ -191,14 +191,16 @@ class FFI(object):
             cdecl = self._typeof(cdecl)
         return self._backend.alignof(cdecl)
 
-    def offsetof(self, cdecl, fieldname):
+    def offsetof(self, cdecl, *fields_or_indexes):
         """Return the offset of the named field inside the given
-        structure, which must be given as a C type name.  The field
-        may be 'x.y.z' in case of nested structures.
+        structure or array, which must be given as a C type name.  
+        You can give several field names in case of nested structures.
+        You can also give numeric values which correspond to array
+        items, in case of an array type.
         """
         if isinstance(cdecl, basestring):
             cdecl = self._typeof(cdecl)
-        return self._typeoffsetof(cdecl, fieldname)[1]
+        return self._typeoffsetof(cdecl, *fields_or_indexes)[1]
 
     def new(self, cdecl, init=None):
         """Allocate an instance according to the specified C type and
@@ -383,24 +385,28 @@ class FFI(object):
         with self._lock:
             return model.pointer_cache(self, ctype)
 
-    def addressof(self, cdata, field=None):
+    def addressof(self, cdata, *fields_or_indexes):
         """Return the address of a <cdata 'struct-or-union'>.
-        If 'field' is specified, return the address of this field.
-        The field may be 'x.y.z' in case of nested structures.
+        If 'fields_or_indexes' are given, returns the address of that
+        field or array item in the structure or array, recursively in
+        case of nested structures.
         """
         ctype = self._backend.typeof(cdata)
-        ctype, offset = self._typeoffsetof(ctype, field)
+        if fields_or_indexes:
+            ctype, offset = self._typeoffsetof(ctype, *fields_or_indexes)
+        else:
+            if ctype.kind == "pointer":
+                raise TypeError("addressof(pointer)")
+            offset = 0
         ctypeptr = self._pointer_to(ctype)
         return self._backend.rawaddressof(ctypeptr, cdata, offset)
 
-    def _typeoffsetof(self, ctype, field):
-        if field is not None and '.' in field:
-            offset = 0
-            for field1 in field.split('.'):
-                ctype, offset1 = self._backend.typeoffsetof(ctype, field1)
-                offset += offset1
-            return ctype, offset
-        return self._backend.typeoffsetof(ctype, field)
+    def _typeoffsetof(self, ctype, field_or_index, *fields_or_indexes):
+        ctype, offset = self._backend.typeoffsetof(ctype, field_or_index)
+        for field1 in fields_or_indexes:
+            ctype, offset1 = self._backend.typeoffsetof(ctype, field1, 1)
+            offset += offset1
+        return ctype, offset
 
     def include(self, ffi_to_include):
         """Includes the typedefs, structs, unions and enums defined

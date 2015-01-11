@@ -965,9 +965,19 @@ class BackendTests:
         ffi.cdef("struct foo { int a, b, c; };"
                  "struct bar { struct foo d, e; };")
         assert ffi.offsetof("struct bar", "e") == 12
-        assert ffi.offsetof("struct bar", "e.a") == 12
-        assert ffi.offsetof("struct bar", "e.b") == 16
-        assert ffi.offsetof("struct bar", "e.c") == 20
+        py.test.raises(KeyError, ffi.offsetof, "struct bar", "e.a")
+        assert ffi.offsetof("struct bar", "e", "a") == 12
+        assert ffi.offsetof("struct bar", "e", "b") == 16
+        assert ffi.offsetof("struct bar", "e", "c") == 20
+
+    def test_offsetof_array(self):
+        ffi = FFI(backend=self.Backend())
+        assert ffi.offsetof("int[]", 51) == 51 * ffi.sizeof("int")
+        assert ffi.offsetof("int *", 51) == 51 * ffi.sizeof("int")
+        ffi.cdef("struct bar { int a, b; int c[99]; };")
+        assert ffi.offsetof("struct bar", "c") == 2 * ffi.sizeof("int")
+        assert ffi.offsetof("struct bar", "c", 0) == 2 * ffi.sizeof("int")
+        assert ffi.offsetof("struct bar", "c", 51) == 53 * ffi.sizeof("int")
 
     def test_alignof(self):
         ffi = FFI(backend=self.Backend())
@@ -1501,8 +1511,10 @@ class BackendTests:
         p = ffi.new("struct foo_s *")
         a = ffi.addressof(p[0])
         assert repr(a).startswith("<cdata 'struct foo_s *' 0x")
+        assert a == p
         py.test.raises(TypeError, ffi.addressof, p)
         py.test.raises((AttributeError, TypeError), ffi.addressof, 5)
+        py.test.raises(TypeError, ffi.addressof, ffi.cast("int", 5))
 
     def test_addressof_field(self):
         ffi = FFI(backend=self.Backend())
@@ -1520,7 +1532,8 @@ class BackendTests:
         ffi.cdef("struct foo_s { int x, y; };"
                  "struct bar_s { struct foo_s a, b; };")
         p = ffi.new("struct bar_s *")
-        a = ffi.addressof(p[0], 'b.y')
+        py.test.raises(KeyError, ffi.addressof, p[0], 'b.y')
+        a = ffi.addressof(p[0], 'b', 'y')
         assert int(ffi.cast("uintptr_t", a)) == (
             int(ffi.cast("uintptr_t", p)) +
             ffi.sizeof("struct foo_s") + ffi.sizeof("int"))
@@ -1531,6 +1544,49 @@ class BackendTests:
         p = ffi.new("foo_t *")
         a = ffi.addressof(p[0])
         assert a == p
+
+    def test_addressof_array(self):
+        ffi = FFI()
+        p = ffi.new("int[52]")
+        p0 = ffi.addressof(p)
+        assert p0 == p
+        assert ffi.typeof(p0) is ffi.typeof("int(*)[52]")
+        py.test.raises(TypeError, ffi.addressof, p0)
+        #
+        p1 = ffi.addressof(p, 25)
+        assert ffi.typeof(p1) is ffi.typeof("int *")
+        assert (p1 - p) == 25
+        assert ffi.addressof(p, 0) == p
+
+    def test_addressof_pointer(self):
+        ffi = FFI()
+        array = ffi.new("int[50]")
+        p = ffi.cast("int *", array)
+        py.test.raises(TypeError, ffi.addressof, p)
+        assert ffi.addressof(p, 0) == p
+        assert ffi.addressof(p, 25) == p + 25
+        assert ffi.typeof(ffi.addressof(p, 25)) == ffi.typeof(p)
+        #
+        ffi.cdef("struct foo { int a, b; };")
+        array = ffi.new("struct foo[50]")
+        p = ffi.cast("int *", array)
+        py.test.raises(TypeError, ffi.addressof, p)
+        assert ffi.addressof(p, 0) == p
+        assert ffi.addressof(p, 25) == p + 25
+        assert ffi.typeof(ffi.addressof(p, 25)) == ffi.typeof(p)
+
+    def test_addressof_array_in_struct(self):
+        ffi = FFI()
+        ffi.cdef("struct foo { int a, b; int c[50]; };")
+        p = ffi.new("struct foo *")
+        p1 = ffi.addressof(p, "c", 25)
+        assert ffi.typeof(p1) is ffi.typeof("int *")
+        assert p1 == ffi.cast("int *", p) + 27
+        assert ffi.addressof(p, "c") == ffi.cast("int *", p) + 2
+        assert ffi.addressof(p, "c", 0) == ffi.cast("int *", p) + 2
+        p2 = ffi.addressof(p, 1)
+        assert ffi.typeof(p2) is ffi.typeof("struct foo *")
+        assert p2 == p + 1
 
     def test_multiple_independent_structs(self):
         ffi1 = FFI(); ffi1.cdef("struct foo { int x; };")

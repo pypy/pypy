@@ -592,7 +592,8 @@ class VCPythonEngine(object):
     # constants, likely declared with '#define'
 
     def _generate_cpy_const(self, is_int, name, tp=None, category='const',
-                            vartp=None, delayed=True, size_too=False):
+                            vartp=None, delayed=True, size_too=False,
+                            check_value=None):
         prnt = self._prnt
         funcname = '_cffi_%s_%s' % (category, name)
         prnt('static int %s(PyObject *lib)' % funcname)
@@ -603,6 +604,9 @@ class VCPythonEngine(object):
             prnt('  %s;' % (vartp or tp).get_c_name(' i', name))
         else:
             assert category == 'const'
+        #
+        if check_value is not None:
+            self._check_int_constant_value(name, check_value)
         #
         if not is_int:
             if category == 'var':
@@ -651,6 +655,27 @@ class VCPythonEngine(object):
     # ----------
     # enums
 
+    def _check_int_constant_value(self, name, value, err_prefix=''):
+        prnt = self._prnt
+        if value <= 0:
+            prnt('  if ((%s) > 0 || (long)(%s) != %dL) {' % (
+                name, name, value))
+        else:
+            prnt('  if ((%s) <= 0 || (unsigned long)(%s) != %dUL) {' % (
+                name, name, value))
+        prnt('    char buf[64];')
+        prnt('    if ((%s) <= 0)' % name)
+        prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % name)
+        prnt('    else')
+        prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
+             name)
+        prnt('    PyErr_Format(_cffi_VerificationError,')
+        prnt('                 "%s%s has the real value %s, not %s",')
+        prnt('                 "%s", "%s", buf, "%d");' % (
+            err_prefix, name, value))
+        prnt('    return -1;')
+        prnt('  }')
+
     def _enum_funcname(self, prefix, name):
         # "$enum_$1" => "___D_enum____D_1"
         name = name.replace('$', '___D_')
@@ -667,25 +692,8 @@ class VCPythonEngine(object):
         prnt('static int %s(PyObject *lib)' % funcname)
         prnt('{')
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
-            if enumvalue <= 0:
-                prnt('  if ((%s) > 0 || (long)(%s) != %dL) {' % (
-                    enumerator, enumerator, enumvalue))
-            else:
-                prnt('  if ((%s) <= 0 || (unsigned long)(%s) != %dUL) {' % (
-                    enumerator, enumerator, enumvalue))
-            prnt('    char buf[64];')
-            prnt('    if ((%s) <= 0)' % enumerator)
-            prnt('        snprintf(buf, 63, "%%ld", (long)(%s));' % enumerator)
-            prnt('    else')
-            prnt('        snprintf(buf, 63, "%%lu", (unsigned long)(%s));' %
-                 enumerator)
-            prnt('    PyErr_Format(_cffi_VerificationError,')
-            prnt('                 "enum %s: %s has the real value %s, '
-                 'not %s",')
-            prnt('                 "%s", "%s", buf, "%d");' % (
-                name, enumerator, enumvalue))
-            prnt('    return -1;')
-            prnt('  }')
+            self._check_int_constant_value(enumerator, enumvalue,
+                                           "enum %s: " % name)
         prnt('  return %s;' % self._chained_list_constants[True])
         self._chained_list_constants[True] = funcname + '(lib)'
         prnt('}')
@@ -709,8 +717,11 @@ class VCPythonEngine(object):
     # macros: for now only for integers
 
     def _generate_cpy_macro_decl(self, tp, name):
-        assert tp == '...'
-        self._generate_cpy_const(True, name)
+        if tp == '...':
+            check_value = None
+        else:
+            check_value = tp     # an integer
+        self._generate_cpy_const(True, name, check_value=check_value)
 
     _generate_cpy_macro_collecttype = _generate_nothing
     _generate_cpy_macro_method = _generate_nothing
