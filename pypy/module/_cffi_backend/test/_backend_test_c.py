@@ -2527,13 +2527,32 @@ def test_typeoffsetof():
                                        ('a2', BChar, -1),
                                        ('a3', BChar, -1)])
     py.test.raises(TypeError, typeoffsetof, BStructPtr, None)
-    assert typeoffsetof(BStruct, None) == (BStruct, 0)
+    py.test.raises(TypeError, typeoffsetof, BStruct, None)
     assert typeoffsetof(BStructPtr, 'a1') == (BChar, 0)
     assert typeoffsetof(BStruct, 'a1') == (BChar, 0)
     assert typeoffsetof(BStructPtr, 'a2') == (BChar, 1)
     assert typeoffsetof(BStruct, 'a3') == (BChar, 2)
+    assert typeoffsetof(BStructPtr, 'a2', 0) == (BChar, 1)
+    assert typeoffsetof(BStruct, u+'a3') == (BChar, 2)
+    py.test.raises(TypeError, typeoffsetof, BStructPtr, 'a2', 1)
     py.test.raises(KeyError, typeoffsetof, BStructPtr, 'a4')
     py.test.raises(KeyError, typeoffsetof, BStruct, 'a5')
+    py.test.raises(TypeError, typeoffsetof, BStruct, 42)
+    py.test.raises(TypeError, typeoffsetof, BChar, 'a1')
+
+def test_typeoffsetof_array():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BArray = new_array_type(BIntP, None)
+    py.test.raises(TypeError, typeoffsetof, BArray, None)
+    py.test.raises(TypeError, typeoffsetof, BArray, 'a1')
+    assert typeoffsetof(BArray, 51) == (BInt, 51 * size_of_int())
+    assert typeoffsetof(BIntP, 51) == (BInt, 51 * size_of_int())
+    assert typeoffsetof(BArray, -51) == (BInt, -51 * size_of_int())
+    MAX = sys.maxsize // size_of_int()
+    assert typeoffsetof(BArray, MAX) == (BInt, MAX * size_of_int())
+    assert typeoffsetof(BIntP, MAX) == (BInt, MAX * size_of_int())
+    py.test.raises(OverflowError, typeoffsetof, BArray, MAX + 1)
 
 def test_typeoffsetof_no_bitfield():
     BInt = new_primitive_type("int")
@@ -2553,17 +2572,26 @@ def test_rawaddressof():
     assert repr(p) == "<cdata 'struct foo *' owning 3 bytes>"
     s = p[0]
     assert repr(s) == "<cdata 'struct foo' owning 3 bytes>"
-    a = rawaddressof(BStructPtr, s)
+    a = rawaddressof(BStructPtr, s, 0)
     assert repr(a).startswith("<cdata 'struct foo *' 0x")
-    py.test.raises(TypeError, rawaddressof, BStruct, s)
-    b = rawaddressof(BCharP, s)
+    py.test.raises(TypeError, rawaddressof, BStruct, s, 0)
+    b = rawaddressof(BCharP, s, 0)
     assert b == cast(BCharP, p)
-    c = rawaddressof(BStructPtr, a)
+    c = rawaddressof(BStructPtr, a, 0)
     assert c == a
-    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'))
+    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'), 0)
     #
     d = rawaddressof(BCharP, s, 1)
     assert d == cast(BCharP, p) + 1
+    #
+    e = cast(BCharP, 109238)
+    f = rawaddressof(BCharP, e, 42)
+    assert f == e + 42
+    #
+    BCharA = new_array_type(BCharP, None)
+    e = newp(BCharA, 50)
+    f = rawaddressof(BCharP, e, 42)
+    assert f == e + 42
 
 def test_newp_signed_unsigned_char():
     BCharArray = new_array_type(
