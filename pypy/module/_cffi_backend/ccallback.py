@@ -99,7 +99,7 @@ class W_CDataCallback(W_CData):
 
     def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "callback ", self.w_callable,
+        operr.write_unraisable(space, "cffi callback ", self.w_callable,
                                with_traceback=True, extra_line=extra_line)
 
     def write_error_return_value(self, ll_res):
