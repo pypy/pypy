@@ -847,6 +847,27 @@ class Optimizer(Optimization):
                                  op.getopnum(), argboxes, op.getdescr())
         return resbox.constbox()
 
+    def pure_reverse(self, op):
+        if self.optpure is None:
+            return
+        optpure = self.optpure
+        if op.getopnum() == rop.INT_ADD:
+            optpure.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
+            # Synthesize the reverse op for optimize_default to reuse
+            optpure.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+            optpure.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+        elif op.getopnum() == rop.INT_SUB:
+            optpure.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+            optpure.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+        elif op.getopnum() == rop.FLOAT_MUL:
+            optpure.pure(rop.FLOAT_MUL, [op.getarg(1), op.getarg(0)], op.result)
+        elif op.getopnum() == rop.FLOAT_NEG:
+            optpure.pure(rop.FLOAT_NEG, [op.result], op.getarg(0))
+        elif op.getopnum() == rop.CAST_INT_TO_PTR:
+            optpure.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        elif op.getopnum() == rop.CAST_PTR_TO_INT:
+            optpure.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted
     #    # in this case
