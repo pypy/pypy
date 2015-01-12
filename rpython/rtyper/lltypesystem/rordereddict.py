@@ -988,8 +988,12 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
         self.r_dict = r_dict
         self.variant = variant
         self.lowleveltype = get_ll_dictiter(r_dict.lowleveltype)
-        self.ll_dictiter = ll_dictiter
-        self._ll_dictnext = _ll_dictnext
+        if variant == 'reversed':
+            self.ll_dictiter = ll_dictiter_reversed
+            self._ll_dictnext = _ll_dictnext_reversed
+        else:
+            self.ll_dictiter = ll_dictiter
+            self._ll_dictnext = _ll_dictnext
 
 
 def ll_dictiter(ITERPTR, d):
@@ -1015,6 +1019,26 @@ def _ll_dictnext(iter):
                 iter.index = nextindex
                 return index
             index = nextindex
+        # clear the reference to the dict and prevent restarts
+        iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
+    raise StopIteration
+
+def ll_dictiter_reversed(ITERPTR, d):
+    iter = lltype.malloc(ITERPTR.TO)
+    iter.dict = d
+    iter.index = d.num_ever_used_items
+    return iter
+
+def _ll_dictnext_reversed(iter):
+    dict = iter.dict
+    if dict:
+        entries = dict.entries
+        index = iter.index - 1
+        while index >= 0:
+            if entries.valid(index):
+                iter.index = index
+                return index
+            index = index - 1
         # clear the reference to the dict and prevent restarts
         iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
     raise StopIteration

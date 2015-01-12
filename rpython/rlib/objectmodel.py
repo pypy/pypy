@@ -753,6 +753,14 @@ def prepare_dict_update(dict, n_elements):
         dict._prepare_dict_update(n_elements)
         # ^^ call an extra method that doesn't exist before translation
 
+@specialize.call_location()
+def reversed_dict(d):
+    """Equivalent to reversed(ordered_dict), but works also for
+    regular dicts."""
+    if not we_are_translated() and type(d) is dict:
+        d = list(d)
+    return reversed(d)
+
 
 # ____________________________________________________________
 
