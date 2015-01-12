@@ -97,10 +97,16 @@ We write a little C program:
       return res;
     }
 
-If we save it as ``x.c`` now, compile it and run it with::
+If we save it as ``x.c`` now, compile it and run it (on linux) with::
 
     fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
     fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
+    hello from pypy
+
+on OSX it is necessary to set the rpath of the binary if one wants to link to it::
+
+    gcc -o x x.c -lpypy-c -L. -Wl,-rpath -Wl,@executable_path
+    ./x
     hello from pypy
 
 Worked!

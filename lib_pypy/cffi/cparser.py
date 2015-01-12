@@ -1,4 +1,3 @@
-
 from . import api, model
 from .commontypes import COMMON_TYPES, resolve_common_type
 try:
@@ -209,6 +208,8 @@ class Parser(object):
 
     def _add_constants(self, key, val):
         if key in self._int_constants:
+            if self._int_constants[key] == val:
+                return     # ignore identical double declarations
             raise api.FFIError(
                 "multiple declarations of constant: %s" % (key,))
         self._int_constants[key] = val
@@ -228,12 +229,18 @@ class Parser(object):
 
                 pyvalue = int(int_str, 0)
                 self._add_constants(key, pyvalue)
+                self._declare('macro ' + key, pyvalue)
             elif value == '...':
                 self._declare('macro ' + key, value)
             else:
-                raise api.CDefError('only supports the syntax "#define '
-                                    '%s ..." (literally) or "#define '
-                                    '%s 0x1FF" for now' % (key, key))
+                raise api.CDefError(
+                    'only supports one of the following syntax:\n'
+                    '  #define %s ...     (literally dot-dot-dot)\n'
+                    '  #define %s NUMBER  (with NUMBER an integer'
+                                    ' constant, decimal/hex/octal)\n'
+                    'got:\n'
+                    '  #define %s %s'
+                    % (key, key, key, value))
 
     def _parse_decl(self, decl):
         node = decl.type
@@ -460,6 +467,8 @@ class Parser(object):
             elif kind == 'union':
                 tp = model.UnionType(explicit_name, None, None, None)
             elif kind == 'enum':
+                if explicit_name == '__dotdotdot__':
+                    raise CDefError("Enums cannot be declared with ...")
                 tp = self._build_enum_type(explicit_name, type.values)
             else:
                 raise AssertionError("kind = %r" % (kind,))
@@ -532,9 +541,24 @@ class Parser(object):
 
     def _parse_constant(self, exprnode, partial_length_ok=False):
         # for now, limited to expressions that are an immediate number
-        # or negative number
+        # or positive/negative number
         if isinstance(exprnode, pycparser.c_ast.Constant):
-            return int(exprnode.value, 0)
+            s = exprnode.value
+            if s.startswith('0'):
+                if s.startswith('0x') or s.startswith('0X'):
+                    return int(s, 16)
+                return int(s, 8)
+            elif '1' <= s[0] <= '9':
+                return int(s, 10)
+            elif s[0] == "'" and s[-1] == "'" and (
+                    len(s) == 3 or (len(s) == 4 and s[1] == "\\")):
+                return ord(s[-2])
+            else:
+                raise api.CDefError("invalid constant %r" % (s,))
+        #
+        if (isinstance(exprnode, pycparser.c_ast.UnaryOp) and
+                exprnode.op == '+'):
+            return self._parse_constant(exprnode.expr)
         #
         if (isinstance(exprnode, pycparser.c_ast.UnaryOp) and
                 exprnode.op == '-'):

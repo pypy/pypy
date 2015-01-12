@@ -478,6 +478,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert c[i] == max(a[i], b[i])
 
+
+    def test_abs_overflow(self):
+        from numpy import array, absolute, isinf
+        a = array(complex(1.5e308,1.5e308))
+        # Prints a RuntimeWarning, but does not raise
+        b = absolute(a)
+        assert isinf(b)
+        
+
     def test_basic(self):
         import sys
         from numpy import (dtype, add, array, dtype,

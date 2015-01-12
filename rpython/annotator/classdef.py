@@ -451,11 +451,3 @@ except NameError:
     pass
 else:
     FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}
-
-try:
-    import termios
-except ImportError:
-    pass
-else:
-    FORCE_ATTRIBUTES_INTO_CLASSES[termios.error] = \
-        {'args': SomeTuple([SomeInteger(), SomeString()])}

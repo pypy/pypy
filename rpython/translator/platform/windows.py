@@ -293,7 +293,7 @@ class MsvcPlatform(Platform):
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('RPYDIR', rpydir),
+            ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

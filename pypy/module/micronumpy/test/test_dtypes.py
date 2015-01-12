@@ -665,6 +665,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
         assert numpy.int64(9223372036854775807) == 9223372036854775807
         assert numpy.int64(9223372036854775807) == 9223372036854775807
+        assert numpy.int64(-9223372036854775807) == -9223372036854775807
         raises(OverflowError, numpy.int64, 9223372036854775808)
         raises(OverflowError, numpy.int64, 9223372036854775808L)
 
@@ -1233,7 +1234,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
         d = np.dtype(('<f8', 2))
         exc = raises(ValueError, "d.__setstate__((3, '|', None, ('f0', 'f1'), None, 16, 1, 0))")
-        assert exc.value[0] == 'inconsistent fields and names'
+        inconsistent = 'inconsistent fields and names in Numpy dtype unpickling'
+        assert exc.value[0] == inconsistent
         assert d.fields is None
         assert d.shape == (2,)
         assert d.subdtype is not None
@@ -1241,7 +1243,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
         d = np.dtype(('<f8', 2))
         exc = raises(ValueError, "d.__setstate__((3, '|', None, None, {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))")
-        assert exc.value[0] == 'inconsistent fields and names'
+        assert exc.value[0] == inconsistent
         assert d.fields is None
         assert d.shape == (2,)
         assert d.subdtype is not None
@@ -1282,7 +1284,11 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, 
+                     ('x', 'y', 'z', 'value'),
+                     {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0),
+                      'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12),
+                      }, 20, 1, 0))
 
         new_d = loads(dumps(d))
 

@@ -48,6 +48,7 @@ class OptSimplify(Optimization):
 
     def optimize_JUMP(self, op):
         if not self.unroll:
+            op = op.clone()
             descr = op.getdescr()
             assert isinstance(descr, JitCellToken)
             if not descr.target_tokens:
