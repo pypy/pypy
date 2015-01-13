@@ -261,7 +261,7 @@ class W_DictMultiObject(W_Root):
     def nondescr_reversed_dict(self, space):
         """Not exposed directly to app-level, but via __pypy__.reversed_dict().
         """
-        if self.strategy.getiterreversed is not None:
+        if self.strategy.has_iterreversed:
             it = self.strategy.iterreversed(self)
             return W_DictMultiIterKeysObject(space, it)
         else:
@@ -512,7 +512,8 @@ class DictStrategy(object):
     def getiteritems(self, w_dict):
         raise NotImplementedError
 
-    getiterreversed = None    # means no implementation is available
+    has_iterreversed = False
+    # no 'getiterreversed': no default implementation available
 
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         iteritems = self.iteritems(w_dict)
@@ -781,10 +782,11 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     def iteritems(self, w_dict):
         return IterClassItems(self.space, self, w_dict)
 
-    if dictimpl.getiterreversed is not None:
+    if hasattr(dictimpl, 'getiterreversed'):
         def iterreversed(self, w_dict):
             return IterClassReversed(self.space, self, w_dict)
         dictimpl.iterreversed = iterreversed
+        dictimpl.has_iterreversed = True
 
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
