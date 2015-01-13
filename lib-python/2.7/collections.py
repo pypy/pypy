@@ -17,6 +17,10 @@ try:
 except ImportError:
     assert '__pypy__' not in _sys.builtin_module_names
     newdict = lambda _ : {}
+try:
+    from __pypy__ import reversed_dict
+except ImportError:
+    reversed_dict = lambda d: reversed(d.keys())
 
 try:
     from thread import get_ident as _get_ident
@@ -32,44 +36,17 @@ class OrderedDict(dict):
     '''Dictionary that remembers insertion order.
 
     In PyPy all dicts are ordered anyway.  This is mostly useful as a
-    placeholder to mean "this dict must be ordered even on CPython.'''
+    placeholder to mean "this dict must be ordered even on CPython".
 
-    def __iter__(self):
-        # This method allows some concurrent changes to the dictionary
-        # while iterating.  The annoying part is that the exact allowed
-        # changes are messy to define and different than CPython's own
-        # messy definition (which the docs have nothing to say about).
-        # For now, we'll suppose it is good enough.  Precisely: we
-        # iterate over the list of keys grabbed at the start; we return
-        # all keys that are still in the dictionary at the time we
-        # reach them.  This is a simple rule, but if a key is deleted
-        # and re-added, this method will return it in its old position,
-        # which is arguably wrong.  Also, any newly-added key is never
-        # returned, unlike CPython (which usually returns them, but not
-        # always).
-        for k in dict.keys(self):
-            if k in self:
-                yield k
+    Known difference: iterating over an OrderedDict which is being
+    concurrently modified raises RuntimeError in PyPy.  In CPython
+    instead we get some behavior that appears reasonable in some
+    cases but is nonsensical in other cases.  This is officially
+    forbidden by the CPython docs, so we forbid it explicitly for now.
+    '''
 
     def __reversed__(self):
-        'od.__reversed__() <==> reversed(od)'
-        for k in reversed(dict.keys(self)):
-            if k in self:
-                yield k
-
-    def iterkeys(self):
-        'od.iterkeys() -> an iterator over the keys in od'
-        return iter(self)
-
-    def itervalues(self):
-        'od.itervalues -> an iterator over the values in od'
-        for k in self:
-            yield self[k]
-
-    def iteritems(self):
-        'od.iteritems -> an iterator over the (key, value) pairs in od'
-        for k in self:
-            yield (k, self[k])
+        return reversed_dict(self)
 
     def popitem(self, last=True):
         '''od.popitem() -> (k, v), return and remove a (key, value) pair.
@@ -110,17 +87,6 @@ class OrderedDict(dict):
     def copy(self):
         'od.copy() -> a shallow copy of od'
         return self.__class__(self)
-
-    @classmethod
-    def fromkeys(cls, iterable, value=None):
-        '''OD.fromkeys(S[, v]) -> New ordered dictionary with keys from S.
-        If not specified, the value defaults to None.
-
-        '''
-        self = cls()
-        for key in iterable:
-            self[key] = value
-        return self
 
     def __eq__(self, other):
         '''od.__eq__(y) <==> od==y.  Comparison to another OD is order-sensitive
