@@ -30,3 +30,9 @@ def newdict(space, type):
         return space.newdict(strdict=True)
     else:
         raise oefmt(space.w_TypeError, "unknown type of dict %s", type)
+
+def reversed_dict(space, w_obj):
+    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+    if not isinstance(w_obj, W_DictMultiObject):
+        raise OperationError(space.w_TypeError, space.w_None)
+    return w_obj.nondescr_reversed_dict(space)
