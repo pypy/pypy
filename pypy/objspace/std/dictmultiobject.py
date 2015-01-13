@@ -725,6 +725,10 @@ def create_iterator_classes(dictimpl, override_next_item=None):
             'setitem_untyped_%s' % dictimpl.__name__)
 
     class IterClassKeys(BaseKeyIterator):
+        def __init__(self, space, strategy, impl):
+            self.iterator = strategy.getiterkeys(impl)
+            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+
         def next_key_entry(self):
             for key in self.iterator:
                 return wrapkey(self.space, key)
@@ -732,6 +736,10 @@ def create_iterator_classes(dictimpl, override_next_item=None):
                 return None
 
     class IterClassValues(BaseValueIterator):
+        def __init__(self, space, strategy, impl):
+            self.iterator = strategy.getitervalues(impl)
+            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+
         def next_value_entry(self):
             for value in self.iterator:
                 return wrapvalue(self.space, value)
@@ -739,6 +747,10 @@ def create_iterator_classes(dictimpl, override_next_item=None):
                 return None
 
     class IterClassItems(BaseItemIterator):
+        def __init__(self, space, strategy, impl):
+            self.iterator = strategy.getiteritems(impl)
+            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+
         if override_next_item is not None:
             next_item_entry = override_next_item
         else:
@@ -749,26 +761,29 @@ def create_iterator_classes(dictimpl, override_next_item=None):
                 else:
                     return None, None
 
+    class IterClassReversed(BaseKeyIterator):
+        def __init__(self, space, strategy, impl):
+            self.iterator = strategy.getiterreversed(impl)
+            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+
+        def next_key_entry(self):
+            for key in self.iterator:
+                return wrapkey(self.space, key)
+            else:
+                return None
+
     def iterkeys(self, w_dict):
-        it = IterClassKeys(self.space, self, w_dict)
-        it.iterator = self.getiterkeys(w_dict)
-        return it
+        return IterClassKeys(self.space, self, w_dict)
 
     def itervalues(self, w_dict):
-        it = IterClassValues(self.space, self, w_dict)
-        it.iterator = self.getitervalues(w_dict)
-        return it
+        return IterClassValues(self.space, self, w_dict)
 
     def iteritems(self, w_dict):
-        it = IterClassItems(self.space, self, w_dict)
-        it.iterator = self.getiteritems(w_dict)
-        return it
+        return IterClassItems(self.space, self, w_dict)
 
     if dictimpl.getiterreversed is not None:
         def iterreversed(self, w_dict):
-            it = IterClassKeys(self.space, self, w_dict)
-            it.iterator = self.getiterreversed(w_dict)
-            return it
+            return IterClassReversed(self.space, self, w_dict)
         dictimpl.iterreversed = iterreversed
 
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
@@ -780,7 +795,6 @@ def create_iterator_classes(dictimpl, override_next_item=None):
             # this is very similar to the general version, but the difference
             # is that it is specialized to call a specific next_item()
             iteritems = IterClassItems(self.space, self, w_dict)
-            iteritems.iterator = self.getiteritems(w_dict)
             w_key, w_value = iteritems.next_item()
             if w_key is None:
                 return
