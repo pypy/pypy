@@ -22,6 +22,7 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
                               LocationCodeBuilder,
                               codebuilder_cls):
     def __init__(self):
+        codebuilder_cls.__init__(self)
         self.init_block_builder()
         # a list of relative positions; for each position p, the bytes
         # at [p-4:p] encode an absolute address that will need to be

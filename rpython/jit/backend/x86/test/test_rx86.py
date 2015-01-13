@@ -5,6 +5,7 @@ globals().update(R.__dict__)
 class CodeBuilderMixin(object):
     def __init__(self):
         self.buffer = []
+        super(CodeBuilderMixin, self).__init__()
 
     def writechar(self, c):
         assert isinstance(c, str) and len(c) == 1
