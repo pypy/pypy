@@ -89,26 +89,23 @@ errno_eci = ExternalCompilationInfo(
     separate_module_sources=separate_module_sources,
 )
 
+# Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
                                          _nowrapper=True, c_type='int')
-# the default wrapper for set_errno is not suitable for use in critical places
-# like around GIL handling logic, so we provide our own wrappers.
 
-def get_errno():
-    if jit.we_are_jitted():
-        from rpython.rlib import rthread
-        perrno = rthread.tlfield_p_errno.getraw()
-        return intmask(perrno[0])
-    return intmask(_get_errno())
+def get_saved_errno():
+    """Return the saved value of the errno.  This value is saved after a call
+    to an llexternal function with 'save_err & RFFI_ERRNO_AFTER != 0'."""
+    from rpython.rlib import rthread
+    return intmask(rthread.tlfield_rpy_errno.getraw())
 
-def set_errno(errno):
-    if jit.we_are_jitted():
-        from rpython.rlib import rthread
-        perrno = rthread.tlfield_p_errno.getraw()
-        perrno[0] = rffi.cast(INT, errno)
-        return
-    _set_errno(rffi.cast(INT, errno))
+def set_saved_errno(errno):
+    """Set the saved value of the errno.  This value will be used by a
+    following llexternal function with 'save_err & RFFI_ERRNO_BEFORE != 0'."""
+    from rpython.rlib import rthread
+    rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
+
 
 if os.name == 'nt':
     is_valid_fd = jit.dont_look_inside(rffi.llexternal(

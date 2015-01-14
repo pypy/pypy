@@ -2,7 +2,6 @@
 #include "structdef.h"       /* for struct pypy_threadlocal_s */
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <string.h>
 #ifndef _WIN32
 # include <pthread.h>
@@ -13,9 +12,6 @@
 static void _RPy_ThreadLocals_Init(void *p)
 {
     memset(p, 0, sizeof(struct pypy_threadlocal_s));
-#ifdef RPY_TLOFS_p_errno
-    ((struct pypy_threadlocal_s *)p)->p_errno = &errno;
-#endif
 #ifdef RPY_TLOFS_thread_ident
     ((struct pypy_threadlocal_s *)p)->thread_ident =
 #    ifdef _WIN32

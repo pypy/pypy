@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
-import py
+import py, sys
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -266,19 +266,23 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 
 # ____________________________________________________________
 #
-# Thread-locals.  Only for references that change "not too often" --
-# for now, the JIT compiles get() as a loop-invariant, so basically
-# don't change them.
+# Thread-locals.
 # KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
 # We use _make_sure_does_not_move() to make sure the pointer will not move.
 
 
 class ThreadLocalField(object):
-    def __init__(self, FIELDTYPE, fieldname):
+    def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
         self.FIELDTYPE = FIELDTYPE
         self.fieldname = fieldname
-        offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
+        self.loop_invariant = loop_invariant
+        if loop_invariant:
+            invariant = 'LOOPINVARIANT'
+        else:
+            invariant = ''
+        offset = CDefinedIntSymbolic('RPY_TLOFS%s_%s' % (invariant,
+                                                         self.fieldname),
                                      default='?')
         self.offset = offset
 
@@ -309,14 +313,15 @@ class ThreadLocalField(object):
 class ThreadLocalReference(ThreadLocalField):
     _COUNT = 1
 
-    def __init__(self, Cls):
+    def __init__(self, Cls, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
         import thread
         self.Cls = Cls
         self.local = thread._local()      # <- NOT_RPYTHON
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
-        ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id)
+        ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,
+                                  loop_invariant=loop_invariant)
         setraw = self.setraw
         offset = self.offset
 
@@ -350,8 +355,13 @@ class ThreadLocalReference(ThreadLocalField):
         self.set = set
 
 
-tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident")
-tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno")
+tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
+                                        loop_invariant=True)
+tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
+                                   loop_invariant=True)
+tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
+if sys.platform == "win32":
+    tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
 
 def _threadlocalref_seeme(field):
     "NOT_RPYTHON"

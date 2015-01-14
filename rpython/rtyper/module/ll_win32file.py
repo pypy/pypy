@@ -168,7 +168,8 @@ def make_win32_traits(traits):
         CreateDirectory = external(
             'CreateDirectory' + suffix,
             [traits.CCHARP, rffi.VOIDP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            XXX)   # save_err=rffi.RFFI_SAVE_LASTERROR
 
         SetEnvironmentVariable = external(
             'SetEnvironmentVariable' + suffix,

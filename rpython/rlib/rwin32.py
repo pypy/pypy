@@ -123,16 +123,23 @@ if WIN32:
     _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void,
                                 _nowrapper=True, sandboxsafe=True)
 
-    @jit.dont_look_inside
-    def GetLastError():
+    def GetLastError_real():
         return rffi.cast(lltype.Signed, _GetLastError())
-    @jit.dont_look_inside
-    def SetLastError(err):
+
+    def SetLastError_real(err):
         _SetLastError(rffi.cast(DWORD, err))
 
-    # In tests, the first call to GetLastError is always wrong, because error
-    # is hidden by operations in ll2ctypes.  Call it now.
-    GetLastError()
+    def GetLastError_saved():
+        from rpython.rlib import rthread
+        return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
+
+    def SetLastError_saved(err):
+        from rpython.rlib import rthread
+        rthread.tlfield_rpy_lasterror.setraw(rffi.cast(DWORD, err))
+
+    # In tests, the first call to GetLastError_real() is always wrong,
+    # because error is hidden by operations in ll2ctypes.  Call it now.
+    GetLastError_real()
 
     GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
@@ -260,7 +267,7 @@ if WIN32:
         return 'Windows Error %d' % (code,)
 
     def lastWindowsError(context="Windows Error"):
-        code = GetLastError()
+        code = GetLastError_saved()
         return WindowsError(code, context)
 
     def FAILED(hr):
