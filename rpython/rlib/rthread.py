@@ -274,33 +274,40 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 class ThreadLocalField(object):
     def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
+        from thread import _local
         self.FIELDTYPE = FIELDTYPE
         self.fieldname = fieldname
-        self.loop_invariant = loop_invariant
-        if loop_invariant:
-            invariant = 'LOOPINVARIANT'
-        else:
-            invariant = ''
-        offset = CDefinedIntSymbolic('RPY_TLOFS%s_%s' % (invariant,
-                                                         self.fieldname),
+        self.local = _local()      # <- NOT_RPYTHON
+        zero = rffi.cast(FIELDTYPE, 0)
+        offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
                                      default='?')
+        offset.loop_invariant = loop_invariant
         self.offset = offset
 
         def getraw():
-            _threadlocalref_seeme(self)
-            return llop.threadlocalref_get(FIELDTYPE, offset)
+            if we_are_translated():
+                _threadlocalref_seeme(self)
+                return llop.threadlocalref_get(FIELDTYPE, offset)
+            else:
+                return getattr(self.local, 'rawvalue', zero)
 
         @jit.dont_look_inside
         def get_or_make_raw():
-            _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
-            return llop.raw_load(FIELDTYPE, addr, offset)
+            if we_are_translated():
+                _threadlocalref_seeme(self)
+                addr = llop.threadlocalref_addr(llmemory.Address)
+                return llop.raw_load(FIELDTYPE, addr, offset)
+            else:
+                return getattr(self.local, 'rawvalue', zero)
 
         @jit.dont_look_inside
         def setraw(value):
-            _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
-            llop.raw_store(lltype.Void, addr, offset, value)
+            if we_are_translated():
+                _threadlocalref_seeme(self)
+                addr = llop.threadlocalref_addr(llmemory.Address)
+                llop.raw_store(lltype.Void, addr, offset, value)
+            else:
+                self.local.rawvalue = value
 
         self.getraw = getraw
         self.get_or_make_raw = get_or_make_raw
@@ -315,9 +322,7 @@ class ThreadLocalReference(ThreadLocalField):
 
     def __init__(self, Cls, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
-        import thread
         self.Cls = Cls
-        self.local = thread._local()      # <- NOT_RPYTHON
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
         ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,

@@ -1999,12 +1999,10 @@ class Transformer(object):
                 or isinstance(RESTYPE, lltype.Ptr))
         c_offset, = op.args
         op1 = self.prepare_builtin_call(op, 'threadlocalref_get', [c_offset])
-        if c_offset.value.startswith('RPY_TLOFSLOOPINVARIANT_'):
+        if c_offset.value.loop_invariant:
             effect = EffectInfo.EF_LOOPINVARIANT
-        elif c_offset.value.startswith('RPY_TLOFS_'):
-            effect = EffectInfo.EF_CANNOT_RAISE
         else:
-            assert 0
+            effect = EffectInfo.EF_CANNOT_RAISE
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
             extraeffect=effect)
