@@ -630,10 +630,9 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'sysconf')
     def register_os_sysconf(self):
         c_sysconf = self.llexternal('sysconf', [rffi.INT], rffi.LONG,
-                                    save_err=rffi.RFFI_FULL_ERRNO)
+                                    save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
         def sysconf_llimpl(i):
-            rposix.set_saved_errno(0)
             res = c_sysconf(i)
             if res == -1:
                 errno = rposix.get_saved_errno()
@@ -646,10 +645,9 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_fpathconf(self):
         c_fpathconf = self.llexternal('fpathconf',
                                       [rffi.INT, rffi.INT], rffi.LONG,
-                                      save_err=rffi.RFFI_FULL_ERRNO)
+                                      save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
         def fpathconf_llimpl(fd, i):
-            rposix.set_saved_errno(0)
             res = c_fpathconf(fd, i)
             if res == -1:
                 errno = rposix.get_saved_errno()
@@ -663,10 +661,9 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_pathconf(self):
         c_pathconf = self.llexternal('pathconf',
                                      [rffi.CCHARP, rffi.INT], rffi.LONG,
-                                     save_err=rffi.RFFI_FULL_ERRNO)
+                                     save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
         def pathconf_llimpl(path, i):
-            rposix.set_saved_errno(0)
             res = c_pathconf(path, i)
             if res == -1:
                 errno = rposix.get_saved_errno()
@@ -680,10 +677,9 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_confstr(self):
         c_confstr = self.llexternal('confstr', [rffi.INT, rffi.CCHARP,
                                                 rffi.SIZE_T], rffi.SIZE_T,
-                                                save_err=rffi.RFFI_FULL_ERRNO)
+                                    save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
         def confstr_llimpl(i):
-            rposix.set_saved_errno(0)
             n = c_confstr(i, lltype.nullptr(rffi.CCHARP.TO), 0)
             n = rffi.cast(lltype.Signed, n)
             if n > 0:
@@ -1305,7 +1301,7 @@ class RegisterOs(BaseLazyRegistering):
             # dirent struct (which depends on defines)
             os_readdir = self.llexternal('readdir', [DIRP], DIRENTP,
                                          compilation_info=compilation_info,
-                                         save_err=rffi.RFFI_FULL_ERRNO,
+                                         save_err=rffi.RFFI_FULL_ERRNO_ZERO,
                                          macro=True)
             os_closedir = self.llexternal('closedir', [DIRP], rffi.INT,
                                           compilation_info=compilation_info)
@@ -1316,7 +1312,6 @@ class RegisterOs(BaseLazyRegistering):
                     raise OSError(rposix.get_saved_errno(), "os_opendir failed")
                 result = []
                 while True:
-                    rposix.set_saved_errno(0)
                     direntp = os_readdir(dirp)
                     if not direntp:
                         error = rposix.get_saved_errno()
@@ -1711,7 +1706,7 @@ class RegisterOs(BaseLazyRegistering):
         def mknod_llimpl(path, mode, dev):
             res = rffi.cast(lltype.Signed, os_mknod(path, mode, dev))
             if res < 0:
-                raise OSError(rposix.get_sved_errno(), "os_mknod failed")
+                raise OSError(rposix.get_saved_errno(), "os_mknod failed")
 
         return extdef([traits.str0, int, int], s_None, llimpl=mknod_llimpl,
                       export_name=traits.ll_os_name('mknod'))
@@ -1874,13 +1869,12 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'nice')
     def register_os_nice(self):
         os_nice = self.llexternal('nice', [rffi.INT], rffi.INT,
-                                  save_err=rffi.RFFI_FULL_ERRNO)
+                                  save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
         def nice_llimpl(inc):
             # Assume that the system provides a standard-compliant version
             # of nice() that returns the new priority.  Nowadays, FreeBSD
             # might be the last major non-compliant system (xxx check me).
-            rposix.set_saved_errno(0)
             res = rffi.cast(lltype.Signed, os_nice(inc))
             if res == -1:
                 err = rposix.get_saved_errno()

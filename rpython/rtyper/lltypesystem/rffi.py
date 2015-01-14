@@ -59,11 +59,13 @@ class _IsLLPtrEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
-RFFI_SAVE_ERRNO          = 1
-RFFI_READSAVED_ERRNO     = 2
+RFFI_SAVE_ERRNO          = 1     # save the real errno after the call
+RFFI_READSAVED_ERRNO     = 2     # copy saved errno into real errno before call
+RFFI_ZERO_ERRNO_BEFORE   = 4     # copy the value 0 into real errno before call
 RFFI_FULL_ERRNO          = RFFI_SAVE_ERRNO | RFFI_READSAVED_ERRNO
-RFFI_SAVE_LASTERROR      = 4
-RFFI_READSAVED_LASTERROR = 8
+RFFI_FULL_ERRNO_ZERO     = RFFI_SAVE_ERRNO | RFFI_ZERO_ERRNO_BEFORE
+RFFI_SAVE_LASTERROR      = 8
+RFFI_READSAVED_LASTERROR = 16
 RFFI_FULL_LASTERROR      = RFFI_SAVE_LASTERROR | RFFI_READSAVED_LASTERROR
 RFFI_ERR_NONE            = 0
 RFFI_ERR_ALL             = RFFI_FULL_ERRNO | RFFI_FULL_LASTERROR
@@ -157,7 +159,9 @@ def llexternal(name, args, result, _callable=None,
 
     argnames = ', '.join(['a%d' % i for i in range(len(args))])
     errno_before = (save_err & RFFI_READSAVED_ERRNO) != 0
+    errno_zero_before = (save_err & RFFI_ZERO_ERRNO_BEFORE) != 0
     errno_after = (save_err & RFFI_SAVE_ERRNO) != 0
+    errno_any = errno_before or errno_zero_before or errno_after
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -170,7 +174,7 @@ def llexternal(name, args, result, _callable=None,
         # argument to wrapper(), if any (e.g. RPython strings).
 
         source = py.code.Source("""
-            if %(errno_before)s or %(errno_after)s:
+            if %(errno_any)s:
                 from rpython.rlib import rposix, rthread
 
             def call_external_function(%(argnames)s):
@@ -181,6 +185,8 @@ def llexternal(name, args, result, _callable=None,
                 # restore errno from its saved value
                 if %(errno_before)s:
                     rposix._set_errno(rthread.tlfield_rpy_errno.getraw())
+                elif %(errno_zero_before)s:
+                    rposix._set_errno(int_zero)
                 #
                 res = funcptr(%(argnames)s)
                 #
@@ -194,6 +200,7 @@ def llexternal(name, args, result, _callable=None,
         """ % locals())
         miniglobals = {'aroundstate': aroundstate,
                        'funcptr':     funcptr,
+                       'int_zero':    cast(INT, 0),
                        '__name__':    __name__, # for module name propagation
                        }
         exec source.compile() in miniglobals
@@ -221,13 +228,15 @@ def llexternal(name, args, result, _callable=None,
             # ...well, unless it's a macro, in which case we still have
             # to hide it from the JIT...
             source = py.code.Source("""
-                if %(errno_before)s or %(errno_after)s:
+                if %(errno_any)s:
                     from rpython.rlib import rposix, rthread
 
                 def call_external_function(%(argnames)s):
                     # restore errno from its saved value
                     if %(errno_before)s:
                         rposix._set_errno(rthread.tlfield_rpy_errno.getraw())
+                    elif %(errno_zero_before)s:
+                        rposix._set_errno(int_zero)
                     #
                     res = funcptr(%(argnames)s)
                     #
@@ -238,6 +247,7 @@ def llexternal(name, args, result, _callable=None,
                     return res
             """ % locals())
             miniglobals = {'funcptr':     funcptr,
+                           'int_zero':    cast(INT, 0),
                            '__name__':    __name__,
                            }
             exec source.compile() in miniglobals

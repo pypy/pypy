@@ -218,7 +218,8 @@ class RegisterTime(BaseLazyRegistering):
         else:
             c_select = self.llexternal('select', [rffi.INT, rffi.VOIDP,
                                                   rffi.VOIDP, rffi.VOIDP,
-                                                  self.TIMEVALP], rffi.INT)
+                                                  self.TIMEVALP], rffi.INT,
+                                       save_err=rffi.RFFI_SAVE_ERRNO)
             def time_sleep_llimpl(secs):
                 void = lltype.nullptr(rffi.VOIDP.TO)
                 t = lltype.malloc(self.TIMEVAL, flavor='raw')
@@ -228,9 +229,9 @@ class RegisterTime(BaseLazyRegistering):
                     rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
 
                     if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
-                        errno = rposix.get_errno()
+                        errno = rposix.get_saved_errno()
                         if errno != EINTR:
-                            raise OSError(rposix.get_errno(), "Select failed")
+                            raise OSError(errno, "Select failed")
                 finally:
                     lltype.free(t, flavor='raw')
 
