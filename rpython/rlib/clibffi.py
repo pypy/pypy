@@ -330,7 +330,8 @@ if _MSVC:
 else:
     c_ffi_call_return_type = lltype.Void
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
-                                   VOIDPP], c_ffi_call_return_type)
+                                   VOIDPP], c_ffi_call_return_type,
+                      save_err=rffi.RFFI_ERR_ALL)
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,

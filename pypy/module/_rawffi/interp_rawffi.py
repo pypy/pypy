@@ -613,10 +613,10 @@ def get_libc(space):
     return space.wrap(W_CDLL(space, name, cdll))
 
 def get_errno(space):
-    return space.wrap(rposix.get_errno())
+    return space.wrap(rposix.get_saved_errno())
 
 def set_errno(space, w_errno):
-    rposix.set_errno(space.int_w(w_errno))
+    rposix.set_saved_errno(space.int_w(w_errno))
 
 if sys.platform == 'win32':
     def get_last_error(space):

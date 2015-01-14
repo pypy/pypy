@@ -95,3 +95,24 @@ class ReleaseGILTests(BaseFrameworkTests):
     def test_close_stack(self):
         self.run('close_stack')
         assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
+
+    ## def define_get_set_errno(self):
+
+    ##     c_strchr = rffi.llexternal('strchr', [rffi.CCHARP, lltype.Signed],
+    ##                                rffi.CCHARP, ...
+
+    ##     def before(n, x):
+    ##         return (n, None, None, None, None, None,
+    ##                 None, None, None, None, None, None)
+    ##     #
+    ##     def f(n, x, *args):
+    ##         a = rffi.str2charp(str(n))
+    ##         c_strchr(a, ord('0'))
+    ##         lltype.free(a, flavor='raw')
+    ##         n -= 1
+    ##         return (n, x) + args
+    ##     return before, f, None
+
+    ## def test_get_set_errno(self):
+    ##     self.run('get_set_errno')
+    ##     assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()

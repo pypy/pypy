@@ -213,7 +213,7 @@ def llexternal(name, args, result, _callable=None,
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
         # 'funcptr' might be a C macro, though.
         if macro is None:
-            call_external_function._call_aroundstate_target_ = funcptr
+            call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
