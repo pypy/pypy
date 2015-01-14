@@ -114,7 +114,8 @@ if os.name == 'nt':
         ))
     def validate_fd(fd):
         if not is_valid_fd(fd):
-            raise OSError(get_errno(), 'Bad file descriptor')
+            from errno import EBADF
+            raise OSError(EBADF, 'Bad file descriptor')
 else:
     def is_valid_fd(fd):
         return 1
