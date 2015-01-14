@@ -2512,7 +2512,7 @@ class LLtypeBackendTest(BaseBackendTest):
         tok = BoxInt()
         faildescr = BasicFailDescr(1)
         ops = [
-        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1], i2,
+        ResOperation(rop.CALL_RELEASE_GIL, [ConstInt(0), funcbox, i1], i2,
                      descr=calldescr),
         ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
         ResOperation(rop.FINISH, [i2], None, descr=BasicFinalDescr(0))
@@ -2570,7 +2570,8 @@ class LLtypeBackendTest(BaseBackendTest):
         tok = BoxInt()
         faildescr = BasicFailDescr(1)
         ops = [
-        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i0, i1, i2, i3], None,
+        ResOperation(rop.CALL_RELEASE_GIL,
+                     [ConstInt(0), funcbox, i0, i1, i2, i3], None,
                      descr=calldescr),
         ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
         ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
@@ -2625,7 +2626,8 @@ class LLtypeBackendTest(BaseBackendTest):
         for i in range(50):
             i3 = BoxInt()
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1, i2], i3,
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(0), funcbox, i1, i2], i3,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ]
@@ -2697,7 +2699,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert 0, kind
             #
             ops = [
-                ResOperation(rop.CALL_RELEASE_GIL, [funcbox], b3,
+                ResOperation(rop.CALL_RELEASE_GIL, [ConstInt(0), funcbox], b3,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ResOperation(rop.FINISH, [b3], None, descr=BasicFinalDescr(0))
@@ -2881,7 +2883,8 @@ class LLtypeBackendTest(BaseBackendTest):
             loadcodes = ''.join(loadcodes)
             print loadcodes
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL, insideboxes, None,
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(0)] + insideboxes, None,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
@@ -2916,6 +2919,20 @@ class LLtypeBackendTest(BaseBackendTest):
             assert got == expected, '\n'.join(
                 ['bad args, signature %r' % codes[1:]] + different_values)
 
+    def test_call_release_gil_save_errno(self):
+        XXX
+
+    def test_call_release_gil_readsaved_errno(self):
+        XXX
+
+    def test_call_release_gil_zero_errno_before(self):
+        XXX
+
+    def test_call_release_gil_save_lasterror(self):
+        XXX
+
+    def test_call_release_gil_readsaved_lasterror(self):
+        XXX
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu

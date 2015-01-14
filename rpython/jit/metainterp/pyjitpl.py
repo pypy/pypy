@@ -2875,8 +2875,11 @@ class MetaInterp(object):
             arg_boxes.append(box_arg)
         #
         box_result = op.result
+        # for now, any call via libffi saves and restores everything
+        # (that is, errno and SetLastError/GetLastError on Windows)
+        c_saveall = ConstInt(rffi.RFFI_ERR_ALL)
         self.history.record(rop.CALL_RELEASE_GIL,
-                            [op.getarg(2)] + arg_boxes,
+                            [c_saveall, op.getarg(2)] + arg_boxes,
                             box_result, calldescr)
         #
         self.history.operations.extend(extra_guards)
@@ -2889,10 +2892,11 @@ class MetaInterp(object):
         assert op.opnum == rop.CALL_MAY_FORCE
         descr = op.getdescr()
         effectinfo = descr.get_extra_info()
-        realfuncaddr = effectinfo.call_release_gil_target
+        realfuncaddr, saveerr = effectinfo.call_release_gil_target
         funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
+        savebox = ConstInt(saveerr)
         self.history.record(rop.CALL_RELEASE_GIL,
-                            [funcbox] + op.getarglist()[1:],
+                            [savebox, funcbox] + op.getarglist()[1:],
                             op.result, descr)
         if not we_are_translated():       # for llgraph
             descr._original_func_ = op.getarg(0).value
