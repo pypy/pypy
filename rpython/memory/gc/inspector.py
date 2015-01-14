@@ -130,7 +130,8 @@ class HeapDumper(object):
                                  rffi.cast(llmemory.Address, self.writebuffer),
                                  rffi.cast(rffi.SIZE_T, bytes))
             if rffi.cast(lltype.Signed, count) != bytes:
-                raise OSError(rposix.get_errno(), "raw_os_write failed")
+                raise OSError(rffi.cast(lltype.Signed, rposix._get_errno()),
+                              "raw_os_write failed")
             self.buf_count = 0
     flush._dont_inline_ = True
 
