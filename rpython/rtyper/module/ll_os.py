@@ -20,7 +20,7 @@ from rpython.annotator.model import s_ImpossibleValue, s_None, s_Bool
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rlib import rposix
+from rpython.rlib import rposix, jit
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import specialize
 from rpython.translator import cdir
@@ -1785,6 +1785,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fork = self.llexternal('fork', [], rffi.PID_T,
                                   _nowrapper = True)
 
+        @jit.dont_look_inside
         def fork_llimpl():
             # NB. keep forkpty() up-to-date, too
             ofs = debug.debug_offset()

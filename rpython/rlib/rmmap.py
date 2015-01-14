@@ -108,13 +108,16 @@ if rffi.sizeof(off_t) > rffi.sizeof(lltype.Signed):
 else:
     HAVE_LARGEFILE_SUPPORT = False
 
-def external(name, args, result, **kwargs):
+def external(name, args, result, save_err_on_unsafe=0, save_err_on_safe=0,
+             **kwargs):
     unsafe = rffi.llexternal(name, args, result,
                              compilation_info=CConfig._compilation_info_,
+                             save_err=save_err_on_unsafe,
                              **kwargs)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
                            sandboxsafe=True, releasegil=False,
+                           save_err=save_err_on_safe,
                            **kwargs)
     return unsafe, safe
 
@@ -142,10 +145,12 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 if _POSIX:
     has_mremap = cConfig['has_mremap']
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
-                                   rffi.INT, off_t], PTR, macro=True)
+                                   rffi.INT, off_t], PTR, macro=True,
+                                   save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
     # 'mmap' on linux32 is a macro that calls 'mmap64'
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
-    c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
+    c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT,
+                          save_err_on_unsafe=rffi.RFFI_SAVE_ERRNO)
     if has_mremap:
         c_mremap, _ = external('mremap',
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
@@ -501,7 +506,7 @@ class MMap(object):
             elif _POSIX:
                 res = c_msync(start, size, MS_SYNC)
                 if res == -1:
-                    errno = rposix.get_errno()
+                    errno = rposix.get_saved_errno()
                     raise OSError(errno, os.strerror(errno))
 
         return 0
@@ -671,7 +676,7 @@ if _POSIX:
         #     to be annotated with a non-constant pointer.
         res = c_mmap(NonConstant(NULL), map_size, prot, flags, fd, offset)
         if res == rffi.cast(PTR, -1):
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))
 
         m.setdata(res, map_size)

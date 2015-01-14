@@ -4,7 +4,7 @@ Utility RPython functions to inspect objects in the GC.
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.rlib.objectmodel import free_non_gc_object
 from rpython.rtyper.module.ll_os import UNDERSCORE_ON_WIN32
-from rpython.rlib import rposix, rgc
+from rpython.rlib import rposix, rgc, jit
 
 from rpython.memory.support import AddressDict, get_address_stack
 
@@ -123,6 +123,7 @@ class HeapDumper(object):
         lltype.free(self.writebuffer, flavor='raw')
         free_non_gc_object(self)
 
+    @jit.dont_look_inside
     def flush(self):
         if self.buf_count > 0:
             bytes = self.buf_count * rffi.sizeof(rffi.LONG)
