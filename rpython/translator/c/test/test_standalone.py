@@ -1166,10 +1166,10 @@ class TestThread(object):
                 self.tail = tail
 
         def check_errno(value):
-            rposix.set_errno(value)
+            rposix.set_saved_errno(value)
             for i in range(10000000):
                 pass
-            assert rposix.get_errno() == value
+            assert rposix.get_saved_errno() == value
 
         def bootstrap():
             rthread.gc_thread_start()
