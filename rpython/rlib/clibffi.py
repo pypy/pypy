@@ -11,7 +11,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
-from rpython.rlib import jit
+from rpython.rlib import jit, rposix
 from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -412,7 +412,7 @@ USERDATA_P.TO.become(lltype.Struct('userdata',
 
 
 @jit.jit_callback("CLIBFFI")
-def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
     ll_args - rffi.VOIDPP - pointer to array of pointers to args
@@ -422,6 +422,12 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
+
+def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+    rposix._errno_after(rffi.RFFI_ERR_ALL)
+    _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata)
+    rposix._errno_before(rffi.RFFI_ERR_ALL)
+
 
 class StackCheckError(ValueError):
     message = None

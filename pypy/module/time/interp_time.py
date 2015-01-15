@@ -169,10 +169,12 @@ TM_P = lltype.Ptr(tm)
 c_clock = external('clock', [rffi.TIME_TP], clock_t)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
-c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)
+c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_asctime = external('asctime', [TM_P], rffi.CCHARP)
-c_localtime = external('localtime', [rffi.TIME_TP], TM_P)
+c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -304,7 +306,7 @@ def _init_timezone(space):
     _set_module_object(space, 'altzone', space.wrap(altzone))
 
 def _get_error_msg():
-    errno = rposix.get_errno()
+    errno = rposix.get_saved_errno()
     return os.strerror(errno)
 
 if sys.platform != 'win32':

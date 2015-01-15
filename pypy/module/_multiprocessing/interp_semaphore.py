@@ -81,51 +81,59 @@ else:
 
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
-                         SEM_T)
+                         SEM_T, save_err=rffi.RFFI_SAVE_ERRNO)
     # sem_close is releasegil=False to be able to use it in the __del__
-    _sem_close = external('sem_close', [SEM_T], rffi.INT, releasegil=False)
-    _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
-    _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
-    _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
-    _sem_post = external('sem_post', [SEM_T], rffi.INT)
-    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT)
+    _sem_close = external('sem_close', [SEM_T], rffi.INT, releasegil=False,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_wait = external('sem_wait', [SEM_T], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT,
+                            save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_post = external('sem_post', [SEM_T], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT,
+                             save_err=rffi.RFFI_SAVE_ERRNO)
 
-    _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT)
+    _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT,
+                             save_err=rffi.RFFI_SAVE_ERRNO)
 
     _select = external('select', [rffi.INT, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP,
-                                                          TIMEVALP], rffi.INT)
+                                                          TIMEVALP], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
     @jit.dont_look_inside
     def sem_open(name, oflag, mode, value):
         res = _sem_open(name, oflag, mode, value)
         if res == rffi.cast(SEM_T, SEM_FAILED):
-            raise OSError(rposix.get_errno(), "sem_open failed")
+            raise OSError(rposix.get_saved_errno(), "sem_open failed")
         return res
 
     def sem_close(handle):
         res = _sem_close(handle)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_close failed")
+            raise OSError(rposix.get_saved_errno(), "sem_close failed")
 
     def sem_unlink(name):
         res = _sem_unlink(name)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_unlink failed")
+            raise OSError(rposix.get_saved_errno(), "sem_unlink failed")
 
     def sem_wait(sem):
         res = _sem_wait(sem)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_wait failed")
+            raise OSError(rposix.get_saved_errno(), "sem_wait failed")
 
     def sem_trywait(sem):
         res = _sem_trywait(sem)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_trywait failed")
+            raise OSError(rposix.get_saved_errno(), "sem_trywait failed")
 
     def sem_timedwait(sem, deadline):
         res = _sem_timedwait(sem, deadline)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_timedwait failed")
+            raise OSError(rposix.get_saved_errno(), "sem_timedwait failed")
 
     def _sem_timedwait_save(sem, deadline):
         delay = 0
@@ -135,7 +143,7 @@ else:
                 # poll
                 if _sem_trywait(sem) == 0:
                     return 0
-                elif rposix.get_errno() != errno.EAGAIN:
+                elif rposix.get_saved_errno() != errno.EAGAIN:
                     return -1
 
                 now = gettimeofday()
@@ -143,7 +151,7 @@ else:
                 c_tv_nsec = rffi.getintfield(deadline[0], 'c_tv_nsec')
                 if (c_tv_sec < now[0] or
                     (c_tv_sec == now[0] and c_tv_nsec <= now[1])):
-                    rposix.set_errno(errno.ETIMEDOUT)
+                    rposix.set_saved_errno(errno.ETIMEDOUT)
                     return -1
 
 
@@ -166,21 +174,21 @@ else:
 
     if SEM_TIMED_WAIT:
         _sem_timedwait = external('sem_timedwait', [SEM_T, TIMESPECP],
-                                  rffi.INT)
+                                  rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
     else:
         _sem_timedwait = _sem_timedwait_save
 
     def sem_post(sem):
         res = _sem_post(sem)
         if res < 0:
-            raise OSError(rposix.get_errno(), "sem_post failed")
+            raise OSError(rposix.get_saved_errno(), "sem_post failed")
 
     def sem_getvalue(sem):
         sval_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
         try:
             res = _sem_getvalue(sem, sval_ptr)
             if res < 0:
-                raise OSError(rposix.get_errno(), "sem_getvalue failed")
+                raise OSError(rposix.get_saved_errno(), "sem_getvalue failed")
             return rffi.cast(lltype.Signed, sval_ptr[0])
         finally:
             lltype.free(sval_ptr, flavor='raw')
@@ -190,7 +198,7 @@ else:
         try:
             res = _gettimeofday(now, None)
             if res < 0:
-                raise OSError(rposix.get_errno(), "gettimeofday failed")
+                raise OSError(rposix.get_saved_errno(), "gettimeofday failed")
             return (rffi.getintfield(now[0], 'c_tv_sec'),
                     rffi.getintfield(now[0], 'c_tv_usec'))
         finally:
