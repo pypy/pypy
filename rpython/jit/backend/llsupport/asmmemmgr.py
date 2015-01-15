@@ -24,6 +24,10 @@ class AsmMemoryManager(object):
         self.free_blocks = {}      # map {start: stop}
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
+        # two lists of jit addresses (sorted) and the corresponding stack
+        # depths
+        self.jit_addr_map = []
+        self.jit_frame_depth_map = []
 
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
@@ -150,6 +154,18 @@ class AsmMemoryManager(object):
         del self.free_blocks[start]
         del self.free_blocks_end[stop]
         return (start, stop)
+
+    def register_frame_depth_map(self, rawstart, frame_positions,
+                                 frame_assignments):
+        if not self.jit_addr_map or rawstart > self.jit_addr_map[-1]:
+            start = len(self.jit_addr_map)
+            self.jit_addr_map += [0] * len(frame_positions)
+            self.jit_frame_depth_map += [0] * len(frame_positions)
+            for i, pos in enumerate(frame_positions):
+                self.jit_addr_map[i + start] = pos + rawstart
+                self.jit_frame_depth_map[i + start] = frame_assignments[i]
+        else:
+            xxx
 
     def _delete(self):
         "NOT_RPYTHON"
@@ -311,6 +327,10 @@ class BlockBuilderMixin(object):
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
                 gcrootmap.register_asm_addr(rawstart + pos, mark)
+        asmmemmgr.register_frame_depth_map(rawstart, self.frame_positions,
+                                           self.frame_assignments)
+        self.frame_positions = None
+        self.frame_assignments = None
         return rawstart
 
     def _become_a_plain_block_builder(self):
