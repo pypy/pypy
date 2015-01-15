@@ -361,7 +361,7 @@ class OptHeap(Optimization):
             return False
         else:
             if flag != FLAG_LOOKUP:
-                if not res_v.intbound.known_ge(IntBound(0, 0)):
+                if not res_v.getintbound().known_ge(IntBound(0, 0)):
                     return False
             self.make_equal_to(op.result, res_v)
             self.last_emitted_operation = REMOVED
