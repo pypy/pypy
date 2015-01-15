@@ -489,11 +489,13 @@ if _POSIX:
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT,
-                           releasegil=False, save_err=SAVE_ERR)
+    socketclosename = 'closesocket'
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT,
-                           releasegil=False, save_err=SAVE_ERR)
+    socketclosename = 'close'
+socketclose = external(socketclosename, [socketfd_type], rffi.INT,
+                       releasegil=False, save_err=SAVE_ERR)
+socketclose_no_errno = external(socketclosename, [socketfd_type], rffi.INT,
+                                releasegil=False)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t],
                          rffi.INT, save_err=SAVE_ERR)

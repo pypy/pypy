@@ -83,6 +83,8 @@ else:
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
                          SEM_T, save_err=rffi.RFFI_SAVE_ERRNO)
     # sem_close is releasegil=False to be able to use it in the __del__
+    _sem_close_no_errno = external('sem_close', [SEM_T], rffi.INT,
+                                   releasegil=False)
     _sem_close = external('sem_close', [SEM_T], rffi.INT, releasegil=False,
                           save_err=rffi.RFFI_SAVE_ERRNO)
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT,
@@ -328,7 +330,7 @@ else:
         return sem
 
     def delete_semaphore(handle):
-        sem_close(handle)
+        _sem_close_no_errno(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:

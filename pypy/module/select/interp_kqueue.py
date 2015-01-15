@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
-from rpython.rlib._rsocket_rffi import socketclose
+from rpython.rlib._rsocket_rffi import socketclose_no_errno
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -130,7 +130,7 @@ class W_Kqueue(W_Root):
         if not self.get_closed():
             kqfd = self.kqfd
             self.kqfd = -1
-            socketclose(kqfd)
+            socketclose_no_errno(kqfd)
 
     def check_closed(self, space):
         if self.get_closed():
