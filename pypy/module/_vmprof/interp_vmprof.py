@@ -218,9 +218,9 @@ class VMProf(object):
 
 _vmprof = VMProf()
 
-@unwrap_spec(filename=str, period=int)
-def enable(space, filename, period=-1):
-    _vmprof.enable(space, filename, period)
+@unwrap_spec(fileno=int, symno=int, period=int)
+def enable(space, fileno, symno, period=-1):
+    _vmprof.enable(space, fileno, symno, period)
 
 def disable(space):
     _vmprof.disable(space)
