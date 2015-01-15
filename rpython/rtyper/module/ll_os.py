@@ -1791,7 +1791,7 @@ class RegisterOs(BaseLazyRegistering):
             ofs = debug.debug_offset()
             opaqueaddr = rthread.gc_thread_before_fork()
             childpid = rffi.cast(lltype.Signed, os_fork())
-            errno = rffi.cast(rffi.Signed, rposix._get_errno())
+            errno = rffi.cast(lltype.Signed, rposix._get_errno())
             rthread.gc_thread_after_fork(childpid, opaqueaddr)
             if childpid == -1:
                 raise OSError(errno, "os_fork failed")
