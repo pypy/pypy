@@ -13,7 +13,7 @@ def set_debug_saved_errno(cpu, nerrno):
 def get_rpy_errno_offset(cpu):
     if cpu.translate_support_code:
         from rpython.rlib import rthread
-        return rthread.tlfield_rpy_errno.offset
+        return rthread.tlfield_rpy_errno.getoffset()
     else:
         return 3 * WORD
 
@@ -32,8 +32,10 @@ def _fetch_addr_errno():
 def get_p_errno_offset(cpu):
     if cpu.translate_support_code:
         from rpython.rlib import rthread
-        return rthread.tlfield_p_errno.offset
+        return rthread.tlfield_p_errno.getoffset()
     else:
+        # fetch the real address of errno (in this thread), and store it
+        # at offset 2 in the _debug_errno_container
         if cpu._debug_errno_container[2] == 0:
             addr_errno = _fetch_addr_errno()
             assert addr_errno != 0

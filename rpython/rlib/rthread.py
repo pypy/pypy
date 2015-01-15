@@ -309,9 +309,14 @@ class ThreadLocalField(object):
             else:
                 self.local.rawvalue = value
 
+        def getoffset():
+            _threadlocalref_seeme(self)
+            return offset
+
         self.getraw = getraw
         self.get_or_make_raw = get_or_make_raw
         self.setraw = setraw
+        self.getoffset = getoffset
 
     def _freeze_(self):
         return True

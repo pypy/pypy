@@ -2,6 +2,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit import dont_look_inside
 from rpython.rlib.objectmodel import invoke_around_extcall
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib import rposix
 
 from rpython.rtyper.annlowlevel import llhelper
 
@@ -96,23 +98,36 @@ class ReleaseGILTests(BaseFrameworkTests):
         self.run('close_stack')
         assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
 
-    ## def define_get_set_errno(self):
+    def define_get_set_errno(self):
+        eci = ExternalCompilationInfo(
+            post_include_bits=[r'''
+                #include <errno.h>
+                static int test_get_set_errno(void) {
+                    int r = errno;
+                    //fprintf(stderr, "read saved errno: %d\n", r);
+                    errno = 42;
+                    return r;
+                }
+            '''])
 
-    ##     c_strchr = rffi.llexternal('strchr', [rffi.CCHARP, lltype.Signed],
-    ##                                rffi.CCHARP, ...
+        c_test = rffi.llexternal('test_get_set_errno', [], rffi.INT,
+                                 compilation_info=eci,
+                                 save_err=rffi.RFFI_FULL_ERRNO)
 
-    ##     def before(n, x):
-    ##         return (n, None, None, None, None, None,
-    ##                 None, None, None, None, None, None)
-    ##     #
-    ##     def f(n, x, *args):
-    ##         a = rffi.str2charp(str(n))
-    ##         c_strchr(a, ord('0'))
-    ##         lltype.free(a, flavor='raw')
-    ##         n -= 1
-    ##         return (n, x) + args
-    ##     return before, f, None
+        def before(n, x):
+            return (n, None, None, None, None, None,
+                    None, None, None, None, None, None)
+        #
+        def f(n, x, *args):
+            rposix.set_saved_errno(24)
+            result1 = c_test()
+            result2 = rposix.get_saved_errno()
+            assert result1 == 24
+            assert result2 == 42
+            n -= 1
+            return (n, x) + args
+        return before, f, None
 
-    ## def test_get_set_errno(self):
-    ##     self.run('get_set_errno')
-    ##     assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
+    def test_get_set_errno(self):
+        self.run('get_set_errno')
+        assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
