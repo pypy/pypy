@@ -55,8 +55,10 @@ for name in constant_names:
         constants[name] = value
 locals().update(constants)
 
-def external(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
+def external(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           **kwds)
 
 _flock = lltype.Ptr(cConfig.flock)
 fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT,

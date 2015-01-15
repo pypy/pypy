@@ -142,7 +142,7 @@ for k, v in platform.configure(CConfig).items():
     setattr(cConfig, k, v)
 cConfig.tm.__name__ = "_tm"
 
-def external(name, args, result, eci=CConfig._compilation_info_):
+def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
     if _WIN and rffi.sizeof(rffi.TIME_T) == 8:
         # Recent Microsoft compilers use 64bit time_t and
         # the corresponding functions are named differently
@@ -152,7 +152,8 @@ def external(name, args, result, eci=CConfig._compilation_info_):
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
                            calling_conv=calling_conv,
-                           releasegil=False)
+                           releasegil=False,
+                           **kwds)
 
 if _POSIX:
     cConfig.timeval.__name__ = "_timeval"
