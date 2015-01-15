@@ -5,6 +5,34 @@ from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.rbisect import bisect
+from rpython.rlib import rgc
+from rpython.rlib.entrypoint import entrypoint_lowlevel
+
+_memmngr = None # global reference so we can use @entrypoint :/
+
+@entrypoint_lowlevel('main', [lltype.Signed],
+                     c_name='pypy_jit_stack_depth_at_loc')
+@rgc.no_collect
+def stack_depth_at_loc(loc):
+    global _memmngr
+
+    pos = bisect(_memmngr.jit_addr_map, loc)
+    if pos == 0 or pos == len(_memmngr.jit_addr_map):
+        return -1
+    return _memmngr.jit_frame_depth_map[pos-1]
+
+@entrypoint_lowlevel('main', [], c_name='pypy_jit_start_addr')
+def jit_start_addr(loc):
+    global _memmngr
+
+    return _memmngr.jit_addr_map[0]
+
+@entrypoint_lowlevel('main', [], c_name='pypy_jit_end_addr')
+def jit_end_addr(loc):
+    global _memmngr
+
+    return _memmngr.jit_addr_map[-1]
 
 
 class AsmMemoryManager(object):
@@ -49,6 +77,13 @@ class AsmMemoryManager(object):
         if r_uint is not None:
             self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
+        # fix up jit_addr_map
+        jit_adr_start = bisect(self.jit_addr_map, start)
+        jit_adr_stop = bisect(self.jit_addr_map, stop)
+        self.jit_addr_map = (self.jit_addr_map[:jit_adr_start] +
+                             self.jit_addr_map[jit_adr_stop:])
+        self.jit_frame_depth_map = (self.jit_frame_depth_map[:jit_adr_start] +
+                                    self.jit_frame_depth_map[jit_adr_stop:])
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
@@ -157,15 +192,23 @@ class AsmMemoryManager(object):
 
     def register_frame_depth_map(self, rawstart, frame_positions,
                                  frame_assignments):
+        if not frame_positions:
+            return
         if not self.jit_addr_map or rawstart > self.jit_addr_map[-1]:
             start = len(self.jit_addr_map)
             self.jit_addr_map += [0] * len(frame_positions)
             self.jit_frame_depth_map += [0] * len(frame_positions)
-            for i, pos in enumerate(frame_positions):
-                self.jit_addr_map[i + start] = pos + rawstart
-                self.jit_frame_depth_map[i + start] = frame_assignments[i]
         else:
-            xxx
+            start = bisect(self.jit_addr_map, rawstart)
+            self.jit_addr_map = (self.jit_addr_map[:start] +
+                                 [0] * len(frame_positions) +
+                                 self.jit_addr_map[start:])
+            self.jit_frame_depth_map = (self.jit_frame_depth_map[:start] +
+                                 [0] * len(frame_positions) +
+                                 self.jit_frame_depth_map[start:])
+        for i, pos in enumerate(frame_positions):
+            self.jit_addr_map[i + start] = pos + rawstart
+            self.jit_frame_depth_map[i + start] = frame_assignments[i]
 
     def _delete(self):
         "NOT_RPYTHON"
@@ -225,6 +268,9 @@ class BlockBuilderMixin(object):
     SUBBLOCK_PTR.TO.become(SUBBLOCK)
 
     gcroot_markers = None
+
+    frame_positions = None
+    frame_assignments = None
 
     def __init__(self, translated=None):
         if translated is None:

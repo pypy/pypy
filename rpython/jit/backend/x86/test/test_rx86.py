@@ -14,6 +14,12 @@ class CodeBuilderMixin(object):
     def getvalue(self):
         return ''.join(self.buffer)
 
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
+
 def assert_encodes_as(code_builder_cls, insn_name, args, expected_encoding):
     s = code_builder_cls()
     getattr(s, insn_name)(*args)
