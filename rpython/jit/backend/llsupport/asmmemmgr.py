@@ -23,13 +23,13 @@ def stack_depth_at_loc(loc):
     return _memmngr.jit_frame_depth_map[pos-1]
 
 @jit_entrypoint([], lltype.Signed, c_name='pypy_jit_start_addr')
-def jit_start_addr(loc):
+def jit_start_addr():
     global _memmngr
 
     return _memmngr.jit_addr_map[0]
 
 @jit_entrypoint([], lltype.Signed, c_name='pypy_jit_end_addr')
-def jit_end_addr(loc):
+def jit_end_addr():
     global _memmngr
 
     return _memmngr.jit_addr_map[-1]
