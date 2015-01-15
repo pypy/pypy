@@ -680,7 +680,7 @@ class WarmRunnerDesc(object):
 
     def create_jit_entry_points(self):
         for func, args, result in all_jit_entrypoints:
-            self.helper_func(lltype.Ptr(lltype.FuncType(args, result), func))
+            self.helper_func(lltype.Ptr(lltype.FuncType(args, result)), func)
 
     def rewrite_access_helper(self, op):
         # make sure we make a copy of function so it no longer belongs
