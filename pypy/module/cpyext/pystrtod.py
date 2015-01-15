@@ -53,8 +53,9 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
             raise OperationError(
                 space.w_ValueError,
                 space.wrap('invalid input at position %s' % endpos))
-        if rposix._get_errno() == errno.ERANGE:
-            rposix._set_errno(0)
+        errno = rffi.cast(lltype.Signed, rposix._get_errno())
+        if errno == errno.ERANGE:
+            rposix._set_errno(rffi.cast(rffi.INT, 0))
             if w_overflow_exception is None:
                 if result > 0:
                     return rfloat.INFINITY

@@ -167,7 +167,7 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     this is used to define the filename attribute of the exception instance.
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
-    errno = rposix._get_errno()
+    errno = rffi.cast(lltype.Signed, rposix._get_errno())
     msg = os.strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,
