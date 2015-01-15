@@ -890,7 +890,7 @@ class W_UfuncGeneric(W_Ufunc):
             if n < len(iter_shape):
                 #Broadcast over the len(iter_shape) - n dims of iter_shape
                 broadcast_dims = len(iter_shape) - n
-                arg_shapes.append(iter_shape[:-broadcast_dims] + [1] * broadcast_dims + dims_to_match)
+                arg_shapes.append(iter_shape[:n] + [1] * broadcast_dims + dims_to_match)
             else:
                 arg_shapes.append(iter_shape + dims_to_match)
         # TODO once we support obejct dtypes,

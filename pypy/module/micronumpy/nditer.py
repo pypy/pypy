@@ -231,6 +231,9 @@ def get_iter(space, order, arr, shape, dtype, op_flags, base):
         backstrides = imp.backstrides
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
+    if len(shape) != len(r[0]):
+        # shape can be shorter when using an external loop, just return a view
+        return ConcreteIter(imp, imp.get_size(), imp.shape, r[0], r[1], op_flags, base)
     return ConcreteIter(imp, imp.get_size(), shape, r[0], r[1], op_flags, base)
 
 def calculate_ndim(op_in, oa_ndim):
@@ -418,7 +421,11 @@ class W_NDIter(W_Root):
             out_shape = shape_agreement_multiple(space, [self.seq[i] for i in outargs])
         else:
             out_shape = None
-        self.shape = shape_agreement_multiple(space, self.seq,
+        if space.isinstance_w(w_itershape, space.w_tuple) or \
+           space.isinstance_w(w_itershape, space.w_list):
+            self.shape = [space.int_w(i) for i in space.listview(w_itershape)]
+        else:
+            self.shape = shape_agreement_multiple(space, self.seq,
                                                            shape=out_shape)
         if len(outargs) > 0:
             # Make None operands writeonly and flagged for allocation

@@ -325,6 +325,9 @@ class AppTestNDIter(BaseNumpyAppTest):
     def test_itershape(self):
         # Check that allocated outputs work with a specified shape
         from numpy import nditer, arange
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            skip("op_axes not totally supported yet")
         a = arange(6, dtype='i2').reshape(2,3)
         i = nditer([a, None], [], [['readonly'], ['writeonly','allocate']],
                             op_axes=[[0,1,None], None],
