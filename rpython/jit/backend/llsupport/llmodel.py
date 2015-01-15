@@ -225,7 +225,8 @@ class AbstractLLCPU(AbstractCPU):
         # as arguments, and it returns the (possibly reallocated) jitframe.
         # The backend can optimize OS_THREADLOCALREF_GET calls to return a
         # field of this threadlocal_addr, but only if 'translate_support_code':
-        # in untranslated tests, threadlocal_addr is a dummy NULL.
+        # in untranslated tests, threadlocal_addr is a dummy container
+        # for errno tests only.
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
                                              llmemory.GCREF))
 

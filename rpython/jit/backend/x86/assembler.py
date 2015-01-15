@@ -2345,7 +2345,7 @@ class Assembler386(BaseAssembler):
         assert isinstance(reg, RegLoc)
         self.mc.MOV_rr(reg.value, ebp.value)
 
-    def threadlocalref_get(self, offset, resloc):
+    def threadlocalref_get(self, offset, resloc, size, sign):
         # This loads the stack location THREADLOCAL_OFS into a
         # register, and then read the word at the given offset.
         # It is only supported if 'translate_support_code' is
@@ -2355,7 +2355,8 @@ class Assembler386(BaseAssembler):
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
-        self.mc.MOV_rm(resloc.value, (resloc.value, offset))
+        self.load_from_mem(resloc, addr_add_const(resloc, offset),
+                           imm(size), imm(sign))
 
     def genop_discard_zero_array(self, op, arglocs):
         (base_loc, startindex_loc, bytes_loc,

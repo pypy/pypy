@@ -702,8 +702,11 @@ class RegAlloc(BaseRegalloc):
     def _consider_threadlocalref_get(self, op):
         if self.translate_support_code:
             offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
+            calldescr = op.getdescr()
+            size = calldescr.get_result_size()
+            sign = calldescr.is_result_signed()
             resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_get(offset, resloc)
+            self.assembler.threadlocalref_get(offset, resloc, size, sign)
         else:
             self._consider_call(op)
 

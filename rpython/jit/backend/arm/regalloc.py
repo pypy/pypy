@@ -627,6 +627,7 @@ class Regalloc(BaseRegalloc):
 
     def _prepare_threadlocalref_get(self, op, fcond):
         ofs0 = imm(op.getarg(1).getint())
+        xxxxxxxxxxxxxxxx check the size and signedness of op.getdescr()
         res = self.force_allocate_reg(op.result)
         return [ofs0, res]
 
