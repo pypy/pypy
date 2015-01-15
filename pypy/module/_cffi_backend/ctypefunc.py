@@ -155,13 +155,9 @@ class W_CTypeFunc(W_CTypePtrBase):
                     # argtype is a pointer type, and w_obj a list/tuple/str
                     mustfree_max_plus_1 = i + 1
 
-            ec = cerrno.get_errno_container(space)
-            cerrno.restore_errno_from(ec)
             jit_libffi.jit_ffi_call(cif_descr,
                                     rffi.cast(rffi.VOIDP, funcaddr),
                                     buffer)
-            e = cerrno.get_real_errno()
-            cerrno.save_errno_into(ec, e)
 
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
             w_res = self.ctitem.copy_and_convert_to_object(resultdata)

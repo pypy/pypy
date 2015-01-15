@@ -107,6 +107,21 @@ def set_saved_errno(errno):
     rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
 
 
+def _errno_before(save_err):
+    if save_err & rffi.RFFI_READSAVED_ERRNO:
+        from rpython.rlib import rthread
+        _set_errno(rthread.tlfield_rpy_errno.getraw())
+    elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+        _set_errno(rffi.cast(rffi.INT, 0))
+_errno_before._always_inline_ = True
+
+def _errno_after(save_err):
+    if save_err & rffi.RFFI_SAVE_ERRNO:
+        from rpython.rlib import rthread
+        rthread.tlfield_rpy_errno.setraw(_get_errno())
+_errno_after._always_inline_ = True
+
+
 if os.name == 'nt':
     is_valid_fd = jit.dont_look_inside(rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,

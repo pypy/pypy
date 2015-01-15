@@ -157,12 +157,6 @@ def llexternal(name, args, result, _callable=None,
         return funcptr
 
 
-    argnames = ', '.join(['a%d' % i for i in range(len(args))])
-    errno_before = (save_err & RFFI_READSAVED_ERRNO) != 0
-    errno_zero_before = (save_err & RFFI_ZERO_ERRNO_BEFORE) != 0
-    errno_after = (save_err & RFFI_SAVE_ERRNO) != 0
-    errno_any = errno_before or errno_zero_before or errno_after
-
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
         # We need tons of care to ensure that no GC operation and no
@@ -173,34 +167,23 @@ def llexternal(name, args, result, _callable=None,
         # neither '*args' nor the GC objects originally passed in as
         # argument to wrapper(), if any (e.g. RPython strings).
 
+        argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
-            if %(errno_any)s:
-                from rpython.rlib import rposix, rthread
+            from rpython.rlib import rposix
 
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
-                #
-                # restore errno from its saved value
-                if %(errno_before)s:
-                    rposix._set_errno(rthread.tlfield_rpy_errno.getraw())
-                elif %(errno_zero_before)s:
-                    rposix._set_errno(int_zero)
-                #
+                rposix._errno_before(%(save_err)d)
                 res = funcptr(%(argnames)s)
-                #
-                # save errno away
-                if %(errno_after)s:
-                    rthread.tlfield_rpy_errno.setraw(rposix._get_errno())
-                #
+                rposix._errno_after(%(save_err)d)
                 after = aroundstate.after
                 if after: after()
                 return res
         """ % locals())
         miniglobals = {'aroundstate': aroundstate,
                        'funcptr':     funcptr,
-                       'int_zero':    cast(INT, 0),
                        '__name__':    __name__, # for module name propagation
                        }
         exec source.compile() in miniglobals
@@ -227,27 +210,17 @@ def llexternal(name, args, result, _callable=None,
         else:
             # ...well, unless it's a macro, in which case we still have
             # to hide it from the JIT...
+            argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
-                if %(errno_any)s:
-                    from rpython.rlib import rposix, rthread
+                from rpython.rlib import rposix
 
                 def call_external_function(%(argnames)s):
-                    # restore errno from its saved value
-                    if %(errno_before)s:
-                        rposix._set_errno(rthread.tlfield_rpy_errno.getraw())
-                    elif %(errno_zero_before)s:
-                        rposix._set_errno(int_zero)
-                    #
+                    rposix._errno_before(%(save_err)d)
                     res = funcptr(%(argnames)s)
-                    #
-                    # save errno away
-                    if %(errno_after)s:
-                        rthread.tlfield_rpy_errno.setraw(rposix._get_errno())
-                    #
+                    rposix._errno_after(%(save_err)d)
                     return res
             """ % locals())
             miniglobals = {'funcptr':     funcptr,
-                           'int_zero':    cast(INT, 0),
                            '__name__':    __name__,
                            }
             exec source.compile() in miniglobals
