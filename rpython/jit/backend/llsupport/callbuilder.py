@@ -42,9 +42,9 @@ class AbstractCallBuilder(object):
         self.pop_gcmap()
         self.load_result()
 
-    def emit_call_release_gil(self):
+    def emit_call_release_gil(self, save_err):
         """Emit a CALL_RELEASE_GIL, including calls to releasegil_addr
-        and reacqgil_addr."""
+        and reacqgil_addr.  'save_err' is a combination of rffi.RFFI_*ERR*."""
         fastgil = rffi.cast(lltype.Signed, rgil.gil_fetch_fastgil())
         self.select_call_release_gil_mode()
         self.prepare_arguments()
@@ -52,6 +52,7 @@ class AbstractCallBuilder(object):
         self.call_releasegil_addr_and_move_real_arguments(fastgil)
         self.emit_raw_call()
         self.restore_stack_pointer()
+        self.save_errno(save_err)
         self.move_real_result_and_call_reacqgil_addr(fastgil)
         self.pop_gcmap()
         self.load_result()
@@ -60,6 +61,9 @@ class AbstractCallBuilder(object):
         raise NotImplementedError
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
+        raise NotImplementedError
+
+    def save_errno(self, save_err):
         raise NotImplementedError
 
     def select_call_release_gil_mode(self):

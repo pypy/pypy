@@ -1,0 +1,41 @@
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.jit.backend.llsupport.symbolic import WORD
+
+
+def get_debug_saved_errno(cpu):
+    return cpu._debug_errno_container[3]
+
+def set_debug_saved_errno(cpu, nerrno):
+    assert nerrno >= 0
+    cpu._debug_errno_container[3] = nerrno
+
+def get_rpy_errno_offset(cpu):
+    if cpu.translate_support_code:
+        from rpython.rlib import rthread
+        return rthread.tlfield_rpy_errno.offset
+    else:
+        return 3 * WORD
+
+def _fetch_addr_errno():
+    eci = ExternalCompilationInfo(
+        separate_module_sources=['''
+            #include <errno.h>
+            RPY_EXPORTED long fetch_addr_errno(void) {
+                return (long)(&errno);
+            }
+        '''])
+    func1_ptr = rffi.llexternal('fetch_addr_errno', [], lltype.Signed,
+                                compilation_info=eci, _nowrapper=True)
+    return func1_ptr()
+
+def get_p_errno_offset(cpu):
+    if cpu.translate_support_code:
+        from rpython.rlib import rthread
+        return rthread.tlfield_p_errno.offset
+    else:
+        if cpu._debug_errno_container[2] == 0:
+            addr_errno = _fetch_addr_errno()
+            assert addr_errno != 0
+            cpu._debug_errno_container[2] = addr_errno
+        return 2 * WORD

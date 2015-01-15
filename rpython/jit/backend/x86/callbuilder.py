@@ -3,13 +3,16 @@ from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
-                                          PASS_ON_MY_FRAME, FRAME_FIXED_SIZE)
+                                          PASS_ON_MY_FRAME, FRAME_FIXED_SIZE,
+                                          THREADLOCAL_OFS)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
     RegLoc, RawEspLoc, RawEbpLoc, imm, ImmedLoc)
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
+from rpython.jit.backend.llsupport import llerrno
+from rpython.rtyper.lltypesystem import rffi
 
 
 # darwin requires the stack to be 16 bytes aligned on calls.
@@ -146,6 +149,19 @@ class CallBuilderX86(AbstractCallBuilder):
         if not we_are_translated():        # for testing: we should not access
             self.mc.ADD(ebp, imm(1))       # ebp any more
 
+    def save_errno(self, save_err):
+        if save_err & rffi.RFFI_SAVE_ERRNO:
+            # Just after a call, read the real 'errno' and save a copy of
+            # it inside our thread-local 'rpy_errno'.  Most registers are
+            # free here, including the callee-saved ones, except 'ebx'.
+            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            mc = self.mc
+            mc.MOV_rs(esi.value, THREADLOCAL_OFS)
+            mc.MOV_rm(edi.value, (esi.value, p_errno))
+            mc.MOV32_rm(edi.value, (edi.value, 0))
+            mc.MOV32_mr((esi.value, rpy_errno), edi.value)
+
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
         #
@@ -195,7 +211,8 @@ class CallBuilderX86(AbstractCallBuilder):
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
             mc.J_il8(rx86.Conditions['NE'], 0)
             jne_location = mc.get_relative_pos()
-            # here, ecx is zero (so rpy_fastgil was not acquired)
+            # here, ecx is zero (so rpy_fastgil was in 'released' state
+            # before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))

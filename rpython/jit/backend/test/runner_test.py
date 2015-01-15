@@ -2920,7 +2920,45 @@ class LLtypeBackendTest(BaseBackendTest):
                 ['bad args, signature %r' % codes[1:]] + different_values)
 
     def test_call_release_gil_save_errno(self):
-        XXX
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        eci = ExternalCompilationInfo(
+            separate_module_sources=['''
+                #include <errno.h>
+                RPY_EXPORTED void test_call_release_gil_save_errno(void) {
+                    errno = 42;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_save_errno'
+        func1_ptr = rffi.llexternal(fn_name, [], lltype.Void,
+                                    compilation_info=eci, _nowrapper=True)
+        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([], types.void)
+        #
+        for saveerr in [rffi.RFFI_ERR_NONE, rffi.RFFI_SAVE_ERRNO]:
+            faildescr = BasicFailDescr(1)
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)], None,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop([], ops, looptoken)
+            #
+            llerrno.set_debug_saved_errno(self.cpu, 24)
+            self.cpu.execute_token(looptoken)
+            result = llerrno.get_debug_saved_errno(self.cpu)
+            print 'saveerr =', saveerr, ': got result =', result
+            #
+            if saveerr == rffi.RFFI_SAVE_ERRNO:
+                assert result == 42      # from the C code
+            else:
+                assert result == 24      # not touched
 
     def test_call_release_gil_readsaved_errno(self):
         XXX

@@ -1917,7 +1917,9 @@ class Assembler386(BaseAssembler):
     def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
 
-        cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:], resloc)
+        func_index = 2 + is_call_release_gil
+        cb = callbuilder.CallBuilder(self, arglocs[func_index],
+                                     arglocs[func_index+1:], resloc)
 
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
@@ -1932,7 +1934,9 @@ class Assembler386(BaseAssembler):
         cb.ressign = signloc.value
 
         if is_call_release_gil:
-            cb.emit_call_release_gil()
+            saveerrloc = arglocs[2]
+            assert isinstance(saveerrloc, ImmedLoc)
+            cb.emit_call_release_gil(saveerrloc.value)
         else:
             cb.emit()
 
@@ -2345,8 +2349,9 @@ class Assembler386(BaseAssembler):
         # This loads the stack location THREADLOCAL_OFS into a
         # register, and then read the word at the given offset.
         # It is only supported if 'translate_support_code' is
-        # true; otherwise, the original call to the piece of assembler
-        # was done with a dummy NULL value.
+        # true; otherwise, the execute_token() was done with a
+        # dummy value for the stack location THREADLOCAL_OFS
+        # 
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
