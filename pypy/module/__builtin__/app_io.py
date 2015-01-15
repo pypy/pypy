@@ -86,9 +86,11 @@ def input(prompt=''):
 
 def print_(*args, **kwargs):
     """The new-style print function from py3k."""
-    fp = kwargs.pop("file", sys.stdout)
+    fp = kwargs.pop("file", None)
     if fp is None:
-        return
+        fp = sys.stdout
+        if fp is None:
+            return
     def write(data):
         if not isinstance(data, basestring):
             data = str(data)

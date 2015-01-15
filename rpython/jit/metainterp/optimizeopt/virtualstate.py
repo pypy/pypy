@@ -346,9 +346,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             if other.level == LEVEL_UNKNOWN:
                 if (box and box.nonnull() and
                         self.known_class.same_constant(cpu.ts.cls_of_box(box))):
-                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
-                    extra_guards.append(op)
-                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+                    op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
                 else:

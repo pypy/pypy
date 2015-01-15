@@ -45,8 +45,9 @@ class W_CDataCallback(W_CData):
         #
         cif_descr = self.getfunctype().cif_descr
         if not cif_descr:
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("callbacks with '...'"))
+            raise oefmt(space.w_NotImplementedError,
+                        "%s: callback with unsupported argument or "
+                        "return type or with '...'", self.getfunctype().name)
         res = clibffi.c_ffi_prep_closure(self.get_closure(), cif_descr.cif,
                                          invoke_callback,
                                          rffi.cast(rffi.VOIDP, self.unique_id))
@@ -98,7 +99,7 @@ class W_CDataCallback(W_CData):
 
     def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "callback ", self.w_callable,
+        operr.write_unraisable(space, "cffi callback ", self.w_callable,
                                with_traceback=True, extra_line=extra_line)
 
     def write_error_return_value(self, ll_res):

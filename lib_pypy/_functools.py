@@ -9,7 +9,10 @@ class partial(object):
     of the given arguments and keywords.
     """
 
-    def __init__(self, func, *args, **keywords):
+    def __init__(self, *args, **keywords):
+        if not args:
+            raise TypeError('__init__() takes at least 2 arguments (1 given)')
+        func, args = args[0], args[1:]
         if not callable(func):
             raise TypeError("the first argument must be callable")
         self._func = func

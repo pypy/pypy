@@ -1479,15 +1479,15 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum, dont_change_position,
-                                     deadframe):
+    def _prepare_resume_from_failure(self, opnum, deadframe):
         from rpython.jit.metainterp.resoperation import rop
         #
-        if opnum == rop.GUARD_TRUE:
+        if opnum == rop.GUARD_FUTURE_CONDITION:
+            pass
+        elif opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.
-            if not dont_change_position:
-                self.position = self.jitcode.follow_jump(self.position)
+            self.position = self.jitcode.follow_jump(self.position)
         #
         elif opnum == rop.GUARD_FALSE:
             # Produced directly by some goto_if_not_xxx() opcode that jumped,
@@ -1517,8 +1517,7 @@ class BlackholeInterpreter(object):
         elif opnum == rop.GUARD_NO_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it did not used to overflow, but now it does.
-            if not dont_change_position:
-                return get_llexception(self.cpu, OverflowError())
+            return get_llexception(self.cpu, OverflowError())
         #
         elif opnum == rop.GUARD_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
@@ -1649,13 +1648,9 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
         resumedescr,
         deadframe,
         all_virtuals)
-    if isinstance(resumedescr, ResumeAtPositionDescr):
-        dont_change_position = True
-    else:
-        dont_change_position = False
 
     current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum, dont_change_position, deadframe)
+        resumedescr.guard_opnum, deadframe)
 
     _run_forever(blackholeinterp, current_exc)
 

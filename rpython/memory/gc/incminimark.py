@@ -773,11 +773,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
             raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
-        # force a full collection.  XXX make this more incremental!
-        if (float(self.get_total_memory_used()) + raw_malloc_usage(totalsize) >
-                self.next_major_collection_threshold):
-            self.gc_step_until(STATE_SWEEPING)
-            self.gc_step_until(STATE_FINALIZING, raw_malloc_usage(totalsize))
+        # force a collection.  XXX make this more incremental!  For now
+        # the logic is to first do a minor GC only, and check if that
+        # was enough to free a bunch of large young objects.  If not,
+        # we do a complete major GC.
+        if self.get_total_memory_free() < raw_malloc_usage(totalsize):
+            self.minor_collection()
+            if self.get_total_memory_free() < (raw_malloc_usage(totalsize) +
+                                               self.nursery_size // 2):
+                self.gc_step_until(STATE_SWEEPING)
+                self.gc_step_until(STATE_FINALIZING,
+                                   raw_malloc_usage(totalsize))
         #
         # Check if the object would fit in the ArenaCollection.
         if raw_malloc_usage(totalsize) <= self.small_request_threshold:
@@ -1053,6 +1059,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         nursery: only objects in the ArenaCollection or raw-malloced.
         """
         return self.ac.total_memory_used + self.rawmalloced_total_size
+
+    def get_total_memory_free(self):
+        return (self.next_major_collection_threshold -
+                float(self.get_total_memory_used()))
 
     def card_marking_words_for_length(self, length):
         # --- Unoptimized version:

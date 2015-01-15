@@ -136,7 +136,7 @@ class AppTestTermios(object):
             val = getattr(termios, name)
             if name.isupper() and type(val) is int:
                 d[name] = val
-        assert d == self.orig_module_dict
+        assert sorted(d.items()) == sorted(self.orig_module_dict.items())
 
     def test_error(self):
         import termios, errno, os
