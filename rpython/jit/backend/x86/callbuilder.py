@@ -162,6 +162,13 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.MOV_rm(edx.value, (eax.value, p_errno))
             mc.MOV32_rm(eax.value, (eax.value, rpy_errno))
             mc.MOV32_mr((edx.value, 0), eax.value)
+        elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+            # Same, but write zero.
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            mc = self.mc
+            mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
+            mc.MOV_rm(eax.value, (eax.value, p_errno))
+            mc.MOV32_mi((eax.value, 0), 0)
 
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:

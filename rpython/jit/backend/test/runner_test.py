@@ -2981,7 +2981,7 @@ class LLtypeBackendTest(BaseBackendTest):
         func1_adr = rffi.cast(lltype.Signed, func1_ptr)
         calldescr = self.cpu._calldescr_dynamic_for_tests([], types.sint32)
         #
-        for saveerr in [rffi.RFFI_READSAVED_ERRNO]:
+        for saveerr in [rffi.RFFI_READSAVED_ERRNO, rffi.RFFI_ZERO_ERRNO_BEFORE]:
             faildescr = BasicFailDescr(1)
             i1 = BoxInt()
             ops = [
@@ -2999,10 +2999,11 @@ class LLtypeBackendTest(BaseBackendTest):
             deadframe = self.cpu.execute_token(looptoken)
             result = self.cpu.get_int_value(deadframe, 0)
             assert llerrno.get_debug_saved_errno(self.cpu) == 24
-            assert result == 24
-
-    def test_call_release_gil_zero_errno_before(self):
-        XXX
+            #
+            if saveerr == rffi.RFFI_READSAVED_ERRNO:
+                assert result == 24
+            else:
+                assert result == 0
 
     def test_call_release_gil_save_lasterror(self):
         XXX
