@@ -25,6 +25,7 @@ from rpython.jit.codewriter import support, codewriter
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+from rpython.rlib.entrypoint import all_jit_entrypoints
 
 
 # ____________________________________________________________
@@ -228,6 +229,7 @@ class WarmRunnerDesc(object):
 
         verbose = False # not self.cpu.translate_support_code
         self.rewrite_access_helpers()
+        self.create_jit_entry_points()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
@@ -675,6 +677,10 @@ class WarmRunnerDesc(object):
         for graph, block, index in ah:
             op = block.operations[index]
             self.rewrite_access_helper(op)
+
+    def create_jit_entry_points(self):
+        for func, args_s, s_result in all_jit_entrypoints:
+            self.helper_func(func, args_s, s_result)
 
     def rewrite_access_helper(self, op):
         # make sure we make a copy of function so it no longer belongs

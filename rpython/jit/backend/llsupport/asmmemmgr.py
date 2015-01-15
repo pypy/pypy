@@ -7,12 +7,12 @@ from rpython.rlib.debug import have_debug_prints
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.rbisect import bisect
 from rpython.rlib import rgc
-from rpython.rlib.entrypoint import entrypoint_lowlevel
+from rpython.rlib.entrypoint import jit_entrypoint
 
 _memmngr = None # global reference so we can use @entrypoint :/
 
-@entrypoint_lowlevel('main', [lltype.Signed],
-                     c_name='pypy_jit_stack_depth_at_loc')
+@jit_entrypoint([lltype.Signed], lltype.Signed,
+                c_name='pypy_jit_stack_depth_at_loc')
 @rgc.no_collect
 def stack_depth_at_loc(loc):
     global _memmngr
@@ -22,13 +22,13 @@ def stack_depth_at_loc(loc):
         return -1
     return _memmngr.jit_frame_depth_map[pos-1]
 
-@entrypoint_lowlevel('main', [], c_name='pypy_jit_start_addr')
+@jit_entrypoint([], lltype.Signed, c_name='pypy_jit_start_addr')
 def jit_start_addr(loc):
     global _memmngr
 
     return _memmngr.jit_addr_map[0]
 
-@entrypoint_lowlevel('main', [], c_name='pypy_jit_end_addr')
+@jit_entrypoint([], lltype.Signed, c_name='pypy_jit_end_addr')
 def jit_end_addr(loc):
     global _memmngr
 
