@@ -2961,7 +2961,45 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert result == 24      # not touched
 
     def test_call_release_gil_readsaved_errno(self):
-        XXX
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[r'''
+                #include <stdio.h>
+                #include <errno.h>
+                RPY_EXPORTED int test_call_release_gil_readsaved_errno(void) {
+                    int r = errno;
+                    printf("read saved errno: %d\n", r);
+                    return r;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_readsaved_errno'
+        func1_ptr = rffi.llexternal(fn_name, [], rffi.INT,
+                                    compilation_info=eci, _nowrapper=True)
+        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([], types.sint32)
+        #
+        for saveerr in [rffi.RFFI_READSAVED_ERRNO]:
+            faildescr = BasicFailDescr(1)
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)], i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop([], ops, looptoken)
+            #
+            llerrno.set_debug_saved_errno(self.cpu, 24)
+            deadframe = self.cpu.execute_token(looptoken)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert llerrno.get_debug_saved_errno(self.cpu) == 24
+            assert result == 24
 
     def test_call_release_gil_zero_errno_before(self):
         XXX

@@ -50,9 +50,10 @@ class AbstractCallBuilder(object):
         self.prepare_arguments()
         self.push_gcmap_for_call_release_gil()
         self.call_releasegil_addr_and_move_real_arguments(fastgil)
+        self.write_real_errno(save_err)
         self.emit_raw_call()
         self.restore_stack_pointer()
-        self.save_errno(save_err)
+        self.read_real_errno(save_err)
         self.move_real_result_and_call_reacqgil_addr(fastgil)
         self.pop_gcmap()
         self.load_result()
@@ -63,7 +64,10 @@ class AbstractCallBuilder(object):
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         raise NotImplementedError
 
-    def save_errno(self, save_err):
+    def write_real_errno(self, save_err):
+        raise NotImplementedError
+
+    def read_real_errno(self, save_err):
         raise NotImplementedError
 
     def select_call_release_gil_mode(self):
