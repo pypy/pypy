@@ -13,6 +13,8 @@ class FakePyCode(object):
 
     def __init__(self, co_name):
         self.co_name = co_name
+        self.co_filename = 'filename'
+        self.co_firstlineno = 13
         self._vmprof_setup_maybe()
 
 def test_get_virtual_ip(monkeypatch):
@@ -31,7 +33,7 @@ def test_get_virtual_ip(monkeypatch):
     _vmprof.counter = 42
     ip = do_get_virtual_ip(myframe)
     assert ip == mycode._vmprof_virtual_ip
-    assert functions == [('py:foo', ip, ip)]
+    assert functions == [('py:filename:13:foo', ip, ip)]
 
     # the second time, we don't register it again
     functions = []
@@ -40,7 +42,7 @@ def test_get_virtual_ip(monkeypatch):
     assert functions == []
 
     # now, let's try with a long name
-    mycode = FakePyCode('abcde' * 200)
+    mycode = FakePyCode('abcde' + 'f' * 20000)
     myframe = FakePyFrame(mycode)
     functions = []
     ip2 = do_get_virtual_ip(myframe)
@@ -48,6 +50,6 @@ def test_get_virtual_ip(monkeypatch):
     assert ip2 < ip # because it was generated later
     assert len(functions) == 1
     name, start, end = functions[0]
-    assert len(name) == 127
-    assert name == 'py:' + ('abcde'*200)[:124]
+    assert len(name) < 1025
+    assert name == 'py:filename:13:abcde' + 'f' * (1024 - 20 - 1)
     

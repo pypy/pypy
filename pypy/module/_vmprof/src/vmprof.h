@@ -12,7 +12,7 @@ void vmprof_set_mainloop(void* func, ptrdiff_t sp_offset,
 void vmprof_register_virtual_function(const char* name, void* start, void* end);
 
 
-void vmprof_enable(const char* filename, long period_usec);
-void vmprof_disable(void);
+int vmprof_enable(int fd, int sym_fd, long period_usec);
+int vmprof_disable(void);
 
 #endif
