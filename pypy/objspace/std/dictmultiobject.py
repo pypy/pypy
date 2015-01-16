@@ -471,6 +471,8 @@ class DictStrategy(object):
         # provide a better one.
         iterator = self.iteritems(w_dict)
         w_key, w_value = iterator.next_item()
+        if w_key is None:
+            raise KeyError
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
