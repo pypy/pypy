@@ -142,12 +142,14 @@ class W_CType(W_Root):
         raise oefmt(space.w_ValueError, "ctype '%s' is of unknown alignment",
                     self.name)
 
-    def typeoffsetof(self, fieldname):
+    def typeoffsetof_field(self, fieldname, following):
         space = self.space
-        if fieldname is None:
-            msg = "expected a struct or union ctype"
-        else:
-            msg = "expected a struct or union ctype, or a pointer to one"
+        msg = "with a field name argument, expected a struct or union ctype"
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+
+    def typeoffsetof_index(self, index):
+        space = self.space
+        msg = "with an integer argument, expected an array or pointer ctype"
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
     def rawaddressof(self, cdata, offset):

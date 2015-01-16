@@ -565,7 +565,7 @@ class BufferedMixin:
 
         # Flush the write buffer if necessary
         if self.writable:
-            self._writer_flush_unlocked(space)
+            self._flush_and_rewind_unlocked(space)
         self._reader_reset_buf()
 
         # Read whole blocks, and don't buffer them

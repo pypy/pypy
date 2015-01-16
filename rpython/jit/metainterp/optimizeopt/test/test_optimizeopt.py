@@ -45,7 +45,7 @@ class BaseTestWithUnroll(BaseTest):
 
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None):
-        loop = self.parse(ops)
+        loop = self.parse(ops, postprocess=self.postprocess)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
@@ -96,41 +96,6 @@ class BaseTestWithUnroll(BaseTest):
 
 
 class OptimizeOptTest(BaseTestWithUnroll):
-    def setup_method(self, meth=None):
-        class FailDescr(compile.ResumeGuardDescr):
-            oparse = None
-            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
-                # typically called 3 times: once when parsing 'ops',
-                # once when parsing 'preamble', once when parsing 'expected'.
-                self.oparse = oparse
-                self.rd_frame_info_list, self.rd_snapshot = snapshot(fail_args)
-            def _clone_if_mutable(self):
-                assert self is fdescr
-                return fdescr2
-            def __repr__(self):
-                if self is fdescr:
-                    return 'fdescr'
-                if self is fdescr2:
-                    return 'fdescr2'
-                return compile.ResumeGuardDescr.__repr__(self)
-        #
-        def snapshot(fail_args, got=[]):
-            if not got:    # only the first time, i.e. when parsing 'ops'
-                rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-                rd_snapshot = resume.Snapshot(None, fail_args)
-                got.append(rd_frame_info_list)
-                got.append(rd_snapshot)
-            return got
-        #
-        fdescr = instantiate(FailDescr)
-        self.namespace['fdescr'] = fdescr
-        fdescr2 = instantiate(FailDescr)
-        self.namespace['fdescr2'] = fdescr2
-
-    def teardown_method(self, meth):
-        self.namespace.pop('fdescr', None)
-        self.namespace.pop('fdescr2', None)
-
     def test_simple(self):
         ops = """
         []
@@ -3004,20 +2969,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_class(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_class(p1, ConstClass(node_vtable)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull_class(p1, ConstClass(node_vtable), descr=fdescr) [i0]
+        guard_nonnull_class(p1, ConstClass(node_vtable)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_nonnull_class(p2, ConstClass(node_vtable), descr=fdescr2) [i0]
+        guard_nonnull_class(p2, ConstClass(node_vtable)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
@@ -3027,20 +2992,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_value(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_value(p1, ConstPtr(myptr)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
+        guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         jump(ConstPtr(myptr), i0, i1, i3)
         """
@@ -3050,7 +3015,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_class_guard_value(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_class(p1, ConstClass(node_vtable)) [i2]
         i4 = int_sub(i3, 1)
@@ -3059,14 +3024,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
+        guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
         jump(p2, i0, i1, i4)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
         jump(ConstPtr(myptr), i0, i1, i4)
@@ -3860,7 +3825,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = virtual_ref(p1, 2)
         setfield_gc(p0, p2, descr=nextdescr)
         call_may_force(i1, descr=mayforcevirtdescr)
-        guard_not_forced(descr=fdescr) [p2, p1]
+        guard_not_forced() [p2, p1]
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=nextdescr)
         jump(p0, i1)
@@ -3875,7 +3840,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
-        guard_not_forced(descr=fdescr2) [p2, i1]
+        guard_not_forced() [p2, i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3906,7 +3871,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = virtual_ref(p1, 2)
         setfield_gc(p0, p2, descr=refdescr)
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr) [p2, p1]
+        guard_no_exception() [p2, p1]
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=refdescr)
         escape()
@@ -3916,7 +3881,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         p3 = force_token()
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr) [p3, i1, p0]
+        guard_no_exception() [p3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
         escape()
         jump(p0, i1)
@@ -3925,7 +3890,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         p3 = force_token()
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr2) [p3, i1, p0]
+        guard_no_exception() [p3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
         escape()
         jump(p0, i1)
@@ -7290,11 +7255,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         short = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        guard_nonnull(p1) []
-        guard_class(p1, ConstClass(node_vtable)) []
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
         p2 = getfield_gc(p1, descr=nextdescr)
-        guard_nonnull(p2) []
-        guard_class(p2, ConstClass(node_vtable)) []
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
         jump(p0)
         """
         self.optimize_loop(ops, expected, expected_short=short)

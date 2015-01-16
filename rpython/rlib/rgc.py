@@ -445,6 +445,10 @@ def get_typeids_z():
     "NOT_RPYTHON"
     raise NotImplementedError
 
+def get_typeids_list():
+    "NOT_RPYTHON"
+    raise NotImplementedError
+
 def has_gcflag_extra():
     "NOT_RPYTHON"
     return True
@@ -642,6 +646,18 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_typeids_list
+
+    def compute_result_annotation(self):
+        from rpython.rtyper.llannotation import SomePtr
+        from rpython.rtyper.lltypesystem import llgroup
+        return SomePtr(lltype.Ptr(lltype.Array(llgroup.HALFWORD)))
+
+    def specialize_call(self, hop):
+        hop.exception_is_here()
+        return hop.genop('gc_typeids_list', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
     _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)

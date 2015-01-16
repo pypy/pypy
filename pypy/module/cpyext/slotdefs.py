@@ -244,6 +244,9 @@ class CPyBuffer(Buffer):
     def getitem(self, index):
         return self.ptr[index]
 
+    def get_raw_address(self):
+        return rffi.cast(rffi.CCHARP, self.ptr)
+
 def wrap_getreadbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(readbufferproc, func)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:

@@ -308,24 +308,36 @@ class W_CTypePointer(W_CTypePtrBase):
     def getcfield(self, attr):
         return self.ctitem.getcfield(attr)
 
-    def typeoffsetof(self, fieldname):
-        if fieldname is None:
-            return W_CTypePtrBase.typeoffsetof(self, fieldname)
-        else:
-            return self.ctitem.typeoffsetof(fieldname)
+    def typeoffsetof_field(self, fieldname, following):
+        if following == 0:
+            return self.ctitem.typeoffsetof_field(fieldname, -1)
+        return W_CTypePtrBase.typeoffsetof_field(self, fieldname, following)
+
+    def typeoffsetof_index(self, index):
+        space = self.space
+        ctitem = self.ctitem
+        if ctitem.size < 0:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("pointer to opaque"))
+        try:
+            offset = ovfcheck(index * ctitem.size)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                    space.wrap("array offset would overflow a ssize_t"))
+        return ctitem, offset
 
     def rawaddressof(self, cdata, offset):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         space = self.space
         ctype2 = cdata.ctype
         if (isinstance(ctype2, W_CTypeStructOrUnion) or
-               (isinstance(ctype2, W_CTypePtrOrArray) and
-                isinstance(ctype2.ctitem, W_CTypeStructOrUnion))):
+                isinstance(ctype2, W_CTypePtrOrArray)):
             ptrdata = rffi.ptradd(cdata._cdata, offset)
             return cdataobj.W_CData(space, ptrdata, self)
         else:
             raise OperationError(space.w_TypeError,
-                     space.wrap("expected a 'cdata struct-or-union' object"))
+                    space.wrap("expected a cdata struct/union/array/pointer"
+                               " object"))
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
