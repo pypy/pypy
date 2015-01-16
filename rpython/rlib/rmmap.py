@@ -201,11 +201,20 @@ elif _MS_WINDOWS:
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
 
     GetSystemInfo, _ = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
-    GetFileSize, _ = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
+    GetFileSize, _ = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD,
+                                 save_err=rffi.RFFI_SAVE_LASTERROR)
     GetCurrentProcess, _ = winexternal('GetCurrentProcess', [], HANDLE)
-    DuplicateHandle, _ = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping, _ = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
-    MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
+    DuplicateHandle, _ = winexternal('DuplicateHandle',
+                                     [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD,
+                                      BOOL, DWORD], BOOL,
+                                     save_err=rffi.RFFI_SAVE_LASTERROR)
+    CreateFileMapping, _ = winexternal('CreateFileMappingA',
+                                       [HANDLE, rwin32.LPSECURITY_ATTRIBUTES,
+                                        DWORD, DWORD, DWORD, LPCSTR], HANDLE,
+                                       save_err=rffi.RFFI_SAVE_LASTERROR)
+    MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD,
+                                                     DWORD, SIZE_T], LPCSTR,
+                                   save_err=rffi.RFFI_SAVE_LASTERROR) ##!!LPVOID
     _, UnmapViewOfFile_safe = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
     FlushViewOfFile, _ = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
     SetFilePointer, _ = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
@@ -255,7 +264,7 @@ elif _MS_WINDOWS:
             # so we need to check the last error also
             INVALID_FILE_SIZE = -1
             if low == INVALID_FILE_SIZE:
-                err = rwin32.GetLastError()
+                err = rwin32.GetLastError_saved()
                 if err:
                     raise WindowsError(err, "mmap")
             return low, high
@@ -328,10 +337,10 @@ class MMap(object):
                 self.unmap()
                 self.setdata(NODATA, 0)
             if self.map_handle != INVALID_HANDLE:
-                rwin32.CloseHandle(self.map_handle)
+                rwin32.CloseHandle_no_err(self.map_handle)
                 self.map_handle = INVALID_HANDLE
             if self.file_handle != INVALID_HANDLE:
-                rwin32.CloseHandle(self.file_handle)
+                rwin32.CloseHandle_no_err(self.file_handle)
                 self.file_handle = INVALID_HANDLE
         elif _POSIX:
             self.closed = True
@@ -536,7 +545,7 @@ class MMap(object):
         elif _MS_WINDOWS:
             # disconnect the mapping
             self.unmap()
-            rwin32.CloseHandle(self.map_handle)
+            rwin32.CloseHandle_no_err(self.map_handle)
 
             # move to the desired EOF position
             if _64BIT:
@@ -573,9 +582,9 @@ class MMap(object):
                     charp = rffi.cast(LPCSTR, data)
                     self.setdata(charp, newsize)
                     return
-            winerror = rwin32.lastWindowsError()
+            winerror = rwin32.lastSavedWindowsError()
             if self.map_handle:
-                rwin32.CloseHandle(self.map_handle)
+                rwin32.CloseHandle_no_err(self.map_handle)
             self.map_handle = INVALID_HANDLE
             raise winerror
 
@@ -812,7 +821,7 @@ elif _MS_WINDOWS:
                                       False, # inherited by child procs?
                                       DUPLICATE_SAME_ACCESS) # options
                 if not res:
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
                 m.file_handle = handle_ref[0]
             finally:
                 lltype.free(handle_ref, flavor='raw')
@@ -855,9 +864,9 @@ elif _MS_WINDOWS:
                 charp = rffi.cast(LPCSTR, data)
                 m.setdata(charp, map_size)
                 return m
-        winerror = rwin32.lastWindowsError()
+        winerror = rwin32.lastSavedWindowsError()
         if m.map_handle:
-            rwin32.CloseHandle(m.map_handle)
+            rwin32.CloseHandle_no_err(m.map_handle)
         m.map_handle = INVALID_HANDLE
         raise winerror
 

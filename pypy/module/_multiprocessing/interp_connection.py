@@ -441,7 +441,7 @@ class W_PipeConnection(W_BaseConnection):
                                   lltype.nullptr(rwin32.LPDWORD.TO),
                                   lltype.nullptr(rwin32.LPDWORD.TO),
                                   left_ptr):
-                raise wrap_windowserror(space, rwin32.lastWindowsError())
+                raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
             length = intmask(read_ptr[0] + left_ptr[0])
             if length > maxlength: # bad message, close connection
@@ -460,7 +460,7 @@ class W_PipeConnection(W_BaseConnection):
                                read_ptr, rffi.NULL)
             if not result:
                 rffi.free_charp(newbuf)
-                raise wrap_windowserror(space, rwin32.lastWindowsError())
+                raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
             assert read_ptr[0] == left_ptr[0]
             return length, newbuf
@@ -480,7 +480,7 @@ class W_PipeConnection(W_BaseConnection):
                                   lltype.nullptr(rwin32.LPDWORD.TO),
                                   bytes_ptr,
                                   lltype.nullptr(rwin32.LPDWORD.TO)):
-                raise wrap_windowserror(space, rwin32.lastWindowsError())
+                raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
             bytes = bytes_ptr[0]
         finally:
             lltype.free(bytes_ptr, flavor='raw')
@@ -506,7 +506,8 @@ class W_PipeConnection(W_BaseConnection):
                                       lltype.nullptr(rwin32.LPDWORD.TO),
                                       bytes_ptr,
                                       lltype.nullptr(rwin32.LPDWORD.TO)):
-                    raise wrap_windowserror(space, rwin32.lastWindowsError())
+                    raise wrap_windowserror(space,
+                                            rwin32.lastSavedWindowsError())
                 bytes = bytes_ptr[0]
             finally:
                 lltype.free(bytes_ptr, flavor='raw')

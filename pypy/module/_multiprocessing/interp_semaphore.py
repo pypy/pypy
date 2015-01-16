@@ -31,7 +31,8 @@ if sys.platform == 'win32':
         rwin32.BOOL, releasegil=False)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
-        rwin32.BOOL)
+        rwin32.BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
 else:
     from rpython.rlib import rposix
@@ -296,7 +297,7 @@ if sys.platform == 'win32':
     def semlock_release(self, space):
         if not _ReleaseSemaphore(self.handle, 1,
                                  lltype.nullptr(rffi.LONGP.TO)):
-            err = rwin32.GetLastError()
+            err = rwin32.GetLastError_saved()
             if err == 0x0000012a: # ERROR_TOO_MANY_POSTS
                 raise OperationError(
                     space.w_ValueError,
@@ -310,7 +311,7 @@ if sys.platform == 'win32':
         previous_ptr = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
         try:
             if not _ReleaseSemaphore(self.handle, 1, previous_ptr):
-                raise rwin32.lastWindowsError("ReleaseSemaphore")
+                raise rwin32.lastSavedWindowsError("ReleaseSemaphore")
             return previous_ptr[0] + 1
         finally:
             lltype.free(previous_ptr, flavor='raw')

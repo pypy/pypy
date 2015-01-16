@@ -62,7 +62,8 @@ if _WIN:
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
         [rwin32.HANDLE], rwin32.BOOL,
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     class GlobalState:
         def __init__(self):
@@ -79,8 +80,8 @@ if _WIN:
             except WindowsError, e:
                 raise wrap_windowserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
-                raise wrap_windowserror(
-                    space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
+                raise wrap_windowserror(space,
+                    rwin32.lastSavedWindowsError("SetConsoleCtrlHandler"))
 
     globalState = GlobalState()
 

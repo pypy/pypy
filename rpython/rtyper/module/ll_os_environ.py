@@ -124,7 +124,8 @@ if _WIN32:
     _wgetenv = rffi.llexternal('_wgetenv', [rffi.CWCHARP], rffi.CWCHARP,
                                compilation_info=eci, releasegil=False)
     _wputenv = rffi.llexternal('_wputenv', [rffi.CWCHARP], rffi.INT,
-                               compilation_info=eci)
+                               compilation_info=eci,
+                               save_err=rffi.RFFI_SAVE_LASTERROR)
 
 class EnvKeepalive:
     pass
@@ -144,7 +145,7 @@ def make_env_impls(win32=False):
         traits = UnicodeTraits()
         get_environ, getenv, putenv = get__wenviron, _wgetenv, _wputenv
         byname, eq = envkeepalive.bywname, u'='
-        from rpython.rlib.rwin32 import lastWindowsError as last_error
+        from rpython.rlib.rwin32 import lastSavedWindowsError as last_error
 
     def envitems_llimpl():
         environ = get_environ()

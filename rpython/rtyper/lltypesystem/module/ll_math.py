@@ -43,10 +43,10 @@ def llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
                            sandboxsafe=True, **kwargs)
 
-def math_llexternal(name, ARGS, RESULT):
+def math_llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(math_prefix + name, ARGS, RESULT,
                            compilation_info=math_eci,
-                           sandboxsafe=True)
+                           sandboxsafe=True, **kwargs)
 
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)

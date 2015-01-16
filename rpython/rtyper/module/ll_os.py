@@ -1339,7 +1339,8 @@ class RegisterOs(BaseLazyRegistering):
                                                         rwin32.LPHANDLE,
                                                         rffi.VOIDP,
                                                         rwin32.DWORD],
-                                         rwin32.BOOL)
+                                         rwin32.BOOL,
+                                         save_err=rffi.RFFI_SAVE_LASTERROR)
             _open_osfhandle = self.llexternal('_open_osfhandle', [rffi.INTPTR_T,
                                                                   rffi.INT],
                                               rffi.INT)
@@ -1352,7 +1353,7 @@ class RegisterOs(BaseLazyRegistering):
                 if ok:
                     error = 0
                 else:
-                    error = rwin32.GetLastError()
+                    error = rwin32.GetLastError_saved()
                 hread = rffi.cast(rffi.INTPTR_T, pread[0])
                 hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
                 lltype.free(pwrite, flavor='raw')
@@ -1564,7 +1565,7 @@ class RegisterOs(BaseLazyRegistering):
             @func_renamer('unlink_llimpl_%s' % traits.str.__name__)
             def unlink_llimpl(path):
                 if not win32traits.DeleteFile(path):
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
 
         return extdef([traits.str0], s_None, llimpl=unlink_llimpl,
                       export_name=traits.ll_os_name('unlink'))
@@ -1601,7 +1602,7 @@ class RegisterOs(BaseLazyRegistering):
             @func_renamer('mkdir_llimpl_%s' % traits.str.__name__)
             def os_mkdir_llimpl(path, mode):
                 if not win32traits.CreateDirectory(path, None):
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
         else:
             def os_mkdir_llimpl(pathname, mode):
                 res = os_mkdir(pathname, mode)
@@ -1677,7 +1678,7 @@ class RegisterOs(BaseLazyRegistering):
             @func_renamer('rename_llimpl_%s' % traits.str.__name__)
             def rename_llimpl(oldpath, newpath):
                 if not win32traits.MoveFile(oldpath, newpath):
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
 
         return extdef([traits.str0, traits.str0], s_None, llimpl=rename_llimpl,
                       export_name=traits.ll_os_name('rename'))

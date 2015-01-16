@@ -523,11 +523,11 @@ def make_win32_stat_impl(name, traits):
         try:
             l_path = traits.str2charp(path)
             res = win32traits.GetFileAttributesEx(l_path, win32traits.GetFileExInfoStandard, data)
-            errcode = rwin32.GetLastError()
+            errcode = rwin32.GetLastError_saved()
             if res == 0:
                 if errcode == win32traits.ERROR_SHARING_VIOLATION:
                     res = attributes_from_dir(l_path, data)
-                    errcode = rwin32.GetLastError()
+                    errcode = rwin32.GetLastError_saved()
             traits.free_charp(l_path)
             if res == 0:
                 raise WindowsError(errcode, "os_stat failed")
@@ -549,7 +549,7 @@ def make_win32_stat_impl(name, traits):
                                      0, 0, 0, 0, 0,
                                      0, 0, 0, 0))
         elif filetype == win32traits.FILE_TYPE_UNKNOWN:
-            error = rwin32.GetLastError()
+            error = rwin32.GetLastError_saved()
             if error != 0:
                 raise WindowsError(error, "os_fstat failed")
             # else: unknown but valid file
@@ -560,7 +560,8 @@ def make_win32_stat_impl(name, traits):
         try:
             res = win32traits.GetFileInformationByHandle(handle, info)
             if res == 0:
-                raise WindowsError(rwin32.GetLastError(), "os_fstat failed")
+                raise WindowsError(rwin32.GetLastError_saved(),
+                                   "os_fstat failed")
             return by_handle_info_to_stat(info)
         finally:
             lltype.free(info, flavor='raw')
