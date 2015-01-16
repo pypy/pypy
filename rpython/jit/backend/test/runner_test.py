@@ -2930,17 +2930,21 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <errno.h>
-                RPY_EXPORTED long test_call_release_gil_save_errno(
-                       long a, long b, long c, long d, long e, long f, long g) {
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
                     errno = 42;
                     return (a + 10*b + 100*c + 1000*d +
                             10000*e + 100000*f + 1000000*g);
                 }
+                RPY_EXPORTED
+                long test_call_release_gil_save_errno(void) {
+                    return (long)&f1;
+                }
             '''])
         fn_name = 'test_call_release_gil_save_errno'
-        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
-                                    compilation_info=eci, _nowrapper=True)
-        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
         calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
                                                           types.slong)
         #
@@ -2983,19 +2987,23 @@ class LLtypeBackendTest(BaseBackendTest):
             separate_module_sources=[r'''
                 #include <stdio.h>
                 #include <errno.h>
-                RPY_EXPORTED long test_call_release_gil_readsaved_errno(
-                       long a, long b, long c, long d, long e, long f, long g) {
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
                     long r = errno;
                     printf("read saved errno: %ld\n", r);
                     r += 100 * (a + 10*b + 100*c + 1000*d +
                                 10000*e + 100000*f + 1000000*g);
                     return r;
                 }
+                RPY_EXPORTED
+                long test_call_release_gil_readsaved_errno(void) {
+                    return (long)&f1;
+                }
             '''])
         fn_name = 'test_call_release_gil_readsaved_errno'
-        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
-                                    compilation_info=eci, _nowrapper=True)
-        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
         calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
                                                           types.slong)
         #
@@ -3037,17 +3045,21 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <windows.h>
-                RPY_EXPORTED long test_call_release_gil_save_lasterror(
-                       long a, long b, long c, long d, long e, long f, long g) {
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
                     SetLastError(42);
                     return (a + 10*b + 100*c + 1000*d +
                             10000*e + 100000*f + 1000000*g);
                 }
+                RPY_EXPORTED
+                long test_call_release_gil_save_lasterror(void) {
+                    return (long)&f1;
+                }
             '''])
         fn_name = 'test_call_release_gil_save_lasterror'
-        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
-                                    compilation_info=eci, _nowrapper=True)
-        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
         calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
                                                           types.slong)
         #
@@ -3092,19 +3104,24 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=[r'''
                 #include <windows.h>
-                RPY_EXPORTED long test_call_release_gil_readsaved_lasterror(
-                       long a, long b, long c, long d, long e, long f, long g) {
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
                     long r = GetLastError();
-                    //printf("GetLastError() result: %ld\n", r);
+                    printf("GetLastError() result: %ld\n", r);
+                    printf("%ld %ld %ld %ld %ld %ld %ld\n", a,b,c,d,e,f,g);
                     r += 100 * (a + 10*b + 100*c + 1000*d +
                                 10000*e + 100000*f + 1000000*g);
                     return r;
                 }
+                RPY_EXPORTED
+                long test_call_release_gil_readsaved_lasterror(void) {
+                    return (long)&f1;
+                }
             '''])
         fn_name = 'test_call_release_gil_readsaved_lasterror'
-        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
-                                    compilation_info=eci, _nowrapper=True)
-        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
         calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
                                                           types.slong)
         #
@@ -3132,8 +3149,82 @@ class LLtypeBackendTest(BaseBackendTest):
             assert result == 24 + 345678900
 
     def test_call_release_gil_err_all(self):
-        xxx
-            
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        if sys.platform != 'win32':
+            eci = ExternalCompilationInfo(
+                separate_module_sources=[r'''
+                    #include <errno.h>
+                    static long f1(long a, long b, long c, long d,
+                                   long e, long f, long g) {
+                        long r = errno;
+                        errno = 42;
+                        r += 100 * (a + 10*b + 100*c + 1000*d +
+                                    10000*e + 100000*f + 1000000*g);
+                        return r;
+                    }
+                    RPY_EXPORTED
+                    long test_call_release_gil_err_all(void) {
+                        return (long)&f1;
+                    }
+                '''])
+        else:
+            eci = ExternalCompilationInfo(
+                separate_module_sources=[r'''
+                    #include <windows.h>
+                    #include <errno.h>
+                    static long f1(long a, long b, long c, long d,
+                                   long e, long f, long g) {
+                        long r = errno + 10 * GetLastError();
+                        errno = 42;
+                        SetLastError(43);
+                        r += 100 * (a + 10*b + 100*c + 1000*d +
+                                    10000*e + 100000*f + 1000000*g);
+                        return r;
+                    }
+                    RPY_EXPORTED
+                    long test_call_release_gil_err_all(void) {
+                        return (long)&f1;
+                    }
+                '''])
+        fn_name = 'test_call_release_gil_err_all'
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_ERR_ALL]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_errno(self.cpu, 8)
+            llerrno.set_debug_saved_lasterror(self.cpu, 9)
+            deadframe = self.cpu.execute_token(looptoken, 1, 2, 3, 4, 5, 6, 7)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert llerrno.get_debug_saved_errno(self.cpu) == 42
+            if sys.platform != 'win32':
+                assert result == 765432108
+            else:
+                assert llerrno.get_debug_saved_lasterror(self.cpu) == 43
+                assert result == 765432198
+
     def test_guard_not_invalidated(self):
         cpu = self.cpu
         i0 = BoxInt()

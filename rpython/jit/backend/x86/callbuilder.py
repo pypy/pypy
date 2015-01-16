@@ -169,6 +169,7 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.MOV_rs(edi.value, THREADLOCAL_OFS - self.current_esp)
             mc.PUSH_m((edi.value, rpy_lasterror))
             mc.CALL(imm(SetLastError_addr))
+            mc.ADD_ri(esp.value, WORD)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read 'rpy_errno' and write it into the
