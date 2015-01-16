@@ -26,8 +26,9 @@ if sys.platform == 'win32':
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
-        rwin32.HANDLE)
-    _CloseHandle = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
+        rwin32.HANDLE,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+    _CloseHandle_no_errno = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
         rwin32.BOOL, releasegil=False)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
@@ -230,15 +231,13 @@ if sys.platform == 'win32':
         rwin32.SetLastError(0)
         handle = _CreateSemaphore(rffi.NULL, val, max, rffi.NULL)
         # On Windows we should fail on ERROR_ALREADY_EXISTS
-        err = rwin32.GetLastError()
+        err = rwin32.GetLastError_saved()
         if err != 0:
             raise WindowsError(err, "CreateSemaphore")
         return handle
 
     def delete_semaphore(handle):
-        if not _CloseHandle(handle):
-            err = rwin32.GetLastError()
-            raise WindowsError(err, "CloseHandle")
+        _CloseHandle_no_errno(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:

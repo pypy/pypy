@@ -406,7 +406,7 @@ class W_PipeConnection(W_BaseConnection):
                 size, written_ptr, rffi.NULL)
 
             if (result == 0 and
-                rwin32.GetLastError() == ERROR_NO_SYSTEM_RESOURCES):
+                rwin32.GetLastError_saved() == ERROR_NO_SYSTEM_RESOURCES):
                 raise oefmt(space.w_ValueError,
                             "Cannot send %d bytes over connection", size)
         finally:
@@ -430,7 +430,7 @@ class W_PipeConnection(W_BaseConnection):
             if result:
                 return intmask(read_ptr[0]), lltype.nullptr(rffi.CCHARP.TO)
 
-            err = rwin32.GetLastError()
+            err = rwin32.GetLastError_saved()
             if err == ERROR_BROKEN_PIPE:
                 raise OperationError(space.w_EOFError, space.w_None)
             elif err != ERROR_MORE_DATA:
