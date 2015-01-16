@@ -169,15 +169,18 @@ def llexternal(name, args, result, _callable=None,
 
         argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
-            from rpython.rlib import rposix
+            if %(save_err)d:
+                from rpython.rlib import rposix
 
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
-                rposix._errno_before(%(save_err)d)
+                if %(save_err)d:
+                    rposix._errno_before(%(save_err)d)
                 res = funcptr(%(argnames)s)
-                rposix._errno_after(%(save_err)d)
+                if %(save_err)d:
+                    rposix._errno_after(%(save_err)d)
                 after = aroundstate.after
                 if after: after()
                 return res
@@ -212,12 +215,15 @@ def llexternal(name, args, result, _callable=None,
             # to hide it from the JIT...
             argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
-                from rpython.rlib import rposix
+                if %(save_err)d:
+                    from rpython.rlib import rposix
 
                 def call_external_function(%(argnames)s):
-                    rposix._errno_before(%(save_err)d)
+                    if %(save_err)d:
+                        rposix._errno_before(%(save_err)d)
                     res = funcptr(%(argnames)s)
-                    rposix._errno_after(%(save_err)d)
+                    if %(save_err)d:
+                        rposix._errno_after(%(save_err)d)
                     return res
             """ % locals())
             miniglobals = {'funcptr':     funcptr,
