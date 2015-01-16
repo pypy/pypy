@@ -20,6 +20,7 @@ from rpython.rlib import longlong2float
 from rpython.rlib.rarithmetic import intmask, is_valid_int
 from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 
 IS_32_BIT = sys.maxint < 2**32
@@ -2924,6 +2925,8 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.libffi import types
         from rpython.jit.backend.llsupport import llerrno
         #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <errno.h>
@@ -2965,6 +2968,8 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.libffi import types
         from rpython.jit.backend.llsupport import llerrno
         #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
         eci = ExternalCompilationInfo(
             separate_module_sources=[r'''
                 #include <stdio.h>
@@ -3333,8 +3338,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not called
 
     def test_assembler_call_propagate_exc(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't fake exceptions well enough, give up")
 
@@ -3869,7 +3872,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res.value == iexpected
 
     def test_free_loop_and_bridges(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("not a subclass of llmodel.AbstractLLCPU")
         if hasattr(self.cpu, 'setup_once'):
@@ -4009,7 +4011,6 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert got == expected
 
     def test_compile_asmlen(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
         from rpython.jit.backend.tool.viewcode import machine_code_dump, ObjdumpNotFound
@@ -4451,7 +4452,6 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         frame = self.cpu.execute_token(looptoken, 0, 0, 3)
         assert self.cpu.get_latest_descr(frame) is guarddescr
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
@@ -4558,8 +4558,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
 
     def test_zero_ptr_field(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
@@ -4583,8 +4581,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not s.x
 
     def test_zero_ptr_field_2(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_ptr_field")
 
@@ -4608,8 +4604,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.y == -4398176
 
     def test_zero_array(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_array")
 
