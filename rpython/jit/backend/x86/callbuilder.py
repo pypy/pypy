@@ -159,9 +159,13 @@ class CallBuilderX86(AbstractCallBuilder):
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             mc = self.mc
             mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
-            mc.MOV_rm(edx.value, (eax.value, p_errno))
+            if IS_X86_32:
+                tmpreg = edx
+            else:
+                tmpreg = r11     # edx is used for 3rd argument
+            mc.MOV_rm(tmpreg.value, (eax.value, p_errno))
             mc.MOV32_rm(eax.value, (eax.value, rpy_errno))
-            mc.MOV32_mr((edx.value, 0), eax.value)
+            mc.MOV32_mr((tmpreg.value, 0), eax.value)
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)

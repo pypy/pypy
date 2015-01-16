@@ -2930,31 +2930,39 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <errno.h>
-                RPY_EXPORTED void test_call_release_gil_save_errno(void) {
+                RPY_EXPORTED long test_call_release_gil_save_errno(
+                       long a, long b, long c, long d, long e, long f, long g) {
                     errno = 42;
+                    return (a + 10*b + 100*c + 1000*d +
+                            10000*e + 100000*f + 1000000*g);
                 }
             '''])
         fn_name = 'test_call_release_gil_save_errno'
-        func1_ptr = rffi.llexternal(fn_name, [], lltype.Void,
+        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
                                     compilation_info=eci, _nowrapper=True)
         func1_adr = rffi.cast(lltype.Signed, func1_ptr)
-        calldescr = self.cpu._calldescr_dynamic_for_tests([], types.void)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
         #
         for saveerr in [rffi.RFFI_ERR_NONE, rffi.RFFI_SAVE_ERRNO]:
             faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
             ops = [
                 ResOperation(rop.CALL_RELEASE_GIL,
-                             [ConstInt(saveerr), ConstInt(func1_adr)], None,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
             ]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
-            self.cpu.compile_loop([], ops, looptoken)
+            self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             llerrno.set_debug_saved_errno(self.cpu, 24)
-            self.cpu.execute_token(looptoken)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            original_result = self.cpu.get_int_value(deadframe, 0)
             result = llerrno.get_debug_saved_errno(self.cpu)
             print 'saveerr =', saveerr, ': got result =', result
             #
@@ -2962,6 +2970,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert result == 42      # from the C code
             else:
                 assert result == 24      # not touched
+            assert original_result == 3456789
 
     def test_call_release_gil_readsaved_errno(self):
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -2974,41 +2983,47 @@ class LLtypeBackendTest(BaseBackendTest):
             separate_module_sources=[r'''
                 #include <stdio.h>
                 #include <errno.h>
-                RPY_EXPORTED int test_call_release_gil_readsaved_errno(void) {
-                    int r = errno;
-                    printf("read saved errno: %d\n", r);
+                RPY_EXPORTED long test_call_release_gil_readsaved_errno(
+                       long a, long b, long c, long d, long e, long f, long g) {
+                    long r = errno;
+                    printf("read saved errno: %ld\n", r);
+                    r += 100 * (a + 10*b + 100*c + 1000*d +
+                                10000*e + 100000*f + 1000000*g);
                     return r;
                 }
             '''])
         fn_name = 'test_call_release_gil_readsaved_errno'
-        func1_ptr = rffi.llexternal(fn_name, [], rffi.INT,
+        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
                                     compilation_info=eci, _nowrapper=True)
         func1_adr = rffi.cast(lltype.Signed, func1_ptr)
-        calldescr = self.cpu._calldescr_dynamic_for_tests([], types.sint32)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
         #
         for saveerr in [rffi.RFFI_READSAVED_ERRNO, rffi.RFFI_ZERO_ERRNO_BEFORE]:
             faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
             i1 = BoxInt()
             ops = [
                 ResOperation(rop.CALL_RELEASE_GIL,
-                             [ConstInt(saveerr), ConstInt(func1_adr)], i1,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
             ]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
-            self.cpu.compile_loop([], ops, looptoken)
+            self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             llerrno.set_debug_saved_errno(self.cpu, 24)
-            deadframe = self.cpu.execute_token(looptoken)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
             result = self.cpu.get_int_value(deadframe, 0)
             assert llerrno.get_debug_saved_errno(self.cpu) == 24
             #
             if saveerr == rffi.RFFI_READSAVED_ERRNO:
-                assert result == 24
+                assert result == 24 + 345678900
             else:
-                assert result == 0
+                assert result == 0  + 345678900
 
     def test_call_release_gil_save_lasterror(self):
         XXX
