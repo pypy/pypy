@@ -1025,6 +1025,21 @@ def ann_cast_opaque_ptr(PtrT, s_p):
     return SomePtr(ll_ptrtype=typeOf(cast_p))
 
 
+def length_of_simple_gcarray_from_opaque(opaque_ptr):
+    CURTYPE = typeOf(opaque_ptr)
+    if not isinstance(CURTYPE, Ptr):
+        raise TypeError("can only cast pointers to other pointers")
+    if not isinstance(CURTYPE.TO, GcOpaqueType):
+        raise TypeError("expected a GcOpaqueType")
+    return opaque_ptr._obj.container.getlength()
+
+@analyzer_for(length_of_simple_gcarray_from_opaque)
+def ann_length_of_simple_gcarray_from_opaque(s_p):
+    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
+    assert isinstance(s_p.ll_ptrtype.TO, GcOpaqueType)
+    return SomeInteger(nonneg=True)
+
+
 def direct_fieldptr(structptr, fieldname):
     """Get a pointer to a field in the struct.  The resulting
     pointer is actually of type Ptr(FixedSizeArray(FIELD, 1)).
