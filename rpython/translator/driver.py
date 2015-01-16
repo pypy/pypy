@@ -10,7 +10,8 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
 from rpython.tool.udir import udir
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rlib.entrypoint import secondary_entrypoints
+from rpython.rlib.entrypoint import secondary_entrypoints,\
+     annotated_jit_entrypoints
 
 import py
 from rpython.tool.ansi_print import ansi_log
@@ -416,10 +417,11 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.c.genc import CStandaloneBuilder
             cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
                                           config=self.config,
-                      secondary_entrypoints=self.secondary_entrypoints)
+                      secondary_entrypoints=
+                      self.secondary_entrypoints + annotated_jit_entrypoints)
         else:
             from rpython.translator.c.dlltool import CLibraryBuilder
-            functions = [(self.entry_point, None)] + self.secondary_entrypoints
+            functions = [(self.entry_point, None)] + self.secondary_entrypoints + annotated_jit_entrypoints
             cbuilder = CLibraryBuilder(self.translator, self.entry_point,
                                        functions=functions,
                                        name='libtesting',

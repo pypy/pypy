@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import we_are_translated
 
+annotated_jit_entrypoints = []
 
 def export_symbol(func):
     func.exported_symbol = True

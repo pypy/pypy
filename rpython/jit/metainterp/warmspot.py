@@ -25,7 +25,8 @@ from rpython.jit.codewriter import support, codewriter
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
-from rpython.rlib.entrypoint import all_jit_entrypoints
+from rpython.rlib.entrypoint import all_jit_entrypoints,\
+     annotated_jit_entrypoints
 
 
 # ____________________________________________________________
@@ -681,6 +682,7 @@ class WarmRunnerDesc(object):
     def create_jit_entry_points(self):
         for func, args, result in all_jit_entrypoints:
             self.helper_func(lltype.Ptr(lltype.FuncType(args, result)), func)
+            annotated_jit_entrypoints.append((func, None))
 
     def rewrite_access_helper(self, op):
         # make sure we make a copy of function so it no longer belongs
