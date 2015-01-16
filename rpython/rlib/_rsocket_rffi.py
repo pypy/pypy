@@ -653,7 +653,7 @@ elif WIN32:
                          [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(WSAPROTOCOL_INFO),
                           rwin32.DWORD, rwin32.DWORD],
-                         socketfd_type, save_err=save_err)
+                         socketfd_type, save_err=SAVE_ERR)
 
 if WIN32:
     WSAData = cConfig.WSAData
