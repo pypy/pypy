@@ -51,3 +51,12 @@ Rename pypy/module/rctime to pypy/module/time, since it contains the implementat
 .. branch: ssa-flow
 
 Use SSA form for flow graphs inside build_flow() and part of simplify_graph()
+
+.. branch: ufuncpai
+
+Implement most of the GenericUfunc api to support numpy linalg. The strategy is
+to encourage use of pure python or cffi ufuncs by extending frompyfunc().
+See the docstring of frompyfunc for more details. This dovetails with a branch
+of pypy/numpy - cffi-linalg which is a rewrite of the _umath_linalg module in
+python, calling lapack from cffi. The branch also support traditional use of
+cpyext GenericUfunc definitions in c.
