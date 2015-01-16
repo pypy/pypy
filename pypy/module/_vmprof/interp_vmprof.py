@@ -71,7 +71,7 @@ vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
 vmprof_register_virtual_function = rffi.llexternal(
     "vmprof_register_virtual_function",
     [rffi.CCHARP, rffi.VOIDP, rffi.VOIDP], lltype.Void,
-    compilation_info=eci)
+    compilation_info=eci, _nowrapper=True)
 
 original_execute_frame = PyFrame.execute_frame.im_func
 original_execute_frame.c_name = 'pypy_pyframe_execute_frame'
