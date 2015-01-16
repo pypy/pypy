@@ -27,7 +27,7 @@ if sys.platform == 'win32':
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
         rwin32.HANDLE,
-        save_err=rffi.RFFI_SAVE_LASTERROR)
+        save_err=rffi.RFFI_FULL_LASTERROR)
     _CloseHandle_no_errno = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
         rwin32.BOOL, releasegil=False)
     _ReleaseSemaphore = rwin32.winexternal(
@@ -228,7 +228,7 @@ class CounterState:
 
 if sys.platform == 'win32':
     def create_semaphore(space, name, val, max):
-        rwin32.SetLastError(0)
+        rwin32.SetLastError_saved(0)
         handle = _CreateSemaphore(rffi.NULL, val, max, rffi.NULL)
         # On Windows we should fail on ERROR_ALREADY_EXISTS
         err = rwin32.GetLastError_saved()
