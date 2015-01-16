@@ -156,7 +156,6 @@ def llexternal(name, args, result, _callable=None,
         assert save_err == RFFI_ERR_NONE
         return funcptr
 
-
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
         # We need tons of care to ensure that no GC operation and no
@@ -169,17 +168,16 @@ def llexternal(name, args, result, _callable=None,
 
         argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
-            if %(save_err)d:
-                from rpython.rlib import rposix
-
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 if %(save_err)d:
+                    from rpython.rlib import rposix
                     rposix._errno_before(%(save_err)d)
                 res = funcptr(%(argnames)s)
                 if %(save_err)d:
+                    from rpython.rlib import rposix
                     rposix._errno_after(%(save_err)d)
                 after = aroundstate.after
                 if after: after()
@@ -215,14 +213,13 @@ def llexternal(name, args, result, _callable=None,
             # to hide it from the JIT...
             argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
-                if %(save_err)d:
-                    from rpython.rlib import rposix
-
                 def call_external_function(%(argnames)s):
                     if %(save_err)d:
+                        from rpython.rlib import rposix
                         rposix._errno_before(%(save_err)d)
                     res = funcptr(%(argnames)s)
                     if %(save_err)d:
+                        from rpython.rlib import rposix
                         rposix._errno_after(%(save_err)d)
                     return res
             """ % locals())
