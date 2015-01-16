@@ -146,7 +146,6 @@ def int2str(num, s, ofs):
         pos -= 1
     return count
 
-@rgc.no_collect
 def do_get_virtual_ip(frame):
     virtual_ip = frame.pycode._vmprof_virtual_ip
     if not frame.pycode._vmprof_registered:
