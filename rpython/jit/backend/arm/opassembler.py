@@ -403,7 +403,9 @@ class ResOpAssembler(BaseAssembler):
         # args = [resloc, size, sign, args...]
         from rpython.jit.backend.llsupport.descr import CallDescr
 
-        cb = callbuilder.get_callbuilder(self.cpu, self, arglocs[3], arglocs[4:], arglocs[0])
+        func_index = 3 + is_call_release_gil
+        cb = callbuilder.get_callbuilder(self.cpu, self, arglocs[func_index],
+                                         arglocs[func_index+1:], arglocs[0])
 
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
@@ -418,7 +420,9 @@ class ResOpAssembler(BaseAssembler):
         cb.ressign = signloc.value
 
         if is_call_release_gil:
-            cb.emit_call_release_gil()
+            saveerrloc = arglocs[3]
+            assert saveerrloc.is_imm()
+            cb.emit_call_release_gil(saveerrloc.value)
         else:
             cb.emit()
         return fcond
@@ -1073,7 +1077,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
         numargs = op.numargs()
-        callargs = arglocs[:numargs + 3]     # extract the arguments to the call
+        callargs = arglocs[:numargs + 4]     # extract the arguments to the call
         guardargs = arglocs[len(callargs):]  # extrat the arguments for the guard
         self._store_force_index(guard_op)
         self._emit_call(op, callargs, is_call_release_gil=True)
@@ -1286,9 +1290,13 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_opx_threadlocalref_get(self, op, arglocs, regalloc, fcond):
-        ofs0, res = arglocs
-        assert ofs0.is_imm()
+        ofs_loc, size_loc, sign_loc, res_loc = arglocs
+        assert ofs_loc.is_imm()
+        assert size_loc.is_imm()
+        assert sign_loc.is_imm()
         ofs = self.saved_threadlocal_addr
-        self.load_reg(self.mc, res, r.sp, ofs)
-        self.load_reg(self.mc, res, res, ofs0.value)
+        self.load_reg(self.mc, res_loc, r.sp, ofs)
+        scale = get_scale(size_loc.value)
+        signed = (sign_loc.value != 0)
+        self._load_from_mem(res_loc, res_loc, ofs_loc, scale, signed, fcond)
         return fcond
