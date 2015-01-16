@@ -3037,8 +3037,7 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=['''
                 #include <windows.h>
-                RPY_EXPORTED
-                long __stdcall test_call_release_gil_save_lasterror(
+                RPY_EXPORTED long test_call_release_gil_save_lasterror(
                        long a, long b, long c, long d, long e, long f, long g) {
                     SetLastError(42);
                     return (a + 10*b + 100*c + 1000*d +
@@ -3094,8 +3093,7 @@ class LLtypeBackendTest(BaseBackendTest):
             separate_module_sources=[r'''
                 #include <stdio.h>
                 #include <errno.h>
-                RPY_EXPORTED
-                long __stdcall test_call_release_gil_readsaved_lasterror(
+                RPY_EXPORTED long test_call_release_gil_readsaved_lasterror(
                        long a, long b, long c, long d, long e, long f, long g) {
                     long r = GetLastError();
                     printf("GetLastError() result: %ld\n", r);
