@@ -3026,10 +3026,113 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert result == 0  + 345678900
 
     def test_call_release_gil_save_lasterror(self):
-        XXX
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        if sys.platform != 'win32':
+            py.test.skip("Windows test only")
+        eci = ExternalCompilationInfo(
+            separate_module_sources=['''
+                #include <windows.h>
+                RPY_EXPORTED
+                long __stdcall test_call_release_gil_save_lasterror(
+                       long a, long b, long c, long d, long e, long f, long g) {
+                    SetLastError(42);
+                    return (a + 10*b + 100*c + 1000*d +
+                            10000*e + 100000*f + 1000000*g);
+                }
+            '''])
+        fn_name = 'test_call_release_gil_save_lasterror'
+        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
+                                    compilation_info=eci, _nowrapper=True)
+        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_SAVE_ERRNO,  # but not _LASTERROR
+                        rffi.RFFI_SAVE_LASTERROR]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            original_result = self.cpu.get_int_value(deadframe, 0)
+            result = llerrno.get_debug_saved_lasterror(self.cpu)
+            print 'saveerr =', saveerr, ': got result =', result
+            #
+            if saveerr == rffi.RFFI_SAVE_LASTERROR:
+                assert result == 42      # from the C code
+            else:
+                assert result == 24      # not touched
+            assert original_result == 3456789
 
     def test_call_release_gil_readsaved_lasterror(self):
-        XXX
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        if sys.platform != 'win32':
+            py.test.skip("Windows test only")
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[r'''
+                #include <stdio.h>
+                #include <errno.h>
+                RPY_EXPORTED
+                long __stdcall test_call_release_gil_readsaved_lasterror(
+                       long a, long b, long c, long d, long e, long f, long g) {
+                    long r = GetLastError();
+                    printf("GetLastError() result: %ld\n", r);
+                    r += 100 * (a + 10*b + 100*c + 1000*d +
+                                10000*e + 100000*f + 1000000*g);
+                    return r;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_readsaved_lasterror'
+        func1_ptr = rffi.llexternal(fn_name, [lltype.Signed]*7, lltype.Signed,
+                                    compilation_info=eci, _nowrapper=True)
+        func1_adr = rffi.cast(lltype.Signed, func1_ptr)
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_READSAVED_LASTERROR]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert llerrno.get_debug_saved_lasterror(self.cpu) == 24
+            #
+            assert result == 24 + 345678900
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu

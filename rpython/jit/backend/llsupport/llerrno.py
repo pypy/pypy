@@ -17,6 +17,22 @@ def get_rpy_errno_offset(cpu):
     else:
         return 3 * WORD
 
+
+def get_debug_saved_lasterror(cpu):
+    return cpu._debug_errno_container[4]
+
+def set_debug_saved_lasterror(cpu, nerrno):
+    assert nerrno >= 0
+    cpu._debug_errno_container[4] = nerrno
+
+def get_rpy_lasterror_offset(cpu):
+    if cpu.translate_support_code:
+        from rpython.rlib import rthread
+        return rthread.tlfield_rpy_lasterror.getoffset()
+    else:
+        return 4 * WORD
+
+
 def _fetch_addr_errno():
     eci = ExternalCompilationInfo(
         separate_module_sources=['''

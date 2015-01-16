@@ -7,6 +7,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 
+WIN32 = os.name == "nt"
+
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -109,6 +111,9 @@ def set_saved_errno(errno):
 
 @specialize.call_location()
 def _errno_before(save_err):
+    if WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        rwin32._SetLastError(rthread.tlfield_rpy_lasterror.getraw())
     if save_err & rffi.RFFI_READSAVED_ERRNO:
         from rpython.rlib import rthread
         _set_errno(rthread.tlfield_rpy_errno.getraw())
@@ -120,6 +125,9 @@ def _errno_after(save_err):
     if save_err & rffi.RFFI_SAVE_ERRNO:
         from rpython.rlib import rthread
         rthread.tlfield_rpy_errno.setraw(_get_errno())
+    if WIN32 and (save_err & rffi.RFFI_SAVE_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        rthread.tlfield_rpy_lasterror.setraw(rwin32._GetLastError())
 
 
 if os.name == 'nt':

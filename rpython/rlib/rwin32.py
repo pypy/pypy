@@ -123,12 +123,6 @@ if WIN32:
     _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void,
                                 _nowrapper=True, sandboxsafe=True)
 
-    def GetLastError_real():
-        return rffi.cast(lltype.Signed, _GetLastError())
-
-    def SetLastError_real(err):
-        _SetLastError(rffi.cast(DWORD, err))
-
     def GetLastError_saved():
         from rpython.rlib import rthread
         return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
