@@ -1031,7 +1031,16 @@ def length_of_simple_gcarray_from_opaque(opaque_ptr):
         raise TypeError("can only cast pointers to other pointers")
     if not isinstance(CURTYPE.TO, GcOpaqueType):
         raise TypeError("expected a GcOpaqueType")
-    return opaque_ptr._obj.container.getlength()
+    try:
+        c = opaque_ptr._obj.container
+    except AttributeError:
+        # if 'opaque_ptr' is already some _llgcopaque, hack its length
+        # by casting it to a random GcArray type and hoping
+        from rpython.rtyper.lltypesystem import rffi
+        p = rffi.cast(Ptr(GcArray(Signed)), opaque_ptr)
+        return len(p)
+    else:
+        return c.getlength()
 
 @analyzer_for(length_of_simple_gcarray_from_opaque)
 def ann_length_of_simple_gcarray_from_opaque(s_p):
