@@ -3091,12 +3091,11 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("Windows test only")
         eci = ExternalCompilationInfo(
             separate_module_sources=[r'''
-                #include <stdio.h>
-                #include <errno.h>
+                #include <windows.h>
                 RPY_EXPORTED long test_call_release_gil_readsaved_lasterror(
                        long a, long b, long c, long d, long e, long f, long g) {
                     long r = GetLastError();
-                    printf("GetLastError() result: %ld\n", r);
+                    //printf("GetLastError() result: %ld\n", r);
                     r += 100 * (a + 10*b + 100*c + 1000*d +
                                 10000*e + 100000*f + 1000000*g);
                     return r;
@@ -3132,6 +3131,9 @@ class LLtypeBackendTest(BaseBackendTest):
             #
             assert result == 24 + 345678900
 
+    def test_call_release_gil_err_all(self):
+        xxx
+            
     def test_guard_not_invalidated(self):
         cpu = self.cpu
         i0 = BoxInt()

@@ -20,6 +20,7 @@ from rpython.rtyper.lltypesystem import rffi
 CALL_ALIGN = 16 // WORD
 
 stdcall_or_cdecl = sys.platform == "win32"
+handle_lasterror = sys.platform == "win32"
 
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
@@ -30,6 +31,8 @@ class CallBuilderX86(AbstractCallBuilder):
     # max number of words we have room in esp; if we need more for
     # arguments, we need to decrease esp temporarily
     stack_max = PASS_ON_MY_FRAME
+
+    result_value_saved_early = False
 
     def __init__(self, assembler, fnloc, arglocs,
                  resloc=eax, restype=INT, ressize=WORD):
@@ -150,6 +153,23 @@ class CallBuilderX86(AbstractCallBuilder):
             self.mc.ADD(ebp, imm(1))       # ebp any more
 
     def write_real_errno(self, save_err):
+        tlofsreg = None
+        mc = self.mc
+
+        if handle_lasterror and (save_err & rffi.RFFI_READSAVED_LASTERROR):
+            # must call SetLastError().  There are no registers to save
+            # because we are on 32-bit in this case: no register contains
+            # the arguments to the main function we want to call afterwards.
+            from rpython.rlib.rwin32 import _SetLastError
+            SetLastError_addr = self.asm.cpu.cast_ptr_to_int(_SetLastError)
+            assert isinstance(self, CallBuilder32)    # Windows 32-bit only
+            #
+            rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
+            tlofsreg = edi     # saved across the call to SetLastError
+            mc.MOV_rs(edi.value, THREADLOCAL_OFS - self.current_esp)
+            mc.PUSH_m((edi.value, rpy_lasterror))
+            mc.CALL(imm(SetLastError_addr))
+
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read 'rpy_errno' and write it into the
             # real 'errno'.  Most registers are free here, including the
@@ -157,35 +177,54 @@ class CallBuilderX86(AbstractCallBuilder):
             # pass the arguments on x86-64.
             rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            mc = self.mc
-            mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
+            if tlofsreg is None:
+                tlofsreg = eax
+                mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
             if IS_X86_32:
                 tmpreg = edx
             else:
                 tmpreg = r11     # edx is used for 3rd argument
-            mc.MOV_rm(tmpreg.value, (eax.value, p_errno))
-            mc.MOV32_rm(eax.value, (eax.value, rpy_errno))
+            mc.MOV_rm(tmpreg.value, (tlofsreg.value, p_errno))
+            mc.MOV32_rm(eax.value, (tlofsreg.value, rpy_errno))
             mc.MOV32_mr((tmpreg.value, 0), eax.value)
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            mc = self.mc
-            mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
-            mc.MOV_rm(eax.value, (eax.value, p_errno))
+            if tlofsreg is None:
+                tlofsreg = eax
+                mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
+            mc.MOV_rm(eax.value, (tlofsreg.value, p_errno))
             mc.MOV32_mi((eax.value, 0), 0)
 
     def read_real_errno(self, save_err):
+        esi_is_threadlocal_ofs = False
+        mc = self.mc
+
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
             # it inside our thread-local 'rpy_errno'.  Most registers are
             # free here, including the callee-saved ones, except 'ebx'.
             rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            mc = self.mc
             mc.MOV_rs(esi.value, THREADLOCAL_OFS)
             mc.MOV_rm(edi.value, (esi.value, p_errno))
             mc.MOV32_rm(edi.value, (edi.value, 0))
             mc.MOV32_mr((esi.value, rpy_errno), edi.value)
+            esi_is_threadlocal_ofs = True
+
+        if handle_lasterror and (save_err & rffi.RFFI_SAVE_LASTERROR):
+            from rpython.rlib.rwin32 import _GetLastError
+            GetLastError_addr = self.asm.cpu.cast_ptr_to_int(_GetLastError)
+            assert isinstance(self, CallBuilder32)    # Windows 32-bit only
+            #
+            rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
+            self.save_result_value(save_edx=True)
+            self.result_value_saved_early = True
+            mc.CALL(imm(GetLastError_addr))
+            #
+            if not esi_is_threadlocal_ofs:
+                mc.MOV_rs(esi.value, THREADLOCAL_OFS)
+            mc.MOV32_mr((esi.value, rpy_lasterror), eax.value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
@@ -205,8 +244,9 @@ class CallBuilderX86(AbstractCallBuilder):
             if IS_X86_32:
                 assert css >= 16
                 if self.restype == 'L':    # long long result: eax/edx
-                    mc.MOV_sr(12, edx.value)
-                    restore_edx = True
+                    if not self.result_value_saved_early:
+                        mc.MOV_sr(12, edx.value)
+                        restore_edx = True
                 css_value = edx
                 old_value = ecx
             elif IS_X86_64:
@@ -255,14 +295,16 @@ class CallBuilderX86(AbstractCallBuilder):
             je_location = mc.get_relative_pos()
         #
         # Yes, we need to call the reacqgil() function
-        self.save_result_value_reacq()
+        if not self.result_value_saved_early:
+            self.save_result_value(save_edx=False)
         if self.asm._is_asmgcc():
             if IS_X86_32:
                 mc.MOV_sr(4, old_value.value)
                 mc.MOV_sr(0, css_value.value)
             # on X86_64, they are already in the right registers
         mc.CALL(imm(self.asm.reacqgil_addr))
-        self.restore_result_value_reacq()
+        if not self.result_value_saved_early:
+            self.restore_result_value(save_edx=False)
         #
         # patch the JE above
         offset = mc.get_relative_pos() - je_location
@@ -271,6 +313,9 @@ class CallBuilderX86(AbstractCallBuilder):
         #
         if restore_edx:
             mc.MOV_rs(edx.value, 12)   # restore this
+        #
+        if self.result_value_saved_early:
+            self.restore_result_value(save_edx=True)
         #
         if not we_are_translated():    # for testing: now we can accesss
             mc.SUB(ebp, imm(1))        # ebp again
@@ -284,11 +329,11 @@ class CallBuilderX86(AbstractCallBuilder):
         #else:
         #   for shadowstack, done for us by _reload_frame_if_necessary()
 
-    def save_result_value_reacq(self):
+    def save_result_value(self, save_edx):
         """Overridden in CallBuilder32 and CallBuilder64"""
         raise NotImplementedError
 
-    def restore_result_value_reacq(self):
+    def restore_result_value(self, save_edx):
         """Overridden in CallBuilder32 and CallBuilder64"""
         raise NotImplementedError
 
@@ -378,7 +423,7 @@ class CallBuilder32(CallBuilderX86):
         else:
             CallBuilderX86.load_result(self)
 
-    def save_result_value_reacq(self):
+    def save_result_value(self, save_edx):
         # Temporarily save the result value into [ESP+8].  We use "+8"
         # in order to leave the two initial words free, in case it's needed.
         # Also note that in this 32-bit case, a long long return value is
@@ -390,7 +435,8 @@ class CallBuilder32(CallBuilderX86):
             # a float or a long long return
             if self.restype == 'L':
                 self.mc.MOV_sr(8, eax.value)      # long long
-                #self.mc.MOV_sr(12, edx.value) -- already done by the caller
+                if save_edx:
+                    self.mc.MOV_sr(12, edx.value)
             else:
                 self.mc.FSTPL_s(8)                # float return
         else:
@@ -401,15 +447,16 @@ class CallBuilder32(CallBuilderX86):
                 assert self.ressize <= WORD
                 self.mc.MOV_sr(8, eax.value)
 
-    def restore_result_value_reacq(self):
-        # Opposite of save_result_value_reacq()
+    def restore_result_value(self, save_edx):
+        # Opposite of save_result_value()
         if self.ressize == 0:      # void return
             return
         if self.resloc.is_float():
             # a float or a long long return
             if self.restype == 'L':
                 self.mc.MOV_rs(eax.value, 8)      # long long
-                #self.mc.MOV_rs(edx.value, 12) -- will be done by the caller
+                if save_edx:
+                    self.mc.MOV_rs(edx.value, 12)
             else:
                 self.mc.FLDL_s(8)                 # float return
         else:
@@ -534,7 +581,7 @@ class CallBuilder64(CallBuilderX86):
         else:
             CallBuilderX86.load_result(self)
 
-    def save_result_value_reacq(self):
+    def save_result_value(self, save_edx):
         # Temporarily save the result value into [ESP].
         if self.ressize == 0:      # void return
             return
@@ -551,8 +598,8 @@ class CallBuilder64(CallBuilderX86):
             assert self.restype == INT
             self.mc.MOV_sr(0, eax.value)
 
-    def restore_result_value_reacq(self):
-        # Opposite of save_result_value_reacq()
+    def restore_result_value(self, save_edx):
+        # Opposite of save_result_value()
         if self.ressize == 0:      # void return
             return
         #
