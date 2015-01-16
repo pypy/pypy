@@ -40,9 +40,9 @@ cConfig = platform.configure(CConfig)
 constants.update(cConfig)
 globals().update(cConfig)
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv='win')
+                           calling_conv='win', **kwds)
 
 HKEY = rwin32.HANDLE
 PHKEY = rffi.CArrayPtr(HKEY)
