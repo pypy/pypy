@@ -176,6 +176,22 @@ class TestRDictDirect(object):
         ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
         py.test.raises(StopIteration, rordereddict._ll_dictnext, ll_iter)
 
+    def test_popitem_first_bug(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 1)
+        rordereddict.ll_dict_delitem(ll_d, llstr("k"))
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+        num = rordereddict._ll_dictnext(ll_iter)
+        ll_key = ll_d.entries[num].key
+        assert hlstr(ll_key) == "j"
+        assert ll_d.lookup_function_no == 4    # 1 free item found at the start
+        rordereddict.ll_dict_delitem(ll_d, llstr("j"))
+        assert ll_d.num_ever_used_items == 0
+        assert ll_d.lookup_function_no == 0    # reset
+
     def test_direct_enter_and_del(self):
         def eq(a, b):
             return a == b

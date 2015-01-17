@@ -747,7 +747,12 @@ def _ll_dict_del(d, index):
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
 
-    if index == d.num_ever_used_items - 1:
+    if d.num_live_items == 0:
+        # Dict is now empty.  Reset these fields.
+        d.num_ever_used_items = 0
+        d.lookup_function_no &= FUNC_MASK
+
+    elif index == d.num_ever_used_items - 1:
         # The last element of the ordereddict has been deleted. Instead of
         # simply marking the item as dead, we can safely reuse it. Since it's
         # also possible that there are more dead items immediately behind the
