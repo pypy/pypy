@@ -115,11 +115,18 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("b"), 2)
         rordereddict.ll_dict_setitem(ll_d, llstr("c"), 3)
         rordereddict.ll_dict_setitem(ll_d, llstr("d"), 4)
-        assert len(get_indexes(ll_d)) == 8
         rordereddict.ll_dict_setitem(ll_d, llstr("e"), 5)
         rordereddict.ll_dict_setitem(ll_d, llstr("f"), 6)
-        assert len(get_indexes(ll_d)) == 32
-        for item in ['a', 'b', 'c', 'd', 'e', 'f']:
+        rordereddict.ll_dict_setitem(ll_d, llstr("g"), 7)
+        rordereddict.ll_dict_setitem(ll_d, llstr("h"), 8)
+        rordereddict.ll_dict_setitem(ll_d, llstr("i"), 9)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 10)
+        assert len(get_indexes(ll_d)) == 16
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 11)
+        rordereddict.ll_dict_setitem(ll_d, llstr("l"), 12)
+        rordereddict.ll_dict_setitem(ll_d, llstr("m"), 13)
+        assert len(get_indexes(ll_d)) == 64
+        for item in 'abcdefghijklm':
             assert rordereddict.ll_dict_getitem(ll_d, llstr(item)) == ord(item) - ord('a') + 1
 
     def test_dict_grow_cleanup(self):

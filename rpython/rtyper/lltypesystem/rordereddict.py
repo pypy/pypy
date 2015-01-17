@@ -617,18 +617,13 @@ def _ll_len_of_d_indexes(d):
 
 def _overallocate_entries_len(baselen):
     # This over-allocates proportional to the list size, making room
-    # for additional growth.  The over-allocation is mild, but is
-    # enough to give linear-time amortized behavior over a long
-    # sequence of appends() in the presence of a poorly-performing
-    # system malloc().
-    # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
-    newsize = baselen + 1
-    if newsize < 9:
-        some = 3
-    else:
-        some = 6
-    some += newsize >> 3
-    return newsize + some
+    # for additional growth.  This over-allocates slightly more eagerly
+    # than with regular lists.  The idea is that there are many more
+    # lists than dicts around in PyPy, and dicts of 5 to 8 items are
+    # not that rare (so a single jump from 0 to 8 is a good idea).
+    # The growth pattern is:  0, 8, 17, 27, 38, 50, 64, 80, 98, ...
+    newsize = baselen + (baselen >> 3)
+    return newsize + 8
 
 @jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_grow(d):
@@ -947,7 +942,9 @@ def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
 #
 #  Irregular operations.
 
-DICT_INITSIZE = 8
+# Start the hashtable size at 16 rather than 8, as with rdict.py, because
+# it is only an array of bytes
+DICT_INITSIZE = 16
 
 
 @specialize.memo()
