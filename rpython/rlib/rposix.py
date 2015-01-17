@@ -111,23 +111,30 @@ def set_saved_errno(errno):
 
 @specialize.call_location()
 def _errno_before(save_err):
-    if WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
-        from rpython.rlib import rthread, rwin32
-        rwin32._SetLastError(rthread.tlfield_rpy_lasterror.getraw())
     if save_err & rffi.RFFI_READSAVED_ERRNO:
         from rpython.rlib import rthread
         _set_errno(rthread.tlfield_rpy_errno.getraw())
     elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
         _set_errno(rffi.cast(rffi.INT, 0))
+    if WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        err = rthread.tlfield_rpy_lasterror.getraw()
+        # careful, getraw() overwrites GetLastError.
+        # We must assign it with _SetLastError() as the last
+        # operation, i.e. after the errno handling.
+        rwin32._SetLastError(err)
 
 @specialize.call_location()
 def _errno_after(save_err):
+    if WIN32 and (save_err & rffi.RFFI_SAVE_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        err = rwin32._GetLastError()
+        # careful, setraw() overwrites GetLastError.
+        # We must read it first, before the errno handling.
+        rthread.tlfield_rpy_lasterror.setraw(err)
     if save_err & rffi.RFFI_SAVE_ERRNO:
         from rpython.rlib import rthread
         rthread.tlfield_rpy_errno.setraw(_get_errno())
-    if WIN32 and (save_err & rffi.RFFI_SAVE_LASTERROR):
-        from rpython.rlib import rthread, rwin32
-        rthread.tlfield_rpy_lasterror.setraw(rwin32._GetLastError())
 
 
 if os.name == 'nt':
