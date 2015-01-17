@@ -34,7 +34,8 @@ from rpython.rtyper.annlowlevel import llhelper
 #        {byte, short, int, long} *indexes;
 #        dictentry *entries;
 #        lookup_function_no; # one of the four possible functions for different
-#                         # size dicts
+#                       # size dicts; the rest of the word is a counter for how
+#                       # many 'entries' at the start are known to be deleted
 #        (Function DICTKEY, DICTKEY -> bool) *fnkeyeq;
 #        (Function DICTKEY -> int) *fnkeyhash;
 #    }
@@ -44,7 +45,7 @@ from rpython.rtyper.annlowlevel import llhelper
 @jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
 @jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
-    fun = d.lookup_function_no
+    fun = d.lookup_function_no & FUNC_MASK
     if fun == FUNC_BYTE:
         return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
     elif fun == FUNC_SHORT:
@@ -409,6 +410,8 @@ DICTINDEX_BYTE = lltype.Ptr(lltype.GcArray(rffi.UCHAR))
 
 IS_64BIT = sys.maxint != 2 ** 31 - 1
 
+FUNC_SHIFT = 2
+FUNC_MASK  = 0x03  # two bits
 if IS_64BIT:
     FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG = range(4)
 else:
@@ -442,36 +445,42 @@ def ll_malloc_indexes_and_choose_lookup(d, n):
         d.lookup_function_no = FUNC_LONG
 
 def ll_clear_indexes(d, n):
-    if n <= 256:
+    fun = d.lookup_function_no & FUNC_MASK
+    d.lookup_function_no = fun
+    if fun == FUNC_BYTE:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_BYTE, d.indexes))
-    elif n <= 65536:
+    elif fun == FUNC_SHORT:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_SHORT, d.indexes))
-    elif IS_64BIT and n <= 2 ** 32:
+    elif IS_64BIT and fun == FUNC_INT:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_INT, d.indexes))
-    else:
+    elif fun == FUNC_LONG:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
+    else:
+        assert False
 
 @jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
-    if d.lookup_function_no == FUNC_BYTE:
+    fun = d.lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
         ll_dict_store_clean(d, hash, i, TYPE_BYTE)
-    elif d.lookup_function_no == FUNC_SHORT:
+    elif fun == FUNC_SHORT:
         ll_dict_store_clean(d, hash, i, TYPE_SHORT)
-    elif IS_64BIT and d.lookup_function_no == FUNC_INT:
+    elif IS_64BIT and fun == FUNC_INT:
         ll_dict_store_clean(d, hash, i, TYPE_INT)
-    elif d.lookup_function_no == FUNC_LONG:
+    elif fun == FUNC_LONG:
         ll_dict_store_clean(d, hash, i, TYPE_LONG)
     else:
         assert False
 
 def ll_call_delete_by_entry_index(d, hash, i):
-    if d.lookup_function_no == FUNC_BYTE:
+    fun = d.lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
-    elif d.lookup_function_no == FUNC_SHORT:
+    elif fun == FUNC_SHORT:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_SHORT)
-    elif IS_64BIT and d.lookup_function_no == FUNC_INT:
+    elif IS_64BIT and fun == FUNC_INT:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_INT)
-    elif d.lookup_function_no == FUNC_LONG:
+    elif fun == FUNC_LONG:
         ll_dict_delete_by_entry_index(d, hash, i, TYPE_LONG)
     else:
         assert False
@@ -645,7 +654,7 @@ def ll_dict_grow(d):
     # full, so we know that 'd.num_live_items' should be at most 2/3 * 256
     # (or 65536 or etc.) so after the ll_dict_remove_deleted_items() below
     # at least 1/3rd items in 'd.entries' are free.
-    fun = d.lookup_function_no
+    fun = d.lookup_function_no & FUNC_MASK
     toobig = False
     if fun == FUNC_BYTE:
         assert d.num_live_items < ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
@@ -783,7 +792,9 @@ def ll_dict_reindex(d, new_size):
     else:
         ll_malloc_indexes_and_choose_lookup(d, new_size)
     d.resize_counter = new_size * 2 - d.num_live_items * 3
-    assert d.resize_counter > 0
+    ll_assert(d.resize_counter > 0, "reindex: resize_counter <= 0")
+    ll_assert((d.lookup_function_no >> FUNC_SHIFT) == 0,
+              "reindex: lookup_fun >> SHIFT")
     #
     entries = d.entries
     i = 0
@@ -999,7 +1010,8 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
 def ll_dictiter(ITERPTR, d):
     iter = lltype.malloc(ITERPTR.TO)
     iter.dict = d
-    iter.index = 0
+    # initialize the index with usually 0, but occasionally a larger value
+    iter.index = d.lookup_function_no >> FUNC_SHIFT
     return iter
 
 @jit.look_inside_iff(lambda iter: jit.isvirtual(iter)
@@ -1018,6 +1030,17 @@ def _ll_dictnext(iter):
             if entries.valid(index):
                 iter.index = nextindex
                 return index
+            else:
+                # In case of repeated iteration over the start of
+                # a dict where the items get removed, like
+                # collections.OrderedDict.popitem(last=False),
+                # the hack below will increase the value stored in
+                # the high bits of lookup_function_no and so the
+                # next iteration will start at a higher value.
+                # We should carefully reset these high bits to zero
+                # as soon as we do something like ll_dict_reindex().
+                if index == (dict.lookup_function_no >> FUNC_SHIFT):
+                    dict.lookup_function_no += (1 << FUNC_SHIFT)
             index = nextindex
         # clear the reference to the dict and prevent restarts
         iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)

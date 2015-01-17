@@ -160,6 +160,22 @@ class TestRDictDirect(object):
         assert ll_elem.item1 == 1
         py.test.raises(KeyError, rordereddict.ll_dict_popitem, TUP, ll_d)
 
+    def test_popitem_first(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
+        rordereddict.ll_dict_setitem(ll_d, llstr("m"), 3)
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        for expected in ["k", "j", "m"]:
+            ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+            num = rordereddict._ll_dictnext(ll_iter)
+            ll_key = ll_d.entries[num].key
+            assert hlstr(ll_key) == expected
+            rordereddict.ll_dict_delitem(ll_d, ll_key)
+        ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+        py.test.raises(StopIteration, rordereddict._ll_dictnext, ll_iter)
+
     def test_direct_enter_and_del(self):
         def eq(a, b):
             return a == b
