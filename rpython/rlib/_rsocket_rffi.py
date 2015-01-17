@@ -640,7 +640,7 @@ elif WIN32:
                          rffi.VOIDP, rwin32.DWORD,
                          rffi.VOIDP, rwin32.DWORD,
                          rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
-                        rffi.INT)
+                        rffi.INT, save_err=SAVE_ERR)
     tcp_keepalive = cConfig.tcp_keepalive
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
