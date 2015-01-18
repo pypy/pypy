@@ -126,12 +126,17 @@ def _errno_before(save_err):
 
 @specialize.call_location()
 def _errno_after(save_err):
-    if WIN32 and (save_err & rffi.RFFI_SAVE_LASTERROR):
-        from rpython.rlib import rthread, rwin32
-        err = rwin32._GetLastError()
-        # careful, setraw() overwrites GetLastError.
-        # We must read it first, before the errno handling.
-        rthread.tlfield_rpy_lasterror.setraw(err)
+    if WIN32:
+        if save_err & rffi.RFFI_SAVE_LASTERROR:
+            from rpython.rlib import rthread, rwin32
+            err = rwin32._GetLastError()
+            # careful, setraw() overwrites GetLastError.
+            # We must read it first, before the errno handling.
+            rthread.tlfield_rpy_lasterror.setraw(err)
+        elif save_err & rffi.RFFI_SAVE_WSALASTERROR:
+            from rpython.rlib import rthread, _rsocket_rffi
+            err = _rsocket_rffi._WSAGetLastError()
+            rthread.tlfield_rpy_lasterror.setraw(err)
     if save_err & rffi.RFFI_SAVE_ERRNO:
         from rpython.rlib import rthread
         rthread.tlfield_rpy_errno.setraw(_get_errno())

@@ -242,9 +242,14 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.MOV32_rm(edi.value, (edi.value, 0))
             mc.MOV32_mr((tlofsreg.value, rpy_errno), edi.value)
 
-        if handle_lasterror and (save_err & rffi.RFFI_SAVE_LASTERROR):
-            from rpython.rlib.rwin32 import _GetLastError
-            GetLastError_addr = self.asm.cpu.cast_ptr_to_int(_GetLastError)
+        if handle_lasterror and (save_err & (rffi.RFFI_SAVE_LASTERROR |
+                                             rffi.RFFI_SAVE_WSALASTERROR)):
+            if save_err & rffi.RFFI_SAVE_LASTERROR:
+                from rpython.rlib.rwin32 import _GetLastError
+                GetLastError_addr = self.asm.cpu.cast_ptr_to_int(_GetLastError)
+            else:
+                from rpython.rlib._rsocket_rffi import _WSAGetLastError as WSAE
+                GetLastError_addr = self.asm.cpu.cast_ptr_to_int(WSAE)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)

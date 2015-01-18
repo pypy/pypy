@@ -462,7 +462,7 @@ if _POSIX:
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
-    SAVE_ERR = rffi.RFFI_ERR_NONE
+    SAVE_ERR = rffi.RFFI_SAVE_WSALASTERROR
 else:
     SAVE_ERR = rffi.RFFI_SAVE_ERRNO
 timeval = cConfig.timeval
@@ -660,14 +660,14 @@ if WIN32:
     WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    WSAGetLastError = external('WSAGetLastError', [], rffi.INT, releasegil=False)
-    geterrno = WSAGetLastError
+    _WSAGetLastError = external('WSAGetLastError', [], rffi.INT,
+                                _nowrapper=True, sandboxsafe=True)
+
+    geterrno = rwin32.GetLastError_saved
 
     # In tests, the first call to GetLastError is always wrong, because error
     # is hidden by operations in ll2ctypes.  Call it now.
-    WSAGetLastError()
-
-    from rpython.rlib import rwin32
+    _WSAGetLastError()
 
     def socket_strerror_str(errno):
         return rwin32.FormatError(errno)
