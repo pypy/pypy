@@ -32,6 +32,8 @@ STM_GC_MAJOR_DONE   = 14
 
 _STM_EVENT_N  = 15
 
+PAUSE_AFTER_ABORT   = 0.000001      # usleep(1) after every abort
+
 
 event_name = {}
 for _key, _value in globals().items():
@@ -108,6 +110,7 @@ class ThreadState(object):
         if self._conflict and entry.event == STM_TRANSACTION_ABORT:
             c = self._conflict[1]
             c.aborted_time += transaction_time
+            c.paused_time += PAUSE_AFTER_ABORT
             self._conflict = None
 
     def transaction_pause(self, entry):
