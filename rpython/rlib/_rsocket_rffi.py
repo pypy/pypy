@@ -660,7 +660,7 @@ if WIN32:
     WSAStartup = external('WSAStartup', [rwin32.WORD, lltype.Ptr(WSAData)],
                           rffi.INT)
 
-    _WSAGetLastError = external('WSAGetLastError', [], rffi.INT,
+    _WSAGetLastError = external('WSAGetLastError', [], rwin32.DWORD,
                                 _nowrapper=True, sandboxsafe=True)
 
     geterrno = rwin32.GetLastError_saved
