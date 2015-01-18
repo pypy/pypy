@@ -29,8 +29,16 @@ class W_Hashtable(W_Root):
         self.h.set(key, gcref)
 
     @unwrap_spec(key=int)
-    def delitem_w(self, key):
+    def delitem_w(self, space, key):
+        gcref = self.h.get(key)
+        if not gcref:
+            space.raise_key_error(space.wrap(key))
         self.h.set(key, rstm.NULL_GCREF)
+
+    @unwrap_spec(key=int)
+    def contains_w(self, space, key):
+        gcref = self.h.get(key)
+        return space.newbool(not not gcref)
 
 
 def W_Hashtable___new__(space, w_subtype):
@@ -44,4 +52,5 @@ W_Hashtable.typedef = TypeDef(
     __getitem__ = interp2app(W_Hashtable.getitem_w),
     __setitem__ = interp2app(W_Hashtable.setitem_w),
     __delitem__ = interp2app(W_Hashtable.delitem_w),
+    __contains__ = interp2app(W_Hashtable.contains_w),
     )
