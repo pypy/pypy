@@ -32,6 +32,8 @@ class CallBuilderX86(AbstractCallBuilder):
     # arguments, we need to decrease esp temporarily
     stack_max = PASS_ON_MY_FRAME
 
+    tlofs_reg = None
+    saved_stack_position_reg = None
     result_value_saved_early = False
 
     def __init__(self, assembler, fnloc, arglocs,
@@ -152,8 +154,35 @@ class CallBuilderX86(AbstractCallBuilder):
         if not we_are_translated():        # for testing: we should not access
             self.mc.ADD(ebp, imm(1))       # ebp any more
 
+    def get_tlofs_reg(self):
+        """Load the THREADLOCAL_OFS from the stack into a callee-saved
+        register.  Further calls just return the same register, by assuming
+        it is indeed saved."""
+        assert self.is_call_release_gil
+        if self.tlofs_reg is None:
+            # pick a register saved across calls
+            if IS_X86_32:
+                self.tlofs_reg = esi
+            else:
+                self.tlofs_reg = r12
+            self.mc.MOV_rs(self.tlofs_reg.value,
+                           THREADLOCAL_OFS - self.current_esp)
+        return self.tlofs_reg
+
+    def save_stack_position(self):
+        """Load the current 'esp' value into a callee-saved register.
+        Further calls just return the same register, by assuming it is
+        indeed saved."""
+        assert IS_X86_32
+        assert stdcall_or_cdecl and self.is_call_release_gil
+        if self.saved_stack_position_reg is None:
+            # pick a register saved across calls
+            self.saved_stack_position_reg = edi
+            self.mc.MOV(self.saved_stack_position_reg, esp)
+
     def write_real_errno(self, save_err):
-        tlofsreg = None
+        """This occurs just before emit_raw_call().
+        """
         mc = self.mc
 
         if handle_lasterror and (save_err & rffi.RFFI_READSAVED_LASTERROR):
@@ -165,11 +194,13 @@ class CallBuilderX86(AbstractCallBuilder):
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
-            tlofsreg = edi     # saved across the call to SetLastError
-            mc.MOV_rs(edi.value, THREADLOCAL_OFS - self.current_esp)
-            mc.PUSH_m((edi.value, rpy_lasterror))
+            tlofsreg = self.get_tlofs_reg()    # => esi, callee-saved
+            self.save_stack_position()         # => edi, callee-saved
+            mc.PUSH_m((tlofsreg.value, rpy_lasterror))
             mc.CALL(imm(SetLastError_addr))
-            mc.ADD_ri(esp.value, WORD)
+            # restore the stack position without assuming a particular
+            # calling convention of _SetLastError()
+            self.mc.MOV(esp, self.saved_stack_position_reg)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read 'rpy_errno' and write it into the
@@ -178,9 +209,7 @@ class CallBuilderX86(AbstractCallBuilder):
             # pass the arguments on x86-64.
             rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            if tlofsreg is None:
-                tlofsreg = eax
-                mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
+            tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
             if IS_X86_32:
                 tmpreg = edx
             else:
@@ -191,27 +220,27 @@ class CallBuilderX86(AbstractCallBuilder):
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            if tlofsreg is None:
-                tlofsreg = eax
-                mc.MOV_rs(eax.value, THREADLOCAL_OFS - self.current_esp)
+            tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
             mc.MOV_rm(eax.value, (tlofsreg.value, p_errno))
             mc.MOV32_mi((eax.value, 0), 0)
 
     def read_real_errno(self, save_err):
-        esi_is_threadlocal_ofs = False
+        """This occurs after emit_raw_call() and after restore_stack_pointer().
+        """
         mc = self.mc
 
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
             # it inside our thread-local 'rpy_errno'.  Most registers are
             # free here, including the callee-saved ones, except 'ebx'.
+            # The tlofs register might have been loaded earlier and is
+            # callee-saved, so it does not need to be reloaded.
             rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            mc.MOV_rs(esi.value, THREADLOCAL_OFS)
-            mc.MOV_rm(edi.value, (esi.value, p_errno))
+            tlofsreg = self.get_tlofs_reg()   # => esi or r12 (possibly reused)
+            mc.MOV_rm(edi.value, (tlofsreg.value, p_errno))
             mc.MOV32_rm(edi.value, (edi.value, 0))
-            mc.MOV32_mr((esi.value, rpy_errno), edi.value)
-            esi_is_threadlocal_ofs = True
+            mc.MOV32_mr((tlofsreg.value, rpy_errno), edi.value)
 
         if handle_lasterror and (save_err & rffi.RFFI_SAVE_LASTERROR):
             from rpython.rlib.rwin32 import _GetLastError
@@ -219,13 +248,12 @@ class CallBuilderX86(AbstractCallBuilder):
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
-            self.save_result_value(save_edx=True)
+            self.save_result_value(save_edx=True)   # save eax/edx/xmm0
             self.result_value_saved_early = True
             mc.CALL(imm(GetLastError_addr))
             #
-            if not esi_is_threadlocal_ofs:
-                mc.MOV_rs(esi.value, THREADLOCAL_OFS)
-            mc.MOV32_mr((esi.value, rpy_lasterror), eax.value)
+            tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
+            mc.MOV32_mr((tlofsreg.value, rpy_lasterror), eax.value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
@@ -383,15 +411,10 @@ class CallBuilder32(CallBuilderX86):
             # Dynamically accept both stdcall and cdecl functions.
             # We could try to detect from pyjitpl which calling
             # convention this particular function takes, which would
-            # avoid these two extra MOVs... but later.  Pick any
-            # caller-saved register here except ebx (used for shadowstack).
-            if IS_X86_32:
-                free_caller_save_reg = edi
-            else:
-                free_caller_save_reg = r14
-            self.mc.MOV(free_caller_save_reg, esp)
+            # avoid these two extra MOVs... but later.
+            self.save_stack_position()      # => edi (possibly reused)
             self.mc.CALL(self.fnloc)
-            self.mc.MOV(esp, free_caller_save_reg)
+            self.mc.MOV(esp, self.saved_stack_position_reg)
         else:
             self.mc.CALL(self.fnloc)
             if self.callconv != FFI_DEFAULT_ABI:
