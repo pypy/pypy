@@ -143,6 +143,8 @@ replace "atomic transactions" with better management of thread.locks.
 
 ------------------------------------------------------------
 
+stm_read(p125)
+cond_call_gc_wb_array(p125...)    # don't need the stm_read maybe?
 
 
 

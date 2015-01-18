@@ -145,8 +145,9 @@ class GcLLDescription(GcCache):
         if op.is_guard() or op.getopnum() == rop.FINISH:
             # the only ops with descrs that get recorded in a trace
             llref = cast_instance_to_gcref(op.getdescr())
-            assert rgc._make_sure_does_not_move(llref)
-            gcrefs_output_list.append(llref)
+            if llref:
+                assert rgc._make_sure_does_not_move(llref)
+                gcrefs_output_list.append(llref)
         #
         if len(ops_with_movable_const_ptr[op]) == 0:
             del ops_with_movable_const_ptr[op]

@@ -1256,15 +1256,28 @@ class TestStm(RewriteTests):
         guard_not_forced() [] {55}
         """, """
         [i0, f0]
-        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
-        p1 = call_malloc_nursery_varsize_frame(i1)
-        setfield_gc(p1, 0, descr=tiddescr)
-        setfield_gc(p1, i1, descr=framelendescr)
-        setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
-        setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
-        setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
+        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth) {54}
+        p1 = call_malloc_nursery_varsize_frame(i1) {54}
+        setfield_gc(p1, 0, descr=tiddescr) {54}
+        setfield_gc(p1, i1, descr=framelendescr) {54}
+        setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info) {54}
+        setarrayitem_gc(p1, 0, i0, descr=signedframedescr) {54}
+        setarrayitem_gc(p1, 1, f0, descr=floatframedescr) {54}
         i3 = call_assembler(p1, descr=casmdescr) {54}
         guard_not_forced() [] {55}
+        """)
+
+    def test_stm_location_4(self):
+        self.check_rewrite("""
+            [p1, i2, p3]
+            debug_merge_point() {81}
+            i3 = int_add(i2, 5)
+            setarrayitem_gc(p1, i3, p3, descr=cdescr)
+        """, """
+            [p1, i2, p3]
+            i3 = int_add(i2, 5) {81}
+            cond_call_gc_wb_array(p1, i3, descr=wbdescr) {81}
+            setarrayitem_gc(p1, i3, p3, descr=cdescr) {81}
         """)
 
     def test_stm_should_break_transaction_no_malloc(self):

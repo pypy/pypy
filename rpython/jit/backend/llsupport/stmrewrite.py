@@ -20,22 +20,21 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def other_operation(self, op):
         opnum = op.getopnum()
         if opnum == rop.INCREMENT_DEBUG_COUNTER:
-            self.newops.append(op)
+            self.newop(op)
             return
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_HINT_COMMIT_SOON:
-            self._do_stm_call('stm_hint_commit_soon', [], None,
-                              op.stm_location)
+            self._do_stm_call('stm_hint_commit_soon', [], None)
             return
         # ----------  jump, finish, guard_not_forced_2  ----------
         if (opnum == rop.JUMP or opnum == rop.FINISH
                 or opnum == rop.GUARD_NOT_FORCED_2):
             self.add_dummy_allocation()
-            self.newops.append(op)
+            self.newop(op)
             return
         # ----------  pure operations, guards  ----------
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
-            self.newops.append(op)
+            self.newop(op)
             return
         # ----------  non-pure getfields  ----------
         if opnum in (rop.GETFIELD_GC, rop.GETARRAYITEM_GC,
@@ -49,7 +48,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if opnum == rop.CALL_RELEASE_GIL:
                 # self.fallback_inevitable(op)
                 # is done by assembler._release_gil_shadowstack()
-                self.newops.append(op)
+                self.newop(op)
             elif opnum == rop.CALL_ASSEMBLER:
                 assert 0   # case handled by the parent class
             else:
@@ -62,7 +61,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                       or descr.get_extra_info().call_needs_inevitable():
                     self.fallback_inevitable(op)
                 else:
-                    self.newops.append(op)
+                    self.newop(op)
             return
         # ----------  setters for pure fields  ----------
         if opnum in (rop.STRSETITEM, rop.UNICODESETITEM):
@@ -80,7 +79,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         if opnum == rop.LABEL:
             # note that the parent class also clears some things on a LABEL
             self.next_op_may_be_in_new_transaction()
-            self.newops.append(op)
+            self.newop(op)
             return
         # ----------  other ignored ops  ----------
         if opnum in (rop.STM_SHOULD_BREAK_TRANSACTION, rop.FORCE_TOKEN,
@@ -88,7 +87,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                      rop.JIT_DEBUG, rop.KEEPALIVE,
                      rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
                      ):
-            self.newops.append(op)
+            self.newop(op)
             return
         # ----------  fall-back  ----------
         # Check that none of the ops handled here can collect.
@@ -112,12 +111,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # group together several stm_reads then we can save one
         # instruction; if delayed over a cond_call_gc_wb then we can
         # omit the stm_read completely; ...
-        self.newops.append(op)
+        self.newop(op)
         v_ptr = op.getarg(0)
         if (v_ptr not in self.read_barrier_applied and
             v_ptr not in self.write_barrier_applied):
             op1 = ResOperation(rop.STM_READ, [v_ptr], None)
-            self.newops.append(op1)
+            self.newop(op1)
             self.read_barrier_applied[v_ptr] = None
 
     def add_dummy_allocation(self):
@@ -137,33 +136,31 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
 
     @specialize.arg(1)
-    def _do_stm_call(self, funcname, args, result, stm_location):
+    def _do_stm_call(self, funcname, args, result):
         addr = self.gc_ll_descr.get_malloc_fn_addr(funcname)
         descr = getattr(self.gc_ll_descr, funcname + '_descr')
         op1 = ResOperation(rop.CALL, [ConstInt(addr)] + args,
                            result, descr=descr)
-        op1.stm_location = stm_location
-        self.newops.append(op1)
+        self.newop(op1)
 
     def fallback_inevitable(self, op):
         if not self.always_inevitable:
             self.emitting_an_operation_that_can_collect()
-            self._do_stm_call('stm_try_inevitable', [], None,
-                              op.stm_location)
+            self._do_stm_call('stm_try_inevitable', [], None)
             self.always_inevitable = True
-        self.newops.append(op)
+        self.newop(op)
         debug_print("fallback for", op.repr())
 
     def maybe_handle_raw_accesses(self, op):
         descr = op.getdescr()
         assert isinstance(descr, FieldDescr)
         if descr.stm_dont_track_raw_accesses:
-            self.newops.append(op)
+            self.newop(op)
             return True
         return False
 
     def handle_setters_for_pure_fields(self, op, targetindex):
         val = op.getarg(targetindex)
         if self.must_apply_write_barrier(val):
-            self.gen_write_barrier(val, op.stm_location)
-        self.newops.append(op)
+            self.gen_write_barrier(val)
+        self.newop(op)

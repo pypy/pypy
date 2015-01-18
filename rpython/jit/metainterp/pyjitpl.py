@@ -1159,8 +1159,6 @@ class MIFrame(object):
             loc = jitdriver_sd.warmstate.get_location_str(greenkey)
             debug_print(loc)
         args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
-        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
-        #
         if self.metainterp.staticdata.config.translation.stm:
             report_location = jitdriver_sd.stm_report_location
             if report_location is not None:
@@ -1169,6 +1167,8 @@ class MIFrame(object):
                 ref = greenkey[idx_ref].getref_base()
                 location = StmLocation(num, ref)
                 self.metainterp.history.stm_location = location
+        #
+        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
