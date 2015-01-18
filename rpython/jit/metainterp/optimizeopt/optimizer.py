@@ -148,6 +148,12 @@ class OptValue(object):
         if self.getlevel() < LEVEL_NONNULL:
             self.setlevel(LEVEL_NONNULL)
 
+    def get_constant_int(self):
+        assert self.is_constant()
+        box = self.box
+        assert isinstance(box, ConstInt)
+        return box.getint()
+
     def is_virtual(self):
         # Don't check this with 'isinstance(_, VirtualValue)'!
         # Even if it is a VirtualValue, the 'box' can be non-None,

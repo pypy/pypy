@@ -341,6 +341,21 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 42     # "did not crash"
 
+    def test_reversed_dict(self):
+        d1 = {2:3, 4:5, 6:7}
+        def g():
+            n1 = 0
+            for key in d1:
+                n1 = n1 * 10 + key
+            n2 = 0
+            for key in reversed_dict(d1):
+                n2 = n2 * 10 + key
+            return n1 * 10000 + n2
+        got = str(g())
+        assert len(got) == 7 and got[3] == '0' and got[:3] == got[6:3:-1]
+        got = str(self.interpret(g, []))
+        assert len(got) == 7 and got[3] == '0' and got[:3] == got[6:3:-1]
+
     def test_compute_hash(self):
         class Foo(object):
             pass

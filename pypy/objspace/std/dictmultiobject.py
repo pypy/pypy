@@ -258,6 +258,17 @@ class W_DictMultiObject(W_Root):
         """D.itervalues() -> an iterator over the values of D"""
         return W_DictMultiIterValuesObject(space, self.itervalues())
 
+    def nondescr_reversed_dict(self, space):
+        """Not exposed directly to app-level, but via __pypy__.reversed_dict().
+        """
+        if self.strategy.has_iterreversed:
+            it = self.strategy.iterreversed(self)
+            return W_DictMultiIterKeysObject(space, it)
+        else:
+            # fall-back
+            w_keys = self.w_keys()
+            return space.call_method(w_keys, '__reversed__')
+
     def descr_viewitems(self, space):
         """D.viewitems() -> a set-like object providing a view on D's items"""
         return W_DictViewItemsObject(space, self)
@@ -503,6 +514,9 @@ class DictStrategy(object):
     def getiteritems(self, w_dict):
         raise NotImplementedError
 
+    has_iterreversed = False
+    # no 'getiterreversed': no default implementation available
+
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         iteritems = self.iteritems(w_dict)
         while True:
@@ -621,6 +635,9 @@ class EmptyDictStrategy(DictStrategy):
         return iter([])
 
     def getiteritems(self, w_dict):
+        return iter([])
+
+    def getiterreversed(self, w_dict):
         return iter([])
 
 
@@ -747,6 +764,17 @@ def create_iterator_classes(dictimpl, override_next_item=None):
                 else:
                     return None, None
 
+    class IterClassReversed(BaseKeyIterator):
+        def __init__(self, space, strategy, impl):
+            self.iterator = strategy.getiterreversed(impl)
+            BaseIteratorImplementation.__init__(self, space, strategy, impl)
+
+        def next_key_entry(self):
+            for key in self.iterator:
+                return wrapkey(self.space, key)
+            else:
+                return None
+
     def iterkeys(self, w_dict):
         return IterClassKeys(self.space, self, w_dict)
 
@@ -755,6 +783,12 @@ def create_iterator_classes(dictimpl, override_next_item=None):
 
     def iteritems(self, w_dict):
         return IterClassItems(self.space, self, w_dict)
+
+    if hasattr(dictimpl, 'getiterreversed'):
+        def iterreversed(self, w_dict):
+            return IterClassReversed(self.space, self, w_dict)
+        dictimpl.iterreversed = iterreversed
+        dictimpl.has_iterreversed = True
 
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
                          w_dict_unrolling_heuristic(w_dict))
@@ -931,6 +965,9 @@ class AbstractTypedStrategy(object):
 
     def getiteritems(self, w_dict):
         return self.unerase(w_dict.dstorage).iteritems()
+
+    def getiterreversed(self, w_dict):
+        return objectmodel.reversed_dict(self.unerase(w_dict.dstorage))
 
     def prepare_update(self, w_dict, num_extra):
         objectmodel.prepare_dict_update(self.unerase(w_dict.dstorage),

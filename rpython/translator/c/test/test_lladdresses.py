@@ -246,3 +246,13 @@ def test_dict_of_addresses():
     assert res == 456
     res = fc(77)
     assert res == 123
+
+def test_gcarray_length():
+    A = lltype.GcArray(lltype.Char)
+    def f():
+        a = lltype.malloc(A, 117)
+        p = lltype.cast_opaque_ptr(GCREF, a)
+        return lltype.length_of_simple_gcarray_from_opaque(p)
+    fc = compile(f, [])
+    res = fc()
+    assert res == 117

@@ -2,11 +2,12 @@ import os
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import Const
+from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization,\
      MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
@@ -325,6 +326,29 @@ class OptHeap(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
+        # Cache consecutive lookup() calls on the same dict and key,
+        # depending on the 'flag_store' argument passed:
+        # FLAG_LOOKUP: always cache and use the cached result.
+        # FLAG_STORE:  don't cache (it might return -1, which would be
+        #                incorrect for future lookups); but if found in
+        #                the cache and the cached value was already checked
+        #                non-negative, then we can reuse it.
+        # FLAG_DELETE: never cache, never use the cached result (because
+        #                if there is a cached result, the FLAG_DELETE call
+        #                is needed for its side-effect of removing it).
+        #                In theory we could cache a -1 for the case where
+        #                the delete is immediately followed by a lookup,
+        #                but too obscure.
+        #
+        from rpython.rtyper.lltypesystem.rordereddict import FLAG_LOOKUP
+        from rpython.rtyper.lltypesystem.rordereddict import FLAG_STORE
+        flag_value = self.getvalue(op.getarg(4))
+        if not flag_value.is_constant():
+            return False
+        flag = flag_value.get_constant_int()
+        if flag != FLAG_LOOKUP and flag != FLAG_STORE:
+            return False
+        #
         descrs = op.getdescr().get_extra_info().extradescrs
         assert descrs        # translation hint
         descr1 = descrs[0]
@@ -333,13 +357,20 @@ class OptHeap(Optimization):
         except KeyError:
             d = self.cached_dict_reads[descr1] = args_dict()
             self.corresponding_array_descrs[descrs[1]] = descr1
-        args = self.optimizer.make_args_key(op)
+        #
+        key = [self.optimizer.get_box_replacement(op.getarg(1)),   # dict
+               self.optimizer.get_box_replacement(op.getarg(2))]   # key
+               # other args can be ignored here (hash, store_flag)
         try:
-            res_v = d[args]
+            res_v = d[key]
         except KeyError:
-            d[args] = self.getvalue(op.result)
+            if flag == FLAG_LOOKUP:
+                d[key] = self.getvalue(op.result)
             return False
         else:
+            if flag != FLAG_LOOKUP:
+                if not res_v.getintbound().known_ge(IntBound(0, 0)):
+                    return False
             self.make_equal_to(op.result, res_v)
             self.last_emitted_operation = REMOVED
             return True

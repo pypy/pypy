@@ -1005,6 +1005,7 @@ class TestRDict(BaseTestRDict):
 
 
     def test_dict_resize(self):
+        py.test.skip("test written for non-ordered dicts, update or kill")
         # XXX we no longer automatically resize on 'del'.  We need to
         # hack a bit in this test to trigger a resize by continuing to
         # fill the dict's table while keeping the actual size very low
@@ -1025,7 +1026,7 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(func, [1])
         assert len(res.entries) == rdict.DICT_INITSIZE
 
-    def test_opt_nullkeymarker(self):
+    def test_opt_dummykeymarker(self):
         def f():
             d = {"hello": None}
             d["world"] = None
@@ -1033,10 +1034,9 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(f, [])
         assert res.item0 == True
         DICT = lltype.typeOf(res.item1).TO
-        assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None string keys
-        assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strings have a dummy
+        assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
 
-    def test_opt_nullvaluemarker(self):
+    def test_opt_dummyvaluemarker(self):
         def f(n):
             d = {-5: "abcd"}
             d[123] = "def"
@@ -1044,28 +1044,7 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(f, [-5])
         assert res.item0 == 4
         DICT = lltype.typeOf(res.item1).TO
-        assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None str values
         assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
-
-    def test_opt_nonullmarker(self):
-        class A:
-            pass
-        def f(n):
-            if n > 5:
-                a = A()
-            else:
-                a = None
-            d = {a: -5441}
-            d[A()] = n+9872
-            return d[a], d
-        res = self.interpret(f, [-5])
-        assert res.item0 == -5441
-        DICT = lltype.typeOf(res.item1).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # can-be-None A instances
-        assert not hasattr(DICT.entries.TO.OF, 'f_valid')# with a dummy A instance
-
-        res = self.interpret(f, [6])
-        assert res.item0 == -5441
 
     def test_opt_nonnegint_dummy(self):
         def f(n):
@@ -1077,7 +1056,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 == 24
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert not hasattr(DICT.entries.TO.OF, 'f_valid')# nonneg int: dummy -1
 
     def test_opt_no_dummy(self):
@@ -1090,7 +1068,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 == -24
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
     def test_opt_boolean_has_no_dummy(self):
@@ -1103,7 +1080,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 is True
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
     def test_opt_multiple_identical_dicts(self):
@@ -1142,6 +1118,7 @@ class TestRDict(BaseTestRDict):
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
     def test_deleted_entry_reusage_with_colliding_hashes(self):
+        py.test.skip("test written for non-ordered dicts, update or kill")
         def lowlevelhash(value):
             p = rstr.mallocstr(len(value))
             for i in range(len(value)):
