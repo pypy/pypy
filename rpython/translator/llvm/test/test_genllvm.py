@@ -287,7 +287,7 @@ class CTypesFuncWrapper(object):
         self.rpyexc_clear()
         ret = self.entry_point(*args)
         if self.rpyexc_occured():
-            name = ''.join(self.rpyexc_fetch_type().name._obj.items[:-1])
+            name = ''.join(self.rpyexc_fetch_type().name.chars)
             if expected_exception_name is not None:
                 assert name == expected_exception_name
                 return

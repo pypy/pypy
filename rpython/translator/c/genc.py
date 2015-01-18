@@ -723,6 +723,7 @@ def gen_threadlocal_structdef(f, database):
         print >> f, '\t%s;' % cdecl(typename, field.fieldname)
     print >> f, '};'
     print >> f
+    return fields
 
 def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'

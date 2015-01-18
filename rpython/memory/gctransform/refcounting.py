@@ -285,3 +285,9 @@ def ll_deallocator(addr):
                           resulttype=llmemory.Address)
         hop.genop("direct_call", [self.identityhash_ptr, v_adr],
                   resultvar=hop.spaceop.result)
+
+    def gct_zero_gc_pointers_inside(self, hop):
+        pass
+
+    def gct_zero_everything_inside(self, hop):
+        pass

@@ -193,11 +193,19 @@ class IntegralType(Type):
             return 'or({T} sext({lp.TV} to {T}), {rest.TV})'.format(**locals())
         elif isinstance(value, CDefinedIntSymbolic):
             if value is malloc_zero_filled:
-                return '1'
+                gctransformer = database.genllvm.gcpolicy.gctransformer
+                return str(int(gctransformer.malloc_zero_filled))
             elif value is _we_are_jitted:
                 return '0'
             elif value is running_on_llinterp:
                 return '0'
+            elif value.expr.startswith('RPY_TLOFS_'):
+                fieldname = value.expr[10:]
+                idx = database.tls_struct.fldnames_wo_voids.index(fieldname)
+                return ('ptrtoint({}* getelementptr({}* null, i64 0, i32 {}) '
+                        'to {})'.format(
+                        database.tls_struct.fldtypes_wo_voids[idx].repr_type(),
+                        database.tls_struct.repr_type(), idx, SIGNED_TYPE))
         elif isinstance(value, llmemory.AddressAsInt):
             return 'ptrtoint({.TV} to {})'.format(get_repr(value.adr.ptr),
                                                   SIGNED_TYPE)
@@ -358,6 +366,8 @@ for type in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
     if type not in PRIMITIVES:
         size_in_bytes, is_unsigned = rffi.size_and_sign(type)
         PRIMITIVES[type] = IntegralType(size_in_bytes * 8, is_unsigned)
+for key, value in PRIMITIVES.items():
+    value.lltype = key
 LLVMSigned = PRIMITIVES[lltype.Signed]
 SIGNED_TYPE = LLVMSigned.repr_type()
 LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
@@ -753,6 +763,8 @@ class Database(object):
         self.types = PRIMITIVES.copy()
         self.hashes = []
         self.stack_bottoms = []
+        self.tls_getters = set()
+        self.tls_addr_wrapper = False
 
     def get_type(self, type):
         try:
@@ -772,6 +784,7 @@ class Database(object):
             if ret.needs_gc_header:
                 _llvm_needs_header[type] = database.genllvm.gcpolicy \
                         .get_gc_fields_lltype() # hint for ll2ctypes
+            ret.lltype = type
             return ret
 
     def unique_name(self, name, llvm_name=True):
@@ -1379,6 +1392,12 @@ class FunctionWriter(object):
         self.op_direct_call(result, get_repr(llvm_memset), ptr, null_char,
                             size, null_int, null_bool)
 
+    def op_raw_memset(self, result, ptr, val, size):
+        assert 0 <= val.value <= 255
+        self.op_direct_call(result, get_repr(llvm_memset), ptr,
+                            ConstantRepr(LLVMChar, chr(val.value)),
+                            size, null_int, null_bool)
+
     def op_raw_memcopy(self, result, src, dst, size):
         self.op_direct_call(result, get_repr(llvm_memcpy), dst, src, size,
                             null_int, null_bool)
@@ -1443,6 +1462,9 @@ class FunctionWriter(object):
         else:
             assert False, "No subop {}".format(subopnum.value)
 
+    def op_gc_thread_die(self, result):
+        self.op_direct_call(result, get_repr(rpy_tls_thread_die))
+
     def _ignore(self, *args):
         pass
     op_gc_stack_bottom = _ignore
@@ -1483,6 +1505,39 @@ class FunctionWriter(object):
 
     def op_convert_longlong_bytes_to_float(self, result, ll):
         self.w('{result.V} = bitcast {ll.TV} to {result.T}'.format(**locals()))
+
+    def op_threadlocalref_get(self, result, offset):
+        if isinstance(offset, ConstantRepr):
+            assert isinstance(offset.value, CDefinedIntSymbolic)
+            fieldname = offset.value.expr
+            assert fieldname.startswith('RPY_TLOFS_')
+            fieldname = fieldname[10:]
+            if fieldname not in database.tls_getters:
+                database.tls_getters.add(fieldname)
+                from rpython.translator.c.database import LowLevelDatabase
+                from rpython.translator.c.support import cdecl
+                db = LowLevelDatabase()
+                pattern = ("{}() {{ return RPY_THREADLOCALREF_GET({}); }}")
+                database.genllvm.sources.append(pattern.format(
+                        cdecl(db.gettype(result.type.lltype),
+                              '_rpy_tls_get_' + fieldname), fieldname))
+                database.f.write('declare {result.T} @_rpy_tls_get_{fieldname}()'
+                        .format(**locals()))
+            self.w('{result.V} = call {result.T} @_rpy_tls_get_{fieldname}()'
+                    .format(**locals()))
+        else:
+            tls_addr = self._tmp(LLVMAddress)
+            self.op_threadlocalref_addr(tls_addr)
+            self.op_raw_load(result, tls_addr, offset)
+
+    def op_threadlocalref_addr(self, result):
+        if not database.tls_addr_wrapper:
+            database.tls_addr_wrapper = True
+            wrapper_src = ('char *_rpy_tls_addr() '
+                           '{ char *r; OP_THREADLOCALREF_ADDR(r); return r; }')
+            database.genllvm.sources.append(wrapper_src)
+            database.f.write('declare i8* @_rpy_tls_addr()\n')
+        self.w('{result.V} = call i8* @_rpy_tls_addr()'.format(**locals()))
 
 
 class GCPolicy(object):
@@ -1662,6 +1717,10 @@ llvm_frameaddress = extfunc('llvm.frameaddress', [rffi.INT], llmemory.Address,
                             eci)
 llvm_readcyclecounter = extfunc('llvm.readcyclecounter', [],
                                 lltype.SignedLongLong, eci)
+rpy_tls_program_init = extfunc('RPython_ThreadLocals_ProgramInit', [],
+                               lltype.Void, eci)
+rpy_tls_thread_die = extfunc('RPython_ThreadLocals_ThreadDie', [], lltype.Void,
+                             eci)
 del eci
 
 null_int = ConstantRepr(LLVMInt, 0)
@@ -1699,10 +1758,14 @@ class GenLLVM(object):
 
     def prepare(self, entrypoint, secondary_entrypoints):
         if callable(entrypoint):
+            bk = self.translator.annotator.bookkeeper
+            has_tls = bool(bk.thread_local_fields)
             setup_ptr = self.gcpolicy.get_setup_ptr()
             def main(argc, argv):
                 llop.gc_stack_bottom(lltype.Void)
                 try:
+                    if has_tls:
+                        rpy_tls_program_init()
                     if setup_ptr is not None:
                         setup_ptr()
                     args = [rffi.charp2str(argv[i]) for i in range(argc)]
@@ -1733,6 +1796,11 @@ class GenLLVM(object):
         self.ovf_err = self.exctransformer.get_builtin_exception(OverflowError)
         ovf_err_inst = self.ovf_err[1]
         self.gcpolicy._consider_constant(ovf_err_inst._T, ovf_err_inst._obj)
+
+        # XXX for some reason, this is needed to make all tests pass
+        tmp = self.exctransformer.get_builtin_exception(OSError)[1]
+        self.gcpolicy._consider_constant(tmp._T, tmp._obj)
+
         self.gcpolicy.finish()
 
     def _write_special_declarations(self, f):
@@ -1769,8 +1837,19 @@ class GenLLVM(object):
                     f.write(line)
 
             database = Database(self, f)
-            self._write_special_declarations(f)
 
+            from rpython.translator.c.database import LowLevelDatabase
+            from rpython.translator.c.genc import gen_threadlocal_structdef
+            db = LowLevelDatabase(self.translator)
+            with self.work_dir.join('structdef.h').open('w') as f2:
+                tls_fields = gen_threadlocal_structdef(f2, db)
+            database.tls_struct = StructType()
+            database.tls_struct.setup(
+                    'tls', [(LLVMInt, 'ready'), (LLVMAddress, 'stack_end')] +
+                           [(database.get_type(fld.FIELDTYPE), fld.fieldname)
+                            for fld in tls_fields], False)
+
+            self._write_special_declarations(f)
             for export in self.entrypoints:
                 get_repr(export._as_ptr()).V
 
@@ -1803,8 +1882,13 @@ class GenLLVM(object):
             raise Exception("RPYTHON_LLVM_ASSEMBLY must be 'false' or 'true'.")
 
         # merge ECIs
+        c_dir = local(cdir)
         eci = ExternalCompilationInfo(
-            includes=['stdio.h', 'stdlib.h'],
+            include_dirs=[cdir, c_dir / '..' / 'llvm', self.work_dir],
+            includes=['stdio.h', 'stdlib.h', 'src/threadlocal.h',
+                      'src/stack.h', 'structdef.h'],
+            separate_module_files=[c_dir / 'src' / 'threadlocal.c',
+                                   c_dir / 'src' / 'stack.c'],
             separate_module_sources=['\n'.join(self.sources)],
             post_include_bits=['typedef _Bool bool_t;']
         ).merge(*self.ecis).convert_sources_to_files()
