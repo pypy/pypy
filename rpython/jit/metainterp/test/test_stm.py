@@ -50,6 +50,8 @@ class STMTests:
                 num_box, ref_box = op.getarglist()[-2:]
                 num = num_box.getint()
                 ref = ref_box.getref_base()
+                assert num == op.stm_location.num
+                assert ref == op.stm_location.ref
                 cur_location = (num, ref)
             elif op.getopname() in ("label", "finish", "jump"):
                 pass

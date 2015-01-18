@@ -43,6 +43,7 @@ class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
     greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
+    stm_report_location = [0, 2]   # 'next_instr', 'pycode'
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               should_unroll_one_iteration =
