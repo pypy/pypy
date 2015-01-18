@@ -72,7 +72,7 @@ def parse_log(filename):
         result = []
         while True:
             packet = f.read(19)
-            if not packet: break
+            if len(packet) < 19: break
             sec, nsec, threadnum, otherthreadnum, event, len1, len2 = \
                   struct.unpack("IIIIBBB", packet)
             if event >= _STM_EVENT_N:
