@@ -120,3 +120,13 @@ Fix intern() to return mortal strings, like in CPython.
 .. branch: squeaky/use-cflags-for-compiling-asm
 .. branch: unicode-fix
 .. branch: zlib_zdict
+
+.. branch: errno-again
+
+Changes how errno, GetLastError, and WSAGetLastError are handled.
+The idea is to tie reading the error status as close as possible to
+the external function call. This fixes some bugs, both of the very
+rare kind (e.g. errno on Linux might in theory be overwritten by
+mmap(), called rarely during major GCs, if such a major GC occurs at
+exactly the wrong time), and some of the less rare kind
+(particularly on Windows tests).
