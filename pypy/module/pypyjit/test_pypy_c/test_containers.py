@@ -68,7 +68,7 @@ class TestDicts(BaseTestPyPyC):
             guard_no_exception(descr=...)
             i12 = call(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
             p13 = new(descr=...)
-            p15 = new_array_clear(8, descr=<ArrayU 1>)
+            p15 = new_array_clear(16, descr=<ArrayU 1>)
             {{{
             setfield_gc(p13, 0, descr=<FieldS dicttable.num_ever_used_items .+>)
             setfield_gc(p13, p15, descr=<FieldP dicttable.indexes .+>)
