@@ -12,7 +12,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport import llerrno
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import llmemory, rffi
 
 
 # darwin requires the stack to be 16 bytes aligned on calls.
@@ -190,7 +190,8 @@ class CallBuilderX86(AbstractCallBuilder):
             # because we are on 32-bit in this case: no register contains
             # the arguments to the main function we want to call afterwards.
             from rpython.rlib.rwin32 import _SetLastError
-            SetLastError_addr = self.asm.cpu.cast_ptr_to_int(_SetLastError)
+            adr = llmemory.cast_ptr_to_adr(_SetLastError)
+            SetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
@@ -246,10 +247,11 @@ class CallBuilderX86(AbstractCallBuilder):
                                              rffi.RFFI_SAVE_WSALASTERROR)):
             if save_err & rffi.RFFI_SAVE_LASTERROR:
                 from rpython.rlib.rwin32 import _GetLastError
-                GetLastError_addr = self.asm.cpu.cast_ptr_to_int(_GetLastError)
+                adr = llmemory.cast_ptr_to_adr(_GetLastError)
             else:
-                from rpython.rlib._rsocket_rffi import _WSAGetLastError as WSAE
-                GetLastError_addr = self.asm.cpu.cast_ptr_to_int(WSAE)
+                from rpython.rlib._rsocket_rffi import _WSAGetLastError
+                adr = llmemory.cast_ptr_to_adr(_WSAGetLastError)
+            GetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
