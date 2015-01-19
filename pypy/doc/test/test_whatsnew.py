@@ -78,9 +78,10 @@ def test_get_merged_branches():
 
 def test_whatsnew():
     doc = ROOT.join('pypy', 'doc')
-    whatsnew_list = doc.listdir('whatsnew-*.rst')
-    whatsnew_list.sort()
-    last_whatsnew = whatsnew_list[-1].read()
+    #whatsnew_list = doc.listdir('whatsnew-*.rst')
+    #whatsnew_list.sort()
+    #last_whatsnew = whatsnew_list[-1].read()
+    last_whatsnew = doc.join('whatsnew-head.rst').read()
     startrev, documented = parse_doc(last_whatsnew)
     merged, branch = get_merged_branches(ROOT, startrev, '')
     merged.discard('default')

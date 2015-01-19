@@ -1175,7 +1175,7 @@ def test_callback_exception():
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function$Zcb1 at 0x$>:
+From cffi callback <function$Zcb1 at 0x$>:
 Traceback (most recent call last):
   File "$", line $, in Zcb1
     $
@@ -1187,7 +1187,7 @@ ValueError: 42
         bigvalue = 20000
         assert f(bigvalue) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function$Zcb1 at 0x$>:
+From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
 """)

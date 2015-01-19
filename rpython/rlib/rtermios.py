@@ -3,6 +3,7 @@
 # returns list of mostly-strings of length one, but with few ints
 # inside, so we make sure it works
 
+import sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -97,6 +98,10 @@ all_constants = {}
 for name in CONSTANT_NAMES:
     value = c_config[name]
     if value is not None:
+        if value < -sys.maxsize-1 or value >= 2 * (sys.maxsize+1):
+            raise AssertionError("termios: %r has value %r, too large" % (
+                name, value))
+        value = intmask(value)     # wrap unsigned long numbers to signed longs
         globals()[name] = value
         all_constants[name] = value
             

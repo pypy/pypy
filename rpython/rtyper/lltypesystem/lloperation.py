@@ -396,6 +396,7 @@ LL_OPERATIONS = {
     'direct_arrayitems':    LLOp(canfold=True),
     'direct_ptradd':        LLOp(canfold=True),
     'cast_opaque_ptr':      LLOp(sideeffects=False),
+    'length_of_simple_gcarray_from_opaque': LLOp(sideeffects=False),
 
     # __________ address operations __________
 

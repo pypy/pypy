@@ -298,22 +298,14 @@ class Assembler386(BaseAssembler):
         if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
         #
-        # make a "function" that is called immediately at the start of
-        # an assembler function.  In particular, the stack looks like:
-        #
-        #    |  ...                |    <-- aligned to a multiple of 16
-        #    |  retaddr of caller  |
-        #    |  my own retaddr     |    <-- esp
-        #    +---------------------+
-        #
+        # make a regular function that is called from a point near the start
+        # of an assembler function (after it adjusts the stack and saves
+        # registers).
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if IS_X86_64:
-            # on the x86_64, we have to save all the registers that may
-            # have been used to pass arguments. Note that we pass only
-            # one argument, that is the frame
             mc.MOV_rr(edi.value, esp.value)
-            mc.SUB_ri(esp.value, WORD)
+            mc.SUB_ri(esp.value, WORD)   # alignment
         #
         if IS_X86_32:
             mc.SUB_ri(esp.value, 2*WORD) # alignment

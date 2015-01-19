@@ -566,10 +566,10 @@ class FunctionCall(Node):
                 w_res = logical_xor.reduce(interp.space, arr, None)
             elif self.name == "unegative":
                 neg = ufuncs.get(interp.space).negative
-                w_res = neg.call(interp.space, [arr])
+                w_res = neg.call(interp.space, [arr], None, None, None)
             elif self.name == "cos":
                 cos = ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr])
+                w_res = cos.call(interp.space, [arr], None, None, None)
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":

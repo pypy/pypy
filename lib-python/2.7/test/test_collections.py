@@ -579,7 +579,12 @@ class TestCollectionABCs(ABCTestCase):
             def __repr__(self):
                 return "MySet(%s)" % repr(list(self))
         s = MySet([5,43,2,1])
-        self.assertEqual(s.pop(), 1)
+        # changed from CPython 2.7: it was "s.pop() == 1" but I see
+        # nothing that guarantees a particular order here.  In the
+        # 'all_ordered_dicts' branch of PyPy (or with OrderedDict
+        # instead of sets), it consistently returns 5, but this test
+        # should not rely on this or any other order.
+        self.assert_(s.pop() in [5,43,2,1])
 
     def test_issue8750(self):
         empty = WithSet()
@@ -1019,8 +1024,9 @@ class TestOrderedDict(unittest.TestCase):
                                           c=3, e=5).items()), pairs)                # mixed input
 
         # make sure no positional args conflict with possible kwdargs
-        self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
-                         ['self'])
+        if '__init__' in OrderedDict.__dict__:   # absent in PyPy
+            self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
+                             ['self'])
 
         # Make sure that direct calls to __init__ do not clear previous contents
         d = OrderedDict([('a', 1), ('b', 2), ('c', 3), ('d', 44), ('e', 55)])
