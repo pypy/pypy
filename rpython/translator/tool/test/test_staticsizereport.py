@@ -59,7 +59,7 @@ class TestStaticSizeReport(object):
         assert guess_size(func.builder.db, dictvalnode, set()) > 100
         assert guess_size(func.builder.db, dictvalnode2, set()) == (
             (4 * S + 2 * P) +     # struct dicttable
-            (S + 8) +             # indexes, length 8
+            (S + 16) +            # indexes, length 16
             (S + S + S))          # entries, length 1
         r_set = set()
         dictnode_size = guess_size(db, test_dictnode, r_set)
