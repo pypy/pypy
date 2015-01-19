@@ -7,8 +7,14 @@ A "hashtable" is theoretically a lazily-filled array of objects of
 length 2**64.  Initially it is full of NULLs.  It's obviously
 implemented as a dictionary in which NULL objects are not needed.
 
-The only operations on a hashtable are reading or writing an object at
-a given index.
+A real dictionary can be implemented on top of it, by using the index
+`hash(key)` in the hashtable, and storing a list of `(key, value)`
+pairs at that index (usually only one, unless there is a hash
+collision).
+
+The main operations on a hashtable are reading or writing an object at a
+given index.  It might support in the future enumerating the indexes of
+non-NULL objects.
 
 There are two markers for every index (a read and a write marker).
 This is unlike regular arrays, which have only two markers in total.
@@ -19,10 +25,15 @@ Implementation
 
 First idea: have the hashtable in raw memory, pointing to "entry"
 objects.  The entry objects themselves point to the user-specified
-objects, and they have the read/write markers.  Every entry object
-itself, once created, stays around.  It is only removed by the next
+objects.  The entry objects have the read/write markers.  Every entry
+object, once created, stays around.  It is only removed by the next
 major GC if it points to NULL and its read/write markers are not set
 in any currently-running transaction.
+
+References
+----------
+
+Inspired by: http://ppl.stanford.edu/papers/podc011-bronson.pdf
 */
 
 
