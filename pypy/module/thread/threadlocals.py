@@ -17,7 +17,8 @@ class OSThreadLocals:
         "NOT_RPYTHON"
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
         self._cleanup_()
-        self.raw_thread_local = rthread.ThreadLocalReference(ExecutionContext)
+        self.raw_thread_local = rthread.ThreadLocalReference(ExecutionContext,
+                                                            loop_invariant=True)
 
     def _cleanup_(self):
         self._valuedict.clear()

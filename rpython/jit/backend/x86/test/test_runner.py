@@ -478,28 +478,29 @@ class TestX86(LLtypeBackendTest):
             i6 = BoxInt()
             c = ConstInt(-1)
             faildescr = BasicFailDescr(1)
+            cz = ConstInt(0)
             # we must call it repeatedly: if the stack pointer gets increased
             # by 40 bytes by the STDCALL call, and if we don't expect it,
             # then we are going to get our stack emptied unexpectedly by
             # several repeated calls
             ops = [
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i3, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i4, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i5, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i6, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 

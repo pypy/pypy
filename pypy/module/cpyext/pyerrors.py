@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, Py_DecRef, borrow_from)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
-from rpython.rlib.rposix import get_errno
+from rpython.rlib import rposix, jit
 
 @cpython_api([PyObject, PyObject], lltype.Void)
 def PyErr_SetObject(space, w_type, w_value):
@@ -159,6 +159,7 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     PyErr_SetFromErrnoWithFilenameObject(space, w_type, filename)
 
 @cpython_api([PyObject, PyObject], PyObject)
+@jit.dont_look_inside       # direct use of _get_errno()
 def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     """Similar to PyErr_SetFromErrno(), with the additional behavior that if
     w_value is not NULL, it is passed to the constructor of type as a
@@ -166,7 +167,7 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     this is used to define the filename attribute of the exception instance.
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
-    errno = get_errno()
+    errno = rffi.cast(lltype.Signed, rposix._get_errno())
     msg = os.strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,

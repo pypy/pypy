@@ -10,6 +10,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
@@ -114,6 +115,10 @@ class CallControl(object):
             if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
             funcobj = funcptr._obj
+            assert (funcobj is not rposix._get_errno and
+                    funcobj is not rposix._set_errno), (
+                "the JIT must never come close to _get_errno() or _set_errno();"
+                " it should all be done at a lower level")
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
@@ -206,7 +211,7 @@ class CallControl(object):
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
         loopinvariant = False
-        call_release_gil_target = llmemory.NULL
+        call_release_gil_target = EffectInfo._NO_CALL_RELEASE_GIL_TARGET
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -218,9 +223,9 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
             if getattr(func, "_call_aroundstate_target_", None):
-                call_release_gil_target = func._call_aroundstate_target_
-                call_release_gil_target = llmemory.cast_ptr_to_adr(
-                    call_release_gil_target)
+                tgt_func, tgt_saveerr = func._call_aroundstate_target_
+                tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
+                call_release_gil_target = (tgt_func, tgt_saveerr)
         elif op.opname == 'indirect_call':
             # check that we're not trying to call indirectly some
             # function with the special flags

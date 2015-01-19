@@ -11,6 +11,8 @@ from rpython.jit.backend.arm.helper.assembler import count_reg_args
 from rpython.jit.backend.arm.helper.assembler import saved_registers
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
 from rpython.jit.backend.arm.codebuilder import OverwritingBuilder
+from rpython.jit.backend.llsupport import llerrno
+from rpython.rtyper.lltypesystem import rffi
 
 
 class ARMCallbuilder(AbstractCallBuilder):
@@ -172,6 +174,41 @@ class ARMCallbuilder(AbstractCallBuilder):
                 self.mc.LSL_ri(resloc.value, resloc.value, 16)
                 self.mc.ASR_ri(resloc.value, resloc.value, 16)
 
+    def write_real_errno(self, save_err):
+        if save_err & rffi.RFFI_READSAVED_ERRNO:
+            # Just before a call, read 'rpy_errno' and write it into the
+            # real 'errno'.  The r0-r3 registers contain arguments to the
+            # future call; the r5-r7 registers contain various stuff.
+            # We still have r8-r12.
+            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.LDR_ri(r.r9.value, r.sp.value,
+                           self.asm.saved_threadlocal_addr + self.current_sp)
+            self.mc.LDR_ri(r.ip.value, r.r9.value, p_errno)
+            self.mc.LDR_ri(r.r9.value, r.r9.value, rpy_errno)
+            self.mc.STR_ri(r.r9.value, r.ip.value)
+        elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+            # Same, but write zero.
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.LDR_ri(r.r9.value, r.sp.value,
+                           self.asm.saved_threadlocal_addr + self.current_sp)
+            self.mc.LDR_ri(r.ip.value, r.r9.value, p_errno)
+            self.mc.MOV_ri(r.r9.value, 0)
+            self.mc.STR_ri(r.r9.value, r.ip.value)
+
+    def read_real_errno(self, save_err):
+        if save_err & rffi.RFFI_SAVE_ERRNO:
+            # Just after a call, read the real 'errno' and save a copy of
+            # it inside our thread-local 'rpy_errno'.  Registers r8-r12
+            # are unused here, and registers r2-r3 never contain anything
+            # after the call.
+            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.LDR_ri(r.r3.value, r.sp.value,
+                           self.asm.saved_threadlocal_addr)
+            self.mc.LDR_ri(r.ip.value, r.r3.value, p_errno)
+            self.mc.LDR_ri(r.ip.value, r.ip.value, 0)
+            self.mc.STR_ri(r.ip.value, r.r3.value, rpy_errno)
 
 
 class SoftFloatCallBuilder(ARMCallbuilder):

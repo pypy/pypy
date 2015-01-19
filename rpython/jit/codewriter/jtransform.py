@@ -1993,15 +1993,15 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_threadlocalref_get(self, op):
-        # only supports RESTYPE being exactly one word.
-        RESTYPE = op.result.concretetype
-        assert (RESTYPE in (lltype.Signed, lltype.Unsigned, llmemory.Address)
-                or isinstance(RESTYPE, lltype.Ptr))
         c_offset, = op.args
         op1 = self.prepare_builtin_call(op, 'threadlocalref_get', [c_offset])
+        if c_offset.value.loop_invariant:
+            effect = EffectInfo.EF_LOOPINVARIANT
+        else:
+            effect = EffectInfo.EF_CANNOT_RAISE
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
-            extraeffect=EffectInfo.EF_LOOPINVARIANT)
+            extraeffect=effect)
 
 # ____________________________________________________________
 
