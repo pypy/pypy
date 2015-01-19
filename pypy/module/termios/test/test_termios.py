@@ -43,6 +43,10 @@ class TestTermios(object):
         child.sendline('import termios')
         child.expect('>>> ')
         child.sendline('termios.tcgetattr(0)')
+        # output of the first time is ignored: it contains the compilation
+        # of more C stuff relating to errno
+        child.expect('>>> ')
+        child.sendline('termios.tcgetattr(0)')
         child.expect('\[.*?\[.*?\]\]')
         lst = eval(child.match.group(0))
         assert len(lst) == 7
