@@ -151,15 +151,13 @@ class TestInstance(BaseTestPyPyC):
         assert loop.match_by_id('loadattr1',
         '''
         guard_not_invalidated(descr=...)
-        i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
+        i19 = call(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
         guard_no_exception(descr=...)
-        i21 = int_and(i19, _)
-        i22 = int_is_true(i21)
+        i22 = int_lt(i19, 0)
         guard_true(i22, descr=...)
-        i26 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
+        i26 = call(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
         guard_no_exception(descr=...)
-        i28 = int_and(i26, _)
-        i29 = int_is_true(i28)
+        i29 = int_lt(i26, 0)
         guard_true(i29, descr=...)
         ''')
         assert loop.match_by_id('loadattr2', "")   # completely folded away

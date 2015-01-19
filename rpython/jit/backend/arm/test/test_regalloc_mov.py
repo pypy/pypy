@@ -503,7 +503,6 @@ class TestRawStackLocs(BaseMovTest):
     def test_unsupported(self):
         py.test.raises(AssertionError, 'self.asm.regalloc_mov(raw_stack(0), imm(1))')
         py.test.raises(AssertionError, 'self.asm.regalloc_mov(raw_stack(0), imm_float(1))')
-        py.test.raises(AssertionError, 'self.asm.regalloc_mov(raw_stack(0), r(1))')
         py.test.raises(AssertionError, 'self.asm.regalloc_mov(raw_stack(0), vfp(1))')
         py.test.raises(AssertionError, 'self.asm.regalloc_mov(raw_stack(0), stack(1))')
         py.test.raises(AssertionError, 'self.asm.regalloc_mov(raw_stack(0), stack_float(1))')
