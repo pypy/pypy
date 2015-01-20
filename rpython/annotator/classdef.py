@@ -129,7 +129,8 @@ class Attribute(object):
                 self.attr_allowed = False
                 if not self.readonly:
                     raise NoSuchAttrError(
-                        "setting forbidden attribute %r on %r" % (
+                        "the attribute %r goes here to %r, "
+                        "but it is forbidden here" % (
                         self.name, homedef))
 
     def modified(self, classdef='?'):
