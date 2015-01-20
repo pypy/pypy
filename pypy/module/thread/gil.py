@@ -64,8 +64,6 @@ class GILReleaseAction(PeriodicAsyncAction):
 
 after_thread_switch = lambda: None     # hook for signal.py
 
-# Fragile code below.  We have to preserve the C-level errno manually...
-
 def before_external_call():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
