@@ -346,7 +346,7 @@ def package(*args):
         help='use as pypy exe instead of pypy/goal/pypy-c')
     # Positional arguments, for backward compatability with buldbots
     parser.add_argument('extra_args', help='optional interface to positional arguments', nargs=argparse.REMAINDER,
-        metavar='[root-pypy-dir] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]',
+        metavar='[archive-name] [rename_pypy_c] [targetdir] [override_pypy_c]',
         )
     options = parser.parse_args(args)
 
