@@ -105,7 +105,7 @@ static int vmprof_unw_step(unw_cursor_t *cp) {
         vmprof_hacked_unw_cursor_t *cp2 = (vmprof_hacked_unw_cursor_t*)cp;
         void* bp = (void*)sp + sp_offset;
         cp2->sp = bp;
-		bp -= 1;
+		bp -= sizeof(void*);
         cp2->ip = ((void**)bp)[0];
         // the ret is on the top of the stack minus WORD
         return 1;
