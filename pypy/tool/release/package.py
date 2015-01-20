@@ -256,7 +256,7 @@ directory next to the dlls, as per build instructions."""
     for source, target in binaries:
         archive = bindir.join(target)
         shutil.copy(str(source), str(archive))
-    fix_permissions(builddir)
+    fix_permissions(pypydir)
 
     old_dir = os.getcwd()
     try:
