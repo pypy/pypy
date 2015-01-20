@@ -113,7 +113,7 @@ def create_cffi_import_libraries(pypy_c, options):
     if not sys.platform == 'win32':
         modules += ['_curses', 'syslog', 'gdbm', '_sqlite3']
     if not options.no_tk:
-        modules.append(('_tkinter'))
+        modules.append('_tkinter')
     for module in modules:
         try:
             subprocess.check_call([str(pypy_c), '-c', 'import ' + module])
