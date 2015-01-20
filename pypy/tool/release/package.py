@@ -140,16 +140,11 @@ def create_package(basedir, options):
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
-        print pypy_c
-        if os.path.isdir(os.path.dirname(str(pypy_c))):
-            raise PyPyCNotFound(
-                'Please compile pypy first, using translate.py,'
-                ' or check that you gave the correct path'
-                ' (see docstring for more info)')
-        else:
-            raise PyPyCNotFound(
-                'Bogus path: %r does not exist (see docstring for more info)'
-                % (os.path.dirname(str(pypy_c)),))
+        raise PyPyCNotFound(
+            'Expected but did not find %s.'
+            ' Please compile pypy first, using translate.py,'
+            ' or check that you gave the correct path'
+            ' with --override_pypy_c' % pypy_c)
     if not options.no_cffi:
         try:
             create_cffi_import_libraries(pypy_c, options)
