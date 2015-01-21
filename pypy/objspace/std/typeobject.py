@@ -22,12 +22,19 @@ class ObjectMutableCell(MutableCell):
     def unwrap_cell(self, space):
         return self.w_value
 
+    def __repr__(self):
+        return "<ObjectMutableCell: %s>" % (self.w_value, )
+
+
 class IntMutableCell(MutableCell):
     def __init__(self, intvalue):
         self.intvalue = intvalue
 
     def unwrap_cell(self, space):
         return space.wrap(self.intvalue)
+
+    def __repr__(self):
+        return "<IntMutableCell: %s>" % (self.intvalue, )
 
 
 def unwrap_cell(space, w_value):
@@ -38,6 +45,9 @@ def unwrap_cell(space, w_value):
 
 def write_cell(space, w_cell, w_value):
     from pypy.objspace.std.intobject import W_IntObject
+    if w_cell is None:
+        # attribute does not exist at all, write it without a cell first
+        return w_value
     if isinstance(w_cell, ObjectMutableCell):
         w_cell.w_value = w_value
         return None
@@ -303,10 +313,9 @@ class W_TypeObject(W_Root):
             if version_tag is not None:
                 w_curr = w_self._pure_getdictvalue_no_unwrapping(
                         space, version_tag, name)
-                if w_curr is not None:
-                    w_value = write_cell(space, w_curr, w_value)
-                    if w_value is None:
-                        return True
+                w_value = write_cell(space, w_curr, w_value)
+                if w_value is None:
+                    return True
         w_self.mutated(name)
         w_self.dict_w[name] = w_value
         return True
