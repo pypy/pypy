@@ -276,6 +276,11 @@ class AppTestContext:
         ctx.load_verify_locations(self.keycert)
         ctx.load_verify_locations(cafile=self.keycert, capath=None)
 
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        with open(self.keycert) as f:
+            cacert_pem = f.read().decode('ascii')
+        ctx.load_verify_locations(cadata=cacert_pem)
+        assert ctx.cert_store_stats()["x509_ca"]
 
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----

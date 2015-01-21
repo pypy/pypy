@@ -38,6 +38,7 @@ eci = ExternalCompilationInfo(
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
+        '#define pypy_X509_OBJECT_data_x509(obj) (obj->data.x509)',
     ],
 )
 
@@ -47,9 +48,11 @@ eci = rffi_platform.configure_external_library(
           include_dir='inc32', library_dir='out32'),
      ])
 
+X509 = rffi.COpaquePtr('X509')
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
+stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
 
 class CConfigBootstrap:
     _compilation_info_ = eci
@@ -72,6 +75,7 @@ class CConfig:
     OPENSSL_NO_ECDH = rffi_platform.Defined("OPENSSL_NO_ECDH")
     OPENSSL_NPN_NEGOTIATED = rffi_platform.Defined("OPENSSL_NPN_NEGOTIATED")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
+    SSL_FILETYPE_ASN1 = rffi_platform.ConstantInteger("SSL_FILETYPE_ASN1")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
     SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
     SSL_OP_NO_SSLv3 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv3")
@@ -102,6 +106,15 @@ class CConfig:
     SSL_MODE_AUTO_RETRY = rffi_platform.ConstantInteger("SSL_MODE_AUTO_RETRY")
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
 
+    ERR_LIB_X509 = rffi_platform.ConstantInteger("ERR_LIB_X509")
+    ERR_LIB_PEM = rffi_platform.ConstantInteger("ERR_LIB_PEM")
+    ERR_LIB_ASN1 = rffi_platform.ConstantInteger("ERR_LIB_ASN1")
+    PEM_R_NO_START_LINE = rffi_platform.ConstantInteger("PEM_R_NO_START_LINE")
+    ASN1_R_HEADER_TOO_LONG = rffi_platform.ConstantInteger(
+        "ASN1_R_HEADER_TOO_LONG")
+    X509_R_CERT_ALREADY_IN_HASH_TABLE = rffi_platform.ConstantInteger(
+        "X509_R_CERT_ALREADY_IN_HASH_TABLE")
+
     NID_undef = rffi_platform.ConstantInteger("NID_undef")
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
@@ -128,6 +141,17 @@ class CConfig:
     X509_extension_st = rffi_platform.Struct(
         'struct X509_extension_st',
         [('value', ASN1_STRING)])
+    x509_store_st = rffi_platform.Struct(
+        'struct x509_store_st',
+        [('objs', stack_st_X509_OBJECT)])
+    
+    x509_object_st = rffi_platform.Struct(
+        'struct x509_object_st',
+        [('type', rffi.INT)])
+
+    X509_LU_X509 = rffi_platform.ConstantInteger("X509_LU_X509")
+    X509_LU_CRL = rffi_platform.ConstantInteger("X509_LU_CRL")
+
     X509V3_EXT_D2I = lltype.FuncType([rffi.VOIDP, rffi.CCHARPP, rffi.LONG],
                                      rffi.VOIDP)
     v3_ext_method = rffi_platform.Struct(
@@ -150,12 +174,6 @@ class CConfig:
          ('name', rffi.CCHARP),
          ])
 
-    OBJ_NAME_st = rffi_platform.Struct(
-        'OBJ_NAME',
-        [('alias', rffi.INT),
-         ('name', rffi.CCHARP),
-         ])
-
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
@@ -166,9 +184,10 @@ SSL_CTX = rffi.COpaquePtr('SSL_CTX')
 SSL_CIPHER = rffi.COpaquePtr('SSL_CIPHER')
 SSL = rffi.COpaquePtr('SSL')
 BIO = rffi.COpaquePtr('BIO')
-X509 = rffi.COpaquePtr('X509')
 X509_NAME_ENTRY = rffi.CArrayPtr(X509_name_entry_st)
 X509_EXTENSION = rffi.CArrayPtr(X509_extension_st)
+X509_STORE = rffi.CArrayPtr(x509_store_st)
+X509_OBJECT = lltype.Ptr(x509_object_st)
 X509V3_EXT_METHOD = rffi.CArrayPtr(v3_ext_method)
 ASN1_OBJECT = rffi.COpaquePtr('ASN1_OBJECT')
 ASN1_STRING.TO.become(asn1_string_st)
@@ -217,6 +236,7 @@ ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
 ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
 ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_get_cert_store', [SSL_CTX], X509_STORE)
 ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.LONG, macro=True)
 ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.LONG], rffi.LONG, macro=True)
 if HAVE_SSL_CTX_CLEAR_OPTIONS:
@@ -264,6 +284,7 @@ ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
 ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT)
 ssl_external('X509_free', [X509], lltype.Void, releasegil=False)
+ssl_external('X509_check_ca', [X509], rffi.INT)
 ssl_external('X509_get_notBefore', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_notAfter', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_serialNumber', [X509], ASN1_INTEGER)
@@ -272,6 +293,7 @@ ssl_external('X509_get_ext_by_NID', [X509, rffi.INT, rffi.INT], rffi.INT)
 ssl_external('X509_get_ext', [X509, rffi.INT], X509_EXTENSION)
 ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
+ssl_external('X509_STORE_add_cert', [X509_STORE, X509], rffi.INT)
 
 ssl_external('OBJ_obj2txt',
              [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT)
@@ -293,6 +315,13 @@ ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
 ssl_external('sk_GENERAL_NAME_value', [GENERAL_NAMES, rffi.INT], GENERAL_NAME,
              macro=True)
+ssl_external('sk_X509_OBJECT_num', [stack_st_X509_OBJECT], rffi.INT,
+             macro=True)
+ssl_external('sk_X509_OBJECT_value', [stack_st_X509_OBJECT, rffi.INT],
+             X509_OBJECT, macro=True)
+ssl_external('pypy_X509_OBJECT_data_x509', [X509_OBJECT], X509,
+             macro=True)
+
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
              macro=True)
@@ -306,6 +335,8 @@ ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 ssl_external('ERR_clear_error', [], lltype.Void)
+ssl_external('ERR_GET_LIB', [rffi.ULONG], rffi.INT, macro=True)
+ssl_external('ERR_GET_REASON', [rffi.ULONG], rffi.INT, macro=True)
 
 # 'releasegil=False' here indicates that this function will be called
 # with the GIL held, and so is allowed to run in a RPython __del__ method.
@@ -323,10 +354,14 @@ ssl_external('BIO_s_mem', [], BIO_METHOD)
 ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
+ssl_external('BIO_new_mem_buf', [rffi.VOIDP, rffi.INT], BIO)
 ssl_external('BIO_free', [BIO], rffi.INT)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)
 ssl_external('BIO_read_filename', [BIO, rffi.CCHARP], rffi.INT, macro=True)
 ssl_external('BIO_gets', [BIO, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('d2i_X509_bio', [BIO, rffi.VOIDP], X509)
+ssl_external('PEM_read_bio_X509',
+             [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 
