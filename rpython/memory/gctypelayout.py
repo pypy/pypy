@@ -406,6 +406,11 @@ class TypeLayoutBuilder(object):
             return
         self.iseen_roots[value] = True
 
+        if isinstance(TYPE, lltype.GcOpaqueType):
+            self.consider_constant(lltype.typeOf(value.container),
+                                   value.container, gc)
+            return
+
         if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
             typeid = self.get_type_id(TYPE)
             hdr = gc.gcheaderbuilder.new_header(value)

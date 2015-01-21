@@ -517,7 +517,7 @@ class RSocket(object):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
             self.fd = _c.INVALID_SOCKET
-            _c.socketclose(fd)
+            _c.socketclose_no_errno(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):

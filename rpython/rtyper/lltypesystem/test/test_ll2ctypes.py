@@ -756,21 +756,23 @@ class TestLL2Ctypes(object):
             old_err_mode = ctypes.windll.kernel32.GetErrorMode()
             new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
             ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
-                                 compilation_info=eci)
+        os_write_no_errno = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'write',
+                                   [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
+                                   rffi.SIZE_T, save_err=rffi.RFFI_ERR_NONE)
         os_write = rffi.llexternal(UNDERSCORE_ON_WIN32 + 'write',
                                    [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
-                                   rffi.SIZE_T)
+                                   rffi.SIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
         buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')
         written = os_write(12312312, buffer, 5)
         if sys.platform.startswith('win'):
             ctypes.windll.kernel32.SetErrorMode(old_err_mode)
-        lltype.free(buffer, flavor='raw')
         assert rffi.cast(rffi.LONG, written) < 0
-        # the next line is a random external function call,
-        # to check that it doesn't reset errno
-        strlen("hi!")
-        err = rposix.get_errno()
+        # the next line is a different external function call
+        # without RFFI_SAVE_ERRNO, to check that it doesn't reset errno
+        buffer[0] = '\n'
+        os_write_no_errno(2, buffer, 1)
+        lltype.free(buffer, flavor='raw')
+        err = rposix.get_saved_errno()
         import errno
         assert err == errno.EBADF
         assert not ALLOCATED     # detects memory leaks in the test

@@ -308,24 +308,36 @@ class W_CTypePointer(W_CTypePtrBase):
     def getcfield(self, attr):
         return self.ctitem.getcfield(attr)
 
-    def typeoffsetof(self, fieldname):
-        if fieldname is None:
-            return W_CTypePtrBase.typeoffsetof(self, fieldname)
-        else:
-            return self.ctitem.typeoffsetof(fieldname)
+    def typeoffsetof_field(self, fieldname, following):
+        if following == 0:
+            return self.ctitem.typeoffsetof_field(fieldname, -1)
+        return W_CTypePtrBase.typeoffsetof_field(self, fieldname, following)
+
+    def typeoffsetof_index(self, index):
+        space = self.space
+        ctitem = self.ctitem
+        if ctitem.size < 0:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("pointer to opaque"))
+        try:
+            offset = ovfcheck(index * ctitem.size)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                    space.wrap("array offset would overflow a ssize_t"))
+        return ctitem, offset
 
     def rawaddressof(self, cdata, offset):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         space = self.space
         ctype2 = cdata.ctype
         if (isinstance(ctype2, W_CTypeStructOrUnion) or
-               (isinstance(ctype2, W_CTypePtrOrArray) and
-                isinstance(ctype2.ctitem, W_CTypeStructOrUnion))):
+                isinstance(ctype2, W_CTypePtrOrArray)):
             ptrdata = rffi.ptradd(cdata._cdata, offset)
             return cdataobj.W_CData(space, ptrdata, self)
         else:
             raise OperationError(space.w_TypeError,
-                     space.wrap("expected a 'cdata struct-or-union' object"))
+                    space.wrap("expected a cdata struct/union/array/pointer"
+                               " object"))
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
@@ -335,7 +347,8 @@ class W_CTypePointer(W_CTypePtrBase):
 # ____________________________________________________________
 
 
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP,
+                              save_err=rffi.RFFI_SAVE_ERRNO)
 rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
 rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 
@@ -345,7 +358,7 @@ class CffiFileObj(object):
     def __init__(self, fd, mode):
         self.llf = rffi_fdopen(fd, mode)
         if not self.llf:
-            raise OSError(rposix.get_errno(), "fdopen failed")
+            raise OSError(rposix.get_saved_errno(), "fdopen failed")
         rffi_setbuf(self.llf, lltype.nullptr(rffi.CCHARP.TO))
 
     def close(self):

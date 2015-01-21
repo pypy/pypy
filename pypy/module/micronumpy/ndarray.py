@@ -19,7 +19,7 @@ from pypy.module.micronumpy.converters import multi_axis_converter, \
     order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
-    shape_agreement, shape_agreement_multiple
+    shape_agreement, shape_agreement_multiple, is_c_contiguous, is_f_contiguous
 
 
 def _match_dot_shapes(space, left, right):
@@ -50,9 +50,6 @@ class __extend__(W_NDimArray):
         shape = self.get_shape()
         return space.newtuple([space.wrap(i) for i in shape])
 
-    def get_shape(self):
-        return self.implementation.get_shape()
-
     def descr_set_shape(self, space, w_new_shape):
         shape = get_shape_from_iterable(space, self.get_size(), w_new_shape)
         self.implementation = self.implementation.set_shape(space, self, shape)
@@ -60,12 +57,6 @@ class __extend__(W_NDimArray):
     def descr_get_strides(self, space):
         strides = self.implementation.get_strides()
         return space.newtuple([space.wrap(i) for i in strides])
-
-    def get_dtype(self):
-        return self.implementation.dtype
-
-    def get_order(self):
-        return self.implementation.order
 
     def descr_get_dtype(self, space):
         return self.implementation.dtype
@@ -82,10 +73,6 @@ class __extend__(W_NDimArray):
     def descr_del_dtype(self, space):
         raise OperationError(space.w_AttributeError, space.wrap(
             "Cannot delete array dtype"))
-
-    def ndims(self):
-        return len(self.get_shape())
-    ndims._always_inline_ = True
 
     def descr_get_ndim(self, space):
         return space.wrap(self.ndims())
@@ -837,7 +824,15 @@ class __extend__(W_NDimArray):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array."))
         else:
-            if dims == 1 or impl.get_strides()[0] < impl.get_strides()[-1]:
+            if not is_c_contiguous(impl) and not is_f_contiguous(impl):
+                if old_itemsize != new_itemsize:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "new type not compatible with array."))
+                # Strides, shape does not change
+                v = impl.astype(space, dtype)
+                return wrap_impl(space, w_type, self, v) 
+            strides = impl.get_strides()
+            if dims == 1 or strides[0] <strides[-1]:
                 # Column-major, resize first dimension
                 if new_shape[0] * old_itemsize % new_itemsize != 0:
                     raise OperationError(space.w_ValueError, space.wrap(
@@ -854,11 +849,16 @@ class __extend__(W_NDimArray):
         return w_ret
 
     # --------------------- operations ----------------------------
+    # TODO: support all kwargs like numpy ufunc_object.c
+    sig = None
+    cast = None
+    extobj = None
+
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space, w_out=None):
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [self, w_out])
+                space, [self, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_pos = _unaryop_impl("positive")
@@ -879,7 +879,7 @@ class __extend__(W_NDimArray):
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [self, w_other, w_out])
+                space, [self, w_other, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
@@ -923,7 +923,7 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_other):
             w_out = self
             ufunc = getattr(ufuncs.get(space), ufunc_name)
-            return ufunc.call(space, [self, w_other, w_out])
+            return ufunc.call(space, [self, w_other, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_inplace_%s_impl" % ufunc_name)
 
     descr_iadd = _binop_inplace_impl("add")
@@ -944,7 +944,7 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_other, w_out=None):
             w_other = convert_to_array(space, w_other)
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [w_other, self, w_out])
+                space, [w_other, self, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_radd = _binop_right_impl("add")

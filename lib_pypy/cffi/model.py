@@ -235,6 +235,8 @@ class ArrayType(BaseType):
         BPtrItem = PointerType(self.item).get_cached_btype(ffi, finishlist)
         return global_cache(self, ffi, 'new_array_type', BPtrItem, self.length)
 
+char_array_type = ArrayType(PrimitiveType('char'), None)
+
 
 class StructOrUnionOrEnum(BaseTypeByIdentity):
     _attrs_ = ('name',)
@@ -478,7 +480,7 @@ def global_cache(srctype, ffi, funcname, *args, **kwds):
     try:
         res = getattr(ffi._backend, funcname)(*args)
     except NotImplementedError as e:
-        raise NotImplementedError("%r: %s" % (srctype, e))
+        raise NotImplementedError("%s: %r: %s" % (funcname, srctype, e))
     # note that setdefault() on WeakValueDictionary is not atomic
     # and contains a rare bug (http://bugs.python.org/issue19542);
     # we have to use a lock and do it ourselves

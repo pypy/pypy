@@ -1166,10 +1166,10 @@ class TestThread(object):
                 self.tail = tail
 
         def check_errno(value):
-            rposix.set_errno(value)
+            rposix.set_saved_errno(value)
             for i in range(10000000):
                 pass
-            assert rposix.get_errno() == value
+            assert rposix.get_saved_errno() == value
 
         def bootstrap():
             rthread.gc_thread_start()
@@ -1386,6 +1386,8 @@ class TestShared(StandaloneTests):
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'
+        elif cbuilder.eci.platform.name.startswith('darwin'):
+            ext_suffix = '.dylib'
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))

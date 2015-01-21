@@ -27,6 +27,6 @@ def test_exeucte_source(space):
     pypy_setup_home = d['pypy_setup_home']
     lls = rffi.str2charp(__file__)
     res = pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
-    assert lltype.typeOf(res) == rffi.LONG
+    assert lltype.typeOf(res) == rffi.INT
     assert rffi.cast(lltype.Signed, res) == 0
     lltype.free(lls, flavor='raw')

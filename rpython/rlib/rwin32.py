@@ -118,27 +118,36 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    _GetLastError = winexternal('GetLastError', [], DWORD, releasegil=False)
-    _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+    _GetLastError = winexternal('GetLastError', [], DWORD,
+                                _nowrapper=True, sandboxsafe=True)
+    _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void,
+                                _nowrapper=True, sandboxsafe=True)
 
-    def GetLastError():
-        return rffi.cast(lltype.Signed, _GetLastError())
-    def SetLastError(err):
-        _SetLastError(rffi.cast(DWORD, err))
+    def GetLastError_saved():
+        from rpython.rlib import rthread
+        return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
 
-    # In tests, the first call to GetLastError is always wrong, because error
-    # is hidden by operations in ll2ctypes.  Call it now.
-    GetLastError()
+    def SetLastError_saved(err):
+        from rpython.rlib import rthread
+        rthread.tlfield_rpy_lasterror.setraw(rffi.cast(DWORD, err))
+
+    # In tests, the first call to _GetLastError() is always wrong,
+    # because error is hidden by operations in ll2ctypes.  Call it now.
+    _GetLastError()
 
     GetModuleHandle = winexternal('GetModuleHandleA', [rffi.CCHARP], HMODULE)
-    LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE)
+    LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
+                              save_err=rffi.RFFI_SAVE_LASTERROR)
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
     FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, releasegil=False)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, releasegil=False)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, releasegil=False,
+                              save_err=rffi.RFFI_SAVE_LASTERROR)
+    CloseHandle_no_err = winexternal('CloseHandle', [HANDLE], BOOL,
+                                     releasegil=False)
 
     FormatMessage = winexternal(
         'FormatMessageA',
@@ -255,8 +264,8 @@ if WIN32:
     def fake_FormatError(code):
         return 'Windows Error %d' % (code,)
 
-    def lastWindowsError(context="Windows Error"):
-        code = GetLastError()
+    def lastSavedWindowsError(context="Windows Error"):
+        code = GetLastError_saved()
         return WindowsError(code, context)
 
     def FAILED(hr):
@@ -280,7 +289,8 @@ if WIN32:
 
     _GetVersionEx = winexternal('GetVersionExA',
                                 [lltype.Ptr(OSVERSIONINFOEX)],
-                                DWORD)
+                                DWORD,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
 
     @jit.dont_look_inside
     def GetVersionEx():
@@ -289,7 +299,7 @@ if WIN32:
                          rffi.sizeof(OSVERSIONINFOEX))
         try:
             if not _GetVersionEx(info):
-                raise lastWindowsError()
+                raise lastSavedWindowsError()
             return (rffi.cast(lltype.Signed, info.c_dwMajorVersion),
                     rffi.cast(lltype.Signed, info.c_dwMinorVersion),
                     rffi.cast(lltype.Signed, info.c_dwBuildNumber),
@@ -304,7 +314,8 @@ if WIN32:
             lltype.free(info, flavor='raw')
 
     _WaitForSingleObject = winexternal(
-        'WaitForSingleObject', [HANDLE, DWORD], DWORD)
+        'WaitForSingleObject', [HANDLE, DWORD], DWORD,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def WaitForSingleObject(handle, timeout):
         """Return values:
@@ -312,12 +323,13 @@ if WIN32:
         - WAIT_TIMEOUT when the timeout elapsed"""
         res = _WaitForSingleObject(handle, timeout)
         if res == rffi.cast(DWORD, -1):
-            raise lastWindowsError("WaitForSingleObject")
+            raise lastSavedWindowsError("WaitForSingleObject")
         return res
 
     _WaitForMultipleObjects = winexternal(
         'WaitForMultipleObjects', [
-            DWORD, rffi.CArrayPtr(HANDLE), BOOL, DWORD], DWORD)
+            DWORD, rffi.CArrayPtr(HANDLE), BOOL, DWORD], DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def WaitForMultipleObjects(handles, waitall=False, timeout=INFINITE):
         """Return values:
@@ -331,24 +343,26 @@ if WIN32:
                 handle_array[i] = handles[i]
             res = _WaitForMultipleObjects(nb, handle_array, waitall, timeout)
             if res == rffi.cast(DWORD, -1):
-                raise lastWindowsError("WaitForMultipleObjects")
+                raise lastSavedWindowsError("WaitForMultipleObjects")
             return res
         finally:
             lltype.free(handle_array, flavor='raw')
 
     _CreateEvent = winexternal(
-        'CreateEventA', [rffi.VOIDP, BOOL, BOOL, LPCSTR], HANDLE)
+        'CreateEventA', [rffi.VOIDP, BOOL, BOOL, LPCSTR], HANDLE,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
     def CreateEvent(*args):
         handle = _CreateEvent(*args)
         if handle == NULL_HANDLE:
-            raise lastWindowsError("CreateEvent")
+            raise lastSavedWindowsError("CreateEvent")
         return handle
     SetEvent = winexternal(
         'SetEvent', [HANDLE], BOOL)
     ResetEvent = winexternal(
         'ResetEvent', [HANDLE], BOOL)
     _OpenProcess = winexternal(
-        'OpenProcess', [DWORD, BOOL, DWORD], HANDLE)
+        'OpenProcess', [DWORD, BOOL, DWORD], HANDLE,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
     def OpenProcess(*args):
         ''' OpenProcess( dwDesiredAccess, bInheritHandle, dwProcessId)
         where dwDesiredAccess is a combination of the flags:
@@ -374,12 +388,14 @@ if WIN32:
         '''
         handle = _OpenProcess(*args)
         if handle == NULL_HANDLE:
-            raise lastWindowsError("OpenProcess")
+            raise lastSavedWindowsError("OpenProcess")
         return handle
     TerminateProcess = winexternal(
-        'TerminateProcess', [HANDLE, rffi.UINT], BOOL)
+        'TerminateProcess', [HANDLE, rffi.UINT], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
     GenerateConsoleCtrlEvent = winexternal(
-        'GenerateConsoleCtrlEvent', [DWORD, DWORD], BOOL)
+        'GenerateConsoleCtrlEvent', [DWORD, DWORD], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
     _GetCurrentProcessId = winexternal(
         'GetCurrentProcessId', [], DWORD)
     def GetCurrentProcessId():
@@ -395,14 +411,15 @@ if WIN32:
     def os_kill(pid, sig):
         if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
             if GenerateConsoleCtrlEvent(sig, pid) == 0:
-                raise lastWindowsError('os_kill failed generating event')
+                raise lastSavedWindowsError('os_kill failed generating event')
             return
         handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
         if handle == NULL_HANDLE:
-            raise lastWindowsError('os_kill failed opening process')
+            raise lastSavedWindowsError('os_kill failed opening process')
         try:
             if TerminateProcess(handle, sig) == 0:
-                raise lastWindowsError('os_kill failed to terminate process')
+                raise lastSavedWindowsError(
+                    'os_kill failed to terminate process')
         finally:
             CloseHandle(handle)
 

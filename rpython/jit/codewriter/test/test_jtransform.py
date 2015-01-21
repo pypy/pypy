@@ -160,7 +160,7 @@ class FakeBuiltinCallControl:
             elif oopspecindex == EI.OS_RAW_FREE:
                 assert extraeffect == EI.EF_CANNOT_RAISE
             elif oopspecindex == EI.OS_THREADLOCALREF_GET:
-                assert extraeffect == EI.EF_LOOPINVARIANT
+                assert extraeffect == self.expected_effect_of_threadlocalref_get
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
@@ -1342,14 +1342,19 @@ def test_cast_opaque_ptr():
     assert op1.result is None
     assert op2 is None
 
-def test_threadlocalref_get():
+def _test_threadlocalref_get(loop_inv):
     from rpython.rlib.rthread import ThreadLocalField
-    tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_')
+    tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_',
+                               loop_invariant=loop_inv)
     OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
     c = const(tlfield.offset)
     v = varoftype(lltype.Signed)
     op = SpaceOperation('threadlocalref_get', [c], v)
-    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    cc = FakeBuiltinCallControl()
+    cc.expected_effect_of_threadlocalref_get = (
+        effectinfo.EffectInfo.EF_LOOPINVARIANT if loop_inv
+        else effectinfo.EffectInfo.EF_CANNOT_RAISE)
+    tr = Transformer(FakeCPU(), cc)
     op0 = tr.rewrite_operation(op)
     assert op0.opname == 'residual_call_ir_i'
     assert op0.args[0].value == 'threadlocalref_get' # pseudo-function as str
@@ -1357,6 +1362,12 @@ def test_threadlocalref_get():
     assert op0.args[2] == ListOfKind("ref", [])
     assert op0.args[3] == 'calldescr-%d' % OS_THREADLOCALREF_GET
     assert op0.result == v
+
+def test_threadlocalref_get_no_loop_inv():
+    _test_threadlocalref_get(loop_inv=False)
+
+def test_threadlocalref_get_with_loop_inv():
+    _test_threadlocalref_get(loop_inv=True)
 
 def test_unknown_operation():
     op = SpaceOperation('foobar', [], varoftype(lltype.Void))

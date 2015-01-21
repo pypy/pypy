@@ -13,6 +13,11 @@ class MockArray(object):
         self.strides = strides
         self.start = start
 
+    def get_shape(self):
+        return self.shape
+
+    def get_strides(self):
+        return self.strides
 
 class TestIterDirect(object):
     def test_iterator_basic(self):

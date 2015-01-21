@@ -65,9 +65,7 @@ class W_CTypeStructOrUnion(W_CType):
         keepalive_until_here(ob)
         return ob
 
-    def typeoffsetof(self, fieldname):
-        if fieldname is None:
-            return (self, 0)
+    def typeoffsetof_field(self, fieldname, following):
         self.check_complete()
         space = self.space
         try:

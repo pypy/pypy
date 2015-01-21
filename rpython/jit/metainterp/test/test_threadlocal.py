@@ -17,6 +17,16 @@ class ThreadLocalTest(object):
         res = self.interp_operations(f, [])
         assert res == 0x544c
 
+    def test_threadlocalref_get_char(self):
+        tlfield = rthread.ThreadLocalField(lltype.Char, 'foobar_test_char_')
+
+        def f():
+            tlfield.setraw('\x92')
+            return ord(tlfield.getraw())
+
+        res = self.interp_operations(f, [])
+        assert res == 0x92
+
 
 class TestLLtype(ThreadLocalTest, LLJitMixin):
     pass

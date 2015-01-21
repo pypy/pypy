@@ -219,19 +219,42 @@ class GCBase(object):
     def _trace_slow_path(self, obj, callback, arg):
         typeid = self.get_type_id(obj)
         if self.has_gcptr_in_varsize(typeid):
-            item = obj + self.varsize_offset_to_variable_part(typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.varsize_item_sizes(typeid)
-            while length > 0:
-                j = 0
-                while j < len(offsets):
-                    itemobj = item + offsets[j]
-                    if self.points_to_valid_gc_object(itemobj):
-                        callback(itemobj, arg)
-                    j += 1
-                item += itemlength
-                length -= 1
+            if length > 0:
+                item = obj + self.varsize_offset_to_variable_part(typeid)
+                offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+                itemlength = self.varsize_item_sizes(typeid)
+                len_offsets = len(offsets)
+                if len_offsets == 1:     # common path #1
+                    offsets0 = offsets[0]
+                    while length > 0:
+                        itemobj0 = item + offsets0
+                        if self.points_to_valid_gc_object(itemobj0):
+                            callback(itemobj0, arg)
+                        item += itemlength
+                        length -= 1
+                elif len_offsets == 2:   # common path #2
+                    offsets0 = offsets[0]
+                    offsets1 = offsets[1]
+                    while length > 0:
+                        itemobj0 = item + offsets0
+                        if self.points_to_valid_gc_object(itemobj0):
+                            callback(itemobj0, arg)
+                        itemobj1 = item + offsets1
+                        if self.points_to_valid_gc_object(itemobj1):
+                            callback(itemobj1, arg)
+                        item += itemlength
+                        length -= 1
+                else:                    # general path
+                    while length > 0:
+                        j = 0
+                        while j < len_offsets:
+                            itemobj = item + offsets[j]
+                            if self.points_to_valid_gc_object(itemobj):
+                                callback(itemobj, arg)
+                            j += 1
+                        item += itemlength
+                        length -= 1
         if self.has_custom_trace(typeid):
             self.custom_trace_dispatcher(obj, typeid, callback, arg)
     _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
