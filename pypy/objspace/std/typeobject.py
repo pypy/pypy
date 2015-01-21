@@ -407,6 +407,7 @@ class W_TypeObject(W_Root):
         w_class, w_value = tup_w
         if (space.config.objspace.std.withtypeversion and
                 isinstance(w_value, MutableCell)):
+            import pdb; pdb.set_trace()
             return w_class, w_value.unwrap_cell(space)
         return tup_w   # don't make a new tuple, reuse the old one
 
