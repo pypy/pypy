@@ -3,11 +3,11 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated, CDefinedIntSymbolic
-from rpython.rlib import jit, rgc, rposix
+from rpython.rlib import jit, rposix
 from rpython.tool.pairtype import extendabletype
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import oefmt, wrap_oserror
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 
@@ -177,13 +177,13 @@ def do_get_virtual_ip(frame):
 
 class VMProf(object):
     def __init__(self):
-        self.virtual_ip = 0
+        self.virtual_ip = 0x7000000000000000
         self.is_enabled = False
         self.ever_enabled = False
         self.strbuf = lltype.malloc(rffi.CCHARP.TO, 1024, flavor='raw', immortal=True, zero=True)
 
     def get_next_virtual_IP(self):
-        self.virtual_ip -= 1
+        self.virtual_ip += 1
         return self.virtual_ip
 
     @jit.dont_look_inside

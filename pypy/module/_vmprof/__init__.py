@@ -4,7 +4,6 @@ class Module(MixedModule):
     """
     Write me :)
     """
-
     appleveldefs = {
     }
 
