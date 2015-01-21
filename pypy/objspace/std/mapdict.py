@@ -8,7 +8,7 @@ from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
-from pypy.objspace.std.typeobject import TypeCell
+from pypy.objspace.std.typeobject import MutableCell
 
 
 # ____________________________________________________________
@@ -872,15 +872,15 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
         if version_tag is not None:
             name = space.str_w(w_name)
             # We need to care for obscure cases in which the w_descr is
-            # a TypeCell, which may change without changing the version_tag
+            # a MutableCell, which may change without changing the version_tag
             _, w_descr = w_type._pure_lookup_where_possibly_with_method_cache(
                 name, version_tag)
             #
             selector = ("", INVALID)
             if w_descr is None:
                 selector = (name, DICT) # common case: no such attr in the class
-            elif isinstance(w_descr, TypeCell):
-                pass              # we have a TypeCell in the class: give up
+            elif isinstance(w_descr, MutableCell):
+                pass              # we have a MutableCell in the class: give up
             elif space.is_data_descr(w_descr):
                 # we have a data descriptor, which means the dictionary value
                 # (if any) has no relevance.
@@ -929,11 +929,11 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     # We know here that w_obj.getdictvalue(space, name) just returned None,
     # so the 'name' is not in the instance.  We repeat the lookup to find it
     # in the class, this time taking care of the result: it can be either a
-    # quasi-constant class attribute, or actually a TypeCell --- which we
+    # quasi-constant class attribute, or actually a MutableCell --- which we
     # must not cache.  (It should not be None here, but you never know...)
     _, w_method = w_type._pure_lookup_where_possibly_with_method_cache(
         name, version_tag)
-    if w_method is None or isinstance(w_method, TypeCell):
+    if w_method is None or isinstance(w_method, MutableCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
 
