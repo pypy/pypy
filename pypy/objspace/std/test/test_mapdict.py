@@ -144,7 +144,7 @@ def test_attr_immutability(monkeypatch):
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
 
-def test_attr_immutability_delete(monkeypatch):
+def test_attr_immutability_delete():
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
