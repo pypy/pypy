@@ -253,6 +253,12 @@ class Transformer(object):
                 return [None, # hack, do the right renaming from op.args[0] to op.result
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
+    def rewrite_op_likely(self, op):
+        return None   # "no real effect"
+
+    def rewrite_op_unlikely(self, op):
+        return None   # "no real effect"
+
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
             return   # the operation disappears

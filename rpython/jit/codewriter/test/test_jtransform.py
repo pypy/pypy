@@ -1376,3 +1376,12 @@ def test_unknown_operation():
         tr.rewrite_operation(op)
     except Exception, e:
         assert 'foobar' in str(e)
+
+def test_likely_unlikely():
+    v1 = varoftype(lltype.Bool)
+    v2 = varoftype(lltype.Bool)
+    op = SpaceOperation('likely', [v1], v2)
+    tr = Transformer()
+    assert tr.rewrite_operation(op) is None
+    op = SpaceOperation('unlikely', [v1], v2)
+    assert tr.rewrite_operation(op) is None
