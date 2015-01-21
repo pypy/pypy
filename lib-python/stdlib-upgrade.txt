@@ -7,7 +7,7 @@ Process for upgrading the stdlib to a new cpython version
 
 1. check out the branch vendor/stdlib
 2. upgrade the files there
-3. update stdlib-versions.txt with the output of hg -id from the cpython repo
+3. update stdlib-version.txt with the output of hg -id from the cpython repo
 4. commit
 5. update to default/py3k
 6. create a integration branch for the new stdlib

@@ -700,6 +700,15 @@ class AppTestWithMapDict(object):
         del a.x
         raises(AttributeError, "a.x")
 
+    def test_reversed_dict(self):
+        import __pypy__
+        class X(object):
+            pass
+        x = X(); x.a = 10; x.b = 20; x.c = 30
+        d = x.__dict__
+        assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
+
+
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmapdict": True,
                    "objspace.std.withmethodcachecounter": True}

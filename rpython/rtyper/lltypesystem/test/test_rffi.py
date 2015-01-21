@@ -3,7 +3,7 @@ import py
 import sys
 from rpython.rtyper.lltypesystem.rffi import *
 from rpython.rtyper.lltypesystem.rffi import _keeper_for_type # crap
-from rpython.rlib.rposix import get_errno, set_errno
+from rpython.rlib.rposix import get_saved_errno, set_saved_errno
 from rpython.translator.c.test.test_genc import compile as compile_c
 from rpython.rtyper.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from rpython.rtyper.lltypesystem import lltype
@@ -207,15 +207,15 @@ class BaseTestRffi:
             bad_fd = 12312312
 
         def f():
-            set_errno(12)
-            return get_errno()
+            set_saved_errno(12)
+            return get_saved_errno()
 
         def g():
             try:
                 os.write(bad_fd, "xxx")
             except OSError:
                 pass
-            return get_errno()
+            return get_saved_errno()
 
         fn = self.compile(f, [])
         assert fn() == 12

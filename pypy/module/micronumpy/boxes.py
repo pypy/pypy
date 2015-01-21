@@ -31,6 +31,7 @@ MIXIN_64 = (W_IntObject.typedef,) if LONG_BIT == 64 else ()
 long_double_size = 8
 
 
+
 def new_dtype_getter(num):
     @specialize.memo()
     def _get_dtype(space):
@@ -229,25 +230,30 @@ class W_GenericBox(W_NumpyObject):
     def descr_nonzero(self, space):
         return space.wrap(self.get_dtype(space).itemtype.bool(self))
 
+    # TODO: support all kwargs in ufuncs like numpy ufunc_object.c
+    sig = None
+    cast = None
+    extobj = None
+
     def _unaryop_impl(ufunc_name):
         def impl(self, space, w_out=None):
             from pypy.module.micronumpy import ufuncs
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [self, w_out])
+                space, [self, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import ufuncs
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [self, w_other, w_out])
+                space, [self, w_other, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import ufuncs
             return getattr(ufuncs.get(space), ufunc_name).call(
-                space, [w_other, self, w_out])
+                space, [w_other, self, w_out], self.sig, self.cast, self.extobj)
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")

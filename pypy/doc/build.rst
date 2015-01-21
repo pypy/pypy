@@ -47,6 +47,11 @@ where XXXXX is the revision id.
 
 Install build-time dependencies
 -------------------------------
+(**Note**: for some hints on how to translate the Python interpreter under
+Windows, see the `windows document`_)
+
+.. _`windows document`: windows.html
+
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional

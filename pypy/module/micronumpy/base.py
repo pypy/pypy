@@ -119,6 +119,19 @@ class W_NDimArray(W_NumpyObject):
         w_arr.set_scalar_value(w_scalar)
         return w_arr
 
+    def get_shape(self):
+        return self.implementation.get_shape()
+
+    def get_dtype(self):
+        return self.implementation.dtype
+
+    def get_order(self):
+        return self.implementation.order
+
+    def ndims(self):
+        return len(self.get_shape())
+    ndims._always_inline_ = True
+
 
 def convert_to_array(space, w_obj):
     from pypy.module.micronumpy.ctors import array

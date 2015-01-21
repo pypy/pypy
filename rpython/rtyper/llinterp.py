@@ -740,6 +740,10 @@ class LLFrame(object):
         return lltype.cast_opaque_ptr(RESTYPE, obj)
     op_cast_opaque_ptr.need_result_type = True
 
+    def op_length_of_simple_gcarray_from_opaque(self, obj):
+        checkptr(obj)
+        return lltype.length_of_simple_gcarray_from_opaque(obj)
+
     def op_cast_ptr_to_adr(self, ptr):
         checkptr(ptr)
         return llmemory.cast_ptr_to_adr(ptr)
@@ -910,6 +914,9 @@ class LLFrame(object):
 
     def op_gc_typeids_z(self):
         raise NotImplementedError("gc_typeids_z")
+
+    def op_gc_typeids_list(self):
+        raise NotImplementedError("gc_typeids_list")
 
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)

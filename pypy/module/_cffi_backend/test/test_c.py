@@ -30,7 +30,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 class AppTestC(object):
     """Populated below, hack hack hack."""
 
-    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
+    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO', 'array'))
 
     def setup_class(cls):
         testfuncs_w = []

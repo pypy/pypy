@@ -486,10 +486,10 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                              w_exception_class=w_exception_class)
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
-def exception_from_errno(space, w_type):
-    from rpython.rlib.rposix import get_errno
+def exception_from_saved_errno(space, w_type):
+    from rpython.rlib.rposix import get_saved_errno
 
-    errno = get_errno()
+    errno = get_saved_errno()
     msg = os.strerror(errno)
     w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
     return OperationError(w_type, w_error)

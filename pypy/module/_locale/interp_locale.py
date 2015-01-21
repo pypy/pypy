@@ -300,7 +300,8 @@ if rlocale.HAVE_LIBINTL:
         return space.wrap(result)
 
     _bindtextdomain = rlocale.external('bindtextdomain', [rffi.CCHARP, rffi.CCHARP],
-                                                                rffi.CCHARP)
+                                                                rffi.CCHARP,
+                                       save_err=rffi.RFFI_SAVE_ERRNO)
 
     @unwrap_spec(domain=str)
     def bindtextdomain(space, domain, w_dir):
@@ -325,7 +326,7 @@ if rlocale.HAVE_LIBINTL:
                 rffi.free_charp(dir_c)
 
         if not dirname:
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise OperationError(space.w_OSError, space.wrap(errno))
         return space.wrap(rffi.charp2str(dirname))
 

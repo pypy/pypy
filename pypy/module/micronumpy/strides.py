@@ -429,3 +429,35 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
     return new_strides[:]
+
+@jit.unroll_safe
+def is_c_contiguous(arr):
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    ret = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape) - 1, -1, -1):
+        dim = shape[i]
+        if strides[i] != sd:
+            ret = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    return ret
+
+@jit.unroll_safe
+def is_f_contiguous(arr):
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    ret = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape)):
+        dim = shape[i]
+        if strides[i] != sd:
+            ret = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    return ret

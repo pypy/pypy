@@ -578,7 +578,12 @@ class TestCollectionABCs(ABCTestCase):
             def __repr__(self):
                 return "MySet(%s)" % repr(list(self))
         s = MySet([5,43,2,1])
-        self.assertEqual(s.pop(), 1)
+        # changed from CPython 2.7: it was "s.pop() == 1" but I see
+        # nothing that guarantees a particular order here.  In the
+        # 'all_ordered_dicts' branch of PyPy (or with OrderedDict
+        # instead of sets), it consistently returns 5, but this test
+        # should not rely on this or any other order.
+        self.assert_(s.pop() in [5,43,2,1])
 
     def test_issue8750(self):
         empty = WithSet()
@@ -1010,8 +1015,9 @@ class TestOrderedDict(unittest.TestCase):
                                           c=3, e=5).items()), pairs)                # mixed input
 
         # make sure no positional args conflict with possible kwdargs
-        self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
-                         ['self'])
+        if '__init__' in OrderedDict.__dict__:   # absent in PyPy
+            self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
+                             ['self'])
 
         # Make sure that direct calls to __init__ do not clear previous contents
         d = OrderedDict([('a', 1), ('b', 2), ('c', 3), ('d', 44), ('e', 55)])
@@ -1108,6 +1114,16 @@ class TestOrderedDict(unittest.TestCase):
             od.popitem()
         self.assertEqual(len(od), 0)
 
+    def test_popitem_first(self):
+        pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
+        shuffle(pairs)
+        od = OrderedDict(pairs)
+        while pairs:
+            self.assertEqual(od.popitem(last=False), pairs.pop(0))
+        with self.assertRaises(KeyError):
+            od.popitem(last=False)
+        self.assertEqual(len(od), 0)
+
     def test_pop(self):
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
@@ -1179,7 +1195,11 @@ class TestOrderedDict(unittest.TestCase):
         od = OrderedDict(pairs)
         # yaml.dump(od) -->
         # '!!python/object/apply:__main__.OrderedDict\n- - [a, 1]\n  - [b, 2]\n'
-        self.assertTrue(all(type(pair)==list for pair in od.__reduce__()[1]))
+
+        # PyPy bug fix: added [0] at the end of this line, because the
+        # test is really about the 2-tuples that need to be 2-lists
+        # inside the list of 6 of them
+        self.assertTrue(all(type(pair)==list for pair in od.__reduce__()[1][0]))
 
     def test_reduce_not_too_fat(self):
         # do not save instance dictionary if not needed
@@ -1188,6 +1208,16 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(len(od.__reduce__()), 2)
         od.x = 10
         self.assertEqual(len(od.__reduce__()), 3)
+
+    def test_reduce_exact_output(self):
+        # PyPy: test that __reduce__() produces the exact same answer as
+        # CPython does, even though in the 'all_ordered_dicts' branch we
+        # have to emulate it.
+        pairs = [['c', 1], ['b', 2], ['d', 4]]
+        od = OrderedDict(pairs)
+        self.assertEqual(od.__reduce__(), (OrderedDict, (pairs,)))
+        od.x = 10
+        self.assertEqual(od.__reduce__(), (OrderedDict, (pairs,), {'x': 10}))
 
     def test_repr(self):
         od = OrderedDict([('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)])

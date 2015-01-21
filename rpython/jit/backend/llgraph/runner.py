@@ -935,7 +935,7 @@ class LLFrame(object):
         del self.force_guard_op
         return res
 
-    def execute_call_release_gil(self, descr, func, *args):
+    def execute_call_release_gil(self, descr, saveerr, func, *args):
         if hasattr(descr, '_original_func_'):
             func = descr._original_func_     # see pyjitpl.py
             # we want to call the function that does the aroundstate
