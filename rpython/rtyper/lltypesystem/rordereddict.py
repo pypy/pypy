@@ -4,7 +4,7 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import objectmodel, jit, rgc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, likely
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper import rmodel
@@ -46,7 +46,7 @@ from rpython.rtyper.annlowlevel import llhelper
 @jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
     fun = d.lookup_function_no & FUNC_MASK
-    if fun == FUNC_BYTE:
+    if likely(fun == FUNC_BYTE):
         return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
     elif fun == FUNC_SHORT:
         return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
