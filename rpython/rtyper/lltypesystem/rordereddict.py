@@ -46,6 +46,10 @@ from rpython.rtyper.annlowlevel import llhelper
 @jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
     fun = d.lookup_function_no & FUNC_MASK
+    # This likely() here forces gcc to compile the check for fun == FUNC_BYTE
+    # first.  Otherwise, this is a regular switch and gcc (at least 4.7)
+    # compiles this as a series of checks, with the FUNC_BYTE case last.
+    # It sounds minor, but it is worth 6-7% on a PyPy microbenchmark.
     if likely(fun == FUNC_BYTE):
         return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
     elif fun == FUNC_SHORT:
