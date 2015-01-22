@@ -10,16 +10,12 @@ from pypy.objspace.std.dictmultiobject import (
     DictStrategy, ObjectDictStrategy, _never_equal_to_string,
     create_iterator_classes)
 from pypy.objspace.std.typeobject import (
-    MutableCell, IntMutableCell, ObjectMutableCell, write_cell)
+    MutableCell, IntMutableCell, ObjectMutableCell, write_cell,
+    unwrap_cell)
 
 
 class VersionTag(object):
     pass
-
-def unwrap_cell(space, w_value):
-    if isinstance(w_value, MutableCell):
-        return w_value.unwrap_cell(space)
-    return w_value
 
 
 def _wrapkey(space, key):
