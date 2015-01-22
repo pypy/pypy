@@ -30,15 +30,20 @@ object_t *stm_setup_prebuilt_weakref(object_t *obj)
 
 static void _set_weakref_in_all_segments(object_t *weakref, object_t *value)
 {
+    /* XXX: maybe it should use synchronize_obj_enqueue and _flush */
     ssize_t size = 16;
 
     stm_char *point_to_loc = (stm_char*)WEAKREF_PTR(weakref, size);
+    uintptr_t pagenum = (uintptr_t)point_to_loc / 4096UL;
+
 
     long i;
-    for (i = 0; i <= NB_SEGMENTS; i++) {
-        char *base = get_segment_base(i);
-        object_t ** ref_loc = (object_t **)REAL_ADDRESS(base, point_to_loc);
-        *ref_loc = value;
+    for (i = 0; i < NB_SEGMENTS; i++) {
+        if (get_page_status_in(i, pagenum) == PAGE_ACCESSIBLE) {
+            char *base = get_segment_base(i);
+            object_t ** ref_loc = (object_t **)REAL_ADDRESS(base, point_to_loc);
+            *ref_loc = value;
+        }
     }
 }
 
@@ -114,14 +119,16 @@ static void stm_move_young_weakrefs(void)
 static void stm_visit_old_weakrefs(void)
 {
     long i;
-    for (i = 1; i <= NB_SEGMENTS; i++) {
+    assert(list_is_empty(get_priv_segment(0)->old_weakrefs));
+    for (i = 1; i < NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
         struct list_s *lst;
 
         lst = pseg->old_weakrefs;
         uintptr_t n = list_count(lst);
-        while (n > 0) {
-            object_t *weakref = (object_t *)list_item(lst, --n);
+        while (n--> 0) {
+            object_t *weakref = (object_t *)list_item(lst, n);
+
             if (!mark_visited_test(weakref)) {
                 /* weakref dies */
                 list_set_item(lst, n, list_pop_item(lst));
@@ -134,10 +141,10 @@ static void stm_visit_old_weakrefs(void)
             object_t *pointing_to = *(object_t **)real_wr;
             assert((uintptr_t)pointing_to >= NURSERY_END);
             if (!mark_visited_test(pointing_to)) {
-                //assert(flag_page_private[(uintptr_t)weakref / 4096UL] != PRIVATE_PAGE);
+                /* pointing_to died */
                 _set_weakref_in_all_segments(weakref, NULL);
 
-                /* we don't need it in this list anymore */
+                /* we don't need the weakref it in this list anymore */
                 list_set_item(lst, n, list_pop_item(lst));
                 continue;
             }

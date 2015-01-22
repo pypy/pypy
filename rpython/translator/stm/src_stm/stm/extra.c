@@ -67,7 +67,7 @@ static void invoke_and_clear_user_callbacks(long index)
     STM_PSEGMENT->callbacks_on_commit_and_abort[index] = tree_create();
 
     wlog_t *item;
-    TREE_LOOP_FORWARD(*callbacks, item) {
+    TREE_LOOP_FORWARD(callbacks, item) {
         void *key = (void *)item->addr;
         void (*callback)(void *) = (void(*)(void *))item->val;
         assert(key != NULL);

@@ -31,21 +31,6 @@ static struct list_s *_list_grow(struct list_s *lst, uintptr_t nalloc)
     return lst;
 }
 
-static struct list_s *list_extend(struct list_s *lst, struct list_s *lst2,
-                                  uintptr_t slicestart)
-{
-    if (lst2->count <= slicestart)
-        return lst;
-    uintptr_t baseindex = lst->count;
-    lst->count = baseindex + lst2->count - slicestart;
-    uintptr_t lastindex = lst->count - 1;
-    if (lastindex > lst->last_allocated)
-        lst = _list_grow(lst, lastindex);
-    memcpy(lst->items + baseindex, lst2->items + slicestart,
-           (lst2->count - slicestart) * sizeof(uintptr_t));
-    return lst;
-}
-
 
 /************************************************************/
 
@@ -59,7 +44,9 @@ static void tree_clear(struct tree_s *tree)
     if (tree->raw_current != tree->raw_start) {
         _tree_clear_node(&tree->toplevel);
         tree->raw_current = tree->raw_start;
+        tree->count = 0;
     }
+    assert(tree->count == 0);
 }
 
 static struct tree_s *tree_create(void)
@@ -80,7 +67,7 @@ static void _tree_compress(struct tree_s *tree)
     struct tree_s tree_copy;
     memset(&tree_copy, 0, sizeof(struct tree_s));
 
-    TREE_LOOP_FORWARD(*tree, item) {
+    TREE_LOOP_FORWARD(tree, item) {
         tree_insert(&tree_copy, item->addr, item->val);
 
     } TREE_LOOP_END;
@@ -114,8 +101,9 @@ static void _tree_grow(struct tree_s *tree, long extra)
     newtree.raw_start = newitems;
     newtree.raw_current = newitems;
     newtree.raw_end = newitems + newalloc;
+    newtree.count = 0;
     _tree_clear_node(&newtree.toplevel);
-    TREE_LOOP_FORWARD(*tree, item)
+    TREE_LOOP_FORWARD(tree, item)
     {
         tree_insert(&newtree, item->addr, item->val);
     } TREE_LOOP_END;
@@ -161,6 +149,7 @@ static void tree_insert(struct tree_s *tree, uintptr_t addr, uintptr_t val)
                 /* reuse the deleted entry and that's it */
                 wlog1->addr = addr;
                 wlog1->val = val;
+                (tree->count)++;
                 return;
             }
             /* the key must not already be present */
@@ -182,15 +171,29 @@ static void tree_insert(struct tree_s *tree, uintptr_t addr, uintptr_t val)
     wlog->addr = addr;
     wlog->val = val;
     *(char **)p = (char *)wlog;
+    (tree->count)++;
 }
 
 static bool tree_delete_item(struct tree_s *tree, uintptr_t addr)
 {
     wlog_t *entry;
-    TREE_FIND(*tree, addr, entry, goto missing);
+    TREE_FIND(tree, addr, entry, goto missing);
     entry->addr = 0;
+    tree->count--;
     return true;
 
  missing:
     return false;
+}
+
+static wlog_t *tree_item(struct tree_s *tree, int index)
+{
+    int i = 0;
+    wlog_t *item;
+    TREE_LOOP_FORWARD(tree, item);
+    if (i == index)
+        return item;
+    i++;
+    TREE_LOOP_END;
+    return NULL;
 }

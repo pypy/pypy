@@ -9,7 +9,8 @@ static int threadcolor_printf(const char *format, ...)
     char buffer[2048];
     va_list ap;
     int result;
-    int size = (int)sprintf(buffer, "\033[%dm[%d,%lx] ", dprintfcolor(),
+    int size = (int)sprintf(buffer, "\033[%dm[%d,%d,%lx] ",
+                            dprintfcolor(), STM_SEGMENT->segment_num,
                             (int)getpid(), (long)pthread_self());
     assert(size >= 0);
 

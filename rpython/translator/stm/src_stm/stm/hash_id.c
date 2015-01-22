@@ -59,7 +59,7 @@ long stm_identityhash(object_t *obj)
 void stm_set_prebuilt_identityhash(object_t *obj, long hash)
 {
     struct object_s *realobj = (struct object_s *)
-        REAL_ADDRESS(stm_object_pages, obj);
+        get_virtual_address(STM_SEGMENT->segment_num, obj);
 
     assert(realobj->stm_flags == GCFLAG_WRITE_BARRIER);
     realobj->stm_flags |= GCFLAG_HAS_SHADOW;

@@ -5,13 +5,6 @@
 
 /************************************************************/
 
-/* xxx later: divide the nursery into sections, and zero them
-   incrementally.  For now we avoid the mess of maintaining a
-   description of which parts of the nursery are already zeroed
-   and which ones are not (caused by the fact that each
-   transaction fills up a different amount).
-*/
-
 #define NURSERY_START         (FIRST_NURSERY_PAGE * 4096UL)
 #define NURSERY_SIZE          (NB_NURSERY_PAGES * 4096UL)
 #define NURSERY_END           (NURSERY_START + NURSERY_SIZE)
@@ -27,7 +20,7 @@ static void setup_nursery(void)
     _stm_nursery_start = NURSERY_START;
 
     long i;
-    for (i = 1; i <= NB_SEGMENTS; i++) {
+    for (i = 0; i < NB_SEGMENTS; i++) {
         get_segment(i)->nursery_current = (stm_char *)NURSERY_START;
         get_segment(i)->nursery_end = NURSERY_END;
     }
@@ -45,21 +38,15 @@ static inline bool _is_young(object_t *obj)
         tree_contains(STM_PSEGMENT->young_outside_nursery, (uintptr_t)obj));
 }
 
-static inline bool _is_from_same_transaction(object_t *obj) {
-    return _is_young(obj) || IS_OVERFLOW_OBJ(STM_PSEGMENT, obj);
-}
-
 long stm_can_move(object_t *obj)
 {
     /* 'long' return value to avoid using 'bool' in the public interface */
     return _is_in_nursery(obj);
 }
 
-static object_t *find_existing_shadow(object_t *obj);
-
 
 /************************************************************/
-
+static object_t *find_existing_shadow(object_t *obj);
 #define GCWORD_MOVED  ((object_t *) -1)
 #define FLAG_SYNC_LARGE       0x01
 
@@ -68,8 +55,8 @@ static void minor_trace_if_young(object_t **pobj)
 {
     /* takes a normal pointer to a thread-local pointer to an object */
     object_t *obj = *pobj;
-    object_t *nobj;
     uintptr_t nobj_sync_now;
+    object_t *nobj;
     char *realobj;
     size_t size;
 
@@ -92,48 +79,44 @@ static void minor_trace_if_young(object_t **pobj)
                 *pobj = pforwarded_array[1];    /* already moved */
                 return;
             }
-            else {
-                /* really has a shadow */
-                nobj = find_existing_shadow(obj);
-                obj->stm_flags &= ~GCFLAG_HAS_SHADOW;
-                realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-                size = stmcb_size_rounded_up((struct object_s *)realobj);
-                goto copy_large_object;
-            }
+
+            /* really has a shadow */
+            nobj = find_existing_shadow(obj);
+            obj->stm_flags &= ~GCFLAG_HAS_SHADOW;
+            realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
+            size = stmcb_size_rounded_up((struct object_s *)realobj);
+
+            dprintf(("has_shadow(%p): %p, sz:%lu\n",
+                     obj, nobj, size));
+            goto copy_large_object;
         }
-        /* We need to make a copy of this object.  It goes either in
-           a largemalloc.c-managed area, or if it's small enough, in
-           one of the small uniform pages from gcpage.c.
-        */
+
         realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
         size = stmcb_size_rounded_up((struct object_s *)realobj);
 
-        if (1 /*size >= GC_N_SMALL_REQUESTS*8*/) {
-
+        if (size > GC_LAST_SMALL_SIZE) {
             /* case 1: object is not small enough.
                Ask gcpage.c for an allocation via largemalloc. */
-            char *allocated = allocate_outside_nursery_large(size);
-            nobj = (object_t *)(allocated - stm_object_pages);
-
-            /* Copy the object */
-         copy_large_object:;
-            char *realnobj = REAL_ADDRESS(STM_SEGMENT->segment_base, nobj);
-            memcpy(realnobj, realobj, size);
-
-            nobj_sync_now = ((uintptr_t)nobj) | FLAG_SYNC_LARGE;
+            nobj = (object_t *)allocate_outside_nursery_large(size);
         }
         else {
             /* case "small enough" */
-            abort();  //...
+            nobj = (object_t *)allocate_outside_nursery_small(size);
         }
 
-        /* Done copying the object. */
-        //dprintf(("\t\t\t\t\t%p -> %p\n", obj, nobj));
+        dprintf(("move %p -> %p\n", obj, nobj));
+
+        /* copy the object */
+    copy_large_object:;
+        char *realnobj = REAL_ADDRESS(STM_SEGMENT->segment_base, nobj);
+        memcpy(realnobj, realobj, size);
+
+        nobj_sync_now = ((uintptr_t)nobj) | FLAG_SYNC_LARGE;
+
         pforwarded_array[0] = GCWORD_MOVED;
         pforwarded_array[1] = nobj;
         *pobj = nobj;
     }
-
     else {
         /* The object was not in the nursery at all */
         if (LIKELY(!tree_contains(STM_PSEGMENT->young_outside_nursery,
@@ -146,16 +129,18 @@ static void minor_trace_if_young(object_t **pobj)
         nobj_sync_now = ((uintptr_t)nobj) | FLAG_SYNC_LARGE;
     }
 
-    /* Set the overflow_number if nedeed */
-    assert((nobj->stm_flags & -GCFLAG_OVERFLOW_NUMBER_bit0) == 0);
+    /* if this is not during commit, we will add them to the new_objects
+       list and push them to other segments on commit. Thus we can add
+       the WB_EXECUTED flag so that they don't end up in modified_old_objects */
+    assert(!(nobj->stm_flags & GCFLAG_WB_EXECUTED));
     if (!STM_PSEGMENT->minor_collect_will_commit_now) {
-        nobj->stm_flags |= STM_PSEGMENT->overflow_number;
+        nobj->stm_flags |= GCFLAG_WB_EXECUTED;
     }
 
     /* Must trace the object later */
     LIST_APPEND(STM_PSEGMENT->objects_pointing_to_nursery, nobj_sync_now);
-    _cards_cleared_in_object(get_priv_segment(STM_SEGMENT->segment_num), nobj);
 }
+
 
 static void collect_roots_in_nursery(void)
 {
@@ -181,202 +166,25 @@ static void collect_roots_in_nursery(void)
             /* it is an odd-valued marker, ignore */
         }
     }
+
     minor_trace_if_young(&tl->thread_local_obj);
 }
 
-static void _cards_cleared_in_object(struct stm_priv_segment_info_s *pseg, object_t *obj)
-{
-#ifndef NDEBUG
-    struct object_s *realobj = (struct object_s *)REAL_ADDRESS(pseg->pub.segment_base, obj);
-    size_t size = stmcb_size_rounded_up(realobj);
-
-    if (size < _STM_MIN_CARD_OBJ_SIZE)
-        return;                 /* too small for cards */
-
-    uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
-    uintptr_t card_index = 1;
-    uintptr_t last_card_index = get_index_to_card_index(size - 1); /* max valid index */
-
-    OPT_ASSERT(write_locks[first_card_index] <= NB_SEGMENTS_MAX
-               || write_locks[first_card_index] == 255); /* see gcpage.c */
-    while (card_index <= last_card_index) {
-        uintptr_t card_lock_idx = first_card_index + card_index;
-        if (write_locks[card_lock_idx] != CARD_CLEAR) {
-            /* could occur if the object is immediately re-locked by
-               another thread */
-            assert(write_locks[first_card_index] != 0);
-        }
-        card_index++;
-    }
-
-    assert(!(realobj->stm_flags & GCFLAG_CARDS_SET));
-#endif
-}
-
-static void _verify_cards_cleared_in_all_lists(struct stm_priv_segment_info_s *pseg)
-{
-#ifndef NDEBUG
-    LIST_FOREACH_R(
-        pseg->modified_old_objects, object_t * /*item*/,
-        _cards_cleared_in_object(pseg, item));
-
-    if (pseg->large_overflow_objects) {
-        LIST_FOREACH_R(
-            pseg->large_overflow_objects, object_t * /*item*/,
-            _cards_cleared_in_object(pseg, item));
-    }
-    if (pseg->objects_pointing_to_nursery) {
-        LIST_FOREACH_R(
-            pseg->objects_pointing_to_nursery, object_t * /*item*/,
-            _cards_cleared_in_object(pseg, item));
-    }
-    LIST_FOREACH_R(
-        pseg->old_objects_with_cards, object_t * /*item*/,
-        _cards_cleared_in_object(pseg, item));
-#endif
-}
-
-static void _reset_object_cards(struct stm_priv_segment_info_s *pseg,
-                                object_t *obj, uint8_t mark_value,
-                                bool mark_all)
-{
-#pragma push_macro("STM_PSEGMENT")
-#pragma push_macro("STM_SEGMENT")
-#undef STM_PSEGMENT
-#undef STM_SEGMENT
-    struct object_s *realobj = (struct object_s *)REAL_ADDRESS(pseg->pub.segment_base, obj);
-    size_t size = stmcb_size_rounded_up(realobj);
-    OPT_ASSERT(size >= _STM_MIN_CARD_OBJ_SIZE);
-
-    uintptr_t offset_itemsize[2];
-    stmcb_get_card_base_itemsize(realobj, offset_itemsize);
-    size = (size - offset_itemsize[0]) / offset_itemsize[1];
-
-    assert(IMPLY(mark_value == CARD_CLEAR, !mark_all)); /* not necessary */
-    assert(IMPLY(mark_all, mark_value == CARD_MARKED_OLD)); /* set *all* to OLD */
-    assert(IMPLY(IS_OVERFLOW_OBJ(pseg, realobj),
-                 mark_value == CARD_CLEAR)); /* overflows are always CLEARed */
-
-    uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
-    uintptr_t card_index = 1;
-    uintptr_t last_card_index = get_index_to_card_index(size - 1); /* max valid index */
-
-    OPT_ASSERT(write_locks[first_card_index] <= NB_SEGMENTS
-               || write_locks[first_card_index] == 255); /* see gcpage.c */
-
-    dprintf(("mark cards of %p, size %lu with %d, all: %d\n",
-             obj, size, mark_value, mark_all));
-    dprintf(("obj has %lu cards\n", last_card_index));
-    while (card_index <= last_card_index) {
-        uintptr_t card_lock_idx = first_card_index + card_index;
-
-        if (mark_all || write_locks[card_lock_idx] != CARD_CLEAR) {
-            /* dprintf(("mark card %lu,wl:%lu of %p with %d\n", */
-            /*          card_index, card_lock_idx, obj, mark_value)); */
-            write_locks[card_lock_idx] = mark_value;
-        }
-        card_index++;
-    }
-
-    realobj->stm_flags &= ~GCFLAG_CARDS_SET;
-
-#pragma pop_macro("STM_SEGMENT")
-#pragma pop_macro("STM_PSEGMENT")
-}
-
-
-static void _trace_card_object(object_t *obj)
-{
-    assert(!_is_in_nursery(obj));
-    assert(obj->stm_flags & GCFLAG_CARDS_SET);
-    assert(obj->stm_flags & GCFLAG_WRITE_BARRIER);
-
-    dprintf(("_trace_card_object(%p)\n", obj));
-    bool obj_is_overflow = IS_OVERFLOW_OBJ(STM_PSEGMENT, obj);
-    uint8_t mark_value = obj_is_overflow ? CARD_CLEAR : CARD_MARKED_OLD;
-
-    struct object_s *realobj = (struct object_s *)REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-    size_t size = stmcb_size_rounded_up(realobj);
-    uintptr_t offset_itemsize[2];
-    stmcb_get_card_base_itemsize(realobj, offset_itemsize);
-    size = (size - offset_itemsize[0]) / offset_itemsize[1];
-
-    uintptr_t first_card_index = get_write_lock_idx((uintptr_t)obj);
-    uintptr_t card_index = 1;
-    uintptr_t last_card_index = get_index_to_card_index(size - 1); /* max valid index */
-
-    OPT_ASSERT(write_locks[first_card_index] <= NB_SEGMENTS_MAX
-               || write_locks[first_card_index] == 255); /* see gcpage.c */
-
-    /* XXX: merge ranges */
-    while (card_index <= last_card_index) {
-        uintptr_t card_lock_idx = first_card_index + card_index;
-        if (write_locks[card_lock_idx] == CARD_MARKED) {
-            /* clear or set to old: */
-            write_locks[card_lock_idx] = mark_value;
-
-            uintptr_t start = get_card_index_to_index(card_index);
-            uintptr_t stop = get_card_index_to_index(card_index + 1);
-
-            dprintf(("trace_cards on %p with start:%lu stop:%lu\n",
-                     obj, start, stop));
-            stmcb_trace_cards(realobj, &minor_trace_if_young,
-                              start, stop);
-        }
-
-        /* all cards should be cleared on overflow objs */
-        assert(IMPLY(obj_is_overflow,
-                     write_locks[card_lock_idx] == CARD_CLEAR));
-
-        card_index++;
-    }
-    obj->stm_flags &= ~GCFLAG_CARDS_SET;
-}
-
-
-#define TRACE_FOR_MINOR_COLLECTION  (&minor_trace_if_young)
 
 static inline void _collect_now(object_t *obj)
 {
     assert(!_is_young(obj));
-    assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
 
     dprintf(("_collect_now: %p\n", obj));
 
-    if (!(obj->stm_flags & GCFLAG_WRITE_BARRIER)) {
-        /* Trace the 'obj' to replace pointers to nursery with pointers
-           outside the nursery, possibly forcing nursery objects out and
-           adding them to 'objects_pointing_to_nursery' as well. */
-        char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-        stmcb_trace((struct object_s *)realobj, TRACE_FOR_MINOR_COLLECTION);
+    assert(!(obj->stm_flags & GCFLAG_WRITE_BARRIER));
 
-        obj->stm_flags |= GCFLAG_WRITE_BARRIER;
-    }
-    /* else traced in collect_cardrefs_to_nursery if necessary */
+    char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
+    stmcb_trace((struct object_s *)realobj, &minor_trace_if_young);
+
+    obj->stm_flags |= GCFLAG_WRITE_BARRIER;
 }
 
-
-static void collect_cardrefs_to_nursery(void)
-{
-    dprintf(("collect_cardrefs_to_nursery\n"));
-    struct list_s *lst = STM_PSEGMENT->old_objects_with_cards;
-
-    while (!list_is_empty(lst)) {
-        object_t *obj = (object_t*)list_pop_item(lst);
-
-        assert(!_is_young(obj));
-
-        if (!(obj->stm_flags & GCFLAG_CARDS_SET)) {
-            /* sometimes we remove the CARDS_SET in the WB slowpath, see core.c */
-            continue;
-        }
-
-        /* traces cards, clears marked cards or marks them old if necessary */
-        _trace_card_object(obj);
-
-        assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
-    }
-}
 
 static void collect_oldrefs_to_nursery(void)
 {
@@ -387,75 +195,38 @@ static void collect_oldrefs_to_nursery(void)
         uintptr_t obj_sync_now = list_pop_item(lst);
         object_t *obj = (object_t *)(obj_sync_now & ~FLAG_SYNC_LARGE);
 
+        assert(!_is_in_nursery(obj));
+
         _collect_now(obj);
-        assert(!(obj->stm_flags & GCFLAG_CARDS_SET));
 
         if (obj_sync_now & FLAG_SYNC_LARGE) {
-            /* this was a large object.  We must either synchronize the
-               object to other segments now (after we added the
-               WRITE_BARRIER flag and traced into it to fix its
-               content); or add the object to 'large_overflow_objects'.
-            */
-            struct stm_priv_segment_info_s *pseg = get_priv_segment(STM_SEGMENT->segment_num);
+            /* this is a newly allocated obj in this transaction. We must
+               either synchronize the object to other segments now, or
+               add the object to new_objects list */
             if (STM_PSEGMENT->minor_collect_will_commit_now) {
-                acquire_privatization_lock();
-                synchronize_object_now(obj, true); /* ignore cards! */
-                release_privatization_lock();
+                acquire_privatization_lock(STM_SEGMENT->segment_num);
+                synchronize_object_enqueue(obj);
+                release_privatization_lock(STM_SEGMENT->segment_num);
             } else {
-                LIST_APPEND(STM_PSEGMENT->large_overflow_objects, obj);
+                LIST_APPEND(STM_PSEGMENT->new_objects, obj);
             }
-            _cards_cleared_in_object(pseg, obj);
         }
 
         /* the list could have moved while appending */
         lst = STM_PSEGMENT->objects_pointing_to_nursery;
     }
-}
 
-static void collect_modified_old_objects(void)
-{
-    dprintf(("collect_modified_old_objects\n"));
-    LIST_FOREACH_R(
-        STM_PSEGMENT->modified_old_objects, object_t * /*item*/,
-        _collect_now(item));
-}
-
-static void collect_roots_from_markers(uintptr_t num_old)
-{
-    dprintf(("collect_roots_from_markers\n"));
-    /* visit the marker objects */
-    struct list_s *mlst = STM_PSEGMENT->modified_old_objects_markers;
-    STM_PSEGMENT->modified_old_objects_markers_num_old = list_count(mlst);
-    uintptr_t i, total = list_count(mlst);
-    assert((total & 1) == 0);
-    for (i = num_old + 1; i < total; i += 2) {
-        minor_trace_if_young((object_t **)list_ptr_to_item(mlst, i));
-    }
-    if (STM_PSEGMENT->marker_inev.segment_base) {
-        assert(STM_PSEGMENT->marker_inev.segment_base ==
-               STM_SEGMENT->segment_base);
-        object_t **pmarker_inev_obj = (object_t **)
-            REAL_ADDRESS(STM_SEGMENT->segment_base,
-                         &STM_PSEGMENT->marker_inev.object);
-        minor_trace_if_young(pmarker_inev_obj);
+    /* flush all new objects to other segments now */
+    if (STM_PSEGMENT->minor_collect_will_commit_now) {
+        acquire_privatization_lock(STM_SEGMENT->segment_num);
+        synchronize_objects_flush();
+        release_privatization_lock(STM_SEGMENT->segment_num);
+    } else {
+        /* nothing in the queue when not committing */
+        assert(STM_PSEGMENT->sq_len == 0);
     }
 }
 
-static void collect_objs_still_young_but_with_finalizers(void)
-{
-    struct list_s *lst = STM_PSEGMENT->finalizers->objects_with_finalizers;
-    uintptr_t i, total = list_count(lst);
-
-    for (i = STM_PSEGMENT->finalizers->count_non_young; i < total; i++) {
-
-        object_t *o = (object_t *)list_item(lst, i);
-        minor_trace_if_young(&o);
-
-        /* was not actually movable */
-        assert(o == (object_t *)list_item(lst, i));
-    }
-    STM_PSEGMENT->finalizers->count_non_young = total;
-}
 
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 {
@@ -488,17 +259,19 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     if (!tree_is_cleared(pseg->young_outside_nursery)) {
         wlog_t *item;
 
-        TREE_LOOP_FORWARD(*pseg->young_outside_nursery, item) {
-            object_t *obj = (object_t*)item->addr;
-            assert(!_is_in_nursery(obj));
+        if (!tree_is_empty(pseg->young_outside_nursery)) {
+            /* tree may still be empty even if not cleared */
+            TREE_LOOP_FORWARD(pseg->young_outside_nursery, item) {
+                object_t *obj = (object_t*)item->addr;
+                assert(!_is_in_nursery(obj));
 
-            /* mark slot as unread (it can only have the read marker
-               in this segment) */
-            ((struct stm_read_marker_s *)
-             (pseg->pub.segment_base + (((uintptr_t)obj) >> 4)))->rm = 0;
+                /* mark slot as unread (it can only have the read marker
+                   in this segment) */
+                *((char *)(pseg->pub.segment_base + (((uintptr_t)obj) >> 4))) = 0;
 
-            _stm_large_free(stm_object_pages + item->addr);
-        } TREE_LOOP_END;
+                _stm_large_free(stm_object_pages + item->addr);
+            } TREE_LOOP_END;
+        }
 
         tree_clear(pseg->young_outside_nursery);
     }
@@ -517,81 +290,24 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 
 static void _do_minor_collection(bool commit)
 {
-    /* We must move out of the nursery any object found within the
-       nursery.  All objects touched are either from the current
-       transaction, or are from 'modified_old_objects'.  In all cases,
-       we should only read and change objects belonging to the current
-       segment.
-    */
-
     dprintf(("minor_collection commit=%d\n", (int)commit));
 
-    acquire_marker_lock(STM_SEGMENT->segment_base);
-
     STM_PSEGMENT->minor_collect_will_commit_now = commit;
-    if (!commit) {
-        /* We should commit soon, probably. This is kind of a
-           workaround for the broken stm_should_break_transaction of
-           pypy that doesn't want to commit any more after a minor
-           collection. It may, however, always be a good idea... */
-        stmcb_commit_soon();
-
-        /* 'STM_PSEGMENT->overflow_number' is used now by this collection,
-           in the sense that it's copied to the overflow objects */
-        STM_PSEGMENT->overflow_number_has_been_used = true;
-    }
-
-    /* We need this to track the large overflow objects for a future
-       commit.  We don't need it if we're committing now. */
-    if (!commit && STM_PSEGMENT->large_overflow_objects == NULL)
-        STM_PSEGMENT->large_overflow_objects = list_create();
-
-
-    /* All the objects we move out of the nursery become "overflow"
-       objects.  We use the list 'objects_pointing_to_nursery'
-       to hold the ones we didn't trace so far. */
-    uintptr_t num_old;
-    if (STM_PSEGMENT->objects_pointing_to_nursery == NULL) {
-        STM_PSEGMENT->objects_pointing_to_nursery = list_create();
-
-        /* collect objs with cards, adds to objects_pointing_to_nursery
-           and makes sure there are no objs with cards left in
-           modified_old_objs */
-        collect_cardrefs_to_nursery();
-
-        /* See the doc of 'objects_pointing_to_nursery': if it is NULL,
-           then it is implicitly understood to be equal to
-           'modified_old_objects'.  We could copy modified_old_objects
-           into objects_pointing_to_nursery, but instead we use the
-           following shortcut */
-        collect_modified_old_objects();
-        num_old = 0;
-    }
-    else {
-        collect_cardrefs_to_nursery();
-        num_old = STM_PSEGMENT->modified_old_objects_markers_num_old;
-    }
-
-    collect_roots_from_markers(num_old);
 
     collect_roots_in_nursery();
 
-    if (STM_PSEGMENT->finalizers != NULL)
-        collect_objs_still_young_but_with_finalizers();
-
     collect_oldrefs_to_nursery();
-    assert(list_is_empty(STM_PSEGMENT->old_objects_with_cards));
 
     /* now all surviving nursery objects have been moved out */
+    acquire_privatization_lock(STM_SEGMENT->segment_num);
     stm_move_young_weakrefs();
-    deal_with_young_objects_with_finalizers();
+    release_privatization_lock(STM_SEGMENT->segment_num);
+
+    assert(list_is_empty(STM_PSEGMENT->objects_pointing_to_nursery));
 
     throw_away_nursery(get_priv_segment(STM_SEGMENT->segment_num));
 
     assert(MINOR_NOTHING_TO_DO(STM_PSEGMENT));
-    assert(list_is_empty(STM_PSEGMENT->objects_pointing_to_nursery));
-
-    release_marker_lock(STM_SEGMENT->segment_base);
 }
 
 static void minor_collection(bool commit)
@@ -600,11 +316,7 @@ static void minor_collection(bool commit)
 
     stm_safe_point();
 
-    timing_event(STM_SEGMENT->running_thread, STM_GC_MINOR_START);
-
     _do_minor_collection(commit);
-
-    timing_event(STM_SEGMENT->running_thread, STM_GC_MINOR_DONE);
 }
 
 void stm_collect(long level)
@@ -613,8 +325,17 @@ void stm_collect(long level)
         force_major_collection_request();
 
     minor_collection(/*commit=*/ false);
+
+#ifdef STM_TESTS
+    /* tests don't want aborts in stm_allocate, thus
+       we only do major collections if explicitly requested */
+    if (level > 0)
+        major_collection_if_requested();
+#else
     major_collection_if_requested();
+#endif
 }
+
 
 
 /************************************************************/
@@ -650,17 +371,21 @@ object_t *_stm_allocate_external(ssize_t size_rounded_up)
         /* use stm_collect() with level 0: if another thread does a major GC
            in-between, is_major_collection_requested() will become false
            again, and we'll avoid doing yet another one afterwards. */
+#ifndef STM_TESTS
+        /* during tests, we must not do a major collection during allocation.
+           The reason is that it may abort us and tests don't expect it. */
         stm_collect(0);
+#endif
     }
 
-    char *result = allocate_outside_nursery_large(size_rounded_up);
-    object_t *o = (object_t *)(result - stm_object_pages);
+    object_t *o = (object_t *)allocate_outside_nursery_large(size_rounded_up);
 
     tree_insert(STM_PSEGMENT->young_outside_nursery, (uintptr_t)o, 0);
 
     memset(REAL_ADDRESS(STM_SEGMENT->segment_base, o), 0, size_rounded_up);
     return o;
 }
+
 
 #ifdef STM_TESTS
 void _stm_set_nursery_free_count(uint64_t free_count)
@@ -670,7 +395,7 @@ void _stm_set_nursery_free_count(uint64_t free_count)
     _stm_nursery_start = NURSERY_END - free_count;
 
     long i;
-    for (i = 1; i <= NB_SEGMENTS; i++) {
+    for (i = 0; i < NB_SEGMENTS; i++) {
         if ((uintptr_t)get_segment(i)->nursery_current < _stm_nursery_start)
             get_segment(i)->nursery_current = (stm_char *)_stm_nursery_start;
     }
@@ -698,21 +423,43 @@ static void check_nursery_at_transaction_start(void)
                        NURSERY_END - _stm_nursery_start);
 }
 
-static void major_do_minor_collections(void)
+
+static void major_do_validation_and_minor_collections(void)
 {
     int original_num = STM_SEGMENT->segment_num;
     long i;
 
-    for (i = 1; i <= NB_SEGMENTS; i++) {
-        struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
-        if (MINOR_NOTHING_TO_DO(pseg))  /*TS_NONE segments have NOTHING_TO_DO*/
+    /* including the sharing seg0 */
+    for (i = 0; i < NB_SEGMENTS; i++) {
+        set_gs_register(get_segment_base(i));
+
+        if (!_stm_validate()) {
+            assert(i != 0);     /* sharing seg0 should never need an abort */
+
+            if (STM_PSEGMENT->transaction_state == TS_NONE) {
+                /* we found a segment that has stale read-marker data and thus
+                   is in conflict with committed objs. Since it is not running
+                   currently, it's fine to ignore it. */
+                continue;
+            }
+
+            /* tell it to abort when continuing */
+            STM_PSEGMENT->pub.nursery_end = NSE_SIGABORT;
+            assert(must_abort());
+
+            dprintf(("abort data structures\n"));
+            abort_data_structures_from_segment_num(i);
+            continue;
+        }
+
+
+        if (MINOR_NOTHING_TO_DO(STM_PSEGMENT))  /*TS_NONE segments have NOTHING_TO_DO*/
             continue;
 
-        assert(pseg->transaction_state != TS_NONE);
-        assert(pseg->safe_point != SP_RUNNING);
-        assert(pseg->safe_point != SP_NO_TRANSACTION);
+        assert(STM_PSEGMENT->transaction_state != TS_NONE);
+        assert(STM_PSEGMENT->safe_point != SP_RUNNING);
+        assert(STM_PSEGMENT->safe_point != SP_NO_TRANSACTION);
 
-        set_gs_register(get_segment_base(i));
 
         /* Other segments that will abort immediately after resuming: we
            have to ignore them, not try to collect them anyway!
@@ -720,7 +467,7 @@ static void major_do_minor_collections(void)
         */
         if (!must_abort()) {
             _do_minor_collection(/*commit=*/ false);
-            assert(MINOR_NOTHING_TO_DO(pseg));
+            assert(MINOR_NOTHING_TO_DO(STM_PSEGMENT));
         }
         else {
             dprintf(("abort data structures\n"));
@@ -731,14 +478,14 @@ static void major_do_minor_collections(void)
     set_gs_register(get_segment_base(original_num));
 }
 
+
 static object_t *allocate_shadow(object_t *obj)
 {
     char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
     size_t size = stmcb_size_rounded_up((struct object_s *)realobj);
 
-    /* always gets outside as a large object for now */
-    char *allocated = allocate_outside_nursery_large(size);
-    object_t *nobj = (object_t *)(allocated - stm_object_pages);
+    /* always gets outside as a large object for now (XXX?) */
+    object_t *nobj = (object_t *)allocate_outside_nursery_large(size);
 
     /* Initialize the shadow enough to be considered a valid gc object.
        If the original object stays alive at the next minor collection,
@@ -760,6 +507,8 @@ static object_t *allocate_shadow(object_t *obj)
 
     tree_insert(STM_PSEGMENT->nursery_objects_shadows,
                 (uintptr_t)obj, (uintptr_t)nobj);
+
+    dprintf(("allocate_shadow(%p): %p\n", obj, nobj));
     return nobj;
 }
 
@@ -767,7 +516,7 @@ static object_t *find_existing_shadow(object_t *obj)
 {
     wlog_t *item;
 
-    TREE_FIND(*STM_PSEGMENT->nursery_objects_shadows,
+    TREE_FIND(STM_PSEGMENT->nursery_objects_shadows,
               (uintptr_t)obj, item, goto not_found);
 
     /* The answer is the address of the shadow. */

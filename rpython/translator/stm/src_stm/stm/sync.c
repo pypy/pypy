@@ -8,34 +8,13 @@
 #endif
 
 
-/* Each segment can be in one of three possible states, described by
-   the segment variable 'safe_point':
-
-   - SP_NO_TRANSACTION: no thread is running any transaction using this
-     segment.
-
-   - SP_RUNNING: a thread is running a transaction using this segment.
-
-   - SP_WAIT_FOR_xxx: the thread that owns this segment is currently
-     suspended in a safe-point.  (A safe-point means that it is not
-     changing anything right now, and the current shadowstack is correct.)
-
-   Synchronization is done with a single mutex and a few condition
-   variables.  A thread needs to have acquired the mutex in order to do
-   things like acquiring or releasing ownership of a segment or updating
-   this segment's state.  No other thread can acquire the mutex
-   concurrently, and so there is no race: the (single) thread owning the
-   mutex can freely inspect or even change the state of other segments
-   too.
-*/
-
 
 static union {
     struct {
         pthread_mutex_t global_mutex;
         pthread_cond_t cond[_C_TOTAL];
         /* some additional pieces of global state follow */
-        uint8_t in_use1[NB_SEGMENTS];   /* 1 if running a pthread */
+        uint8_t in_use1[NB_SEGMENTS];   /* 1 if running a pthread, idx=0 unused */
     };
     char reserved[192];
 } sync_ctl __attribute__((aligned(64)));
@@ -97,6 +76,7 @@ static inline void s_mutex_unlock(void)
     assert((_has_mutex_here = false, 1));
 }
 
+
 static inline void cond_wait(enum cond_type_e ctype)
 {
 #ifdef STM_NO_COND_WAIT
@@ -124,24 +104,6 @@ static inline void cond_broadcast(enum cond_type_e ctype)
 /************************************************************/
 
 
-static void wait_for_end_of_inevitable_transaction(void)
-{
-    long i;
- restart:
-    for (i = 1; i <= NB_SEGMENTS; i++) {
-        struct stm_priv_segment_info_s *other_pseg = get_priv_segment(i);
-        if (other_pseg->transaction_state == TS_INEVITABLE) {
-            /* handle this case like a contention: it will either
-               abort us (not the other thread, which is inevitable),
-               or wait for a while.  If we go past this call, then we
-               waited; in this case we have to re-check if no other
-               thread is inevitable. */
-            inevitable_contention_management(i);
-            goto restart;
-        }
-    }
-}
-
 static bool acquire_thread_segment(stm_thread_local_t *tl)
 {
     /* This function acquires a segment for the currently running thread,
@@ -149,43 +111,42 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     assert(_has_mutex());
     assert(_is_tl_registered(tl));
 
-    int num = tl->associated_segment_num;
-    if (sync_ctl.in_use1[num - 1] == 0) {
+    int num = tl->associated_segment_num - 1; // 0..NB_SEG-1
+    OPT_ASSERT(num >= 0);
+    if (sync_ctl.in_use1[num+1] == 0) {
         /* fast-path: we can get the same segment number than the one
            we had before.  The value stored in GS is still valid. */
 #ifdef STM_TESTS
         /* that can be optimized away, except during tests, because
            they use only one thread */
-        set_gs_register(get_segment_base(num));
+        set_gs_register(get_segment_base(num+1));
 #endif
-        dprintf(("acquired same segment: %d\n", num));
+        dprintf(("acquired same segment: %d\n", num+1));
         goto got_num;
     }
     /* Look for the next free segment.  If there is none, wait for
        the condition variable. */
     int retries;
-    for (retries = 0; retries < NB_SEGMENTS; retries++) {
-        num = (num % NB_SEGMENTS) + 1;
-        if (sync_ctl.in_use1[num - 1] == 0) {
+    for (retries = 0; retries < NB_SEGMENTS-1; retries++) {
+        num = (num+1) % (NB_SEGMENTS-1);
+        if (sync_ctl.in_use1[num+1] == 0) {
             /* we're getting 'num', a different number. */
-            dprintf(("acquired different segment: %d->%d\n", tl->associated_segment_num, num));
-            tl->associated_segment_num = num;
-            set_gs_register(get_segment_base(num));
+            dprintf(("acquired different segment: %d->%d\n", tl->associated_segment_num, num+1));
+            tl->associated_segment_num = num+1;
+            set_gs_register(get_segment_base(num+1));
             goto got_num;
         }
     }
     /* No segment available.  Wait until release_thread_segment()
        signals that one segment has been freed. */
-    timing_event(tl, STM_WAIT_FREE_SEGMENT);
     cond_wait(C_SEGMENT_FREE);
-    timing_event(tl, STM_WAIT_DONE);
 
     /* Return false to the caller, which will call us again */
     return false;
-
  got_num:
-    sync_ctl.in_use1[num - 1] = 1;
-    assert(STM_SEGMENT->segment_num == num);
+    OPT_ASSERT(num >= 0 && num < NB_SEGMENTS-1);
+    sync_ctl.in_use1[num+1] = 1;
+    assert(STM_SEGMENT->segment_num == num+1);
     assert(STM_SEGMENT->running_thread == NULL);
     STM_SEGMENT->running_thread = tl;
     return true;
@@ -195,20 +156,13 @@ static void release_thread_segment(stm_thread_local_t *tl)
 {
     assert(_has_mutex());
 
-    /* wake up one of the threads waiting in acquire_thread_segment() */
     cond_signal(C_SEGMENT_FREE);
-
-    /* if contention management asked for it, broadcast this thread's end */
-    if (STM_PSEGMENT->signal_when_done) {
-        cond_broadcast(C_TRANSACTION_DONE);
-        STM_PSEGMENT->signal_when_done = false;
-    }
 
     assert(STM_SEGMENT->running_thread == tl);
     STM_SEGMENT->running_thread = NULL;
 
-    assert(sync_ctl.in_use1[tl->associated_segment_num - 1] == 1);
-    sync_ctl.in_use1[tl->associated_segment_num - 1] = 0;
+    assert(sync_ctl.in_use1[tl->associated_segment_num] == 1);
+    sync_ctl.in_use1[tl->associated_segment_num] = 0;
 }
 
 __attribute__((unused))
@@ -220,7 +174,7 @@ static bool _seems_to_be_running_transaction(void)
 bool _stm_in_transaction(stm_thread_local_t *tl)
 {
     int num = tl->associated_segment_num;
-    assert(1 <= num && num <= NB_SEGMENTS);
+    assert(1 <= num && num < NB_SEGMENTS);
     return get_segment(num)->running_thread == tl;
 }
 
@@ -229,7 +183,11 @@ void _stm_test_switch(stm_thread_local_t *tl)
     assert(_stm_in_transaction(tl));
     set_gs_register(get_segment_base(tl->associated_segment_num));
     assert(STM_SEGMENT->running_thread == tl);
-    exec_local_finalizers();
+}
+
+void _stm_test_switch_segment(int segnum)
+{
+    set_gs_register(get_segment_base(segnum+1));
 }
 
 #if STM_TESTS
@@ -249,24 +207,13 @@ void _stm_stop_safe_point(void)
 #endif
 
 
+
 /************************************************************/
 
 
 #ifndef NDEBUG
 static bool _safe_points_requested = false;
 #endif
-
-void signal_other_to_commit_soon(struct stm_priv_segment_info_s *other_pseg)
-{
-    assert(_has_mutex());
-    /* never overwrite abort signals or safepoint requests
-       (too messy to deal with) */
-    if (!other_pseg->signalled_to_commit_soon
-        && !is_abort(other_pseg->pub.nursery_end)
-        && !pause_signalled) {
-        other_pseg->pub.nursery_end = NSE_SIGCOMMITSOON;
-    }
-}
 
 static void signal_everybody_to_pause_running(void)
 {
@@ -275,7 +222,7 @@ static void signal_everybody_to_pause_running(void)
     assert(_has_mutex());
 
     long i;
-    for (i = 1; i <= NB_SEGMENTS; i++) {
+    for (i = 1; i < NB_SEGMENTS; i++) {
         if (get_segment(i)->nursery_end == NURSERY_END)
             get_segment(i)->nursery_end = NSE_SIGPAUSE;
     }
@@ -291,7 +238,7 @@ static inline long count_other_threads_sp_running(void)
     long result = 0;
     int my_num = STM_SEGMENT->segment_num;
 
-    for (i = 1; i <= NB_SEGMENTS; i++) {
+    for (i = 1; i < NB_SEGMENTS; i++) {
         if (i != my_num && get_priv_segment(i)->safe_point == SP_RUNNING) {
             assert(get_segment(i)->nursery_end <= _STM_NSE_SIGNAL_MAX);
             result++;
@@ -308,7 +255,7 @@ static void remove_requests_for_safe_point(void)
     assert((_safe_points_requested = false, 1));
 
     long i;
-    for (i = 1; i <= NB_SEGMENTS; i++) {
+    for (i = 1; i < NB_SEGMENTS; i++) {
         assert(get_segment(i)->nursery_end != NURSERY_END);
         if (get_segment(i)->nursery_end == NSE_SIGPAUSE)
             get_segment(i)->nursery_end = NURSERY_END;
@@ -330,15 +277,6 @@ static void enter_safe_point_if_requested(void)
         if (STM_SEGMENT->nursery_end == NURSERY_END)
             break;    /* no safe point requested */
 
-        if (STM_SEGMENT->nursery_end == NSE_SIGCOMMITSOON) {
-            STM_PSEGMENT->signalled_to_commit_soon = true;
-            stmcb_commit_soon();
-            if (!pause_signalled) {
-                STM_SEGMENT->nursery_end = NURSERY_END;
-                break;
-            }
-            STM_SEGMENT->nursery_end = NSE_SIGPAUSE;
-        }
         assert(STM_SEGMENT->nursery_end == NSE_SIGPAUSE);
         assert(pause_signalled);
 
@@ -347,12 +285,10 @@ static void enter_safe_point_if_requested(void)
 #ifdef STM_TESTS
         abort_with_mutex();
 #endif
-        timing_event(STM_SEGMENT->running_thread, STM_WAIT_SYNC_PAUSE);
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_REQUEST_REMOVED;
         cond_wait(C_REQUEST_REMOVED);
         STM_PSEGMENT->safe_point = SP_RUNNING;
-        timing_event(STM_SEGMENT->running_thread, STM_WAIT_DONE);
     }
 }
 
@@ -376,7 +312,6 @@ static void synchronize_all_threads(enum sync_type_e sync_type)
     /* If some other threads are SP_RUNNING, we cannot proceed now.
        Wait until all other threads are suspended. */
     while (count_other_threads_sp_running() > 0) {
-
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_AT_SAFE_POINT;
         cond_wait(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_RUNNING;

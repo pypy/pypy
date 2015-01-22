@@ -15,7 +15,7 @@ def mangle(lines):
         yield line
 
 def main(stmgc_dir):
-    stmgc_dir = py.path.local(stmgc_dir).join('c7')
+    stmgc_dir = py.path.local(stmgc_dir).join('c8')
     popen = subprocess.Popen(['hg', 'id', '-i'], cwd=str(stmgc_dir),
                              stdout=subprocess.PIPE)
     rev = popen.stdout.read().strip()

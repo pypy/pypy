@@ -21,7 +21,7 @@ static void prebuilt_trace(object_t **pstaticobj_invalid)
        address of the prebuilt object.
      */
     wlog_t *item;
-    TREE_FIND(*tree_prebuilt_objs, (uintptr_t)obj, item, goto not_found);
+    TREE_FIND(tree_prebuilt_objs, (uintptr_t)obj, item, goto not_found);
 
     *pstaticobj_invalid = (object_t *)item->val;    /* already moved */
     return;
@@ -33,7 +33,7 @@ static void prebuilt_trace(object_t **pstaticobj_invalid)
     object_t *nobj = _stm_allocate_old(size + sizeof(long));
 
     /* Copy the object */
-    char *realnobj = REAL_ADDRESS(stm_object_pages, nobj);
+    char *realnobj = get_virtual_address(STM_SEGMENT->segment_num, nobj);
     memcpy(realnobj, (char *)objaddr, size);
 
     /* Fix the flags in the copied object, asserting that it was zero so far */

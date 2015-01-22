@@ -21,6 +21,7 @@ void *rj_malloc(size_t);
 void rj_free(void *);
 #endif
 
+/* XXX: currently synchronized with global mutex!! */
 
 static void copy_stack(rewind_jmp_thread *rjthread, char *base, void *ssbase)
 {

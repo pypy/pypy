@@ -88,6 +88,7 @@ typedef struct {
 } while (0)
 
 /* go up one frame. if there was a setjmp call in this frame,
+   copy the frame above the current one and add it to the list
  */
 #define rewind_jmp_leaveframe(rjthread, rjbuf, ss)   do {    \
     assert((rjbuf)->shadowstack_base == (char *)(ss));       \
