@@ -154,7 +154,7 @@ def test_attr_immutability_delete():
     assert obj.map.ever_mutated == True
     assert obj.map is map1
 
-def test_mutbox():
+def test_mutcell():
     from pypy.objspace.std.intobject import W_IntObject
     cls = Class()
     obj = cls.instantiate()
@@ -165,14 +165,14 @@ def test_mutbox():
 
     obj.setdictvalue(space, "a", W_IntObject(6))
     assert obj.getdictvalue(space, "a") == 6 # because of the FakeSpace :-(
-    mutbox1 = obj._mapdict_read_storage(0)
-    assert mutbox1.intvalue == 6
+    mutcell1 = obj._mapdict_read_storage(0)
+    assert mutcell1.intvalue == 6
 
     obj.setdictvalue(space, "a", W_IntObject(7))
     assert obj.getdictvalue(space, "a") == 7 # because of the FakeSpace :-(
-    mutbox2 = obj._mapdict_read_storage(0)
-    assert mutbox2.intvalue == 7
-    assert mutbox2 is mutbox1
+    mutcell2 = obj._mapdict_read_storage(0)
+    assert mutcell2.intvalue == 7
+    assert mutcell2 is mutcell1
 
 def test_delete():
     for i, dattr in enumerate(["a", "b", "c"]):
