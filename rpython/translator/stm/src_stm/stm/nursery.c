@@ -104,7 +104,7 @@ static void minor_trace_if_young(object_t **pobj)
             nobj = (object_t *)allocate_outside_nursery_small(size);
         }
 
-        dprintf(("move %p -> %p\n", obj, nobj));
+        //dprintf(("move %p -> %p\n", obj, nobj));
 
         /* copy the object */
     copy_large_object:;
@@ -175,7 +175,7 @@ static inline void _collect_now(object_t *obj)
 {
     assert(!_is_young(obj));
 
-    dprintf(("_collect_now: %p\n", obj));
+    //dprintf(("_collect_now: %p\n", obj));
 
     assert(!(obj->stm_flags & GCFLAG_WRITE_BARRIER));
 

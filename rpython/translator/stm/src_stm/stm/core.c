@@ -3,6 +3,32 @@
 # error "must be compiled via stmgc.c"
 #endif
 
+/* *** MISC *** */
+static void free_bk(struct stm_undo_s *undo)
+{
+    free(undo->backup);
+    assert(undo->backup = (char*)-88);
+    increment_total_allocated(-SLICE_SIZE(undo->slice));
+}
+
+static struct stm_commit_log_entry_s *malloc_cle(long entries)
+{
+    size_t byte_len = sizeof(struct stm_commit_log_entry_s) +
+        entries * sizeof(struct stm_undo_s);
+    struct stm_commit_log_entry_s *result = malloc(byte_len);
+    increment_total_allocated(byte_len);
+    return result;
+}
+
+static void free_cle(struct stm_commit_log_entry_s *e)
+{
+    size_t byte_len = sizeof(struct stm_commit_log_entry_s) +
+        e->written_count * sizeof(struct stm_undo_s);
+    increment_total_allocated(-byte_len);
+    free(e);
+}
+/* *** MISC *** */
+
 
 /* General helper: copies objects into our own segment, from some
    source described by a range of 'struct stm_undo_s'.  Maybe later
@@ -149,6 +175,9 @@ static void handle_segfault_in_page(uintptr_t pagenum)
 
     /* make our page write-ready */
     page_mark_accessible(my_segnum, pagenum);
+
+    /* account for this page now: XXX */
+    /* increment_total_allocated(4096); */
 
     if (copy_from_segnum == -1) {
         /* this page is only accessible in the sharing segment so far (new
@@ -390,6 +419,7 @@ static bool _stm_validate()
     return !needs_abort;
 }
 
+
 static struct stm_commit_log_entry_s *_create_commit_log_entry(void)
 {
     /* puts all modified_old_objects in a new commit log entry */
@@ -399,9 +429,7 @@ static struct stm_commit_log_entry_s *_create_commit_log_entry(void)
     struct list_s *list = STM_PSEGMENT->modified_old_objects;
     OPT_ASSERT((list_count(list) % 3) == 0);
     size_t count = list_count(list) / 3;
-    size_t byte_len = sizeof(struct stm_commit_log_entry_s) +
-        count * sizeof(struct stm_undo_s);
-    struct stm_commit_log_entry_s *result = malloc(byte_len);
+    struct stm_commit_log_entry_s *result = malloc_cle(count);
 
     result->next = NULL;
     result->segment_num = STM_SEGMENT->segment_num;
@@ -427,7 +455,7 @@ static void _validate_and_attach(struct stm_commit_log_entry_s *new)
     while (1) {
         if (!_stm_validate()) {
             if (new != INEV_RUNNING)
-                free(new);
+                free_cle((struct stm_commit_log_entry_s*)new);
             stm_abort_transaction();
         }
 
@@ -601,8 +629,10 @@ void _stm_write_slowpath(object_t *obj)
 
         /* make backup slice: */
         char *bk_slice = malloc(slice_sz);
+        increment_total_allocated(slice_sz);
         memcpy(bk_slice, realobj + slice_off, slice_sz);
 
+        /* !! follows layout of "struct stm_undo_s" !! */
         STM_PSEGMENT->modified_old_objects = list_append3(
             STM_PSEGMENT->modified_old_objects,
             (uintptr_t)obj,     /* obj */
@@ -860,7 +890,7 @@ static void reset_modified_from_backup_copies(int segment_num)
         dprintf(("reset_modified_from_backup_copies(%d): obj=%p off=%lu bk=%p\n",
                  segment_num, obj, SLICE_OFFSET(undo->slice), undo->backup));
 
-        free(undo->backup);
+        free_bk(undo);
     }
 
     /* check that all objects have the GCFLAG_WRITE_BARRIER afterwards */
@@ -1089,7 +1119,7 @@ static void synchronize_objects_flush(void)
             if (get_page_status_in(i, page) != PAGE_NO_ACCESS) {
                 /* shared or private, but never segfault */
                 char *dst = REAL_ADDRESS(get_segment_base(i), frag);
-                dprintf(("-> flush %p to seg %lu, sz=%lu\n", frag, i, frag_size));
+                //dprintf(("-> flush %p to seg %lu, sz=%lu\n", frag, i, frag_size));
                 memcpy(dst, src, frag_size);
             }
         }

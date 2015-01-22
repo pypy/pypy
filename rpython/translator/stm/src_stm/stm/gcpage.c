@@ -308,29 +308,53 @@ static void mark_visit_from_modified_objects(void)
        some of the pages) */
 
     long i;
+    struct list_s *uniques = list_create();
+
     for (i = 1; i < NB_SEGMENTS; i++) {
         char *base = get_segment_base(i);
+        OPT_ASSERT(list_is_empty(uniques));
 
+        /* the mod_old_objects list may contain maanny slices for
+           the same *huge* object. it seems worth to first construct
+           a list of unique objects. we use the VISITED flag for this
+           purpose as it is never set outside of seg0: */
         struct list_s *lst = get_priv_segment(i)->modified_old_objects;
+
         struct stm_undo_s *modified = (struct stm_undo_s *)lst->items;
         struct stm_undo_s *end = (struct stm_undo_s *)(lst->items + lst->count);
-
         for (; modified < end; modified++) {
             object_t *obj = modified->object;
-            /* All modified objs have all pages accessible for now.
-               This is because we create a backup of the whole obj
-               and thus make all pages accessible. */
-            assert_obj_accessible_in(i, obj);
+            struct object_s *dst = (struct object_s*)REAL_ADDRESS(base, obj);
 
-            assert(!is_new_object(obj)); /* should never be in that list */
-
-            if (!mark_visited_test_and_set(obj)) {
-                /* trace shared, committed version */
-                mark_and_trace(obj, stm_object_pages);
+            if (!(dst->stm_flags & GCFLAG_VISITED)) {
+                LIST_APPEND(uniques, obj);
+                dst->stm_flags |= GCFLAG_VISITED;
             }
-            mark_and_trace(obj, base);   /* private, modified version */
         }
+
+        LIST_FOREACH_R(uniques, object_t*,
+           ({
+               /* clear the VISITED flags again and actually visit them */
+               struct object_s *dst = (struct object_s*)REAL_ADDRESS(base, item);
+               dst->stm_flags &= ~GCFLAG_VISITED;
+
+               /* All modified objs have all pages accessible for now.
+                  This is because we create a backup of the whole obj
+                  and thus make all pages accessible. */
+               assert_obj_accessible_in(i, item);
+
+               assert(!is_new_object(item)); /* should never be in that list */
+
+               if (!mark_visited_test_and_set(item)) {
+                   /* trace shared, committed version */
+                   mark_and_trace(item, stm_object_pages);
+               }
+               mark_and_trace(item, base);   /* private, modified version */
+           }));
+
+        list_clear(uniques);
     }
+    LIST_FREE(uniques);
 }
 
 static void mark_visit_from_roots(void)
@@ -485,7 +509,7 @@ static inline bool largemalloc_keep_object_at(char *data)
 {
     /* this is called by _stm_largemalloc_sweep() */
     object_t *obj = (object_t *)(data - stm_object_pages);
-    dprintf(("keep obj %p ? -> %d\n", obj, mark_visited_test(obj)));
+    //dprintf(("keep obj %p ? -> %d\n", obj, mark_visited_test(obj)));
     if (!mark_visited_test_and_clear(obj)) {
         /* This is actually needed in order to avoid random write-read
            conflicts with objects read and freed long in the past.
@@ -511,7 +535,7 @@ static inline bool smallmalloc_keep_object_at(char *data)
     /* XXX: identical to largemalloc_keep_object_at()? */
     /* this is called by _stm_smallmalloc_sweep() */
     object_t *obj = (object_t *)(data - stm_object_pages);
-    dprintf(("keep small obj %p ? -> %d\n", obj, mark_visited_test(obj)));
+    //dprintf(("keep small obj %p ? -> %d\n", obj, mark_visited_test(obj)));
     if (!mark_visited_test_and_clear(obj)) {
         /* This is actually needed in order to avoid random write-read
            conflicts with objects read and freed long in the past.
@@ -558,8 +582,14 @@ static void clean_up_commit_log_entries()
         cl = next;
         rev_num = cl->rev_num;
 
+        /* free bk copies of entries: */
+        long count = cl->written_count;
+        while (count-->0) {
+            free_bk(&cl->written[count]);
+        }
+
         next = cl->next;
-        free(cl);
+        free_cle(cl);
         if (next == INEV_RUNNING) {
             was_inev = true;
             break;

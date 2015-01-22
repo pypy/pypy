@@ -181,8 +181,8 @@ static inline stm_char *allocate_outside_nursery_small(uint64_t size)
             (_allocate_small_slowpath(size) - stm_object_pages);
 
     *fl = result->next;
-    dprintf(("allocate_outside_nursery_small(%lu): %p\n",
-             size, (char*)((char *)result - stm_object_pages)));
+    /* dprintf(("allocate_outside_nursery_small(%lu): %p\n", */
+    /*          size, (char*)((char *)result - stm_object_pages))); */
     return (stm_char*)
         ((char *)result - stm_object_pages);
 }

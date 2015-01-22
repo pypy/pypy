@@ -75,9 +75,6 @@ static void page_mark_accessible(long segnum, uintptr_t pagenum)
 
     /* set this flag *after* we un-protected it, because XXX later */
     set_page_status_in(segnum, pagenum, PAGE_ACCESSIBLE);
-
-    // XXX: maybe?
-    //increment_total_allocated(4096);
 }
 
 __attribute__((unused))
@@ -95,7 +92,4 @@ static void page_mark_inaccessible(long segnum, uintptr_t pagenum)
         perror("mprotect");
         stm_fatalerror("mprotect failed! Consider running 'sysctl vm.max_map_count=16777216'");
     }
-
-    // XXX: maybe?
-    //increment_total_allocated(-4096);
 }

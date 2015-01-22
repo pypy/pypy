@@ -149,6 +149,8 @@ struct stm_undo_s {
 #define SLICE_SIZE(slice)    ((int)((slice) & 0xFFFF))
 #define NEW_SLICE(offset, size) (((uint64_t)(offset)) << 16 | (size))
 
+
+
 /* The model is: we have a global chained list, from 'commit_log_root',
    of 'struct stm_commit_log_entry_s' entries.  Every one is fully
    read-only apart from the 'next' field.  Every one stands for one
@@ -166,6 +168,11 @@ struct stm_commit_log_entry_s {
     struct stm_undo_s written[];
 };
 static struct stm_commit_log_entry_s commit_log_root;
+
+
+static void free_bk(struct stm_undo_s *undo);
+static struct stm_commit_log_entry_s *malloc_cle(long entries);
+static void free_cle(struct stm_commit_log_entry_s *e);
 
 
 #ifndef STM_TESTS
