@@ -9,6 +9,14 @@ __thread long pypy_stm_ready_atomic;
 __thread uintptr_t pypy_stm_nursery_low_fill_mark;
 __thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
 
+
+/* C8: not implemented properly yet: */
+void (*stmcb_light_finalizer)(object_t *o);
+void (*stmcb_finalizer)(object_t *o);
+/* C8: not implemented properly yet ^^^^^^^^^^^^^^^^^^ */
+
+
+
 extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_get_card_base_itemsize(void*, uintptr_t[]);
 extern void pypy_stmcb_trace(void*, void(*)(void*));
