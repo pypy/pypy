@@ -238,6 +238,14 @@
 
 #define OP_BOOL_NOT(x, r) r = !(x)
 
+#ifdef __GNUC__
+#  define OP_LIKELY(x, r)    r = __builtin_expect((x), 1)
+#  define OP_UNLIKELY(x, r)  r = __builtin_expect((x), 0)
+#else
+#  define OP_LIKELY(x, r)    r = (x)
+#  define OP_UNLIKELY(x, r)  r = (x)
+#endif
+
 RPY_EXTERN long long op_llong_mul_ovf(long long a, long long b);
 
 /* The definitions above can be used with various types */ 
