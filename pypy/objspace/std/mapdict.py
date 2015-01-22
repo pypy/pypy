@@ -8,8 +8,8 @@ from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
-from pypy.objspace.std.typeobject import MutableCell
-
+from pypy.objspace.std.typeobject import (
+    MutableCell, IntMutableCell, ObjectMutableCell, unwrap_cell)
 
 # ____________________________________________________________
 # attribute shapes
@@ -39,9 +39,12 @@ class AbstractAttribute(object):
             jit.isconstant(obj) and
             not attr.ever_mutated
         ):
-            return self._pure_mapdict_read_storage(obj, attr.storageindex)
+            result = self._pure_mapdict_read_storage(obj, attr.storageindex)
+            assert not isinstance(result, MutableCell)
         else:
-            return obj._mapdict_read_storage(attr.storageindex)
+            result = unwrap_cell(
+                attr.space, obj._mapdict_read_storage(attr.storageindex))
+        return result
 
     @jit.elidable
     def _pure_mapdict_read_storage(self, obj, storageindex):
@@ -53,8 +56,24 @@ class AbstractAttribute(object):
             return self.terminator._write_terminator(obj, selector, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        obj._mapdict_write_storage(attr.storageindex, w_value)
+        # introduce cells only on the second write, to make immutability for
+        # int fields still work
+        cell = obj._mapdict_read_storage(attr.storageindex)
+        w_value = self._write_cell(attr.space, cell, w_value)
+        if w_value is not None:
+            obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
+
+    def _write_cell(self, space, w_cell, w_value):
+        from pypy.objspace.std.intobject import W_IntObject
+        assert not isinstance(w_cell, ObjectMutableCell)
+        if isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
+            w_cell.intvalue = w_value.intval
+            return None
+        if type(w_value) is W_IntObject:
+            return IntMutableCell(w_value.intval)
+        return w_value
+
 
     def delete(self, obj, selector):
         pass
@@ -320,7 +339,8 @@ class PlainAttribute(AbstractAttribute):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.selector[1] == DICT:
             w_attr = space.wrap(self.selector[0])
-            dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
+            dict_w[w_attr] = unwrap_cell(
+                    space, obj._mapdict_read_storage(self.storageindex))
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -856,7 +876,8 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
-        return w_obj._mapdict_read_storage(entry.storageindex)
+        return unwrap_cell(
+                map.space, w_obj._mapdict_read_storage(entry.storageindex))
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 LOAD_ATTR_caching._always_inline_ = True
 
@@ -901,7 +922,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.find_map_attr will always return None if selector[1]==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
-                    return w_obj._mapdict_read_storage(attr.storageindex)
+                    return unwrap_cell(
+                            space, w_obj._mapdict_read_storage(attr.storageindex))
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)
