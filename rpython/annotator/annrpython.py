@@ -76,7 +76,7 @@ class RPythonAnnotator(object):
         args_s = [self.typeannotation(t) for t in input_arg_types]
 
         # XXX hack
-        annmodel.TLS.check_str_without_nul = (
+        annmodel.STATE.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
         flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
@@ -112,7 +112,7 @@ class RPythonAnnotator(object):
             from rpython.annotator.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
             # XXX hack
-            annmodel.TLS.check_str_without_nul = (
+            annmodel.STATE.check_str_without_nul = (
                 self.translator.config.translation.check_str_without_nul)
         graph, inputcells = self.get_call_parameters(function, args_s, policy)
         self.build_graph_types(graph, inputcells, complete_now=False)

@@ -37,10 +37,10 @@ except ImportError:
     signals_enabled = _SignalsEnabled()
 
 try:
-    from __pypy__.thread import last_abort_info
+    from __pypy__.thread import hint_commit_soon
 except ImportError:
     # Not a STM-enabled PyPy.
-    def last_abort_info():
+    def hint_commit_soon():
         return None
 
 
@@ -221,21 +221,17 @@ class _ThreadPool(object):
                     self.lock_if_released_then_finished.release()
                 raise _Done
 
-    @staticmethod
+    @staticmethod                             
     def _do_it((f, args, kwds), got_exception):
         # this is a staticmethod in order to make sure that we don't
         # accidentally use 'self' in the atomic block.
-        try:
-            while True:
-                with signals_enabled:
-                    with atomic:
-                        info = last_abort_info()
-                        if info is None:
-                            if not got_exception:
-                                f(*args, **kwds)
-                            # else return early if already an exc to reraise
-                            return
-                report_abort_info(info)
+        try:                                  
+            hint_commit_soon()
+            with signals_enabled:
+                with atomic:
+                    if not got_exception:
+                        f(*args, **kwds)
+            hint_commit_soon()
         except:
             got_exception[:] = sys.exc_info()
 
@@ -253,7 +249,7 @@ class _ThreadLocal(thread._local):
 _thread_local = _ThreadLocal()
 
 
-def report_abort_info(info):
+def XXXreport_abort_info(info):
     header = info[0]
     f = cStringIO.StringIO()
     if len(info) > 1:
@@ -279,3 +275,27 @@ def report_abort_info(info):
         header[1], 'atom '*header[3], 'inev '*(header[4]>1),
         header[5], header[6])
     sys.stderr.write(f.getvalue())
+
+
+class threadlocalproperty(object):
+    def __init__(self, *default):
+        self.tl_default = default
+        self.tl_name = intern(str(id(self)))
+
+    def tl_get(self, obj):
+        try:
+            return obj._threadlocalproperties
+        except AttributeError:
+            return obj.__dict__.setdefault('_threadlocalproperties',
+                                           thread._local())
+
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        return getattr(self.tl_get(obj), self.tl_name, *self.tl_default)
+
+    def __set__(self, obj, value):
+        setattr(self.tl_get(obj), self.tl_name, value)
+
+    def __delete__(self, obj):
+        delattr(self.tl_get(obj), self.tl_name)

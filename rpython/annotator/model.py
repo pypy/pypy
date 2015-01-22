@@ -43,7 +43,16 @@ class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
     # the no_nul attribute...
     check_str_without_nul = False
-TLS = State()
+STATE = State()
+
+try:
+    import thread
+    TLS = thread._local()
+except ImportError:
+    class Tls(object):
+        pass
+    TLS = Tls()
+
 
 class SomeObject(object):
     """The set of all objects.  Each instance stands
@@ -243,7 +252,7 @@ class SomeStringOrUnicode(SomeObject):
             return False
         d1 = self.__dict__
         d2 = other.__dict__
-        if not TLS.check_str_without_nul:
+        if not STATE.check_str_without_nul:
             d1 = d1.copy()
             d1['no_nul'] = 0
             d2 = d2.copy()

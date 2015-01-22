@@ -40,6 +40,13 @@ class Bookkeeper(object):
 
     Currently used for factories and user-defined classes."""
 
+    try:
+        from transaction import threadlocalproperty
+    except ImportError:
+        pass
+    else:
+        position_key = threadlocalproperty()
+
     def __setstate__(self, dic):
         self.__dict__.update(dic) # normal action
         delayed_imports()
