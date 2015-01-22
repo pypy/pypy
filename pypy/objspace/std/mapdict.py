@@ -58,21 +58,10 @@ class AbstractAttribute(object):
         # introduce cells only on the second write, to make immutability for
         # int fields still work
         cell = obj._mapdict_read_storage(attr.storageindex)
-        w_value = self._write_cell(attr.space, cell, w_value)
+        w_value = attr._write_cell(attr.space, cell, w_value)
         if w_value is not None:
             obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
-
-    def _write_cell(self, space, w_cell, w_value):
-        from pypy.objspace.std.intobject import W_IntObject
-        assert not isinstance(w_cell, ObjectMutableCell)
-        if isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
-            w_cell.intvalue = w_value.intval
-            return None
-        if type(w_value) is W_IntObject:
-            return IntMutableCell(w_value.intval)
-        return w_value
-
 
     def delete(self, obj, selector):
         pass
@@ -303,6 +292,16 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
+
+    def _write_cell(self, w_cell, w_value):
+        from pypy.objspace.std.intobject import W_IntObject
+        assert not isinstance(w_cell, ObjectMutableCell)
+        if isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
+            w_cell.intvalue = w_value.intval
+            return None
+        if type(w_value) is W_IntObject:
+            return IntMutableCell(w_value.intval)
+        return w_value
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
