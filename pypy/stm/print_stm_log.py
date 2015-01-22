@@ -45,13 +45,14 @@ for _key, _value in globals().items():
 
 class LogEntry(object):
     def __init__(self, timestamp, threadnum, otherthreadnum,
-                 event, marker1, marker2):
+                 event, marker1, marker2, frac):
         self.timestamp = timestamp
         self.threadnum = threadnum
         self.otherthreadnum = otherthreadnum
         self.event = event
         self.marker1 = marker1
         self.marker2 = marker2
+        self.frac = frac
 
     def __str__(self):
         s = '[%.3f][%s->%s]\t%s' % (
@@ -66,11 +67,13 @@ class LogEntry(object):
 
 def parse_log(filename):
     f = open(filename, 'rb')
-    result = []
     try:
         header = f.read(16)
         if header != "STMGC-C7-PROF01\n":
             raise ValueError("wrong format in file %r" % (filename,))
+        f.seek(0, 2)
+        frac = 1.0 / f.tell()
+        f.seek(16, 0)
         result = []
         while True:
             packet = f.read(19)
@@ -81,12 +84,11 @@ def parse_log(filename):
                 raise ValueError("the file %r appears corrupted" % (filename,))
             m1 = f.read(len1)
             m2 = f.read(len2)
-            result.append(LogEntry(sec + 0.000000001 * nsec,
-                                   threadnum, otherthreadnum, event, m1, m2))
+            yield LogEntry(sec + 0.000000001 * nsec,
+                           threadnum, otherthreadnum, event, m1, m2,
+                           f.tell() * frac)
     finally:
         f.close()
-    return result
-
 
 
 class ThreadState(object):
@@ -174,13 +176,17 @@ def percent(fraction, total):
     return r + '%'
 
 def dump(logentries):
-    start_time, stop_time = logentries[0].timestamp, logentries[-1].timestamp
-    total_time = stop_time - start_time
-    print 'Total real time:             %.3fs' % (total_time,)
-    #
     threads = {}
     conflicts = {}
+    cnt = 0
     for entry in logentries:
+        if (cnt & 0x7ffff) == 0:
+            if cnt == 0:
+                start_time = entry.timestamp
+            else:
+                print >> sys.stderr, '%.0f%%' % (entry.frac * 100.0,),
+        cnt += 1
+        #
         if entry.event == STM_TRANSACTION_START:
             t = threads.get(entry.threadnum)
             if t is None:
@@ -220,6 +226,14 @@ def dump(logentries):
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t.transaction_unpause(entry)
+    #
+    if cnt == 0:
+        raise Exception("empty file")
+    print >> sys.stderr
+    print
+    stop_time = entry.timestamp
+    total_time = stop_time - start_time
+    print 'Total real time:             %.3fs' % (total_time,)
     #
     total_cpu_time = sum([v.cpu_time for v in threads.values()])
     print 'Total CPU time in STM mode:  %.3fs (%s)' % (
