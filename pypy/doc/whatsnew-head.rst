@@ -130,3 +130,10 @@ rare kind (e.g. errno on Linux might in theory be overwritten by
 mmap(), called rarely during major GCs, if such a major GC occurs at
 exactly the wrong time), and some of the less rare kind
 (particularly on Windows tests).
+
+.. branch: osx-package.py
+.. branch: package.py-helpful-error-message
+
+.. branch: typed-cells
+
+Improve performance of integer globals and class attributes.

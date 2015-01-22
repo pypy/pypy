@@ -636,6 +636,30 @@ class UnboxedValue(object):
 
 # ____________________________________________________________
 
+def likely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+def unlikely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+class Entry(ExtRegistryEntry):
+    _about_ = (likely, unlikely)
+
+    def compute_result_annotation(self, s_x):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Bool)
+        hop.exception_cannot_occur()
+        return hop.genop(self.instance.__name__, vlist,
+                         resulttype=lltype.Bool)
+
+# ____________________________________________________________
+
 
 class r_dict(object):
     """An RPython dict-like object.

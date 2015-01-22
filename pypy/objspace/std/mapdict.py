@@ -20,7 +20,7 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # we want to propagate knowledge that the result cannot be negative
 
 class AbstractAttribute(object):
-    _immutable_fields_ = ['terminator', 'ever_mutated?']
+    _immutable_fields_ = ['terminator']
     cache_attrs = None
     _size_estimate = 0
 
@@ -28,7 +28,6 @@ class AbstractAttribute(object):
         self.space = space
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
-        self.ever_mutated = False
 
     def read(self, obj, selector):
         attr = self.find_map_attr(selector)
@@ -295,13 +294,15 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['selector', 'storageindex', 'back']
+    _immutable_fields_ = ['selector', 'storageindex', 'back', 'ever_mutated?']
+
     def __init__(self, selector, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.selector = selector
         self.storageindex = back.length()
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
+        self.ever_mutated = False
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
