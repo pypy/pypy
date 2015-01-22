@@ -41,8 +41,8 @@ class AbstractAttribute(object):
             result = self._pure_mapdict_read_storage(obj, attr.storageindex)
             assert not isinstance(result, MutableCell)
         else:
-            result = unwrap_cell(
-                attr.space, obj._mapdict_read_storage(attr.storageindex))
+            result = attr._read_cell(
+                obj._mapdict_read_storage(attr.storageindex))
         return result
 
     @jit.elidable
@@ -58,7 +58,7 @@ class AbstractAttribute(object):
         # introduce cells only on the second write, to make immutability for
         # int fields still work
         cell = obj._mapdict_read_storage(attr.storageindex)
-        w_value = attr._write_cell(attr.space, cell, w_value)
+        w_value = attr._write_cell(cell, w_value)
         if w_value is not None:
             obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
@@ -283,7 +283,8 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['selector', 'storageindex', 'back', 'ever_mutated?']
+    _immutable_fields_ = ['selector', 'storageindex', 'back',
+                          'ever_mutated?', 'can_contain_mutable_cell?']
 
     def __init__(self, selector, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
@@ -292,6 +293,16 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
+        # this flag means: at some point there was an instance that used a
+        # derivative of this map that had a MutableCell stored into the
+        # corresponding field.
+        # if the flag is False, we don't need to unbox the attribute.
+        self.can_contain_mutable_cell = False
+
+    def _read_cell(self, w_cell):
+        if not self.can_contain_mutable_cell:
+            return w_cell
+        return unwrap_cell(self.space, w_cell)
 
     def _write_cell(self, w_cell, w_value):
         from pypy.objspace.std.intobject import W_IntObject
@@ -300,6 +311,8 @@ class PlainAttribute(AbstractAttribute):
             w_cell.intvalue = w_value.intval
             return None
         if type(w_value) is W_IntObject:
+            if not self.can_contain_mutable_cell:
+                self.can_contain_mutable_cell = True
             return IntMutableCell(w_value.intval)
         return w_value
 

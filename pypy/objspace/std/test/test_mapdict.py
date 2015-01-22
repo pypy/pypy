@@ -169,10 +169,27 @@ def test_mutcell():
     assert mutcell1.intvalue == 6
 
     obj.setdictvalue(space, "a", W_IntObject(7))
-    assert obj.getdictvalue(space, "a") == 7 # because of the FakeSpace :-(
+    assert obj.getdictvalue(space, "a") == 7 # FakeSpace again
     mutcell2 = obj._mapdict_read_storage(0)
     assert mutcell2.intvalue == 7
     assert mutcell2 is mutcell1
+
+
+def test_mutcell_unwrap_only_if_needed():
+    from pypy.objspace.std.intobject import W_IntObject
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", "foo")
+    assert not obj._get_mapdict_map().can_contain_mutable_cell
+    obj.setdictvalue(space, "a", W_IntObject(6))
+    obj.setdictvalue(space, "a", W_IntObject(6))
+    assert obj._get_mapdict_map().can_contain_mutable_cell
+
+    obj._get_mapdict_map().can_contain_mutable_cell = False
+    mutcell = IntMutableCell(1)
+    obj._mapdict_write_storage(0, mutcell)
+    assert obj.getdictvalue(space, "a") is mutcell # not unwrapped
+
 
 def test_delete():
     for i, dattr in enumerate(["a", "b", "c"]):
