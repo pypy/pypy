@@ -133,3 +133,7 @@ exactly the wrong time), and some of the less rare kind
 
 .. branch: osx-package.py
 .. branch: package.py-helpful-error-message
+
+.. branch: typed-cells
+
+Improve performance of integer globals and class attributes.
