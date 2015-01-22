@@ -788,7 +788,7 @@ def gen_preimpl(f, database):
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
-    f.write('#endif /* _PY_PREIMPL_H */\n')    
+    f.write('#endif /* _PY_PREIMPL_H */\n')
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
@@ -806,7 +806,6 @@ def gen_startupcode(f, database):
 
     if database.with_stm:
         print >> f, '\tpypy_stm_setup();'
-        print >> f, '\tpypy_stm_setup_prebuilt();'
 
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line

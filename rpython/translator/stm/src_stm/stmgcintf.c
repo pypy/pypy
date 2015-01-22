@@ -88,6 +88,8 @@ void pypy_stm_set_transaction_length(double fraction)
 void pypy_stm_setup(void)
 {
     stm_setup();
+    pypy_stm_setup_prebuilt();
+
     pypy_stm_register_thread_local();
     pypy_stm_ready_atomic = 1;
     /* set transaction length to unlimited until the first thread
