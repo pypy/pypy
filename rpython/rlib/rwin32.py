@@ -124,10 +124,24 @@ if WIN32:
                                 _nowrapper=True, sandboxsafe=True)
 
     def GetLastError_saved():
+        """Return the value of the "saved LastError".
+        The C-level GetLastError() is saved there after a call to a C
+        function, if that C function was declared with the flag
+        llexternal(..., save_err=rffi.RFFI_SAVE_LASTERROR).
+        Functions without that flag don't change the saved LastError.
+        Alternatively, if the function was declared RFFI_SAVE_WSALASTERROR,
+        then the value of the C-level WSAGetLastError() is saved instead
+        (into the same "saved LastError" variable).
+        """
         from rpython.rlib import rthread
         return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
 
     def SetLastError_saved(err):
+        """Set the value of the saved LastError.  This value will be used in
+        a call to the C-level SetLastError() just before calling the
+        following C function, provided it was declared
+        llexternal(..., save_err=RFFI_READSAVED_LASTERROR).
+        """
         from rpython.rlib import rthread
         rthread.tlfield_rpy_lasterror.setraw(rffi.cast(DWORD, err))
 
