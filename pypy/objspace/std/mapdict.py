@@ -292,7 +292,8 @@ class PlainAttribute(AbstractAttribute):
     def delete(self, obj, selector):
         if selector == self.selector:
             # ok, attribute is deleted
-            self.ever_mutated = True
+            if not self.ever_mutated:
+                self.ever_mutated = True
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, selector)
         if new_obj is not None:
