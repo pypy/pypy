@@ -3,23 +3,6 @@ from pypy.module.thread.test.support import GenericTestThread
 from rpython.rtyper.lltypesystem import rffi
 
 
-def test_bdecode(space):
-    from pypy.module.__pypy__.interp_atomic import bdecode
-    def bdec(s, expected):
-        p = rffi.str2charp(s)
-        w_obj, q = bdecode(space, p)
-        assert q == rffi.ptradd(p, len(s))
-        rffi.free_charp(p)
-        w_expected = space.wrap(expected)
-        assert space.eq_w(w_obj, w_expected)
-
-    bdec("i123e", 123)
-    bdec("i-123e", -123)
-    bdec('12:+"*-%&/()=?\x00', '+"*-%&/()=?\x00')
-    bdec("li123eli456eee", [123, [456]])
-    bdec("l5:abcdei2ee", ["abcde", 2])
-
-
 class AppTestAtomic(GenericTestThread):
 
     def test_simple(self):
