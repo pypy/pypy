@@ -129,27 +129,31 @@ class LLVMStackRootWalker(BaseRootWalker):
         table contains the stack frame's shape. The shape is a description of
         the offsets from the frame data base.
         """
+        callee_bp = llop.stack_current(llmemory.Address)
         segment = llop.getarrayitem(LIST_NODE_PTR, self.top_segment, 0)
-        current_frame = llop.stack_current(llmemory.Address)
         while True:
-            retaddr = current_frame.address[1]
-            frame_data_base = current_frame + 2 * sizeofaddr
-            shape = hashtable_get(self.gcdata, retaddr)
+            self._walk_stack_segment(collect_stack_root, callee_bp)
+            if not segment:
+                break
+            callee_bp = segment.frame
+            segment = segment.next_
+
+    def _walk_stack_segment(self, collect_stack_root, callee_bp):
+        while True:
+            retaddr = callee_bp.address[1]
+            caller_sp = callee_bp + 2 * sizeofaddr
+            caller_shape = hashtable_get(self.gcdata, retaddr)
 
             i = 0
-            while i < len(shape.liveoffsets):
-                if (frame_data_base + shape.liveoffsets[i]).address[0]:
-                    collect_stack_root(self.gc, frame_data_base +
-                                                shape.liveoffsets[i])
+            while i < len(caller_shape.liveoffsets):
+                root_loc = caller_sp + caller_shape.liveoffsets[i]
+                if root_loc.address[0]:
+                    collect_stack_root(self.gc, root_loc)
                 i += 1
 
-            if shape.framesize & 1:
-                if segment:
-                    current_frame = segment.frame
-                    segment = segment.next_
-                    continue
-                break
-            current_frame += sizeofaddr + shape.framesize
+            if caller_shape.framesize & 1:
+                return
+            callee_bp += sizeofaddr + caller_shape.framesize
 
 
 def hash_ptr(adr):
