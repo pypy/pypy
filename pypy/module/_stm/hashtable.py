@@ -4,7 +4,7 @@ The class _stm.hashtable, mapping integers to objects.
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 from rpython.rlib import rstm
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
@@ -40,6 +40,22 @@ class W_Hashtable(W_Root):
         gcref = self.h.get(key)
         return space.newbool(not not gcref)
 
+    @unwrap_spec(key=int, w_default=WrappedDefault(None))
+    def get_w(self, space, key, w_default):
+        gcref = self.h.get(key)
+        if not gcref:
+            return w_default
+        return cast_gcref_to_instance(W_Root, gcref)
+
+    @unwrap_spec(key=int, w_default=WrappedDefault(None))
+    def setdefault_w(self, space, key, w_default):
+        gcref = self.h.get(key)
+        if not gcref:
+            gcref = cast_instance_to_gcref(w_default)
+            self.h.set(key, gcref)
+            return w_default
+        return cast_gcref_to_instance(W_Root, gcref)
+
 
 def W_Hashtable___new__(space, w_subtype):
     r = space.allocate_instance(W_Hashtable, w_subtype)
@@ -53,4 +69,6 @@ W_Hashtable.typedef = TypeDef(
     __setitem__ = interp2app(W_Hashtable.setitem_w),
     __delitem__ = interp2app(W_Hashtable.delitem_w),
     __contains__ = interp2app(W_Hashtable.contains_w),
+    get = interp2app(W_Hashtable.get_w),
+    setdefault = interp2app(W_Hashtable.setdefault_w),
     )
