@@ -97,14 +97,22 @@ _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          _nowrapper=True, c_type='int')
 
 def get_saved_errno():
-    """Return the saved value of the errno.  This value is saved after a call
-    to an llexternal function with 'save_err & RFFI_ERRNO_AFTER != 0'."""
+    """Return the value of the "saved errno".
+    This value is saved after a call to a C function, if it was declared
+    with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO).
+    Functions without that flag don't change the saved errno.
+    """
     from rpython.rlib import rthread
     return intmask(rthread.tlfield_rpy_errno.getraw())
 
 def set_saved_errno(errno):
-    """Set the saved value of the errno.  This value will be used by a
-    following llexternal function with 'save_err & RFFI_ERRNO_BEFORE != 0'."""
+    """Set the value of the saved errno.  This value will be used to
+    initialize the real errno just before calling the following C function,
+    provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO).
+    Note also that it is more common to want the real errno to be initially
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
+    and then you don't need set_saved_errno(0).
+    """
     from rpython.rlib import rthread
     rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
 
