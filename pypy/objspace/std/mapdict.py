@@ -39,11 +39,9 @@ class AbstractAttribute(object):
             not attr.ever_mutated
         ):
             result = self._pure_mapdict_read_storage(obj, attr.storageindex)
-            assert not isinstance(result, MutableCell)
         else:
-            result = attr._read_cell(
-                obj._mapdict_read_storage(attr.storageindex))
-        return result
+            result = obj._mapdict_read_storage(attr.storageindex)
+        return attr._read_cell(result)
 
     @jit.elidable
     def _pure_mapdict_read_storage(self, obj, storageindex):
@@ -55,8 +53,6 @@ class AbstractAttribute(object):
             return self.terminator._write_terminator(obj, selector, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        # introduce cells only on the second write, to make immutability for
-        # int fields still work
         cell = obj._mapdict_read_storage(attr.storageindex)
         w_value = attr._write_cell(cell, w_value)
         if w_value is not None:
@@ -161,6 +157,7 @@ class AbstractAttribute(object):
     def add_attr(self, obj, selector, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(selector[0], selector[1])
+        w_value = attr._write_cell(None, w_value)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()

@@ -159,14 +159,16 @@ def test_mutcell():
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", W_IntObject(5))
-    assert obj.getdictvalue(space, "a").intval == 5
-    w_val = obj._mapdict_read_storage(0)
-    assert w_val.intval == 5 # still a W_IntObject
+    # not wrapped because of the FakeSpace :-(
+    assert obj.getdictvalue(space, "a") == 5
+    mutcell = obj._mapdict_read_storage(0)
+    assert mutcell.intvalue == 5
 
     obj.setdictvalue(space, "a", W_IntObject(6))
-    assert obj.getdictvalue(space, "a") == 6 # because of the FakeSpace :-(
+    assert obj.getdictvalue(space, "a") == 6 # FakeSpace again
     mutcell1 = obj._mapdict_read_storage(0)
     assert mutcell1.intvalue == 6
+    assert mutcell is mutcell1
 
     obj.setdictvalue(space, "a", W_IntObject(7))
     assert obj.getdictvalue(space, "a") == 7 # FakeSpace again
