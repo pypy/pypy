@@ -1,17 +1,13 @@
-import py
+import py, os, struct
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
-from rpython.rlib.objectmodel import we_are_translated, CDefinedIntSymbolic
-from rpython.rlib import jit, rposix
-from rpython.tool.pairtype import extendabletype
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit, rposix, entrypoint
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import oefmt, wrap_oserror
+from pypy.interpreter.error import oefmt, wrap_oserror, OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pycode import PyCode
-
-FALSE_BUT_NON_CONSTANT = CDefinedIntSymbolic('0', default=0)
 
 ROOT = py.path.local(__file__).join('..')
 SRC = ROOT.join('src')
@@ -63,7 +59,7 @@ pypy_execute_frame_trampoline = rffi.llexternal(
 pypy_vmprof_init = rffi.llexternal("pypy_vmprof_init", [], lltype.Void,
                                    compilation_info=eci)
 vmprof_enable = rffi.llexternal("vmprof_enable",
-                                [rffi.INT, rffi.INT, rffi.LONG],
+                                [rffi.INT, rffi.INT, rffi.LONG, rffi.INT],
                                 rffi.INT, compilation_info=eci)
 vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
                                  compilation_info=eci)
@@ -97,130 +93,85 @@ class __extend__(PyFrame):
             return original_execute_frame(frame, w_inputvalue, operr)
 
 
-
-class __extend__(PyCode):
-    __metaclass__ = extendabletype
-
-    def _vmprof_setup_maybe(self):
-        self._vmprof_virtual_ip = _vmprof.get_next_virtual_IP()
-        self._vmprof_registered = 0
-
-# avoid rtyper warnings
-PyCode._vmprof_virtual_ip = 0
-PyCode._vmprof_registered = 0
-
-
-
+@entrypoint.entrypoint_lowlevel('main', [llmemory.GCREF],
+                                'pypy_vmprof_get_virtual_ip', True)
 def get_virtual_ip(gc_frame):
     frame = cast_base_ptr_to_instance(PyFrame, gc_frame)
     if jit._get_virtualizable_token(frame):
         return rffi.cast(rffi.VOIDP, 0)
     virtual_ip = do_get_virtual_ip(frame)
     return rffi.cast(rffi.VOIDP, virtual_ip)
-get_virtual_ip.c_name = 'pypy_vmprof_get_virtual_ip'
-get_virtual_ip._dont_inline_ = True
-
-def strncpy(src, tgt, tgt_ofs, count):
-    if len(src) < count:
-        count = len(src)
-    i = 0
-    while i < count:
-        tgt[i + tgt_ofs] = src[i]
-        i += 1
-    return i
-
-def int2str(num, s, ofs):
-    if num == 0:
-        s[ofs] = '0'
-        return 1
-    count = 0
-    c = num
-    while c != 0:
-        count += 1
-        c /= 10
-    pos = ofs + count - 1
-    c = num
-    while c != 0:
-        s[pos] = chr(ord('0') + c % 10)
-        c /= 10
-        pos -= 1
-    return count
 
 def do_get_virtual_ip(frame):
-    virtual_ip = frame.pycode._vmprof_virtual_ip
-    if not frame.pycode._vmprof_registered:
-        # we need to register this code object
-        name = frame.pycode.co_name
-        filename = frame.pycode.co_filename
-        firstlineno = frame.pycode.co_firstlineno
-        start = rffi.cast(rffi.VOIDP, virtual_ip)
-        end = start # ignored for now
-        #
-        # manually fill the C buffer; we cannot use str2charp because we
-        # cannot call malloc from a signal handler
-        strbuf = _vmprof.strbuf
-        ofs = strncpy("py:", _vmprof.strbuf, 0, len("py:"))
-        ofs += strncpy(filename, _vmprof.strbuf, ofs, 128)
-        _vmprof.strbuf[ofs] = ':'
-        ofs += 1
-        ofs += int2str(firstlineno, _vmprof.strbuf, ofs)
-        _vmprof.strbuf[ofs] = ':'
-        ofs += 1
-        ofs += strncpy(name, _vmprof.strbuf, ofs, 1024 - 1 - ofs)
-        _vmprof.strbuf[ofs] = '\x00'
-        vmprof_register_virtual_function(strbuf, start, end)
-        frame.pycode._vmprof_registered = 1
-    #
-    return virtual_ip
+    return frame.pycode._unique_id
 
 
 
 class VMProf(object):
     def __init__(self):
-        self.virtual_ip = 0x7000000000000000
         self.is_enabled = False
         self.ever_enabled = False
-        self.strbuf = lltype.malloc(rffi.CCHARP.TO, 1024, flavor='raw', immortal=True, zero=True)
+        self.mapping_so_far = [] # stored mapping in between runs
+        self.fileno = -1
 
-    def get_next_virtual_IP(self):
-        self.virtual_ip += 1
-        return self.virtual_ip
-
-    @jit.dont_look_inside
-    def _annotate_get_virtual_ip(self):
-        if FALSE_BUT_NON_CONSTANT:
-            # make sure it's annotated
-            gcref = rffi.cast(llmemory.GCREF, self.virtual_ip) # just a random non-constant value
-            get_virtual_ip(gcref)            
-
-    def enable(self, space, fileno, symno, period):
-        self._annotate_get_virtual_ip()
+    def enable(self, space, fileno, period):
         if self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof already enabled")
+        self.fileno = fileno
         self.is_enabled = True
+        self.write_header(fileno, period)
         if not self.ever_enabled:
-            pypy_vmprof_init()
+            if we_are_translated():
+                pypy_vmprof_init()
             self.ever_enabled = True
-        res = vmprof_enable(fileno, symno, period)
+        for weakcode in space.all_code_objs.get_all_handles():
+            code = weakcode()
+            if code:
+                self.register_code(space, code)
+        space.set_code_callback(self.register_code)
+        if we_are_translated():
+            # does not work untranslated
+            res = vmprof_enable(fileno, -1, period, 0)
+        else:
+            res = 0
         if res == -1:
             raise wrap_oserror(space, OSError(rposix.get_errno(),
                                               "_vmprof.enable"))
+
+    def write_header(self, fileno, period):
+        if period == -1:
+            period_usec = 1000000 / 100 #  100hz
+        else:
+            period_usec = period
+        os.write(fileno, struct.pack("lllll", 0, 3, 0, period_usec, 0))
+
+    def register_code(self, space, code):
+        if self.fileno == -1:
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("vmprof not running"))
+        name = code._get_full_name()
+        s = '\x02' + struct.pack("ll", code._unique_id, len(name)) + name
+        os.write(self.fileno, s)
 
     def disable(self, space):
         if not self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof not enabled")
         self.is_enabled = False
-        res = vmprof_disable()
+        self.fileno = -1
+        if we_are_translated():
+           # does not work untranslated
+            res = vmprof_disable()
+        else:
+            res = 0
+        space.set_code_callback(None)
         if res == -1:
             raise wrap_oserror(space, OSError(rposix.get_errno(),
                                               "_vmprof.disable"))
 
-_vmprof = VMProf()
-
-@unwrap_spec(fileno=int, symno=int, period=int)
-def enable(space, fileno, symno, period=-1):
-    _vmprof.enable(space, fileno, symno, period)
+@unwrap_spec(fileno=int, period=int)
+def enable(space, fileno, period=-1):
+    space.getbuiltinmodule('_vmprof').vmprof.enable(space, fileno, period)
 
 def disable(space):
-    _vmprof.disable(space)
+    space.getbuiltinmodule('_vmprof').vmprof.disable(space)
 

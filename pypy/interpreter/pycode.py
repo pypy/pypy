@@ -14,9 +14,10 @@ from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import jit
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
 
 class BytecodeCorruption(Exception):
@@ -56,6 +57,11 @@ class PyCode(eval.Code):
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
                           "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
 
+    if sys.maxint == 2147483647:
+        _unique_id = 0 # XXX this is wrong, it won't work on 32bit
+    else:
+        _unique_id = 0x7000000000000000
+
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -83,7 +89,7 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
-        self._vmprof_setup_maybe()
+        space.register_code_object(self)
 
     def _initialize(self):
         if self.co_cellvars:
@@ -125,9 +131,12 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-    def _vmprof_setup_maybe(self):
-        # this is overridden only if _vmprof is enabled
-        pass
+        self._unique_id = PyCode._unique_id
+        PyCode._unique_id += 1
+
+    def _get_full_name(self):
+        return "py:%s:%d:%s" % (self.co_name, self.co_firstlineno,
+                                self.co_filename)
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and

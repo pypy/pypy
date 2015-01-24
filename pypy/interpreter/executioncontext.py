@@ -33,6 +33,7 @@ class ExecutionContext(object):
         self.profilefunc = None
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
+        self.register_code_callback = None
 
     @staticmethod
     def _mark_thread_disappeared(space):

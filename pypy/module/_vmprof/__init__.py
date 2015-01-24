@@ -14,4 +14,5 @@ class Module(MixedModule):
 
     def setup_after_space_initialization(self):
         # force the __extend__ hacks to occur early
-        import pypy.module._vmprof.interp_vmprof
+        from pypy.module._vmprof.interp_vmprof import VMProf
+        self.vmprof = VMProf()

@@ -278,6 +278,9 @@ class BaseAssembler(object):
         # YYY very minor leak -- we need the counters to stay alive
         # forever, just because we want to report them at the end
         # of the process
+
+        # XXX the numbers here are ALMOST unique, but not quite, use a counter
+        #     or something
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                track_allocation=False)
         struct.i = 0

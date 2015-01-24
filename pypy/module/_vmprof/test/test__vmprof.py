@@ -1,55 +1,55 @@
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module._vmprof import interp_vmprof
-from pypy.module._vmprof.interp_vmprof import do_get_virtual_ip, _vmprof
 
-class FakePyFrame(object):
+import tempfile
+from pypy.tool.pytest.objspace import gettestobjspace
 
-    def __init__(self, pycode):
-        self.pycode = pycode
+class AppTestVMProf(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['_vmprof', 'struct'])
+        cls.tmpfile = tempfile.NamedTemporaryFile()
+        cls.w_tmpfileno = cls.space.wrap(cls.tmpfile.fileno())
+        cls.w_tmpfilename = cls.space.wrap(cls.tmpfile.name)
+        cls.tmpfile2 = tempfile.NamedTemporaryFile()
+        cls.w_tmpfileno2 = cls.space.wrap(cls.tmpfile2.fileno())
+        cls.w_tmpfilename2 = cls.space.wrap(cls.tmpfile2.name)
 
-class FakePyCode(object):
+    def test_import_vmprof(self):
+        import struct, sys
 
-    _vmprof_setup_maybe = interp_vmprof.PyCode._vmprof_setup_maybe.im_func
+        WORD = struct.calcsize('l')
+        
+        def count(s):
+            i = 0
+            count = 0
+            i += 5 * WORD # header
+            while i < len(s):
+                assert s[i] == '\x02'
+                i += 1
+                _, size = struct.unpack("ll", s[i:i + 2 * WORD])
+                count += 1
+                i += 2 * WORD + size
+            return count
+        
+        import _vmprof
+        _vmprof.enable(self.tmpfileno)
+        _vmprof.disable()
+        s = open(self.tmpfilename).read()
+        no_of_codes = count(s)
+        assert no_of_codes > 10
+        d = {}
 
-    def __init__(self, co_name):
-        self.co_name = co_name
-        self.co_filename = 'filename'
-        self.co_firstlineno = 13
-        self._vmprof_setup_maybe()
+        exec """def foo():
+            pass
+        """ in d
 
-def test_get_virtual_ip(monkeypatch):
-    functions = []
-    def register_virtual_function(name, start, end):
-        name = rffi.charp2str(name)
-        start = rffi.cast(lltype.Signed, start)
-        end = rffi.cast(lltype.Signed, end)
-        functions.append((name, start, end))
-    monkeypatch.setattr(interp_vmprof, 'vmprof_register_virtual_function', register_virtual_function)
-    #
-    mycode = FakePyCode('foo')
-    assert mycode._vmprof_virtual_ip < 0
-    myframe = FakePyFrame(mycode)
+        _vmprof.enable(self.tmpfileno2)
 
-    _vmprof.counter = 42
-    ip = do_get_virtual_ip(myframe)
-    assert ip == mycode._vmprof_virtual_ip
-    assert functions == [('py:filename:13:foo', ip, ip)]
+        exec """def foo2():
+            pass
+        """ in d
 
-    # the second time, we don't register it again
-    functions = []
-    ip = do_get_virtual_ip(myframe)
-    assert ip == mycode._vmprof_virtual_ip
-    assert functions == []
-
-    # now, let's try with a long name
-    mycode = FakePyCode('abcde' + 'f' * 20000)
-    myframe = FakePyFrame(mycode)
-    functions = []
-    ip2 = do_get_virtual_ip(myframe)
-    assert ip2 == mycode._vmprof_virtual_ip
-    assert ip2 < ip # because it was generated later
-    assert len(functions) == 1
-    name, start, end = functions[0]
-    assert len(name) < 1025
-    assert name == 'py:filename:13:abcde' + 'f' * (1024 - 20 - 1)
-    
+        _vmprof.disable()
+        s = open(self.tmpfilename2).read()
+        no_of_codes2 = count(s)
+        assert "py:foo:" in s
+        assert "py:foo2:" in s
+        assert no_of_codes2 >= no_of_codes + 2 # some extra codes from tests

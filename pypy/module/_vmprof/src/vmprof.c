@@ -35,7 +35,7 @@
 #define MAX_STACK_DEPTH 64
 
 static FILE* profile_file;
-static FILE* symbol_file;
+static FILE* symbol_file = NULL;
 void* vmprof_mainloop_func;
 static ptrdiff_t mainloop_sp_offset;
 static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
@@ -45,8 +45,17 @@ static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
  * functions to write a profile file compatible with gperftools
  * *************************************************************
  */
+
+#define MARKER_STACKTRACE '\x01'
+#define MARKER_VIRTUAL_IP '\x02'
+#define MARKER_TRAILER '\x03'
+
 static void prof_word(FILE* f, long x) {
     fwrite(&x, sizeof(x), 1, f);
+}
+
+static void prof_char(FILE *f, char x) {
+	fwrite(&x, sizeof(x), 1, f);
 }
 
 static void prof_header(FILE* f, long period_usec) {
@@ -59,16 +68,11 @@ static void prof_header(FILE* f, long period_usec) {
 
 static void prof_write_stacktrace(FILE* f, void** stack, int depth, int count) {
     int i;
+	prof_char(f, MARKER_STACKTRACE);
     prof_word(f, count);
     prof_word(f, depth);
     for(i=0; i<depth; i++)
         prof_word(f, (long)stack[i]);
-}
-
-static void prof_binary_trailer(FILE* f) {
-    prof_word(f, 0);
-    prof_word(f, 1);
-    prof_word(f, 0);
 }
 
 
@@ -198,21 +202,26 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
  * *************************************************************
  */
 
-static int open_profile(int fd, int sym_fd, long period_usec) {
+static int open_profile(int fd, int sym_fd, long period_usec, int write_header) {
 	if ((fd = dup(fd)) == -1) {
 		return -1;
 	}
-	if ((sym_fd = dup(sym_fd)) == -1) {
-		return -1;
-	}	
+	if (sym_fd != -1) {
+		if ((sym_fd = dup(sym_fd)) == -1) {
+			return -1;
+		}
+	}
     profile_file = fdopen(fd, "wb");
 	if (!profile_file) {
 		return -1;
 	}
-    prof_header(profile_file, period_usec);
-    symbol_file = fdopen(sym_fd, "w");
-	if (!symbol_file) {
-		return -1;
+	if (write_header)
+		prof_header(profile_file, period_usec);
+	if (sym_fd != -1) {
+		symbol_file = fdopen(sym_fd, "w");
+		if (!symbol_file) {
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -222,7 +231,7 @@ static int close_profile(void) {
     FILE* src;
     char buf[BUFSIZ];
     size_t size;
-    prof_binary_trailer(profile_file);
+	prof_char(profile_file, MARKER_TRAILER);
 
     // copy /proc/PID/maps to the end of the profile file
     sprintf(buf, "/proc/%d/maps", getpid());
@@ -232,7 +241,10 @@ static int close_profile(void) {
     }
     fclose(src);
     fclose(profile_file);
-    fclose(symbol_file);
+	if (symbol_file) {
+		fclose(symbol_file);
+		symbol_file = NULL;
+	}
 	return 0;
 }
 
@@ -291,10 +303,10 @@ void vmprof_set_mainloop(void* func, ptrdiff_t sp_offset,
     mainloop_get_virtual_ip = get_virtual_ip;
 }
 
-int vmprof_enable(int fd, int sym_fd, long period_usec) {
+int vmprof_enable(int fd, int sym_fd, long period_usec, int write_header) {
     if (period_usec == -1)
         period_usec = 1000000 / 100; /* 100hz */
-    if (open_profile(fd, sym_fd, period_usec) == -1) {
+    if (open_profile(fd, sym_fd, period_usec, write_header) == -1) {
 		return -1;
 	}
     if (install_sigprof_handler() == -1) {
