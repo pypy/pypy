@@ -539,6 +539,8 @@ class TkApp(object):
         byte-array object.  Use it to pass binary data (e.g. image's
         data) to Tcl/Tk commands."""
         cdata = tkffi.new("char[]", buf)
-        obj = tklib.Tcl_NewByteArrayObj(cdata, len(buf))
-        return FromObj(self, obj)
+        res = tklib.Tcl_NewByteArrayObj(cdata, len(buf))
+        if not res:
+            self.raiseTclError()
+        return FromObj(self, res)
         

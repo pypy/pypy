@@ -37,6 +37,7 @@ class BitmapImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image.height(), 16)
         self.assertIn('::img::test', self.root.image_names())
         del image
+        support.gc_collect()
         self.assertNotIn('::img::test', self.root.image_names())
 
     def test_create_from_data(self):
@@ -51,6 +52,7 @@ class BitmapImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image.height(), 16)
         self.assertIn('::img::test', self.root.image_names())
         del image
+        support.gc_collect()
         self.assertNotIn('::img::test', self.root.image_names())
 
     def assertEqualStrList(self, actual, expected):
@@ -131,6 +133,7 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image['file'], testfile)
         self.assertIn('::img::test', self.root.image_names())
         del image
+        support.gc_collect()
         self.assertNotIn('::img::test', self.root.image_names())
 
     def check_create_from_data(self, ext):
@@ -148,6 +151,7 @@ class PhotoImageTest(AbstractTkTest, unittest.TestCase):
         self.assertEqual(image['file'], '')
         self.assertIn('::img::test', self.root.image_names())
         del image
+        support.gc_collect()
         self.assertNotIn('::img::test', self.root.image_names())
 
     def test_create_from_ppm_file(self):
