@@ -512,7 +512,7 @@ class _SSLSocket(W_Root):
                                                       out_ptr, len_ptr)
                 if out_ptr[0]:
                     return space.wrap(
-                        rffi.charpsize2str(out_ptr[0], widen(len_ptr[0])))
+                        rffi.charpsize2str(out_ptr[0], intmask(len_ptr[0])))
 
 _SSLSocket.typedef = TypeDef(
     "_ssl._SSLSocket",
