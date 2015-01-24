@@ -55,13 +55,9 @@ class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
-
-    if sys.maxint == 2147483647:
-        _unique_id = 0 # XXX this is wrong, it won't work on 32bit
-    else:
-        _unique_id = 0x7000000000000000
-
+                          "co_freevars[*]", "co_cellvars[*]",
+                          "_args_as_cellvars[*]"]
+    
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -131,8 +127,10 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-        self._unique_id = PyCode._unique_id
-        PyCode._unique_id += 1
+        ec = self.space.getexecutioncontext()
+        self._unique_id = ec._code_unique_id
+        ec._code_unique_id += 2 # so we have one bit that we can mark stuff
+        # with
 
     def _get_full_name(self):
         return "py:%s:%d:%s" % (self.co_name, self.co_firstlineno,

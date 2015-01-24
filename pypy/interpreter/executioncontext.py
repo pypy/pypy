@@ -34,6 +34,10 @@ class ExecutionContext(object):
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
         self.register_code_callback = None
+        if sys.maxint == 2147483647:
+            self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
+        else:
+            self._code_unique_id = 0x7000000000000000
 
     @staticmethod
     def _mark_thread_disappeared(space):

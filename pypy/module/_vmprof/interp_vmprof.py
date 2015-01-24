@@ -170,8 +170,14 @@ class VMProf(object):
 
 @unwrap_spec(fileno=int, period=int)
 def enable(space, fileno, period=-1):
-    space.getbuiltinmodule('_vmprof').vmprof.enable(space, fileno, period)
+    from pypy.module._vmprof import Module
+    mod_vmprof = space.getbuiltinmodule('_vmprof')
+    assert isinstance(mod_vmprof, Module)
+    mod_vmprof.vmprof.enable(space, fileno, period)
 
 def disable(space):
-    space.getbuiltinmodule('_vmprof').vmprof.disable(space)
+    from pypy.module._vmprof import Module
+    mod_vmprof = space.getbuiltinmodule('_vmprof')
+    assert isinstance(mod_vmprof, Module)
+    mod_vmprof.vmprof.disable(space)
 
