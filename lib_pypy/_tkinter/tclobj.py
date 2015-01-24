@@ -112,6 +112,16 @@ class TclObject(object):
             return self._string
         return tkffi.string(tklib.Tcl_GetString(self._value))
 
+    def __repr__(self):
+        return "<%s object at 0x%x>" % (
+            tkffi.string(self._value.typePtr.name),
+            tkffi.cast("intptr_t", self._value))
+
+    def __eq__(self, other):
+        if not isinstance(other, TclObject):
+            return NotImplemented
+        return self._value == other._value
+
     @property
     def string(self):
         if self._string is None:

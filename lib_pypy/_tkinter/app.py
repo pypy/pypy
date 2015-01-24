@@ -533,3 +533,12 @@ class TkApp(object):
 
     def quit(self):
         self.quitMainLoop = True
+
+    def _createbytearray(self, buf):
+        """Convert Python string or any buffer compatible object to Tcl
+        byte-array object.  Use it to pass binary data (e.g. image's
+        data) to Tcl/Tk commands."""
+        cdata = tkffi.new("char[]", buf)
+        obj = tklib.Tcl_NewByteArrayObj(cdata, len(buf))
+        return FromObj(self, obj)
+        
