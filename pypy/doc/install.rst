@@ -38,14 +38,13 @@ If you want to make PyPy available system-wide, you can put a symlink to the
 and not move the binary there, else PyPy would not be able to find its
 library.
 
-If you want to install 3rd party libraries, the most convenient way is to
-install distribute_ and pip_:
+If you want to install 3rd party libraries, the most convenient way is
+to install pip_ (unless you want to install virtualenv as explained
+below; then you can directly use pip inside virtualenvs):
 
 .. code-block:: console
 
-    $ curl -O http://python-distribute.org/distribute_setup.py
-    $ curl -O https://raw.githubusercontent.com/pypa/pip/master/contrib/get-pip.py
-    $ ./pypy-2.1/bin/pypy distribute_setup.py
+    $ curl -O https://bootstrap.pypa.io/get-pip.py
     $ ./pypy-2.1/bin/pypy get-pip.py
     $ ./pypy-2.1/bin/pip install pygments  # for example
 
@@ -69,7 +68,6 @@ checkout::
 
 Note that bin/python is now a symlink to bin/pypy.
 
-.. _distribute: http://www.python-distribute.org/
 .. _pip: http://pypi.python.org/pypi/pip
 
 

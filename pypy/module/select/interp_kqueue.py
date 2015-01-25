@@ -1,8 +1,9 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, exception_from_errno, oefmt
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
-from rpython.rlib._rsocket_rffi import socketclose
+from rpython.rlib._rsocket_rffi import socketclose_no_errno
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -86,7 +87,8 @@ syscall_kqueue = rffi.llexternal(
     "kqueue",
     [],
     rffi.INT,
-    compilation_info=eci
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 
 syscall_kevent = rffi.llexternal(
@@ -99,7 +101,8 @@ syscall_kevent = rffi.llexternal(
      lltype.Ptr(timespec)
     ],
     rffi.INT,
-    compilation_info=eci
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 
 
@@ -110,7 +113,7 @@ class W_Kqueue(W_Root):
     def descr__new__(space, w_subtype):
         kqfd = syscall_kqueue()
         if kqfd < 0:
-            raise exception_from_errno(space, space.w_IOError)
+            raise exception_from_saved_errno(space, space.w_IOError)
         return space.wrap(W_Kqueue(space, kqfd))
 
     @unwrap_spec(fd=int)
@@ -127,7 +130,7 @@ class W_Kqueue(W_Root):
         if not self.get_closed():
             kqfd = self.kqfd
             self.kqfd = -1
-            socketclose(kqfd)
+            socketclose_no_errno(kqfd)
 
     def check_closed(self, space):
         if self.get_closed():
@@ -198,7 +201,7 @@ class W_Kqueue(W_Root):
                                           max_events,
                                           ptimeout)
                     if nfds < 0:
-                        raise exception_from_errno(space, space.w_IOError)
+                        raise exception_from_saved_errno(space, space.w_IOError)
                     else:
                         elist_w = [None] * nfds
                         for i in xrange(nfds):

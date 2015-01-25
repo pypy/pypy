@@ -901,7 +901,7 @@ class AssemblerARM(ResOpAssembler):
             descr = tok.faildescr
             assert isinstance(descr, AbstractFailDescr)
             failure_recovery_pos = block_start + tok.pos_recovery_stub
-            descr._arm_failure_recovery_block = failure_recovery_pos
+            descr.adr_jump_offset = failure_recovery_pos
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
             if not tok.is_guard_not_invalidated:
@@ -968,11 +968,11 @@ class AssemblerARM(ResOpAssembler):
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
         b = InstrBuilder(self.cpu.cpuinfo.arch_version)
-        patch_addr = faildescr._arm_failure_recovery_block
+        patch_addr = faildescr.adr_jump_offset
         assert patch_addr != 0
         b.B(bridge_addr)
         b.copy_to_raw_memory(patch_addr)
-        faildescr._arm_failure_recovery_block = 0
+        faildescr.adr_jump_offset = 0
 
     # regalloc support
     def load(self, loc, value):

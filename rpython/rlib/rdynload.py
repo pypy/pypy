@@ -145,7 +145,7 @@ else:  # _WIN32
         # mode is unused on windows, but a consistant signature
         res = rwin32.LoadLibrary(name)
         if not res:
-            err = rwin32.GetLastError()
+            err = rwin32.GetLastError_saved()
             raise DLOpenError(rwin32.FormatError(err))
         return res
 

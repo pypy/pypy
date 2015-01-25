@@ -1,4 +1,5 @@
-from rpython.jit.metainterp.optimizeopt.optimizer import MININT, MAXINT
+from rpython.jit.metainterp.optimizeopt.optimizer import MININT, MAXINT,\
+     IntOptValue
 
 
 class GeneralizationStrategy(object):
@@ -14,7 +15,8 @@ class KillHugeIntBounds(GeneralizationStrategy):
         for v in self.optimizer.values.values():
             if v.is_constant():
                 continue
-            if v.intbound.lower < MININT / 2:
-                v.intbound.lower = MININT
-            if v.intbound.upper > MAXINT / 2:
-                v.intbound.upper = MAXINT
+            if isinstance(v, IntOptValue):
+                if v.intbound.lower < MININT / 2:
+                    v.intbound.lower = MININT
+                if v.intbound.upper > MAXINT / 2:
+                    v.intbound.upper = MAXINT

@@ -69,6 +69,7 @@ class FFI(object):
         self._function_caches = []
         self._libraries = []
         self._cdefsources = []
+        self._windows_unicode = None
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
         for name in backend.__dict__:
@@ -77,6 +78,7 @@ class FFI(object):
         #
         with self._lock:
             self.BVoidP = self._get_cached_btype(model.voidp_type)
+            self.BCharA = self._get_cached_btype(model.char_array_type)
         if isinstance(backend, types.ModuleType):
             # _cffi_backend: attach these constants to the class
             if not hasattr(FFI, 'NULL'):
@@ -189,13 +191,16 @@ class FFI(object):
             cdecl = self._typeof(cdecl)
         return self._backend.alignof(cdecl)
 
-    def offsetof(self, cdecl, fieldname):
+    def offsetof(self, cdecl, *fields_or_indexes):
         """Return the offset of the named field inside the given
-        structure, which must be given as a C type name.
+        structure or array, which must be given as a C type name.  
+        You can give several field names in case of nested structures.
+        You can also give numeric values which correspond to array
+        items, in case of an array type.
         """
         if isinstance(cdecl, basestring):
             cdecl = self._typeof(cdecl)
-        return self._backend.typeoffsetof(cdecl, fieldname)[1]
+        return self._typeoffsetof(cdecl, *fields_or_indexes)[1]
 
     def new(self, cdecl, init=None):
         """Allocate an instance according to the specified C type and
@@ -263,6 +268,16 @@ class FFI(object):
             buf[idx] = ...  change the content
         """
         return self._backend.buffer(cdata, size)
+
+    def from_buffer(self, python_buffer):
+        """Return a <cdata 'char[]'> that points to the data of the
+        given Python object, which must support the buffer interface.
+        Note that this is not meant to be used on the built-in types str,
+        unicode, or bytearray (you can build 'char[]' arrays explicitly)
+        but only on objects containing large quantities of raw data
+        in some other format, like 'array.array' or numpy arrays.
+        """
+        return self._backend.from_buffer(self.BCharA, python_buffer)
 
     def callback(self, cdecl, python_callable=None, error=None):
         """Return a callback object or a decorator making such a
@@ -335,9 +350,23 @@ class FFI(object):
         which requires binary compatibility in the signatures.
         """
         from .verifier import Verifier, _caller_dir_pycache
+        #
+        # If set_unicode(True) was called, insert the UNICODE and
+        # _UNICODE macro declarations
+        if self._windows_unicode:
+            self._apply_windows_unicode(kwargs)
+        #
+        # Set the tmpdir here, and not in Verifier.__init__: it picks
+        # up the caller's directory, which we want to be the caller of
+        # ffi.verify(), as opposed to the caller of Veritier().
         tmpdir = tmpdir or _caller_dir_pycache()
+        #
+        # Make a Verifier() and use it to load the library.
         self.verifier = Verifier(self, source, tmpdir, **kwargs)
         lib = self.verifier.load_library()
+        #
+        # Save the loaded library for keep-alive purposes, even
+        # if the caller doesn't keep it alive itself (it should).
         self._libraries.append(lib)
         return lib
 
@@ -356,14 +385,28 @@ class FFI(object):
         with self._lock:
             return model.pointer_cache(self, ctype)
 
-    def addressof(self, cdata, field=None):
+    def addressof(self, cdata, *fields_or_indexes):
         """Return the address of a <cdata 'struct-or-union'>.
-        If 'field' is specified, return the address of this field.
+        If 'fields_or_indexes' are given, returns the address of that
+        field or array item in the structure or array, recursively in
+        case of nested structures.
         """
         ctype = self._backend.typeof(cdata)
-        ctype, offset = self._backend.typeoffsetof(ctype, field)
+        if fields_or_indexes:
+            ctype, offset = self._typeoffsetof(ctype, *fields_or_indexes)
+        else:
+            if ctype.kind == "pointer":
+                raise TypeError("addressof(pointer)")
+            offset = 0
         ctypeptr = self._pointer_to(ctype)
         return self._backend.rawaddressof(ctypeptr, cdata, offset)
+
+    def _typeoffsetof(self, ctype, field_or_index, *fields_or_indexes):
+        ctype, offset = self._backend.typeoffsetof(ctype, field_or_index)
+        for field1 in fields_or_indexes:
+            ctype, offset1 = self._backend.typeoffsetof(ctype, field1, 1)
+            offset += offset1
+        return ctype, offset
 
     def include(self, ffi_to_include):
         """Includes the typedefs, structs, unions and enums defined
@@ -386,6 +429,44 @@ class FFI(object):
 
     def from_handle(self, x):
         return self._backend.from_handle(x)
+
+    def set_unicode(self, enabled_flag):
+        """Windows: if 'enabled_flag' is True, enable the UNICODE and
+        _UNICODE defines in C, and declare the types like TCHAR and LPTCSTR
+        to be (pointers to) wchar_t.  If 'enabled_flag' is False,
+        declare these types to be (pointers to) plain 8-bit characters.
+        This is mostly for backward compatibility; you usually want True.
+        """
+        if self._windows_unicode is not None:
+            raise ValueError("set_unicode() can only be called once")
+        enabled_flag = bool(enabled_flag)
+        if enabled_flag:
+            self.cdef("typedef wchar_t TBYTE;"
+                      "typedef wchar_t TCHAR;"
+                      "typedef const wchar_t *LPCTSTR;"
+                      "typedef const wchar_t *PCTSTR;"
+                      "typedef wchar_t *LPTSTR;"
+                      "typedef wchar_t *PTSTR;"
+                      "typedef TBYTE *PTBYTE;"
+                      "typedef TCHAR *PTCHAR;")
+        else:
+            self.cdef("typedef char TBYTE;"
+                      "typedef char TCHAR;"
+                      "typedef const char *LPCTSTR;"
+                      "typedef const char *PCTSTR;"
+                      "typedef char *LPTSTR;"
+                      "typedef char *PTSTR;"
+                      "typedef TBYTE *PTBYTE;"
+                      "typedef TCHAR *PTCHAR;")
+        self._windows_unicode = enabled_flag
+
+    def _apply_windows_unicode(self, kwds):
+        defmacros = kwds.get('define_macros', ())
+        if not isinstance(defmacros, (list, tuple)):
+            raise TypeError("'define_macros' must be a list or tuple")
+        defmacros = list(defmacros) + [('UNICODE', '1'),
+                                       ('_UNICODE', '1')]
+        kwds['define_macros'] = defmacros
 
 
 def _load_backend_lib(backend, name, flags):

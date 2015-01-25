@@ -197,8 +197,6 @@ class BaseAssembler(object):
             positions[i] = rffi.cast(rffi.USHORT, position)
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        # we want the descr to keep alive
-        guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
 
     def debug_merge_point(self, op):

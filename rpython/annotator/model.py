@@ -254,7 +254,10 @@ class SomeStringOrUnicode(SomeObject):
         return self.__class__(can_be_None=False, no_nul=self.no_nul)
 
     def nonnulify(self):
-        return self.__class__(can_be_None=self.can_be_None, no_nul=True)
+        if self.can_be_None:
+            return self.__class__(can_be_None=True, no_nul=True)
+        else:
+            return self.__class__(no_nul=True)
 
 
 class SomeString(SomeStringOrUnicode):
@@ -388,6 +391,8 @@ class SomeOrderedDict(SomeDict):
             return SomeImpossibleValue()
         assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
         dct1.dictdef.union(dct2.dictdef)
+
+SomeDict = SomeOrderedDict      # all dicts are ordered!
 
 
 class SomeIterator(SomeObject):

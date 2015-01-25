@@ -576,6 +576,7 @@ class AbstractX86CodeBuilder(object):
 
     PUS1_r = insn(rex_nw, register(1), '\x50')
     PUS1_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
+    PUS1_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
     PUS1_i8 = insn('\x6A', immediate(1, 'b'))
     PUS1_i32 = insn('\x68', immediate(1, 'i'))
 
@@ -585,6 +586,10 @@ class AbstractX86CodeBuilder(object):
 
     def PUSH_b(self, ofs):
         self.PUS1_b(ofs)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_m(self, ofs):
+        self.PUS1_m(ofs)
         self.stack_frame_size_delta(+self.WORD)
 
     def PUSH_i(self, immed):

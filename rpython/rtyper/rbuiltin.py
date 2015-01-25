@@ -445,6 +445,14 @@ def rtype_cast_opaque_ptr(hop):
     return hop.genop('cast_opaque_ptr', [v_input], # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+@typer_for(lltype.length_of_simple_gcarray_from_opaque)
+def rtype_length_of_simple_gcarray_from_opaque(hop):
+    assert isinstance(hop.args_r[0], rptr.PtrRepr)
+    v_opaque_ptr, = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('length_of_simple_gcarray_from_opaque', [v_opaque_ptr],
+                     resulttype = hop.r_result.lowleveltype)
+
 @typer_for(lltype.direct_fieldptr)
 def rtype_direct_fieldptr(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)

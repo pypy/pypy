@@ -4,12 +4,13 @@ from pypy.module.cpyext.api import cpython_api
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
-from rpython.rlib import rposix
+from rpython.rlib import rposix, jit
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
 
 
 @cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
+@jit.dont_look_inside       # direct use of _get_errno()
 def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
     """Convert a string s to a double, raising a Python
     exception on failure.  The set of accepted strings corresponds to
@@ -52,8 +53,9 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
             raise OperationError(
                 space.w_ValueError,
                 space.wrap('invalid input at position %s' % endpos))
-        if rposix.get_errno() == errno.ERANGE:
-            rposix.set_errno(0)
+        err = rffi.cast(lltype.Signed, rposix._get_errno())
+        if err == errno.ERANGE:
+            rposix._set_errno(rffi.cast(rffi.INT, 0))
             if w_overflow_exception is None:
                 if result > 0:
                     return rfloat.INFINITY

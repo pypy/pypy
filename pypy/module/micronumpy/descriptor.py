@@ -16,6 +16,8 @@ from pypy.module.micronumpy.converters import byteorder_converter
 def decode_w_dtype(space, w_dtype):
     if space.is_none(w_dtype):
         return None
+    if isinstance(w_dtype, W_Dtype):
+        return w_dtype
     return space.interp_w(
         W_Dtype, space.call_function(space.gettypefor(W_Dtype), w_dtype))
 
@@ -392,7 +394,7 @@ class W_Dtype(W_Root):
         alignment = space.int_w(space.getitem(w_data, space.wrap(6)))
 
         if (w_names == space.w_None) != (w_fields == space.w_None):
-            raise oefmt(space.w_ValueError, "inconsistent fields and names")
+            raise oefmt(space.w_ValueError, "inconsistent fields and names in Numpy dtype unpickling")
 
         self.byteorder = endian
         self.shape = []

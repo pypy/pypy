@@ -71,7 +71,7 @@ class TestRDictDirect(object):
             for j in range(i):
                 assert rordereddict.ll_dict_getitem(ll_d, llstr(str(j))) == j
             rordereddict.ll_dict_setitem(ll_d, llstr(str(i)), i)
-        assert ll_d.num_items == 20
+        assert ll_d.num_live_items == 20
         for i in range(20):
             assert rordereddict.ll_dict_getitem(ll_d, llstr(str(i))) == i
 
@@ -84,7 +84,7 @@ class TestRDictDirect(object):
             rordereddict.ll_dict_setitem(ll_d, llstr(str(i)), i)
             if i % 2 != 0:
                 rordereddict.ll_dict_delitem(ll_d, llstr(str(i)))
-        assert ll_d.num_items == 10
+        assert ll_d.num_live_items == 10
         for i in range(0, 20, 2):
             assert rordereddict.ll_dict_getitem(ll_d, llstr(str(i))) == i
 
@@ -115,11 +115,18 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("b"), 2)
         rordereddict.ll_dict_setitem(ll_d, llstr("c"), 3)
         rordereddict.ll_dict_setitem(ll_d, llstr("d"), 4)
-        assert len(get_indexes(ll_d)) == 8
         rordereddict.ll_dict_setitem(ll_d, llstr("e"), 5)
         rordereddict.ll_dict_setitem(ll_d, llstr("f"), 6)
-        assert len(get_indexes(ll_d)) == 32
-        for item in ['a', 'b', 'c', 'd', 'e', 'f']:
+        rordereddict.ll_dict_setitem(ll_d, llstr("g"), 7)
+        rordereddict.ll_dict_setitem(ll_d, llstr("h"), 8)
+        rordereddict.ll_dict_setitem(ll_d, llstr("i"), 9)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 10)
+        assert len(get_indexes(ll_d)) == 16
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 11)
+        rordereddict.ll_dict_setitem(ll_d, llstr("l"), 12)
+        rordereddict.ll_dict_setitem(ll_d, llstr("m"), 13)
+        assert len(get_indexes(ll_d)) == 64
+        for item in 'abcdefghijklm':
             assert rordereddict.ll_dict_getitem(ll_d, llstr(item)) == ord(item) - ord('a') + 1
 
     def test_dict_grow_cleanup(self):
@@ -129,7 +136,7 @@ class TestRDictDirect(object):
         for i in range(40):
             rordereddict.ll_dict_setitem(ll_d, lls, i)
             rordereddict.ll_dict_delitem(ll_d, lls)
-        assert ll_d.num_used_items <= 10
+        assert ll_d.num_ever_used_items <= 10
 
     def test_dict_iteration(self):
         DICT = self._get_str_dict()
@@ -159,6 +166,38 @@ class TestRDictDirect(object):
         assert hlstr(ll_elem.item0) == "k"
         assert ll_elem.item1 == 1
         py.test.raises(KeyError, rordereddict.ll_dict_popitem, TUP, ll_d)
+
+    def test_popitem_first(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 2)
+        rordereddict.ll_dict_setitem(ll_d, llstr("m"), 3)
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        for expected in ["k", "j", "m"]:
+            ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+            num = rordereddict._ll_dictnext(ll_iter)
+            ll_key = ll_d.entries[num].key
+            assert hlstr(ll_key) == expected
+            rordereddict.ll_dict_delitem(ll_d, ll_key)
+        ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+        py.test.raises(StopIteration, rordereddict._ll_dictnext, ll_iter)
+
+    def test_popitem_first_bug(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        rordereddict.ll_dict_setitem(ll_d, llstr("k"), 1)
+        rordereddict.ll_dict_setitem(ll_d, llstr("j"), 1)
+        rordereddict.ll_dict_delitem(ll_d, llstr("k"))
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
+        num = rordereddict._ll_dictnext(ll_iter)
+        ll_key = ll_d.entries[num].key
+        assert hlstr(ll_key) == "j"
+        assert ll_d.lookup_function_no == 4    # 1 free item found at the start
+        rordereddict.ll_dict_delitem(ll_d, llstr("j"))
+        assert ll_d.num_ever_used_items == 0
+        assert ll_d.lookup_function_no == 0    # reset
 
     def test_direct_enter_and_del(self):
         def eq(a, b):
@@ -190,7 +229,7 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 1)
         rordereddict.ll_dict_setitem(ll_d, llstr("l"), 1)
         rordereddict.ll_dict_clear(ll_d)
-        assert ll_d.num_items == 0
+        assert ll_d.num_live_items == 0
 
     def test_get(self):
         DICT = self._get_str_dict()
@@ -292,12 +331,6 @@ class TestOrderedRDict(BaseTestRDict):
         res = self.interpret(func, [5])
         assert res == 6
 
-    def test_dict_with_SHORT_keys(self):
-        py.test.skip("I don't want to edit this file on two branches")
-
-    def test_memoryerror_should_not_insert(self):
-        py.test.skip("I don't want to edit this file on two branches")
-
 
 class TestStress:
 
@@ -349,7 +382,7 @@ class TestStress:
             if 1.38 <= x <= 1.39:
                 complete_check()
                 print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
+            assert l_dict.num_live_items == referencelength
         complete_check()
 
     def test_stress_2(self):
@@ -418,5 +451,5 @@ class TestStress:
             if 1.38 <= x <= 1.39:
                 complete_check()
                 print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
+            assert l_dict.num_live_items == referencelength
         complete_check()

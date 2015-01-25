@@ -113,7 +113,7 @@ def create_cffi_import_libraries(pypy_c, options):
     if not sys.platform == 'win32':
         modules += ['_curses', 'syslog', 'gdbm', '_sqlite3']
     if not options.no_tk:
-        modules.append(('_tkinter'))
+        modules.append('_tkinter')
     for module in modules:
         try:
             subprocess.check_call([str(pypy_c), '-c', 'import ' + module])
@@ -140,16 +140,11 @@ def create_package(basedir, options):
     else:
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
-        print pypy_c
-        if os.path.isdir(os.path.dirname(str(pypy_c))):
-            raise PyPyCNotFound(
-                'Please compile pypy first, using translate.py,'
-                ' or check that you gave the correct path'
-                ' (see docstring for more info)')
-        else:
-            raise PyPyCNotFound(
-                'Bogus path: %r does not exist (see docstring for more info)'
-                % (os.path.dirname(str(pypy_c)),))
+        raise PyPyCNotFound(
+            'Expected but did not find %s.'
+            ' Please compile pypy first, using translate.py,'
+            ' or check that you gave the correct path'
+            ' with --override_pypy_c' % pypy_c)
     if not options.no_cffi:
         try:
             create_cffi_import_libraries(pypy_c, options)
@@ -160,9 +155,10 @@ def create_package(basedir, options):
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
-    libpypy_c = pypy_c.new(basename='libpypy-c.so')
+    libpypy_name = 'libpypy-c.so' if not sys.platform.startswith('darwin') else 'libpypy-c.dylib'
+    libpypy_c = pypy_c.new(basename=libpypy_name)
     if libpypy_c.check():
-        binaries.append((libpypy_c, 'libpypy-c.so'))
+        binaries.append((libpypy_c, libpypy_name))
     #
     builddir = options.builddir
     pypydir = builddir.ensure(name, dir=True)
@@ -256,7 +252,7 @@ directory next to the dlls, as per build instructions."""
     for source, target in binaries:
         archive = bindir.join(target)
         shutil.copy(str(source), str(archive))
-    fix_permissions(builddir)
+    fix_permissions(pypydir)
 
     old_dir = os.getcwd()
     try:
@@ -346,7 +342,7 @@ def package(*args):
         help='use as pypy exe instead of pypy/goal/pypy-c')
     # Positional arguments, for backward compatability with buldbots
     parser.add_argument('extra_args', help='optional interface to positional arguments', nargs=argparse.REMAINDER,
-        metavar='[root-pypy-dir] [name-of-archive] [name-of-pypy-c] [destination-for-tarball] [pypy-c-path]',
+        metavar='[archive-name] [rename_pypy_c] [targetdir] [override_pypy_c]',
         )
     options = parser.parse_args(args)
 
