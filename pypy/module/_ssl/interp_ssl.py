@@ -76,6 +76,7 @@ constants["OP_ALL"] = SSL_OP_ALL &~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 constants["OP_NO_SSLv2"] = SSL_OP_NO_SSLv2
 constants["OP_NO_SSLv3"] = SSL_OP_NO_SSLv3
 constants["OP_NO_TLSv1"] = SSL_OP_NO_TLSv1
+constants["OP_NO_COMPRESSION"] = SSL_OP_NO_COMPRESSION
 constants["HAS_SNI"] = HAS_SNI
 constants["HAS_ECDH"] = True  # To break the test suite
 constants["HAS_NPN"] = HAS_NPN
@@ -536,6 +537,17 @@ class _SSLSocket(W_Root):
                     return space.wrap(
                         rffi.charpsize2str(out_ptr[0], intmask(len_ptr[0])))
 
+    def compression_w(self, space):
+        if not self.ssl:
+            return space.w_None
+        comp_method = libssl_SSL_get_current_compression(self.ssl)
+        if not comp_method or intmask(comp_method[0].c_type) == NID_undef:
+            return space.w_None
+        short_name = libssl_OBJ_nid2sn(comp_method[0].c_type)
+        if not short_name:
+            return space.w_None
+        return space.wrap(rffi.charp2str(short_name))
+
 _SSLSocket.typedef = TypeDef(
     "_ssl._SSLSocket",
 
@@ -547,6 +559,7 @@ _SSLSocket.typedef = TypeDef(
     cipher=interp2app(_SSLSocket.cipher),
     shutdown=interp2app(_SSLSocket.shutdown),
     selected_npn_protocol = interp2app(_SSLSocket.selected_npn_protocol),
+    compression = interp2app(_SSLSocket.compression_w),
 )
 
 

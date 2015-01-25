@@ -81,6 +81,8 @@ class CConfig:
     SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
     SSL_OP_NO_SSLv3 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv3")
     SSL_OP_NO_TLSv1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1")
+    SSL_OP_NO_COMPRESSION = rffi_platform.ConstantInteger(
+        "SSL_OP_NO_COMPRESSION")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
     HAS_SNI = rffi_platform.Defined("SSL_CTRL_SET_TLSEXT_HOSTNAME")
@@ -177,6 +179,9 @@ class CConfig:
          ('name', rffi.CCHARP),
          ])
 
+    COMP_METHOD_st = rffi_platform.Struct(
+        'struct comp_method_st',
+        [('type', rffi.INT),])
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
@@ -199,6 +204,7 @@ ASN1_INTEGER = rffi.COpaquePtr('ASN1_INTEGER')
 GENERAL_NAMES = rffi.COpaquePtr('GENERAL_NAMES')
 GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
 OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
+COMP_METHOD = rffi.CArrayPtr(COMP_METHOD_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 HAVE_OPENSSL_FINISHED = OPENSSL_VERSION_NUMBER >= 0x0090500f
@@ -276,6 +282,7 @@ ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
 ssl_external('SSL_get_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
 ssl_external('SSL_set_tlsext_host_name', [SSL, rffi.CCHARP], rffi.INT, macro=True)
+ssl_external('SSL_get_current_compression', [SSL], COMP_METHOD)
 
 ssl_external('SSL_get_peer_certificate', [SSL], X509)
 ssl_external('X509_get_subject_name', [X509], X509_NAME)
