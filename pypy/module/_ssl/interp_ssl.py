@@ -505,6 +505,8 @@ class _SSLSocket(W_Root):
         the peer certificate, or None if no certificate was provided.
         This will return the certificate even if it wasn't validated.
         """
+        if not self.handshake_done:
+            raise oefmt(space.w_ValueError, "hanshake not done yet")
         if not self.peer_cert:
             return space.w_None
 
