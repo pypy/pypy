@@ -25,6 +25,8 @@ class _DummyLock(object):
 def varname_converter(input):
     if isinstance(input, TclObject):
         return input.string
+    if b'\0' in input:
+        raise ValueError("NUL character in string")
     return input
 
 
@@ -542,5 +544,4 @@ class TkApp(object):
         res = tklib.Tcl_NewByteArrayObj(cdata, len(buf))
         if not res:
             self.raiseTclError()
-        return FromObj(self, res)
-        
+        return TclObject(res)
