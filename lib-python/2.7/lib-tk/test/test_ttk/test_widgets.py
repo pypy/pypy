@@ -2,7 +2,7 @@ import unittest
 import Tkinter as tkinter
 from Tkinter import TclError
 import ttk
-from test.test_support import requires, run_unittest
+from test.test_support import requires, run_unittest, gc_collect
 import sys
 
 from test_functions import MockTclObj
@@ -838,6 +838,7 @@ class ScaleTest(AbstractWidgetTest, unittest.TestCase):
         self.assertEqual(conv(self.scale.get()), var.get())
         self.assertEqual(conv(self.scale.get()), max + 5)
         del var
+        gc_collect()
 
         # the same happens with the value option
         self.scale['value'] = max + 10

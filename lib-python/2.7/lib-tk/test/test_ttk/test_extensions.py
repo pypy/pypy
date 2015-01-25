@@ -2,7 +2,7 @@ import sys
 import unittest
 import Tkinter as tkinter
 import ttk
-from test.test_support import requires, run_unittest, swap_attr
+from test.test_support import requires, run_unittest, swap_attr, gc_collect
 from test_ttk.support import AbstractTkTest, destroy_default_root
 
 requires('gui')
@@ -18,6 +18,7 @@ class LabeledScaleTest(AbstractTkTest, unittest.TestCase):
         x = ttk.LabeledScale(self.root)
         var = x._variable._name
         x.destroy()
+        gc_collect()
         self.assertRaises(tkinter.TclError, x.tk.globalgetvar, var)
 
         # manually created variable
@@ -25,11 +26,13 @@ class LabeledScaleTest(AbstractTkTest, unittest.TestCase):
         name = myvar._name
         x = ttk.LabeledScale(self.root, variable=myvar)
         x.destroy()
+        gc_collect()
         if self.wantobjects:
             self.assertEqual(x.tk.globalgetvar(name), myvar.get())
         else:
             self.assertEqual(float(x.tk.globalgetvar(name)), myvar.get())
         del myvar
+        gc_collect()
         self.assertRaises(tkinter.TclError, x.tk.globalgetvar, name)
 
         # checking that the tracing callback is properly removed
@@ -37,6 +40,7 @@ class LabeledScaleTest(AbstractTkTest, unittest.TestCase):
         # LabeledScale will start tracing myvar
         x = ttk.LabeledScale(self.root, variable=myvar)
         x.destroy()
+        gc_collect()
         # Unless the tracing callback was removed, creating a new
         # LabeledScale with the same var will cause an error now. This
         # happens because the variable will be set to (possibly) a new
@@ -216,6 +220,7 @@ class OptionMenuTest(AbstractTkTest, unittest.TestCase):
         optmenu.destroy()
         self.assertEqual(optmenu.tk.globalgetvar(name), var.get())
         del var
+        gc_collect()
         self.assertRaises(tkinter.TclError, optmenu.tk.globalgetvar, name)
 
 
