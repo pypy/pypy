@@ -316,7 +316,7 @@ class _SSLSocket(W_Root):
         return space.wrap(count)
 
     @unwrap_spec(num_bytes=int)
-    def read(self, space, num_bytes):
+    def read(self, space, num_bytes, w_buffer=None):
         """read([len]) -> string
 
         Read up to len bytes from the SSL socket."""
@@ -334,6 +334,12 @@ class _SSLSocket(W_Root):
                 raise ssl_error(space,
                                 "Socket closed without SSL shutdown handshake")
 
+        if w_buffer:
+            rwbuffer = space.getarg_w('w*', w_buffer)
+            num_bytes = min(num_bytes, rwbuffer.getlength())
+        else:
+            rwbuffer = None
+
         with rffi.scoped_alloc_buffer(num_bytes) as buf:
             while True:
                 err = 0
@@ -347,7 +353,10 @@ class _SSLSocket(W_Root):
                     sockstate = checkwait(space, self.w_socket, True)
                 elif (err == SSL_ERROR_ZERO_RETURN and
                         libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
-                    return space.wrap("")
+                    if rwbuffer:
+                        return space.wrap(0)
+                    else:
+                        return space.wrap("")
                 else:
                     sockstate = SOCKET_OPERATION_OK
 
@@ -366,7 +375,11 @@ class _SSLSocket(W_Root):
 
             result = buf.str(count)
 
-        return space.wrap(result)
+        if rwbuffer:
+            rwbuffer.setslice(0, result)
+            return space.wrap(count)
+        else:
+            return space.wrap(result)
 
     def _refresh_nonblocking(self, space):
         # just in case the blocking state of the socket has been changed
