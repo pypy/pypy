@@ -53,6 +53,7 @@ ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
+DH = rffi.COpaquePtr('DH')
 
 class CConfigBootstrap:
     _compilation_info_ = eci
@@ -356,6 +357,7 @@ ssl_external('BIO_s_mem', [], BIO_METHOD)
 ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
+ssl_external('BIO_new_file', [rffi.CCHARP, rffi.CCHARP], BIO)
 ssl_external('BIO_new_mem_buf', [rffi.VOIDP, rffi.INT], BIO)
 ssl_external('BIO_free', [BIO], rffi.INT)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)
@@ -366,6 +368,11 @@ ssl_external('PEM_read_bio_X509',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
+
+ssl_external('PEM_read_bio_DHparams',
+             [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], DH)
+ssl_external('SSL_CTX_set_tmp_dh', [SSL_CTX, DH], rffi.INT, macro=True)
+ssl_external('DH_free', [DH], lltype.Void, releasegil=False)
 
 if HAS_NPN:
     SSL_NEXT_PROTOS_ADV_CB = lltype.Ptr(lltype.FuncType(

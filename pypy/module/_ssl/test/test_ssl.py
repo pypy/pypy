@@ -1,11 +1,11 @@
 from rpython.tool.udir import udir
+import os
 
 
 class AppTestSSL:
     spaceconfig = dict(usemodules=('_ssl', '_socket', 'thread'))
 
     def setup_class(cls):
-        import os
         cls.w_nullbytecert = cls.space.wrap(os.path.join(
             os.path.dirname(__file__), 'nullbytecert.pem'))
 
@@ -269,6 +269,8 @@ class AppTestContext:
         tmpfile = udir / "emptycert.pem"
         tmpfile.write(SSL_EMPTYCERT)
         cls.w_emptycert = cls.space.wrap(str(tmpfile))
+        cls.w_dh512 = cls.space.wrap(os.path.join(
+            os.path.dirname(__file__), 'dh512.pem'))
 
     def test_load_cert_chain(self):
         import _ssl
@@ -290,6 +292,14 @@ class AppTestContext:
             cacert_pem = f.read().decode('ascii')
         ctx.load_verify_locations(cadata=cacert_pem)
         assert ctx.cert_store_stats()["x509_ca"]
+
+    def test_load_dh_params(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx.load_dh_params(self.dh512)
+        raises(TypeError, ctx.load_dh_params)
+        raises(TypeError, ctx.load_dh_params, None)
+        raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
 
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----

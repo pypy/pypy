@@ -1025,6 +1025,31 @@ class _SSLContext(W_Root):
         if ret != 1:
             raise _ssl_seterror(space, None, -1)
 
+    @unwrap_spec(filepath=str)
+    def load_dh_params_w(self, space, filepath):
+        bio = libssl_BIO_new_file(filepath, "r")
+        if not bio:
+            libssl_ERR_clear_error()
+            errno = get_errno()
+            raise wrap_oserror(space, OSError(errno, ''))
+        try:
+            set_errno(0)
+            dh = libssl_PEM_read_bio_DHparams(bio, None, None, None)
+        finally:
+            libssl_BIO_free(bio)
+        if not dh:
+            errno = get_errno()
+            if errno != 0:
+                libssl_ERR_clear_error()
+                raise wrap_oserror(space, OSError(errno, ''))
+            else:
+                raise _ssl_seterror(space, None, 0)
+        try:
+            if libssl_SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
+                raise _ssl_seterror(space, None, 0)
+        finally:
+            libssl_DH_free(dh)        
+
     def load_verify_locations_w(self, space, w_cafile=None, w_capath=None,
                                 w_cadata=None):
         if space.is_none(w_cafile):
@@ -1156,9 +1181,10 @@ _SSLContext.typedef = TypeDef(
     __new__=interp2app(_SSLContext.descr_new),
     _wrap_socket=interp2app(_SSLContext.descr_wrap_socket),
     set_ciphers=interp2app(_SSLContext.descr_set_ciphers),
-    load_verify_locations=interp2app(_SSLContext.load_verify_locations_w),
     cert_store_stats=interp2app(_SSLContext.cert_store_stats_w),
     load_cert_chain=interp2app(_SSLContext.load_cert_chain_w),
+    load_dh_params=interp2app(_SSLContext.load_dh_params_w),
+    load_verify_locations=interp2app(_SSLContext.load_verify_locations_w),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
     _set_npn_protocols=interp2app(_SSLContext.set_npn_protocols_w),
 
