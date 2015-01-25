@@ -571,6 +571,27 @@ class _SSLSocket(W_Root):
             return space.w_None
         return space.wrap(rffi.charp2str(version))
 
+    def tls_unique_cb_w(self, space):
+        """Returns the 'tls-unique' channel binding data, as defined by RFC 5929.
+        If the TLS handshake is not yet complete, None is returned"""
+
+        # In case of 'tls-unique' it will be 12 bytes for TLS, 36
+        # bytes for older SSL, but let's be safe
+        CB_MAXLEN = 128
+
+        with lltype.scoped_alloc(rffi.CCHARP.TO, CB_MAXLEN) as buf:
+            if (libssl_SSL_session_reused(self.ssl) ^ 
+                (self.socket_type == PY_SSL_CLIENT)):
+                # if session is resumed XOR we are the client
+                length = libssl_SSL_get_finished(self.ssl, buf, CB_MAXLEN)
+            else:
+                # if a new session XOR we are the server
+                length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
+            
+            if length > 0:
+                return space.wrap(rffi.charpsize2str(buf, intmask(length)))
+
+
 _SSLSocket.typedef = TypeDef(
     "_ssl._SSLSocket",
 
@@ -584,6 +605,7 @@ _SSLSocket.typedef = TypeDef(
     selected_npn_protocol = interp2app(_SSLSocket.selected_npn_protocol),
     compression = interp2app(_SSLSocket.compression_w),
     version = interp2app(_SSLSocket.version_w),
+    tls_unique_cb = interp2app(_SSLSocket.tls_unique_cb_w),
 )
 
 
