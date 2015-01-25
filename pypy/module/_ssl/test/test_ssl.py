@@ -301,6 +301,61 @@ class AppTestContext:
         raises(TypeError, ctx.load_dh_params, None)
         raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
 
+
+class AppTestSSLError:
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'thread'))
+
+    def setup_class(cls):
+        tmpfile = udir / "tmpfile.pem"
+        tmpfile.write(SSL_CERTIFICATE + SSL_PRIVATE_KEY)
+        cls.w_keycert = cls.space.wrap(str(tmpfile))
+
+    def test_str(self):
+        # The str() of a SSLError doesn't include the errno
+        import _ssl
+        e = _ssl.SSLError(1, "foo")
+        assert str(e) == "foo"
+        assert e.errno == 1
+        # Same for a subclass
+        e = _ssl.SSLZeroReturnError(1, "foo")
+        assert str(e) == "foo"
+        assert e.errno == 1
+
+    def test_lib_reason(self):
+        # Test the library and reason attributes
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        exc = raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
+        assert exc.value.library == 'PEM'
+        assert exc.value.reason == 'NO_START_LINE'
+        s = str(exc.value)
+        assert s.startswith("[PEM: NO_START_LINE] no start line")
+
+    def test_subclass(self):
+        # Check that the appropriate SSLError subclass is raised
+        # (this only tests one of them)
+        import _ssl, _socket
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        s = _socket.socket()
+        try:
+            s.bind(("127.0.0.1", 0))
+            s.listen(5)
+            c = _socket.socket()
+            c.connect(s.getsockname())
+            c.setblocking(False)
+            
+            c = ctx._wrap_socket(c, False)
+            try:
+                exc = raises(_ssl.SSLWantReadError, c.do_handshake)
+                msg= str(exc.value)
+                assert msg.startswith("The operation did not complete (read)")
+                # For compatibility
+                assert exc.value.errno == _ssl.SSL_ERROR_WANT_READ
+            finally:
+                c.shutdown()
+        finally:
+            s.close()
+
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----
 MIICVDCCAb2gAwIBAgIJANfHOBkZr8JOMA0GCSqGSIb3DQEBBQUAMF8xCzAJBgNV

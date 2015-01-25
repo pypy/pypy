@@ -3,12 +3,15 @@ from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
 from rpython.rlib.rposix import get_errno, set_errno
 from rpython.rlib.rweakref import RWeakValueDictionary
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.module._ssl.ssl_data import (
+    LIBRARY_CODES_TO_NAMES, ERROR_CODES_TO_NAMES)
 from pypy.module._socket import interp_socket
 
 
@@ -91,13 +94,32 @@ constants["_OPENSSL_API_VERSION"] = version_info
 constants["OPENSSL_VERSION"] = SSLEAY_VERSION
 
 
-def ssl_error(space, msg, errno=0, exc='w_sslerror'):
-    w_exception_class = get_exception_class(space, exc)
-    if not errno:
-        w_exception = space.call_function(w_exception_class, space.wrap(msg))
-    else:
+def ssl_error(space, msg, errno=0, w_errtype=None, errcode=0):
+    reason_str = None
+    lib_str = None
+    if errcode:
+        err_lib = libssl_ERR_GET_LIB(errcode)
+        err_reason = libssl_ERR_GET_REASON(errcode)
+        reason_str = ERROR_CODES_TO_NAMES.get((err_lib, err_reason), None)
+        lib_str = LIBRARY_CODES_TO_NAMES.get(err_lib, None)
+        msg = rffi.charp2str(libssl_ERR_reason_error_string(errcode))
+    if not msg:
+        msg = "unknown error"
+    if reason_str and lib_str:
+        msg = "[%s: %s] %s" % (lib_str, reason_str, msg)
+    elif lib_str:
+        msg = "[%s] %s" % (lib_str, msg)
+
+    w_exception_class = w_errtype or get_exception_class(space, 'w_sslerror')
+    if errno or errcode:
         w_exception = space.call_function(w_exception_class,
                                           space.wrap(errno), space.wrap(msg))
+    else:
+        w_exception = space.call_function(w_exception_class, space.wrap(msg))
+    space.setattr(w_exception, space.wrap("reason"),
+                  space.wrap(reason_str) if reason_str else space.w_None)
+    space.setattr(w_exception, space.wrap("library"),
+                  space.wrap(lib_str) if lib_str else space.w_None)
     return OperationError(w_exception_class, w_exception)
 
 class SSLNpnProtocols(object):
@@ -794,22 +816,25 @@ def _ssl_seterror(space, ss, ret):
 
     if ss is None:
         errval = libssl_ERR_peek_last_error()
-        errstr = rffi.charp2str(libssl_ERR_error_string(errval, None))
-        return ssl_error(space, errstr, errval)
+        return ssl_error(space, None, errcode=errval)
     elif ss.ssl:
         err = libssl_SSL_get_error(ss.ssl, ret)
     else:
         err = SSL_ERROR_SSL
+    w_errtype = None
     errstr = ""
     errval = 0
 
     if err == SSL_ERROR_ZERO_RETURN:
+        w_errtype = get_exception_class(space, 'w_sslzeroreturnerror')
         errstr = "TLS/SSL connection has been closed"
         errval = PY_SSL_ERROR_ZERO_RETURN
     elif err == SSL_ERROR_WANT_READ:
+        w_errtype = get_exception_class(space, 'w_sslwantreaderror')
         errstr = "The operation did not complete (read)"
         errval = PY_SSL_ERROR_WANT_READ
     elif err == SSL_ERROR_WANT_WRITE:
+        w_errtype = get_exception_class(space, 'w_sslwantwriteerror')
         errstr = "The operation did not complete (write)"
         errval = PY_SSL_ERROR_WANT_WRITE
     elif err == SSL_ERROR_WANT_X509_LOOKUP:
@@ -829,6 +854,7 @@ def _ssl_seterror(space, ss, ret):
                 error = rsocket.last_error()
                 return interp_socket.converted_error(space, error)
             else:
+                w_errtype = get_exception_class(space, 'w_sslsyscallerror')
                 errstr = "Some I/O error occurred"
                 errval = PY_SSL_ERROR_SYSCALL
         else:
@@ -845,7 +871,13 @@ def _ssl_seterror(space, ss, ret):
         errstr = "Invalid error code"
         errval = PY_SSL_ERROR_INVALID_ERROR_CODE
 
-    return ssl_error(space, errstr, errval)
+    return ssl_error(space, errstr, errval, w_errtype=w_errtype)
+
+def SSLError_descr_str(space, w_exc):
+    w_strerror = space.getattr(w_exc, space.wrap("strerror"))
+    if not space.is_none(w_strerror):
+        return w_strerror
+    return space.str(space.getattr(w_exc, space.wrap("args")))
 
 
 class Cache:
@@ -853,6 +885,8 @@ class Cache:
         w_socketerror = interp_socket.get_error(space, "error")
         self.w_sslerror = space.new_exception_class(
             "_ssl.SSLError", w_socketerror)
+        space.setattr(self.w_sslerror, space.wrap('__str__'),
+                      space.wrap(interp2app(SSLError_descr_str)))
         self.w_sslzeroreturnerror = space.new_exception_class(
             "_ssl.SSLZeroReturnError", self.w_sslerror)
         self.w_sslwantreaderror = space.new_exception_class(
@@ -865,6 +899,7 @@ class Cache:
             "_ssl.SSLEOFError", self.w_sslerror)
 
 
+@specialize.memo()
 def get_exception_class(space, name):
     return getattr(space.fromcache(Cache), name)
 
