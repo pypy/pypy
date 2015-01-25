@@ -548,6 +548,14 @@ class _SSLSocket(W_Root):
             return space.w_None
         return space.wrap(rffi.charp2str(short_name))
 
+    def version_w(self, space):
+        if not self.ssl:
+            return space.w_None
+        version = libssl_SSL_get_version(self.ssl)
+        if not version:
+            return space.w_None
+        return space.wrap(rffi.charp2str(version))
+
 _SSLSocket.typedef = TypeDef(
     "_ssl._SSLSocket",
 
@@ -560,6 +568,7 @@ _SSLSocket.typedef = TypeDef(
     shutdown=interp2app(_SSLSocket.shutdown),
     selected_npn_protocol = interp2app(_SSLSocket.selected_npn_protocol),
     compression = interp2app(_SSLSocket.compression_w),
+    version = interp2app(_SSLSocket.version_w),
 )
 
 

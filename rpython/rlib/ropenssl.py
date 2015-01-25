@@ -283,6 +283,7 @@ ssl_external('SSL_get_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
 ssl_external('SSL_set_tlsext_host_name', [SSL, rffi.CCHARP], rffi.INT, macro=True)
 ssl_external('SSL_get_current_compression', [SSL], COMP_METHOD)
+ssl_external('SSL_get_version', [SSL], rffi.CCHARP)
 
 ssl_external('SSL_get_peer_certificate', [SSL], X509)
 ssl_external('X509_get_subject_name', [X509], X509_NAME)
