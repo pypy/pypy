@@ -533,6 +533,8 @@ class WarmRunnerDesc(object):
         for jd in self.jitdrivers_sd:
             jd._get_printable_location_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_printable_location, s_Str)
+            jd._get_unique_id_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.get_unique_id, annmodel.SomeInteger())
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.confirm_enter_jit, annmodel.s_Bool,
                 onlygreens=False)

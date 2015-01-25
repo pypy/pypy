@@ -5,7 +5,7 @@ from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib.rbisect import bisect
+from rpython.rlib.rbisect import bisect, bisect_tuple
 from rpython.rlib import rgc
 from rpython.rlib.entrypoint import jit_entrypoint
 
@@ -56,6 +56,8 @@ class AsmMemoryManager(object):
         # depths
         self.jit_addr_map = []
         self.jit_frame_depth_map = []
+        self.jit_codemap = []
+        # see codemap.py
 
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
@@ -209,6 +211,9 @@ class AsmMemoryManager(object):
         for i, pos in enumerate(frame_positions):
             self.jit_addr_map[i + start] = pos + rawstart
             self.jit_frame_depth_map[i + start] = frame_assignments[i]
+
+    def register_codemap(self, codemap):
+        pass # xxx
 
     def _delete(self):
         "NOT_RPYTHON"

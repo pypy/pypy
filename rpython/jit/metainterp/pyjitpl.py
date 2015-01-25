@@ -1170,7 +1170,9 @@ class MIFrame(object):
         if have_debug_prints():
             loc = jitdriver_sd.warmstate.get_location_str(greenkey)
             debug_print(loc)
-        args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
+        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
+        args = [ConstInt(jd_index), ConstInt(portal_call_depth),
+                ConstInt(current_call_id), ConstInt(unique_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")

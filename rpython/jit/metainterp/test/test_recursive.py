@@ -1296,6 +1296,26 @@ class RecursiveTests:
         self.meta_interp(portal, [0])
         self.check_trace_count_at_most(2)   # and not, e.g., 24
 
+    def test_get_unique_id(self):
+        def get_unique_id(pc):
+            return (pc + 1) * 2
+        
+        driver = JitDriver(greens=["pc"], reds='auto',
+                           get_unique_id=get_unique_id)
+
+        def f(pc):
+            i = 0
+            while i < 10:
+                driver.jit_merge_point(pc=pc)
+                pc += 1
+                if pc == 3:
+                    f(4)
+                    pc = 0
+                if pc == 6:
+                    pc = 4
+                i += 1
+
+        self.meta_interp(f, [0], inline=True)
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass

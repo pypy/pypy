@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -128,6 +129,10 @@ class BaseAssembler(object):
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
 
+    def setup(self, looptoken):
+        self.codemap = CodemapBuilder(self.cpu)
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
+
     def set_debug(self, v):
         r = self._debug
         self._debug = v
@@ -195,6 +200,9 @@ class BaseAssembler(object):
         # we want the descr to keep alive
         guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
+
+    def debug_merge_point(self, op):
+        self.codemap.debug_merge_point(op, self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)

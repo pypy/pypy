@@ -134,7 +134,7 @@ class LogOperations(object):
     def repr_of_resop(self, op, ops_offset=None):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-            s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
+            s = jd_sd.warmstate.get_location_str(op.getarglist()[4:])
             s = s.replace(',', '.') # we use comma for argument splitting
             return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
         if op.getopnum() == rop.JIT_DEBUG:

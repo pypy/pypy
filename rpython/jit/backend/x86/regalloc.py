@@ -1294,7 +1294,7 @@ class RegAlloc(BaseRegalloc):
         assembler.closing_jump(self.jump_target_descr)
 
     def consider_debug_merge_point(self, op):
-        pass
+        self.assembler.debug_merge_point(op)
 
     def consider_jit_debug(self, op):
         pass

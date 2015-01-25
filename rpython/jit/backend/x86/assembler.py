@@ -66,6 +66,7 @@ class Assembler386(BaseAssembler):
             self._build_float_constants()
 
     def setup(self, looptoken):
+        BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
@@ -80,7 +81,6 @@ class Assembler386(BaseAssembler):
                                                         allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
-        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -524,6 +524,7 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
+        self.codemap.xxx
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
         if log:
@@ -685,8 +686,12 @@ class Assembler386(BaseAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
-                                   self.cpu.gc_ll_descr.gcrootmap)
+        size = self.mc.get_relative_pos()
+        res = self.mc.materialize(self.cpu.asmmemmgr, allblocks,
+                                  self.cpu.gc_ll_descr.gcrootmap)
+        self.cpu.asmmemmgr.register_codemap(
+            self.codemap.get_final_bytecode(res, size))
+        return res
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
