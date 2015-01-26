@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._ssl.ssl_data import (
     LIBRARY_CODES_TO_NAMES, ERROR_CODES_TO_NAMES)
 from pypy.module._socket import interp_socket
@@ -591,6 +591,18 @@ class _SSLSocket(W_Root):
             if length > 0:
                 return space.wrap(rffi.charpsize2str(buf, intmask(length)))
 
+    def descr_get_context(self, space):
+        return self.w_ctx
+
+    def descr_set_context(self, space, w_ctx):
+        ctx = space.interp_w(_SSLContext, w_ctx)
+        if not HAS_SNI:
+            raise oefmt(space.w_NotImplementedError,
+                        "setting a socket's context "
+                        "is not supported by your OpenSSL library")
+        self.w_ctx = w_ctx
+        libssl_SSL_set_SSL_CTX(self.ssl, ctx.ctx)
+
 
 _SSLSocket.typedef = TypeDef(
     "_ssl._SSLSocket",
@@ -606,7 +618,8 @@ _SSLSocket.typedef = TypeDef(
     compression = interp2app(_SSLSocket.compression_w),
     version = interp2app(_SSLSocket.version_w),
     tls_unique_cb = interp2app(_SSLSocket.tls_unique_cb_w),
-    context=interp_attrproperty_w("w_ctx", _SSLSocket),
+    context=GetSetProperty(_SSLSocket.descr_get_context,
+                           _SSLSocket.descr_set_context),
 )
 
 

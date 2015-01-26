@@ -240,6 +240,7 @@ if HAVE_OPENSSL_RAND:
     ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
 ssl_external('SSL_get_SSL_CTX', [SSL], SSL_CTX)
+ssl_external('SSL_set_SSL_CTX', [SSL, SSL_CTX], SSL_CTX)
 ssl_external('TLSv1_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
