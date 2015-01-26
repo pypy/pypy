@@ -73,7 +73,9 @@ class AppTestSSL:
         if sys.version_info < (2, 7, 9):
             ss = _ssl.sslwrap(s, 0)
         else:
-            ss = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)._wrap_socket(s, 0)
+            ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+            ss = ctx._wrap_socket(s, 0)
+            assert ss.context is ctx
         exc = raises(_socket.error, ss.do_handshake)
         if sys.platform == 'win32':
             assert exc.value.errno == 10057 # WSAENOTCONN

@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from pypy.module._ssl.ssl_data import (
     LIBRARY_CODES_TO_NAMES, ERROR_CODES_TO_NAMES)
 from pypy.module._socket import interp_socket
@@ -211,17 +211,17 @@ if HAVE_OPENSSL_RAND:
 
 class _SSLSocket(W_Root):
     @staticmethod
-    def descr_new(space, sslctx, w_sock, socket_type, hostname, w_ssl_sock):
+    def descr_new(space, w_ctx, w_sock, socket_type, hostname, w_ssl_sock):
         self = _SSLSocket()
 
         self.space = space
-        self.ctx = sslctx
+        self.w_ctx = w_ctx
         self.peer_cert = lltype.nullptr(X509.TO)
         self.shutdown_seen_zero = False
         self.handshake_done = False
 
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
-        self.ssl = libssl_SSL_new(sslctx.ctx)  # new ssl struct
+        self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
         libssl_SSL_set_fd(self.ssl, sock_fd)  # set the socket for SSL
         # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
         # of a str object may be changed by the garbage collector.
@@ -606,6 +606,7 @@ _SSLSocket.typedef = TypeDef(
     compression = interp2app(_SSLSocket.compression_w),
     version = interp2app(_SSLSocket.version_w),
     tls_unique_cb = interp2app(_SSLSocket.tls_unique_cb_w),
+    context=interp_attrproperty_w("w_ctx", _SSLSocket),
 )
 
 
