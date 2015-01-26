@@ -524,9 +524,10 @@ class PyFrame(W_Root):
 
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes
-        freevarnames = list(self.pycode.co_cellvars)
+        # (see locals2fast for why CO_OPTIMIZED)
+        freevarnames = self.pycode.co_cellvars
         if self.pycode.co_flags & consts.CO_OPTIMIZED:
-            freevarnames.extend(self.pycode.co_freevars)
+            freevarnames = freevarnames + self.pycode.co_freevars
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
@@ -555,7 +556,16 @@ class PyFrame(W_Root):
 
         self.setfastscope(new_fastlocals_w)
 
-        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
+        freevarnames = self.pycode.co_cellvars
+        if self.pycode.co_flags & consts.CO_OPTIMIZED:
+            freevarnames = freevarnames + self.pycode.co_freevars
+            # If the namespace is unoptimized, then one of the
+            # following cases applies:
+            # 1. It does not contain free variables, because it
+            #    uses import * or is a top-level namespace.
+            # 2. It is a class namespace.
+            # We don't want to accidentally copy free variables
+            # into the locals dict used by the class.
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
