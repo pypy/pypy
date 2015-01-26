@@ -176,6 +176,8 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
         }
 
         result[n++] = ip;
+		n = vmprof_write_header_for_jit_addr(result, n, ip, max_depth);
+		
         if (vmprof_unw_step(&cursor) <= 0) {
             break;
         }
