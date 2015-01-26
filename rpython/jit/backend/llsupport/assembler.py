@@ -130,7 +130,7 @@ class BaseAssembler(object):
         self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
-        self.codemap = CodemapBuilder(self.cpu)
+        self.codemap = CodemapBuilder()
         self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def set_debug(self, v):

@@ -524,7 +524,7 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        self.codemap.xxx
+        self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
         if log:

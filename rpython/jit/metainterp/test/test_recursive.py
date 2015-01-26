@@ -1297,25 +1297,28 @@ class RecursiveTests:
         self.check_trace_count_at_most(2)   # and not, e.g., 24
 
     def test_get_unique_id(self):
-        def get_unique_id(pc):
-            return (pc + 1) * 2
+        def get_unique_id(pc, code):
+            return (code + 1) * 2
         
-        driver = JitDriver(greens=["pc"], reds='auto',
+        driver = JitDriver(greens=["pc", "code"], reds='auto',
                            get_unique_id=get_unique_id)
 
-        def f(pc):
+        def f(pc, code):
             i = 0
             while i < 10:
-                driver.jit_merge_point(pc=pc)
+                driver.jit_merge_point(pc=pc, code=code)
                 pc += 1
                 if pc == 3:
-                    f(4)
+                    if code == 1:
+                        f(0, 0)
                     pc = 0
-                if pc == 6:
-                    pc = 4
                 i += 1
 
-        self.meta_interp(f, [0], inline=True)
+        self.meta_interp(f, [0, 1], inline=True)
+        self.check_get_unique_id() # overloaded on assembler backends
+
+    def check_get_unique_id(self):
+        pass
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass

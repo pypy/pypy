@@ -34,6 +34,56 @@ def jit_end_addr():
 
     return _memmngr.jit_addr_map[-1]
 
+@jit_entrypoint([lltype.Signed], lltype.Signed,
+                c_name='pypy_find_codemap_at_addr')
+def find_codemap_at_addr(addr):
+    global _memmngr
+
+    res = bisect_tuple(_memmngr.jit_codemap, addr) - 1
+    if res == len(_memmngr.jit_codemap):
+        return -1
+    return res
+
+@jit_entrypoint([lltype.Signed, lltype.Signed,
+                 rffi.CArrayPtr(lltype.Signed)], lltype.Signed,
+                 c_name='pypy_yield_codemap_at_addr')
+def yield_bytecode_at_addr(codemap_no, addr, current_pos_addr):
+    """ will return consecutive unique_ids from codemap, starting from position
+    `pos` until addr
+    """
+    global _memmngr
+
+    codemap = _memmngr.jit_codemap[codemap_no]
+    current_pos = current_pos_addr[0]
+    start_addr = codemap[0]
+    rel_addr = addr - start_addr
+    while True:
+        if current_pos >= len(codemap[2]):
+            return 0
+        next_start = codemap[2][current_pos + 1]
+        if next_start > rel_addr:
+            return 0
+        next_stop = codemap[2][current_pos + 2]
+        if next_stop > rel_addr:
+            current_pos_addr[0] = current_pos + 4
+            return codemap[2][current_pos]
+        # we need to skip potentially more than one
+        current_pos = codemap[2][current_pos + 3]
+
+def unpack_traceback(addr):
+    codemap_pos = find_codemap_at_addr(addr)
+    assert codemap_pos >= 0
+    storage = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
+    storage[0] = 0
+    res = []
+    while True:
+        item = yield_bytecode_at_addr(codemap_pos, addr, storage)
+        if item == 0:
+            break
+        res.append(item)
+    lltype.free(storage, flavor='raw')
+    return res
+
 
 class AsmMemoryManager(object):
     LARGE_ALLOC_SIZE = 1024 * 1024   # 1MB
@@ -213,7 +263,13 @@ class AsmMemoryManager(object):
             self.jit_frame_depth_map[i + start] = frame_assignments[i]
 
     def register_codemap(self, codemap):
-        pass # xxx
+        start = codemap[0]
+        pos = bisect_tuple(self.jit_codemap, start)
+        if pos == len(self.jit_codemap): # common case
+            self.jit_codemap.append(codemap)
+        else:
+            self.jit_codemap = (self.jit_codemap[:pos] + [codemap] +
+                                self.jit_codemap[pos:])
 
     def _delete(self):
         "NOT_RPYTHON"
