@@ -145,7 +145,7 @@ class VMProf(object):
             code = weakcode()
             if code:
                 self.register_code(space, code)
-        space.set_code_callback(self.register_code)
+        space.set_code_callback(vmprof_register_code)
         if we_are_translated():
             # does not work untranslated
             res = vmprof_enable(fileno, -1, period, 0)
@@ -195,6 +195,12 @@ class VMProf(object):
             raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.disable"))
 
+def vmprof_register_code(space, code):
+    from pypy.module._vmprof import Module
+    mod_vmprof = space.getbuiltinmodule('_vmprof')
+    assert isinstance(mod_vmprof, Module)
+    mod_vmprof.vmprof.register_code(space, code)
+        
 @unwrap_spec(fileno=int, period=int)
 def enable(space, fileno, period=-1):
     from pypy.module._vmprof import Module
