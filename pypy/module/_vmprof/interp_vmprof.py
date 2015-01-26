@@ -1,9 +1,10 @@
-import py, os, struct
+import py, os, sys
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import jit, rposix, entrypoint
+from rpython.rlib import jit, rposix, entrypoint, rstruct
+from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror, OperationError
 from pypy.interpreter.gateway import unwrap_spec
@@ -107,7 +108,21 @@ def get_virtual_ip(gc_frame):
 def do_get_virtual_ip(frame):
     return frame.pycode._unique_id
 
-
+def write_long_to_string_builder(l, b):
+    if sys.maxint == 2147483647:
+        b.append(chr(l & 0xff))
+        b.append(chr((l >> 8) & 0xff))
+        b.append(chr((l >> 16) & 0xff))
+        b.append(chr((l >> 24) & 0xff))
+    else:
+        b.append(chr(l & 0xff))
+        b.append(chr((l >> 8) & 0xff))
+        b.append(chr((l >> 16) & 0xff))
+        b.append(chr((l >> 24) & 0xff))
+        b.append(chr((l >> 32) & 0xff))
+        b.append(chr((l >> 40) & 0xff))
+        b.append(chr((l >> 48) & 0xff))
+        b.append(chr((l >> 56) & 0xff))
 
 class VMProf(object):
     def __init__(self):
@@ -145,15 +160,25 @@ class VMProf(object):
             period_usec = 1000000 / 100 #  100hz
         else:
             period_usec = period
-        os.write(fileno, struct.pack("lllll", 0, 3, 0, period_usec, 0))
+        b = StringBuilder()
+        write_long_to_string_builder(0, b)
+        write_long_to_string_builder(3, b)
+        write_long_to_string_builder(0, b)
+        write_long_to_string_builder(period_usec, b)
+        write_long_to_string_builder(0, b)
+        os.write(fileno, b.build())
 
     def register_code(self, space, code):
         if self.fileno == -1:
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("vmprof not running"))
         name = code._get_full_name()
-        s = '\x02' + struct.pack("ll", code._unique_id, len(name)) + name
-        os.write(self.fileno, s)
+        b = StringBuilder()
+        b.append('\x02')
+        write_long_to_string_builder(code._unique_id, b)
+        write_long_to_string_builder(len(name), b)
+        b.append(name)
+        os.write(self.fileno, b.build())
 
     def disable(self, space):
         if not self.is_enabled:
