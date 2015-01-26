@@ -169,7 +169,7 @@ class CallBuilderX86(AbstractCallBuilder):
             else:
                 self.tlofs_reg = r12
             self.mc.MOV_rs(self.tlofs_reg.value,
-                           THREADLOCAL_OFS - self.current_esp)
+                           THREADLOCAL_OFS - self.get_current_esp())
         return self.tlofs_reg
 
     def save_stack_position(self):
