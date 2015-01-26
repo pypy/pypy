@@ -5,11 +5,6 @@ Potential project list
 Simple tasks for newcomers:
 ===========================
 
-Optimize random
----------------
-
-https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
-
 Below is a list of projects that are interesting for potential contributors
 who are seriously interested in the PyPy project. They mostly share common
 patterns - they're mid-to-large in size, they're usually well defined as
@@ -27,6 +22,18 @@ projects, or anything else in PyPy, pop up on IRC or write to us on the
 
 .. _issue tracker: http://bugs.pypy.org
 .. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+
+
+Tkinter module missing support for threads
+------------------------------------------
+
+https://bitbucket.org/pypy/pypy/issue/1929/tkinter-broken-for-threaded-python-on-both
+
+
+Optimize random
+---------------
+
+https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
 
 
 Make bytearray type fast
