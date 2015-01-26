@@ -63,7 +63,8 @@ vmprof_enable = rffi.llexternal("vmprof_enable",
                                 rffi.INT, compilation_info=eci,
                                 save_err=rffi.RFFI_SAVE_ERRNO)
 vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
-                                 compilation_info=eci)
+                                 compilation_info=eci,
+                                save_err=rffi.RFFI_SAVE_ERRNO)
 
 vmprof_register_virtual_function = rffi.llexternal(
     "vmprof_register_virtual_function",
@@ -166,7 +167,7 @@ class VMProf(object):
             res = 0
         space.set_code_callback(None)
         if res == -1:
-            raise wrap_oserror(space, OSError(rposix.get_errno(),
+            raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.disable"))
 
 @unwrap_spec(fileno=int, period=int)
