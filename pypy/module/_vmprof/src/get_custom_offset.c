@@ -3,7 +3,7 @@ long pypy_jit_start_addr();
 long pypy_jit_end_addr();
 long pypy_jit_stack_depth_at_loc(long);
 long pypy_find_codemap_at_addr(long);
-long pypy_yield_bytecode_at_addr(long, long, long*);
+long pypy_yield_codemap_at_addr(long, long, long*);
 
 static ptrdiff_t vmprof_unw_get_custom_offset(void* ip) {
 	intptr_t ip_l = (intptr_t)ip;
@@ -30,7 +30,7 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
 		return n;
 	}
 	while (1) {
-		id = pypy_yield_bytecode_at_addr(codemap_pos, addr, &current_pos);
+		id = pypy_yield_codemap_at_addr(codemap_pos, addr, &current_pos);
 		if (id == 0) {
 			return n;
 		}
