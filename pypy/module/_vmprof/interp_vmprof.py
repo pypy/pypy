@@ -60,7 +60,8 @@ pypy_vmprof_init = rffi.llexternal("pypy_vmprof_init", [], lltype.Void,
                                    compilation_info=eci)
 vmprof_enable = rffi.llexternal("vmprof_enable",
                                 [rffi.INT, rffi.INT, rffi.LONG, rffi.INT],
-                                rffi.INT, compilation_info=eci)
+                                rffi.INT, compilation_info=eci,
+                                save_err=rffi.RFFI_SAVE_ERRNO)
 vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
                                  compilation_info=eci)
 
@@ -135,7 +136,7 @@ class VMProf(object):
         else:
             res = 0
         if res == -1:
-            raise wrap_oserror(space, OSError(rposix.get_errno(),
+            raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.enable"))
 
     def write_header(self, fileno, period):
