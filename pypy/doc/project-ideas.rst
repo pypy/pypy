@@ -1,10 +1,6 @@
 Potential project list
 ======================
 
-===========================
-Simple tasks for newcomers:
-===========================
-
 Below is a list of projects that are interesting for potential contributors
 who are seriously interested in the PyPy project. They mostly share common
 patterns - they're mid-to-large in size, they're usually well defined as
