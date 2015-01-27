@@ -83,6 +83,13 @@ class _CDataMeta(type):
     def in_dll(self, dll, name):
         return self.from_address(dll._handle.getaddressindll(name))
 
+    def from_buffer(self, obj, offset=0):
+        # XXX missing size checks
+        raw_addr = buffer(obj, offset)._pypy_raw_address()
+        result = self.from_address(raw_addr)
+        result._ensure_objects()['ffffffff'] = obj
+        return result
+
 class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing
     it afterwards

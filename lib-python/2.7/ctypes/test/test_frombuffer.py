@@ -11,7 +11,6 @@ class X(Structure):
         self._init_called = True
 
 class Test(unittest.TestCase):
-    @xfail
     def test_fom_buffer(self):
         a = array.array("i", range(16))
         x = (c_int * 16).from_buffer(a)
@@ -34,7 +33,7 @@ class Test(unittest.TestCase):
         del a; gc.collect(); gc.collect(); gc.collect()
         self.assertEqual(x[:], expected)
 
-        self.assertRaises(TypeError,
+        self.assertRaises((TypeError, ValueError),
                           (c_char * 16).from_buffer, "a" * 16)
 
     @xfail
