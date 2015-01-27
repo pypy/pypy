@@ -85,7 +85,12 @@ class _CDataMeta(type):
 
     def from_buffer(self, obj, offset=0):
         # XXX missing size checks
-        raw_addr = buffer(obj, offset)._pypy_raw_address()
+        buf = buffer(obj, offset)
+        if len(buf) < self._sizeofinstances():
+            raise ValueError(
+                "Buffer size too small (%d instead of at least %d bytes)"
+                % (len(buffer(obj)), self._sizeofinstances() + offset))
+        raw_addr = buf._pypy_raw_address()
         result = self.from_address(raw_addr)
         result._ensure_objects()['ffffffff'] = obj
         return result

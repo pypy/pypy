@@ -36,7 +36,6 @@ class Test(unittest.TestCase):
         self.assertRaises((TypeError, ValueError),
                           (c_char * 16).from_buffer, "a" * 16)
 
-    @xfail
     def test_fom_buffer_with_offset(self):
         a = array.array("i", range(16))
         x = (c_int * 15).from_buffer(a, sizeof(c_int))
