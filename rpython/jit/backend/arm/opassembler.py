@@ -1298,5 +1298,6 @@ class ResOpAssembler(BaseAssembler):
         self.load_reg(self.mc, res_loc, r.sp, ofs)
         scale = get_scale(size_loc.value)
         signed = (sign_loc.value != 0)
-        self._load_from_mem(res_loc, res_loc, ofs_loc, scale, signed, fcond)
+        self._load_from_mem(res_loc, res_loc, ofs_loc, imm(scale), signed,
+                            fcond)
         return fcond
