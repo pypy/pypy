@@ -154,9 +154,15 @@ def test_attr_immutability_delete():
     assert obj.map.ever_mutated == True
     assert obj.map is map1
 
-def test_mutcell():
+def test_mutcell_not_immutable():
     from pypy.objspace.std.intobject import W_IntObject
     cls = Class()
+    obj = cls.instantiate()
+    # make sure the attribute counts as mutable
+    obj.setdictvalue(space, "a", W_IntObject(4))
+    obj.setdictvalue(space, "a", W_IntObject(5))
+    assert obj.map.ever_mutated
+
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", W_IntObject(5))
     # not wrapped because of the FakeSpace :-(
@@ -175,6 +181,18 @@ def test_mutcell():
     mutcell2 = obj._mapdict_read_storage(0)
     assert mutcell2.intvalue == 7
     assert mutcell2 is mutcell1
+
+def test_no_mutcell_if_immutable():
+    # don't introduce an immutable cell if the attribute seems immutable
+    from pypy.objspace.std.intobject import W_IntObject
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", W_IntObject(5))
+    assert not obj.map.ever_mutated
+
+    assert obj.getdictvalue(space, "a").intval == 5
+    mutcell = obj._mapdict_read_storage(0)
+    assert mutcell.intval == 5
 
 
 def test_mutcell_unwrap_only_if_needed():

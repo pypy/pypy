@@ -310,7 +310,8 @@ class PlainAttribute(AbstractAttribute):
         if type(w_value) is W_IntObject:
             if not self.can_contain_mutable_cell:
                 self.can_contain_mutable_cell = True
-            return IntMutableCell(w_value.intval)
+            if self.ever_mutated:
+                return IntMutableCell(w_value.intval)
         return w_value
 
     def _copy_attr(self, obj, new_obj):
