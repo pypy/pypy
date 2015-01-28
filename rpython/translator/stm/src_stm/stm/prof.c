@@ -91,7 +91,7 @@ static void prof_forksupport_child(void)
     }
 }
 
-int stm_set_timing_log(const char *profiling_file_name,
+int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
                        int expand_marker(stm_loc_marker_t *, char *, int))
 {
     close_timing_log();
@@ -117,6 +117,7 @@ int stm_set_timing_log(const char *profiling_file_name,
     if (!open_timing_log(profiling_file_name))
         return -1;
 
-    profiling_basefn = strdup(profiling_file_name);
+    if (fork_mode != 0)
+        profiling_basefn = strdup(profiling_file_name);
     return 0;
 }

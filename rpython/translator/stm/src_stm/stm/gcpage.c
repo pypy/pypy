@@ -437,6 +437,12 @@ static void mark_visit_from_modified_objects(void)
             get_priv_segment(i)->modified_old_objects,
             object_t * /*item*/,
             ({
+                /* (arigo) I think that here we need to mark_trace() both
+                   the shared version and the private version in all cases.
+                   Even if the visited flag is already set, we don't know
+                   which version was already traced...  Chances are that
+                   it was the stm_object_pages version, but we are not sure.
+                */
                 mark_visited_test_and_set(item);
                 mark_trace(item, stm_object_pages);  /* shared version */
                 mark_trace(item, base);              /* private version */

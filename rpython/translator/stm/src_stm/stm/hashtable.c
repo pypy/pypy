@@ -140,10 +140,10 @@ static void _insert_clean(stm_hashtable_table_t *table,
 
 static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
                                   uintptr_t biggercount,
-                                  bool remove_unread)
+                                  int remove_unread_from_seg)
 {
-    dprintf(("rehash %p to %ld, remove_unread=%d\n",
-             hashtable, biggercount, (int)remove_unread));
+    dprintf(("rehash %p to %ld, remove_unread_from_seg=%d\n",
+             hashtable, biggercount, remove_unread_from_seg));
 
     size_t size = (offsetof(stm_hashtable_table_t, items)
                    + biggercount * sizeof(stm_hashtable_entry_t *));
@@ -160,14 +160,18 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
 
     uintptr_t j, mask = table->mask;
     uintptr_t rc = biggertable->resize_counter;
+    char *segment_base = get_segment_base(remove_unread_from_seg);
     for (j = 0; j <= mask; j++) {
         stm_hashtable_entry_t *entry = table->items[j];
         if (entry == NULL)
             continue;
-        if (remove_unread) {
-            if (entry->object == NULL &&
-                   !_stm_was_read_by_anybody((object_t *)entry))
+        if (remove_unread_from_seg != 0) {
+            if (((struct stm_hashtable_entry_s *)
+                       REAL_ADDRESS(segment_base, entry))->object == NULL &&
+                   !_stm_was_read_by_anybody((object_t *)entry)) {
+                dprintf(("  removing dead %p\n", entry));
                 continue;
+            }
         }
         _insert_clean(biggertable, entry);
         rc -= 6;
@@ -256,6 +260,7 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
             entry->userdata = stm_hashtable_entry_userdata;
             entry->index = index;
             entry->object = NULL;
+            hashtable->additions = STM_SEGMENT->segment_num;
         }
         else {
             /* for a non-nursery 'hashtableobj', we pretend that the
@@ -293,11 +298,11 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                 e->index = index;
                 e->object = NULL;
             }
+            hashtable->additions += 0x100;
             release_privatization_lock();
         }
         write_fence();     /* make sure 'entry' is fully initialized here */
         table->items[i] = entry;
-        hashtable->additions += 1;
         write_fence();     /* make sure 'table->items' is written here */
         VOLATILE_TABLE(table)->resize_counter = rc - 6;    /* unlock */
         return entry;
@@ -310,7 +315,7 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
             biggercount *= 4;
         else
             biggercount *= 2;
-        _stm_rehash_hashtable(hashtable, biggercount, /*remove_unread=*/false);
+        _stm_rehash_hashtable(hashtable, biggercount, /*remove_unread=*/0);
         goto restart;
     }
 }
@@ -339,8 +344,10 @@ static void _stm_compact_hashtable(stm_hashtable_t *hashtable)
     stm_hashtable_table_t *table = hashtable->table;
     assert(!IS_EVEN(table->resize_counter));
 
-    if (hashtable->additions * 4 > table->mask) {
-        hashtable->additions = 0;
+    if ((hashtable->additions >> 8) * 4 > table->mask) {
+        int segment_num = (hashtable->additions & 0xFF);
+        if (!segment_num) segment_num = 1;
+        hashtable->additions = segment_num;
         uintptr_t initial_rc = (table->mask + 1) * 4 + 1;
         uintptr_t num_entries_times_6 = initial_rc - table->resize_counter;
         uintptr_t count = INITIAL_HASHTABLE_SIZE;
@@ -350,7 +357,8 @@ static void _stm_compact_hashtable(stm_hashtable_t *hashtable)
            can never grow larger than the current table size. */
         assert(count <= table->mask + 1);
 
-        _stm_rehash_hashtable(hashtable, count, /*remove_unread=*/true);
+        dprintf(("compact with %ld items:\n", num_entries_times_6 / 6));
+        _stm_rehash_hashtable(hashtable, count, /*remove_unread=*/segment_num);
     }
 
     table = hashtable->table;
