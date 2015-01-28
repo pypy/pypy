@@ -1071,6 +1071,11 @@ class _SSLContext(W_Root):
                         "check_hostname is enabled.")
         libssl_SSL_CTX_set_verify(self.ctx, mode, None)
 
+    def descr_get_verify_flags(self, space):
+        store = libssl_SSL_CTX_get_cert_store(self.ctx)
+        flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
+        return space.wrap(flags)
+
     def descr_get_check_hostname(self, space):
         return space.newbool(self.check_hostname)
 
@@ -1142,7 +1147,7 @@ class _SSLContext(W_Root):
             if libssl_SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
                 raise _ssl_seterror(space, None, 0)
         finally:
-            libssl_DH_free(dh)        
+            libssl_DH_free(dh)
 
     def load_verify_locations_w(self, space, w_cafile=None, w_capath=None,
                                 w_cadata=None):
@@ -1286,6 +1291,7 @@ _SSLContext.typedef = TypeDef(
                            _SSLContext.descr_set_options),
     verify_mode=GetSetProperty(_SSLContext.descr_get_verify_mode,
                                _SSLContext.descr_set_verify_mode),
+    verify_flags=GetSetProperty(_SSLContext.descr_get_verify_flags),
     check_hostname=GetSetProperty(_SSLContext.descr_get_check_hostname,
                                   _SSLContext.descr_set_check_hostname),
 )

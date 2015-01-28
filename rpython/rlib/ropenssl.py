@@ -52,6 +52,7 @@ X509 = rffi.COpaquePtr('X509')
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
+X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
 stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
 DH = rffi.COpaquePtr('DH')
 
@@ -148,8 +149,8 @@ class CConfig:
         [('value', ASN1_STRING)])
     x509_store_st = rffi_platform.Struct(
         'struct x509_store_st',
-        [('objs', stack_st_X509_OBJECT)])
-    
+        [('objs', stack_st_X509_OBJECT),
+         ('param', X509_VERIFY_PARAM)])
     x509_object_st = rffi_platform.Struct(
         'struct x509_object_st',
         [('type', rffi.INT)])
@@ -307,6 +308,7 @@ ssl_external('X509_get_ext_by_NID', [X509, rffi.INT, rffi.INT], rffi.INT)
 ssl_external('X509_get_ext', [X509, rffi.INT], X509_EXTENSION)
 ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
+ssl_external('X509_VERIFY_PARAM_get_flags', [X509_VERIFY_PARAM], rffi.ULONG)
 ssl_external('X509_STORE_add_cert', [X509_STORE, X509], rffi.INT)
 
 ssl_external('OBJ_obj2txt',

@@ -136,6 +136,9 @@ class AppTestSSL:
         exc = raises(ValueError, "s.verify_mode = 1234")
         assert str(exc.value) == "invalid value for verify_mode"
 
+        assert type(s.verify_flags) is long
+        assert s.verify_flags == _ssl.VERIFY_DEFAULT
+
         s.check_hostname = True
         assert s.check_hostname
 
