@@ -183,6 +183,18 @@ _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('object', llmemory.GCREF))
 
 @dont_look_inside
+def ll_hashtable_create():
+    # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
+    # Make sure we see a malloc() of it, so that its typeid is correctly
+    # initialized.  It can be done in a NonConstant(False) path so that
+    # the C compiler will actually drop it.
+    if _false:
+        p = lltype.malloc(_STM_HASHTABLE_ENTRY)
+    else:
+        p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
+    return llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
+
+@dont_look_inside
 def ll_hashtable_get(h, key):
     # 'key' must be a plain integer.  Returns a GCREF.
     return llop.stm_hashtable_read(llmemory.GCREF, h, h.ll_raw_hashtable, key)
@@ -204,45 +216,21 @@ def ll_hashtable_trace(gc, obj, callback, arg):
     llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
 lambda_hashtable_trace = lambda: ll_hashtable_trace
 
+def ll_hashtable_finalizer(p):
+    llop.stm_hashtable_free(lltype.Void, p.ll_raw_hashtable)
+lambda_hashtable_finlz = lambda: ll_hashtable_finalizer
+
 _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 
 @dont_look_inside
 def create_hashtable():
     if not we_are_translated():
         return HashtableForTest()      # for tests
-    # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
-    # Make sure we see a malloc() of it, so that its typeid is correctly
-    # initialized.  It can be done in a NonConstant(False) path so that
-    # the C compiler will actually drop it.
-    if _false:
-        p = lltype.malloc(_STM_HASHTABLE_ENTRY)
-    else:
-        p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
+    rgc.register_custom_light_finalizer(_HASHTABLE_OBJ, lambda_hashtable_finlz)
     rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
-    _register_light_finalizer_for_hashtable_obj()
     h = lltype.malloc(_HASHTABLE_OBJ)
-    h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
+    h.ll_raw_hashtable = ll_hashtable_create()
     return h
-
-def _register_light_finalizer_for_hashtable_obj():
-    pass
-
-def _finalizer_for_hashtable_obj(p):
-    llop.stm_hashtable_free(lltype.Void, p.ll_raw_hashtable)
-
-class Entry(ExtRegistryEntry):
-    _about_ = _register_light_finalizer_for_hashtable_obj
-
-    def compute_result_annotation(self):
-        pass
-
-    def specialize_call(self, hop):
-        from rpython.rtyper.llannotation import SomePtr
-        args_s = [SomePtr(lltype.Ptr(_HASHTABLE_OBJ))]
-        funcptr = hop.rtyper.annotate_helper_fn(_finalizer_for_hashtable_obj,
-                                                args_s)
-        hop.exception_cannot_occur()
-        lltype.attachRuntimeTypeInfo(_HASHTABLE_OBJ, destrptr=funcptr)
 
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
