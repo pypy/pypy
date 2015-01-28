@@ -41,11 +41,16 @@ def main(stmgc_dir):
     stmgc_dest.join('revision').write('%s\n' % rev)
     print rev
     #
-    print 'The differences between which files are tracked are:'
-    os.system("bash -c 'diff <(cd '%s' && hg status -macn stm/ | sort)"
-              "              <(cd '%s' && hg status -macn stm/ | sort)'"
-        % (stmgc_dest, stmgc_dir))
-    print 'Unless none are listed, use "hg add" or "hg remove".'
+    g = os.popen("bash -c 'diff <(cd '%s' && hg status -macn stm/ | sort)"
+                 "              <(cd '%s' && hg status -macn stm/ | sort)'"
+        % (stmgc_dest, stmgc_dir), 'r')
+    diff = g.read()
+    g.close()
+    if diff:
+        print
+        print 'WARNING: The differences between which files are tracked are:'
+        print diff
+        print 'Use "hg add" or "hg remove".'
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
