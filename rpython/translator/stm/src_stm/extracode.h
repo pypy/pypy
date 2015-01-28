@@ -171,6 +171,17 @@ void pypy_stm_setup_expand_marker(long co_filename_ofs,
     g_co_lnotab_ofs = co_lnotab_ofs;
 
     char *filename = getenv("PYPYSTM");
-    if (filename && filename[0])
-        stm_set_timing_log(filename, &_stm_expand_marker_for_pypy);
+    if (filename && filename[0]) {
+        /* if PYPYSTM is set to a string ending in '+', we enable the
+           timing log also for forked subprocesses. */
+        size_t n = strlen(filename);
+        char filename_copy[n];
+        int fork_mode = (n > 1 && filename[n - 1] == '+');
+        if (fork_mode) {
+            memcpy(filename_copy, filename, n - 1);
+            filename_copy[n - 1] = 0;
+            filename = filename_copy;
+        }
+        stm_set_timing_log(filename, fork_mode, &_stm_expand_marker_for_pypy);
+    }
 }
