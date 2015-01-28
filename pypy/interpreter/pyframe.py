@@ -439,7 +439,10 @@ class PyFrame(W_Root):
         f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
         new_frame.f_backref = jit.non_virtual_ref(f_back)
 
-        new_frame.builtin = space.interp_w(Module, w_builtin)
+        if space.config.objspace.honor__builtins__:
+            new_frame.builtin = space.interp_w(Module, w_builtin)
+        else:
+            assert space.interp_w(Module, w_builtin) is space.builtin
         new_frame.set_blocklist([unpickle_block(space, w_blk)
                                  for w_blk in space.unpackiterable(w_blockstack)])
         values_w = maker.slp_from_tuple_with_nulls(space, w_valuestack)
