@@ -473,6 +473,31 @@ class UsingFrameworkTest(object):
         res = self.run('custom_trace', 0)
         assert res == 10000
 
+    def define_custom_light_finalizer(cls):
+        from rpython.rtyper.annlowlevel import llhelper
+        #
+        T = lltype.Struct('T', ('count', lltype.Signed))
+        t = lltype.malloc(T, zero=True, immortal=True, flavor='raw')
+        #
+        S = lltype.GcStruct('S', rtti=True)
+        def customlightfinlz(addr):
+            t.count += 1
+        lambda_customlightfinlz = lambda: customlightfinlz
+        #
+        def setup():
+            rgc.register_custom_light_finalizer(S, lambda_customlightfinlz)
+            for i in range(10000):
+                lltype.malloc(S)
+        def f(n):
+            setup()
+            llop.gc__collect(lltype.Void)
+            return t.count
+        return f
+
+    def test_custom_light_finalizer(self):
+        res = self.run('custom_light_finalizer', 0)
+        assert res == 10000
+
     def define_weakref(cls):
         import weakref
 
