@@ -226,7 +226,7 @@ class AppTestConnectedSSL:
         import socket, _ssl, gc
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx._set_npn_protocols(b'\x08http/1.1\x06spdy/2')
-        ss = ctx._wrap_socket(self.s, True,
+        ss = ctx._wrap_socket(self.s._sock, True,
                               server_hostname="svn.python.org")
         self.s.close()
         del ss; gc.collect()
