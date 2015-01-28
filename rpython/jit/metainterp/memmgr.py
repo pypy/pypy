@@ -119,7 +119,7 @@ class MemoryManager(object):
                     oldtotal += 1
                     looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
                                                                    gcref)
-                    if self._must_keep_loop(looptoken):
+                    if self._must_keep_loop(looptoken, max_generation):
                         keep_loops[looptoken] = None
             newtotal = len(keep_loops)
             #
