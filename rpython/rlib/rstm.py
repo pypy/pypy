@@ -193,6 +193,7 @@ def ll_hashtable_set(h, key, value):
 
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
+                                 rtti=True,
                                  adtmeths={'get': ll_hashtable_get,
                                            'set': ll_hashtable_set})
 
@@ -218,9 +219,30 @@ def create_hashtable():
     else:
         p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
     rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
+    _register_light_finalizer_for_hashtable_obj()
     h = lltype.malloc(_HASHTABLE_OBJ)
     h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
     return h
+
+def _register_light_finalizer_for_hashtable_obj():
+    pass
+
+def _finalizer_for_hashtable_obj(p):
+    llop.stm_hashtable_free(lltype.Void, p.ll_raw_hashtable)
+
+class Entry(ExtRegistryEntry):
+    _about_ = _register_light_finalizer_for_hashtable_obj
+
+    def compute_result_annotation(self):
+        pass
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.llannotation import SomePtr
+        args_s = [SomePtr(lltype.Ptr(_HASHTABLE_OBJ))]
+        funcptr = hop.rtyper.annotate_helper_fn(_finalizer_for_hashtable_obj,
+                                                args_s)
+        hop.exception_cannot_occur()
+        lltype.attachRuntimeTypeInfo(_HASHTABLE_OBJ, destrptr=funcptr)
 
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
