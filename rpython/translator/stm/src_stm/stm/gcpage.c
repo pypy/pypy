@@ -426,10 +426,26 @@ static void mark_visit_from_modified_objects(void)
 {
     /* The modified objects are the ones that may exist in two different
        versions: one in the segment that modified it, and another in all
-       other segments.  (It can also be more than two if we don't have
-       eager write locking.)
+       other segments.  (It could also be more than two if we did't have
+       eager write locking, but for now we do.)
     */
     long i;
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        LIST_FOREACH_R(
+            get_priv_segment(i)->modified_old_objects,
+            object_t * /*item*/,
+            ({
+                /* This function is called first, and there should not be
+                   any duplicate in modified_old_objects. */
+                if (mark_visited_test_and_set(item)) {
+                    assert(!"duplicate in modified_old_objects!");
+                }
+            }));
+    }
+
+    /* Now that we have marked all modified_old_objects, trace them
+       (which will mark more objects).
+    */
     for (i = 1; i <= NB_SEGMENTS; i++) {
         char *base = get_segment_base(i);
 
@@ -437,13 +453,6 @@ static void mark_visit_from_modified_objects(void)
             get_priv_segment(i)->modified_old_objects,
             object_t * /*item*/,
             ({
-                /* (arigo) I think that here we need to mark_trace() both
-                   the shared version and the private version in all cases.
-                   Even if the visited flag is already set, we don't know
-                   which version was already traced...  Chances are that
-                   it was the stm_object_pages version, but we are not sure.
-                */
-                mark_visited_test_and_set(item);
                 mark_trace(item, stm_object_pages);  /* shared version */
                 mark_trace(item, base);              /* private version */
             }));
