@@ -102,7 +102,7 @@ class MemoryManager(object):
             # of one loop, and only in corner cases.
             from rpython.jit.metainterp.history import JitCellToken
             stm_alive_loops = self.stm_alive_loops
-            keep_loops = set()
+            keep_loops = {}
             #
             # all keys in 'stm_alive_loops' should be in the following range
             old_count = self.stm_lowest_key
@@ -120,7 +120,7 @@ class MemoryManager(object):
                     looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
                                                                    gcref)
                     if self._must_keep_loop(looptoken):
-                        keep_loops.add(looptoken)
+                        keep_loops[looptoken] = None
             newtotal = len(keep_loops)
             #
             # now re-add loops with key numbers that *end* at 'new_count'
