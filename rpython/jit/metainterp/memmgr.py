@@ -44,7 +44,7 @@ class MemoryManager(object):
             self.alive_loops = {}
         else:
             # hash table mapping integers to looptokens
-            self.stm_alive_loops = rstm.ll_hashtable_create()
+            self.stm_alive_loops = rstm.NULL_HASHTABLE
             # lowest integer key used in stm_alive_loops
             self.stm_lowest_key = 0
 
@@ -66,7 +66,8 @@ class MemoryManager(object):
 
     def keep_loop_alive(self, looptoken):
         if looptoken.generation != self.current_generation:
-            # STM: never produce conflicts from this function.
+            # STM: never produce conflicts from this function
+            # (except possibly the first time it is called)
             with stm_ignored:
                 looptoken.generation = self.current_generation
             if not stm_is_enabled():
@@ -74,6 +75,8 @@ class MemoryManager(object):
             else:
                 next_key = rstm.stm_count()
                 gcref = annlowlevel.cast_instance_to_gcref(looptoken)
+                if not self.stm_alive_loops:
+                    self.stm_alive_loops = rstm.ll_hashtable_create()
                 rstm.ll_hashtable_set(self.stm_alive_loops, next_key, gcref)
 
     def _kill_old_loops_now(self):
@@ -100,17 +103,18 @@ class MemoryManager(object):
             # all keys in 'stm_alive_loops' should be in the following range
             old_count = self.stm_lowest_key
             new_count = rstm.stm_count()
-            for key in range(old_count, new_count):
-                gcref = rstm.ll_hashtable_get(stm_alive_loops, key)
-                if not gcref:
-                    continue
-                # make 'stm_alive_loops' empty, and add the loops that we
-                # must keep in the set 'keep_loops'
-                rstm.ll_hashtable_set(stm_alive_loops, key, rstm.NULL_GCREF)
-                looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
-                                                               gcref)
-                if self._must_keep_loop(looptoken):
-                    keep_loops.add(looptoken)
+            if stm_alive_loops:
+                for key in range(old_count, new_count):
+                    gcref = rstm.ll_hashtable_get(stm_alive_loops, key)
+                    if not gcref:
+                        continue
+                    # make 'stm_alive_loops' empty, and add the loops that we
+                    # must keep in the set 'keep_loops'
+                    rstm.ll_hashtable_set(stm_alive_loops, key, rstm.NULL_GCREF)
+                    looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
+                                                                   gcref)
+                    if self._must_keep_loop(looptoken):
+                        keep_loops.add(looptoken)
             newtotal = len(keep_loops)
             #
             # now re-add loops with key numbers that *end* at 'new_count'

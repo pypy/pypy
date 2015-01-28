@@ -177,6 +177,7 @@ class _Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 _STM_HASHTABLE_P = rffi.COpaquePtr('stm_hashtable_t')
+NULL_HASHTABLE = lltype.nullptr(_STM_HASHTABLE_P.TO)
 
 _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
@@ -203,6 +204,11 @@ def ll_hashtable_get(h, key):
 def ll_hashtable_set(h, key, value):
     llop.stm_hashtable_write(lltype.Void, h, h.ll_raw_hashtable, key, value)
 
+@dont_look_inside
+def ll_hashtable_free(h):
+    llop.stm_hashtable_free(lltype.Void, h)
+
+# -----
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
                                  rtti=True,
@@ -217,7 +223,7 @@ def ll_hashtable_trace(gc, obj, callback, arg):
 lambda_hashtable_trace = lambda: ll_hashtable_trace
 
 def ll_hashtable_finalizer(p):
-    llop.stm_hashtable_free(lltype.Void, p.ll_raw_hashtable)
+    ll_hashtable_free(p.ll_raw_hashtable)
 lambda_hashtable_finlz = lambda: ll_hashtable_finalizer
 
 _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
