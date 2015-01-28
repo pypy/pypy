@@ -76,8 +76,8 @@ class MemoryManager(object):
                 next_key = rstm.stm_count()
                 gcref = annlowlevel.cast_instance_to_gcref(looptoken)
                 if not self.stm_alive_loops:
-                    self.stm_alive_loops = rstm.ll_hashtable_create()
-                rstm.ll_hashtable_set(self.stm_alive_loops, next_key, gcref)
+                    self.stm_alive_loops = rstm.create_hashtable()
+                self.stm_alive_loops.set(next_key, gcref)
 
     def _kill_old_loops_now(self):
         debug_start("jit-mem-collect")
@@ -103,14 +103,16 @@ class MemoryManager(object):
             # all keys in 'stm_alive_loops' should be in the following range
             old_count = self.stm_lowest_key
             new_count = rstm.stm_count()
+            oldtotal = 0
             if stm_alive_loops:
                 for key in range(old_count, new_count):
-                    gcref = rstm.ll_hashtable_get(stm_alive_loops, key)
+                    gcref = stm_alive_loops.get(key)
                     if not gcref:
                         continue
                     # make 'stm_alive_loops' empty, and add the loops that we
                     # must keep in the set 'keep_loops'
-                    rstm.ll_hashtable_set(stm_alive_loops, key, rstm.NULL_GCREF)
+                    stm_alive_loops.set(key, rstm.NULL_GCREF)
+                    oldtotal += 1
                     looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
                                                                    gcref)
                     if self._must_keep_loop(looptoken):
@@ -120,7 +122,7 @@ class MemoryManager(object):
             # now re-add loops with key numbers that *end* at 'new_count'
             for looptoken in keep_loops:
                 gcref = annlowlevel.cast_instance_to_gcref(looptoken)
-                rstm.ll_hashtable_set(stm_alive_loops, new_count, gcref)
+                stm_alive_loops.set(new_count, gcref)
                 new_count -= 1
             self.stm_lowest_key = new_count + 1    # lowest used key number
         #

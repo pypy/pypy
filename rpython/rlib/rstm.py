@@ -1,5 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, stm_ignored
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
@@ -177,54 +177,38 @@ class _Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 _STM_HASHTABLE_P = rffi.COpaquePtr('stm_hashtable_t')
-NULL_HASHTABLE = lltype.nullptr(_STM_HASHTABLE_P.TO)
 
 _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
 
 @dont_look_inside
-def ll_hashtable_create():
-    # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
-    # Make sure we see a malloc() of it, so that its typeid is correctly
-    # initialized.  It can be done in a NonConstant(False) path so that
-    # the C compiler will actually drop it.
-    if _false:
-        p = lltype.malloc(_STM_HASHTABLE_ENTRY)
-    else:
-        p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
-    return llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
-
-@dont_look_inside
-def ll_hashtable_get(h, key):
+def _ll_hashtable_get(h, key):
     # 'key' must be a plain integer.  Returns a GCREF.
     return llop.stm_hashtable_read(llmemory.GCREF, h, h.ll_raw_hashtable, key)
 
 @dont_look_inside
-def ll_hashtable_set(h, key, value):
+def _ll_hashtable_set(h, key, value):
     llop.stm_hashtable_write(lltype.Void, h, h.ll_raw_hashtable, key, value)
 
-@dont_look_inside
-def ll_hashtable_free(h):
-    llop.stm_hashtable_free(lltype.Void, h)
-
-# -----
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
                                  rtti=True,
-                                 adtmeths={'get': ll_hashtable_get,
-                                           'set': ll_hashtable_set})
+                                 adtmeths={'get': _ll_hashtable_get,
+                                           'set': _ll_hashtable_set})
+NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
-def ll_hashtable_trace(gc, obj, callback, arg):
+def _ll_hashtable_trace(gc, obj, callback, arg):
     from rpython.memory.gctransform.stmframework import get_visit_function
     visit_fn = get_visit_function(callback, arg)
     addr = obj + llmemory.offsetof(_HASHTABLE_OBJ, 'll_raw_hashtable')
     llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
-lambda_hashtable_trace = lambda: ll_hashtable_trace
+lambda_hashtable_trace = lambda: _ll_hashtable_trace
 
-def ll_hashtable_finalizer(p):
-    ll_hashtable_free(p.ll_raw_hashtable)
-lambda_hashtable_finlz = lambda: ll_hashtable_finalizer
+def _ll_hashtable_finalizer(h):
+    if h.ll_raw_hashtable:
+        llop.stm_hashtable_free(lltype.Void, h.ll_raw_hashtable)
+lambda_hashtable_finlz = lambda: _ll_hashtable_finalizer
 
 _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 
@@ -234,8 +218,17 @@ def create_hashtable():
         return HashtableForTest()      # for tests
     rgc.register_custom_light_finalizer(_HASHTABLE_OBJ, lambda_hashtable_finlz)
     rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
+    # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
+    # Make sure we see a malloc() of it, so that its typeid is correctly
+    # initialized.  It can be done in a NonConstant(False) path so that
+    # the C compiler will actually drop it.
+    if _false:
+        p = lltype.malloc(_STM_HASHTABLE_ENTRY)
+    else:
+        p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
     h = lltype.malloc(_HASHTABLE_OBJ)
-    h.ll_raw_hashtable = ll_hashtable_create()
+    h.ll_raw_hashtable = lltype.nullptr(_STM_HASHTABLE_P.TO)
+    h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
     return h
 
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
