@@ -40,13 +40,17 @@ class MemoryManager(object):
         # per second
         self.current_generation = r_int64(1)
         self.next_check = r_int64(-1)
-        if not stm_is_enabled():
-            self.alive_loops = {}
-        else:
-            # hash table mapping integers to looptokens
-            self.stm_alive_loops = rstm.NULL_HASHTABLE
-            # lowest integer key used in stm_alive_loops
-            self.stm_lowest_key = 0
+
+        # We can't use stm_is_enabled() here, because we have only one
+        # instance of MemoryManager built before translation.
+        # For the non-stm case, we'll use this:
+        self.alive_loops = {}
+
+        # For the stm case, we'll use this:
+        # * hash table mapping integers to looptokens
+        self.stm_alive_loops = rstm.NULL_HASHTABLE
+        # * lowest integer key used in stm_alive_loops
+        self.stm_lowest_key = 0
 
     def set_max_age(self, max_age, check_frequency=0):
         if max_age <= 0:
