@@ -59,7 +59,11 @@ class ExternalCompilationInfo(object):
         separately and linked later on.  (If an .h file is needed for
         other .c files to access this, it can be put in includes.)
 
-        (export_symbols: killed, replaced by @rlib.entrypoint.export_symbol)
+        (export_symbols: killed; you need, depending on the case, to
+        add the RPY_EXTERN or RPY_EXPORTED macro just before the
+        declaration of each function in the C header file, as explained
+        in translator/c/src/precommondefs.h; or you need the decorator
+        @rlib.entrypoint.export_symbol)
 
         compile_extra: list of parameters which will be directly passed to
         the compiler
