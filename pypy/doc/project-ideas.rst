@@ -191,3 +191,37 @@ have CPython extensions run much faster on PyPy than they currently do, or
 to make them work at all if they currently don't. A part of this work would
 be to get cpyext into a shape where it supports running Cython generated
 extensions.
+
+======================================
+Make more python modules pypy-freindly
+======================================
+
+Work has been started on a few popular python packages. Here is a partial
+list of good work that needs to be finished:
+
+**matplotlib** https://github.com/mattip/matplotlib
+
+    Status: the repo is an older version of matplotlib adapted to pypy and cpyext
+
+    TODO: A suggested first step would be to merge the differences into 
+    matplotlib/HEAD. The major problem is the use of a generic view into a
+    numpy ndarray. The int* fields would need to be converted into int[MAX_DIMS]
+    c-arrays and filled in.
+
+**wxPython** https://bitbucket.org/waedt/wxpython_cffi
+
+    Status: A GSOC 2013 project to adapt the Phoenix sip build system to cffi
+
+    TODO: Merge the latest version of the wrappers and finish the sip conversion
+
+**pygame** https://github.com/CTPUG/pygame_cffi
+
+    Status: see blog post <http://morepypy.blogspot.com/2014/03/pygamecffi-pygame-on-pypy.html>
+
+    TODO: see the end of the blog post
+
+**pyopengl** https://bitbucket.org/duangle/pyopengl-cffi
+
+    Status: unknown
+
+

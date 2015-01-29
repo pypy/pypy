@@ -53,31 +53,31 @@ Highlights
 ==========
 
 * The past months have seen pypy mature and grow, as rpython becomes the goto
-solution for writing fast dynamic language interpreters. Our separation of
-rpython and the python interpreter PyPy is now much clearer in the
-`documentation`_ . 
+  solution for writing fast dynamic language interpreters. Our separation of
+  rpython and the python interpreter PyPy is now much clearer in the
+  `documentation`_ . 
 
 * We have improved warmup time as well as jitted code performance: more than 10%
-compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements. 
+  compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements. 
 
 * Our integrated numpy support gained much of the GenericUfunc api in order to
-support the lapack/blas linalg module of numpy. This dovetails with work in the
-pypy/numpy repository to support linalg both through the (slower) cpyext capi
-interface and also via (the faster) pure python cffi interface, using an
-extended frompyfunc() api.
+  support the lapack/blas linalg module of numpy. This dovetails with work in the
+  pypy/numpy repository to support linalg both through the (slower) cpyext capi
+  interface and also via (the faster) pure python cffi interface, using an
+  extended frompyfunc() api.
 
 * Dictionaries are now ordered by default, see the `blog post`_
 
 * Issues reported with our previous release were fixed after reports from users on
-our new issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
-#pypy. Here is a summary of some of the user-facing changes;
-for more information see `whats-new`_:
+  our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
+  #pypy. Here is a summary of some of the user-facing changes;
+  for more information see `whats-new`_:
 
 * Our nightly translations use --shared by default, including on OS/X and linux
 
 * We now more carefully handle errno (and GetLastError, WSAGetLastError) tying
-the handlers as close as possible to the external function call, in non-jitted
-as well as jitted code.
+  the handlers as close as possible to the external function call, in non-jitted
+  as well as jitted code.
   
 * Many issues were resolved_ since the 2.4.0 release in September 2014
 
