@@ -269,6 +269,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         aout = ufunc_sum(ai)
         assert aout.shape == (3, 3)
 
+    def test_frompyfunc_fortran(self):
+        import numpy as np
+        def tofrom_fortran(in0, out0):
+            out0[:] = in0.T
+
+        def lapack_like_times2(in0, out0):
+            a = np.empty(in0.T.shape, in0.dtype)
+            tofrom_fortran(in0, a)
+            a *= 2
+            tofrom_fortran(a, out0)
+
+        times2 = np.frompyfunc([lapack_like_times2], 1, 1,
+                            signature='(m,n)->(m,n)',
+                            dtypes=[np.dtype(float), np.dtype(float)],
+                            stack_inputs=True,
+                          )
+        in0 = np.arange(3300, dtype=float).reshape(100, 33)
+        out0 = times2(in0)
+        assert out0.shape == in0.shape
+        assert (out0 == in0 * 2).all()
 
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype

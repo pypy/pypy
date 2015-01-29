@@ -651,14 +651,10 @@ class W_UfuncGeneric(W_Ufunc):
                           w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                           w_itershape)
             # coalesce each iterators, according to inner_dimensions
-            if nd_it.order == 'F':
-                fastest = 0
-            else:
-                fastest = -1
             for i in range(len(inargs) + len(outargs)):
                 for j in range(self.core_num_dims[i]):
                     new_iter = coalesce_iter(nd_it.iters[i][0], nd_it.op_flags[i],
-                                    nd_it, nd_it.order, fastest, flat=False)
+                                    nd_it, nd_it.order, flat=False)
                     nd_it.iters[i] = (new_iter, new_iter.reset())
             # do the iteration
             while not nd_it.done:
