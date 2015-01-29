@@ -9,7 +9,9 @@
  *
  * Tested only on gcc, linux, x86_64.
  *
- * Copyright (C) 2014 Antonio Cuni - anto.cuni@gmail.com
+ * Copyright (C) 2014-2015
+ *   Antonio Cuni - anto.cuni@gmail.com
+ *   Maciej Fijalkowski - fijall@gmail.com
  *
  */
 
@@ -34,8 +36,7 @@
 #define MAX_FUNC_NAME 128
 #define MAX_STACK_DEPTH 64
 
-static FILE* profile_file;
-static FILE* symbol_file = NULL;
+static FILE* profile_file = NULL;
 void* vmprof_mainloop_func;
 static ptrdiff_t mainloop_sp_offset;
 static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
@@ -54,10 +55,6 @@ static void prof_word(FILE* f, long x) {
     fwrite(&x, sizeof(x), 1, f);
 }
 
-static void prof_char(FILE *f, char x) {
-	fwrite(&x, sizeof(x), 1, f);
-}
-
 static void prof_header(FILE* f, long period_usec) {
     prof_word(f, 0);
     prof_word(f, 3);
@@ -68,7 +65,9 @@ static void prof_header(FILE* f, long period_usec) {
 
 static void prof_write_stacktrace(FILE* f, void** stack, int depth, int count) {
     int i;
-	prof_char(f, MARKER_STACKTRACE);
+	char marker = MARKER_STACKTRACE;
+
+	fwrite(&marker, 1, 1, f);
     prof_word(f, count);
     prof_word(f, depth);
     for(i=0; i<depth; i++)
@@ -97,7 +96,8 @@ static int vmprof_unw_step(unw_cursor_t *cp) {
     ptrdiff_t sp_offset;
     unw_get_reg (cp, UNW_REG_IP, (unw_word_t*)&ip);
     unw_get_reg (cp, UNW_REG_SP, (unw_word_t*)&sp);
-    sp_offset = vmprof_unw_get_custom_offset(ip);
+    sp_offset = vmprof_unw_get_custom_offset(ip, cp);
+
     if (sp_offset == -1) {
         // it means that the ip is NOT in JITted code, so we can use the
         // stardard unw_step
@@ -130,7 +130,8 @@ static int vmprof_unw_step(unw_cursor_t *cp) {
 // recursive request, we'd end up with infinite recursion or deadlock.
 // Luckily, it's safe to ignore those subsequent traces.  In such
 // cases, we return 0 to indicate the situation.
-static __thread int recursive;
+//static __thread int recursive;
+static int recursive; // XXX antocuni: removed __thread
 
 int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
     void *ip;
@@ -177,7 +178,6 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
 
         result[n++] = ip;
 		n = vmprof_write_header_for_jit_addr(result, n, ip, max_depth);
-		
         if (vmprof_unw_step(&cursor) <= 0) {
             break;
         }
@@ -204,14 +204,10 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
  * *************************************************************
  */
 
-static int open_profile(int fd, int sym_fd, long period_usec, int write_header) {
+static int open_profile(int fd, long period_usec, int write_header, char *s,
+						int slen) {
 	if ((fd = dup(fd)) == -1) {
 		return -1;
-	}
-	if (sym_fd != -1) {
-		if ((sym_fd = dup(sym_fd)) == -1) {
-			return -1;
-		}
 	}
     profile_file = fdopen(fd, "wb");
 	if (!profile_file) {
@@ -219,12 +215,8 @@ static int open_profile(int fd, int sym_fd, long period_usec, int write_header) 
 	}
 	if (write_header)
 		prof_header(profile_file, period_usec);
-	if (sym_fd != -1) {
-		symbol_file = fdopen(sym_fd, "w");
-		if (!symbol_file) {
-			return -1;
-		}
-	}
+	if (s)
+		fwrite(s, slen, 1, profile_file);
 	return 0;
 }
 
@@ -233,7 +225,8 @@ static int close_profile(void) {
     FILE* src;
     char buf[BUFSIZ];
     size_t size;
-	prof_char(profile_file, MARKER_TRAILER);
+	int marker = MARKER_TRAILER;
+	fwrite(&marker, 1, 1, profile_file);
 
     // copy /proc/PID/maps to the end of the profile file
     sprintf(buf, "/proc/%d/maps", getpid());
@@ -243,10 +236,6 @@ static int close_profile(void) {
     }
     fclose(src);
     fclose(profile_file);
-	if (symbol_file) {
-		fclose(symbol_file);
-		symbol_file = NULL;
-	}
 	return 0;
 }
 
@@ -305,10 +294,12 @@ void vmprof_set_mainloop(void* func, ptrdiff_t sp_offset,
     mainloop_get_virtual_ip = get_virtual_ip;
 }
 
-int vmprof_enable(int fd, int sym_fd, long period_usec, int write_header) {
+int vmprof_enable(int fd, long period_usec, int write_header, char *s,
+				  int slen)
+{
     if (period_usec == -1)
         period_usec = 1000000 / 100; /* 100hz */
-    if (open_profile(fd, sym_fd, period_usec, write_header) == -1) {
+    if (open_profile(fd, period_usec, write_header, s, slen) == -1) {
 		return -1;
 	}
     if (install_sigprof_handler() == -1) {
@@ -335,5 +326,15 @@ int vmprof_disable(void) {
 
 void vmprof_register_virtual_function(const char* name, void* start, void* end) {
     // for now *end is simply ignored
-    fprintf(symbol_file, "%p: %s\n", start, name);
+	char buf[1024];
+	int lgt = strlen(name) + 2 * sizeof(long) + 1;
+
+	if (lgt > 1024) {
+		lgt = 1024;
+	}
+	buf[0] = MARKER_VIRTUAL_IP;
+	((void **)(((void*)buf) + 1))[0] = start;
+	((long *)(((void*)buf) + 1 + sizeof(long)))[0] = lgt - 2 * sizeof(long) - 1;
+	strncpy(buf + 2 * sizeof(long) + 1, name, 1024 - 2 * sizeof(long) - 1);
+	fwrite(buf, lgt, 1, profile_file);
 }

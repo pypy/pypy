@@ -5,7 +5,11 @@ long pypy_jit_stack_depth_at_loc(long);
 long pypy_find_codemap_at_addr(long);
 long pypy_yield_codemap_at_addr(long, long, long*);
 
-static ptrdiff_t vmprof_unw_get_custom_offset(void* ip) {
+void vmprof_set_tramp_range(void* start, void* end)
+{
+}
+
+static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, unw_cursor_t *cp) {
 	intptr_t ip_l = (intptr_t)ip;
 
 	if (ip_l < pypy_jit_start_addr() || ip_l > pypy_jit_end_addr()) {

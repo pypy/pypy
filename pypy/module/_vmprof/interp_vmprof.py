@@ -60,7 +60,8 @@ pypy_execute_frame_trampoline = rffi.llexternal(
 pypy_vmprof_init = rffi.llexternal("pypy_vmprof_init", [], lltype.Void,
                                    compilation_info=eci)
 vmprof_enable = rffi.llexternal("vmprof_enable",
-                                [rffi.INT, rffi.INT, rffi.LONG, rffi.INT],
+                                [rffi.INT, rffi.LONG, rffi.INT,
+                                 rffi.CCHARP, rffi.INT],
                                 rffi.INT, compilation_info=eci,
                                 save_err=rffi.RFFI_SAVE_ERRNO)
 vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
@@ -148,7 +149,8 @@ class VMProf(object):
         space.set_code_callback(vmprof_register_code)
         if we_are_translated():
             # does not work untranslated
-            res = vmprof_enable(fileno, -1, period, 0)
+            res = vmprof_enable(fileno, period, 0,
+                                lltype.nullptr(rffi.CCHARP.TO), 0)
         else:
             res = 0
         if res == -1:
