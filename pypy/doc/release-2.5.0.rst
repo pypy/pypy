@@ -10,7 +10,9 @@ You can download the PyPy 2.5.0 release here:
     http://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
-project, and for those who donate to our three sub-projects.
+project, and for those who donate to our three sub-projects, as well as our
+volunteers and contributors (10 new commiters joined PyPy since the last 
+release).
 We've shown quite a bit of progress, but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects! The three sub-projects are:
