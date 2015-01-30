@@ -525,16 +525,7 @@ class _SSLSocket(W_Root):
 
         if der:
             # return cert in DER-encoded format
-            with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as buf_ptr:
-                buf_ptr[0] = lltype.nullptr(rffi.CCHARP.TO)
-                length = libssl_i2d_X509(self.peer_cert, buf_ptr)
-                if length < 0:
-                    raise _ssl_seterror(space, self, length)
-                try:
-                    # this is actually an immutable bytes sequence
-                    return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
-                finally:
-                    libssl_OPENSSL_free(buf_ptr[0])
+            return _certificate_to_der(space, self.peer_cert)
         else:
             verification = libssl_SSL_CTX_get_verify_mode(
                 libssl_SSL_get_SSL_CTX(self.ssl))
@@ -622,37 +613,45 @@ _SSLSocket.typedef = TypeDef(
                            _SSLSocket.descr_set_context),
 )
 
+def _certificate_to_der(space, certificate):
+    with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as buf_ptr:
+        buf_ptr[0] = lltype.nullptr(rffi.CCHARP.TO)
+        length = libssl_i2d_X509(certificate, buf_ptr)
+        if length < 0:
+            raise _ssl_seterror(space, None, 0)
+        try:
+            return space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+        finally:
+            libssl_OPENSSL_free(buf_ptr[0])
 
-def _decode_certificate(space, certificate, verbose=False):
+def _decode_certificate(space, certificate):
     w_retval = space.newdict()
 
     w_peer = _create_tuple_for_X509_NAME(
         space, libssl_X509_get_subject_name(certificate))
     space.setitem(w_retval, space.wrap("subject"), w_peer)
 
-    if verbose:
-        w_issuer = _create_tuple_for_X509_NAME(
-            space, libssl_X509_get_issuer_name(certificate))
-        space.setitem(w_retval, space.wrap("issuer"), w_issuer)
+    w_issuer = _create_tuple_for_X509_NAME(
+        space, libssl_X509_get_issuer_name(certificate))
+    space.setitem(w_retval, space.wrap("issuer"), w_issuer)
 
-        space.setitem(w_retval, space.wrap("version"),
-                      space.wrap(libssl_X509_get_version(certificate)))
+    space.setitem(w_retval, space.wrap("version"),
+                  space.wrap(libssl_X509_get_version(certificate)))
 
     biobuf = libssl_BIO_new(libssl_BIO_s_mem())
     try:
 
-        if verbose:
-            libssl_BIO_reset(biobuf)
-            serialNumber = libssl_X509_get_serialNumber(certificate)
-            libssl_i2a_ASN1_INTEGER(biobuf, serialNumber)
-            # should not exceed 20 octets, 160 bits, so buf is big enough
-            with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
-                length = libssl_BIO_gets(biobuf, buf, 99)
-                if length < 0:
-                    raise _ssl_seterror(space, None, length)
+        libssl_BIO_reset(biobuf)
+        serialNumber = libssl_X509_get_serialNumber(certificate)
+        libssl_i2a_ASN1_INTEGER(biobuf, serialNumber)
+        # should not exceed 20 octets, 160 bits, so buf is big enough
+        with lltype.scoped_alloc(rffi.CCHARP.TO, 100) as buf:
+            length = libssl_BIO_gets(biobuf, buf, 99)
+            if length < 0:
+                raise _ssl_seterror(space, None, length)
 
-                w_serial = space.wrap(rffi.charpsize2str(buf, length))
-            space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
+            w_serial = space.wrap(rffi.charpsize2str(buf, length))
+        space.setitem(w_retval, space.wrap("serialNumber"), w_serial)
 
         libssl_BIO_reset(biobuf)
         notBefore = libssl_X509_get_notBefore(certificate)
@@ -977,8 +976,8 @@ def get_exception_class(space, name):
     return getattr(space.fromcache(Cache), name)
 
 
-@unwrap_spec(filename=str, verbose=bool)
-def _test_decode_cert(space, filename, verbose=True):
+@unwrap_spec(filename=str)
+def _test_decode_cert(space, filename):
     cert = libssl_BIO_new(libssl_BIO_s_file())
     if not cert:
         raise ssl_error(space, "Can't malloc memory to read file")
@@ -992,7 +991,7 @@ def _test_decode_cert(space, filename, verbose=True):
             raise ssl_error(space, "Error decoding PEM-encoded file")
 
         try:
-            return _decode_certificate(space, x, verbose)
+            return _decode_certificate(space, x)
         finally:
             libssl_X509_free(x)
     finally:
@@ -1352,6 +1351,27 @@ class _SSLContext(W_Root):
 
         self.npn_protocols = SSLNpnProtocols(self.ctx, protos)
 
+    def get_ca_certs_w(self, space, w_binary_form=None):
+        if w_binary_form and space.is_true(w_binary_form):
+            binary_mode = True
+        else:
+            binary_mode = False
+        rlist = []
+        store = libssl_SSL_CTX_get_cert_store(self.ctx)
+        for i in range(libssl_sk_X509_OBJECT_num(store[0].c_objs)):
+            obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
+            if intmask(obj.c_type) != X509_LU_X509:
+                # not a x509 cert
+                continue
+            # CA for any purpose
+            cert = libssl_pypy_X509_OBJECT_data_x509(obj)
+            if not libssl_X509_check_ca(cert):
+                continue
+            if binary_mode:
+                rlist.append(_certificate_to_der(space, cert))
+            else:
+                rlist.append(_decode_certificate(space, cert))
+        return space.newlist(rlist)
 
 _SSLContext.typedef = TypeDef(
     "_ssl._SSLContext",
@@ -1364,6 +1384,7 @@ _SSLContext.typedef = TypeDef(
     load_verify_locations=interp2app(_SSLContext.load_verify_locations_w),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
     _set_npn_protocols=interp2app(_SSLContext.set_npn_protocols_w),
+    get_ca_certs=interp2app(_SSLContext.get_ca_certs_w),
 
     options=GetSetProperty(_SSLContext.descr_get_options,
                            _SSLContext.descr_set_options),
