@@ -193,7 +193,7 @@ be to get cpyext into a shape where it supports running Cython generated
 extensions.
 
 ======================================
-Make more python modules pypy-freindly
+Make more python modules pypy-friendly
 ======================================
 
 Work has been started on a few popular python packages. Here is a partial
