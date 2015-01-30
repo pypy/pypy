@@ -1,4 +1,4 @@
-from rpython.rlib import rpoll, rsocket
+from rpython.rlib import rpoll, rsocket, rthread
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
 from rpython.rlib.rposix import get_errno, set_errno
@@ -999,6 +999,39 @@ def _test_decode_cert(space, filename, verbose=True):
         libssl_BIO_free(cert)
 
 
+# Data structure for the password callbacks
+class PasswordInfo(object):
+    w_callable = None
+    password = None
+    operationerror = None
+PWINFO_STORAGE = {}
+
+def _password_callback(buf, size, rwflag, userdata):
+    index = rffi.cast(lltype.Signed, userdata)
+    pw_info = PWINFO_STORAGE.get(index, None)
+    if not pw_info:
+        return rffi.cast(rffi.INT, -1)
+    space = pw_info.space
+    password = ""
+    if pw_info.w_callable:
+        try:
+            password = pw_info.space.str_w(
+                space.call_function(pw_info.w_callable))
+        except OperationError as e:
+            pw_info.operationerror = e
+            return rffi.cast(rffi.INT, -1)
+    else:
+        password = pw_info.password
+    size = widen(size)
+    if len(password) > size:
+        pw_info.operationerror = oefmt(
+            space.w_ValueError,
+            "password cannot be longer than %d bytes", size)
+        return rffi.cast(rffi.INT, -1)
+    for i, c in enumerate(password):
+        buf[i] = c
+    return rffi.cast(rffi.INT, len(password))
+
 class _SSLContext(W_Root):
     @staticmethod
     @unwrap_spec(protocol=int)
@@ -1101,7 +1134,8 @@ class _SSLContext(W_Root):
                         "CERT_OPTIONAL or CERT_REQUIRED")
         self.check_hostname = check_hostname
 
-    def load_cert_chain_w(self, space, w_certfile, w_keyfile=None):
+    def load_cert_chain_w(self, space, w_certfile, w_keyfile=None,
+                          w_password=None):
         if space.is_none(w_certfile):
             certfile = None
         else:
@@ -1110,33 +1144,63 @@ class _SSLContext(W_Root):
             keyfile = certfile
         else:
             keyfile = space.str_w(w_keyfile)
+        pw_info = PasswordInfo()
+        pw_info.space = space
+        index = -1
+        if not space.is_none(w_password):
+            index = rthread.get_ident()
+            PWINFO_STORAGE[index] = pw_info
 
-        set_errno(0)
-
-        ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
-        if ret != 1:
-            errno = get_errno()
-            if errno:
-                libssl_ERR_clear_error()
-                raise wrap_oserror(space, OSError(errno, ''),
-                                   exception_name = 'w_IOError')
+            if space.is_true(space.callable(w_password)):
+                pw_info.w_callable = w_password
             else:
-                raise _ssl_seterror(space, None, -1)
+                pw_info.password = space.str_w(w_password)
 
-        ret = libssl_SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
-                                                 SSL_FILETYPE_PEM)
-        if ret != 1:
-            errno = get_errno()
-            if errno:
-                libssl_ERR_clear_error()
-                raise wrap_oserror(space, OSError(errno, ''),
-                                   exception_name = 'w_IOError')
-            else:
-                raise _ssl_seterror(space, None, -1)
+            libssl_SSL_CTX_set_default_passwd_cb(
+                self.ctx, _password_callback)
+            libssl_SSL_CTX_set_default_passwd_cb_userdata(
+                self.ctx, rffi.cast(rffi.VOIDP, index))
 
-        ret = libssl_SSL_CTX_check_private_key(self.ctx)
-        if ret != 1:
-            raise _ssl_seterror(space, None, -1)
+
+        try:
+            set_errno(0)
+            ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
+            if ret != 1:
+                if pw_info.operationerror:
+                    libssl_ERR_clear_error()
+                    raise pw_info.operationerror
+                errno = get_errno()
+                if errno:
+                    libssl_ERR_clear_error()
+                    raise wrap_oserror(space, OSError(errno, ''),
+                                       exception_name = 'w_IOError')
+                else:
+                    raise _ssl_seterror(space, None, -1)
+
+            ret = libssl_SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
+                                                     SSL_FILETYPE_PEM)
+            if ret != 1:
+                if pw_info.operationerror:
+                    libssl_ERR_clear_error()
+                    raise pw_info.operationerror
+                errno = get_errno()
+                if errno:
+                    libssl_ERR_clear_error()
+                    raise wrap_oserror(space, OSError(errno, ''),
+                                       exception_name = 'w_IOError')
+                else:
+                    raise _ssl_seterror(space, None, -1)
+
+            ret = libssl_SSL_CTX_check_private_key(self.ctx)
+            if ret != 1:
+                raise _ssl_seterror(space, None, -1)
+        finally:
+            if index >= 0:
+                del PWINFO_STORAGE[index]
+            libssl_SSL_CTX_set_default_passwd_cb(
+                self.ctx, lltype.nullptr(pem_password_cb.TO))
+            libssl_SSL_CTX_set_default_passwd_cb_userdata(
+                self.ctx, None)
 
     @unwrap_spec(filepath=str)
     def load_dh_params_w(self, space, filepath):

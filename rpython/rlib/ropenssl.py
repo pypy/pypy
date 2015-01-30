@@ -261,6 +261,9 @@ ssl_external('SSL_CTX_set_cipher_list', [SSL_CTX, rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_load_verify_locations', [SSL_CTX, rffi.CCHARP, rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_check_private_key', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_session_id_context', [SSL_CTX, rffi.CCHARP, rffi.UINT], rffi.INT)
+pem_password_cb = lltype.Ptr(lltype.FuncType([rffi.CCHARP, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT))
+ssl_external('SSL_CTX_set_default_passwd_cb', [SSL_CTX, pem_password_cb], lltype.Void)
+ssl_external('SSL_CTX_set_default_passwd_cb_userdata', [SSL_CTX, rffi.VOIDP], lltype.Void)
 SSL_CTX_STATS_NAMES = """
     number connect connect_good connect_renegotiate accept accept_good
     accept_renegotiate hits misses timeouts cache_full""".split()
