@@ -1,5 +1,5 @@
 """
-The class _stm.hashtable, mapping integers to objects.
+The class pypystm.hashtable, mapping integers to objects.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -63,7 +63,7 @@ def W_Hashtable___new__(space, w_subtype):
     return space.wrap(r)
 
 W_Hashtable.typedef = TypeDef(
-    '_stm.hashtable',
+    'pypystm.hashtable',
     __new__ = interp2app(W_Hashtable___new__),
     __getitem__ = interp2app(W_Hashtable.getitem_w),
     __setitem__ = interp2app(W_Hashtable.setitem_w),

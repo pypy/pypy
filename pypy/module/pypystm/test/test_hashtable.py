@@ -1,11 +1,11 @@
 
 
 class AppTestHashtable:
-    spaceconfig = dict(usemodules=['_stm'])
+    spaceconfig = dict(usemodules=['pypystm'])
 
     def test_simple(self):
-        import _stm
-        h = _stm.hashtable()
+        import pypystm
+        h = pypystm.hashtable()
         h[42+65536] = "bar"
         raises(KeyError, "h[42]")
         h[42] = "foo"
@@ -18,8 +18,8 @@ class AppTestHashtable:
         raises(KeyError, "del h[42]")
 
     def test_get_setdefault(self):
-        import _stm
-        h = _stm.hashtable()
+        import pypystm
+        h = pypystm.hashtable()
         assert h.get(42) is None
         assert h.get(-43, None) is None
         assert h.get(44, 81) == 81

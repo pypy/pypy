@@ -29,22 +29,11 @@ class TimeModule(MixedModule):
 class ThreadModule(MixedModule):
     appleveldefs = {
         'signals_enabled': 'app_signal.signals_enabled',
-        'atomic':                  'app_atomic.atomic',
-        'exclusive_atomic':        'app_atomic.exclusive_atomic',
     }
     interpleveldefs = {
         '_signals_enter':  'interp_signal.signals_enter',
         '_signals_exit':   'interp_signal.signals_exit',
-        '_atomic_enter':           'interp_atomic.atomic_enter',
-        '_exclusive_atomic_enter': 'interp_atomic.exclusive_atomic_enter',
-        '_atomic_exit':            'interp_atomic.atomic_exit',
-        'getsegmentlimit':         'interp_atomic.getsegmentlimit',
-        'hint_commit_soon':        'interp_atomic.hint_commit_soon',
-        'is_atomic':               'interp_atomic.is_atomic',
-        'error': 'space.fromcache(pypy.module.thread.error.Cache).w_error',
     }
-    def activate(self, space):
-        return self.space.config.objspace.usemodules.thread
 
 
 class IntOpModule(MixedModule):

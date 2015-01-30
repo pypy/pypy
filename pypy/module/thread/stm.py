@@ -1,8 +1,8 @@
 """
-Redirect some classes from pypy.module._stm.
+Redirect some classes from pypy.module.pypystm.
 """
 
-from pypy.module._stm import threadlocals, local
+from pypy.module.pypystm import threadlocals, local
 
 STMThreadLocals = threadlocals.STMThreadLocals
 STMLocal = local.STMLocal

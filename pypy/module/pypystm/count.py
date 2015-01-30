@@ -1,5 +1,5 @@
 """
-_stm.count()
+pypystm.count()
 """
 
 from rpython.rlib import rstm

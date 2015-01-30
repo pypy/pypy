@@ -15,7 +15,7 @@ from __future__ import with_statement
 import sys, thread, collections, cStringIO, linecache
 
 try:
-    from __pypy__.thread import atomic, is_atomic
+    from pypystm import atomic, is_atomic
 except ImportError:
     # Not a STM-enabled PyPy.  We can use a regular lock for 'atomic',
     # which is good enough for our purposes.  With this limited version,
@@ -37,7 +37,7 @@ except ImportError:
     signals_enabled = _SignalsEnabled()
 
 try:
-    from __pypy__.thread import hint_commit_soon
+    from pypystm import hint_commit_soon
 except ImportError:
     # Not a STM-enabled PyPy.
     def hint_commit_soon():
@@ -102,7 +102,7 @@ class _ThreadPool(object):
 
     def __init__(self):
         try:
-            from __pypy__.thread import getsegmentlimit
+            from pypystm import getsegmentlimit
             self.num_threads = getsegmentlimit()
         except ImportError:
             self.num_threads = 4

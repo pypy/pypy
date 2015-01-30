@@ -226,9 +226,10 @@ class PyPyTarget(object):
         # expose the following variables to ease debugging
         global space, entry_point
 
-        if config.translation.stm:
+        if config.translation.stm or config.objspace.usemodules.pypystm:
+            config.translation.stm = True
             config.translation.thread = True
-            config.objspace.usemodules._stm = True
+            config.objspace.usemodules.pypystm = True
 
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
