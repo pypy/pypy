@@ -120,6 +120,7 @@ class AppTestSSL:
     def test_context(self):
         import _ssl
         s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        raises(ValueError, _ssl._SSLContext, -1)
 
         assert type(s.options) is long
         assert s.options & _ssl.OP_NO_SSLv2

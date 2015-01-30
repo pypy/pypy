@@ -1045,7 +1045,7 @@ class _SSLContext(W_Root):
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
         else:
-            raise ssl_error(space, "invalid protocol version")
+            raise oefmt(space.w_ValueError, "invalid protocol version")
         ctx = libssl_SSL_CTX_new(method)
         if not ctx:
             raise ssl_error(space, "failed to allocate SSL context")
