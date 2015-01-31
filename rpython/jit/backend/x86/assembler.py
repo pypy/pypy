@@ -1939,7 +1939,7 @@ class Assembler386(BaseAssembler):
         self.mc.JMP(imm(target))
         return startpos
 
-    def update_stm_location(self, extra_stack=0):
+    def update_stm_location(self, mc, extra_stack=0):
         if self.cpu.gc_ll_descr.stm:
             num, ref = self._regalloc.extract_raw_stm_location()
             mc.MOV_rs(r11.value, STM_SHADOWSTACK_BASE_OFS + extra_stack)
@@ -2453,7 +2453,7 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         #
-        self.update_stm_location()
+        self.update_stm_location(self.mc)
         self.push_gcmap(self.mc, gcmap, store=True)
         #
         # first save away the 4 registers from 'cond_call_register_arguments'
