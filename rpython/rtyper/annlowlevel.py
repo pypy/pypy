@@ -252,7 +252,7 @@ class MixLevelHelperAnnotator(object):
         original_graph_count = len(translator.graphs)
         perform_normalizations(rtyper.annotator)
         for r in self.delayedreprs:
-            r.set_setup_delayed(False)
+            r.set_setup_delayed(False, rtyper)
         rtyper.call_all_setups()
         for p, repr, obj in self.delayedconsts:
             p._become(repr.convert_const(obj))

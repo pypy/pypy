@@ -32,6 +32,11 @@ from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
+try:
+    from pypystm import stmset, stmdict
+except ImportError:
+    stmset, stmdict = set, dict
+
 
 class RPythonTyper(object):
     from rpython.rtyper.rmodel import log
@@ -40,9 +45,9 @@ class RPythonTyper(object):
         self.annotator = annotator
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
         self.type_system = LowLevelTypeSystem()
-        self.reprs = {}
-        self._reprs_must_call_setup = []
-        self._seen_reprs_must_call_setup = {}
+        self.reprs = stmdict()
+        self._seen_reprs_must_call_setup = stmset()
+        self._all_lists_must_call_setup = []
         self._dict_traits = {}
         self.rootclass_repr = RootClassRepr(self)
         self.rootclass_repr.setup()
@@ -98,8 +103,16 @@ class RPythonTyper(object):
         if repr in self._seen_reprs_must_call_setup:
             #warning("ignoring already seen repr for setup: %r" %(repr,))
             return
-        self._reprs_must_call_setup.append(repr)
-        self._seen_reprs_must_call_setup[repr] = True
+        self._list_must_call_setup().append(repr)
+        self._seen_reprs_must_call_setup.add(repr)
+
+    def _list_must_call_setup(self):
+        try:
+            lst = annmodel.TLS._reprs_must_call_setup
+        except AttributeError:
+            lst = annmodel.TLS._reprs_must_call_setup = []
+            self._all_lists_must_call_setup.append(lst)
+        return lst
 
     def lltype_to_classdef_mapping(self):
         result = {}
@@ -216,6 +229,8 @@ class RPythonTyper(object):
             else:
                 tracking = lambda block: None
 
+            self.call_all_setups(all_threads=True)
+
             try:
               import transaction
             except ImportError:
@@ -251,7 +266,7 @@ class RPythonTyper(object):
                 self.already_seen.update(dict.fromkeys(pending, True))
 
             # make sure all reprs so far have had their setup() called
-            self.call_all_setups()
+            self.call_all_setups(all_threads=True)
 
         if self.typererrors:
             self.dump_typererrors(to_log=True)
@@ -286,20 +301,23 @@ class RPythonTyper(object):
             else:
                 print minmsg
 
-    def call_all_setups(self):
+    def call_all_setups(self, all_threads=False):
         # make sure all reprs so far have had their setup() called
         must_setup_more = []
-        delayed = []
-        while self._reprs_must_call_setup:
-            r = self._reprs_must_call_setup.pop()
-            if r.is_setup_delayed():
-                delayed.append(r)
-            else:
-                r.setup()
-                must_setup_more.append(r)
+        if all_threads:
+            lsts = self._all_lists_must_call_setup
+        else:
+            lsts = [self._list_must_call_setup()]
+        for lst in lsts:
+            while lst:
+                r = lst.pop()
+                if r.is_setup_delayed():
+                    pass    # will be re-added in set_setup_delayed(False)
+                else:
+                    r.setup()
+                    must_setup_more.append(r)
         for r in must_setup_more:
             r.setup_final()
-        self._reprs_must_call_setup.extend(delayed)
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)
