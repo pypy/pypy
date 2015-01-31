@@ -234,7 +234,7 @@ will never be monkey-patched" -- same with ``len()`` or ``list()``,
 btw).  The third reason is that some "guards" in PyPy's JIT traces
 don't really have an obvious corresponding type (e.g. "this dict is so
 far using keys which don't override ``__hash__`` so a more efficient
-implementation was used").  Many guards don't even any correspondence
+implementation was used").  Many guards don't even have any correspondence
 with types at all ("this class attribute was not modified"; "the loop
 counter did not reach zero so we don't need to release the GIL"; and
 so on).
