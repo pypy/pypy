@@ -38,7 +38,9 @@ eci = ExternalCompilationInfo(
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
+        '#define pypy_GENERAL_NAME_uri(name) (name->d.uniformResourceIdentifier)',
         '#define pypy_X509_OBJECT_data_x509(obj) (obj->data.x509)',
+        '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
     ],
 )
 
@@ -48,12 +50,14 @@ eci = rffi_platform.configure_external_library(
           include_dir='inc32', library_dir='out32'),
      ])
 
-X509 = rffi.COpaquePtr('X509')
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
+ASN1_IA5STRING = ASN1_STRING
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
 stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
+DIST_POINT = rffi.COpaquePtr('DIST_POINT')
+stack_st_DIST_POINT = rffi.COpaquePtr('struct stack_st_DIST_POINT')
 DH = rffi.COpaquePtr('DH')
 
 class CConfigBootstrap:
@@ -138,6 +142,10 @@ class CConfig:
     OBJ_NAME_TYPE_MD_METH = rffi_platform.ConstantInteger(
         "OBJ_NAME_TYPE_MD_METH")
 
+    X509_st = rffi_platform.Struct(
+        'struct x509_st',
+        [('crldp', stack_st_DIST_POINT)])
+
     # Some structures, with only the fields used in the _ssl module
     X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
                                               [('set', rffi.INT)])
@@ -193,6 +201,7 @@ SSL_CTX = rffi.COpaquePtr('SSL_CTX')
 SSL_CIPHER = rffi.COpaquePtr('SSL_CIPHER')
 SSL = rffi.COpaquePtr('SSL')
 BIO = rffi.COpaquePtr('BIO')
+X509 = rffi.CArrayPtr(X509_st)
 X509_NAME_ENTRY = rffi.CArrayPtr(X509_name_entry_st)
 X509_EXTENSION = rffi.CArrayPtr(X509_extension_st)
 X509_STORE = rffi.CArrayPtr(x509_store_st)
@@ -341,9 +350,17 @@ ssl_external('sk_X509_OBJECT_value', [stack_st_X509_OBJECT, rffi.INT],
              X509_OBJECT, macro=True)
 ssl_external('pypy_X509_OBJECT_data_x509', [X509_OBJECT], X509,
              macro=True)
+ssl_external('sk_DIST_POINT_num', [stack_st_DIST_POINT], rffi.INT,
+             macro=True)
+ssl_external('sk_DIST_POINT_value', [stack_st_DIST_POINT, rffi.INT], DIST_POINT,
+             macro=True)
+ssl_external('pypy_DIST_POINT_fullname', [DIST_POINT], GENERAL_NAMES,
+             macro=True)
 
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
+             macro=True)
+ssl_external('pypy_GENERAL_NAME_uri', [GENERAL_NAME], ASN1_IA5STRING,
              macro=True)
 
 ssl_external('SSL_get_current_cipher', [SSL], SSL_CIPHER)

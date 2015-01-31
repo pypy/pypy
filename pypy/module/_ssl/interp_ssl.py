@@ -636,7 +636,7 @@ def _decode_certificate(space, certificate):
     space.setitem(w_retval, space.wrap("issuer"), w_issuer)
 
     space.setitem(w_retval, space.wrap("version"),
-                  space.wrap(libssl_X509_get_version(certificate)))
+                  space.wrap(libssl_X509_get_version(certificate) + 1))
 
     biobuf = libssl_BIO_new(libssl_BIO_s_mem())
     try:
@@ -679,6 +679,11 @@ def _decode_certificate(space, certificate):
     w_alt_names = _get_peer_alt_names(space, certificate)
     if w_alt_names is not space.w_None:
         space.setitem(w_retval, space.wrap("subjectAltName"), w_alt_names)
+
+    # CDP (CRL distribution points)
+    w_cdp = _get_crl_dp(space, certificate)
+    if not space.is_none(w_cdp):
+        space.setitem(w_retval, space.wrap("crlDistributionPoints"), w_cdp)
 
     return w_retval
 
@@ -827,6 +832,29 @@ def _create_tuple_for_attribute(space, name, value):
 
     return space.newtuple([w_name, w_value])
 
+
+def _get_crl_dp(space, certificate):
+    # Calls x509v3_cache_extensions and sets up crldp
+    libssl_X509_check_ca(certificate)
+    dps = certificate[0].c_crldp
+    if not dps:
+        return None
+
+    cdp_w = []
+    for i in range(libssl_sk_DIST_POINT_num(dps)):
+        dp = libssl_sk_DIST_POINT_value(dps, i)
+        gns = libssl_pypy_DIST_POINT_fullname(dp)
+
+        for j in range(libssl_sk_GENERAL_NAME_num(gns)):
+            name = libssl_sk_GENERAL_NAME_value(gns, j)
+            gntype = intmask(name[0].c_type)
+            if gntype != GEN_URI:
+                continue
+            uri = libssl_pypy_GENERAL_NAME_uri(name)
+            length = intmask(uri.c_length)
+            s_uri = rffi.charpsize2str(uri.c_data, length)
+            cdp_w.append(space.wrap(s_uri))
+    return space.newtuple(cdp_w[:])
 
 def checkwait(space, w_sock, writing):
     """If the socket has a timeout, do a select()/poll() on the socket.

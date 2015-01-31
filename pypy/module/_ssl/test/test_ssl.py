@@ -340,6 +340,9 @@ class AppTestContext:
         assert len(certs) == 1
         print(certs)
         assert len(certs[0]['issuer']) == 4
+        assert certs[0]['version'] == 3
+        assert certs[0]['crlDistributionPoints'] == (
+            'https://www.cacert.org/revoke.crl',)
 
     def test_load_dh_params(self):
         import _ssl
