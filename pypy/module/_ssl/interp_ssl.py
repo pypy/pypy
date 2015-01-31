@@ -1353,7 +1353,8 @@ class _SSLContext(W_Root):
             obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
             if intmask(obj.c_type) == X509_LU_X509:
                 counters['x509'] += 1
-                if libssl_pypy_X509_OBJECT_data_x509(obj):
+                if libssl_X509_check_ca(
+                        libssl_pypy_X509_OBJECT_data_x509(obj)):
                     counters['x509_ca'] += 1
             elif intmask(obj.c_type) == X509_LU_CRL:
                 counters['crl'] += 1

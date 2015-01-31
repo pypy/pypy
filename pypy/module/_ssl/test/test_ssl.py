@@ -344,6 +344,15 @@ class AppTestContext:
         assert certs[0]['crlDistributionPoints'] == (
             'https://www.cacert.org/revoke.crl',)
 
+    def test_cert_store_stats(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        assert ctx.cert_store_stats() == {'x509_ca': 0, 'crl': 0, 'x509': 0}
+        ctx.load_cert_chain(self.keycert)
+        assert ctx.cert_store_stats() == {'x509_ca': 0, 'crl': 0, 'x509': 0}
+        ctx.load_verify_locations(self.keycert)
+        assert ctx.cert_store_stats() == {'x509_ca': 0, 'crl': 0, 'x509': 1}
+
     def test_load_dh_params(self):
         import _ssl
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
