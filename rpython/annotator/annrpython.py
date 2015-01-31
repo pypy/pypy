@@ -17,6 +17,8 @@ import py
 log = py.log.Producer("annrpython")
 py.log.setconsumer("annrpython", ansi_log)
 
+from transaction import stmidset
+
 
 class RPythonAnnotator(object):
     """Block annotator for RPython.
@@ -36,7 +38,7 @@ class RPythonAnnotator(object):
         self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
-        self.fixed_graphs = {}  # set of graphs not to annotate again
+        self.fixed_graphs = stmidset()  # set of graphs not to annotate again
         self.blocked_blocks = {} # set of {blocked_block: (graph, index)}
         # --- the following information is recorded for debugging ---
         self.blocked_graphs = {} # set of graphs that have blocked blocks

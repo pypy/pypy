@@ -329,7 +329,7 @@ class RPythonTyper(object):
     def specialize_block(self, block):
         graph = self.annotator.annotated[block]
         if graph not in self.annotator.fixed_graphs:
-            self.annotator.fixed_graphs[graph] = True
+            self.annotator.fixed_graphs.add(graph)
             # make sure that the return variables of all graphs
             # are concretetype'd
             self.setconcretetype(graph.getreturnvar())

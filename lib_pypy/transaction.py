@@ -50,6 +50,59 @@ except ImportError:
     def getsegmentlimit():
         return 1
 
+try:
+    from pypystm import hashtable
+except ImportError:
+    # Not a STM-enabled PyPy.
+    hashtable = dict
+
+class stmidset(object):
+    def __init__(self):
+        self._hashtable = hashtable()
+
+    def add(self, key):
+        self._hashtable[id(key)] = key
+
+    def __contains__(self, key):
+        return id(key) in self._hashtable
+
+    def remove(self, key):
+        del self._hashtable[id(key)]
+
+    def discard(self, key):
+        try:
+            del self._hashtable[id(key)]
+        except KeyError:
+            pass
+
+class stmiddict(object):
+    def __init__(self):
+        self._hashtable = hashtable()
+
+    def __getitem__(self, key):
+        return self._hashtable[id(key)][1]
+
+    def __setitem__(self, key, value):
+        self._hashtable[id(key)] = (key, value)
+
+    def __delitem__(self, key):
+        del self._hashtable[id(key)]
+
+    def __contains__(self, key):
+        return id(key) in self._hashtable
+
+    def get(self, key, default=None):
+        try:
+            return self._hashtable[id(key)][1]
+        except KeyError:
+            return default
+
+    def setdefault(self, key, default=None):
+        return self._hashtable.setdefault(id(key), (key, default))[1]
+
+
+# ------------------------------------------------------------
+
 
 class TransactionError(Exception):
     pass
