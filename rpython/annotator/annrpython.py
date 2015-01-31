@@ -49,9 +49,9 @@ class RPythonAnnotator(object):
         self.frozen = False
         if policy is None:
             from rpython.annotator.policy import AnnotatorPolicy
-            self.policy = AnnotatorPolicy()
+            self.default_policy = AnnotatorPolicy()
         else:
-            self.policy = policy
+            self.default_policy = policy
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
@@ -101,14 +101,13 @@ class RPythonAnnotator(object):
             result.append((graph, inputcells))
             return annmodel.s_ImpossibleValue
 
-        prevpolicy = self.policy
-        self.policy = policy
+        prevpolicy = self.bookkeeper.change_policy(policy)
         self.bookkeeper.enter(None)
         try:
             desc.pycall(schedule, args, annmodel.s_ImpossibleValue)
         finally:
             self.bookkeeper.leave()
-            self.policy = prevpolicy
+            self.bookkeeper.change_policy(prevpolicy)
         [(graph, inputcells)] = result
         return graph, inputcells
 
@@ -125,15 +124,16 @@ class RPythonAnnotator(object):
         return graph
 
     def complete_helpers(self, policy):
-        saved = self.policy, self.added_blocks
-        self.policy = policy
+        saved = self.added_blocks
+        prevpolicy = self.bookkeeper.change_policy(policy)
         try:
             self.added_blocks = {}
             self.complete()
             # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
-            self.policy, self.added_blocks = saved
+            self.bookkeeper.change_policy(prevpolicy)
+            self.added_blocks = saved
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
@@ -200,7 +200,7 @@ class RPythonAnnotator(object):
         """Process pending blocks until none is left."""
         while True:
             self.complete_pending_blocks()
-            self.policy.no_more_blocks_to_annotate(self)
+            self.bookkeeper.get_policy().no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
                 break   # finished
         # make sure that the return variables of all graphs is annotated

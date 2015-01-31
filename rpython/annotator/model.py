@@ -46,12 +46,11 @@ class State(object):
 STATE = State()
 
 try:
-    import thread
-    TLS = thread._local()
+    from thread import _local as TlsClass
 except ImportError:
-    class Tls(object):
+    class TlsClass(object):
         pass
-    TLS = Tls()
+TLS = TlsClass()
 
 
 class SomeObject(object):

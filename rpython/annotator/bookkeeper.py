@@ -9,7 +9,7 @@ import sys, types, inspect, weakref
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
     SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
-    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
+    SomeBuiltin, SomePBC, SomeInteger, TLS, TlsClass, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType)
@@ -53,7 +53,7 @@ class Bookkeeper(object):
 
     def __init__(self, annotator):
         self.annotator = annotator
-        self.policy = annotator.policy
+        self.bkTLS = TlsClass()
         self.descs = {}          # map Python objects to their XxxDesc wrappers
         self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
         self.classdefs = []      # list of all ClassDefs
@@ -75,17 +75,31 @@ class Bookkeeper(object):
 
         delayed_imports()
 
+    def get_policy(self):
+        return getattr(self.bkTLS, 'policy', self.annotator.default_policy)
+
+    def change_policy(self, new_policy):
+        if new_policy is None:
+            return None
+        old_policy = self.get_policy()
+        self.bkTLS.policy = new_policy
+        return old_policy
+
+    @property
+    def position_key(self):
+        return self.bkTLS.position_key
+
     def enter(self, position_key):
         """Start of an operation.
         The operation is uniquely identified by the given key."""
         assert not hasattr(self, 'position_key'), "don't call enter() nestedly"
-        self.position_key = position_key
+        self.bkTLS.position_key = position_key
         TLS.bookkeeper = self
 
     def leave(self):
         """End of an operation."""
         del TLS.bookkeeper
-        del self.position_key
+        del self.bkTLS.position_key
 
     def compute_at_fixpoint(self):
         # getbookkeeper() needs to work during this function, so provide
@@ -570,7 +584,7 @@ class Bookkeeper(object):
         return self.annotator.whereami(self.position_key)
 
     def event(self, what, x):
-        return self.annotator.policy.event(self, what, x)
+        return self.get_policy().event(self, what, x)
 
     def warning(self, msg):
         return self.annotator.warning(msg)

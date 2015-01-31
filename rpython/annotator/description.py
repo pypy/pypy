@@ -276,7 +276,7 @@ class FunctionDesc(Desc):
             # get the specializer based on the tag of the 'pyobj'
             # (if any), according to the current policy
             tag = getattr(self.pyobj, '_annspecialcase_', None)
-            policy = self.bookkeeper.annotator.policy
+            policy = self.bookkeeper.get_policy()
             self.specializer = policy.get_specializer(tag)
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         signature = getattr(self.pyobj, '_signature_', None)
