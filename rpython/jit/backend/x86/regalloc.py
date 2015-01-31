@@ -325,10 +325,7 @@ class RegAlloc(BaseRegalloc):
             self.xrm.position = i
             #
             if op.stm_location is not None:
-                if (self.stm_location is None or
-                    self.stm_location.num != op.stm_location.num or
-                    self.stm_location.ref != op.stm_location.ref):
-                    self.stm_location = op.stm_location
+                self.stm_location = op.stm_location
             #
             if op.has_no_side_effect() and op.result not in self.longevity:
                 i += 1
@@ -945,9 +942,18 @@ class RegAlloc(BaseRegalloc):
             gc_ll_descr.get_nursery_top_addr(),
             lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
+    def extract_raw_stm_location(self):
+        if self.stm_location is not None:
+            num = rffi.cast(lltype.Signed, self.stm_location.num)
+            ref = rffi.cast(lltype.Signed, self.stm_location.ref)
+        else:
+            num = 0
+            ref = 0
+        return (num, ref)
+
     def get_empty_gcmap(self, frame_depth):
         return allocate_gcmap(self.assembler, frame_depth,
-                              JITFRAME_FIXED_SIZE, self.stm_location)
+                              JITFRAME_FIXED_SIZE)
 
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
