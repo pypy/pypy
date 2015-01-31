@@ -23,4 +23,5 @@ class Module(MixedModule):
         'time': 'time.time',
         'clock': 'time.clock',
         'stmset': 'stmset.W_STMSet',
+        'stmdict': 'stmdict.W_STMDict',
     }

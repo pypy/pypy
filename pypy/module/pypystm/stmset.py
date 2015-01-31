@@ -4,7 +4,7 @@ The class pypystm.stmset, giving a part of the regular 'set' interface
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app, WrappedDefault
+from pypy.interpreter.gateway import interp2app
 
 from rpython.rlib import rstm, jit
 from rpython.rlib.rgc import ll_arraycopy
