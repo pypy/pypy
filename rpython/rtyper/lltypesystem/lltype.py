@@ -13,10 +13,13 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
 
-class State(object):
-    pass
-
-TLS = State()
+try:
+    import thread
+    TLS = thread._local()
+except ImportError:
+    class Tls(object):
+        pass
+    TLS = Tls()
 
 class WeakValueDictionary(weakref.WeakValueDictionary):
     """A subclass of weakref.WeakValueDictionary
