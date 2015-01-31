@@ -141,13 +141,15 @@ class LowLevelType(object):
         # NB. the __cached_hash should neither be used nor updated
         # if we enter with hash_level > 0, because the computed
         # __hash__ can be different in this situation.
-        hash_level = 0
         try:
             hash_level = TLS.nested_hash_level
-            if hash_level == 0:
-                return self.__cached_hash
         except AttributeError:
-            pass
+            hash_level = 0
+        if hash_level == 0:
+            try:
+                return self.__cached_hash
+            except AttributeError:
+                pass
         if hash_level >= 3:
             return 0
         items = self.__dict__.items()
