@@ -241,11 +241,11 @@ class RPythonTyper(object):
                                        (n, total, percentage, error_report))
             else:
                 # try a version using the transaction module
-                for block in pending:
-                    transaction.add(self.specialize_block, block)
                 self.log.event('specializing transactionally %d blocks' %
                                (len(pending),))
-                transaction.run()
+                with transaction.TransactionQueue():
+                    for block in pending:
+                        transaction.add(self.specialize_block, block)
                 self.log.event('left transactional mode')
                 blockcount += len(pending)
                 self.already_seen.update(dict.fromkeys(pending, True))
