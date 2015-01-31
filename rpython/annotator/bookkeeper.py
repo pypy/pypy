@@ -131,11 +131,12 @@ class Bookkeeper(object):
             for call_op in call_sites():
                 self.consider_call_site(call_op)
 
-            for pbc, args_s in self.emulated_pbc_calls.itervalues():
-                args = simple_args(args_s)
-                self.consider_call_site_for_pbc(pbc, args,
-                                                s_ImpossibleValue, None)
-            self.emulated_pbc_calls = {}
+            if self.emulated_pbc_calls:
+                for pbc, args_s in self.emulated_pbc_calls.itervalues():
+                    args = simple_args(args_s)
+                    self.consider_call_site_for_pbc(pbc, args,
+                                                    s_ImpossibleValue, None)
+                self.emulated_pbc_calls.clear()
         finally:
             self.leave()
 
