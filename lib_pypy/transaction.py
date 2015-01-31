@@ -6,9 +6,9 @@ Internally based on threads, this module should hide them completely and
 give a simple-to-use API.
 
 Note that some rough edges still need to be sorted out; for now you
-have to explicitly set the number of threads to use by calling
-set_num_threads(), or you get a default of 4.
-
+have to explicitly set the number of threads to use by passing the
+'nb_segments' argument to TransactionQueue(), or you get a default of 4
+(or whatever the compiled-in maximum is).
 """
 
 from __future__ import with_statement
