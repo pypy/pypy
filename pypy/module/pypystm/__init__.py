@@ -22,4 +22,5 @@ class Module(MixedModule):
         'hashtable': 'hashtable.W_Hashtable',
         'time': 'time.time',
         'clock': 'time.clock',
+        'stmset': 'stmset.W_STMSet',
     }
