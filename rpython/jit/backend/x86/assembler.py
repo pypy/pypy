@@ -1944,8 +1944,8 @@ class Assembler386(BaseAssembler):
             num, ref = self._regalloc.extract_raw_stm_location()
             mc.MOV_rs(r11.value, STM_SHADOWSTACK_BASE_OFS + extra_stack)
             # r11 = base address in the shadowstack + 1
-            # write the marker to [esi - 1] and [esi + 7]
-            for (targetofs, number) in [(-1, num), (+7, ref)]:
+            # write the marker to [r11 - 1] and [r11 + 7]
+            for (targetofs, number) in [(-1, 2 * num + 1), (+7, ref)]:
                 if rx86.fits_in_32bits(number):
                     mc.MOV_mi((self.SEGMENT_NO, r11.value, targetofs), number)
                 else:
