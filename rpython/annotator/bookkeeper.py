@@ -85,6 +85,14 @@ class Bookkeeper(object):
         self.bkTLS.policy = new_policy
         return old_policy
 
+    def get_added_blocks(self):
+        return getattr(self.bkTLS, 'added_blocks', None)
+
+    def change_added_blocks(self, new_added_blocks):
+        old_added_blocks = self.get_added_blocks()
+        self.bkTLS.added_blocks = new_added_blocks
+        return old_added_blocks
+
     @property
     def position_key(self):
         return self.bkTLS.position_key
@@ -107,7 +115,7 @@ class Bookkeeper(object):
         self.enter(None)
         try:
             def call_sites():
-                newblocks = self.annotator.added_blocks
+                newblocks = self.get_added_blocks()
                 if newblocks is None:
                     newblocks = self.annotator.annotated  # all of them
                 annotation = self.annotator.annotation

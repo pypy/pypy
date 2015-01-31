@@ -38,7 +38,6 @@ class RPythonAnnotator(object):
         self.translator = translator
         self.pendingblocks = {}  # map {block: graph-containing-it}
         self.annotated = {}      # set of blocks already seen
-        self.added_blocks = None # see processblock() below
         self.links_followed = {} # set of links that have ever been followed
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.fixed_graphs = stmset()  # set of graphs not to annotate again
@@ -55,18 +54,6 @@ class RPythonAnnotator(object):
         if bookkeeper is None:
             bookkeeper = Bookkeeper(self)
         self.bookkeeper = bookkeeper
-
-    def __getstate__(self):
-        attrs = """translator pendingblocks annotated links_followed
-        notify bookkeeper frozen policy added_blocks""".split()
-        ret = self.__dict__.copy()
-        for key, value in ret.items():
-            if key not in attrs:
-                assert type(value) is dict, (
-                    "%r is not dict. please update %s.__getstate__" %
-                    (key, self.__class__.__name__))
-                ret[key] = {}
-        return ret
 
     #___ convenience high-level interface __________________
 
@@ -124,16 +111,15 @@ class RPythonAnnotator(object):
         return graph
 
     def complete_helpers(self, policy):
-        saved = self.added_blocks
+        prevaddedblocks = self.bookkeeper.change_added_blocks({})
         prevpolicy = self.bookkeeper.change_policy(policy)
         try:
-            self.added_blocks = {}
             self.complete()
             # invoke annotation simplifications for the new blocks
-            self.simplify(block_subset=self.added_blocks)
+            self.simplify(block_subset=self.bookkeeper.get_added_blocks())
         finally:
             self.bookkeeper.change_policy(prevpolicy)
-            self.added_blocks = saved
+            self.bookkeeper.change_added_blocks(prevaddedblocks)
 
     def build_graph_types(self, flowgraph, inputcells, complete_now=True):
         checkgraph(flowgraph)
@@ -204,8 +190,9 @@ class RPythonAnnotator(object):
             if not self.pendingblocks:
                 break   # finished
         # make sure that the return variables of all graphs is annotated
-        if self.added_blocks is not None:
-            newgraphs = [self.annotated[block] for block in self.added_blocks]
+        added_blocks = self.bookkeeper.get_added_blocks()
+        if added_blocks is not None:
+            newgraphs = [self.annotated[block] for block in added_blocks]
             newgraphs = dict.fromkeys(newgraphs)
             got_blocked_blocks = False in newgraphs
         else:
@@ -357,8 +344,9 @@ class RPythonAnnotator(object):
         # The dict 'added_blocks' is used by rpython.annlowlevel to
         # detect which are the new blocks that annotating an additional
         # small helper creates.
-        if self.added_blocks is not None:
-            self.added_blocks[block] = True
+        added_blocks = self.bookkeeper.get_added_blocks()
+        if added_blocks is not None:
+            added_blocks[block] = True
 
     def reflowpendingblock(self, graph, block):
         assert not self.frozen
