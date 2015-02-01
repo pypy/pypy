@@ -1098,12 +1098,12 @@ def _servername_callback(ssl, ad, arg):
                                            w_ssl_socket, space.w_None, w_ctx)
 
         else:
+            w_servername = space.wrapbytes(rffi.charp2str(servername))
             try:
-                w_servername = space.wrapbytes(rffi.charp2str(servername))
                 w_servername_idna = space.call_method(
                     w_servername, 'decode', space.wrap('idna'))
             except OperationError as e:
-                e.write_unraisable(space, w_ctx)
+                e.write_unraisable(space, "undecodable server name")
                 ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
                 return SSL_TLSEXT_ERR_ALERT_FATAL
 
@@ -1111,7 +1111,7 @@ def _servername_callback(ssl, ad, arg):
                                            w_ssl_socket,
                                            w_servername_idna, w_ctx)
     except OperationError as e:
-        e.write_unraisable(space, w_ctx.w_set_hostname)
+        e.write_unraisable(space, "in servername callback")
         ad[0] = rffi.cast(rffi.INT, SSL_AD_HANDSHAKE_FAILURE)
         return SSL_TLSEXT_ERR_ALERT_FATAL
 
@@ -1121,7 +1121,7 @@ def _servername_callback(ssl, ad, arg):
         try:
             ad[0] = rffi.cast(rffi.INT, space.int_w(w_result))
         except OperationError as e:
-            e.write_unraisable(space, w_result)
+            e.write_unraisable(space, "bad result in servername callback")
             ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
         return SSL_TLSEXT_ERR_ALERT_FATAL
 
