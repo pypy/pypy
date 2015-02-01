@@ -432,13 +432,12 @@ static bool detect_write_read_conflicts(void)
             continue;    /* no need to check: is pending immediate abort */
 
         char *remote_base = get_segment_base(i);
-        uint8_t remote_version = get_segment(i)->transaction_read_version;
 
         LIST_FOREACH_R(
             STM_PSEGMENT->modified_old_objects,
             object_t * /*item*/,
             ({
-                if (was_read_remote(remote_base, item, remote_version)) {
+                if (was_read_remote(remote_base, item)) {
                     /* A write-read conflict! */
                     dprintf(("write-read conflict on %p, our seg: %d, other: %ld\n",
                              item, STM_SEGMENT->segment_num, i));

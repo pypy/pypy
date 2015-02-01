@@ -546,6 +546,9 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *, stm_hashtable_t *,
 object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
 void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
                          object_t *nvalue, stm_thread_local_t *);
+long stm_hashtable_length_upper_bound(stm_hashtable_t *);
+long stm_hashtable_list(object_t *, stm_hashtable_t *,
+                        stm_hashtable_entry_t **results);
 extern uint32_t stm_hashtable_entry_userdata;
 void stm_hashtable_tracefn(stm_hashtable_t *, void (object_t **));
 
