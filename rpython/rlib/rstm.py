@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, stm_ignored
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
@@ -199,6 +200,20 @@ def _ll_hashtable_len(h):
                                    lltype.nullptr(_STM_HASHTABLE_ENTRY_ARRAY))
 
 @dont_look_inside
+def _ll_hashtable_list(h):
+    upper_bound = llop.stm_hashtable_length_upper_bound(lltype.Signed,
+                                                        h.ll_raw_hashtable)
+    array = lltype.malloc(_STM_HASHTABLE_ENTRY_ARRAY, upper_bound,
+                          flavor='raw')
+    count = llop.stm_hashtable_list(lltype.Signed, h, h.ll_raw_hashtable,
+                                    array)
+    return (array, count)
+
+@dont_look_inside
+def _ll_hashtable_freelist(h, array):
+    lltype.free(array, flavor='raw')
+
+@dont_look_inside
 def _ll_hashtable_lookup(h, key):
     return llop.stm_hashtable_lookup(_STM_HASHTABLE_ENTRY_P,
                                      h, h.ll_raw_hashtable, key)
@@ -209,6 +224,8 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  adtmeths={'get': _ll_hashtable_get,
                                            'set': _ll_hashtable_set,
                                            'len': _ll_hashtable_len,
+                                          'list': _ll_hashtable_list,
+                                      'freelist': _ll_hashtable_freelist,
                                         'lookup': _ll_hashtable_lookup})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
@@ -272,6 +289,16 @@ class HashtableForTest(object):
     def len(self):
         return len(self._content)
 
+    def list(self):
+        items = [self.lookup(key) for key in self._content]
+        count = len(items)
+        for i in range(3):
+            items.append("additional garbage for testing")
+        return items, count
+
+    def freelist(self, array):
+        pass
+
     def lookup(self, key):
         assert type(key) is int
         return EntryObjectForTest(self, key)
@@ -280,6 +307,7 @@ class EntryObjectForTest(object):
     def __init__(self, hashtable, key):
         self.hashtable = hashtable
         self.key = key
+        self.index = r_uint(key)
 
     def _getobj(self):
         return self.hashtable.get(self.key)

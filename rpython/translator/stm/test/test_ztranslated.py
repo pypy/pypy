@@ -1,6 +1,7 @@
 import py
 from rpython.rlib import rstm, rgc, objectmodel
 from rpython.rlib.debug import debug_print
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.rclass import OBJECTPTR
@@ -582,6 +583,12 @@ class TestSTMTranslated(CompiledSTMTests):
             entry = h.lookup(4242)
             assert cast_gcref_to_instance(X, entry.object) is None
             assert h.len() == 1
+            #
+            array, count = h.list()
+            assert count == 1
+            assert intmask(array[0].index) == -1234
+            assert cast_gcref_to_instance(X, array[0].object) is x1
+            h.freelist(array)
             #
             print "ok!"
             return 0
