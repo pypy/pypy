@@ -225,7 +225,7 @@ def W_STMDict___new__(space, w_subtype):
     return space.wrap(r)
 
 W_STMDict.typedef = TypeDef(
-    'pypystm.stmset',
+    'pypystm.stmdict',
     __new__ = interp2app(W_STMDict___new__),
     __getitem__ = interp2app(W_STMDict.getitem_w),
     __setitem__ = interp2app(W_STMDict.setitem_w),
