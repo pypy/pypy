@@ -43,6 +43,25 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
         for i in range(length):
             dest[dest_start + i] = source[source_start + i]
 
+def pop_from_entry(entry, space, w_key):
+    array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+    if not array:
+        return None
+    i = find_equal_item(space, array, w_key)
+    if i < 0:
+        return None
+    # found
+    w_value = cast_gcref_to_instance(W_Root, array[i + 1])
+    L = len(array) - 2
+    if L == 0:
+        narray = lltype.nullptr(ARRAY)
+    else:
+        narray = lltype.malloc(ARRAY, L)
+        ll_arraycopy(array, narray, 0, 0, i)
+        ll_arraycopy(array, narray, i + 2, i, L - i)
+    entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
+    return w_value
+
 
 class W_STMDict(W_Root):
 
@@ -82,21 +101,8 @@ class W_STMDict(W_Root):
     def delitem_w(self, space, w_key):
         hkey = space.hash_w(w_key)
         entry = self.h.lookup(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-        if array:
-            i = find_equal_item(space, array, w_key)
-            if i >= 0:
-                # found
-                L = len(array) - 2
-                if L == 0:
-                    narray = lltype.nullptr(ARRAY)
-                else:
-                    narray = lltype.malloc(ARRAY, L)
-                    ll_arraycopy(array, narray, 0, 0, i)
-                    ll_arraycopy(array, narray, i + 2, i, L - i)
-                entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
-                return
-        space.raise_key_error(w_key)
+        if pop_from_entry(entry, space, w_key) is None:
+            space.raise_key_error(w_key)
 
     def contains_w(self, space, w_key):
         hkey = space.hash_w(w_key)
@@ -116,6 +122,17 @@ class W_STMDict(W_Root):
             if i >= 0:
                 return cast_gcref_to_instance(W_Root, array[i + 1])
         return w_default
+
+    def pop_w(self, space, w_key, w_default=None):
+        hkey = space.hash_w(w_key)
+        entry = self.h.lookup(hkey)
+        w_value = pop_from_entry(entry, space, w_key)
+        if w_value is not None:
+            return w_value
+        elif w_default is not None:
+            return w_default
+        else:
+            space.raise_key_error(w_key)
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def setdefault_w(self, space, w_key, w_default):
@@ -215,6 +232,7 @@ W_STMDict.typedef = TypeDef(
     __delitem__ = interp2app(W_STMDict.delitem_w),
     __contains__ = interp2app(W_STMDict.contains_w),
     get = interp2app(W_STMDict.get_w),
+    pop = interp2app(W_STMDict.pop_w),
     setdefault = interp2app(W_STMDict.setdefault_w),
 
     __len__  = interp2app(W_STMDict.len_w),

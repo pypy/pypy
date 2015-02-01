@@ -101,3 +101,18 @@ class AppTestDict:
         assert sorted(d.keys()) == [42.0, 42.5]
         assert sorted(d.values()) == ["bar", "foo"]
         assert sorted(d.items()) == [(42.0, "foo"), (42.5, "bar")]
+
+    def test_pop(self):
+        import pypystm
+        d = pypystm.stmdict()
+        raises(KeyError, d.pop, 42.0)
+        assert d.pop(42.0, "foo") == "foo"
+        raises(KeyError, "d[42.0]")
+        d[42.0] = "bar"
+        res = d.pop(42.0)
+        assert res == "bar"
+        raises(KeyError, "d[42.0]")
+        d[42.0] = "bar"
+        res = d.pop(42.0, "foo")
+        assert res == "bar"
+        raises(KeyError, "d[42.0]")
