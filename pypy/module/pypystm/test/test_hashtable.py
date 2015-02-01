@@ -33,3 +33,16 @@ class AppTestHashtable:
         assert h.setdefault(44, "-81") == "-81"
         assert h[44] == "-81"
         assert h[42] is None
+
+    def test_len(self):
+        import pypystm
+        h = pypystm.hashtable()
+        assert len(h) == 0
+        h[42] = "foo"
+        assert len(h) == 1
+        h[43] = "bar"
+        assert len(h) == 2
+        h[42] = "baz"
+        assert len(h) == 2
+        del h[42]
+        assert len(h) == 1

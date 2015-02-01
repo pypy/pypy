@@ -56,6 +56,9 @@ class W_Hashtable(W_Root):
             return w_default
         return cast_gcref_to_instance(W_Root, gcref)
 
+    def len_w(self, space):
+        return space.wrap(self.h.len())
+
 
 def W_Hashtable___new__(space, w_subtype):
     r = space.allocate_instance(W_Hashtable, w_subtype)
@@ -71,4 +74,6 @@ W_Hashtable.typedef = TypeDef(
     __contains__ = interp2app(W_Hashtable.contains_w),
     get = interp2app(W_Hashtable.get_w),
     setdefault = interp2app(W_Hashtable.setdefault_w),
-    )
+
+    __len__ = interp2app(W_Hashtable.len_w),
+)
