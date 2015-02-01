@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 from rpython.rlib import rstm
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 
@@ -59,6 +60,34 @@ class W_Hashtable(W_Root):
     def len_w(self, space):
         return space.wrap(self.h.len())
 
+    def keys_w(self, space):
+        array, count = self.h.list()
+        try:
+            lst = [intmask(array[i].index) for i in range(count)]
+        finally:
+            self.h.freelist(array)
+        return space.newlist_int(lst)
+
+    def values_w(self, space):
+        array, count = self.h.list()
+        try:
+            lst_w = [cast_gcref_to_instance(W_Root, array[i].object)
+                     for i in range(count)]
+        finally:
+            self.h.freelist(array)
+        return space.newlist(lst_w)
+
+    def items_w(self, space):
+        array, count = self.h.list()
+        try:
+            lst_w = [space.newtuple([
+                         space.wrap(intmask(array[i].index)),
+                         cast_gcref_to_instance(W_Root, array[i].object)])
+                     for i in range(count)]
+        finally:
+            self.h.freelist(array)
+        return space.newlist(lst_w)
+
 
 def W_Hashtable___new__(space, w_subtype):
     r = space.allocate_instance(W_Hashtable, w_subtype)
@@ -76,4 +105,7 @@ W_Hashtable.typedef = TypeDef(
     setdefault = interp2app(W_Hashtable.setdefault_w),
 
     __len__ = interp2app(W_Hashtable.len_w),
+    keys    = interp2app(W_Hashtable.keys_w),
+    values  = interp2app(W_Hashtable.values_w),
+    items   = interp2app(W_Hashtable.items_w),
 )

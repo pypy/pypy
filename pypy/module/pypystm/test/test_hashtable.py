@@ -46,3 +46,12 @@ class AppTestHashtable:
         assert len(h) == 2
         del h[42]
         assert len(h) == 1
+
+    def test_keys_values_items(self):
+        import pypystm
+        h = pypystm.hashtable()
+        h[42] = "foo"
+        h[43] = "bar"
+        assert sorted(h.keys()) == [42, 43]
+        assert sorted(h.values()) == ["bar", "foo"]
+        assert sorted(h.items()) == [(42, "foo"), (43, "bar")]
