@@ -61,8 +61,8 @@ class W_STMDict(W_Root):
 
     def setitem_w(self, space, w_key, w_value):
         hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
+        entry = self.h.lookup(hkey)
+        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
         if array:
             i = find_equal_item(space, array, w_key)
             if i >= 0:
@@ -77,13 +77,12 @@ class W_STMDict(W_Root):
             L = 0
         narray[L] = cast_instance_to_gcref(w_key)
         narray[L + 1] = cast_instance_to_gcref(w_value)
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
-        self.h.set(hkey, gcref)
+        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
 
     def delitem_w(self, space, w_key):
         hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
+        entry = self.h.lookup(hkey)
+        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
         if array:
             i = find_equal_item(space, array, w_key)
             if i >= 0:
@@ -95,8 +94,7 @@ class W_STMDict(W_Root):
                     narray = lltype.malloc(ARRAY, L)
                     ll_arraycopy(array, narray, 0, 0, i)
                     ll_arraycopy(array, narray, i + 2, i, L - i)
-                gcref = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
-                self.h.set(hkey, gcref)
+                entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
                 return
         space.raise_key_error(w_key)
 
@@ -122,8 +120,8 @@ class W_STMDict(W_Root):
     @unwrap_spec(w_default=WrappedDefault(None))
     def setdefault_w(self, space, w_key, w_default):
         hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
+        entry = self.h.lookup(hkey)
+        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
         if array:
             i = find_equal_item(space, array, w_key)
             if i >= 0:
@@ -137,8 +135,7 @@ class W_STMDict(W_Root):
             L = 0
         narray[L] = cast_instance_to_gcref(w_key)
         narray[L + 1] = cast_instance_to_gcref(w_default)
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
-        self.h.set(hkey, gcref)
+        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
         return w_default
 
 

@@ -181,6 +181,7 @@ _STM_HASHTABLE_P = rffi.COpaquePtr('stm_hashtable_t')
 _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
+_STM_HASHTABLE_ENTRY_P = lltype.Ptr(_STM_HASHTABLE_ENTRY)
 
 @dont_look_inside
 def _ll_hashtable_get(h, key):
@@ -191,11 +192,17 @@ def _ll_hashtable_get(h, key):
 def _ll_hashtable_set(h, key, value):
     llop.stm_hashtable_write(lltype.Void, h, h.ll_raw_hashtable, key, value)
 
+@dont_look_inside
+def _ll_hashtable_lookup(h, key):
+    return llop.stm_hashtable_lookup(_STM_HASHTABLE_ENTRY_P,
+                                     h, h.ll_raw_hashtable, key)
+
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
                                  rtti=True,
                                  adtmeths={'get': _ll_hashtable_get,
-                                           'set': _ll_hashtable_set})
+                                           'set': _ll_hashtable_set,
+                                        'lookup': _ll_hashtable_lookup})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
 def _ll_hashtable_trace(gc, obj, callback, arg):
@@ -254,3 +261,19 @@ class HashtableForTest(object):
                 del self._content[key]
             except KeyError:
                 pass
+
+    def lookup(self, key):
+        assert type(key) is int
+        return EntryObjectForTest(self, key)
+
+class EntryObjectForTest(object):
+    def __init__(self, hashtable, key):
+        self.hashtable = hashtable
+        self.key = key
+
+    def _getobj(self):
+        return self.hashtable.get(self.key)
+    def _setobj(self, nvalue):
+        self.hashtable.set(self.key, nvalue)
+
+    object = property(_getobj, _setobj)

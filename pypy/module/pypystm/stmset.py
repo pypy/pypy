@@ -53,8 +53,8 @@ class W_STMSet(W_Root):
 
     def add_w(self, space, w_key):
         hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
+        entry = self.h.lookup(hkey)
+        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
         if array:
             if find_equal_item(space, array, w_key) >= 0:
                 return      # already there
@@ -65,13 +65,12 @@ class W_STMSet(W_Root):
             narray = lltype.malloc(ARRAY, 1)
             L = 0
         narray[L] = cast_instance_to_gcref(w_key)
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
-        self.h.set(hkey, gcref)
+        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
 
     def try_remove(self, space, w_key):
         hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
+        entry = self.h.lookup(hkey)
+        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
         if not array:
             return False
         i = find_equal_item(space, array, w_key)
@@ -85,8 +84,7 @@ class W_STMSet(W_Root):
             narray = lltype.malloc(ARRAY, L)
             ll_arraycopy(array, narray, 0, 0, i)
             ll_arraycopy(array, narray, i + 1, i, L - i)
-        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
-        self.h.set(hkey, gcref)
+        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
         return True
 
     def remove_w(self, space, w_key):

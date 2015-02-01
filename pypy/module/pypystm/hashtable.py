@@ -25,15 +25,15 @@ class W_Hashtable(W_Root):
 
     @unwrap_spec(key=int)
     def setitem_w(self, key, w_value):
-        gcref = cast_instance_to_gcref(w_value)
-        self.h.set(key, gcref)
+        entry = self.h.lookup(key)
+        entry.object = cast_instance_to_gcref(w_value)
 
     @unwrap_spec(key=int)
     def delitem_w(self, space, key):
-        gcref = self.h.get(key)
-        if not gcref:
+        entry = self.h.lookup(key)
+        if not entry.object:
             space.raise_key_error(space.wrap(key))
-        self.h.set(key, rstm.NULL_GCREF)
+        entry.object = rstm.NULL_GCREF
 
     @unwrap_spec(key=int)
     def contains_w(self, space, key):
@@ -49,10 +49,10 @@ class W_Hashtable(W_Root):
 
     @unwrap_spec(key=int, w_default=WrappedDefault(None))
     def setdefault_w(self, space, key, w_default):
-        gcref = self.h.get(key)
+        entry = self.h.lookup(key)
+        gcref = entry.object
         if not gcref:
-            gcref = cast_instance_to_gcref(w_default)
-            self.h.set(key, gcref)
+            entry.object = cast_instance_to_gcref(w_default)
             return w_default
         return cast_gcref_to_instance(W_Root, gcref)
 
