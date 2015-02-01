@@ -7,6 +7,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.interpreter.gateway import interp2app
 from pypy.conftest import option
+from pypy.interpreter.error import OperationError
 
 
 class TestUfuncCoercion(object):
@@ -129,7 +130,10 @@ class TestGenericUfuncOperation(object):
                                              '', ufunc.dtypes)
         assert index == 0
         assert dtypes == [f32_dtype, c64_dtype]
-
+        raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
+                                'u->u', ufunc.dtypes)
+        exc = raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
+                                'i->i', ufunc.dtypes)
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):

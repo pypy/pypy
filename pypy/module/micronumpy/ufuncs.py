@@ -733,20 +733,24 @@ class W_UfuncGeneric(W_Ufunc):
         nop = len(inargs) + len(outargs)
         dtypes = []
         if isinstance(type_tup, str) and len(type_tup) > 0:
-            if len(type_tup) == 1:
-                dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
-            elif len(type_tup) == self.nargs + 2:
-                for i in range(self.nin):
-                    dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
-                #skip the '->' in the signature
-                for i in range(self.nout):
-                    j = i + self.nin + 2
-                    dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
-            else:
-                raise oefmt(space.w_TypeError, "a type-string for %s " \
-                    "requires 1 typecode or %d typecode(s) before and %d" \
-                    " after the -> sign, not '%s'", self.name, self.nin, 
-                    self.nout, type_tup)
+            try:
+                if len(type_tup) == 1:
+                    dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
+                elif len(type_tup) == self.nargs + 2:
+                    for i in range(self.nin):
+                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
+                    #skip the '->' in the signature
+                    for i in range(self.nout):
+                        j = i + self.nin + 2
+                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
+                else:
+                    raise oefmt(space.w_TypeError, "a type-string for %s " \
+                        "requires 1 typecode or %d typecode(s) before and %d" \
+                        " after the -> sign, not '%s'", self.name, self.nin, 
+                        self.nout, type_tup)
+            except KeyError:
+                raise oefmt(space.w_ValueError, "unknown typecode in" \
+                        " call to %s with type-string '%s'", self.name, type_tup)
         else:
             # XXX why does the next line not pass translation?
             # dtypes = [i.get_dtype() for i in inargs]
@@ -770,9 +774,13 @@ class W_UfuncGeneric(W_Ufunc):
                 break
         else:
             if len(self.funcs) > 1:
+                dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
+                                 for d in dtypes])
+                _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
+                                for d in _dtypes])
                 raise oefmt(space.w_TypeError,
-                            'input dtype did not match any known dtypes',
-                           )
+                     "input dtype [%s] did not match any known dtypes [%s] ", 
+                     dtypesstr,_dtypesstr)
             i = 0
         # Fill in empty dtypes
         for j in range(self.nargs):
