@@ -170,6 +170,8 @@ class SSLNpnProtocols(object):
 
 NPN_STORAGE = RWeakValueDictionary(r_uint, SSLNpnProtocols)
 
+SOCKET_STORAGE = RWeakValueDictionary(int, W_Root)
+
 
 if HAVE_OPENSSL_RAND:
     # helper routines for seeding the SSL PRNG
@@ -222,6 +224,11 @@ class _SSLSocket(W_Root):
 
         sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
         self.ssl = libssl_SSL_new(w_ctx.ctx)  # new ssl struct
+
+        index = compute_unique_id(self)
+        libssl_SSL_set_app_data(self.ssl, rffi.cast(rffi.VOIDP, index))
+        SOCKET_STORAGE.set(index, self)
+
         libssl_SSL_set_fd(self.ssl, sock_fd)  # set the socket for SSL
         # The ACCEPT_MOVING_WRITE_BUFFER flag is necessary because the address
         # of a str object may be changed by the garbage collector.
@@ -1068,21 +1075,22 @@ def _servername_callback(ssl, ad, arg):
     struct = SERVERNAME_CALLBACKS.get(rffi.cast(lltype.Signed, arg))
     w_ctx = struct.w_ctx
     space = struct.space
-    servername = libssl_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
     if not w_ctx.w_set_hostname:
-        # remove race condition.
+        # Possible race condition.
         return SSL_TLSEXT_ERR_OK
     # The high-level ssl.SSLSocket object
-    w_ssl = libssl_SSL_get_app_data(ssl)
+    index = rffi.cast(lltype.Signed, libssl_SSL_get_app_data(ssl))
+    w_ssl = SOCKET_STORAGE.get(index)
     assert isinstance(w_ssl, _SSLSocket)
-    if w_ssl.ssl_sock_weakref_w:
-        w_ssl_socket = w_ssl.ssl_sock_weakref_w.get()
+    if w_ssl.ssl_sock_weakref_w is not None:
+        w_ssl_socket = w_ssl.ssl_sock_weakref_w()
     else:
         w_ssl_socket = space.w_None
     if space.is_none(w_ssl_socket):
-        ad[0] = SSL_AD_INTERNAL_ERROR
+        ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
         return SSL_TLSEXT_ERR_ALERT_FATAL
 
+    servername = libssl_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
     try:
         if not servername:
             w_result = space.call_function(w_ctx.w_set_hostname,
@@ -1090,30 +1098,30 @@ def _servername_callback(ssl, ad, arg):
 
         else:
             try:
-                w_servername = space.wrap_bytes(rffi.charp2str(servername))
+                w_servername = space.wrapbytes(rffi.charp2str(servername))
                 w_servername_idna = space.call_method(
                     w_servername, 'decode', space.wrap('idna'))
             except OperationError as e:
-                space.write_unraisable(e, "w_servername")
-                ad[0] = SSL_AD_INTERNAL_ERROR;
+                e.write_unraisable(space, w_ctx)
+                ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
                 return SSL_TLSEXT_ERR_ALERT_FATAL
 
             w_result = space.call_function(w_ctx.w_set_hostname,
                                            w_ssl_socket,
                                            w_servername_idna, w_ctx)
     except OperationError as e:
-        space.write_unraisable(e, "ssl_ctx->set_hostname")
-        ad[0] = SSL_AD_HANDSHAKE_FAILURE
+        e.write_unraisable(space, w_ctx.w_set_hostname)
+        ad[0] = rffi.cast(rffi.INT, SSL_AD_HANDSHAKE_FAILURE)
         return SSL_TLSEXT_ERR_ALERT_FATAL
 
     if space.is_none(w_result):
         return SSL_TLSEXT_ERR_OK
     else:
         try:
-            ad[0] = space.int_w(w_result)
+            ad[0] = rffi.cast(rffi.INT, space.int_w(w_result))
         except OperationError as e:
-            space.write_unraisable(e, "w_result")
-            ad[0] = SSL_AD_INTERNAL_ERROR
+            e.write_unraisable(space, w_result)
+            ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
         return SSL_TLSEXT_ERR_ALERT_FATAL
 
 

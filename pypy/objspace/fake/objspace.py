@@ -182,6 +182,9 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
+    def wrapbytes(self, x):
+        return w_some_obj()
+
     def wrap(self, x):
         if not we_are_translated():
             if isinstance(x, gateway.interp2app):

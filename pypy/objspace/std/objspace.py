@@ -127,6 +127,9 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
+    def wrapbytes(self, x):
+        return wrapstr(self, x)
+
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
         # You might notice that this function is rather conspicuously
