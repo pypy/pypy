@@ -251,8 +251,10 @@ class _SSLSocket(W_Root):
 
         self.socket_type = socket_type
         self.w_socket = w_sock
-        assert w_ssl_sock is not None
-        self.ssl_sock_weakref_w = rweakref.ref(w_ssl_sock)
+        if w_ssl_sock:
+            self.ssl_sock_weakref_w = rweakref.ref(w_ssl_sock)
+        else:
+            self.ssl_sock_weakref_w = None
         return self
 
     def __del__(self):
