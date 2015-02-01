@@ -575,6 +575,14 @@ class TestSTMTranslated(CompiledSTMTests):
             x2 = cast_gcref_to_instance(X, p2)
             assert x2 is x1
             #
+            entry = h.lookup(-1234)
+            assert cast_gcref_to_instance(X, entry.object) is x1
+            assert h.len() == 1
+            #
+            entry = h.lookup(4242)
+            assert cast_gcref_to_instance(X, entry.object) is None
+            assert h.len() == 1
+            #
             print "ok!"
             return 0
 

@@ -320,6 +320,14 @@ def stm_hashtable_lookup(funcgen, op):
     return '%s = stm_hashtable_lookup((object_t *)%s, %s, %s);' % (
         result, arg0, arg1, arg2)
 
+def stm_hashtable_list(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return '%s = stm_hashtable_list((object_t *)%s, %s, %s);' % (
+        result, arg0, arg1, arg2)
+
 def stm_hashtable_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])
