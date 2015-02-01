@@ -282,7 +282,7 @@ ssl_external('SSL_CTX_set_default_passwd_cb_userdata', [SSL_CTX, rffi.VOIDP], ll
 servername_cb = lltype.Ptr(lltype.FuncType([SSL, rffi.INTP, rffi.VOIDP], rffi.INT))
 ssl_external('SSL_CTX_set_tlsext_servername_callback', [SSL_CTX, servername_cb],
              lltype.Void, macro=True)
-ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void)
+ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void, macro=True)
 
 SSL_CTX_STATS_NAMES = """
     number connect connect_good connect_renegotiate accept accept_good

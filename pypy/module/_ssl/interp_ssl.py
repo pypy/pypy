@@ -213,7 +213,8 @@ if HAVE_OPENSSL_RAND:
 
 class _SSLSocket(W_Root):
     @staticmethod
-    def descr_new(space, w_ctx, w_sock, socket_type, hostname, w_ssl_sock):
+    def descr_new(space, w_ctx, w_sock, socket_type,
+                  w_hostname=None, w_ssl_sock=None):
         self = _SSLSocket()
 
         self.space = space
@@ -234,6 +235,13 @@ class _SSLSocket(W_Root):
         # of a str object may be changed by the garbage collector.
         libssl_SSL_set_mode(
             self.ssl, SSL_MODE_AUTO_RETRY | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)
+
+        if not space.is_none(w_hostname):
+            if space.isinstance_w(w_hostname, space.w_unicode):
+                w_hostname = space.call_method(w_hostname, "encode",
+                                               space.wrap("idna"))
+            libssl_SSL_set_tlsext_host_name(
+                self.ssl, space.bytes_w(w_hostname))
 
         # If the socket is in non-blocking mode or timeout mode, set the BIO
         # to non-blocking mode (blocking is the default)
@@ -1078,9 +1086,10 @@ def _servername_callback(ssl, ad, arg):
     struct = SERVERNAME_CALLBACKS.get(rffi.cast(lltype.Signed, arg))
     w_ctx = struct.w_ctx
     space = struct.space
-    if not w_ctx.w_set_hostname:
+    w_callback = struct.w_set_hostname
+    if not w_ctx.servername_callback:
         # Possible race condition.
-        return SSL_TLSEXT_ERR_OK
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_OK)
     # The high-level ssl.SSLSocket object
     index = rffi.cast(lltype.Signed, libssl_SSL_get_app_data(ssl))
     w_ssl = SOCKET_STORAGE.get(index)
@@ -1091,12 +1100,12 @@ def _servername_callback(ssl, ad, arg):
         w_ssl_socket = space.w_None
     if space.is_none(w_ssl_socket):
         ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
-        return SSL_TLSEXT_ERR_ALERT_FATAL
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_ALERT_FATAL)
 
     servername = libssl_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
     try:
         if not servername:
-            w_result = space.call_function(w_ctx.w_set_hostname,
+            w_result = space.call_function(w_callback,
                                            w_ssl_socket, space.w_None, w_ctx)
 
         else:
@@ -1107,25 +1116,25 @@ def _servername_callback(ssl, ad, arg):
             except OperationError as e:
                 e.write_unraisable(space, "undecodable server name")
                 ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
-                return SSL_TLSEXT_ERR_ALERT_FATAL
+                return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_ALERT_FATAL)
 
-            w_result = space.call_function(w_ctx.w_set_hostname,
+            w_result = space.call_function(w_callback,
                                            w_ssl_socket,
                                            w_servername_idna, w_ctx)
     except OperationError as e:
         e.write_unraisable(space, "in servername callback")
         ad[0] = rffi.cast(rffi.INT, SSL_AD_HANDSHAKE_FAILURE)
-        return SSL_TLSEXT_ERR_ALERT_FATAL
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_ALERT_FATAL)
 
     if space.is_none(w_result):
-        return SSL_TLSEXT_ERR_OK
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_OK)
     else:
         try:
             ad[0] = rffi.cast(rffi.INT, space.int_w(w_result))
         except OperationError as e:
-            e.write_unraisable(space, "bad result in servername callback")
+            e.write_unraisable(space, "servername callback result")
             ad[0] = rffi.cast(rffi.INT, SSL_AD_INTERNAL_ERROR)
-        return SSL_TLSEXT_ERR_ALERT_FATAL
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_ALERT_FATAL)
 
 
 class _SSLContext(W_Root):
@@ -1475,15 +1484,17 @@ class _SSLContext(W_Root):
         if space.is_none(w_callback):
             libssl_SSL_CTX_set_tlsext_servername_callback(
                 self.ctx, lltype.nullptr(servername_cb.TO))
+            self.servername_callback = None
             return
         if not space.is_true(space.callable(w_callback)):
             raise oefmt(space.w_TypeError, "not a callable object")
-        self.w_set_hostname = w_callback
-        struct = ServernameCallback()
-        struct.space = space
-        struct.w_ctx = self
+        callback_struct = ServernameCallback()
+        callback_struct.space = space
+        callback_struct.w_ctx = self
+        callback_struct.w_set_hostname = w_callback
+        self.servername_callback = callback_struct
         index = compute_unique_id(self)
-        SERVERNAME_CALLBACKS.set(index, struct)
+        SERVERNAME_CALLBACKS.set(index, callback_struct)
         libssl_SSL_CTX_set_tlsext_servername_callback(
             self.ctx, _servername_callback)
         libssl_SSL_CTX_set_tlsext_servername_arg(self.ctx,
