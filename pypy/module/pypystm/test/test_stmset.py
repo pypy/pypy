@@ -62,3 +62,24 @@ class AppTestSet:
         assert 42 in s
         assert 42L in s
         assert 42.001 not in s
+
+    def test_list_from_set(self):
+        import pypystm
+        s = pypystm.stmset()
+        assert len(s) == 0
+        assert tuple(s) == ()
+        s.add(42.5)
+        s.add(42.0)
+        assert sorted(s) == [42.0, 42.5]
+        assert len(s) == 2
+        s.remove(42.0)
+        assert list(s) == [42.5]
+        #
+        class Key(object):
+            def __hash__(self):
+                return hash(42.5)
+        key3 = Key()
+        s.add(key3)
+        assert len(s) == 2
+        items = list(s)
+        assert items == [42.5, key3] or items == [key3, 42.5]

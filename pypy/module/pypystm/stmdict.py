@@ -138,6 +138,69 @@ class W_STMDict(W_Root):
         entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
         return w_default
 
+    def get_length(self):
+        array, count = self.h.list()
+        try:
+            total_length_times_two = 0
+            for i in range(count):
+                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+                assert subarray
+                total_length_times_two += len(subarray)
+        finally:
+            self.h.freelist(array)
+        return total_length_times_two >> 1
+
+    def get_keys_values_w(self, offset):
+        array, count = self.h.list()
+        try:
+            result_list_w = []
+            for i in range(count):
+                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+                assert subarray
+                j = offset
+                limit = len(subarray)
+                while j < limit:
+                    w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                    result_list_w.append(w_item)
+                    j += 2
+        finally:
+            self.h.freelist(array)
+        return result_list_w
+
+    def get_items_w(self, space):
+        array, count = self.h.list()
+        try:
+            result_list_w = []
+            for i in range(count):
+                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+                assert subarray
+                j = 0
+                limit = len(subarray)
+                while j < limit:
+                    w_key = cast_gcref_to_instance(W_Root, subarray[j])
+                    w_value = cast_gcref_to_instance(W_Root, subarray[j + 1])
+                    result_list_w.append(space.newtuple([w_key, w_value]))
+                    j += 2
+        finally:
+            self.h.freelist(array)
+        return result_list_w
+
+    def len_w(self, space):
+        return space.wrap(self.get_length())
+
+    def iter_w(self, space):
+        # not a real lazy iterator!
+        return space.iter(self.keys_w(space))
+
+    def keys_w(self, space):
+        return space.newlist(self.get_keys_values_w(offset=0))
+
+    def values_w(self, space):
+        return space.newlist(self.get_keys_values_w(offset=1))
+
+    def items_w(self, space):
+        return space.newlist(self.get_items_w(space))
+
 
 def W_STMDict___new__(space, w_subtype):
     r = space.allocate_instance(W_STMDict, w_subtype)
@@ -153,4 +216,10 @@ W_STMDict.typedef = TypeDef(
     __contains__ = interp2app(W_STMDict.contains_w),
     get = interp2app(W_STMDict.get_w),
     setdefault = interp2app(W_STMDict.setdefault_w),
+
+    __len__  = interp2app(W_STMDict.len_w),
+    __iter__ = interp2app(W_STMDict.iter_w),
+    keys     = interp2app(W_STMDict.keys_w),
+    values   = interp2app(W_STMDict.values_w),
+    items    = interp2app(W_STMDict.items_w),
     )

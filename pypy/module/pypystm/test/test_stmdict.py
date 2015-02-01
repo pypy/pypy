@@ -70,3 +70,34 @@ class AppTestDict:
         assert d[42] == "hello"
         assert d.get(42L) == "hello"
         assert d.get(42.001) is None
+
+    def test_list_from_dict(self):
+        import pypystm
+        d = pypystm.stmdict()
+        assert len(d) == 0
+        assert tuple(d) == ()
+        d[42.5] = "foo"
+        d[42.0] = ["bar"]
+        assert sorted(d) == [42.0, 42.5]
+        assert len(d) == 2
+        del d[42]
+        assert len(d) == 1
+        assert list(d) == [42.5]
+        #
+        class Key(object):
+            def __hash__(self):
+                return hash(42.5)
+        key3 = Key()
+        d[key3] = "other"
+        assert len(d) == 2
+        items = list(d)
+        assert items == [42.5, key3] or items == [key3, 42.5]
+
+    def test_keys_values_items(self):
+        import pypystm
+        d = pypystm.stmdict()
+        d[42.5] = "bar"
+        d[42.0] = "foo"
+        assert sorted(d.keys()) == [42.0, 42.5]
+        assert sorted(d.values()) == ["bar", "foo"]
+        assert sorted(d.items()) == [(42.0, "foo"), (42.5, "bar")]

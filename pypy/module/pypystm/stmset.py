@@ -94,6 +94,39 @@ class W_STMSet(W_Root):
     def discard_w(self, space, w_key):
         self.try_remove(space, w_key)
 
+    def get_length(self):
+        array, count = self.h.list()
+        try:
+            total_length = 0
+            for i in range(count):
+                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+                assert subarray
+                total_length += len(subarray)
+        finally:
+            self.h.freelist(array)
+        return total_length
+
+    def get_items_w(self):
+        array, count = self.h.list()
+        try:
+            result_list_w = []
+            for i in range(count):
+                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+                assert subarray
+                for j in range(len(subarray)):
+                    w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                    result_list_w.append(w_item)
+        finally:
+            self.h.freelist(array)
+        return result_list_w
+
+    def len_w(self, space):
+        return space.wrap(self.get_length())
+
+    def iter_w(self, space):
+        # not a real lazy iterator!
+        return space.iter(space.newlist(self.get_items_w()))
+
 
 def W_STMSet___new__(space, w_subtype):
     r = space.allocate_instance(W_STMSet, w_subtype)
@@ -107,4 +140,7 @@ W_STMSet.typedef = TypeDef(
     add = interp2app(W_STMSet.add_w),
     remove = interp2app(W_STMSet.remove_w),
     discard = interp2app(W_STMSet.discard_w),
+
+    __len__ = interp2app(W_STMSet.len_w),
+    __iter__ = interp2app(W_STMSet.iter_w),
     )
