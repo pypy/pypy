@@ -115,6 +115,12 @@ class CConfig:
     SSL_MODE_AUTO_RETRY = rffi_platform.ConstantInteger("SSL_MODE_AUTO_RETRY")
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
     SSL_TLSEXT_ERR_OK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_OK")
+    SSL_TLSEXT_ERR_ALERT_FATAL = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_ALERT_FATAL")
+
+    SSL_AD_INTERNAL_ERROR = rffi_platform.ConstantInteger("SSL_AD_INTERNAL_ERROR")
+    SSL_AD_HANDSHAKE_FAILURE = rffi_platform.ConstantInteger("SSL_AD_HANDSHAKE_FAILURE")
+
+    TLSEXT_NAMETYPE_host_name = rffi_platform.ConstantInteger("TLSEXT_NAMETYPE_host_name")
 
     ERR_LIB_X509 = rffi_platform.ConstantInteger("ERR_LIB_X509")
     ERR_LIB_PEM = rffi_platform.ConstantInteger("ERR_LIB_PEM")
@@ -273,6 +279,11 @@ ssl_external('SSL_CTX_set_session_id_context', [SSL_CTX, rffi.CCHARP, rffi.UINT]
 pem_password_cb = lltype.Ptr(lltype.FuncType([rffi.CCHARP, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT))
 ssl_external('SSL_CTX_set_default_passwd_cb', [SSL_CTX, pem_password_cb], lltype.Void)
 ssl_external('SSL_CTX_set_default_passwd_cb_userdata', [SSL_CTX, rffi.VOIDP], lltype.Void)
+servername_cb = lltype.Ptr(lltype.FuncType([SSL, rffi.INTP, rffi.VOIDP], rffi.INT))
+ssl_external('SSL_CTX_set_tlsext_servername_callback', [SSL_CTX, servername_cb],
+             lltype.Void, macro=True)
+ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void)
+
 SSL_CTX_STATS_NAMES = """
     number connect connect_good connect_renegotiate accept accept_good
     accept_renegotiate hits misses timeouts cache_full""".split()
@@ -303,6 +314,8 @@ ssl_external('SSL_get_current_compression', [SSL], COMP_METHOD)
 ssl_external('SSL_get_version', [SSL], rffi.CCHARP)
 
 ssl_external('SSL_get_peer_certificate', [SSL], X509)
+ssl_external('SSL_get_servername', [SSL, rffi.INT], rffi.CCHARP)
+ssl_external('SSL_get_app_data', [SSL], rffi.VOIDP, macro=True)
 ssl_external('X509_get_subject_name', [X509], X509_NAME)
 ssl_external('X509_get_issuer_name', [X509], X509_NAME)
 ssl_external('X509_NAME_oneline', [X509_NAME, rffi.CCHARP, rffi.INT], rffi.CCHARP)
