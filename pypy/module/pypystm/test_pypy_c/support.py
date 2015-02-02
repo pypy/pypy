@@ -8,27 +8,66 @@ class BaseTestSTM(object):
     HEADER = """
 import thread, pypystm
 
-def _run(lock, result, function, args):
+NUM_THREADS = 3
+
+_b_to_go = NUM_THREADS
+_b_done = False
+_b_lock = thread.allocate_lock()
+_b_locks = [thread.allocate_lock() for _i in range(NUM_THREADS)]
+for _bl in _b_locks:
+    _bl.acquire()
+
+class BarrierThreadsDone(Exception):
+    pass
+
+def barrier(tnum, done=False):
+    '''Waits until NUM_THREADS call this function, and then returns
+    in all these threads at once.'''
+    global _b_to_go, _b_done
+    _b_lock.acquire()
+    if done:
+        _b_done = True
+    _b_to_go -= 1
+    if _b_to_go > 0:
+        _b_lock.release()
+        _b_locks[tnum].acquire()
+    else:
+        _b_to_go = NUM_THREADS
+        for i in range(NUM_THREADS):
+            if i != tnum:
+                _b_locks[i].release()
+        _b_lock.release()
+    if _b_done:
+        raise BarrierThreadsDone
+
+def _run(tnum, lock, result, function, args):
     start = pypystm.time()
     try:
-        while True:
-            function(*args)
-            if pypystm.time() - start >= 3.0:
-                break
+        try:
+            while True:
+                function(*args)
+                if pypystm.time() - start >= 3.0:
+                    break
+        except BarrierThreadsDone:
+            pass
         result.append(1)
     finally:
         lock.release()
+    while len(result) != NUM_THREADS:
+        barrier(tnum, done=True)
 
-def run_in_threads(function, arg_thread_num=False):
+def run_in_threads(function, arg_thread_num=False, arg_class=None):
     locks = []
     result = []
-    for i in range(3):
+    for i in range(NUM_THREADS):
         lock = thread.allocate_lock()
         lock.acquire()
         args = ()
         if arg_thread_num:
             args += (i,)
-        thread.start_new_thread(_run, (lock, result, function, args))
+        if arg_class:
+            args += (arg_class(),)
+        thread.start_new_thread(_run, (i, lock, result, function, args))
         locks.append(lock)
     for lock in locks:
         lock._py3k_acquire(timeout=30)
@@ -98,6 +137,10 @@ def run_in_threads(function, arg_thread_num=False):
         count = self._check_count_conflicts(*args)
         assert count < 500
 
-    def check_many_conflicts(self, *args):
+    def check_MANY_conflicts(self, *args):
         count = self._check_count_conflicts(*args)
         assert count > 20000
+
+    def check_SOME_conflicts(self, *args):
+        count = self._check_count_conflicts(*args)
+        assert count > 1000
