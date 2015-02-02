@@ -1630,7 +1630,7 @@ def _asn1obj2py(space, obj):
 
 @unwrap_spec(txt=str, name=bool)
 def txt2obj(space, txt, name=False):
-    obj = libssl_OBJ_txt2obj(txt, name)
+    obj = libssl_OBJ_txt2obj(txt, not name)
     if not obj:
         raise oefmt(space.w_ValueError, "unknown object '%s'", txt)
     result = _asn1obj2py(space, obj)

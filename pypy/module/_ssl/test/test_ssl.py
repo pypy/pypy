@@ -381,6 +381,16 @@ class AppTestContext:
         assert paths[1].endswith('cert.pem')
         assert paths[3].endswith('certs')
 
+    def test_txt2obj(self):
+        import _ssl
+        assert _ssl.txt2obj('serverAuth', name=True) == (
+            129, 'serverAuth', 'TLS Web Server Authentication',
+            '1.3.6.1.5.5.7.3.1')
+        raises(ValueError, _ssl.txt2obj, 'serverAuth', name=False)
+        assert _ssl.txt2obj('1.3.6.1.5.5.7.3.1', name=True) == (
+            129, 'serverAuth', 'TLS Web Server Authentication',
+            '1.3.6.1.5.5.7.3.1')
+
 
 class AppTestSSLError:
     spaceconfig = dict(usemodules=('_ssl', '_socket', 'thread'))
