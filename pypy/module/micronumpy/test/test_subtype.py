@@ -304,10 +304,13 @@ class AppTestSupport(BaseNumpyAppTest):
                         out.shape = (sh, 1)
                     else:
                         out.shape = (1, sh)
-                print 'out, shape was',old_shape,'now',out.shape
+                #print 'out, shape was',old_shape,'now',out.shape,'out',out
                 return out
-        a = matrix([[1., 2.]])
+        a = matrix([[1., 2.], [3., 4.]])
         b = N.array([a])
+        assert (b == a).all()
+        b = N.array(a)
+        assert len(b.shape) == 2
 
     def test_setstate_no_version(self):
         # Some subclasses of ndarray, like MaskedArray, do not use

@@ -112,9 +112,9 @@ class BasePosix(Platform):
             target_name = exe_name.basename
 
         if shared:
-            cflags = self.cflags + self.get_shared_only_compile_flags()
+            cflags = tuple(self.cflags) + self.get_shared_only_compile_flags()
         else:
-            cflags = self.cflags + self.standalone_only
+            cflags = tuple(self.cflags) + tuple(self.standalone_only)
 
         m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)

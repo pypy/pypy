@@ -288,6 +288,9 @@ class StdObjSpace(ObjSpace):
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
 
+    def newlist_int(self, list_i):
+        return W_ListObject.newlist_int(self, list_i)
+
     def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(

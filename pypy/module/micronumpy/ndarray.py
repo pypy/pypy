@@ -430,9 +430,15 @@ class __extend__(W_NDimArray):
             order = 'C'
         else:
             order = space.str_w(w_order)
+        if order == 'K' and is_c_contiguous(self.implementation):
+            for s in  self.implementation.get_strides():
+                if s < 0:
+                    break
+            else:
+                order = 'C'
         if order != 'C':
             raise OperationError(space.w_NotImplementedError, space.wrap(
-                "order not implemented"))
+                "order != 'C' only partially implemented"))
         return self.reshape(space, space.wrap(-1))
 
     @unwrap_spec(w_axis=WrappedDefault(None),

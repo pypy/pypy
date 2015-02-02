@@ -82,9 +82,18 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             return w_object.descr_copy(space, w_order)
         elif not copy and (subok or type(w_object) is W_NDimArray):
             return w_object
-
-    # not an array or incorrect dtype
-    shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
+    if isinstance(w_object, W_NDimArray) and copy and not subok:
+        # TODO do the loop.assign without copying elems_w
+        shape = w_object.get_shape()
+        _elems_w = w_object.reshape(space, space.wrap(-1))
+        elems_w = [None] * w_object.get_size()
+        for i in range(len(elems_w)):
+            elems_w[i] = _elems_w.descr_getitem(space, space.wrap(i))
+        if space.is_none(w_dtype):
+            dtype = w_object.get_dtype()
+    else:
+        # not an array
+        shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
         dtype = strides.find_dtype_for_seq(space, elems_w, dtype)
         if dtype is None:
