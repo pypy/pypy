@@ -395,6 +395,25 @@ class TestFile(BaseRtypingTest):
         os.unlink(fname)
         self.interpret(f, [])
 
+    def test_with_statement(self):
+        fname = str(self.tmpdir.join('file_6'))
+
+        def f():
+            with open(fname, "w") as f:
+                f.write("dupa")
+            try:
+                f.write("dupb")
+            except ValueError:
+                pass
+            else:
+                assert False
+
+        f()
+        assert open(fname, "r").read() == "dupa"
+        os.unlink(fname)
+        self.interpret(f, [])
+        assert open(fname, "r").read() == "dupa"
+
 
 class TestDirect:
     def setup_class(cls):

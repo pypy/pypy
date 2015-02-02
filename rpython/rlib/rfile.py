@@ -535,3 +535,9 @@ class RFile(object):
     def isatty(self):
         self._check_closed()
         return os.isatty(c_fileno(self._ll_file))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
