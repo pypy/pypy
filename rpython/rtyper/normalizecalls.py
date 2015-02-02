@@ -61,7 +61,7 @@ def raise_call_table_too_complex_error(callfamily, annotator):
                 pass # XXX better message in this case
             callers = []
             msg.append("the callers of these functions are:")
-            for tag, (caller, callee) in annotator.translator.callgraph.iteritems():
+            for tag, (caller, callee) in annotator.translator.callgraph.items():
                 if callee not in problematic_function_graphs:
                     continue
                 if str(caller) in callers:
