@@ -1,14 +1,23 @@
 Potential project list
 ======================
 
-===========================
-Simple tasks for newcomers:
-===========================
+==========================
+Simple tasks for newcomers
+==========================
 
-Optimize random
----------------
+* Tkinter module missing support for threads:
+  https://bitbucket.org/pypy/pypy/issue/1929/tkinter-broken-for-threaded-python-on-both
 
-https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+* Optimize random:
+  https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+
+* Implement AF_XXX packet types of sockets:
+  https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets
+
+
+==================
+Mid-to-large tasks
+==================
 
 Below is a list of projects that are interesting for potential contributors
 who are seriously interested in the PyPy project. They mostly share common
@@ -33,15 +42,8 @@ Make bytearray type fast
 ------------------------
 
 PyPy's bytearray type is very inefficient. It would be an interesting
-task to look into possible optimizations on this.
-
-Implement AF_XXX packet types for PyPy
---------------------------------------
-
-PyPy is missing AF_XXX types of sockets. Implementing it is easy-to-medium
-task. `bug report`_
-
-.. _`bug report`: https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets#more
+task to look into possible optimizations on this.  (XXX current status
+unknown; ask on #pypy for updates on this.)
 
 Implement copy-on-write list slicing
 ------------------------------------
@@ -105,6 +107,8 @@ for efficient indexing, like a cache.)
 
 Translation Toolchain
 ---------------------
+
+(XXX this is unlikely to be feasible.)
 
 * Incremental or distributed translation.
 * Allow separate compilation of extension modules.
