@@ -330,7 +330,7 @@ class AppTestContext:
         with open(self.keycert) as f:
             cacert_pem = f.read().decode('ascii')
         ctx.load_verify_locations(cadata=cacert_pem)
-        assert ctx.cert_store_stats()["x509_ca"]
+        assert ctx.cert_store_stats()["x509_ca"] == 0
 
     def test_get_ca_certs(self):
         import _ssl
