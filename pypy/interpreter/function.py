@@ -105,7 +105,7 @@ class Function(W_Root):
                                                    self)
                 for i in funccallunrolling:
                     if i < nargs:
-                        new_frame.locals_stack_w[i] = args_w[i]
+                        new_frame.locals_cells_stack_w[i] = args_w[i]
                 return new_frame.run()
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
@@ -171,7 +171,7 @@ class Function(W_Root):
                                                    self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = w_arg
 
         return new_frame.run()
 
@@ -182,13 +182,13 @@ class Function(W_Root):
                                                    self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = w_arg
 
         ndefs = len(self.defs_w)
         start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.locals_stack_w[i] = self.defs_w[j]
+            new_frame.locals_cells_stack_w[i] = self.defs_w[j]
             i += 1
         return new_frame.run()
 
