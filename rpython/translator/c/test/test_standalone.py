@@ -808,12 +808,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, shared=True)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
-        if os.name == 'posix':
-            library_path = cbuilder.shared_library_name.dirpath()
-            if sys.platform == 'darwin':
-                monkeypatch.setenv('DYLD_LIBRARY_PATH', library_path)
-            else:
-                monkeypatch.setenv('LD_LIBRARY_PATH', library_path)
+        #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
 

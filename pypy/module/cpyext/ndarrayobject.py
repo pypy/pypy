@@ -291,6 +291,6 @@ def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
               Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t], PyObject)
 def PyUFunc_FromFuncAndData(space, funcs, data, types, ntypes,
                     nin, nout, identity, name, doc, check_return):
-    w_signature = ""
+    w_signature =  ','.join(['()'] * nin) + '->' + ','.join(['()'] * nout)
     return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity,
                     name, doc, check_return, w_signature)

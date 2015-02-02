@@ -7,6 +7,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.concrete import VoidBoxStorage
 from pypy.interpreter.gateway import interp2app
 from pypy.conftest import option
+from pypy.interpreter.error import OperationError
 
 
 class TestUfuncCoercion(object):
@@ -129,7 +130,10 @@ class TestGenericUfuncOperation(object):
                                              '', ufunc.dtypes)
         assert index == 0
         assert dtypes == [f32_dtype, c64_dtype]
-
+        raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
+                                'u->u', ufunc.dtypes)
+        exc = raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
+                                'i->i', ufunc.dtypes)
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):
@@ -169,8 +173,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             dtypes=[int, int, int, float, float, float])
             int_func22 = frompyfunc([int, int], 2, 2, signature='(i),(i)->(i),(i)',
                                     dtypes=['match'])
-            int_func12 = frompyfunc([int], 1, 2, signature='(i)->(i),(i)',
-                                    dtypes=['match'])
+            int_func12 = frompyfunc([int], 1, 2, dtypes=['match'])
             retype = dtype(int)
         a = arange(10)
         assert isinstance(adder_ufunc1, ufunc)
@@ -223,6 +226,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert len(in_array.shape) == 2
             assert in_array.shape == out_array.shape
             out_array[:] = in_array * 2
+
         from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,n)->(n,m)',
@@ -233,6 +237,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ai3 = ufunc(ai[0,:,:])
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()
+
         ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,m)->(m,m)',
                             dtypes=[dtype(int), dtype(int)],
@@ -244,6 +249,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ai3 = ufunc(ai[0,:,:])
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()
+
+    def test_frompyfunc_needs_nditer(self):
+        def summer(in0):
+            print 'in summer, in0=',in0,'in0.shape=',in0.shape
+            return in0.sum()
+
+        from numpy import frompyfunc, dtype, arange
+        ufunc = frompyfunc([summer], 1, 1,
+                            signature='(m,m)->()',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=False,
+                          )
+        ai = arange(12, dtype=int).reshape(3, 2, 2)
+        ao = ufunc(ai)
+        assert ao.size == 3
 
     def test_frompyfunc_sig_broadcast(self):
         def sum_along_0(in_array, out_array):

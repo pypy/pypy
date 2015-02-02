@@ -520,7 +520,9 @@ class W_UfuncGeneric(W_Ufunc):
     '''
     _immutable_fields_ = ["funcs", "dtypes", "data", "match_dtypes"]
 
-    def __init__(self, space, funcs, name, identity, nin, nout, dtypes, signature, match_dtypes=False, stack_inputs=False):
+    def __init__(self, space, funcs, name, identity, nin, nout, dtypes,
+                 signature, match_dtypes=False, stack_inputs=False,
+                 external_loop=False):
         # XXX make sure funcs, signature, dtypes, nin, nout are consistent
 
         # These don't matter, we use the signature and dtypes for determining
@@ -549,6 +551,7 @@ class W_UfuncGeneric(W_Ufunc):
         self.core_num_dims = [0] * self.nargs  # number of core dimensions of each nargs
         self.core_offsets = [0] * self.nargs
         self.core_dim_ixs = [] # indices into unique shapes for each arg
+        self.external_loop = external_loop
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
                cumulative=False):
@@ -586,29 +589,21 @@ class W_UfuncGeneric(W_Ufunc):
                     _dtypes.append(_dtypes[0])
         index, dtypes = self.type_resolver(space, inargs, outargs, sig, _dtypes)
         func = self.funcs[index]
-        if not self.core_enabled:
-            # func is going to do all the work, it must accept W_NDimArray args
-            inargs0 = inargs[0]
-            assert isinstance(inargs0, W_NDimArray)
-            arg_shapes = [inargs0.get_shape()] * self.nargs
-            inargs, outargs, need_to_cast = self.alloc_args(space, inargs, outargs,
-                                              dtypes, arg_shapes)
-            for tf in need_to_cast:
-                if tf:
-                    raise oefmt(space.w_NotImplementedError, "casting not supported yet")
-            if self.stack_inputs:
-                arglist = space.newlist(list(inargs + outargs))
-                space.call_args(func, Arguments.frompacked(space, arglist))
-            else:
-                arglist = space.newlist(inargs)
-                outargs = space.call_args(func, Arguments.frompacked(space, arglist))
-                return outargs
-            if len(outargs) < 2:
-                return outargs[0]
-            return space.newtuple(outargs)
         iter_shape, arg_shapes, matched_dims = self.verify_args(space, inargs, outargs)
         inargs, outargs, need_to_cast = self.alloc_args(space, inargs, outargs, dtypes,
                                           arg_shapes)
+        if not self.external_loop:
+            inargs0 = inargs[0]
+            outargs0 = outargs[0]
+            assert isinstance(inargs0, W_NDimArray)
+            assert isinstance(outargs0, W_NDimArray)
+            res_dtype = outargs0.get_dtype()
+            new_shape = inargs0.get_shape()
+            if len(outargs) < 2:
+                return loop.call_many_to_one(space, new_shape, func,
+                                             res_dtype, inargs, outargs[0])
+            return loop.call_many_to_many(space, new_shape, func,
+                                             res_dtype, inargs, outargs)
         for tf in need_to_cast:
             if tf:
                 raise oefmt(space.w_NotImplementedError, "casting not supported yet")
@@ -619,44 +614,44 @@ class W_UfuncGeneric(W_Ufunc):
         w_casting = space.w_None
         w_op_axes = space.w_None
 
-        if self.stack_inputs:
-            #print '\nsignature', sig
-            #print [(d, getattr(self,d)) for d in dir(self) if 'core' in d or 'broad' in d]
-            #print [(d, locals()[d]) for d in locals() if 'core' in d or 'broad' in d]
-            #print 'shapes',[d.get_shape() for d in inargs + outargs]
-            #print 'steps',[d.implementation.strides for d in inargs + outargs]
-            if isinstance(func, W_GenericUFuncCaller):
-                # Use GeneralizeUfunc interface with signature
-                # Unlike numpy, we will not broadcast dims before
-                # the core_ndims rather we use nditer iteration
-                # so dims[0] == 1
-                dims = [1] + matched_dims
-                steps = []
-                allargs = inargs + outargs
-                for i in range(len(allargs)):
-                    steps.append(0)
-                for i in range(len(allargs)):
-                    _arg = allargs[i]
-                    assert isinstance(_arg, W_NDimArray)
-                    start_dim = len(iter_shape)
-                    steps += _arg.implementation.strides[start_dim:]
-                func.set_dims_and_steps(space, dims, steps)
-            else:
-                # it is a function, ready to be called by the iterator,
-                # from frompyfunc
-                pass
-            # mimic NpyIter_AdvancedNew with a nditer
-            w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
-            nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
-                          w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                          w_itershape)
-            # coalesce each iterators, according to inner_dimensions
-            for i in range(len(inargs) + len(outargs)):
-                for j in range(self.core_num_dims[i]):
-                    new_iter = coalesce_iter(nd_it.iters[i][0], nd_it.op_flags[i],
-                                    nd_it, nd_it.order, flat=False)
-                    nd_it.iters[i] = (new_iter, new_iter.reset())
+        #print '\nsignature', sig
+        #print [(d, getattr(self,d)) for d in dir(self) if 'core' in d or 'broad' in d]
+        #print [(d, locals()[d]) for d in locals() if 'core' in d or 'broad' in d]
+        #print 'shapes',[d.get_shape() for d in inargs + outargs]
+        #print 'steps',[d.implementation.strides for d in inargs + outargs]
+        if isinstance(func, W_GenericUFuncCaller):
+            # Use GeneralizeUfunc interface with signature
+            # Unlike numpy, we will not broadcast dims before
+            # the core_ndims rather we use nditer iteration
+            # so dims[0] == 1
+            dims = [1] + matched_dims
+            steps = []
+            allargs = inargs + outargs
+            for i in range(len(allargs)):
+                steps.append(0)
+            for i in range(len(allargs)):
+                _arg = allargs[i]
+                assert isinstance(_arg, W_NDimArray)
+                start_dim = len(iter_shape)
+                steps += _arg.implementation.strides[start_dim:]
+            func.set_dims_and_steps(space, dims, steps)
+        else:
+            # it is a function, ready to be called by the iterator,
+            # from frompyfunc
+            pass
+        # mimic NpyIter_AdvancedNew with a nditer
+        w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
+        nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
+                      w_op_flags, w_op_dtypes, w_casting, w_op_axes,
+                      w_itershape)
+        # coalesce each iterators, according to inner_dimensions
+        for i in range(len(inargs) + len(outargs)):
+            for j in range(self.core_num_dims[i]):
+                new_iter = coalesce_iter(nd_it.iters[i][0], nd_it.op_flags[i],
+                                nd_it, nd_it.order, flat=False)
+                nd_it.iters[i] = (new_iter, new_iter.reset())
             # do the iteration
+        if self.stack_inputs:
             while not nd_it.done:
                 # XXX jit me
                 for it, st in nd_it.iters:
@@ -670,20 +665,35 @@ class W_UfuncGeneric(W_Ufunc):
                     args.append(nd_it.getitem(it, st))
                     nd_it.iters[i] = (it, it.next(st))
                 space.call_args(func, Arguments.frompacked(space, space.newlist(args)))
-            if len(outargs) > 1:
-                return space.newtuple([convert_to_array(space, o) for o in outargs])
-            return outargs[0]
-        inargs0 = inargs[0]
-        outargs0 = outargs[0]
-        assert isinstance(inargs0, W_NDimArray)
-        assert isinstance(outargs0, W_NDimArray)
-        res_dtype = outargs0.get_dtype()
-        new_shape = inargs0.get_shape()
-        if len(outargs) < 2:
-            return loop.call_many_to_one(space, new_shape, func,
-                                         res_dtype, inargs, outargs[0])
-        return loop.call_many_to_many(space, new_shape, func,
-                                         res_dtype, inargs, outargs)
+        else:
+            # do the iteration
+            while not nd_it.done:
+                # XXX jit me
+                for it, st in nd_it.iters:
+                    if not it.done(st):
+                        break
+                else:
+                    nd_it.done = True
+                    break
+                initers = []
+                outiters = []
+                nin = len(inargs)
+                for i, (it, st) in enumerate(nd_it.iters[:nin]):
+                    initers.append(nd_it.getitem(it, st))
+                    nd_it.iters[i] = (it, it.next(st))
+                for i, (it, st) in enumerate(nd_it.iters[nin:]):
+                    outiters.append(nd_it.getitem(it, st))
+                    nd_it.iters[i + nin] = (it, it.next(st))
+                outs = space.call_args(func, Arguments.frompacked(space, space.newlist(initers)))
+                if len(outiters) < 2:
+                    outiters[0].descr_setitem(space, space.w_Ellipsis, outs)
+                else:
+                    for i in range(self.nout):
+                        w_val = space.getitem(outs, space.wrap(i))
+                        outiters[i].descr_setitem(space, space.w_Ellipsis, w_val)
+        if len(outargs) > 1:
+            return space.newtuple([convert_to_array(space, o) for o in outargs])
+        return outargs[0]
 
     def parse_kwargs(self, space, kwargs_w):
         w_subok, w_out, casting, sig, extobj = \
@@ -723,20 +733,24 @@ class W_UfuncGeneric(W_Ufunc):
         nop = len(inargs) + len(outargs)
         dtypes = []
         if isinstance(type_tup, str) and len(type_tup) > 0:
-            if len(type_tup) == 1:
-                dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
-            elif len(type_tup) == self.nargs + 2:
-                for i in range(self.nin):
-                    dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
-                #skip the '->' in the signature
-                for i in range(self.nout):
-                    j = i + self.nin + 2
-                    dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
-            else:
-                raise oefmt(space.w_TypeError, "a type-string for %s " \
-                    "requires 1 typecode or %d typecode(s) before and %d" \
-                    " after the -> sign, not '%s'", self.name, self.nin, 
-                    self.nout, type_tup)
+            try:
+                if len(type_tup) == 1:
+                    dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
+                elif len(type_tup) == self.nargs + 2:
+                    for i in range(self.nin):
+                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
+                    #skip the '->' in the signature
+                    for i in range(self.nout):
+                        j = i + self.nin + 2
+                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
+                else:
+                    raise oefmt(space.w_TypeError, "a type-string for %s " \
+                        "requires 1 typecode or %d typecode(s) before and %d" \
+                        " after the -> sign, not '%s'", self.name, self.nin, 
+                        self.nout, type_tup)
+            except KeyError:
+                raise oefmt(space.w_ValueError, "unknown typecode in" \
+                        " call to %s with type-string '%s'", self.name, type_tup)
         else:
             # XXX why does the next line not pass translation?
             # dtypes = [i.get_dtype() for i in inargs]
@@ -760,9 +774,13 @@ class W_UfuncGeneric(W_Ufunc):
                 break
         else:
             if len(self.funcs) > 1:
+                dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
+                                 for d in dtypes])
+                _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
+                                for d in _dtypes])
                 raise oefmt(space.w_TypeError,
-                            'input dtype did not match any known dtypes',
-                           )
+                     "input dtype [%s] did not match any known dtypes [%s] ", 
+                     dtypesstr,_dtypesstr)
             i = 0
         # Fill in empty dtypes
         for j in range(self.nargs):
@@ -1235,7 +1253,8 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
      w_identity=None, name='', doc='', stack_inputs=False):
     ''' frompyfunc(func, nin, nout) #cpython numpy compatible
         frompyfunc(func, nin, nout, dtypes=None, signature='',
-                   identity=None, name='', doc='', stack_inputs=False)
+                   identity=None, name='', doc='', 
+                   stack_inputs=False)
 
     Takes an arbitrary Python function and returns a ufunc.
 
@@ -1251,10 +1270,12 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     nout : int
         The number of arrays returned by `func`.
     dtypes: None or [dtype, ...] of the input, output args for each function,
-               or 'match' to force output to exactly match input dtype
+         or 'match' to force output to exactly match input dtype
+         Note that 'match' is a pypy-only extension to allow non-object
+         return dtypes      
     signature*: str, default=''
          The mapping of input args to output args, defining the
-         inner-loop indexing
+         inner-loop indexing. If it is empty, the func operates on scalars
     identity*: None (default) or int
          For reduce-type ufuncs, the default value
     name: str, default=''
@@ -1273,7 +1294,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
 
     Notes
     -----
-    If the signature and out_dtype are both missing, the returned ufunc
+    If the signature and dtype are both missing, the returned ufunc
         always returns PyObject arrays (cpython numpy compatability).
     Input arguments marked with a * are pypy-only extensions
 
@@ -1329,16 +1350,15 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
             'identity must be None or an int')
 
     if len(signature) == 0:
-        # cpython compatability, func is of the form (),()->()
-        signature = ','.join(['()'] * nin) + '->' + ','.join(['()'] * nout)
+        external_loop=False
     else:
-        #stack_inputs = True
-        pass
+        external_loop=True
 
     w_ret = W_UfuncGeneric(space, func, name, identity, nin, nout, dtypes,
                            signature, match_dtypes=match_dtypes,
-                           stack_inputs=stack_inputs)
-    _parse_signature(space, w_ret, w_ret.signature)
+                           stack_inputs=stack_inputs, external_loop=external_loop)
+    if w_ret.external_loop:
+        _parse_signature(space, w_ret, w_ret.signature)
     if doc:
         w_ret.w_doc = space.wrap(doc)
     return w_ret
