@@ -1236,6 +1236,19 @@ class _SSLContext(W_Root):
         flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
         return space.wrap(flags)
 
+    def descr_set_verify_flags(self, space, w_obj):
+        new_flags = space.int_w(w_obj)
+        store = libssl_SSL_CTX_get_cert_store(self.ctx)
+        flags = libssl_X509_VERIFY_PARAM_get_flags(store[0].c_param)
+        flags_clear = flags & ~new_flags
+        flags_set = ~flags & new_flags
+        if flags_clear and not libssl_X509_VERIFY_PARAM_clear_flags(
+                store[0].c_param, flags_clear):
+            raise _ssl_seterror(space, None, 0)
+        if flags_set and not libssl_X509_VERIFY_PARAM_set_flags(
+                store[0].c_param, flags_set):
+            raise _ssl_seterror(space, None, 0)
+
     def descr_get_check_hostname(self, space):
         return space.newbool(self.check_hostname)
 
@@ -1543,7 +1556,8 @@ _SSLContext.typedef = TypeDef(
                            _SSLContext.descr_set_options),
     verify_mode=GetSetProperty(_SSLContext.descr_get_verify_mode,
                                _SSLContext.descr_set_verify_mode),
-    verify_flags=GetSetProperty(_SSLContext.descr_get_verify_flags),
+    verify_flags=GetSetProperty(_SSLContext.descr_get_verify_flags,
+                                _SSLContext.descr_set_verify_flags),
     check_hostname=GetSetProperty(_SSLContext.descr_get_check_hostname,
                                   _SSLContext.descr_set_check_hostname),
 )

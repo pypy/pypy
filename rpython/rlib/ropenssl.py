@@ -339,6 +339,8 @@ ssl_external('X509_get_ext', [X509, rffi.INT], X509_EXTENSION)
 ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
 ssl_external('X509_VERIFY_PARAM_get_flags', [X509_VERIFY_PARAM], rffi.ULONG)
+ssl_external('X509_VERIFY_PARAM_set_flags', [X509_VERIFY_PARAM, rffi.ULONG], rffi.INT)
+ssl_external('X509_VERIFY_PARAM_clear_flags', [X509_VERIFY_PARAM, rffi.ULONG], rffi.INT)
 ssl_external('X509_STORE_add_cert', [X509_STORE, X509], rffi.INT)
 
 ssl_external('X509_get_default_cert_file_env', [], rffi.CCHARP)

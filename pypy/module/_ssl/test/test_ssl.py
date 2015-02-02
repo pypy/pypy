@@ -143,6 +143,10 @@ class AppTestSSL:
 
         assert type(s.verify_flags) is long
         assert s.verify_flags == _ssl.VERIFY_DEFAULT
+        s.verify_flags = _ssl.VERIFY_CRL_CHECK_LEAF
+        assert s.verify_flags == _ssl.VERIFY_CRL_CHECK_LEAF
+        s.verify_flags = _ssl.VERIFY_DEFAULT
+        assert s.verify_flags == _ssl.VERIFY_DEFAULT
 
         s.check_hostname = True
         assert s.check_hostname
