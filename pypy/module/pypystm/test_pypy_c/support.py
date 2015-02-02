@@ -72,7 +72,10 @@ def run_in_threads(function):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
-        if getattr(pipe, 'returncode', 0) < 0:
+        if pipe.returncode > 0:
+            raise IOError("subprocess error %d:\n%s" % (pipe.returncode,
+                                                        stderr))
+        if pipe.returncode < 0:
             raise IOError("subprocess was killed by signal %d" % (
                 pipe.returncode,))
 
@@ -80,8 +83,18 @@ def run_in_threads(function):
         from pypy.stm.print_stm_log import StmLog
         return StmLog(str(self.logfile))
 
-    def check_almost_no_conflict(self, func_or_src, args=[]):
+    def _check_count_conflicts(self, func_or_src, args=[]):
         self._write_source(func_or_src, args)
         self._execute()
         stmlog = self._parse_log()
-        assert stmlog.get_total_aborts_and_pauses() < 1000
+        count = stmlog.get_total_aborts_and_pauses()
+        print 'stmlog.get_total_aborts_and_pauses():', count
+        return count
+
+    def check_almost_no_conflict(self, *args):
+        count = self._check_count_conflicts(*args)
+        assert count < 500
+
+    def check_many_conflicts(self, *args):
+        count = self._check_count_conflicts(*args)
+        assert count > 20000
