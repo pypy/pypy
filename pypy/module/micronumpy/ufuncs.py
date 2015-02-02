@@ -774,8 +774,13 @@ class W_UfuncGeneric(W_Ufunc):
                 break
         else:
             if len(self.funcs) > 1:
-                dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
-                                 for d in dtypes])
+                
+                dtypesstr = ''
+                for d in dtypes:
+                    if d is None:
+                        dtypesstr += 'None,'
+                    else:
+                        dtypesstr += '%s%s%s,' % (d.byteorder, d.kind, d.elsize)
                 _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
                                 for d in _dtypes])
                 raise oefmt(space.w_TypeError,

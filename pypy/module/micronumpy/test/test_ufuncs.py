@@ -220,6 +220,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         af = arange(10, dtype=float)
         af2 = ufunc(af)
         assert all(af2 == af * 2)
+        ac = arange(10, dtype=complex)
+        skip('casting not implemented yet')
+        ac1 = ufunc(ac)
 
     def test_frompyfunc_2d_sig(self):
         def times_2(in_array, out_array):

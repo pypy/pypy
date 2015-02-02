@@ -75,22 +75,32 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
         if order != 'C':  # or order != 'F':
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
-    # arrays with correct dtype
-    if isinstance(w_object, W_NDimArray) and \
-            (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
-        if copy and (subok or type(w_object) is W_NDimArray):
-            return w_object.descr_copy(space, w_order)
-        elif not copy and (subok or type(w_object) is W_NDimArray):
-            return w_object
-    if isinstance(w_object, W_NDimArray) and copy and not subok:
-        # TODO do the loop.assign without copying elems_w
-        shape = w_object.get_shape()
-        _elems_w = w_object.reshape(space, space.wrap(-1))
-        elems_w = [None] * w_object.get_size()
-        for i in range(len(elems_w)):
-            elems_w[i] = _elems_w.descr_getitem(space, space.wrap(i))
-        if space.is_none(w_dtype):
+    if isinstance(w_object, W_NDimArray):
+        if (dtype is None or w_object.get_dtype() is dtype):
+            if copy and (subok or type(w_object) is W_NDimArray):
+                return w_object.descr_copy(space, w_order)
+            elif not copy and (subok or type(w_object) is W_NDimArray):
+                return w_object
+        # we have a ndarray, but need to copy or change dtype or create W_NDimArray
+        if dtype is None:
             dtype = w_object.get_dtype()
+        if dtype != w_object.get_dtype():
+            # silently reject the copy value
+            copy = True
+        if copy:
+            shape = w_object.get_shape()
+            _elems_w = w_object.reshape(space, space.wrap(-1))
+            elems_w = [None] * w_object.get_size()
+            for i in range(len(elems_w)):
+                elems_w[i] = _elems_w.descr_getitem(space, space.wrap(i))
+        elif subok:
+            raise oefmt(space.w_NotImplementedError, 
+                "array(...copy=False, subok=True) not implemented yet")
+        else:
+            sz = support.product(w_object.get_shape()) * dtype.elsize
+            return W_NDimArray.from_shape_and_storage(space,
+                w_object.get_shape(),w_object.implementation.storage,
+                dtype, storage_bytes=sz, w_base=w_object)
     else:
         # not an array
         shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
