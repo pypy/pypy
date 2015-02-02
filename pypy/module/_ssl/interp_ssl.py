@@ -1321,7 +1321,8 @@ class _SSLContext(W_Root):
         if not bio:
             libssl_ERR_clear_error()
             errno = get_errno()
-            raise wrap_oserror(space, OSError(errno, ''))
+            raise wrap_oserror(space, OSError(errno, ''),
+                               exception_name = 'w_IOError')
         try:
             set_errno(0)
             dh = libssl_PEM_read_bio_DHparams(bio, None, None, None)
