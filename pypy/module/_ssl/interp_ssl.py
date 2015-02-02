@@ -932,9 +932,10 @@ def checkwait(space, w_sock, writing):
 def _ssl_seterror(space, ss, ret):
     assert ret <= 0
 
+    errcode = libssl_ERR_peek_last_error()
+
     if ss is None:
-        errval = libssl_ERR_peek_last_error()
-        return ssl_error(space, None, errcode=errval)
+        return ssl_error(space, None, errcode=errcode)
     elif ss.ssl:
         err = libssl_SSL_get_error(ss.ssl, ret)
     else:
@@ -979,17 +980,17 @@ def _ssl_seterror(space, ss, ret):
             errstr = rffi.charp2str(libssl_ERR_error_string(e, None))
             errval = PY_SSL_ERROR_SYSCALL
     elif err == SSL_ERROR_SSL:
-        e = libssl_ERR_get_error()
         errval = PY_SSL_ERROR_SSL
-        if e != 0:
-            errstr = rffi.charp2str(libssl_ERR_error_string(e, None))
+        if errcode != 0:
+            errstr = rffi.charp2str(libssl_ERR_error_string(errcode, None))
         else:
             errstr = "A failure in the SSL library occurred"
     else:
         errstr = "Invalid error code"
         errval = PY_SSL_ERROR_INVALID_ERROR_CODE
 
-    return ssl_error(space, errstr, errval, w_errtype=w_errtype)
+    return ssl_error(space, errstr, errval, w_errtype=w_errtype,
+                     errcode=errcode)
 
 def SSLError_descr_str(space, w_exc):
     w_strerror = space.getattr(w_exc, space.wrap("strerror"))
