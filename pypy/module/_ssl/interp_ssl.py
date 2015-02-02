@@ -703,7 +703,7 @@ def _decode_certificate(space, certificate):
         space.setitem(w_retval, space.wrap("OCSP"), w_ocsp)
     w_issuers = _get_aia_uri(space, certificate, NID_ad_ca_issuers)
     if not space.is_none(w_issuers):
-        space.setitem(w_retval, space.wrap("OCSP"), w_issuers)
+        space.setitem(w_retval, space.wrap("caIssuers"), w_issuers)
 
     # CDP (CRL distribution points)
     w_cdp = _get_crl_dp(space, certificate)
@@ -1633,14 +1633,25 @@ def txt2obj(space, txt, name=False):
     obj = libssl_OBJ_txt2obj(txt, not name)
     if not obj:
         raise oefmt(space.w_ValueError, "unknown object '%s'", txt)
-    result = _asn1obj2py(space, obj)
-    libssl_ASN1_OBJECT_free(obj)
-    return result
+    try:
+        w_result = _asn1obj2py(space, obj)
+    finally:
+        libssl_ASN1_OBJECT_free(obj)
+    return w_result
 
 
 @unwrap_spec(nid=int)
 def nid2obj(space, nid):
-    return space.newtuple([])
+    if nid < NID_undef:
+        raise oefmt(space.w_ValueError, "NID must be positive")
+    obj = libssl_OBJ_nid2obj(nid)
+    if not obj:
+        raise oefmt(space.w_ValueError, "unknown NID %d", nid)
+    try:
+        w_result = _asn1obj2py(space, obj)
+    finally:
+        libssl_ASN1_OBJECT_free(obj)
+    return w_result
 
 
 def w_convert_path(space, path):
