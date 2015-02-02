@@ -1112,6 +1112,8 @@ void _stm_become_inevitable(const char *msg)
         dprintf(("become_inevitable: %s\n", msg));
 
         timing_fetch_inev();
+        write_fence();    /* make sure others see a correct 'marker_inev'
+                             if they see TS_INEVITABLE */
         wait_for_end_of_inevitable_transaction();
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
         stm_rewind_jmp_forget(STM_SEGMENT->running_thread);

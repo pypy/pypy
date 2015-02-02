@@ -33,12 +33,27 @@ static void _stm_profiling_event(stm_thread_local_t *tl,
     int len0 = 0;
     int len1 = 0;
     if (markers != NULL) {
+        /* Obscure.  In rare cases we see an uninitialized object
+           at 'markers[1]->segment_base + object'.  I *think* it
+           is related to the other thread busy privatizing the
+           page.  We thus need to acquire the privatization_lock
+           here (any will do).
+
+           Note that we have to read the object from the foreign
+           segment.  We can't assume the code object to be already
+           committed at all; maybe it was created during the remote
+           transaction.
+        */
+        acquire_privatization_lock();
+
         if (markers[1].tl != NULL)
             buf.other_thread_num = markers[1].tl->thread_local_counter;
         if (markers[0].odd_number != 0)
             len0 = profiling_expand_marker(&markers[0], buf.extra, 128);
         if (markers[1].odd_number != 0)
             len1 = profiling_expand_marker(&markers[1], buf.extra + len0, 128);
+
+        release_privatization_lock();
     }
     buf.marker_length[0] = len0;
     buf.marker_length[1] = len1;
