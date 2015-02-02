@@ -38,6 +38,8 @@ class AppTestSSL:
         assert isinstance(_ssl.OPENSSL_VERSION, str)
         assert 'openssl' in _ssl.OPENSSL_VERSION.lower()
 
+        assert isinstance(_ssl.ALERT_DESCRIPTION_ACCESS_DENIED, int)
+
     def test_RAND_add(self):
         import _ssl
         if not hasattr(_ssl, "RAND_add"):

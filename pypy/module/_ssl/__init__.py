@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.module._ssl import ssl_data
 
 class Module(MixedModule):
     """Implementation module for SSL socket operations.
@@ -35,6 +36,9 @@ class Module(MixedModule):
             Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"
             Module.interpleveldefs['RAND_status'] = "interp_ssl.RAND_status"
             Module.interpleveldefs['RAND_egd'] = "interp_ssl.RAND_egd"
+
+        for name, value in ssl_data.ALERT_DESCRIPTION_CODES.items():
+            Module.interpleveldefs[name] = "space.wrap(%r)" % value
 
         super(Module, cls).buildloaders()
 

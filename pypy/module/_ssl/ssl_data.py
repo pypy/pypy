@@ -347,6 +347,21 @@ for lib, code in error_codes:
     setattr(CConfig, code, rffi_platform.DefinedConstantInteger(
         '%s_R_%s' % (lib, code)))
 
+# Constants for ALERT_DESCRIPTION_ error codes
+AD_NAMES = """
+    CLOSE_NOTIFY UNEXPECTED_MESSAGE BAD_RECORD_MAC RECORD_OVERFLOW
+    DECOMPRESSION_FAILURE HANDSHAKE_FAILURE BAD_CERTIFICATE
+    UNSUPPORTED_CERTIFICATE CERTIFICATE_REVOKED CERTIFICATE_EXPIRED
+    CERTIFICATE_UNKNOWN ILLEGAL_PARAMETER UNKNOWN_CA ACCESS_DENIED
+    DECODE_ERROR DECRYPT_ERROR PROTOCOL_VERSION INSUFFICIENT_SECURITY
+    INTERNAL_ERROR USER_CANCELLED NO_RENEGOTIATION UNSUPPORTED_EXTENSION
+    CERTIFICATE_UNOBTAINABLE UNRECOGNIZED_NAME BAD_CERTIFICATE_STATUS_RESPONSE
+    BAD_CERTIFICATE_HASH_VALUE UNKNOWN_PSK_IDENTITY
+    """.split()
+for name in AD_NAMES:
+    setattr(CConfig, name, rffi_platform.DefinedConstantInteger(
+        'SSL_AD_%s' % name))
+
 cconfig = rffi_platform.configure(CConfig)
 
 LIBRARY_CODES_TO_NAMES = {}
@@ -356,3 +371,8 @@ ERROR_CODES_TO_NAMES = {}
 for lib, code in error_codes:
     ERROR_CODES_TO_NAMES[cconfig[lib], cconfig[code]] = code
 
+ALERT_DESCRIPTION_CODES = {}
+for name in AD_NAMES:
+    value = cconfig[name]
+    if value is not None:
+        ALERT_DESCRIPTION_CODES['ALERT_DESCRIPTION_%s' % name] = value
