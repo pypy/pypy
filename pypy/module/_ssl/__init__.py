@@ -9,6 +9,7 @@ class Module(MixedModule):
         '_test_decode_cert': 'interp_ssl._test_decode_cert',
         'txt2obj': 'interp_ssl.txt2obj',
         'nid2obj': 'interp_ssl.nid2obj',
+        'get_default_verify_paths': 'interp_ssl.get_default_verify_paths',
 
         'SSLError': "interp_ssl.get_exception_class(space, 'w_sslerror')",
         'SSLZeroReturnError': "interp_ssl.get_exception_class(space, 'w_sslzeroreturnerror')",

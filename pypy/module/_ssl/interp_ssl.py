@@ -1563,3 +1563,18 @@ def txt2obj(space, txt, name=False):
 @unwrap_spec(nid=int)
 def nid2obj(space, nid):
     return space.newtuple([])
+
+
+def w_convert_path(space, path):
+    if not path:
+        return space.w_None
+    else:
+        return space.wrapbytes(rffi.charp2str(path))
+
+def get_default_verify_paths(space):
+    return space.newtuple([
+        w_convert_path(space, libssl_X509_get_default_cert_file_env()),
+        w_convert_path(space, libssl_X509_get_default_cert_file()),
+        w_convert_path(space, libssl_X509_get_default_cert_dir_env()),
+        w_convert_path(space, libssl_X509_get_default_cert_dir()),
+        ])

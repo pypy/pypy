@@ -363,6 +363,14 @@ class AppTestContext:
         raises(TypeError, ctx.load_dh_params, None)
         raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
 
+    def test_get_default_verify_paths(self):
+        import _ssl
+        paths = _ssl.get_default_verify_paths()
+        assert paths[0] == 'SSL_CERT_FILE'
+        assert paths[2] == 'SSL_CERT_DIR'
+        assert paths[1].endswith('cert.pem')
+        assert paths[3].endswith('certs')
+
 
 class AppTestSSLError:
     spaceconfig = dict(usemodules=('_ssl', '_socket', 'thread'))
