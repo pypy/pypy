@@ -701,6 +701,14 @@ def _decode_certificate(space, certificate):
     if w_alt_names is not space.w_None:
         space.setitem(w_retval, space.wrap("subjectAltName"), w_alt_names)
 
+    # Authority Information Access: OCSP URIs
+    w_ocsp = _get_aia_uri(space, certificate, NID_ad_OCSP)
+    if not space.is_none(w_ocsp):
+        space.setitem(w_retval, space.wrap("OCSP"), w_ocsp)
+    w_issuers = _get_aia_uri(space, certificate, NID_ad_ca_issuers)
+    if not space.is_none(w_issuers):
+        space.setitem(w_retval, space.wrap("OCSP"), w_issuers)
+
     # CDP (CRL distribution points)
     w_cdp = _get_crl_dp(space, certificate)
     if not space.is_none(w_cdp):
@@ -783,7 +791,7 @@ def _get_peer_alt_names(space, certificate):
                 # Get a rendering of each name in the set of names
 
                 name = libssl_sk_GENERAL_NAME_value(names, j)
-                gntype = intmask(name[0].c_type)
+                gntype = intmask(name.c_type)
                 if gntype == GEN_DIRNAME:
                     # we special-case DirName as a tuple of tuples of
                     # attributes
@@ -854,6 +862,30 @@ def _create_tuple_for_attribute(space, name, value):
     return space.newtuple([w_name, w_value])
 
 
+def _get_aia_uri(space, certificate, nid):
+    info = rffi.cast(AUTHORITY_INFO_ACCESS, libssl_X509_get_ext_d2i(
+        certificate, NID_info_access, None, None))
+    if not info or libssl_sk_ACCESS_DESCRIPTION_num(info) == 0:
+        return
+    try:
+        result_w = []
+        for i in range(libssl_sk_ACCESS_DESCRIPTION_num(info)):
+            ad = libssl_sk_ACCESS_DESCRIPTION_value(info, i)
+            if libssl_OBJ_obj2nid(ad[0].c_method) != nid:
+                continue
+
+            name = ad[0].c_location
+            gntype = intmask(name.c_type)
+            if gntype != GEN_URI:
+                continue
+            uri = libssl_pypy_GENERAL_NAME_uri(name)
+            length = intmask(uri.c_length)
+            s_uri = rffi.charpsize2str(uri.c_data, length)
+            result_w.append(space.wrap(s_uri))
+        return space.newtuple(result_w[:])
+    finally:
+        libssl_AUTHORITY_INFO_ACCESS_free(info)
+
 def _get_crl_dp(space, certificate):
     # Calls x509v3_cache_extensions and sets up crldp
     libssl_X509_check_ca(certificate)
@@ -868,7 +900,7 @@ def _get_crl_dp(space, certificate):
 
         for j in range(libssl_sk_GENERAL_NAME_num(gns)):
             name = libssl_sk_GENERAL_NAME_value(gns, j)
-            gntype = intmask(name[0].c_type)
+            gntype = intmask(name.c_type)
             if gntype != GEN_URI:
                 continue
             uri = libssl_pypy_GENERAL_NAME_uri(name)

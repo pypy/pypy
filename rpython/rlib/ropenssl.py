@@ -53,6 +53,7 @@ eci = rffi_platform.configure_external_library(
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_IA5STRING = ASN1_STRING
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
+ASN1_OBJECT = rffi.COpaquePtr('ASN1_OBJECT')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
 stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
@@ -60,6 +61,8 @@ DIST_POINT = rffi.COpaquePtr('DIST_POINT')
 stack_st_DIST_POINT = rffi.COpaquePtr('struct stack_st_DIST_POINT')
 DH = rffi.COpaquePtr('DH')
 EC_KEY = rffi.COpaquePtr('EC_KEY')
+AUTHORITY_INFO_ACCESS = rffi.COpaquePtr('AUTHORITY_INFO_ACCESS')
+GENERAL_NAME = lltype.Ptr(lltype.ForwardReference())
 
 class CConfigBootstrap:
     _compilation_info_ = eci
@@ -140,6 +143,9 @@ class CConfig:
 
     NID_undef = rffi_platform.ConstantInteger("NID_undef")
     NID_subject_alt_name = rffi_platform.ConstantInteger("NID_subject_alt_name")
+    NID_ad_OCSP = rffi_platform.ConstantInteger("NID_ad_OCSP")
+    NID_ad_ca_issuers = rffi_platform.ConstantInteger("NID_ad_ca_issuers")
+    NID_info_access = rffi_platform.ConstantInteger("NID_info_access")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
     GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
     GEN_DNS = rffi_platform.ConstantInteger("GEN_DNS")
@@ -205,6 +211,11 @@ class CConfig:
         'struct comp_method_st',
         [('type', rffi.INT),])
 
+    ACCESS_DESCRIPTION_st = rffi_platform.Struct(
+        'struct ACCESS_DESCRIPTION_st',
+        [('method', ASN1_OBJECT),
+         ('location', GENERAL_NAME),])
+
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
@@ -220,14 +231,14 @@ X509_EXTENSION = rffi.CArrayPtr(X509_extension_st)
 X509_STORE = rffi.CArrayPtr(x509_store_st)
 X509_OBJECT = lltype.Ptr(x509_object_st)
 X509V3_EXT_METHOD = rffi.CArrayPtr(v3_ext_method)
-ASN1_OBJECT = rffi.COpaquePtr('ASN1_OBJECT')
 ASN1_STRING.TO.become(asn1_string_st)
 ASN1_TIME = rffi.COpaquePtr('ASN1_TIME')
 ASN1_INTEGER = rffi.COpaquePtr('ASN1_INTEGER')
 GENERAL_NAMES = rffi.COpaquePtr('GENERAL_NAMES')
-GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
+GENERAL_NAME.TO.become(GENERAL_NAME_st)
 OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
 COMP_METHOD = rffi.CArrayPtr(COMP_METHOD_st)
+ACCESS_DESCRIPTION = rffi.CArrayPtr(ACCESS_DESCRIPTION_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 HAVE_OPENSSL_FINISHED = OPENSSL_VERSION_NUMBER >= 0x0090500f
@@ -342,6 +353,7 @@ ssl_external('X509_get_serialNumber', [X509], ASN1_INTEGER)
 ssl_external('X509_get_version', [X509], rffi.INT, macro=True)
 ssl_external('X509_get_ext_by_NID', [X509, rffi.INT, rffi.INT], rffi.INT)
 ssl_external('X509_get_ext', [X509, rffi.INT], X509_EXTENSION)
+ssl_external('X509_get_ext_d2i', [X509, rffi.INT, rffi.VOIDP, rffi.VOIDP], rffi.VOIDP)
 ssl_external('X509V3_EXT_get', [X509_EXTENSION], X509V3_EXT_METHOD)
 
 ssl_external('X509_VERIFY_PARAM_get_flags', [X509_VERIFY_PARAM], rffi.ULONG)
@@ -387,6 +399,11 @@ ssl_external('sk_DIST_POINT_value', [stack_st_DIST_POINT, rffi.INT], DIST_POINT,
              macro=True)
 ssl_external('pypy_DIST_POINT_fullname', [DIST_POINT], GENERAL_NAMES,
              macro=True)
+ssl_external('sk_ACCESS_DESCRIPTION_num', [AUTHORITY_INFO_ACCESS], rffi.INT,
+             macro=True)
+ssl_external('sk_ACCESS_DESCRIPTION_value', [AUTHORITY_INFO_ACCESS, rffi.INT], ACCESS_DESCRIPTION,
+             macro=True)
+ssl_external('AUTHORITY_INFO_ACCESS_free', [AUTHORITY_INFO_ACCESS], lltype.Void)
 
 ssl_external('GENERAL_NAME_print', [BIO, GENERAL_NAME], rffi.INT)
 ssl_external('pypy_GENERAL_NAME_dirn', [GENERAL_NAME], X509_NAME,
