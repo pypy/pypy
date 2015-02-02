@@ -139,6 +139,8 @@ object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up)
         init_finalizers(f);
         STM_PSEGMENT->finalizers = f;
     }
+    assert(STM_PSEGMENT->finalizers->count_non_young
+           <= list_count(STM_PSEGMENT->finalizers->objects_with_finalizers));
     LIST_APPEND(STM_PSEGMENT->finalizers->objects_with_finalizers, obj);
     return obj;
 }
@@ -290,6 +292,8 @@ static struct list_s *mark_finalize_step1(char *base, struct finalizers_s *f)
     struct list_s *lst = f->objects_with_finalizers;
     long i, count = list_count(lst);
     lst->count = 0;
+    f->count_non_young = 0;
+
     for (i = 0; i < count; i++) {
         object_t *x = (object_t *)list_item(lst, i);
 
