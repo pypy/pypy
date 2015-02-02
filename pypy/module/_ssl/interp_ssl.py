@@ -1175,6 +1175,13 @@ class _SSLContext(W_Root):
             libssl_ERR_clear_error()
             raise ssl_error(space, "No cipher can be selected.")
 
+    def session_stats_w(self, space):
+        w_stats = space.newdict()
+        for name, ssl_func in SSL_CTX_STATS:
+            w_value = space.wrap(ssl_func(self.ctx))
+            space.setitem_str(w_stats, name, w_value)
+        return w_stats
+
     def descr_set_default_verify_paths(self, space):
         if not libssl_SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error(space, "")
@@ -1509,6 +1516,7 @@ _SSLContext.typedef = TypeDef(
     load_cert_chain=interp2app(_SSLContext.load_cert_chain_w),
     load_dh_params=interp2app(_SSLContext.load_dh_params_w),
     load_verify_locations=interp2app(_SSLContext.load_verify_locations_w),
+    session_stats = interp2app(_SSLContext.session_stats_w),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
     _set_npn_protocols=interp2app(_SSLContext.set_npn_protocols_w),
     get_ca_certs=interp2app(_SSLContext.get_ca_certs_w),
