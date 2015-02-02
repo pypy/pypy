@@ -54,26 +54,29 @@ void pypy_stm_unregister_thread_local(void)
 
 #include <stdlib.h>    /* for getenv() */
 
-typedef struct pypy_rpy_string0 RPyStringSpace0;
-
 static long g_co_filename_ofs;
 static long g_co_name_ofs;
 static long g_co_firstlineno_ofs;
 static long g_co_lnotab_ofs;
 
-static long _fetch_lngspace0(char *seg_base, object_t *base, long ofs)
+static long _fetch_long(char *seg_base, long addr)
 {
-    char *src = seg_base + (uintptr_t)base;
-    return *(long *)(src + ofs);
+    return *(long *)(seg_base + addr);
 }
 
-static RPyStringSpace0 *_fetch_rpsspace0(char *seg_base, object_t *base,
-                                         long ofs)
+static long _fetch_strlen(char *seg_base, long addr)
 {
-    char *src = seg_base + (uintptr_t)base;
-    char *str = *(char **)(src + ofs);
-    char *str0 = seg_base + (uintptr_t)str;
-    return (RPyStringSpace0 *)str0;
+    long rpy_length_ofs = (long)&RPyString_Size((RPyString *)0);
+    if (addr == 0)        /* xxx sanity-check */
+        return 0;
+    return _fetch_long(seg_base, addr + rpy_length_ofs);
+}
+
+static char *_fetch_stritems(char *seg_base, long addr)
+{
+    long rpy_items_ofs = (long)_RPyString_AsString((RPyString *)0);
+    assert(addr != 0);
+    return seg_base + addr + rpy_items_ofs;
 }
 
 static int _stm_expand_marker_for_pypy(stm_loc_marker_t *marker,
@@ -83,48 +86,58 @@ static int _stm_expand_marker_for_pypy(stm_loc_marker_t *marker,
         return 0;
 
     long co_firstlineno;
-    RPyStringSpace0 *co_filename;
-    RPyStringSpace0 *co_name;
-    RPyStringSpace0 *co_lnotab;
+    long co_filename;
+    long co_name;
+    long co_lnotab;
     char *ntrunc = "", *fntrunc = "";
     long fnlen = 1, nlen = 1, line = 0;
     char *fn = "?", *name = "?";
 
     char *segment_base = marker->segment_base;
-    object_t * o = marker->object;
+    long o = (long)marker->object;
 
-    co_filename    = _fetch_rpsspace0(segment_base, o, g_co_filename_ofs);
-    co_name        = _fetch_rpsspace0(segment_base, o, g_co_name_ofs);
-    co_firstlineno = _fetch_lngspace0(segment_base, o, g_co_firstlineno_ofs);
-    co_lnotab      = _fetch_rpsspace0(segment_base, o, g_co_lnotab_ofs);
+    co_filename    = _fetch_long(segment_base, o + g_co_filename_ofs);
+    co_name        = _fetch_long(segment_base, o + g_co_name_ofs);
+    co_firstlineno = _fetch_long(segment_base, o + g_co_firstlineno_ofs);
+    co_lnotab      = _fetch_long(segment_base, o + g_co_lnotab_ofs);
 
     long remaining = outputbufsize - 32;
-    nlen = RPyString_Size(co_name);
-    name = _RPyString_AsString(co_name);
-    if (nlen > remaining / 2) {
-        nlen = remaining / 2;
-        ntrunc = ">";
+    long ll = _fetch_strlen(segment_base, co_name);
+    if (ll > 0) {
+        nlen = ll;
+        name = _fetch_stritems(segment_base, co_name);
+        if (nlen > remaining / 2) {
+            nlen = remaining / 2;
+            ntrunc = ">";
+        }
     }
     remaining -= nlen;
 
-    fnlen = RPyString_Size(co_filename);
-    fn = _RPyString_AsString(co_filename);
-    if (fnlen > remaining) {
-        fn += (fnlen - remaining);
-        fnlen = remaining;
-        fntrunc = "<";
+    ll = _fetch_strlen(segment_base, co_filename);
+    if (ll > 0) {
+        fnlen = ll;
+        fn = _fetch_stritems(segment_base, co_filename);
+        if (fnlen > remaining) {
+            fn += (fnlen - remaining);
+            fnlen = remaining;
+            fntrunc = "<";
+        }
     }
 
-    long lnotablen = RPyString_Size(co_lnotab);
-    char *lnotab = _RPyString_AsString(co_lnotab);
-    uintptr_t next_instr = marker->odd_number >> 1;
-    line = co_firstlineno;
-    uintptr_t i, addr = 0;
-    for (i = 0; i < lnotablen; i += 2) {
-        addr += ((unsigned char *)lnotab)[i];
-        if (addr > next_instr)
-            break;
-        line += ((unsigned char *)lnotab)[i + 1];
+    ll = _fetch_strlen(segment_base, co_lnotab);
+    if (ll > 0) {
+        long lnotablen = ll;
+        unsigned char *lnotab = (unsigned char *)_fetch_stritems(segment_base,
+                                                                 co_lnotab);
+        uintptr_t next_instr = marker->odd_number >> 1;
+        line = co_firstlineno;
+        uintptr_t ii, curaddr = 0;
+        for (ii = 0; ii < lnotablen; ii += 2) {
+            curaddr += lnotab[ii];
+            if (curaddr > next_instr)
+                break;
+            line += lnotab[ii + 1];
+        }
     }
 
     int result;
