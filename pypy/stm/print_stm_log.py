@@ -175,7 +175,7 @@ def percent(fraction, total):
         r = r.split('.')[0]
     return r + '%'
 
-def dump(logentries):
+def summarize_log_entries(logentries, stmlog):
     threads = {}
     conflicts = {}
     cnt = 0
@@ -230,18 +230,25 @@ def dump(logentries):
     if cnt == 0:
         raise Exception("empty file")
     print >> sys.stderr
-    print
     stop_time = entry.timestamp
-    total_time = stop_time - start_time
+    stmlog.start_time = start_time
+    stmlog.total_time = stop_time - start_time
+    stmlog.threads = threads
+    stmlog.conflicts = conflicts
+
+def dump_summary(stmlog):
+    start_time = stmlog.start_time
+    total_time = stmlog.total_time
+    print
     print 'Total real time:             %.3fs' % (total_time,)
     #
-    total_cpu_time = sum([v.cpu_time for v in threads.values()])
+    total_cpu_time = stmlog.get_total_cpu_time()
     print 'Total CPU time in STM mode:  %.3fs (%s)' % (
         total_cpu_time, percent(total_cpu_time, total_time))
     print
     #
-    values = sorted(conflicts.values(), key=ConflictSummary.sortkey)
-    for c in values[-1:-15:-1]:
+    values = stmlog.get_conflicts()
+    for c in values[:15]:
         intervals = 48
         timeline = [0] * intervals
         for t in c.timestamps:
@@ -253,9 +260,32 @@ def dump(logentries):
         print
 
 
+class StmLog(object):
+    def __init__(self, filename):
+        summarize_log_entries(parse_log(filename), self)
+
+    def get_total_cpu_time(self):
+        return sum([v.cpu_time for v in self.threads.values()])
+
+    def get_conflicts(self):
+        values = self.conflicts.values()
+        values.sort(key=ConflictSummary.sortkey)
+        values.reverse()
+        return values
+
+    def get_total_aborts_and_pauses(self):
+        total = 0
+        for c in self.conflicts.values():
+            total += c.num_events
+        return total
+
+    def dump(self):
+        dump_summary(self)
+
+
 def main(argv):
     assert len(argv) == 1, "expected a filename argument"
-    dump(parse_log(argv[0]))
+    StmLog(argv[0]).dump()
     return 0
 
 if __name__ == '__main__':
