@@ -146,6 +146,7 @@ class CConfig:
     NID_ad_OCSP = rffi_platform.ConstantInteger("NID_ad_OCSP")
     NID_ad_ca_issuers = rffi_platform.ConstantInteger("NID_ad_ca_issuers")
     NID_info_access = rffi_platform.ConstantInteger("NID_info_access")
+    NID_X9_62_prime256v1 = rffi_platform.ConstantInteger("NID_X9_62_prime256v1")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
     GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
     GEN_DNS = rffi_platform.ConstantInteger("GEN_DNS")
@@ -302,7 +303,11 @@ ssl_external('SSL_CTX_set_tlsext_servername_callback', [SSL_CTX, servername_cb],
              lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tmp_ecdh', [SSL_CTX, EC_KEY], lltype.Void, macro=True)
-
+if OPENSSL_VERSION_NUMBER >= 0x10002000:
+    ssl_external('SSL_CTX_set_ecdh_auto', [SSL_CTX, rffi.INT], lltype.Void,
+                 macro=True)
+else:
+    libssl_SSL_CTX_set_ecdh_auto = None
 
 SSL_CTX_STATS_NAMES = """
     number connect connect_good connect_renegotiate accept accept_good

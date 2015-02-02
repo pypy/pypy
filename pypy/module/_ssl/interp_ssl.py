@@ -80,10 +80,6 @@ constants["OP_CIPHER_SERVER_PREFERENCE"] = SSL_OP_CIPHER_SERVER_PREFERENCE
 constants["OP_SINGLE_DH_USE"] = SSL_OP_SINGLE_DH_USE
 constants["OP_SINGLE_ECDH_USE"] = SSL_OP_SINGLE_ECDH_USE
 constants["OP_NO_COMPRESSION"] = SSL_OP_NO_COMPRESSION
-constants["HAS_SNI"] = HAS_SNI
-constants["HAS_ECDH"] = True  # To break the test suite
-constants["HAS_NPN"] = HAS_NPN
-constants["HAS_TLS_UNIQUE"] = True  # To break the test suite
 
 constants["OPENSSL_VERSION_NUMBER"] = OPENSSL_VERSION_NUMBER
 ver = OPENSSL_VERSION_NUMBER
@@ -1198,6 +1194,23 @@ class _SSLContext(W_Root):
         if protocol != PY_SSL_VERSION_SSL2:
             options |= SSL_OP_NO_SSLv2
         libssl_SSL_CTX_set_options(ctx, options)
+
+        if not OPENSSL_NO_ECDH:
+            # Allow automatic ECDH curve selection (on
+            # OpenSSL 1.0.2+), or use prime256v1 by default.
+            # This is Apache mod_ssl's initialization
+            # policy, so we should be safe.
+            if libssl_SSL_CTX_set_ecdh_auto:
+                libssl_SSL_CTX_set_ecdh_auto(self.ctx, 1)
+            else:
+                key = libssl_EC_KEY_new_by_curve_name(NID_X9_62_prime256v1)
+                if not key:
+                    raise _ssl_seterror(space, None, 0)
+                try:
+                    libssl_SSL_CTX_set_tmp_ecdh(self.ctx, key)
+                finally:
+                    libssl_EC_KEY_free(key)
+
         return self
 
     @unwrap_spec(server_side=int)
