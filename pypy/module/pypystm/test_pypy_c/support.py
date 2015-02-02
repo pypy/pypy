@@ -8,24 +8,27 @@ class BaseTestSTM(object):
     HEADER = """
 import thread, pypystm
 
-def _run(lock, result, function):
+def _run(lock, result, function, args):
     start = pypystm.time()
     try:
         while True:
-            function()
+            function(*args)
             if pypystm.time() - start >= 3.0:
                 break
         result.append(1)
     finally:
         lock.release()
 
-def run_in_threads(function):
+def run_in_threads(function, arg_thread_num=False):
     locks = []
     result = []
     for i in range(3):
         lock = thread.allocate_lock()
         lock.acquire()
-        thread.start_new_thread(_run, (lock, result, function))
+        args = ()
+        if arg_thread_num:
+            args += (i,)
+        thread.start_new_thread(_run, (lock, result, function, args))
         locks.append(lock)
     for lock in locks:
         lock._py3k_acquire(timeout=30)

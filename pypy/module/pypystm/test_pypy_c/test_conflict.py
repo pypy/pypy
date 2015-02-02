@@ -14,3 +14,12 @@ class TestConflict(BaseTestSTM):
             run_in_threads(g)
         #
         self.check_many_conflicts(f)
+
+    def test_plain_dict_access(self):
+        def f():
+            d = {}     # shared
+            def g(n):
+                d[n] = d.get(n, 0) + 1
+            run_in_threads(g, arg_thread_num=True)
+        #
+        self.check_many_conflicts(f)

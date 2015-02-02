@@ -17,3 +17,13 @@ class TestNoConflict(BaseTestSTM):
             run_in_threads(g)
         #
         self.check_almost_no_conflict(f)
+
+    def test_stmdict_access(self):
+        def f():
+            import pypystm
+            d = pypystm.stmdict()     # shared
+            def g(n):
+                d[n] = d.get(n, 0) + 1
+            run_in_threads(g, arg_thread_num=True)
+        #
+        self.check_almost_no_conflict(f)
