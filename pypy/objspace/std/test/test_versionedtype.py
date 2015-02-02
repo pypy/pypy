@@ -259,6 +259,43 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         cell = w_A._getdictvalue_no_unwrapping(space, "x")
         assert space.float_w(cell.w_value) == 2.2
 
+    def test_float_cells(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newfloat(1.1))
+        assert w_A.version_tag() is not atag
+        assert space.float_w(space.getattr(w_A, w_x)) == 1.1
+
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newfloat(2.1))
+        assert w_A.version_tag() is not atag
+        assert space.float_w(space.getattr(w_A, w_x)) == 2.1
+        cell = w_A._getdictvalue_no_unwrapping(space, "x")
+        assert cell.floatvalue == 2.1
+
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newfloat(3.1))
+        assert w_A.version_tag() is atag
+        assert space.float_w(space.getattr(w_A, w_x)) == 3.1
+        assert cell.floatvalue == 3.1
+
+        space.setattr(w_A, w_x, space.newfloat(4.1))
+        assert w_A.version_tag() is atag
+        assert space.float_w(space.getattr(w_A, w_x)) == 4.1
+        assert cell.floatvalue == 4.1
+
+    def test_float_cell_turns_into_cell(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newfloat(1.1))
+        space.setattr(w_A, w_x, space.newfloat(2.1))
+        space.setattr(w_A, w_x, space.wrap("abc"))
+        cell = w_A._getdictvalue_no_unwrapping(space, "x")
+        assert space.str_w(cell.w_value) == "abc"
 
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):

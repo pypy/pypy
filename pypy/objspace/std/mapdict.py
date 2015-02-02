@@ -9,7 +9,8 @@ from pypy.objspace.std.dictmultiobject import (
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
 from pypy.objspace.std.typeobject import (
-    MutableCell, IntMutableCell, ObjectMutableCell, unwrap_cell)
+    MutableCell, IntMutableCell, FloatMutableCell, ObjectMutableCell,
+    unwrap_cell)
 
 # ____________________________________________________________
 # attribute shapes
@@ -303,15 +304,24 @@ class PlainAttribute(AbstractAttribute):
 
     def _write_cell(self, w_cell, w_value):
         from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.floatobject import W_FloatObject
         assert not isinstance(w_cell, ObjectMutableCell)
         if isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
             w_cell.intvalue = w_value.intval
+            return None
+        if isinstance(w_cell, FloatMutableCell) and type(w_value) is W_FloatObject:
+            w_cell.floatvalue = w_value.floatval
             return None
         if type(w_value) is W_IntObject:
             if not self.can_contain_mutable_cell:
                 self.can_contain_mutable_cell = True
             if self.ever_mutated:
                 return IntMutableCell(w_value.intval)
+        if type(w_value) is W_FloatObject:
+            if not self.can_contain_mutable_cell:
+                self.can_contain_mutable_cell = True
+            if self.ever_mutated:
+                return FloatMutableCell(w_value.floatval)
         return w_value
 
     def _copy_attr(self, obj, new_obj):

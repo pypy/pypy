@@ -182,6 +182,35 @@ def test_mutcell_not_immutable():
     assert mutcell2.intvalue == 7
     assert mutcell2 is mutcell1
 
+
+def test_mutcell_not_immutable_float():
+    from pypy.objspace.std.floatobject import W_FloatObject
+    cls = Class()
+    obj = cls.instantiate()
+    # make sure the attribute counts as mutable
+    obj.setdictvalue(space, "a", W_FloatObject(4.43))
+    obj.setdictvalue(space, "a", W_FloatObject(5.43))
+    assert obj.map.ever_mutated
+
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", W_FloatObject(5.43))
+    assert obj.getdictvalue(space, "a") == 5.43
+    mutcell = obj._mapdict_read_storage(0)
+    assert mutcell.floatvalue == 5.43
+
+    obj.setdictvalue(space, "a", W_FloatObject(6.43))
+    assert obj.getdictvalue(space, "a") == 6.43
+    mutcell1 = obj._mapdict_read_storage(0)
+    assert mutcell1.floatvalue == 6.43
+    assert mutcell is mutcell1
+
+    obj.setdictvalue(space, "a", W_FloatObject(7.43))
+    assert obj.getdictvalue(space, "a") == 7.43
+    mutcell2 = obj._mapdict_read_storage(0)
+    assert mutcell2.floatvalue == 7.43
+    assert mutcell2 is mutcell1
+
+
 def test_no_mutcell_if_immutable():
     # don't introduce an immutable cell if the attribute seems immutable
     from pypy.objspace.std.intobject import W_IntObject
