@@ -363,6 +363,12 @@ class AppTestContext:
         raises(TypeError, ctx.load_dh_params, None)
         raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
 
+    def test_set_ecdh_curve(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx.set_ecdh_curve("prime256v1")
+        raises(ValueError, ctx.set_ecdh_curve, "foo")
+
     def test_get_default_verify_paths(self):
         import _ssl
         paths = _ssl.get_default_verify_paths()

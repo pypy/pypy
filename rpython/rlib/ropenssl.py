@@ -59,6 +59,7 @@ stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
 DIST_POINT = rffi.COpaquePtr('DIST_POINT')
 stack_st_DIST_POINT = rffi.COpaquePtr('struct stack_st_DIST_POINT')
 DH = rffi.COpaquePtr('DH')
+EC_KEY = rffi.COpaquePtr('EC_KEY')
 
 class CConfigBootstrap:
     _compilation_info_ = eci
@@ -283,6 +284,8 @@ servername_cb = lltype.Ptr(lltype.FuncType([SSL, rffi.INTP, rffi.VOIDP], rffi.IN
 ssl_external('SSL_CTX_set_tlsext_servername_callback', [SSL_CTX, servername_cb],
              lltype.Void, macro=True)
 ssl_external('SSL_CTX_set_tlsext_servername_arg', [SSL_CTX, rffi.VOIDP], lltype.Void, macro=True)
+ssl_external('SSL_CTX_set_tmp_ecdh', [SSL_CTX, EC_KEY], lltype.Void, macro=True)
+
 
 SSL_CTX_STATS_NAMES = """
     number connect connect_good connect_renegotiate accept accept_good
@@ -347,6 +350,7 @@ ssl_external('OBJ_obj2txt',
              [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT)
 ssl_external('OBJ_obj2nid', [ASN1_OBJECT], rffi.INT)
 ssl_external('OBJ_nid2sn', [rffi.INT], rffi.CCHARP)
+ssl_external('OBJ_sn2nid', [rffi.CCHARP], rffi.INT)
 ssl_external('OBJ_nid2ln', [rffi.INT], rffi.CCHARP)
 ssl_external('OBJ_txt2obj', [rffi.CCHARP, rffi.INT], ASN1_OBJECT)
 ssl_external('ASN1_OBJECT_free', [ASN1_OBJECT], lltype.Void)
@@ -386,6 +390,9 @@ ssl_external('SSL_get_current_cipher', [SSL], SSL_CIPHER)
 ssl_external('SSL_CIPHER_get_name', [SSL_CIPHER], rffi.CCHARP)
 ssl_external('SSL_CIPHER_get_version', [SSL_CIPHER], rffi.CCHARP)
 ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
+
+ssl_external('EC_KEY_new_by_curve_name', [rffi.INT], EC_KEY)
+ssl_external('EC_KEY_free', [EC_KEY], lltype.Void)
 
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_peek_last_error', [], rffi.INT)

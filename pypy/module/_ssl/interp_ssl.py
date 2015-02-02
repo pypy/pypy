@@ -1489,6 +1489,20 @@ class _SSLContext(W_Root):
                 rlist.append(_decode_certificate(space, cert))
         return space.newlist(rlist)
 
+    @unwrap_spec(name=str)
+    def set_ecdh_curve_w(self, space, name):
+        nid = libssl_OBJ_sn2nid(name)
+        if nid == 0:
+            raise oefmt(space.w_ValueError,
+                        "unknown elliptic curve name '%s'", name)
+        key = libssl_EC_KEY_new_by_curve_name(nid)
+        if not key:
+            raise _ssl_seterror(space, None, 0)
+        try:
+            libssl_SSL_CTX_set_tmp_ecdh(self.ctx, key)
+        finally:
+            libssl_EC_KEY_free(key)
+
     def set_servername_callback_w(self, space, w_callback):
         if space.is_none(w_callback):
             libssl_SSL_CTX_set_tlsext_servername_callback(
@@ -1522,6 +1536,7 @@ _SSLContext.typedef = TypeDef(
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
     _set_npn_protocols=interp2app(_SSLContext.set_npn_protocols_w),
     get_ca_certs=interp2app(_SSLContext.get_ca_certs_w),
+    set_ecdh_curve=interp2app(_SSLContext.set_ecdh_curve_w),
     set_servername_callback=interp2app(_SSLContext.set_servername_callback_w),
 
     options=GetSetProperty(_SSLContext.descr_get_options,
