@@ -3,7 +3,7 @@ PyPy 2.5 - XXXXXX
 =================================================
 
 We're pleased to announce PyPy 2.5, which contains significant performance
-enhancements and bug fixes. 
+enhancements and bug fixes.
 
 You can download the PyPy 2.5.0 release here:
 
@@ -11,7 +11,7 @@ You can download the PyPy 2.5.0 release here:
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
-volunteers and contributors (10 new commiters joined PyPy since the last 
+volunteers and contributors (10 new commiters joined PyPy since the last
 release).
 We've shown quite a bit of progress, but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
@@ -23,13 +23,13 @@ so we can finish those projects! The three sub-projects are:
 * `STM`_ (software transactional memory): We have released a first working version,
   and continue to try out new promising paths of achieving a fast multithreaded Python
 
-* `NumPy`_ which requires installation of our fork of upstream numpy, 
+* `NumPy`_ which requires installation of our fork of upstream numpy,
   available `on bitbucket`_
 
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
 .. _`NumPy`: http://pypy.org/numpydonate.html
-.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
+.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 What is PyPy?
 =============
@@ -38,9 +38,9 @@ PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7. It's fast (`pypy and cpython 2.7.x`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
-This release supports **x86** machines on most common operating systems 
+This release supports **x86** machines on most common operating systems
 (Linux 32/64, Mac OS X 64, Windows, and OpenBSD),
-as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux. 
+as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
 While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
@@ -55,36 +55,34 @@ Highlights
 * The past months have seen pypy mature and grow, as rpython becomes the goto
   solution for writing fast dynamic language interpreters. Our separation of
   rpython and the python interpreter PyPy is now much clearer in the
-  `documentation`_ . 
+  `PyPy documentation`_  and we now have seperate `Rpython documentation`_.
 
 * We have improved warmup time as well as jitted code performance: more than 10%
-  compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements. 
+  compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements.
 
 * Our integrated numpy support gained much of the GenericUfunc api in order to
   support the lapack/blas linalg module of numpy. This dovetails with work in the
   pypy/numpy repository to support linalg both through the (slower) cpyext capi
   interface and also via (the faster) pure python cffi interface, using an
-  extended frompyfunc() api.
+  extended frompyfunc() api. We will soon post a seperate blog post specifically
+  about linalg and PyPy.
 
 * Dictionaries are now ordered by default, see the `blog post`_
-
-* Issues reported with our previous release were fixed after reports from users on
-  our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
-  #pypy. Here is a summary of some of the user-facing changes;
-  for more information see `whats-new`_:
 
 * Our nightly translations use --shared by default, including on OS/X and linux
 
 * We now more carefully handle errno (and GetLastError, WSAGetLastError) tying
   the handlers as close as possible to the external function call, in non-jitted
   as well as jitted code.
-  
-* Many issues were resolved_ since the 2.4.0 release in September 2014
 
-.. _`documentation`: http://doc.pypy.org
+* Issues reported with our previous release were resolved_ after reports from users on
+  our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
+  #pypy.
+
+.. _`PyPy documentation`: http://doc.pypy.org
+.. _`Rpython documentation`: http://rpython.readthedocs.org
 .. _`blog post`: http://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
 .. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
-.. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 
 We have further improvements on the way: rpython file handling,
 finishing numpy linalg compatibility, numpy object dtypes, a better profiler,
@@ -96,4 +94,3 @@ success stories, we know you are using PyPy, please tell us about it!
 Cheers
 
 The PyPy Team
-
