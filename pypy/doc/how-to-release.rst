@@ -38,8 +38,11 @@ Release Steps
     no JIT: windows, linux, os/x
     sandbox: linux, os/x
 
-* repackage and upload source tar.bz2 to bitbucket and to cobra, as some packagers 
-  prefer a clearly labeled source package
+* repackage and upload source "-src.tar.bz2" to bitbucket and to cobra, as some
+  packagers prefer a clearly labeled source package (download e.g.
+  https://bitbucket.org/pypy/pypy/get/release-2.5.x.tar.bz2, unpack,
+  rename the top-level directory, repack, and upload)
+
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
 * update pypy.org (under extradoc/pypy.org), rebuild and commit
