@@ -31,9 +31,10 @@ class CodemapBuilder(object):
                 self.l.append(0) # marker
                 self.l.append(0) # second marker
             else:
-                to_patch = self.patch_position.pop()
-                self.l[to_patch] = pos
-                self.l[to_patch + 1] = len(self.l)
+                for i in range(self.last_call_depth - call_depth):
+                    to_patch = self.patch_position.pop()
+                    self.l[to_patch] = pos
+                    self.l[to_patch + 1] = len(self.l)
             self.last_call_depth = call_depth
 
     def inherit_code_from_position(self, pos):
