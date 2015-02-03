@@ -1,5 +1,5 @@
 ==============================
-PyPy 2.5.0 - Protea Pincushion
+PyPy 2.5.0 - Pincushion Protea
 ==============================
 
 We're pleased to announce PyPy 2.5, which contains significant performance
@@ -59,9 +59,10 @@ Highlights
 
 * We have improved warmup time as well as jitted code performance: more than 10%
   compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements.
-  We no longer zero-out memory allocated in the gc nursery by default.
+  We no longer zero-out memory allocated in the gc nursery by default, work that
+  was started during a GSoC.
 
-* IO operations got a performance boost by adding a pinning interface that is
+* IO operations got a performance boost by adding a **pinning** interface that is
   used by rffi.alloc_buffer and rff.get_nonmovablebuffer.
 
 * Our integrated numpy support gained much of the GenericUfunc api in order to
