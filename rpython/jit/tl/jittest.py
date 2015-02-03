@@ -15,16 +15,23 @@ os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
 reload(runsubprocess)
 
 
-ARGS = ["--jit", "threshold=100000,trace_eagerness=100000",
-        "-S", "/home/arigo/pypysrc/32compiled/z.py"]
+#ARGS = ["--jit", "threshold=100000,trace_eagerness=100000",
+#        "-S", "/home/arigo/pypysrc/32compiled/z.py"]
+ARGS = ["targettest_executable_name",
+        "-r", "13", "/home/arigo/git/pyrlang/test_beam/fact.beam",
+        "fact", "20000"]
 
 
 def jittest(driver):
     graph = driver.translator._graphof(driver.entry_point)
     interp = LLInterpreter(driver.translator.rtyper)
 
-    get_policy = driver.extra['jitpolicy']
-    jitpolicy = get_policy(driver)
+    get_policy = driver.extra.get('jitpolicy', None)
+    if get_policy is None:
+        from rpython.jit.codewriter.policy import JitPolicy
+        jitpolicy = JitPolicy()
+    else:
+        jitpolicy = get_policy(driver)
 
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
     apply_jit(jitpolicy, interp, graph, LLGraphCPU)
