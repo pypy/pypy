@@ -2524,13 +2524,14 @@ class MetaInterp(object):
                      self.jitdriver_sd.index_of_virtualizable)
             virtualizable_box = original_boxes[index]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            # First force the virtualizable if needed!
+            vinfo.clear_vable_token(virtualizable)
             # The field 'virtualizable_boxes' is not even present
             # if 'virtualizable_info' is None.  Check for that first.
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
                                                         virtualizable)
             original_boxes += self.virtualizable_boxes
             self.virtualizable_boxes.append(virtualizable_box)
-            self.initialize_virtualizable_enter()
             self.check_synchronized_virtualizable()
 
     def initialize_withgreenfields(self, original_boxes):
@@ -2540,12 +2541,6 @@ class MetaInterp(object):
             index = (self.jitdriver_sd.num_green_args +
                      ginfo.red_index)
             self.virtualizable_boxes = [original_boxes[index]]
-
-    def initialize_virtualizable_enter(self):
-        vinfo = self.jitdriver_sd.virtualizable_info
-        virtualizable_box = self.virtualizable_boxes[-1]
-        virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-        vinfo.clear_vable_token(virtualizable)
 
     def vable_and_vrefs_before_residual_call(self):
         vrefinfo = self.staticdata.virtualref_info
