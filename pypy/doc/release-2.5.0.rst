@@ -63,7 +63,7 @@ Highlights
   was started during a GSoC.
 
 * IO operations got a performance boost by adding a **pinning** interface that is
-  used by rffi.alloc_buffer and rff.get_nonmovablebuffer.
+  used by rffi.alloc_buffer and rffi.get_nonmovablebuffer.
 
 * Our integrated numpy support gained much of the GenericUfunc api in order to
   support the lapack/blas linalg module of numpy. This dovetails with work in the
