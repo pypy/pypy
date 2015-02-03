@@ -43,6 +43,9 @@ FASTPATHS_SAME_BOXES = {
     "ge": "history.CONST_TRUE",
 }
 
+class MissingValue(object):
+    "NOT_RPYTHON"
+
 class MIFrame(object):
     debug = False
 
@@ -53,6 +56,11 @@ class MIFrame(object):
         self.registers_f = [None] * 256
 
     def setup(self, jitcode, greenkey=None):
+        # if not translated, fill the registers with MissingValue()
+        if not we_are_translated():
+            self.registers_i = [MissingValue()] * 256
+            self.registers_r = [MissingValue()] * 256
+            self.registers_f = [MissingValue()] * 256
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
@@ -172,7 +180,7 @@ class MIFrame(object):
                 registers[i] = newbox
         if not we_are_translated():
             for b in registers[count:]:
-                assert not oldbox.same_box(b)
+                assert isinstance(b, (MissingValue, Const))
 
 
     def make_result_of_lastop(self, resultbox):
