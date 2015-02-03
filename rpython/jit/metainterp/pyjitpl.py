@@ -8,7 +8,7 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, Box, TargetToken)
+    ConstFloat, Box, TargetToken, MissingValue)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
@@ -42,9 +42,6 @@ FASTPATHS_SAME_BOXES = {
     "gt": "history.CONST_FALSE",
     "ge": "history.CONST_TRUE",
 }
-
-class MissingValue(object):
-    "NOT_RPYTHON"
 
 class MIFrame(object):
     debug = False
