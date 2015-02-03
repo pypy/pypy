@@ -62,8 +62,11 @@ Highlights
   We no longer zero-out memory allocated in the gc nursery by default, work that
   was started during a GSoC.
 
-* IO operations got a performance boost by adding a **pinning** interface that is
-  used by rffi.alloc_buffer and rffi.get_nonmovablebuffer.
+* Passing objects between C and PyPy has been improved. We are now able to pass
+  raw pointers to C (without copying) using **pinning**. This improves I/O;
+  benchmarks that use networking intensively improved by about 50%. File()
+  operations still need some refactoring but are already showing a 20%
+  improvement on our benchmarks. Let us know if you see similar improvements.
 
 * Our integrated numpy support gained much of the GenericUfunc api in order to
   support the lapack/blas linalg module of numpy. This dovetails with work in the
