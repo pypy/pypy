@@ -52,5 +52,13 @@ class CodemapBuilder(object):
             pos = self.patch_position.pop()
             self.l[pos] = size
             self.l[pos + 1] = len(self.l)
+        # at the end there should be no zeros
+        for i in range(len(self.l) / 4):
+            item = self.l[i * 4] # unique_id
+            assert item > 0 # no zeros here
+            item = self.l[i * 4 + 2] # end in asm
+            assert item > 0
+            item = self.l[i * 4 + 3] # end in l
+            assert item > 0
         return (addr, size, self.l) # XXX compact self.l
 
