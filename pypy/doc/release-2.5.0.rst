@@ -55,7 +55,7 @@ Highlights
 * The past months have seen pypy mature and grow, as rpython becomes the goto
   solution for writing fast dynamic language interpreters. Our separation of
   rpython and the python interpreter PyPy is now much clearer in the
-  `PyPy documentation`_  and we now have seperate `Rpython documentation`_.
+  `PyPy documentation`_  and we now have seperate `RPython documentation`_.
 
 * We have improved warmup time as well as jitted code performance: more than 10%
   compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements.
@@ -88,7 +88,7 @@ Highlights
   #pypy.
 
 .. _`PyPy documentation`: http://doc.pypy.org
-.. _`Rpython documentation`: http://rpython.readthedocs.org
+.. _`RPython documentation`: http://rpython.readthedocs.org
 .. _`blog post`: http://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
 .. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
 
