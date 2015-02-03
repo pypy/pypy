@@ -1431,7 +1431,7 @@ class _SSLContext(W_Root):
             raise OperationError(space.w_TypeError, space.wrap(
                     "cafile and capath cannot be both omitted"))
         # load from cadata
-        if cadata:
+        if cadata is not None:
             biobuf = libssl_BIO_new_mem_buf(cadata, len(cadata))
             if not biobuf:
                 raise ssl_error(space, "Can't allocate buffer")
@@ -1474,14 +1474,14 @@ class _SSLContext(W_Root):
                       libssl_ERR_GET_LIB(err) == ERR_LIB_PEM and
                       libssl_ERR_GET_REASON(err) == PEM_R_NO_START_LINE):
                     # EOF PEM file, not an error
-                    libssl_ERR_clear_error
+                    libssl_ERR_clear_error()
                 else:
-                    _ssl_seterror(space, None, 0)
+                    raise _ssl_seterror(space, None, 0)
             finally:
                 libssl_BIO_free(biobuf)
             
         # load cafile or capath
-        if cafile or capath:
+        if cafile is not None or capath is not None:
             set_errno(0)
             ret = libssl_SSL_CTX_load_verify_locations(
                 self.ctx, cafile, capath)
@@ -1496,16 +1496,18 @@ class _SSLContext(W_Root):
 
     def cert_store_stats_w(self, space):
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
-        counters = {'x509': 0, 'x509_ca': 0, 'crl': 0}
+        x509 = 0
+        x509_ca = 0
+        crl = 0
         for i in range(libssl_sk_X509_OBJECT_num(store[0].c_objs)):
             obj = libssl_sk_X509_OBJECT_value(store[0].c_objs, i)
             if intmask(obj.c_type) == X509_LU_X509:
-                counters['x509'] += 1
+                x509 += 1
                 if libssl_X509_check_ca(
                         libssl_pypy_X509_OBJECT_data_x509(obj)):
-                    counters['x509_ca'] += 1
+                    x509_ca += 1
             elif intmask(obj.c_type) == X509_LU_CRL:
-                counters['crl'] += 1
+                crl += 1
             else:
                 # Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
                 # As far as I can tell they are internal states and never
@@ -1513,11 +1515,11 @@ class _SSLContext(W_Root):
                 pass
         w_result = space.newdict()
         space.setitem(w_result,
-                      space.wrap('x509'), space.wrap(counters['x509']))
+                      space.wrap('x509'), space.wrap(x509))
         space.setitem(w_result,
-                      space.wrap('x509_ca'), space.wrap(counters['x509_ca']))
+                      space.wrap('x509_ca'), space.wrap(x509_ca))
         space.setitem(w_result,
-                      space.wrap('crl'), space.wrap(counters['crl']))
+                      space.wrap('crl'), space.wrap(crl))
         return w_result
 
     @unwrap_spec(protos='bufferstr')
