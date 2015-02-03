@@ -41,7 +41,7 @@ Release Steps
 * repackage and upload source "-src.tar.bz2" to bitbucket and to cobra, as some
   packagers prefer a clearly labeled source package (download e.g.
   https://bitbucket.org/pypy/pypy/get/release-2.5.x.tar.bz2, unpack,
-  rename the top-level directory, repack, and upload)
+  rename the top-level directory to "pypy-2.5.0-src", repack, and upload)
 
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
