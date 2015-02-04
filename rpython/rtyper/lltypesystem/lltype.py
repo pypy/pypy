@@ -1,4 +1,3 @@
-import weakref
 from types import MethodType, NoneType
 
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
@@ -21,33 +20,46 @@ except ImportError:
         pass
     TLS = Tls()
 
-class WeakValueDictionary(weakref.WeakValueDictionary):
-    """A subclass of weakref.WeakValueDictionary
-    which resets the 'nested_hash_level' when keys are being deleted.
-    """
-    def __init__(self, *args, **kwargs):
-        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
-        remove_base = self._remove
-        def remove(*args):
-            if safe_equal is None:
-                # The interpreter is shutting down, and the comparison
-                # function is already gone.
-                return
-            if TLS is None: # Happens when the interpreter is shutting down
-                return remove_base(*args)
-            nested_hash_level = TLS.nested_hash_level
-            try:
-                # The 'remove' function is called when an object dies.  This
-                # can happen anywhere when they are reference cycles,
-                # especially when we are already computing another __hash__
-                # value.  It's not really a recursion in this case, so we
-                # reset the counter; otherwise the hash value may be be
-                # incorrect and the key won't be deleted.
-                TLS.nested_hash_level = 0
-                remove_base(*args)
-            finally:
-                TLS.nested_hash_level = nested_hash_level
-        self._remove = remove
+try:
+    # XXX temporary?
+    from pypystm import stmdict
+    def weakref_ref(x):
+        return lambda: x
+    WeakKeyDictionary = stmdict
+    WeakValueDictionary = stmdict
+
+except ImportError:
+    import weakref
+    weakref_ref = weakref.ref
+    WeakKeyDictionary = weakref.WeakKeyDictionary
+
+    class WeakValueDictionary(weakref.WeakValueDictionary):
+        """A subclass of weakref.WeakValueDictionary
+        which resets the 'nested_hash_level' when keys are being deleted.
+        """
+        def __init__(self, *args, **kwargs):
+            weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+            remove_base = self._remove
+            def remove(*args):
+                if safe_equal is None:
+                    # The interpreter is shutting down, and the comparison
+                    # function is already gone.
+                    return
+                if TLS is None: # Happens when the interpreter is shutting down
+                    return remove_base(*args)
+                nested_hash_level = TLS.nested_hash_level
+                try:
+                    # The 'remove' function is called when an object dies.  This
+                    # can happen anywhere when they are reference cycles,
+                    # especially when we are already computing another __hash__
+                    # value.  It's not really a recursion in this case, so we
+                    # reset the counter; otherwise the hash value may be be
+                    # incorrect and the key won't be deleted.
+                    TLS.nested_hash_level = 0
+                    remove_base(*args)
+                finally:
+                    TLS.nested_hash_level = nested_hash_level
+            self._remove = remove
 
 class _uninitialized(object):
     def __init__(self, TYPE):
@@ -1202,7 +1214,7 @@ class _abstract_ptr(object):
             obj0 = pointing_to
         else:
             self._set_weak(True)
-            obj0 = weakref.ref(pointing_to)
+            obj0 = weakref_ref(pointing_to)
         self._set_solid(solid)
         self._set_obj0(obj0)
 
@@ -1590,7 +1602,7 @@ class _interior_ptr(_abstract_ptr):
 
     def __init__(self, _T, _parent, _offsets):
         self._set_T(_T)
-        #self._set_parent(weakref.ref(_parent))
+        #self._set_parent(weakref_ref(_parent))
         self._set_parent(_parent)
         self._set_offsets(_offsets)
 
@@ -1689,7 +1701,7 @@ class _parentable(_container):
         return parent._was_freed()
 
     def _setparentstructure(self, parent, parentindex):
-        self._wrparent = weakref.ref(parent)
+        self._wrparent = weakref_ref(parent)
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
         if (isinstance(self._parent_type, Struct)
@@ -1968,7 +1980,7 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         try:
             d = _subarray._cache[parent._TYPE]
         except KeyError:
-            d = _subarray._cache[parent._TYPE] = weakref.WeakKeyDictionary()
+            d = _subarray._cache[parent._TYPE] = WeakKeyDictionary()
         try:
             cache = d.setdefault(parent, {})
         except RuntimeError:    # pointer comparison with a freed structure
@@ -1996,7 +2008,7 @@ class _subarray(_parentable):     # only for direct_fieldptr()
 
     def _cleanup_cache():
         for T, d in _subarray._cache.items():
-            newcache = weakref.WeakKeyDictionary()
+            newcache = WeakKeyDictionary()
             for key, value in d.items():
                 try:
                     if not key._was_freed():
@@ -2016,7 +2028,7 @@ class _arraylenref(_parentable):
     Only used internally by llmemory to implement ArrayLengthOffset.
     """
     _kind = "arraylenptr"
-    _cache = weakref.WeakKeyDictionary()  # array -> _arraylenref
+    _cache = WeakKeyDictionary()  # array -> _arraylenref
 
     def __init__(self, array):
         TYPE = FixedSizeArray(Signed, 1)

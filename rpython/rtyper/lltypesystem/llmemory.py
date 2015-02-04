@@ -4,6 +4,13 @@
 
 # sizeof, offsetof
 
+try:
+    # XXX temporary?
+    from pypystm import stmdict
+    WeakKeyDictionary = stmdict
+except ImportError:
+    from weakref import WeakKeyDictionary
+
 import weakref
 from rpython.annotator.bookkeeper import analyzer_for
 from rpython.annotator.model import SomeInteger, SomeObject, SomeString, s_Bool
@@ -157,7 +164,7 @@ class ItemOffset(AddressOffset):
             srcadr += ItemOffset(self.TYPE)
             dstadr += ItemOffset(self.TYPE)
 
-_end_markers = weakref.WeakKeyDictionary()  # <array of STRUCT> -> _endmarker
+_end_markers = WeakKeyDictionary()  # <array of STRUCT> -> _endmarker
 class _endmarker_struct(lltype._struct):
     __slots__ = ()
     def __new__(self, *args, **kwds):

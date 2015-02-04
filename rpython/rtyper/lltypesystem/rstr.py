@@ -1,4 +1,9 @@
-from weakref import WeakValueDictionary
+try:
+    # XXX temporary?
+    from pypystm import stmdict
+    WeakValueDictionary = stmdict
+except ImportError:
+    from weakref import WeakValueDictionary
 
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit, types, rgc
