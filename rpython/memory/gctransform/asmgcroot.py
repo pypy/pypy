@@ -469,6 +469,13 @@ class AsmStackRootWalker(BaseRootWalker):
             if gc.points_to_valid_gc_object(addr):
                 collect_stack_root(gc, addr)
         #
+        # small hack: the JIT reserves THREADLOCAL_OFS's last bit for
+        # us.  We use it to store an "already traced past this frame"
+        # flag.
+        if self._with_jit and self.gcdata._gc_collect_is_minor:
+            if self.mark_jit_frame_can_stop(callee):
+                return False
+        #
         # track where the caller_frame saved the registers from its own
         # caller
         #
@@ -478,13 +485,6 @@ class AsmStackRootWalker(BaseRootWalker):
             addr = self.getlocation(callee, ebp_in_caller, location)
             caller.regs_stored_at[reg] = addr
             reg -= 1
-        #
-        # small hack: the JIT reserves THREADLOCAL_OFS's last bit for
-        # us.  We use it to store an "already traced past this frame"
-        # flag.
-        if self._with_jit and self.gcdata._gc_collect_is_minor:
-            if self.mark_jit_frame_can_stop(callee):
-                return False
 
         location = self._shape_decompressor.next()
         caller.frame_address = self.getlocation(callee, ebp_in_caller,
