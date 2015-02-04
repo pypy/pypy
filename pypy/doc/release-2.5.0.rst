@@ -90,7 +90,7 @@ Highlights
 .. _`PyPy documentation`: http://doc.pypy.org
 .. _`RPython documentation`: http://rpython.readthedocs.org
 .. _`blog post`: http://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
+.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
 
 We have further improvements on the way: rpython file handling,
 finishing numpy linalg compatibility, numpy object dtypes, a better profiler,
