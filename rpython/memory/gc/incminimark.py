@@ -375,6 +375,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the nursery.
         self.pinned_objects_in_nursery = 0
         #
+        # This flag is set if the previous minor collection found at least
+        # one pinned object alive.
+        self.any_pinned_object_kept = False
+        #
         # Keeps track of old objects pointing to pinned objects. These objects
         # must be traced every minor collection. Without tracing them the
         # referenced pinned object wouldn't be visited and therefore collected.
@@ -1489,8 +1493,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # The following counter keeps track of alive and pinned young objects
         # inside the nursery. We reset it here and increace it in
         # '_trace_drag_out()'.
-        any_pinned_objects_in_nursery = (self.pinned_objects_in_nursery > 0)
+        any_pinned_object_from_earlier = self.any_pinned_object_kept
         self.pinned_objects_in_nursery = 0
+        self.any_pinned_object_kept = False
         #
         # Before everything else, remove from 'old_objects_pointing_to_young'
         # the young arrays.
@@ -1514,7 +1519,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # are copied out or flagged.  They are also added to the list
         # 'old_objects_pointing_to_young'.
         self.nursery_surviving_size = 0
-        self.collect_roots_in_nursery(any_pinned_objects_in_nursery)
+        self.collect_roots_in_nursery(any_pinned_object_from_earlier)
         #
         # visit all objects that are known for pointing to pinned
         # objects. This way we populate 'surviving_pinned_objects'
@@ -1650,7 +1655,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
         self.trace(obj, self._trace_drag_out, obj)
 
-    def collect_roots_in_nursery(self, any_pinned_objects_in_nursery):
+    def collect_roots_in_nursery(self, any_pinned_object_from_earlier):
         # we don't need to trace prebuilt GcStructs during a minor collect:
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
@@ -1661,10 +1666,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             callback = IncrementalMiniMarkGC._trace_drag_out1
         #
-        # Note a subtlety: if the nursery contains pinned objects right
-        # now, we can't use the "is_minor=True" optimization.  We really
-        # need to walk the complete stack to be sure we still see them.
-        use_jit_frame_stoppers = not any_pinned_objects_in_nursery
+        # Note a subtlety: if the nursery contains pinned objects "from
+        # earlier", i.e. created earlier than the previous minor
+        # collection, then we can't use the "is_minor=True" optimization.
+        # We really need to walk the complete stack to be sure we still
+        # see them.
+        use_jit_frame_stoppers = not any_pinned_object_from_earlier
         #
         self.root_walker.walk_roots(
             callback,     # stack roots
@@ -1852,6 +1859,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
             self.pinned_objects_in_nursery += 1
+            self.any_pinned_object_kept = True
             return
         else:
             # First visit to an object that has already a shadow.
