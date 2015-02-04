@@ -306,7 +306,7 @@ class GetVirtualizableTokenEntry(ExtRegistryEntry):
         while not hasattr(T, 'vable_token'):
             if not hasattr(T, 'super'):
                 # we're not really in a jitted build
-                return hop.inputconst(lltype.Void,
+                return hop.inputconst(llmemory.GCREF,
                                       lltype.nullptr(llmemory.GCREF.TO))
             v = hop.genop('getfield', [v, c_super], resulttype=T.super)
             T = T.super
