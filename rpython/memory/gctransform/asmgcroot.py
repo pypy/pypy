@@ -761,9 +761,7 @@ class ShapeDecompressor:
             return LOC_NOWHERE     # case "outside the jit"
         else:
             # case "in the jit"
-            from rpython.jit.backend.x86.arch import THREADLOCAL_OFS
-            from rpython.jit.backend.x86.arch import PASS_ON_MY_FRAME
-            stack_depth = PASS_ON_MY_FRAME + self.extra_stack_depth
+            from rpython.jit.backend.x86.arch import THREADLOCAL_OFS, WORD
             return (LOC_ESP_PLUS |
                     ((THREADLOCAL_OFS // WORD + self.extra_stack_depth) << 2))
 

@@ -1993,7 +1993,7 @@ class Assembler386(BaseAssembler):
                 tmploc = eax
                 if tmploc is argloc:
                     tmploc = edx
-            self.mc.MOV(tmploc, threadlocal_ofs)
+            self.mc.MOV(tmploc, threadlocal_loc)
             self.mc.AND_ri(tmploc.value, ~1)
             threadlocal_ofs = tmploc
         #
