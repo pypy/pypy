@@ -1980,6 +1980,23 @@ class Assembler386(BaseAssembler):
 
     def _call_assembler_emit_call(self, addr, argloc, _):
         threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)
+        if self._is_asmgcc():
+            # We need to remove the bit "already seen during the
+            # previous minor collection" instead of passing this
+            # value directly.
+            if IS_X86_64:
+                tmploc = esi    # already the correct place
+                if argloc is tmploc:
+                    self.mc.MOV_rr(esi.value, edi.value)
+                    argloc = edi
+            else:
+                tmploc = eax
+                if tmploc is argloc:
+                    tmploc = edx
+            self.mc.MOV(tmploc, threadlocal_ofs)
+            self.mc.AND_ri(tmploc.value, ~1)
+            threadlocal_ofs = tmploc
+        #
         self.simple_call(addr, [argloc, threadlocal_loc])
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
@@ -2355,6 +2372,8 @@ class Assembler386(BaseAssembler):
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
+        if self._is_asmgcc():
+            self.mc.AND_ri(resloc.value, ~1)
         self.load_from_mem(resloc, addr_add_const(resloc, offset),
                            imm(size), imm(sign))
 
