@@ -482,9 +482,8 @@ class AsmStackRootWalker(BaseRootWalker):
         # small hack: the JIT reserves THREADLOCAL_OFS's last bit for
         # us.  We use it to store an "already traced past this frame"
         # flag.
-        if self._with_jit:
-            is_minor = self.gcdata._gc_collect_is_minor
-            if self.mark_jit_frame_can_stop(callee, is_minor):
+        if self._with_jit and self.gcdata._gc_collect_is_minor:
+            if self.mark_jit_frame_can_stop(callee):
                 return False
 
         location = self._shape_decompressor.next()
@@ -557,21 +556,17 @@ class AsmStackRootWalker(BaseRootWalker):
         else:  # kind == LOC_EBP_MINUS:   at -N(%ebp)
             return ebp_in_caller - offset
 
-    def mark_jit_frame_can_stop(self, callee, is_minor):
+    def mark_jit_frame_can_stop(self, callee):
         location = self._shape_decompressor.get_threadlocal_loc()
         if location == LOC_NOWHERE:
             return False
         addr = self.getlocation(callee, llmemory.NULL, location)
         #
         x = addr.signed[0]
-        if is_minor:
-            if x & 1:
-                return True            # this JIT stack frame is already marked!
-            else:
-                addr.signed[0] = x | 1    # otherwise, mark it but don't stop
-                return False
+        if x & 1:
+            return True            # this JIT stack frame is already marked!
         else:
-            addr.signed[0] = x & ~1    # 'is_minor' is False, remove the marks
+            addr.signed[0] = x | 1    # otherwise, mark it but don't stop
             return False
 
 
