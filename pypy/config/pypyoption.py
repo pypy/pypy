@@ -35,8 +35,11 @@ working_modules.update([
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "cppyy", "_pypyjson", "_vmprof"
+    "_csv", "cppyy", "_pypyjson"
 ])
+
+if sys.platform.startswith('linux') and sys.maxint > 2147483647:
+    working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
