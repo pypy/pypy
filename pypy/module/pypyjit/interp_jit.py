@@ -35,6 +35,9 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
+def get_unique_id(next_instr, is_being_profiled, bytecode):
+    return bytecode._unique_id
+
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
@@ -45,6 +48,7 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
+                              get_unique_id = get_unique_id,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
                               name='pypyjit')
