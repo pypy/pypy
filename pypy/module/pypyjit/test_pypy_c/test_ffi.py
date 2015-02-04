@@ -333,7 +333,6 @@ class Test__ffi(BaseTestPyPyC):
         p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
         i112 = int_signext(i160, 2)
-        setfield_gc(p167, ConstPtr(null), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
