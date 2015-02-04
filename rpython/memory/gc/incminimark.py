@@ -1489,6 +1489,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # The following counter keeps track of alive and pinned young objects
         # inside the nursery. We reset it here and increace it in
         # '_trace_drag_out()'.
+        any_pinned_objects_in_nursery = (self.pinned_objects_in_nursery > 0)
         self.pinned_objects_in_nursery = 0
         #
         # Before everything else, remove from 'old_objects_pointing_to_young'
@@ -1513,7 +1514,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # are copied out or flagged.  They are also added to the list
         # 'old_objects_pointing_to_young'.
         self.nursery_surviving_size = 0
-        self.collect_roots_in_nursery()
+        self.collect_roots_in_nursery(any_pinned_objects_in_nursery)
         #
         # visit all objects that are known for pointing to pinned
         # objects. This way we populate 'surviving_pinned_objects'
@@ -1649,7 +1650,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
         self.trace(obj, self._trace_drag_out, obj)
 
-    def collect_roots_in_nursery(self):
+    def collect_roots_in_nursery(self, any_pinned_objects_in_nursery):
         # we don't need to trace prebuilt GcStructs during a minor collect:
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
@@ -1659,11 +1660,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
             callback = IncrementalMiniMarkGC._trace_drag_out1_marking_phase
         else:
             callback = IncrementalMiniMarkGC._trace_drag_out1
+        #
+        # Note a subtlety: if the nursery contains pinned objects right
+        # now, we can't use the "is_minor=True" optimization.  We really
+        # need to walk the complete stack to be sure we still see them.
+        use_jit_frame_stoppers = not any_pinned_objects_in_nursery
+        #
         self.root_walker.walk_roots(
             callback,     # stack roots
             callback,     # static in prebuilt non-gc
             None,         # static in prebuilt gc
-            is_minor=True)
+            is_minor=use_jit_frame_stoppers)
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
