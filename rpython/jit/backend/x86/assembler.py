@@ -1995,7 +1995,7 @@ class Assembler386(BaseAssembler):
                     tmploc = edx
             self.mc.MOV(tmploc, threadlocal_loc)
             self.mc.AND_ri(tmploc.value, ~1)
-            threadlocal_ofs = tmploc
+            threadlocal_loc = tmploc
         #
         self.simple_call(addr, [argloc, threadlocal_loc])
 
