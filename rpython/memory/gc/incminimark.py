@@ -1662,7 +1662,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         self.root_walker.walk_roots(
             callback,     # stack roots
             callback,     # static in prebuilt non-gc
-            None)         # static in prebuilt gc
+            None,         # static in prebuilt gc
+            is_minor=True)
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):

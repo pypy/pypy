@@ -146,13 +146,22 @@ class LLInterpreter(object):
                            }
             return self._tlobj
 
-    def find_roots(self):
+    def find_roots(self, is_minor=False):
         """Return a list of the addresses of the roots."""
         #log.findroots("starting")
         roots = []
-        for frame in self.frame_stack:
+        for frame in reversed(self.frame_stack):
             #log.findroots("graph", frame.graph.name)
             frame.find_roots(roots)
+            # If two consecutive calls are both done with 'is_minor=True',
+            # we can stop after the first already-seen frame in the stack
+            # (which we still need to trace, but not its callers)
+            if is_minor:
+                if getattr(frame, '_find_roots_already_seen', False):
+                    break
+                frame._find_roots_already_seen = True
+            else:
+                frame._find_roots_already_seen = False
         return roots
 
     def find_exception(self, exc):

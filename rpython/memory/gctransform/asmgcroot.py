@@ -340,7 +340,7 @@ class AsmStackRootWalker(BaseRootWalker):
         # called first, to initialize self.belongs_to_current_thread.
         assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
         gcdata._gc_collect_stack_root = collect_stack_root
         pypy_asm_stackwalk(llhelper(ASM_CALLBACK_PTR, self._asm_callback),
