@@ -289,9 +289,9 @@ static int remove_sigprof_timer(void) {
 
 void vmprof_set_mainloop(void* func, ptrdiff_t sp_offset, 
                          vmprof_get_virtual_ip_t get_virtual_ip) {
-    vmprof_mainloop_func = func;
     mainloop_sp_offset = sp_offset;
     mainloop_get_virtual_ip = get_virtual_ip;
+    vmprof_mainloop_func = func;
 }
 
 int vmprof_enable(int fd, long period_usec, int write_header, char *s,
