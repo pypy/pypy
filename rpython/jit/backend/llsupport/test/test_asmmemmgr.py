@@ -2,6 +2,7 @@ import random
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from rpython.jit.backend.llsupport import asmmemmgr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import debug
 
@@ -157,6 +158,7 @@ class TestAsmMemoryManager:
         class FakeGcRootMap:
             def register_asm_addr(self, retaddr, mark):
                 puts.append((retaddr, mark))
+
         #
         mc = BlockBuilderMixin()
         mc.writechar('X')
@@ -262,3 +264,16 @@ def test_machinedatablock():
     md.done()
     assert allblocks == [(1597, 1697), (1797, 1835)]
     assert ops == [('free', 1835, 1897)]
+
+def test_find_jit_frame_depth():
+    mgr = AsmMemoryManager()
+    mgr.register_frame_depth_map(11, [0, 5, 10], [1, 2, 3])
+    mgr.register_frame_depth_map(30, [0, 5, 10], [4, 5, 6])
+    mgr.register_frame_depth_map(0, [0, 5, 10], [7, 8, 9])
+    asmmemmgr._memmngr = mgr
+    assert asmmemmgr.stack_depth_at_loc(13) == 1
+    assert asmmemmgr.stack_depth_at_loc(-3) == -1
+    assert asmmemmgr.stack_depth_at_loc(41) == -1
+    assert asmmemmgr.stack_depth_at_loc(5) == 8
+    assert asmmemmgr.stack_depth_at_loc(17) == 2
+    assert asmmemmgr.stack_depth_at_loc(38) == 5

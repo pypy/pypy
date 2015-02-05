@@ -9,6 +9,7 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
+from rpython.rlib.rweaklist import RWeakListMixin
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
@@ -366,6 +367,10 @@ class CannotHaveLock(Exception):
 
 # ____________________________________________________________
 
+class CodeObjWeakList(RWeakListMixin):
+    def __init__(self):
+        self.initialize()
+
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
@@ -389,6 +394,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
+        self.all_code_objs = CodeObjWeakList()
 
         # can be overridden to a subclass
         self.initialize()
@@ -666,6 +672,16 @@ class ObjSpace(object):
             assert ec is not None
             return ec
 
+    def register_code_object(self, pycode):
+        callback = self.getexecutioncontext().register_code_callback
+        if callback is not None:
+            callback(self, pycode)
+        self.all_code_objs.add_handle(pycode)
+
+    def set_code_callback(self, callback):
+        ec = self.getexecutioncontext()
+        ec.register_code_callback = callback
+        
     def _freeze_(self):
         return True
 
