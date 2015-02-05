@@ -102,6 +102,7 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
+    "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
     }
 
 def get_module_validator(modname):

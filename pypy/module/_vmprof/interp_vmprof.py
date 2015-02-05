@@ -3,7 +3,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import jit, rposix, entrypoint, rstruct
+from rpython.rlib import jit, rposix, entrypoint
+from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror, OperationError
@@ -48,6 +49,10 @@ else:
 
 eci = ExternalCompilationInfo(**eci_kwds)
 
+check_eci = eci.merge(ExternalCompilationInfo(separate_module_files=[
+    SRC.join('fake_pypy_api.c')]))
+
+platform.verify_eci(check_eci)
 
 pypy_execute_frame_trampoline = rffi.llexternal(
     "pypy_execute_frame_trampoline",
