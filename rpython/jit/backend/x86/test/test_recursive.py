@@ -2,7 +2,7 @@
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.backend.llsupport import asmmemmgr
-from rpython.jit.backend.llsupport.asmmemmgr import unpack_traceback
+from rpython.jit.backend.llsupport.codemap import unpack_traceback
 from rpython.jit.backend.x86.arch import WORD
 
 class TestRecursive(Jit386Mixin, RecursiveTests):

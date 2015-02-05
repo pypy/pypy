@@ -4,85 +4,10 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rbisect import bisect, bisect_tuple
-from rpython.rlib import rgc
-from rpython.rlib.entrypoint import jit_entrypoint
 
 _memmngr = None # global reference so we can use @entrypoint :/
-
-@jit_entrypoint([lltype.Signed], lltype.Signed,
-                c_name='pypy_jit_stack_depth_at_loc')
-@rgc.no_collect
-def stack_depth_at_loc(loc):
-    global _memmngr
-
-    pos = bisect(_memmngr.jit_addr_map, loc)
-    if pos == 0 or pos == len(_memmngr.jit_addr_map):
-        return -1
-    return _memmngr.jit_frame_depth_map[pos-1]
-
-@jit_entrypoint([], lltype.Signed, c_name='pypy_jit_start_addr')
-def jit_start_addr():
-    global _memmngr
-
-    return _memmngr.jit_addr_map[0]
-
-@jit_entrypoint([], lltype.Signed, c_name='pypy_jit_end_addr')
-def jit_end_addr():
-    global _memmngr
-
-    return _memmngr.jit_addr_map[-1]
-
-@jit_entrypoint([lltype.Signed], lltype.Signed,
-                c_name='pypy_find_codemap_at_addr')
-def find_codemap_at_addr(addr):
-    global _memmngr
-
-    res = bisect_tuple(_memmngr.jit_codemap, addr) - 1
-    if res == len(_memmngr.jit_codemap):
-        return -1
-    return res
-
-@jit_entrypoint([lltype.Signed, lltype.Signed,
-                 rffi.CArrayPtr(lltype.Signed)], lltype.Signed,
-                 c_name='pypy_yield_codemap_at_addr')
-def yield_bytecode_at_addr(codemap_no, addr, current_pos_addr):
-    """ will return consecutive unique_ids from codemap, starting from position
-    `pos` until addr
-    """
-    global _memmngr
-
-    codemap = _memmngr.jit_codemap[codemap_no]
-    current_pos = current_pos_addr[0]
-    start_addr = codemap[0]
-    rel_addr = addr - start_addr
-    while True:
-        if current_pos >= len(codemap[2]):
-            return 0
-        next_start = codemap[2][current_pos + 1]
-        if next_start > rel_addr:
-            return 0
-        next_stop = codemap[2][current_pos + 2]
-        if next_stop > rel_addr:
-            current_pos_addr[0] = current_pos + 4
-            return codemap[2][current_pos]
-        # we need to skip potentially more than one
-        current_pos = codemap[2][current_pos + 3]
-
-def unpack_traceback(addr):
-    codemap_pos = find_codemap_at_addr(addr)
-    assert codemap_pos >= 0
-    storage = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
-    storage[0] = 0
-    res = []
-    while True:
-        item = yield_bytecode_at_addr(codemap_pos, addr, storage)
-        if item == 0:
-            break
-        res.append(item)
-    lltype.free(storage, flavor='raw')
-    return res
 
 
 class AsmMemoryManager(object):
