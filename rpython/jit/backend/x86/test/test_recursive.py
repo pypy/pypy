@@ -1,15 +1,16 @@
 
-from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.backend.llsupport import asmmemmgr
 from rpython.jit.backend.llsupport.asmmemmgr import unpack_traceback
-from rpython.jit.metainterp.test.support import get_stats
+from rpython.jit.backend.x86.arch import WORD
 
 class TestRecursive(Jit386Mixin, RecursiveTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_recursive.py
-    def check_get_unique_id(self):            
+    def check_get_unique_id(self):
+        if WORD == 4:
+            return # this is 64 bit only check
         codemaps = asmmemmgr._memmngr.jit_codemap[:] # ups, sorting later
         assert len(codemaps) == 3
         codemaps.sort(lambda arg0, arg1: cmp(arg0[1], arg1[1]))
