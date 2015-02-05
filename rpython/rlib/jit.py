@@ -302,14 +302,13 @@ class GetVirtualizableTokenEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         T = hop.args_r[0].lowleveltype.TO
         v = hop.inputarg(hop.args_r[0], arg=0)
-        c_super = hop.inputconst(lltype.Void, 'super')
         while not hasattr(T, 'vable_token'):
             if not hasattr(T, 'super'):
                 # we're not really in a jitted build
                 return hop.inputconst(llmemory.GCREF,
                                       lltype.nullptr(llmemory.GCREF.TO))
-            v = hop.genop('getfield', [v, c_super], resulttype=T.super)
             T = T.super
+        v = hop.genop('cast_pointer', [v], resulttype=lltype.Ptr(T))
         c_vable_token = hop.inputconst(lltype.Void, 'vable_token')
         return hop.genop('getfield', [v, c_vable_token],
                          resulttype=llmemory.GCREF)
