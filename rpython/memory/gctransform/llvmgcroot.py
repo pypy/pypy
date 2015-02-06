@@ -122,7 +122,7 @@ class LLVMStackRootWalker(BaseRootWalker):
     def need_thread_support(self, gctransformer, getfn):
         pass
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         """Call `collect_stack_root()` for all gc roots on the stack.
 
         This is done by walking up the stack. For each safe point the hash
