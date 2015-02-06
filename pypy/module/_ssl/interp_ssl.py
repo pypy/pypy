@@ -1443,53 +1443,8 @@ class _SSLContext(W_Root):
                     "cafile and capath cannot be both omitted"))
         # load from cadata
         if cadata is not None:
-            biobuf = libssl_BIO_new_mem_buf(cadata, len(cadata))
-            if not biobuf:
-                raise ssl_error(space, "Can't allocate buffer")
-            try:
-                store = libssl_SSL_CTX_get_cert_store(self.ctx)
-                loaded = 0
-                while True:
-                    if ca_file_type == SSL_FILETYPE_ASN1:
-                        cert = libssl_d2i_X509_bio(
-                            biobuf, None)
-                    else:
-                        cert = libssl_PEM_read_bio_X509(
-                            biobuf, None, None, None)
-                    if not cert:
-                        break
-                    try:
-                        r = libssl_X509_STORE_add_cert(store, cert)
-                    finally:
-                        libssl_X509_free(cert)
-                    if not r:
-                        err = libssl_ERR_peek_last_error()
-                        if (libssl_ERR_GET_LIB(err) == ERR_LIB_X509 and
-                            libssl_ERR_GET_REASON(err) ==
-                            X509_R_CERT_ALREADY_IN_HASH_TABLE):
-                            # cert already in hash table, not an error
-                            libssl_ERR_clear_error()
-                        else:
-                            break
-                    loaded += 1
-
-                err = libssl_ERR_peek_last_error()
-                if (ca_file_type == SSL_FILETYPE_ASN1 and
-                    loaded > 0 and
-                    libssl_ERR_GET_LIB(err) == ERR_LIB_ASN1 and
-                    libssl_ERR_GET_REASON(err) == ASN1_R_HEADER_TOO_LONG):
-                    # EOF ASN1 file, not an error
-                    libssl_ERR_clear_error()
-                elif (ca_file_type == SSL_FILETYPE_PEM and
-                      loaded > 0 and
-                      libssl_ERR_GET_LIB(err) == ERR_LIB_PEM and
-                      libssl_ERR_GET_REASON(err) == PEM_R_NO_START_LINE):
-                    # EOF PEM file, not an error
-                    libssl_ERR_clear_error()
-                else:
-                    raise _ssl_seterror(space, None, 0)
-            finally:
-                libssl_BIO_free(biobuf)
+            with rffi.scoped_nonmovingbuffer(cadata) as buf:
+                self._add_ca_certs(space, buf, len(cadata), ca_file_type)
             
         # load cafile or capath
         if cafile is not None or capath is not None:
@@ -1504,6 +1459,55 @@ class _SSLContext(W_Root):
                                        exception_name = 'w_IOError')
                 else:
                     raise _ssl_seterror(space, None, -1)
+
+    def _add_ca_certs(self, space, data, size, ca_file_type):
+        biobuf = libssl_BIO_new_mem_buf(data, size)
+        if not biobuf:
+            raise ssl_error(space, "Can't allocate buffer")
+        try:
+            store = libssl_SSL_CTX_get_cert_store(self.ctx)
+            loaded = 0
+            while True:
+                if ca_file_type == SSL_FILETYPE_ASN1:
+                    cert = libssl_d2i_X509_bio(
+                        biobuf, None)
+                else:
+                    cert = libssl_PEM_read_bio_X509(
+                        biobuf, None, None, None)
+                if not cert:
+                    break
+                try:
+                    r = libssl_X509_STORE_add_cert(store, cert)
+                finally:
+                    libssl_X509_free(cert)
+                if not r:
+                    err = libssl_ERR_peek_last_error()
+                    if (libssl_ERR_GET_LIB(err) == ERR_LIB_X509 and
+                        libssl_ERR_GET_REASON(err) ==
+                        X509_R_CERT_ALREADY_IN_HASH_TABLE):
+                        # cert already in hash table, not an error
+                        libssl_ERR_clear_error()
+                    else:
+                        break
+                loaded += 1
+
+            err = libssl_ERR_peek_last_error()
+            if (ca_file_type == SSL_FILETYPE_ASN1 and
+                loaded > 0 and
+                libssl_ERR_GET_LIB(err) == ERR_LIB_ASN1 and
+                libssl_ERR_GET_REASON(err) == ASN1_R_HEADER_TOO_LONG):
+                # EOF ASN1 file, not an error
+                libssl_ERR_clear_error()
+            elif (ca_file_type == SSL_FILETYPE_PEM and
+                  loaded > 0 and
+                  libssl_ERR_GET_LIB(err) == ERR_LIB_PEM and
+                  libssl_ERR_GET_REASON(err) == PEM_R_NO_START_LINE):
+                # EOF PEM file, not an error
+                libssl_ERR_clear_error()
+            else:
+                raise _ssl_seterror(space, None, 0)
+        finally:
+            libssl_BIO_free(biobuf)
 
     def cert_store_stats_w(self, space):
         store = libssl_SSL_CTX_get_cert_store(self.ctx)
