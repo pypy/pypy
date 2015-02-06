@@ -9,18 +9,10 @@ from rpython.rlib.rarithmetic import intmask
 import py.test
 
 class LocationCodeBuilder32(CodeBuilder32, LocationCodeBuilder):
-    def force_frame_size(self, frame_size):
-        pass
-
-    def stack_frame_size_delta(self, delta):
-        pass
+    pass
 
 class LocationCodeBuilder64(CodeBuilder64, LocationCodeBuilder):
-    def force_frame_size(self, frame_size):
-        pass
-
-    def stack_frame_size_delta(self, delta):
-        pass
+    pass
 
 cb32 = LocationCodeBuilder32
 cb64 = LocationCodeBuilder64

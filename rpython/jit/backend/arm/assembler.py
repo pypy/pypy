@@ -57,7 +57,6 @@ class AssemblerARM(ResOpAssembler):
         BaseAssembler.setup_once(self)
 
     def setup(self, looptoken):
-        BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         if we_are_translated():
             self.debug = False
@@ -72,6 +71,7 @@ class AssemblerARM(ResOpAssembler):
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.current_clt = None
@@ -663,7 +663,6 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
@@ -884,12 +883,8 @@ class AssemblerARM(ResOpAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        size = self.mc.get_relative_pos() 
-        res = self.mc.materialize(self.cpu.asmmemmgr, allblocks,
+        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        self.cpu.asmmemmgr.register_codemap(
-            self.codemap.get_final_bytecode(res, size))
-        return res
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()

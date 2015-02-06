@@ -392,9 +392,6 @@ class Regalloc(BaseRegalloc):
         else:
             self.rm._sync_var(v)
 
-    def prepare_op_debug_merge_point(self, op, fcond):
-        self.assembler.codemap.debug_merge_point(op)
-
     def _prepare_op_int_add(self, op, fcond):
         boxes = op.getarglist()
         a0, a1 = boxes

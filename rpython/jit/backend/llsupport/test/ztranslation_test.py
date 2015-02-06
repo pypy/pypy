@@ -2,7 +2,7 @@ import os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
-from rpython.rlib.jit import promote, _get_virtualizable_token
+from rpython.rlib.jit import promote
 from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
@@ -28,14 +28,11 @@ class TranslationTest(CCompiledMixin):
         # - floats neg and abs
         # - llexternal with macro=True
 
-        class BasicFrame(object):
+        class Frame(object):
             _virtualizable_ = ['i']
 
             def __init__(self, i):
                 self.i = i
-
-        class Frame(BasicFrame):
-            pass
 
         eci = ExternalCompilationInfo(post_include_bits=['''
 #define pypy_my_fabs(x)  fabs(x)
@@ -62,7 +59,6 @@ class TranslationTest(CCompiledMixin):
             while frame.i > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total, j=j)
                 jitdriver.jit_merge_point(frame=frame, total=total, j=j)
-                _get_virtualizable_token(frame)
                 total += frame.i
                 if frame.i >= 20:
                     frame.i -= 2

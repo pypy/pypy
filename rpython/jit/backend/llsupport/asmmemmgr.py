@@ -4,10 +4,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rbisect import bisect, bisect_tuple
-
-_memmngr = None # global reference so we can use @entrypoint :/
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
 class AsmMemoryManager(object):
@@ -27,12 +24,6 @@ class AsmMemoryManager(object):
         self.free_blocks = {}      # map {start: stop}
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
-        # two lists of jit addresses (sorted) and the corresponding stack
-        # depths
-        self.jit_addr_map = []
-        self.jit_frame_depth_map = []
-        self.jit_codemap = []
-        # see codemap.py
 
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
@@ -54,13 +45,6 @@ class AsmMemoryManager(object):
         if r_uint is not None:
             self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
-        # fix up jit_addr_map
-        jit_adr_start = bisect(self.jit_addr_map, start)
-        jit_adr_stop = bisect(self.jit_addr_map, stop)
-        self.jit_addr_map = (self.jit_addr_map[:jit_adr_start] +
-                             self.jit_addr_map[jit_adr_stop:])
-        self.jit_frame_depth_map = (self.jit_frame_depth_map[:jit_adr_start] +
-                                    self.jit_frame_depth_map[jit_adr_stop:])
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
@@ -167,35 +151,6 @@ class AsmMemoryManager(object):
         del self.free_blocks_end[stop]
         return (start, stop)
 
-    def register_frame_depth_map(self, rawstart, frame_positions,
-                                 frame_assignments):
-        if not frame_positions:
-            return
-        if not self.jit_addr_map or rawstart > self.jit_addr_map[-1]:
-            start = len(self.jit_addr_map)
-            self.jit_addr_map += [0] * len(frame_positions)
-            self.jit_frame_depth_map += [0] * len(frame_positions)
-        else:
-            start = bisect(self.jit_addr_map, rawstart)
-            self.jit_addr_map = (self.jit_addr_map[:start] +
-                                 [0] * len(frame_positions) +
-                                 self.jit_addr_map[start:])
-            self.jit_frame_depth_map = (self.jit_frame_depth_map[:start] +
-                                 [0] * len(frame_positions) +
-                                 self.jit_frame_depth_map[start:])
-        for i, pos in enumerate(frame_positions):
-            self.jit_addr_map[i + start] = pos + rawstart
-            self.jit_frame_depth_map[i + start] = frame_assignments[i]
-
-    def register_codemap(self, codemap):
-        start = codemap[0]
-        pos = bisect_tuple(self.jit_codemap, start)
-        if pos == len(self.jit_codemap): # common case
-            self.jit_codemap.append(codemap)
-        else:
-            self.jit_codemap = (self.jit_codemap[:pos] + [codemap] +
-                                self.jit_codemap[pos:])
-
     def _delete(self):
         "NOT_RPYTHON"
         if self._allocated:
@@ -254,9 +209,6 @@ class BlockBuilderMixin(object):
     SUBBLOCK_PTR.TO.become(SUBBLOCK)
 
     gcroot_markers = None
-
-    frame_positions = None
-    frame_assignments = None
 
     def __init__(self, translated=None):
         if translated is None:
@@ -359,10 +311,6 @@ class BlockBuilderMixin(object):
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
                 gcrootmap.register_asm_addr(rawstart + pos, mark)
-        asmmemmgr.register_frame_depth_map(rawstart, self.frame_positions,
-                                           self.frame_assignments)
-        self.frame_positions = None
-        self.frame_assignments = None
         return rawstart
 
     def _become_a_plain_block_builder(self):

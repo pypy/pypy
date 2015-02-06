@@ -4212,4 +4212,3 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             assert res == f(42)
             opname = "instance_ptr_%s" % cmp
             self.check_operations_history(**{opname: 0})
-

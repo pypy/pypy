@@ -280,39 +280,6 @@ def we_are_jitted():
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
 
-def _get_virtualizable_token(frame):
-    """ An obscure API to get vable token.
-    Used by _vmprof
-    """
-    from rpython.rtyper.lltypesystem import lltype, llmemory
-    
-    return lltype.nullptr(llmemory.GCREF.TO)
-
-class GetVirtualizableTokenEntry(ExtRegistryEntry):
-    _about_ = _get_virtualizable_token
-
-    def compute_result_annotation(self, s_arg):
-        from rpython.rtyper.llannotation import SomePtr
-        from rpython.rtyper.lltypesystem import llmemory
-        return SomePtr(llmemory.GCREF)
-
-    def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import lltype, llmemory
-
-        hop.exception_cannot_occur()
-        T = hop.args_r[0].lowleveltype.TO
-        v = hop.inputarg(hop.args_r[0], arg=0)
-        while not hasattr(T, 'vable_token'):
-            if not hasattr(T, 'super'):
-                # we're not really in a jitted build
-                return hop.inputconst(llmemory.GCREF,
-                                      lltype.nullptr(llmemory.GCREF.TO))
-            T = T.super
-        v = hop.genop('cast_pointer', [v], resulttype=lltype.Ptr(T))
-        c_vable_token = hop.inputconst(lltype.Void, 'vable_token')
-        return hop.genop('getfield', [v, c_vable_token],
-                         resulttype=llmemory.GCREF)
-
 class Entry(ExtRegistryEntry):
     _about_ = we_are_jitted
 
@@ -533,8 +500,7 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True,
-                 get_unique_id=None):
+                 name='jitdriver', check_untranslated=True):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -566,9 +532,6 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
-        if get_unique_id is None:
-            get_unique_id = lambda *args: 0
-        self.get_unique_id = get_unique_id
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
