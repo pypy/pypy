@@ -1072,7 +1072,7 @@ class ListComprehensionDetector(object):
                         link.target in stopblocks):
                         hints['exactlength'] = True
                     chints = Constant(hints)
-                    newblock = unsimplify.insert_empty_block(None, link)
+                    newblock = unsimplify.insert_empty_block(link)
                     index = link.args.index(vlist)
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)

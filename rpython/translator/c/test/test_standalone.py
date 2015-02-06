@@ -808,12 +808,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, shared=True)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
-        if os.name == 'posix':
-            library_path = cbuilder.shared_library_name.dirpath()
-            if sys.platform == 'darwin':
-                monkeypatch.setenv('DYLD_LIBRARY_PATH', library_path)
-            else:
-                monkeypatch.setenv('LD_LIBRARY_PATH', library_path)
+        #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
 
@@ -1166,10 +1161,10 @@ class TestThread(object):
                 self.tail = tail
 
         def check_errno(value):
-            rposix.set_errno(value)
+            rposix.set_saved_errno(value)
             for i in range(10000000):
                 pass
-            assert rposix.get_errno() == value
+            assert rposix.get_saved_errno() == value
 
         def bootstrap():
             rthread.gc_thread_start()

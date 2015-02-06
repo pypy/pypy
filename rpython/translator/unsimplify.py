@@ -7,7 +7,7 @@ def varoftype(concretetype, name=None):
     var.concretetype = concretetype
     return var
 
-def insert_empty_block(annotator, link, newops=[]):
+def insert_empty_block(link, newops=[]):
     """Insert and return a new block along the given link."""
     vars = {}
     for v in link.args:
@@ -30,7 +30,7 @@ def insert_empty_block(annotator, link, newops=[]):
     link.target = newblock
     return newblock
 
-def insert_empty_startblock(annotator, graph):
+def insert_empty_startblock(graph):
     vars = [v.copy() for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
@@ -41,7 +41,7 @@ def starts_with_empty_block(graph):
             and graph.startblock.exitswitch is None
             and graph.startblock.exits[0].args == graph.getargs())
 
-def split_block(annotator, block, index, _forcelink=None):
+def split_block(block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables
     passed on.
@@ -122,7 +122,7 @@ def split_block(annotator, block, index, _forcelink=None):
     block.exitswitch = None
     return link
 
-def remove_double_links(annotator, graph):
+def remove_double_links(graph):
     """This can be useful for code generators: it ensures that no block has
     more than one incoming links from one and the same other block. It allows
     argument passing along links to be implemented with phi nodes since the
@@ -136,7 +136,7 @@ def remove_double_links(annotator, graph):
                 double_links.append(link)
             seen[link.target] = True
         for link in double_links:
-            insert_empty_block(annotator, link)
+            insert_empty_block(link)
 
 def no_links_to_startblock(graph):
     """Ensure no links to start block."""

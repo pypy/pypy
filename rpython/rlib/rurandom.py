@@ -35,14 +35,16 @@ if sys.platform == 'win32':
          rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
         rwin32.BOOL,
         calling_conv='win',
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     CryptGenRandom = rffi.llexternal(
         'CryptGenRandom',
         [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
         rwin32.BOOL,
         calling_conv='win',
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def init_urandom():
         """NOT_RPYTHON
@@ -60,14 +62,14 @@ if sys.platform == 'win32':
             if not CryptAcquireContext(
                 context, None, None,
                 PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
+                raise rwin32.lastSavedWindowsError("CryptAcquireContext")
             provider = context[0]
         # TODO(win64) This is limited to 2**31
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,
                                  zero=True, # zero seed
                                  ) as buf:
             if not CryptGenRandom(provider, n, buf):
-                raise rwin32.lastWindowsError("CryptGenRandom")
+                raise rwin32.lastSavedWindowsError("CryptGenRandom")
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)
 

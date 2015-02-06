@@ -2994,6 +2994,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(3).ravel() == arange(3)).all()
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
+        assert (arange(3).ravel('K') == arange(3)).all()
 
     def test_nonzero(self):
         from numpy import array

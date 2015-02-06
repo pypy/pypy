@@ -117,9 +117,7 @@ class OptRewrite(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
-            # Synthesize the reverse ops for optimize_default to reuse
-            self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
-            self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+            self.optimizer.pure_reverse(op)
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -132,10 +130,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-            self.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
-            # Synthesize the reverse op for optimize_default to reuse
-            self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
-            self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+            self.optimizer.pure_reverse(op)
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -222,7 +217,7 @@ class OptRewrite(Optimization):
                     ))
                     return
         self.emit_operation(op)
-        self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
+        self.optimizer.pure_reverse(op)
 
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
@@ -244,9 +239,8 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def optimize_FLOAT_NEG(self, op):
-        v1 = op.getarg(0)
         self.emit_operation(op)
-        self.pure(rop.FLOAT_NEG, [op.result], v1)
+        self.optimizer.pure_reverse(op)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.getarg(0))
@@ -583,11 +577,11 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def optimize_CAST_PTR_TO_INT(self, op):
-        self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+        self.optimizer.pure_reverse(op)
         self.emit_operation(op)
 
     def optimize_CAST_INT_TO_PTR(self, op):
-        self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        self.optimizer.pure_reverse(op)
         self.emit_operation(op)
 
     def optimize_SAME_AS(self, op):

@@ -20,8 +20,8 @@ class TestFFI(backend_tests.BackendTests,
         ffi.cdef("struct foo_s { int a,b,c,d,e; int x:1; };")
         e = py.test.raises(NotImplementedError, ffi.callback,
                            "struct foo_s foo(void)", lambda: 42)
-        assert str(e.value) == ("<struct foo_s(*)(void)>: "
-            "cannot pass as argument or return value a struct with bit fields")
+        assert str(e.value) == ("struct foo_s(*)(): "
+            "callback with unsupported argument or return type or with '...'")
 
     def test_inspecttype(self):
         ffi = FFI(backend=self.Backend())
@@ -123,7 +123,7 @@ class TestBitfield:
         self.check("int a:2; short b:15; char c:2; char y;", 5, 4, 8)
         self.check("int a:2; char b:1; char c:1; char y;", 1, 4, 4)
 
-    @pytest.mark.skipif("platform.machine().startswith('arm')")
+    @pytest.mark.skipif("platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_anonymous_no_align(self):
         L = FFI().alignof("long long")
         self.check("char y; int :1;", 0, 1, 2)
@@ -136,7 +136,8 @@ class TestBitfield:
         self.check("char x; long long z:57; char y;", L + 8, L, L + 8 + L)
         self.check("char x; long long  :57; char y;", L + 8, 1, L + 9)
 
-    @pytest.mark.skipif("not platform.machine().startswith('arm')")
+    @pytest.mark.skipif(
+        "not platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_anonymous_align_arm(self):
         L = FFI().alignof("long long")
         self.check("char y; int :1;", 0, 4, 4)
@@ -149,7 +150,7 @@ class TestBitfield:
         self.check("char x; long long z:57; char y;", L + 8, L, L + 8 + L)
         self.check("char x; long long  :57; char y;", L + 8, L, L + 8 + L)
 
-    @pytest.mark.skipif("platform.machine().startswith('arm')")
+    @pytest.mark.skipif("platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_zero(self):
         L = FFI().alignof("long long")
         self.check("char y; int :0;", 0, 1, 4)
@@ -160,7 +161,8 @@ class TestBitfield:
         self.check("char x; int :0; short b:1; char y;", 5, 2, 6)
         self.check("int a:1; int :0; int b:1; char y;", 5, 4, 8)
 
-    @pytest.mark.skipif("not platform.machine().startswith('arm')")
+    @pytest.mark.skipif(
+        "not platform.machine().startswith(('arm', 'aarch64'))")
     def test_bitfield_zero_arm(self):
         L = FFI().alignof("long long")
         self.check("char y; int :0;", 0, 4, 4)
@@ -212,3 +214,12 @@ class TestBitfield:
         code, message = ffi.getwinerror(-1)
         assert code == 2
         assert message == "The system cannot find the file specified"
+
+    def test_from_buffer(self):
+        import array
+        ffi = FFI()
+        a = array.array('H', [10000, 20000, 30000])
+        c = ffi.from_buffer(a)
+        assert ffi.typeof(c) is ffi.typeof("char[]")
+        ffi.cast("unsigned short *", c)[1] += 500
+        assert list(a) == [10000, 20500, 30000]

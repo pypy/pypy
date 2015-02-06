@@ -1877,7 +1877,7 @@ class TestAnnotateTestCase:
                 return None
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
-        assert s.knowntype == dict
+        assert s.knowntype == annmodel.SomeOrderedDict.knowntype
 
     def test_const_list_and_none(self):
         def g(l=None):

@@ -952,7 +952,7 @@ class FunctionWriter(object):
                 for link in block.exits:
                     link.args = [rename.get(v, v) for v in link.args]
 
-        remove_double_links(genllvm.translator.annotator, graph)
+        remove_double_links(graph)
         no_links_to_startblock(graph)
         remove_same_as(graph)
         SSI_to_SSA(graph)

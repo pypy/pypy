@@ -254,11 +254,15 @@ class OptimizingVisitor(ast.ASTVisitor):
         return rep
 
     def visit_Name(self, name):
-        # Turn loading None into a constant lookup.  Eventaully, we can do this
-        # for True and False, too.
+        # Turn loading None into a constant lookup.  We cannot do this
+        # for True and False, because rebinding them is allowed (2.7).
         if name.id == "None":
-            assert name.ctx == ast.Load
-            return ast.Const(self.space.w_None, name.lineno, name.col_offset)
+            # The compiler refuses to parse "None = ...", but "del None"
+            # is allowed (if pointless).  Check anyway: custom asts that
+            # correspond to "None = ..." can be made by hand.
+            if name.ctx == ast.Load:
+                return ast.Const(self.space.w_None, name.lineno,
+                                 name.col_offset)
         return name
 
     def visit_Tuple(self, tup):
