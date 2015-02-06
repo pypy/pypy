@@ -1539,6 +1539,12 @@ class FunctionWriter(object):
             database.f.write('declare i8* @_rpy_tls_addr()\n')
         self.w('{result.V} = call i8* @_rpy_tls_addr()'.format(**locals()))
 
+    def op_likely(self, result, cond):
+        self.w('{result.V} = bitcast {cond.TV} to {result.T}'.format(**locals()))
+
+    def op_unlikely(self, result, cond):
+        self.w('{result.V} = bitcast {cond.TV} to {result.T}'.format(**locals()))
+
 
 class GCPolicy(object):
     def __init__(self, genllvm):
