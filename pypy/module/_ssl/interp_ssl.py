@@ -1092,8 +1092,14 @@ def _password_callback(buf, size, rwflag, userdata):
     password = ""
     if pw_info.w_callable:
         try:
-            password = pw_info.space.str_w(
-                space.call_function(pw_info.w_callable))
+            w_result = space.call_function(pw_info.w_callable)
+            try:
+                password = pw_info.space.bufferstr_w(w_result)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise oefmt(space.w_TypeError, 
+                            "password callback must return a string")
         except OperationError as e:
             pw_info.operationerror = e
             return rffi.cast(rffi.INT, -1)
@@ -1328,13 +1334,18 @@ class _SSLContext(W_Root):
             if space.is_true(space.callable(w_password)):
                 pw_info.w_callable = w_password
             else:
-                pw_info.password = space.str_w(w_password)
+                try:
+                    pw_info.password = space.bufferstr_w(w_password)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    raise oefmt(space.w_TypeError, 
+                                "password should be a string or callable")
 
             libssl_SSL_CTX_set_default_passwd_cb(
                 self.ctx, _password_callback)
             libssl_SSL_CTX_set_default_passwd_cb_userdata(
                 self.ctx, rffi.cast(rffi.VOIDP, index))
-
 
         try:
             set_errno(0)
