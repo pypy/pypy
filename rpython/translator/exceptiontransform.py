@@ -259,7 +259,7 @@ class ExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            splitlink = split_block(None, block, i+1)
+            splitlink = split_block(block, i+1)
             afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
@@ -432,7 +432,7 @@ class ExceptionTransformer(object):
 
         if insert_zeroing_op:
             if normalafterblock is None:
-                normalafterblock = insert_empty_block(None, l0)
+                normalafterblock = insert_empty_block(l0)
             v_result = spaceop.result
             if v_result in l0.args:
                 result_i = l0.args.index(v_result)

@@ -107,7 +107,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """
     # split the block just before the jit_merge_point()
     if portalopindex > 0:
-        link = split_block(None, portalblock, portalopindex)
+        link = split_block(portalblock, portalopindex)
         portalblock = link.target
     portalop = portalblock.operations[0]
     # split again, this time enforcing the order of the live vars
@@ -115,7 +115,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     assert portalop.opname == 'jit_marker'
     assert portalop.args[0].value == 'jit_merge_point'
     greens_v, reds_v = decode_hp_hint_args(portalop)
-    link = split_block(None, portalblock, 0, greens_v + reds_v)
+    link = split_block(portalblock, 0, greens_v + reds_v)
     return link.target
 
 def sort_vars(args_v):

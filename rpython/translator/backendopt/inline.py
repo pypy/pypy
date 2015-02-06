@@ -396,7 +396,7 @@ class BaseInliner(object):
         copiedexceptblock.recloseblock(Link(linkargs, blocks[0]))
 
     def do_inline(self, block, index_operation):
-        splitlink = split_block(None, block, index_operation)
+        splitlink = split_block(block, index_operation)
         afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
