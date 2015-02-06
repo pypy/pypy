@@ -1545,6 +1545,13 @@ class FunctionWriter(object):
     def op_unlikely(self, result, cond):
         self.w('{result.V} = bitcast {cond.TV} to {result.T}'.format(**locals()))
 
+    def op_length_of_simple_gcarray_from_opaque(self, result, ptr):
+        array_type = ArrayType()
+        array_type.setup(LLVMVoid, True)
+        tmp = self._tmp(PtrType.tmp(array_type))
+        self._cast(tmp, ptr)
+        self.op_getarraysize(result, tmp)
+
 
 class GCPolicy(object):
     def __init__(self, genllvm):
