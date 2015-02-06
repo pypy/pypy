@@ -235,6 +235,11 @@ class PyPyTarget(object):
 
         config.translation.suggest(check_str_without_nul=True)
         config.translation.suggest(shared=True)
+        if config.translation.shared:
+            if config.translation.output is not None:
+                raise Exception("Cannot use the --output option with PyPy "
+                                "when --shared is on (it is by default). "
+                                "See issue #1971.")
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

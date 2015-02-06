@@ -151,9 +151,7 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--dont-write-c-files"),
     ArbitraryOption("instrumentctl", "internal",
                default=None),
-    StrOption("output", "Output file name (don't change for PyPy!"
-              " doesn't work with virtualenv+shared: issue 1971)",
-              cmdline="--really-force-output"),
+    StrOption("output", "Output file name", cmdline="--output"),
     StrOption("secondaryentrypoints",
             "Comma separated list of keys choosing secondary entrypoints",
             cmdline="--entrypoints", default="main"),
