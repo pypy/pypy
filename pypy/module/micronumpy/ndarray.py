@@ -334,8 +334,12 @@ class __extend__(W_NDimArray):
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
-            arr.implementation = arr.implementation.reshape(self, new_shape)
-            assert arr.implementation
+            new_implementation = arr.implementation.reshape(self, new_shape)
+            if new_implementation is None:
+                raise oefmt(space.w_ValueError,
+                            'could not reshape array of size %d to shape %s',
+                            arr.get_size(), str(new_shape))
+            arr.implementation = new_implementation
         else:
             arr.implementation.shape = new_shape
         return arr
