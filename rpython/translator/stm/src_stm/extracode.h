@@ -1,3 +1,5 @@
+#include <string.h>
+
 
 static void _stm_call_finalizer(object_t *obj)
 {
