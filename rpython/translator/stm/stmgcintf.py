@@ -19,5 +19,3 @@ eci = ExternalCompilationInfo(
 
 GCPTR = lltype.Ptr(rffi.COpaque('rpyobj_t',
                                 hints={"is_stm_header": True}))
-CALLBACK_TX = lltype.Ptr(lltype.FuncType([GCPTR, rffi.INT_real],
-                                         rffi.INT_real))

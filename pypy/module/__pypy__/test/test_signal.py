@@ -4,7 +4,7 @@ from pypy.module.thread.test.support import GenericTestThread
 
 
 class AppTestMinimal:
-    spaceconfig = dict(usemodules=['__pypy__'])
+    spaceconfig = dict(usemodules=['__pypy__', 'thread'])
 
     def test_signal(self):
         from __pypy__ import thread

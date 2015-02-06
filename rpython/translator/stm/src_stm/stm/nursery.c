@@ -267,7 +267,8 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 
                 /* mark slot as unread (it can only have the read marker
                    in this segment) */
-                *((char *)(pseg->pub.segment_base + (((uintptr_t)obj) >> 4))) = 0;
+                ((struct stm_read_marker_s *)
+                 (pseg->pub.segment_base + (((uintptr_t)obj) >> 4)))->rm = 0;
 
                 _stm_large_free(stm_object_pages + item->addr);
             } TREE_LOOP_END;

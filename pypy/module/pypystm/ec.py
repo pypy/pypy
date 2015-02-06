@@ -20,7 +20,7 @@ def initialize_execution_context(ec):
     """Called from ExecutionContext.__init__()."""
     if ec.space.config.translation.rweakref:
         from rpython.rlib import rweakref
-        from pypy.module._stm.local import STMLocal
+        from pypy.module.pypystm.local import STMLocal
         ec._thread_local_dicts = rweakref.RWeakKeyDictionary(STMLocal, W_Root)
     else:
         ec._thread_local_dicts = FakeWeakKeyDictionary()

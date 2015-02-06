@@ -25,7 +25,18 @@
 
 typedef TLPREFIX struct object_s object_t;
 typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
+typedef TLPREFIX struct stm_read_marker_s stm_read_marker_t;
 typedef TLPREFIX char stm_char;
+
+struct stm_read_marker_s {
+    /* In every segment, every object has a corresponding read marker.
+       We assume that objects are at least 16 bytes long, and use
+       their address divided by 16.  The read marker is equal to
+       'STM_SEGMENT->transaction_read_version' if and only if the
+       object was read in the current transaction.  The nurseries
+       also have corresponding read markers, but they are never used. */
+    uint8_t rm;
+};
 
 struct stm_segment_info_s {
     uint8_t transaction_read_version;
@@ -81,7 +92,6 @@ bool _stm_was_written(object_t *obj);
 
 bool _stm_is_accessible_page(uintptr_t pagenum);
 
-long stm_can_move(object_t *obj);
 void _stm_test_switch(stm_thread_local_t *tl);
 void _stm_test_switch_segment(int segnum);
 void _push_obj_to_other_segments(object_t *obj);
@@ -150,7 +160,8 @@ void stmcb_trace(struct object_s *obj, void visit(object_t **));
 __attribute__((always_inline))
 static inline void stm_read(object_t *obj)
 {
-    *((stm_char *)(((uintptr_t)obj) >> 4)) = STM_SEGMENT->transaction_read_version;
+    ((stm_read_marker_t *)(((uintptr_t)obj) >> 4))->rm =
+        STM_SEGMENT->transaction_read_version;
 }
 
 __attribute__((always_inline))
@@ -226,6 +237,8 @@ void stm_collect(long level);
 long stm_identityhash(object_t *obj);
 long stm_id(object_t *obj);
 void stm_set_prebuilt_identityhash(object_t *obj, long hash);
+
+long stm_can_move(object_t *obj);
 
 object_t *stm_setup_prebuilt(object_t *);
 object_t *stm_setup_prebuilt_weakref(object_t *);

@@ -5,7 +5,6 @@ from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from rpython.jit.backend.llsupport.gcmap import extract_raw_stm_location
 from rpython.jit.metainterp.history import Const, Box, VOID
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
@@ -401,19 +400,23 @@ class Assembler386(BaseAssembler):
                 # current 'stm_location' so that it is found.  The easiest
                 # is to simply push it on the shadowstack, from its source
                 # location as two extra arguments on the machine stack
-                # (at this point containing: [retaddr][ref][num][obj]...)
+                # (at this point containing:  [usual STM_FRAME_FIXED_SIZE]
+                #                             [obj]
+                #                             [num]
+                #                             [ref]
+                #                             [retaddr])
                 # XXX this should also be done if 'for_frame' is true...
-                mc.MOV(esi, self.heap_shadowstack_top())
+                mc.MOV_rs(esi.value, STM_SHADOWSTACK_BASE_OFS + 4 * WORD)
+                # esi = base address in the shadowstack + 1
+                # write the marker to [esi - 1] and [esi + 7]
                 mc.MOV_rs(edi.value, 2 * WORD)   # [num]
                 # do here the 'num = (num<<1) + 1' rather than at the caller
                 # site, to increase the chances that it can use PUSH_i8
                 mc.LEA_ra(edi.value, (self.SEGMENT_NO, rx86.NO_BASE_REGISTER,
                                       edi.value, 1, +1))
-                mc.MOV_mr((self.SEGMENT_NO, esi.value, 0), edi.value)
+                mc.MOV_mr((self.SEGMENT_NO, esi.value, -1), edi.value)
                 mc.MOV_rs(edi.value, 1 * WORD)   # [ref]
-                mc.MOV_mr((self.SEGMENT_NO, esi.value, WORD), edi.value)
-                mc.LEA_rm(esi.value, (self.SEGMENT_NO, esi.value, 2 * WORD))
-                mc.MOV(self.heap_shadowstack_top(), esi)
+                mc.MOV_mr((self.SEGMENT_NO, esi.value, +7), edi.value)
                 mc.MOV_rs(edi.value, 3 * WORD)   # [obj]
             elif IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
@@ -463,11 +466,6 @@ class Assembler386(BaseAssembler):
         #
 
         if not for_frame:
-            if self.cpu.gc_ll_descr.stm:
-                # SUB touches CPU flags
-                mc.MOV(esi, self.heap_shadowstack_top())
-                mc.LEA_rm(esi.value, (self.SEGMENT_NO, esi.value, -2 * WORD))
-                mc.MOV(self.heap_shadowstack_top(), esi)
             if IS_X86_32:
                 # ADD touches CPU flags
                 mc.LEA_rs(esp.value, 2 * WORD)
@@ -870,9 +868,14 @@ class Assembler386(BaseAssembler):
         # again (ensured by the code calling the loop))
         mc = self.mc
         mc.MOV(ebx, self.heap_shadowstack_top())
-        mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0), ebp.value)
-                                                      # MOV [ebx], ebp
         if self.cpu.gc_ll_descr.stm:
+            # the first two words are usually the stm_location marker,
+            # but for now it can be invalid (as long as it's not fully
+            # random)
+            mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0 * WORD), ebp.value)
+            mc.MOV_mr((self.SEGMENT_NO, ebx.value, 1 * WORD), ebp.value)
+            mc.MOV_mr((self.SEGMENT_NO, ebx.value, 2 * WORD), ebp.value)
+
             # inlining stm_rewind_jmp_enterframe()
             r11 = X86_64_SCRATCH_REG
             rjh = self.heap_rjthread_head()
@@ -880,13 +883,15 @@ class Assembler386(BaseAssembler):
             mc.MOV(r11, rjh)                         # MOV r11, [rjthread.head]
             mc.MOV_sr(STM_SHADOWSTACK_BASE_OFS, ebx.value)
                                                      # MOV [esp+ssbase], ebx
-            mc.ADD_ri(ebx.value, WORD-1)             # ADD ebx, 7
+            mc.ADD_ri(ebx.value, 3*WORD-1)           # ADD ebx, 23
             mc.MOV_sr(STM_PREV_OFS, r11.value)       # MOV [esp+prev], r11
             mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
             mc.LEA_rs(r11.value, STM_JMPBUF_OFS)     # LEA r11, [esp+bufofs]
             mc.MOV(rjh, r11)                         # MOV [rjthread.head], r11
         #
         else:
+            mc.MOV_mr((self.SEGMENT_NO, ebx.value, 0), ebp.value)
+                                                     # MOV [ebx], ebp
             mc.ADD_ri(ebx.value, WORD)               # ADD ebx, WORD
             mc.MOV(self.heap_shadowstack_top(), ebx) # MOV [rootstacktop], ebx
 
@@ -1934,6 +1939,22 @@ class Assembler386(BaseAssembler):
         self.mc.JMP(imm(target))
         return startpos
 
+    def update_stm_location(self, mc, extra_stack=0):
+        if self.cpu.gc_ll_descr.stm:
+            num, ref = self._regalloc.extract_raw_stm_location()
+            mc.MOV_rs(r11.value, STM_SHADOWSTACK_BASE_OFS + extra_stack)
+            # r11 = base address in the shadowstack + 1
+            # write the marker to [r11 - 1] and [r11 + 7]
+            for (targetofs, number) in [(-1, 2 * num + 1), (+7, ref)]:
+                if rx86.fits_in_32bits(number):
+                    mc.MOV_mi((self.SEGMENT_NO, r11.value, targetofs), number)
+                else:
+                    mc.MOV32_mi((self.SEGMENT_NO, r11.value, targetofs),
+                                rffi.cast(lltype.Signed,
+                                          rffi.cast(rffi.INT, number)))
+                    mc.MOV32_mi((self.SEGMENT_NO, r11.value, targetofs + 4),
+                                number >> 32)
+
     def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):
         if push:
             mc.PUSH(imm(rffi.cast(lltype.Signed, gcmap)))
@@ -2267,10 +2288,9 @@ class Assembler386(BaseAssembler):
                 # still ok.  The one or three words pushed here are removed
                 # by the callee.
                 assert IS_X86_64
-                num, ref = extract_raw_stm_location(
-                    self._regalloc.stm_location)
-                mc.PUSH(imm(rffi.cast(lltype.Signed, num)))
-                mc.PUSH(imm(rffi.cast(lltype.Signed, ref)))
+                num, ref = self._regalloc.extract_raw_stm_location()
+                mc.PUSH(imm(num))
+                mc.PUSH(imm(ref))
         if is_frame and align_stack:
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))
@@ -2433,6 +2453,7 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         #
+        self.update_stm_location(self.mc)
         self.push_gcmap(self.mc, gcmap, store=True)
         #
         # first save away the 4 registers from 'cond_call_register_arguments'

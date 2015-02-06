@@ -1,5 +1,6 @@
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.rlib.objectmodel import CDefinedIntSymbolic, stm_ignored
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
@@ -181,27 +182,64 @@ _STM_HASHTABLE_P = rffi.COpaquePtr('stm_hashtable_t')
 _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
+_STM_HASHTABLE_ENTRY_P = lltype.Ptr(_STM_HASHTABLE_ENTRY)
+_STM_HASHTABLE_ENTRY_ARRAY = rffi.CArray(_STM_HASHTABLE_ENTRY_P)
 
 @dont_look_inside
-def ll_hashtable_get(h, key):
+def _ll_hashtable_get(h, key):
     # 'key' must be a plain integer.  Returns a GCREF.
     return llop.stm_hashtable_read(llmemory.GCREF, h, h.ll_raw_hashtable, key)
 
 @dont_look_inside
-def ll_hashtable_set(h, key, value):
+def _ll_hashtable_set(h, key, value):
     llop.stm_hashtable_write(lltype.Void, h, h.ll_raw_hashtable, key, value)
+
+@dont_look_inside
+def _ll_hashtable_len(h):
+    return llop.stm_hashtable_list(lltype.Signed, h, h.ll_raw_hashtable,
+                                   lltype.nullptr(_STM_HASHTABLE_ENTRY_ARRAY))
+
+@dont_look_inside
+def _ll_hashtable_list(h):
+    upper_bound = llop.stm_hashtable_length_upper_bound(lltype.Signed,
+                                                        h.ll_raw_hashtable)
+    array = lltype.malloc(_STM_HASHTABLE_ENTRY_ARRAY, upper_bound,
+                          flavor='raw')
+    count = llop.stm_hashtable_list(lltype.Signed, h, h.ll_raw_hashtable,
+                                    array)
+    return (array, count)
+
+@dont_look_inside
+def _ll_hashtable_freelist(h, array):
+    lltype.free(array, flavor='raw')
+
+@dont_look_inside
+def _ll_hashtable_lookup(h, key):
+    return llop.stm_hashtable_lookup(_STM_HASHTABLE_ENTRY_P,
+                                     h, h.ll_raw_hashtable, key)
 
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
-                                 adtmeths={'get': ll_hashtable_get,
-                                           'set': ll_hashtable_set})
+                                 rtti=True,
+                                 adtmeths={'get': _ll_hashtable_get,
+                                           'set': _ll_hashtable_set,
+                                           'len': _ll_hashtable_len,
+                                          'list': _ll_hashtable_list,
+                                      'freelist': _ll_hashtable_freelist,
+                                        'lookup': _ll_hashtable_lookup})
+NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
-def ll_hashtable_trace(gc, obj, callback, arg):
+def _ll_hashtable_trace(gc, obj, callback, arg):
     from rpython.memory.gctransform.stmframework import get_visit_function
     visit_fn = get_visit_function(callback, arg)
     addr = obj + llmemory.offsetof(_HASHTABLE_OBJ, 'll_raw_hashtable')
     llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
-lambda_hashtable_trace = lambda: ll_hashtable_trace
+lambda_hashtable_trace = lambda: _ll_hashtable_trace
+
+def _ll_hashtable_finalizer(h):
+    if h.ll_raw_hashtable:
+        llop.stm_hashtable_free(lltype.Void, h.ll_raw_hashtable)
+lambda_hashtable_finlz = lambda: _ll_hashtable_finalizer
 
 _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 
@@ -209,6 +247,8 @@ _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 def create_hashtable():
     if not we_are_translated():
         return HashtableForTest()      # for tests
+    rgc.register_custom_light_finalizer(_HASHTABLE_OBJ, lambda_hashtable_finlz)
+    rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
     # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
     # Make sure we see a malloc() of it, so that its typeid is correctly
     # initialized.  It can be done in a NonConstant(False) path so that
@@ -217,8 +257,8 @@ def create_hashtable():
         p = lltype.malloc(_STM_HASHTABLE_ENTRY)
     else:
         p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
-    rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
     h = lltype.malloc(_HASHTABLE_OBJ)
+    h.ll_raw_hashtable = lltype.nullptr(_STM_HASHTABLE_P.TO)
     h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
     return h
 
@@ -245,3 +285,33 @@ class HashtableForTest(object):
                 del self._content[key]
             except KeyError:
                 pass
+
+    def len(self):
+        return len(self._content)
+
+    def list(self):
+        items = [self.lookup(key) for key in self._content]
+        count = len(items)
+        for i in range(3):
+            items.append("additional garbage for testing")
+        return items, count
+
+    def freelist(self, array):
+        pass
+
+    def lookup(self, key):
+        assert type(key) is int
+        return EntryObjectForTest(self, key)
+
+class EntryObjectForTest(object):
+    def __init__(self, hashtable, key):
+        self.hashtable = hashtable
+        self.key = key
+        self.index = r_uint(key)
+
+    def _getobj(self):
+        return self.hashtable.get(self.key)
+    def _setobj(self, nvalue):
+        self.hashtable.set(self.key, nvalue)
+
+    object = property(_getobj, _setobj)

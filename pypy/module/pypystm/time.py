@@ -1,5 +1,5 @@
 """
-_stm.time(), _stm.clock()
+pypystm.time(), pypystm.clock()
 """
 
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -43,7 +43,7 @@ def time(space):
     """Similar to time.time(), but works without conflict.
 The drawback is that the returned times may appear out of order:
 this thread's transaction may commit before or after another thread's,
-while _stm.time() called by both may return results in the opposite
+while pypystm.time() called by both may return results in the opposite
 order (or even exactly equal results if you are unlucky)."""
     return space.wrap(pypy_clock_get_time())
 
@@ -51,6 +51,6 @@ def clock(space):
     """Similar to time.clock(), but works without conflict.
 The drawback is that the returned times may appear out of order:
 this thread's transaction may commit before or after another thread's,
-while _stm.time() called by both may return results in the opposite
+while pypystm.time() called by both may return results in the opposite
 order (or even exactly equal results if you are unlucky)."""
     return space.wrap(pypy_clock_get_clock())

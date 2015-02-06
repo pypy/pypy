@@ -18,6 +18,12 @@ import py
 log = py.log.Producer("flowgraph")
 py.log.setconsumer("flowgraph", ansi_log)
 
+try:
+    from pypystm import stmdict
+except ImportError:
+    stmdict = dict
+
+
 class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
@@ -38,7 +44,7 @@ class TranslationContext(object):
         self.rtyper = None
         self.exceptiontransformer = None
         self.graphs = []      # [graph]
-        self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
+        self.callgraph = stmdict()   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
 
     def buildflowgraph(self, func, mute_dot=False):

@@ -13,11 +13,17 @@ class LLSTMInevFrame(LLFrame):
         if self.llinterpreter.inevitable_cause is None:
             self.llinterpreter.inevitable_cause = info
 
-    def op_do_malloc_fixedsize_clear(self):
-        pass   # just to check that it doesn't turn inevitable
+    def op_gc_dump_rpy_heap(self):
+        pass    # for test_unsupported_op
 
+    def op_do_malloc_fixedsize(self):
+        pass
+    def op_do_malloc_fixedsize_clear(self):
+        pass
+    def op_do_malloc_varsize(self):
+        pass
     def op_do_malloc_varsize_clear(self):
-        pass   # just to check that it doesn't turn inevitable
+        pass
 
 
 class TestTransform:
@@ -52,10 +58,10 @@ class TestTransform:
         addr = llmemory.raw_malloc(llmemory.sizeof(X))
 
         def f1():
-            llmemory.raw_free(addr)
+            llop.gc_dump_rpy_heap(lltype.Void)
 
         res = self.interpret_inevitable(f1, [])
-        assert res == 'raw_free'
+        assert res == 'gc_dump_rpy_heap'
 
     def test_raw_getfield(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -120,7 +126,7 @@ class TestTransform:
             lltype.free(p, flavor='raw')
 
         res = self.interpret_inevitable(f1, [])
-        assert res == 'free'
+        assert res is None
 
     def test_raw_malloc_2(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -130,7 +136,7 @@ class TestTransform:
             llmemory.raw_free(addr)
 
         res = self.interpret_inevitable(f1, [])
-        assert res == 'raw_free'
+        assert res is None
 
     def test_unknown_raw_free(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
@@ -138,7 +144,7 @@ class TestTransform:
             lltype.free(p, flavor='raw')
 
         res = self.interpret_inevitable(f2, [lltype.malloc(X, flavor='raw')])
-        assert res == 'free'
+        assert res is None
 
 
     def test_ext_direct_call_safe(self):
@@ -244,7 +250,7 @@ class TestTransform:
             return i
 
         res = self.interpret_inevitable(f, [2])
-        assert res == 'free' # not setfield or getfield
+        assert res is None   # not setfield or getfield or free
 
     def test_do_malloc_llops(self):
         def f(i):

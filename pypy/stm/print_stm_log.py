@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env pypy
 import sys
 import struct, re, linecache
 
@@ -45,13 +45,14 @@ for _key, _value in globals().items():
 
 class LogEntry(object):
     def __init__(self, timestamp, threadnum, otherthreadnum,
-                 event, marker1, marker2):
+                 event, marker1, marker2, frac):
         self.timestamp = timestamp
         self.threadnum = threadnum
         self.otherthreadnum = otherthreadnum
         self.event = event
         self.marker1 = marker1
         self.marker2 = marker2
+        self.frac = frac
 
     def __str__(self):
         s = '[%.3f][%s->%s]\t%s' % (
@@ -66,11 +67,13 @@ class LogEntry(object):
 
 def parse_log(filename):
     f = open(filename, 'rb')
-    result = []
     try:
         header = f.read(16)
         if header != "STMGC-C7-PROF01\n":
             raise ValueError("wrong format in file %r" % (filename,))
+        f.seek(0, 2)
+        frac = 1.0 / f.tell()
+        f.seek(16, 0)
         result = []
         while True:
             packet = f.read(19)
@@ -81,12 +84,11 @@ def parse_log(filename):
                 raise ValueError("the file %r appears corrupted" % (filename,))
             m1 = f.read(len1)
             m2 = f.read(len2)
-            result.append(LogEntry(sec + 0.000000001 * nsec,
-                                   threadnum, otherthreadnum, event, m1, m2))
+            yield LogEntry(sec + 0.000000001 * nsec,
+                           threadnum, otherthreadnum, event, m1, m2,
+                           f.tell() * frac)
     finally:
         f.close()
-    return result
-
 
 
 class ThreadState(object):
@@ -173,14 +175,18 @@ def percent(fraction, total):
         r = r.split('.')[0]
     return r + '%'
 
-def dump(logentries):
-    start_time, stop_time = logentries[0].timestamp, logentries[-1].timestamp
-    total_time = stop_time - start_time
-    print 'Total real time:             %.3fs' % (total_time,)
-    #
+def summarize_log_entries(logentries, stmlog):
     threads = {}
     conflicts = {}
+    cnt = 0
     for entry in logentries:
+        if (cnt & 0x7ffff) == 0:
+            if cnt == 0:
+                start_time = entry.timestamp
+            else:
+                print >> sys.stderr, '%.0f%%' % (entry.frac * 100.0,),
+        cnt += 1
+        #
         if entry.event == STM_TRANSACTION_START:
             t = threads.get(entry.threadnum)
             if t is None:
@@ -221,13 +227,28 @@ def dump(logentries):
             if t is not None and t.in_transaction():
                 t.transaction_unpause(entry)
     #
-    total_cpu_time = sum([v.cpu_time for v in threads.values()])
+    if cnt == 0:
+        raise Exception("empty file")
+    print >> sys.stderr
+    stop_time = entry.timestamp
+    stmlog.start_time = start_time
+    stmlog.total_time = stop_time - start_time
+    stmlog.threads = threads
+    stmlog.conflicts = conflicts
+
+def dump_summary(stmlog):
+    start_time = stmlog.start_time
+    total_time = stmlog.total_time
+    print
+    print 'Total real time:             %.3fs' % (total_time,)
+    #
+    total_cpu_time = stmlog.get_total_cpu_time()
     print 'Total CPU time in STM mode:  %.3fs (%s)' % (
         total_cpu_time, percent(total_cpu_time, total_time))
     print
     #
-    values = sorted(conflicts.values(), key=ConflictSummary.sortkey)
-    for c in values[-1:-15:-1]:
+    values = stmlog.get_conflicts()
+    for c in values[:15]:
         intervals = 48
         timeline = [0] * intervals
         for t in c.timestamps:
@@ -239,9 +260,32 @@ def dump(logentries):
         print
 
 
+class StmLog(object):
+    def __init__(self, filename):
+        summarize_log_entries(parse_log(filename), self)
+
+    def get_total_cpu_time(self):
+        return sum([v.cpu_time for v in self.threads.values()])
+
+    def get_conflicts(self):
+        values = self.conflicts.values()
+        values.sort(key=ConflictSummary.sortkey)
+        values.reverse()
+        return values
+
+    def get_total_aborts_and_pauses(self):
+        total = 0
+        for c in self.conflicts.values():
+            total += c.num_events
+        return total
+
+    def dump(self):
+        dump_summary(self)
+
+
 def main(argv):
     assert len(argv) == 1, "expected a filename argument"
-    dump(parse_log(argv[0]))
+    StmLog(argv[0]).dump()
     return 0
 
 if __name__ == '__main__':

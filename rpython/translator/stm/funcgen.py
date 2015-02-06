@@ -312,6 +312,28 @@ def stm_hashtable_write(funcgen, op):
     return ('stm_hashtable_write((object_t *)%s, %s, %s, (object_t *)%s, '
             '&stm_thread_local);' % (arg0, arg1, arg2, arg3))
 
+def stm_hashtable_lookup(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return '%s = stm_hashtable_lookup((object_t *)%s, %s, %s);' % (
+        result, arg0, arg1, arg2)
+
+def stm_hashtable_length_upper_bound(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = stm_hashtable_length_upper_bound(%s);' % (
+        result, arg0)
+
+def stm_hashtable_list(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return '%s = stm_hashtable_list((object_t *)%s, %s, %s);' % (
+        result, arg0, arg1, arg2)
+
 def stm_hashtable_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])

@@ -1,5 +1,5 @@
 """
-The '_stm.local' class, used for 'thread._local' with STM.
+The 'pypystm.local' class, used for 'thread._local' with STM.
 """
 
 from pypy.interpreter.gateway import W_Root, interp2app
@@ -10,7 +10,7 @@ from rpython.rlib.objectmodel import we_are_translated
 
 def _fill_untranslated(ec):
     if not we_are_translated() and not hasattr(ec, '_thread_local_dicts'):
-        from pypy.module._stm.ec import initialize_execution_context
+        from pypy.module.pypystm.ec import initialize_execution_context
         initialize_execution_context(ec)
 
 
@@ -67,7 +67,7 @@ class STMLocal(W_Root):
         # No arguments allowed
         pass
 
-STMLocal.typedef = TypeDef("_stm.local",
+STMLocal.typedef = TypeDef("pypystm.local",
                      __doc__ = "Thread-local data",
                      __new__ = interp2app(STMLocal.descr_local__new__.im_func),
                      __init__ = interp2app(STMLocal.descr_local__init__),

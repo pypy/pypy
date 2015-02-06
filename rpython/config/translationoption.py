@@ -26,6 +26,7 @@ else:
     ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
 
 IS_64_BITS = sys.maxint > 2147483647
+SUPPORT_STM = IS_64_BITS and sys.platform.startswith("linux")
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
     sys.platform.startswith("linux"))     # Linux works
@@ -118,7 +119,8 @@ translation_optiondescription = OptionDescription(
                suggests=[("translation.gc", "stmgc")],   # Boehm works too
                requires=[("translation.thread", True),
                          ("translation.continuation", False),  # XXX for now
-                         ]),
+                         ] + ([("'--stm requires 64-bit Linux!'", None)]
+                              if not SUPPORT_STM else [])),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],

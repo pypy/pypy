@@ -79,12 +79,14 @@ class Repr(object):
     def is_setup_delayed(self):
         return self._initialized == setupstate.DELAYED
 
-    def set_setup_delayed(self, flag):
+    def set_setup_delayed(self, flag, rtyper=None):
         assert self._initialized in (setupstate.NOTINITIALIZED,
                                      setupstate.DELAYED)
         if flag:
             self._initialized = setupstate.DELAYED
         else:
+            if self._initialized == setupstate.DELAYED:
+                rtyper._list_must_call_setup().append(self)
             self._initialized = setupstate.NOTINITIALIZED
 
     def set_setup_maybe_delayed(self):
