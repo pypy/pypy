@@ -1,3 +1,4 @@
+from rpython.rlib.rarithmetic import intmask
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._ssl import ssl_data
 
@@ -31,6 +32,8 @@ class Module(MixedModule):
         from pypy.module._ssl.interp_ssl import constants, HAVE_OPENSSL_RAND
 
         for constant, value in constants.iteritems():
+            if constant.startswith('OP_'):
+                value = intmask(value)  # Convert to C long and wrap around.
             Module.interpleveldefs[constant] = "space.wrap(%r)" % (value,)
 
         if HAVE_OPENSSL_RAND:
