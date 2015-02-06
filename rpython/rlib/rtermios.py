@@ -119,26 +119,34 @@ TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_
                            ('c_line', CC_T),
                            ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)), *_add)
 
-def c_external(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=eci)
+def c_external(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
 
-c_tcgetattr = c_external('tcgetattr', [rffi.INT, TERMIOSP], rffi.INT)
-c_tcsetattr = c_external('tcsetattr', [rffi.INT, rffi.INT, TERMIOSP], rffi.INT)
+c_tcgetattr = c_external('tcgetattr', [rffi.INT, TERMIOSP], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+c_tcsetattr = c_external('tcsetattr', [rffi.INT, rffi.INT, TERMIOSP], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)
 c_cfgetospeed = c_external('cfgetospeed', [TERMIOSP], SPEED_T)
-c_cfsetispeed = c_external('cfsetispeed', [TERMIOSP, SPEED_T], rffi.INT)
-c_cfsetospeed = c_external('cfsetospeed', [TERMIOSP, SPEED_T], rffi.INT)
+c_cfsetispeed = c_external('cfsetispeed', [TERMIOSP, SPEED_T], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+c_cfsetospeed = c_external('cfsetospeed', [TERMIOSP, SPEED_T], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
 
-c_tcsendbreak = c_external('tcsendbreak', [rffi.INT, rffi.INT], rffi.INT)
-c_tcdrain = c_external('tcdrain', [rffi.INT], rffi.INT)
-c_tcflush = c_external('tcflush', [rffi.INT, rffi.INT], rffi.INT)
-c_tcflow = c_external('tcflow', [rffi.INT, rffi.INT], rffi.INT)
+c_tcsendbreak = c_external('tcsendbreak', [rffi.INT, rffi.INT], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
+c_tcdrain = c_external('tcdrain', [rffi.INT], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_tcflush = c_external('tcflush', [rffi.INT, rffi.INT], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_tcflow = c_external('tcflow', [rffi.INT, rffi.INT], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
 
 
 def tcgetattr(fd):
     with lltype.scoped_alloc(TERMIOSP.TO) as c_struct:
         if c_tcgetattr(fd, c_struct) < 0:
-            raise OSError(rposix.get_errno(), 'tcgetattr failed')
+            raise OSError(rposix.get_saved_errno(), 'tcgetattr failed')
         cc = [chr(c_struct.c_c_cc[i]) for i in range(NCCS)]
         ispeed = c_cfgetispeed(c_struct)
         ospeed = c_cfgetospeed(c_struct)
@@ -162,24 +170,24 @@ def tcsetattr(fd, when, attributes):
         for i in range(NCCS):
             c_struct.c_c_cc[i] = rffi.r_uchar(ord(cc[i][0]))
         if c_cfsetispeed(c_struct, ispeed) < 0:
-            raise OSError(rposix.get_errno(), 'tcsetattr failed')
+            raise OSError(rposix.get_saved_errno(), 'tcsetattr failed')
         if c_cfsetospeed(c_struct, ospeed) < 0:
-            raise OSError(rposix.get_errno(), 'tcsetattr failed')
+            raise OSError(rposix.get_saved_errno(), 'tcsetattr failed')
         if c_tcsetattr(fd, when, c_struct) < 0:
-            raise OSError(rposix.get_errno(), 'tcsetattr failed')
+            raise OSError(rposix.get_saved_errno(), 'tcsetattr failed')
 
 def tcsendbreak(fd, duration):
     if c_tcsendbreak(fd, duration) < 0:
-        raise OSError(rposix.get_errno(), 'tcsendbreak failed')
+        raise OSError(rposix.get_saved_errno(), 'tcsendbreak failed')
 
 def tcdrain(fd):
     if c_tcdrain(fd) < 0:
-        raise OSError(rposix.get_errno(), 'tcdrain failed')
+        raise OSError(rposix.get_saved_errno(), 'tcdrain failed')
 
 def tcflush(fd, queue_selector):
     if c_tcflush(fd, queue_selector) < 0:
-        raise OSError(rposix.get_errno(), 'tcflush failed')
+        raise OSError(rposix.get_saved_errno(), 'tcflush failed')
 
 def tcflow(fd, action):
     if c_tcflow(fd, action) < 0:
-        raise OSError(rposix.get_errno(), 'tcflow failed')
+        raise OSError(rposix.get_saved_errno(), 'tcflow failed')

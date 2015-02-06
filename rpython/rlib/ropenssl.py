@@ -5,7 +5,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib._rsocket_rffi import MAX_FD_SIZE
+from rpython.rlib._rsocket_rffi import MAX_FD_SIZE, SAVE_ERR
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
@@ -279,8 +279,10 @@ ssl_external('TLSv1_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
-ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
-ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT,
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT,
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_get_cert_store', [SSL_CTX], X509_STORE)
 ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.LONG, macro=True)
 ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.LONG], rffi.LONG, macro=True)
@@ -292,7 +294,9 @@ ssl_external('SSL_CTX_set_verify', [SSL_CTX, rffi.INT, rffi.VOIDP], lltype.Void)
 ssl_external('SSL_CTX_get_verify_mode', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_default_verify_paths', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_cipher_list', [SSL_CTX, rffi.CCHARP], rffi.INT)
-ssl_external('SSL_CTX_load_verify_locations', [SSL_CTX, rffi.CCHARP, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_load_verify_locations',
+             [SSL_CTX, rffi.CCHARP, rffi.CCHARP], rffi.INT,
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_check_private_key', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_session_id_context', [SSL_CTX, rffi.CCHARP, rffi.UINT], rffi.INT)
 pem_password_cb = lltype.Ptr(lltype.FuncType([rffi.CCHARP, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT))
@@ -326,8 +330,8 @@ ssl_external('SSL_get_wbio', [SSL], BIO)
 ssl_external('SSL_set_connect_state', [SSL], lltype.Void)
 ssl_external('SSL_set_accept_state', [SSL], lltype.Void)
 ssl_external('SSL_connect', [SSL], rffi.INT)
-ssl_external('SSL_do_handshake', [SSL], rffi.INT)
-ssl_external('SSL_shutdown', [SSL], rffi.INT)
+ssl_external('SSL_do_handshake', [SSL], rffi.INT, save_err=SAVE_ERR)
+ssl_external('SSL_shutdown', [SSL], rffi.INT, save_err=SAVE_ERR)
 ssl_external('SSL_get_error', [SSL, rffi.INT], rffi.INT)
 ssl_external('SSL_get_shutdown', [SSL], rffi.INT)
 ssl_external('SSL_set_read_ahead', [SSL, rffi.INT], lltype.Void)
@@ -349,7 +353,7 @@ ssl_external('X509_NAME_entry_count', [X509_NAME], rffi.INT)
 ssl_external('X509_NAME_get_entry', [X509_NAME, rffi.INT], X509_NAME_ENTRY)
 ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
-ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT)
+ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT, save_err=SAVE_ERR)
 ssl_external('X509_free', [X509], lltype.Void, releasegil=False)
 ssl_external('X509_check_ca', [X509], rffi.INT)
 ssl_external('X509_get_notBefore', [X509], ASN1_TIME, macro=True)
@@ -372,7 +376,8 @@ ssl_external('X509_get_default_cert_dir_env', [], rffi.CCHARP)
 ssl_external('X509_get_default_cert_dir', [], rffi.CCHARP)
 
 ssl_external('OBJ_obj2txt',
-             [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT)
+             [rffi.CCHARP, rffi.INT, ASN1_OBJECT, rffi.INT], rffi.INT,
+             save_err=SAVE_ERR)
 ssl_external('OBJ_obj2nid', [ASN1_OBJECT], rffi.INT)
 ssl_external('OBJ_nid2sn', [rffi.INT], rffi.CCHARP)
 ssl_external('OBJ_sn2nid', [rffi.CCHARP], rffi.INT)
@@ -382,7 +387,8 @@ ssl_external('OBJ_nid2obj', [rffi.INT], ASN1_OBJECT)
 ssl_external('ASN1_OBJECT_free', [ASN1_OBJECT], lltype.Void)
 ssl_external('ASN1_STRING_data', [ASN1_STRING], rffi.CCHARP)
 ssl_external('ASN1_STRING_length', [ASN1_STRING], rffi.INT)
-ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT)
+ssl_external('ASN1_STRING_to_UTF8', [rffi.CCHARPP, ASN1_STRING], rffi.INT,
+             save_err=SAVE_ERR)
 ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i',
@@ -440,21 +446,26 @@ ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, releasegil=False)
 ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
 libssl_OPENSSL_free = libssl_CRYPTO_free
 
-ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
-ssl_external('SSL_pending', [SSL], rffi.INT)
-ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT,
+             save_err=SAVE_ERR)
+ssl_external('SSL_pending', [SSL], rffi.INT,
+             save_err=SAVE_ERR)
+ssl_external('SSL_read', [SSL, rffi.CCHARP, rffi.INT], rffi.INT,
+             save_err=SAVE_ERR)
 
 BIO_METHOD = rffi.COpaquePtr('BIO_METHOD')
 ssl_external('BIO_s_mem', [], BIO_METHOD)
 ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
-ssl_external('BIO_new_file', [rffi.CCHARP, rffi.CCHARP], BIO)
+ssl_external('BIO_new_file', [rffi.CCHARP, rffi.CCHARP], BIO,
+             save_err=SAVE_ERR)
 ssl_external('BIO_new_mem_buf', [rffi.VOIDP, rffi.INT], BIO)
 ssl_external('BIO_free', [BIO], rffi.INT)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)
 ssl_external('BIO_read_filename', [BIO, rffi.CCHARP], rffi.INT, macro=True)
-ssl_external('BIO_gets', [BIO, rffi.CCHARP, rffi.INT], rffi.INT)
+ssl_external('BIO_gets', [BIO, rffi.CCHARP, rffi.INT], rffi.INT,
+             save_err=SAVE_ERR)
 ssl_external('d2i_X509_bio', [BIO, rffi.VOIDP], X509)
 ssl_external('PEM_read_bio_X509',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
@@ -462,7 +473,8 @@ ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 
 ssl_external('PEM_read_bio_DHparams',
-             [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], DH)
+             [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], DH,
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_set_tmp_dh', [SSL_CTX, DH], rffi.INT, macro=True)
 ssl_external('DH_free', [DH], lltype.Void, releasegil=False)
 

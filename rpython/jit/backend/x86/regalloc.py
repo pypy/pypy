@@ -702,8 +702,11 @@ class RegAlloc(BaseRegalloc):
     def _consider_threadlocalref_get(self, op):
         if self.translate_support_code:
             offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
+            calldescr = op.getdescr()
+            size = calldescr.get_result_size()
+            sign = calldescr.is_result_signed()
             resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_get(offset, resloc)
+            self.assembler.threadlocalref_get(offset, resloc, size, sign)
         else:
             self._consider_call(op)
 
@@ -743,10 +746,10 @@ class RegAlloc(BaseRegalloc):
         else:
             self.perform(op, arglocs, resloc)
 
-    def _consider_call(self, op, guard_not_forced_op=None):
+    def _consider_call(self, op, guard_not_forced_op=None, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
-        assert len(calldescr.arg_classes) == op.numargs() - 1
+        assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
         size = calldescr.get_result_size()
         sign = calldescr.is_result_signed()
         if sign:
@@ -795,8 +798,9 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op, guard_op)
 
     def consider_call_release_gil(self, op, guard_op):
+        # [Const(save_err), func_addr, args...]
         assert guard_op is not None
-        self._consider_call(op, guard_op)
+        self._consider_call(op, guard_op, first_arg_index=2)
 
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)

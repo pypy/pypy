@@ -78,7 +78,7 @@ class TestDicts(BaseTestPyPyC):
             {{{
             setfield_gc(p13, 0, descr=<FieldS dicttable.lookup_function_no .+>)
             setfield_gc(p13, 0, descr=<FieldS dicttable.num_live_items .+>)
-            setfield_gc(p13, 16, descr=<FieldS dicttable.resize_counter .+>)
+            setfield_gc(p13, 32, descr=<FieldS dicttable.resize_counter .+>)
             }}}
             guard_no_exception(descr=...)
             p20 = new_with_vtable(ConstClass(W_IntObject))

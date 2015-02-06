@@ -1,3 +1,4 @@
+import sys
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
@@ -178,6 +179,8 @@ class StructOrUnionMeta(_CDataMeta):
         instance = StructOrUnion.__new__(self)
         if isinstance(address, _rawffi.StructureInstance):
             address = address.buffer
+        # fix the address: turn it into as unsigned, in case it is negative
+        address = address & (sys.maxint * 2 + 1)
         instance.__dict__['_buffer'] = self._ffistruct.fromaddress(address)
         return instance
 

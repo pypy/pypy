@@ -516,3 +516,21 @@ class AppTestPyFrame:
         assert seen == [(1, f, firstline + 6, 'line', None),
                         (1, f, firstline + 7, 'line', None),
                         (1, f, firstline + 8, 'line', None)]
+
+    def test_locals2fast_freevar_bug(self):
+        import sys
+        def f(n):
+            class A(object):
+                def g(self):
+                    return n
+                n = 42
+            return A()
+        res = f(10).g()
+        assert res == 10
+        #
+        def trace(*args):
+            return trace
+        sys.settrace(trace)
+        res = f(10).g()
+        sys.settrace(None)
+        assert res == 10

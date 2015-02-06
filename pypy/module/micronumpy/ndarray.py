@@ -334,8 +334,12 @@ class __extend__(W_NDimArray):
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
-            arr.implementation = arr.implementation.reshape(self, new_shape)
-            assert arr.implementation
+            new_implementation = arr.implementation.reshape(self, new_shape)
+            if new_implementation is None:
+                raise oefmt(space.w_ValueError,
+                            'could not reshape array of size %d to shape %s',
+                            arr.get_size(), str(new_shape))
+            arr.implementation = new_implementation
         else:
             arr.implementation.shape = new_shape
         return arr
@@ -430,9 +434,15 @@ class __extend__(W_NDimArray):
             order = 'C'
         else:
             order = space.str_w(w_order)
+        if order == 'K' and is_c_contiguous(self.implementation):
+            for s in  self.implementation.get_strides():
+                if s < 0:
+                    break
+            else:
+                order = 'C'
         if order != 'C':
             raise OperationError(space.w_NotImplementedError, space.wrap(
-                "order not implemented"))
+                "order != 'C' only partially implemented"))
         return self.reshape(space, space.wrap(-1))
 
     @unwrap_spec(w_axis=WrappedDefault(None),

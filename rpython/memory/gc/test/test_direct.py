@@ -34,7 +34,8 @@ class DirectRootWalker(object):
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   is_minor=False):
         gc = self.tester.gc
         layoutbuilder = self.tester.layoutbuilder
         if collect_static_in_prebuilt_gc:

@@ -1,7 +1,7 @@
 from rpython.rlib import rpoll, rsocket, rthread, rweakref
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
-from rpython.rlib.rposix import get_errno, set_errno
+from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -1348,13 +1348,12 @@ class _SSLContext(W_Root):
                 self.ctx, rffi.cast(rffi.VOIDP, index))
 
         try:
-            set_errno(0)
             ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
             if ret != 1:
                 if pw_info.operationerror:
                     libssl_ERR_clear_error()
                     raise pw_info.operationerror
-                errno = get_errno()
+                errno = get_saved_errno()
                 if errno:
                     libssl_ERR_clear_error()
                     raise wrap_oserror(space, OSError(errno, ''),
@@ -1368,7 +1367,7 @@ class _SSLContext(W_Root):
                 if pw_info.operationerror:
                     libssl_ERR_clear_error()
                     raise pw_info.operationerror
-                errno = get_errno()
+                errno = get_saved_errno()
                 if errno:
                     libssl_ERR_clear_error()
                     raise wrap_oserror(space, OSError(errno, ''),
@@ -1391,17 +1390,16 @@ class _SSLContext(W_Root):
     def load_dh_params_w(self, space, filepath):
         bio = libssl_BIO_new_file(filepath, "r")
         if not bio:
+            errno = get_saved_errno()
             libssl_ERR_clear_error()
-            errno = get_errno()
             raise wrap_oserror(space, OSError(errno, ''),
                                exception_name = 'w_IOError')
         try:
-            set_errno(0)
             dh = libssl_PEM_read_bio_DHparams(bio, None, None, None)
         finally:
             libssl_BIO_free(bio)
         if not dh:
-            errno = get_errno()
+            errno = get_saved_errno()
             if errno != 0:
                 libssl_ERR_clear_error()
                 raise wrap_oserror(space, OSError(errno, ''))
@@ -1448,11 +1446,10 @@ class _SSLContext(W_Root):
             
         # load cafile or capath
         if cafile is not None or capath is not None:
-            set_errno(0)
             ret = libssl_SSL_CTX_load_verify_locations(
                 self.ctx, cafile, capath)
             if ret != 1:
-                errno = get_errno()
+                errno = get_saved_errno()
                 if errno:
                     libssl_ERR_clear_error()
                     raise wrap_oserror(space, OSError(errno, ''),

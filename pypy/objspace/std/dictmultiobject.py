@@ -1173,8 +1173,8 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     def wrapkey(space, key):
         return space.wrap(key)
 
-    # XXX there is no space.newlist_int yet to implement w_keys more
-    # efficiently
+    def w_keys(self, w_dict):
+        return self.space.newlist_int(self.listview_int(w_dict))
 
 create_iterator_classes(IntDictStrategy)
 
