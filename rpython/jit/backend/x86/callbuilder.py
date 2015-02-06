@@ -167,6 +167,8 @@ class CallBuilderX86(AbstractCallBuilder):
                 self.tlofs_reg = r12
             self.mc.MOV_rs(self.tlofs_reg.value,
                            THREADLOCAL_OFS - self.current_esp)
+            if self.asm._is_asmgcc():
+                self.mc.AND_ri(self.tlofs_reg.value, ~1)
         return self.tlofs_reg
 
     def save_stack_position(self):
