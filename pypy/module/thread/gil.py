@@ -7,12 +7,11 @@ Global Interpreter Lock.
 # all but one will be blocked.  The other threads get a chance to run
 # from time to time, using the periodic action GILReleaseAction.
 
-from rpython.rlib import rthread, rgil, rwin32
+from rpython.rlib import rthread, rgil
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.module.thread.threadlocals import OSThreadLocals
 from rpython.rlib.objectmodel import invoke_around_extcall
-from rpython.rlib.rposix import get_errno, set_errno
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
@@ -65,8 +64,6 @@ class GILReleaseAction(PeriodicAsyncAction):
 
 after_thread_switch = lambda: None     # hook for signal.py
 
-# Fragile code below.  We have to preserve the C-level errno manually...
-
 def before_external_call():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
@@ -75,16 +72,9 @@ before_external_call._gctransformer_hint_cannot_collect_ = True
 before_external_call._dont_reach_me_in_del_ = True
 
 def after_external_call():
-    e = get_errno()
-    e2 = 0
-    if rwin32.WIN32:
-        e2 = rwin32.GetLastError()
     rgil.gil_acquire()
     rthread.gc_thread_run()
     after_thread_switch()
-    if rwin32.WIN32:
-        rwin32.SetLastError(e2)
-    set_errno(e)
 after_external_call._gctransformer_hint_cannot_collect_ = True
 after_external_call._dont_reach_me_in_del_ = True
 

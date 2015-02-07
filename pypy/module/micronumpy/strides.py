@@ -427,7 +427,6 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                 if oldI >= -len(old_shape):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
-    assert len(new_strides) == len(new_shape)
     return new_strides[:]
 
 @jit.unroll_safe

@@ -5,7 +5,7 @@ from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote
 from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib.rthread import ThreadLocalReference
+from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -128,7 +128,8 @@ class TranslationTestCallAssembler(CCompiledMixin):
 
         class Foo(object):
             pass
-        t = ThreadLocalReference(Foo)
+        t = ThreadLocalReference(Foo, loop_invariant=True)
+        tf = ThreadLocalField(lltype.Char, "test_call_assembler_")
 
         def change(newthing):
             somewhere_else.frame.thing = newthing
@@ -156,6 +157,7 @@ class TranslationTestCallAssembler(CCompiledMixin):
                 frame.thing = Thing(nextval + 1)
                 i += 1
                 if t.get().nine != 9: raise ValueError
+                if ord(tf.getraw()) != 0x92: raise ValueError
             return frame.thing.val
 
         driver2 = JitDriver(greens = [], reds = ['n'])
@@ -181,6 +183,7 @@ class TranslationTestCallAssembler(CCompiledMixin):
             foo = Foo()
             foo.nine = value
             t.set(foo)
+            tf.setraw("\x92")
             return foo
 
         def mainall(codeno, bound):

@@ -99,7 +99,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.shadow_stack_pool.initial_setup()
         BaseRootWalker.setup_root_walker(self)
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
         self.rootstackhook(collect_stack_root,
                            gcdata.root_stack_base, gcdata.root_stack_top)

@@ -144,7 +144,7 @@ def test_attr_immutability(monkeypatch):
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
 
-def test_attr_immutability_delete(monkeypatch):
+def test_attr_immutability_delete():
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
@@ -699,6 +699,15 @@ class AppTestWithMapDict(object):
         a.x = 42
         del a.x
         raises(AttributeError, "a.x")
+
+    def test_reversed_dict(self):
+        import __pypy__
+        class X(object):
+            pass
+        x = X(); x.a = 10; x.b = 20; x.c = 30
+        d = x.__dict__
+        assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
+
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmapdict": True,

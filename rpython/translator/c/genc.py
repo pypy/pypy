@@ -449,7 +449,7 @@ class CStandaloneBuilder(CBuilder):
                     '-o $*.s -S $< $(INCLUDEDIRS)',
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.lbl.s',
+                '$(CC) $(CFLAGS) -o $*.o -c $*.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
 

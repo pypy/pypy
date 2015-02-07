@@ -607,6 +607,58 @@ class GCTest(object):
             return rgc.can_move(lltype.malloc(TP, 1))
         assert self.interpret(func, []) == self.GC_CAN_MOVE
 
+    def test_trace_array_of_structs(self):
+        R = lltype.GcStruct('R', ('i', lltype.Signed))
+        S1 = lltype.GcArray(('p1', lltype.Ptr(R)))
+        S2 = lltype.GcArray(('p1', lltype.Ptr(R)),
+                            ('p2', lltype.Ptr(R)))
+        S3 = lltype.GcArray(('p1', lltype.Ptr(R)),
+                            ('p2', lltype.Ptr(R)),
+                            ('p3', lltype.Ptr(R)))
+        def func():
+            s1 = lltype.malloc(S1, 2)
+            s1[0].p1 = lltype.malloc(R)
+            s1[1].p1 = lltype.malloc(R)
+            s2 = lltype.malloc(S2, 2)
+            s2[0].p1 = lltype.malloc(R)
+            s2[0].p2 = lltype.malloc(R)
+            s2[1].p1 = lltype.malloc(R)
+            s2[1].p2 = lltype.malloc(R)
+            s3 = lltype.malloc(S3, 2)
+            s3[0].p1 = lltype.malloc(R)
+            s3[0].p2 = lltype.malloc(R)
+            s3[0].p3 = lltype.malloc(R)
+            s3[1].p1 = lltype.malloc(R)
+            s3[1].p2 = lltype.malloc(R)
+            s3[1].p3 = lltype.malloc(R)
+            s1[0].p1.i = 100
+            s1[1].p1.i = 101
+            s2[0].p1.i = 102
+            s2[0].p2.i = 103
+            s2[1].p1.i = 104
+            s2[1].p2.i = 105
+            s3[0].p1.i = 106
+            s3[0].p2.i = 107
+            s3[0].p3.i = 108
+            s3[1].p1.i = 109
+            s3[1].p2.i = 110
+            s3[1].p3.i = 111
+            rgc.collect()
+            return ((s1[0].p1.i == 100) +
+                    (s1[1].p1.i == 101) +
+                    (s2[0].p1.i == 102) +
+                    (s2[0].p2.i == 103) +
+                    (s2[1].p1.i == 104) +
+                    (s2[1].p2.i == 105) +
+                    (s3[0].p1.i == 106) +
+                    (s3[0].p2.i == 107) +
+                    (s3[0].p3.i == 108) +
+                    (s3[1].p1.i == 109) +
+                    (s3[1].p2.i == 110) +
+                    (s3[1].p3.i == 111))
+        res = self.interpret(func, [])
+        assert res == 12
+
     def test_shrink_array(self):
         from rpython.rtyper.lltypesystem.rstr import STR
 

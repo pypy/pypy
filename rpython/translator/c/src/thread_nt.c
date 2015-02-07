@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
-#include <errno.h>
 
 
 /*
@@ -243,10 +242,5 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 #endif
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
-
-#define SAVE_ERRNO()      int saved_errno = errno; \
-                          DWORD saved_lasterr = GetLastError()
-#define RESTORE_ERRNO()   errno = saved_errno; \
-                          SetLastError(saved_lasterr)
 
 #include "src/thread_gil.c"

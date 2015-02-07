@@ -83,6 +83,37 @@ class _CDataMeta(type):
     def in_dll(self, dll, name):
         return self.from_address(dll._handle.getaddressindll(name))
 
+    def from_buffer(self, obj, offset=0):
+        size = self._sizeofinstances()
+        buf = buffer(obj, offset, size)
+        if len(buf) < size:
+            raise ValueError(
+                "Buffer size too small (%d instead of at least %d bytes)"
+                % (len(buf) + offset, size + offset))
+        raw_addr = buf._pypy_raw_address()
+        result = self.from_address(raw_addr)
+        result._ensure_objects()['ffffffff'] = obj
+        return result
+
+    def from_buffer_copy(self, obj, offset=0):
+        size = self._sizeofinstances()
+        buf = buffer(obj, offset, size)
+        if len(buf) < size:
+            raise ValueError(
+                "Buffer size too small (%d instead of at least %d bytes)"
+                % (len(buf) + offset, size + offset))
+        result = self()
+        dest = result._buffer.buffer
+        try:
+            raw_addr = buf._pypy_raw_address()
+        except ValueError:
+            _rawffi.rawstring2charp(dest, buf)
+        else:
+            from ctypes import memmove
+            memmove(dest, raw_addr, size)
+        return result
+
+
 class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing
     it afterwards

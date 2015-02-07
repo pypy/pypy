@@ -4,7 +4,7 @@ from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import objectmodel, jit, rgc
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, likely
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rtyper import rmodel
@@ -34,17 +34,23 @@ from rpython.rtyper.annlowlevel import llhelper
 #        {byte, short, int, long} *indexes;
 #        dictentry *entries;
 #        lookup_function_no; # one of the four possible functions for different
-#                         # size dicts
+#                       # size dicts; the rest of the word is a counter for how
+#                       # many 'entries' at the start are known to be deleted
 #        (Function DICTKEY, DICTKEY -> bool) *fnkeyeq;
 #        (Function DICTKEY -> int) *fnkeyhash;
 #    }
 #
 #
 
+@jit.look_inside_iff(lambda d, key, hash, flag: jit.isvirtual(d))
+@jit.oopspec('ordereddict.lookup(d, key, hash, flag)')
 def ll_call_lookup_function(d, key, hash, flag):
-    DICT = lltype.typeOf(d).TO
-    fun = d.lookup_function_no
-    if fun == FUNC_BYTE:
+    fun = d.lookup_function_no & FUNC_MASK
+    # This likely() here forces gcc to compile the check for fun == FUNC_BYTE
+    # first.  Otherwise, this is a regular switch and gcc (at least 4.7)
+    # compiles this as a series of checks, with the FUNC_BYTE case last.
+    # It sounds minor, but it is worth 6-7% on a PyPy microbenchmark.
+    if likely(fun == FUNC_BYTE):
         return ll_dict_lookup(d, key, hash, flag, TYPE_BYTE)
     elif fun == FUNC_SHORT:
         return ll_dict_lookup(d, key, hash, flag, TYPE_SHORT)
@@ -408,6 +414,8 @@ DICTINDEX_BYTE = lltype.Ptr(lltype.GcArray(rffi.UCHAR))
 
 IS_64BIT = sys.maxint != 2 ** 31 - 1
 
+FUNC_SHIFT = 2
+FUNC_MASK  = 0x03  # two bits
 if IS_64BIT:
     FUNC_BYTE, FUNC_SHORT, FUNC_INT, FUNC_LONG = range(4)
 else:
@@ -441,25 +449,43 @@ def ll_malloc_indexes_and_choose_lookup(d, n):
         d.lookup_function_no = FUNC_LONG
 
 def ll_clear_indexes(d, n):
-    if n <= 256:
+    fun = d.lookup_function_no & FUNC_MASK
+    d.lookup_function_no = fun
+    if fun == FUNC_BYTE:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_BYTE, d.indexes))
-    elif n <= 65536:
+    elif fun == FUNC_SHORT:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_SHORT, d.indexes))
-    elif IS_64BIT and n <= 2 ** 32:
+    elif IS_64BIT and fun == FUNC_INT:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_INT, d.indexes))
-    else:
+    elif fun == FUNC_LONG:
         rgc.ll_arrayclear(lltype.cast_opaque_ptr(DICTINDEX_LONG, d.indexes))
+    else:
+        assert False
 
+@jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
-    DICT = lltype.typeOf(d).TO
-    if d.lookup_function_no == FUNC_BYTE:
+    fun = d.lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
         ll_dict_store_clean(d, hash, i, TYPE_BYTE)
-    elif d.lookup_function_no == FUNC_SHORT:
+    elif fun == FUNC_SHORT:
         ll_dict_store_clean(d, hash, i, TYPE_SHORT)
-    elif IS_64BIT and d.lookup_function_no == FUNC_INT:
+    elif IS_64BIT and fun == FUNC_INT:
         ll_dict_store_clean(d, hash, i, TYPE_INT)
-    elif d.lookup_function_no == FUNC_LONG:
+    elif fun == FUNC_LONG:
         ll_dict_store_clean(d, hash, i, TYPE_LONG)
+    else:
+        assert False
+
+def ll_call_delete_by_entry_index(d, hash, i):
+    fun = d.lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_BYTE)
+    elif fun == FUNC_SHORT:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_SHORT)
+    elif IS_64BIT and fun == FUNC_INT:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_INT)
+    elif fun == FUNC_LONG:
+        ll_dict_delete_by_entry_index(d, hash, i, TYPE_LONG)
     else:
         assert False
 
@@ -513,7 +539,7 @@ def ll_dict_bool(d):
 
 def ll_dict_getitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
-    if index != -1:
+    if index >= 0:
         return d.entries[index].value
     else:
         raise KeyError
@@ -572,6 +598,7 @@ def _ll_dict_rescue(d):
 _ll_dict_rescue._dont_inline_ = True
 
 def _ll_dict_insertclean(d, key, value, hash):
+    # never translated
     ENTRY = lltype.typeOf(d.entries).TO.OF
     ll_call_insert_clean_function(d, hash, d.num_ever_used_items)
     entry = d.entries[d.num_ever_used_items]
@@ -590,25 +617,24 @@ def _ll_len_of_d_indexes(d):
     # xxx Haaaack: returns len(d.indexes).  Works independently of
     # the exact type pointed to by d, using a forced cast...
     # Must only be called by @jit.dont_look_inside functions.
-    return len(rffi.cast(DICTINDEX_BYTE, d.indexes))
+    return lltype.length_of_simple_gcarray_from_opaque(d.indexes)
 
 def _overallocate_entries_len(baselen):
     # This over-allocates proportional to the list size, making room
-    # for additional growth.  The over-allocation is mild, but is
-    # enough to give linear-time amortized behavior over a long
-    # sequence of appends() in the presence of a poorly-performing
-    # system malloc().
-    # The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
-    newsize = baselen + 1
-    if newsize < 9:
-        some = 3
-    else:
-        some = 6
-    some += newsize >> 3
-    return newsize + some
+    # for additional growth.  This over-allocates slightly more eagerly
+    # than with regular lists.  The idea is that there are many more
+    # lists than dicts around in PyPy, and dicts of 5 to 8 items are
+    # not that rare (so a single jump from 0 to 8 is a good idea).
+    # The growth pattern is:  0, 8, 17, 27, 38, 50, 64, 80, 98, ...
+    newsize = baselen + (baselen >> 3)
+    return newsize + 8
 
-@jit.dont_look_inside
+@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_grow(d):
+    # note: this @jit.look_inside_iff is here to inline the three lines
+    # at the end of this function.  It's important because dicts start
+    # with a length-zero 'd.entries' which must be grown as soon as we
+    # insert an element.
     if d.num_live_items < d.num_ever_used_items // 2:
         # At least 50% of the allocated entries are dead, so perform a
         # compaction. If ll_dict_remove_deleted_items detects that over
@@ -619,11 +645,29 @@ def ll_dict_grow(d):
 
     new_allocated = _overallocate_entries_len(len(d.entries))
 
-    # Detect an obscure case where the indexes numeric type is too
-    # small to store all the entry indexes
-    if (max(128, _ll_len_of_d_indexes(d)) - new_allocated
-                   < MIN_INDEXES_MINUS_ENTRIES):
+    # Detect a relatively rare case where the indexes numeric type is too
+    # small to store all the entry indexes: there would be 'new_allocated'
+    # entries, which may in corner cases be larger than 253 even though we
+    # have single bytes in 'd.indexes' (and the same for the larger
+    # boundaries).  The 'd.indexes' hashtable is never more than 2/3rd
+    # full, so we know that 'd.num_live_items' should be at most 2/3 * 256
+    # (or 65536 or etc.) so after the ll_dict_remove_deleted_items() below
+    # at least 1/3rd items in 'd.entries' are free.
+    fun = d.lookup_function_no & FUNC_MASK
+    toobig = False
+    if fun == FUNC_BYTE:
+        assert d.num_live_items < ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
+        toobig = new_allocated > ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
+    elif fun == FUNC_SHORT:
+        assert d.num_live_items < ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
+        toobig = new_allocated > ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
+    elif IS_64BIT and fun == FUNC_INT:
+        assert d.num_live_items < ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
+        toobig = new_allocated > ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
+    #
+    if toobig:
         ll_dict_remove_deleted_items(d)
+        assert d.num_live_items == d.num_ever_used_items
         return True
 
     newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
@@ -631,6 +675,7 @@ def ll_dict_grow(d):
     d.entries = newitems
     return False
 
+@jit.dont_look_inside
 def ll_dict_remove_deleted_items(d):
     if d.num_live_items < len(d.entries) // 4:
         # At least 75% of the allocated entries are dead, so shrink the memory
@@ -684,7 +729,7 @@ def ll_dict_remove_deleted_items(d):
 
 def ll_dict_delitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_DELETE)
-    if index == -1:
+    if index < 0:
         raise KeyError
     _ll_dict_del(d, index)
 
@@ -701,7 +746,12 @@ def _ll_dict_del(d, index):
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
 
-    if index == d.num_ever_used_items - 1:
+    if d.num_live_items == 0:
+        # Dict is now empty.  Reset these fields.
+        d.num_ever_used_items = 0
+        d.lookup_function_no &= FUNC_MASK
+
+    elif index == d.num_ever_used_items - 1:
         # The last element of the ordereddict has been deleted. Instead of
         # simply marking the item as dead, we can safely reuse it. Since it's
         # also possible that there are more dead items immediately behind the
@@ -746,7 +796,9 @@ def ll_dict_reindex(d, new_size):
     else:
         ll_malloc_indexes_and_choose_lookup(d, new_size)
     d.resize_counter = new_size * 2 - d.num_live_items * 3
-    assert d.resize_counter > 0
+    ll_assert(d.resize_counter > 0, "reindex: resize_counter <= 0")
+    ll_assert((d.lookup_function_no >> FUNC_SHIFT) == 0,
+              "reindex: lookup_fun >> SHIFT")
     #
     entries = d.entries
     i = 0
@@ -769,22 +821,10 @@ MIN_INDEXES_MINUS_ENTRIES = VALID_OFFSET + 1
 FLAG_LOOKUP = 0
 FLAG_STORE = 1
 FLAG_DELETE = 2
-FLAG_DELETE_TRY_HARD = 3
 
 @specialize.memo()
 def _ll_ptr_to_array_of(T):
     return lltype.Ptr(lltype.GcArray(T))
-
-def ll_kill_something(d, T):
-    INDEXES = _ll_ptr_to_array_of(T)
-    i = 0
-    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
-    while True:
-        index = rffi.cast(lltype.Signed, indexes[i])
-        if index >= VALID_OFFSET:
-            indexes[i] = rffi.cast(T, DELETED)
-            return index
-        i += 1
 
 @jit.look_inside_iff(lambda d, key, hash, store_flag, T:
                      jit.isvirtual(d) and jit.isconstant(key))
@@ -827,8 +867,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
         # pristine entry -- lookup failed
         if store_flag == FLAG_STORE:
             indexes[i] = rffi.cast(T, d.num_ever_used_items + VALID_OFFSET)
-        elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
-            return ll_kill_something(d, T)
         return -1
 
     # In the loop, a deleted entry (everused and not valid) is by far
@@ -845,8 +883,6 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
                     deletedslot = intmask(i)
                 indexes[deletedslot] = rffi.cast(T, d.num_ever_used_items +
                                                  VALID_OFFSET)
-            elif d.paranoia and store_flag == FLAG_DELETE_TRY_HARD:
-                return ll_kill_something(d, T)
             return -1
         elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
@@ -881,17 +917,38 @@ def ll_dict_store_clean(d, hash, index, T):
     mask = len(indexes) - 1
     i = r_uint(hash & mask)
     perturb = r_uint(hash)
-    while rffi.cast(lltype.Signed, indexes[i]) != 0:
+    while rffi.cast(lltype.Signed, indexes[i]) != FREE:
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
     indexes[i] = rffi.cast(T, index + VALID_OFFSET)
 
+def ll_dict_delete_by_entry_index(d, hash, locate_index, T):
+    # Another simplified version of ll_dict_lookup() which locates a
+    # hashtable entry with the given 'index' stored in it, and deletes it.
+    # This *should* be safe against evil user-level __eq__/__hash__
+    # functions because the 'hash' argument here should be the one stored
+    # into the directory, which is correct.
+    INDEXES = _ll_ptr_to_array_of(T)
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    mask = len(indexes) - 1
+    i = r_uint(hash & mask)
+    perturb = r_uint(hash)
+    locate_value = locate_index + VALID_OFFSET
+    while rffi.cast(lltype.Signed, indexes[i]) != locate_value:
+        assert rffi.cast(lltype.Signed, indexes[i]) != FREE
+        i = (i << 2) + i + perturb + 1
+        i = i & mask
+        perturb >>= PERTURB_SHIFT
+    indexes[i] = rffi.cast(T, DELETED)
+
 # ____________________________________________________________
 #
 #  Irregular operations.
 
-DICT_INITSIZE = 8
+# Start the hashtable size at 16 rather than 8, as with rdict.py, because
+# it is only an array of bytes
+DICT_INITSIZE = 16
 
 
 @specialize.memo()
@@ -948,14 +1005,19 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
         self.r_dict = r_dict
         self.variant = variant
         self.lowleveltype = get_ll_dictiter(r_dict.lowleveltype)
-        self.ll_dictiter = ll_dictiter
-        self._ll_dictnext = _ll_dictnext
+        if variant == 'reversed':
+            self.ll_dictiter = ll_dictiter_reversed
+            self._ll_dictnext = _ll_dictnext_reversed
+        else:
+            self.ll_dictiter = ll_dictiter
+            self._ll_dictnext = _ll_dictnext
 
 
 def ll_dictiter(ITERPTR, d):
     iter = lltype.malloc(ITERPTR.TO)
     iter.dict = d
-    iter.index = 0
+    # initialize the index with usually 0, but occasionally a larger value
+    iter.index = d.lookup_function_no >> FUNC_SHIFT
     return iter
 
 @jit.look_inside_iff(lambda iter: jit.isvirtual(iter)
@@ -974,7 +1036,38 @@ def _ll_dictnext(iter):
             if entries.valid(index):
                 iter.index = nextindex
                 return index
+            else:
+                # In case of repeated iteration over the start of
+                # a dict where the items get removed, like
+                # collections.OrderedDict.popitem(last=False),
+                # the hack below will increase the value stored in
+                # the high bits of lookup_function_no and so the
+                # next iteration will start at a higher value.
+                # We should carefully reset these high bits to zero
+                # as soon as we do something like ll_dict_reindex().
+                if index == (dict.lookup_function_no >> FUNC_SHIFT):
+                    dict.lookup_function_no += (1 << FUNC_SHIFT)
             index = nextindex
+        # clear the reference to the dict and prevent restarts
+        iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
+    raise StopIteration
+
+def ll_dictiter_reversed(ITERPTR, d):
+    iter = lltype.malloc(ITERPTR.TO)
+    iter.dict = d
+    iter.index = d.num_ever_used_items
+    return iter
+
+def _ll_dictnext_reversed(iter):
+    dict = iter.dict
+    if dict:
+        entries = dict.entries
+        index = iter.index - 1
+        while index >= 0:
+            if entries.valid(index):
+                iter.index = index
+                return index
+            index = index - 1
         # clear the reference to the dict and prevent restarts
         iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
     raise StopIteration
@@ -984,7 +1077,7 @@ def _ll_dictnext(iter):
 
 def ll_dict_get(dict, key, default):
     index = dict.lookup_function(dict, key, dict.keyhash(key), FLAG_LOOKUP)
-    if index == -1:
+    if index < 0:
         return default
     else:
         return dict.entries[index].value
@@ -992,7 +1085,7 @@ def ll_dict_get(dict, key, default):
 def ll_dict_setdefault(dict, key, default):
     hash = dict.keyhash(key)
     index = dict.lookup_function(dict, key, hash, FLAG_STORE)
-    if index == -1:
+    if index < 0:
         _ll_dict_setitem_lookup_done(dict, key, default, hash, -1)
         return default
     else:
@@ -1119,7 +1212,7 @@ ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_dict_contains(d, key):
     i = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
-    return i != -1
+    return i >= 0
 
 def _ll_getnextitem(dic):
     if dic.num_live_items == 0:
@@ -1127,22 +1220,19 @@ def _ll_getnextitem(dic):
 
     entries = dic.entries
 
+    # find the last entry.  It's unclear if the loop below is still
+    # needed nowadays, because 'num_ever_used_items - 1' should always
+    # point to the last active item (we decrease it as needed in
+    # _ll_dict_del).  Better safe than sorry.
     while True:
         i = dic.num_ever_used_items - 1
         if entries.valid(i):
             break
         dic.num_ever_used_items -= 1
 
-    key = entries[i].key
-    index = dic.lookup_function(dic, key, entries.hash(i),
-                                FLAG_DELETE_TRY_HARD)
-    # if the lookup function returned me a random strange thing,
-    # don't care about deleting the item
-    if index == dic.num_ever_used_items - 1:
-        dic.num_ever_used_items -= 1
-    else:
-        assert index != -1
-    return index
+    # we must remove the precise entry in the hashtable that points to 'i'
+    ll_call_delete_by_entry_index(dic, entries.hash(i), i)
+    return i
 
 def ll_dict_popitem(ELEM, dic):
     i = _ll_getnextitem(dic)
@@ -1155,7 +1245,7 @@ def ll_dict_popitem(ELEM, dic):
 
 def ll_dict_pop(dic, key):
     index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
-    if index == -1:
+    if index < 0:
         raise KeyError
     value = dic.entries[index].value
     _ll_dict_del(dic, index)
@@ -1163,7 +1253,7 @@ def ll_dict_pop(dic, key):
 
 def ll_dict_pop_default(dic, key, dfl):
     index = dic.lookup_function(dic, key, dic.keyhash(key), FLAG_DELETE)
-    if index == -1:
+    if index < 0:
         return dfl
     value = dic.entries[index].value
     _ll_dict_del(dic, index)

@@ -1322,7 +1322,8 @@ class MiniMarkGC(MovingGCBase):
         self.root_walker.walk_roots(
             MiniMarkGC._trace_drag_out1,  # stack roots
             MiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
-            None)                         # static in prebuilt gc
+            None,                         # static in prebuilt gc
+            is_minor=True)
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
