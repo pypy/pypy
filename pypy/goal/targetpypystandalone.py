@@ -239,7 +239,9 @@ class PyPyTarget(object):
             enable_translationmodules(config)
 
         config.translation.suggest(check_str_without_nul=True)
-        if sys.platform.startswith('linux'):
+        # Don't default to '--shared' with stm: it has a lot of thread-locals,
+        # and reading thread-locals is much slower with --shared
+        if sys.platform.startswith('linux') and not config.translation.stm:
             config.translation.suggest(shared=True)
 
         if config.translation.thread:
