@@ -671,10 +671,14 @@ class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
     def getcompiled(self, func, argtypes):
         return _LLVMMixin.getcompiled(self, func, argtypes, backendopt=False)
 
+    def test_r_dict_exceptions(self):
+        py.test.skip("ordered dicts don't seem to work with refcounting")
+
 
 class TestTypedOptimizedTestCaseLLVM(_LLVMMixin, test_backendoptimized
                                                  .TestTypedOptimizedTestCase):
-    pass
+    def test_r_dict_exceptions(self):
+        py.test.skip("ordered dicts don't seem to work with refcounting")
 
 class TestTypedOptimizedSwitchTestCaseLLVM(_LLVMMixin,
                                            test_backendoptimized
