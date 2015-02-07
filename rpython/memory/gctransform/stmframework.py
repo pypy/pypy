@@ -55,7 +55,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                   annmodel.SomeInteger()))
         #
         def pypy_stmcb_trace(obj, visit_fn):
-            gc.trace(obj, invokecallback, visit_fn)
+            gc.tracei(obj, invokecallback, visit_fn)
         pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
         self.autoregister_ptrs.append(
             getfn(pypy_stmcb_trace, [llannotation.SomeAddress(),

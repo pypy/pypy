@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.objectmodel import func_with_new_name
 from rpython.rlib.debug import ll_assert
 from rpython.memory.gcheader import GCHeaderBuilder
 from rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -216,6 +217,10 @@ class GCBase(object):
                 callback(item, arg)
             i += 1
     trace._annspecialcase_ = 'specialize:arg(2)'
+
+    tracei = func_with_new_name(trace, 'tracei')
+    tracei._annspecialcase_ = 'specialize:arg(2)'
+    tracei._always_inline_ = True
 
     def _trace_slow_path(self, obj, callback, arg):
         typeid = self.get_type_id(obj)
