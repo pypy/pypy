@@ -21,12 +21,7 @@ def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
-        raise OperationError(space.w_UnicodeEncodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(u),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
+        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
     return raise_unicode_exception_encode
 
 # ____________________________________________________________
