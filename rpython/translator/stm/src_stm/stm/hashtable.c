@@ -300,16 +300,28 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
             */
 
             /* First fetch the read marker of 'hashtableobj' in all
-               segments, before allocate_outside_nursery_large()
-               which might trigger a GC */
+               segments, before allocate_outside_nursery_large() which
+               might trigger a GC.  Synchronization guarantee: if
+               stm_read(hobj) in stm_hashtable_list() has set the read
+               marker, then it did synchronize with us here by
+               acquiring and releasing this hashtable' lock.  However,
+               the interval of time between reading the readmarkers of
+               hobj and copying them to the new entry object might be
+               enough for the other threads to do anything, including
+               a reset_transaction_read_version(), so that we might in
+               theory write bogus read markers that are not valid any
+               more.  To prevent this, reset_transaction_read_version()
+               acquires the privatization_lock too.
+            */
             long j;
             uint8_t readmarkers[NB_SEGMENTS];
+
+            acquire_privatization_lock();
             for (j = 1; j <= NB_SEGMENTS; j++) {
                 readmarkers[j - 1] = get_read_marker(get_segment_base(j),
                                                      hashtableobj)->rm;
             }
 
-            acquire_privatization_lock();
             char *p = allocate_outside_nursery_large(
                           sizeof(stm_hashtable_entry_t));
             entry = (stm_hashtable_entry_t *)(p - stm_object_pages);
@@ -324,12 +336,12 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                 e->object = NULL;
             }
             hashtable->additions += 0x100;
-            release_privatization_lock();
 
             for (j = 1; j <= NB_SEGMENTS; j++) {
                 get_read_marker(get_segment_base(j), (object_t *)entry)->rm =
                     readmarkers[j - 1];
             }
+            release_privatization_lock();
         }
         write_fence();     /* make sure 'entry' is fully initialized here */
         table->items[i] = entry;

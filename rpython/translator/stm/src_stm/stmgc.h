@@ -26,7 +26,6 @@
 typedef TLPREFIX struct object_s object_t;
 typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
 typedef TLPREFIX struct stm_read_marker_s stm_read_marker_t;
-typedef TLPREFIX struct stm_creation_marker_s stm_creation_marker_t;
 typedef TLPREFIX char stm_char;
 
 struct stm_read_marker_s {
