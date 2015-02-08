@@ -115,7 +115,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    if support.product(shape) < 2:
+    if support.product(shape) == 1:
         w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
     else:
         loop.assign(space, w_arr, elems_w)
