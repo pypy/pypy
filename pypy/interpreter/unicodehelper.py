@@ -16,7 +16,7 @@ def decode_error_handler(space):
                                              space.wrap(msg)]))
     return raise_unicode_exception_decode
 
-class AppUnicodeEncodeError(Exception):
+class RPyUnicodeEncodeError(Exception):
     def __init__(self, encoding, object, start, end, reason):
         self.encoding = encoding
         self.object = object
