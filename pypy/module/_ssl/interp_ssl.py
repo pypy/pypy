@@ -3,7 +3,7 @@ import weakref
 from rpython.rlib import rpoll, rsocket
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.ropenssl import *
-from rpython.rlib.rposix import get_errno, set_errno
+from rpython.rlib.rposix import get_saved_errno
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -188,11 +188,9 @@ class SSLContext(W_Root):
         else:
             keyfile = space.str_w(w_keyfile)
 
-        set_errno(0)
-
         ret = libssl_SSL_CTX_use_certificate_chain_file(self.ctx, certfile)
         if ret != 1:
-            errno = get_errno()
+            errno = get_saved_errno()
             if errno:
                 libssl_ERR_clear_error()
                 raise wrap_oserror(space, OSError(errno, ''),
@@ -203,7 +201,7 @@ class SSLContext(W_Root):
         ret = libssl_SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
                                                  SSL_FILETYPE_PEM)
         if ret != 1:
-            errno = get_errno()
+            errno = get_saved_errno()
             if errno:
                 libssl_ERR_clear_error()
                 raise wrap_oserror(space, OSError(errno, ''),
@@ -227,11 +225,10 @@ class SSLContext(W_Root):
         if cafile is None and capath is None:
             raise OperationError(space.w_TypeError, space.wrap(
                     "cafile and capath cannot be both omitted"))
-        set_errno(0)
         ret = libssl_SSL_CTX_load_verify_locations(
             self.ctx, cafile, capath)
         if ret != 1:
-            errno = get_errno()
+            errno = get_saved_errno()
             if errno:
                 libssl_ERR_clear_error()
                 raise wrap_oserror(space, OSError(errno, ''),

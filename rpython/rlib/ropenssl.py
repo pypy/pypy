@@ -199,8 +199,10 @@ ssl_external('TLSv1_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
-ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
-ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT,
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT,
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.LONG, macro=True)
 ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.LONG], rffi.LONG, macro=True)
 if HAVE_SSL_CTX_CLEAR_OPTIONS:
@@ -213,7 +215,7 @@ ssl_external('SSL_CTX_set_default_verify_paths', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_cipher_list', [SSL_CTX, rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_load_verify_locations',
              [SSL_CTX, rffi.CCHARP, rffi.CCHARP], rffi.INT,
-             save_err=SAVE_ERR)
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('SSL_CTX_check_private_key', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_session_id_context', [SSL_CTX, rffi.CCHARP, rffi.UINT], rffi.INT)
 SSL_CTX_STATS_NAMES = """
