@@ -188,10 +188,13 @@ static inline void stm_read(object_t *obj)
    necessary to call it immediately after stm_allocate().
 */
 __attribute__((always_inline))
-static inline void stm_write(object_t *obj)
+static inline int stm_write(object_t *obj)
 {
-    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0))
+    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0)) {
         _stm_write_slowpath(obj);
+        return 1;
+    }
+    return 0;
 }
 
 /* The following is a GC-optimized barrier that works on the granularity
@@ -545,6 +548,8 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *, stm_hashtable_t *,
 object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
 void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
                          object_t *nvalue, stm_thread_local_t *);
+void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
+                               object_t *nvalue);
 long stm_hashtable_length_upper_bound(stm_hashtable_t *);
 long stm_hashtable_list(object_t *, stm_hashtable_t *,
                         stm_hashtable_entry_t **results);

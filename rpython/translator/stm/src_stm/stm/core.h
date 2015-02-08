@@ -96,6 +96,14 @@ struct stm_priv_segment_info_s {
     struct list_s *modified_old_objects_markers;
     uintptr_t modified_old_objects_markers_num_old;
 
+    /* This list contains all old hashtables that have entries that we
+       modified.  Note that several transactions can all commit if
+       they have the same hashtable listed here.  The point of this
+       list is only that if another segment does a global "read" of
+       the hashtable (stm_hashtable_list), then it conflicts with this
+       segment if it has got any change to the hashtable. */
+    struct list_s *modified_old_hashtables;
+
     /* List of out-of-nursery objects that may contain pointers to
        nursery objects.  This is used to track the GC status: they are
        all objects outside the nursery on which an stm_write() occurred
@@ -282,17 +290,13 @@ static void abort_with_mutex(void) __attribute__((noreturn));
 static stm_thread_local_t *abort_with_mutex_no_longjmp(void);
 static void abort_data_structures_from_segment_num(int segment_num);
 
-static inline struct stm_read_marker_s *get_read_marker(char *base,
-                                                        object_t *obj) {
-    return (struct stm_read_marker_s *)(base + (((uintptr_t)obj) >> 4));
-}
-
 static inline bool was_read_remote(char *base, object_t *obj)
 {
     uint8_t other_transaction_read_version =
         ((struct stm_segment_info_s *)REAL_ADDRESS(base, STM_PSEGMENT))
             ->transaction_read_version;
-    uint8_t rm = get_read_marker(base, obj)->rm;
+    uint8_t rm = ((struct stm_read_marker_s *)
+                  (base + (((uintptr_t)obj) >> 4)))->rm;
     assert(rm <= other_transaction_read_version);
     return rm == other_transaction_read_version;
 }

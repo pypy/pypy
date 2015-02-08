@@ -312,6 +312,13 @@ def stm_hashtable_write(funcgen, op):
     return ('stm_hashtable_write((object_t *)%s, %s, %s, (object_t *)%s, '
             '&stm_thread_local);' % (arg0, arg1, arg2, arg3))
 
+def stm_hashtable_write_entry(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    return ('stm_hashtable_write_entry((object_t *)%s, %s, (object_t *)%s);' % (
+        arg0, arg1, arg2))
+
 def stm_hashtable_lookup(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])

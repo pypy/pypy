@@ -476,13 +476,26 @@ static void mark_visit_from_markers(void)
     }
 }
 
-static void clean_up_segment_lists(void)
-{
 #pragma push_macro("STM_PSEGMENT")
 #pragma push_macro("STM_SEGMENT")
 #undef STM_PSEGMENT
 #undef STM_SEGMENT
 
+static void remove_objects_that_die(struct list_s *lst)
+{
+    if (lst != NULL) {
+        uintptr_t n = list_count(lst);
+        while (n > 0) {
+            object_t *obj = (object_t *)list_item(lst, --n);
+            if (!mark_visited_test(obj)) {
+                list_set_item(lst, n, list_pop_item(lst));
+            }
+        }
+    }
+}
+
+static void clean_up_segment_lists(void)
+{
     long i;
     for (i = 1; i <= NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
@@ -541,21 +554,14 @@ static void clean_up_segment_lists(void)
             }));
         list_clear(lst);
 
-        /* Remove from 'large_overflow_objects' all objects that die */
-        lst = pseg->large_overflow_objects;
-        if (lst != NULL) {
-            uintptr_t n = list_count(lst);
-            while (n > 0) {
-                object_t *obj = (object_t *)list_item(lst, --n);
-                if (!mark_visited_test(obj)) {
-                    list_set_item(lst, n, list_pop_item(lst));
-                }
-            }
-        }
+        /* Remove from 'large_overflow_objects' and 'modified_old_hashtables'
+           all objects that die */
+        remove_objects_that_die(pseg->large_overflow_objects);
+        remove_objects_that_die(pseg->modified_old_hashtables);
     }
+}
 #pragma pop_macro("STM_SEGMENT")
 #pragma pop_macro("STM_PSEGMENT")
-}
 
 static inline bool largemalloc_keep_object_at(char *data)
 {

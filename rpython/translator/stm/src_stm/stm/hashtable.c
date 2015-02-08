@@ -298,34 +298,12 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                synchronization with other pieces of the code that may
                change.
             */
-
-            /* First fetch the read marker of 'hashtableobj' in all
-               segments, before allocate_outside_nursery_large() which
-               might trigger a GC.  Synchronization guarantee: if
-               stm_read(hobj) in stm_hashtable_list() has set the read
-               marker, then it did synchronize with us here by
-               acquiring and releasing this hashtable' lock.  However,
-               the interval of time between reading the readmarkers of
-               hobj and copying them to the new entry object might be
-               enough for the other threads to do anything, including
-               a reset_transaction_read_version(), so that we might in
-               theory write bogus read markers that are not valid any
-               more.  To prevent this, reset_transaction_read_version()
-               acquires the privatization_lock too.
-            */
-            long j;
-            uint8_t readmarkers[NB_SEGMENTS];
-
             acquire_privatization_lock();
-            for (j = 1; j <= NB_SEGMENTS; j++) {
-                readmarkers[j - 1] = get_read_marker(get_segment_base(j),
-                                                     hashtableobj)->rm;
-            }
-
             char *p = allocate_outside_nursery_large(
                           sizeof(stm_hashtable_entry_t));
             entry = (stm_hashtable_entry_t *)(p - stm_object_pages);
 
+            long j;
             for (j = 0; j <= NB_SEGMENTS; j++) {
                 struct stm_hashtable_entry_s *e;
                 e = (struct stm_hashtable_entry_s *)
@@ -336,11 +314,6 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                 e->object = NULL;
             }
             hashtable->additions += 0x100;
-
-            for (j = 1; j <= NB_SEGMENTS; j++) {
-                get_read_marker(get_segment_base(j), (object_t *)entry)->rm =
-                    readmarkers[j - 1];
-            }
             release_privatization_lock();
         }
         write_fence();     /* make sure 'entry' is fully initialized here */
@@ -370,15 +343,44 @@ object_t *stm_hashtable_read(object_t *hobj, stm_hashtable_t *hashtable,
     return e->object;
 }
 
+void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
+                               object_t *nvalue)
+{
+    if (stm_write((object_t *)entry)) {
+        uintptr_t i = list_count(STM_PSEGMENT->modified_old_objects);
+        if (i > 0 && list_item(STM_PSEGMENT->modified_old_objects, i - 1)
+                     == (uintptr_t)entry) {
+            /* 'modified_old_hashtables' is always obtained by taking
+               a subset of 'modified_old_objects' which contains only
+               stm_hashtable_entry_t objects, and then replacing the
+               stm_hashtable_entry_t objects with the hobj they come
+               from.  It's possible to have duplicates in
+               'modified_old_hashtables'; here we only try a bit to
+               avoid them --- at least the list should never be longer
+               than 'modified_old_objects'. */
+            i = list_count(STM_PSEGMENT->modified_old_hashtables);
+            if (i > 0 && list_item(STM_PSEGMENT->modified_old_hashtables, i - 1)
+                         == (uintptr_t)hobj) {
+                /* already added */
+            }
+            else {
+                LIST_APPEND(STM_PSEGMENT->modified_old_hashtables, hobj);
+            }
+        }
+    }
+    entry->object = nvalue;
+}
+
 void stm_hashtable_write(object_t *hobj, stm_hashtable_t *hashtable,
                          uintptr_t key, object_t *nvalue,
                          stm_thread_local_t *tl)
 {
     STM_PUSH_ROOT(*tl, nvalue);
+    STM_PUSH_ROOT(*tl, hobj);
     stm_hashtable_entry_t *e = stm_hashtable_lookup(hobj, hashtable, key);
-    stm_write((object_t *)e);
+    STM_POP_ROOT(*tl, hobj);
     STM_POP_ROOT(*tl, nvalue);
-    e->object = nvalue;
+    stm_hashtable_write_entry(hobj, e, nvalue);
 }
 
 long stm_hashtable_length_upper_bound(stm_hashtable_t *hashtable)
@@ -402,28 +404,15 @@ long stm_hashtable_length_upper_bound(stm_hashtable_t *hashtable)
 long stm_hashtable_list(object_t *hobj, stm_hashtable_t *hashtable,
                         stm_hashtable_entry_t **results)
 {
-    stm_hashtable_table_t *table;
-    intptr_t rc;
-
     /* Set the read marker.  It will be left as long as we're running
        the same transaction.
     */
     stm_read(hobj);
 
-    /* Acquire and immediately release the lock.  We don't actually
-       need to do anything while we hold the lock, but the point is to
-       wait until the lock is available, and to synchronize other
-       threads with the stm_read() done above.
-     */
- restart:
-    table = VOLATILE_HASHTABLE(hashtable)->table;
-    rc = VOLATILE_TABLE(table)->resize_counter;
-    if (IS_EVEN(rc)) {
-        spin_loop();
-        goto restart;
-    }
-    if (!__sync_bool_compare_and_swap(&table->resize_counter, rc, rc))
-        goto restart;
+    /* Get the table.  No synchronization is needed: we may miss some
+       entries that are being added, but they would contain NULL in
+       this segment anyway. */
+    stm_hashtable_table_t *table = VOLATILE_HASHTABLE(hashtable)->table;
 
     /* Read all entries, check which ones are not NULL, count them,
        and optionally list them in 'results'.

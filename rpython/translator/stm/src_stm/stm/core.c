@@ -374,6 +374,7 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
 
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects));
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects_markers));
+    assert(list_is_empty(STM_PSEGMENT->modified_old_hashtables));
     assert(list_is_empty(STM_PSEGMENT->young_weakrefs));
     assert(tree_is_cleared(STM_PSEGMENT->young_outside_nursery));
     assert(tree_is_cleared(STM_PSEGMENT->nursery_objects_shadows));
@@ -438,29 +439,45 @@ static bool detect_write_read_conflicts(void)
             continue;    /* no need to check: is pending immediate abort */
 
         char *remote_base = get_segment_base(i);
+        object_t *conflicting_obj;
 
         LIST_FOREACH_R(
             STM_PSEGMENT->modified_old_objects,
             object_t * /*item*/,
             ({
                 if (was_read_remote(remote_base, item)) {
-                    /* A write-read conflict! */
-                    dprintf(("write-read conflict on %p, our seg: %d, other: %ld\n",
-                             item, STM_SEGMENT->segment_num, i));
-                    if (write_read_contention_management(i, item)) {
-                        /* If we reach this point, we didn't abort, but we
-                           had to wait for the other thread to commit.  If we
-                           did, then we have to restart committing from our call
-                           to synchronize_all_threads(). */
-                        return true;
-                    }
-                    /* we aborted the other transaction without waiting, so
-                       we can just break out of this loop on
-                       modified_old_objects and continue with the next
-                       segment */
-                    break;
+                    conflicting_obj = item;
+                    goto found_conflict;
                 }
             }));
+
+        LIST_FOREACH_R(
+            STM_PSEGMENT->modified_old_hashtables,
+            object_t * /*item*/,
+            ({
+                if (was_read_remote(remote_base, item)) {
+                    conflicting_obj = item;
+                    goto found_conflict;
+                }
+            }));
+
+        continue;
+
+     found_conflict:
+        /* A write-read conflict! */
+        dprintf(("write-read conflict on %p, our seg: %d, other: %ld\n",
+                 conflicting_obj, STM_SEGMENT->segment_num, i));
+        if (write_read_contention_management(i, conflicting_obj)) {
+            /* If we reach this point, we didn't abort, but we
+               had to wait for the other thread to commit.  If we
+               did, then we have to restart committing from our call
+               to synchronize_all_threads(). */
+            return true;
+        }
+        /* we aborted the other transaction without waiting, so we can
+           just ignore the rest of this (now aborted) segment.  Let's
+           move on to the next one. */
+        continue;
     }
 
     return false;
@@ -790,6 +807,7 @@ static void push_modified_to_other_segments(void)
 
     list_clear(STM_PSEGMENT->modified_old_objects);
     list_clear(STM_PSEGMENT->modified_old_objects_markers);
+    list_clear(STM_PSEGMENT->modified_old_hashtables);
 }
 
 static void _finish_transaction(enum stm_event_e event)
@@ -951,6 +969,7 @@ reset_modified_from_other_segments(int segment_num)
 
     list_clear(pseg->modified_old_objects);
     list_clear(pseg->modified_old_objects_markers);
+    list_clear(pseg->modified_old_hashtables);
 }
 
 static void abort_data_structures_from_segment_num(int segment_num)

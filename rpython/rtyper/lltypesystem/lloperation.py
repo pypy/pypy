@@ -465,6 +465,7 @@ LL_OPERATIONS = {
     'stm_hashtable_read':     LLOp(),
     'stm_hashtable_write':    LLOp(),
     'stm_hashtable_lookup':   LLOp(),
+    'stm_hashtable_write_entry':        LLOp(),
     'stm_hashtable_length_upper_bound': LLOp(),
     'stm_hashtable_list'  :   LLOp(),
     'stm_hashtable_tracefn':  LLOp(),
