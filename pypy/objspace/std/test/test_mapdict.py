@@ -706,7 +706,7 @@ class AppTestWithMapDict(object):
             pass
         x = X(); x.a = 10; x.b = 20; x.c = 30
         d = x.__dict__
-        assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
+        assert list(__pypy__.reversed_dict(d)) == list(d.keys())[::-1]
 
 
 class AppTestWithMapDictAndCounters(object):
