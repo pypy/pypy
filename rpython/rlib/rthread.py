@@ -3,7 +3,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 import py, sys
 from rpython.rlib import jit, rgc
-from rpython.rlib.debug import ll_assert
+from rpython.rlib.debug import ll_assert, fatalerror, debug_print
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -62,7 +62,8 @@ c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
                                   releasegil=True)    # release the GIL
 
 # another set of functions, this time in versions that don't cause the
-# GIL to be released.  To use to handle the GIL lock itself.
+# GIL to be released.  This was used to handle the GIL lock itself,
+# but nowadays it's done differently, so it's really only used in tests.
 c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
                                          [TLOCKP, rffi.INT], rffi.INT,
                                          _nowrapper=True)
@@ -128,27 +129,104 @@ class Lock(object):
     _immutable_fields_ = ["_lock"]
 
     def __init__(self, ll_lock):
+        # "_num_acquires" is the number of times we have started an
+        # "acquire" on this lock, minus the number of times we have
+        # done a "release", multiplied by two and with one added iff
+        # the low-level ll_lock is actually acquired.  As long as
+        # there is no contention, _num_acquires will only take the
+        # values 0 or 2, and the ll_lock will not be used (and the GIL
+        # will not be released because of operations on this lock).
         self._lock = ll_lock
+        self._num_acquires = 0
+
+    def _acquire_ll_lock(self, microseconds, intr_flag):
+        n = self._num_acquires
+        #debug_print("_really_acquire, n =", n)
+        if n == 2:
+            # if n is precisely 2, we must do a double acquire: one
+            # for really acquiring the lock, and another for blocking
+            # until it is released by someone else.  The first one
+            # should never block and we *must* not release the GIL
+            # around it.  Only afterwards will the lock be in a
+            # consistent state again: _num_acquires odd and _lock
+            # acquired.
+            flag = rffi.cast(rffi.INT, 1)
+            res = c_thread_acquirelock_NOAUTO(self._lock, flag)
+            res = rffi.cast(lltype.Signed, res)
+            if res != 1:
+                fatalerror("lock.acquire() failed unexpectedly")
+            n = 3
+        #
+        self._num_acquires = n + 2
+        res = c_thread_acquirelock_timed(self._lock, microseconds, intr_flag)
+        res = rffi.cast(lltype.Signed, res)
+        return res
+
+    @staticmethod
+    def _really_acquire(self):
+        res = self._acquire_ll_lock(-1, 0)
+        if res != 1:
+            fatalerror("lock.acquire() failed unexpectedly")
+        #
+        n = self._num_acquires - 2
+        assert n >= 0
+        self._num_acquires = n
+
+    @staticmethod
+    def _really_release(self):
+        #debug_print("_really_release, n =", self._num_acquires)
+        c_thread_releaselock(self._lock)
 
     def acquire(self, flag):
-        res = c_thread_acquirelock(self._lock, int(flag))
-        res = rffi.cast(lltype.Signed, res)
-        return bool(res)
+        if flag:
+            #debug_print("acquiring...")
+            # acquire(True): if _num_acquires >= 2, then there is contention
+            jit.conditional_call(self._num_acquires >= 2,
+                                 Lock._really_acquire, self)
+            #
+            # At this point, either _num_acquires was zero and we increment
+            # it here; or it was not zero, so we called _really_acquire(),
+            # which incremented it but decremented it again before
+            # returning --- so that we can increment it here *again*.  The
+            # point is that if the JIT compiles a small Python block of
+            # code which contains the release() soon afterwards, the
+            # following increment will be matched with the decrement and
+            # optimized away (as usual relying on the GIL).
+            self._num_acquires += 2
+            #debug_print("acquired")
+            return True
+        else:
+            # acquire(False): if n == 0, then we succeed; otherwise, we fail
+            if self._num_acquires == 0:
+                self._num_acquires = 2
+                return True
+            else:
+                return False
 
     def acquire_timed(self, timeout):
         """Timeout is in microseconds.  Returns 0 in case of failure,
         1 in case it works, 2 if interrupted by a signal."""
-        res = c_thread_acquirelock_timed(self._lock, timeout, 1)
-        res = rffi.cast(lltype.Signed, res)
+        n = self._num_acquires
+        # can't use jit.conditional_call() easily here, because of the
+        # return value.  Anyway in PyPy this code is not seen by the JIT.
+        if n == 0:
+            self._num_acquires = n + 2
+            res = 1      # no contention, worked
+        else:
+            res = self._acquire_ll_lock(timeout, 1)
         return res
 
     def release(self):
         # Sanity check: the lock must be locked
-        if self.acquire(False):
-            c_thread_releaselock(self._lock)
+        n = self._num_acquires
+        if n < 2:
             raise error("bad lock")
-        else:
-            c_thread_releaselock(self._lock)
+        n = n - 2
+        self._num_acquires = n
+        # the only case where we don't really want to release the ll_lock
+        # is when this release() makes _num_acquires go from 2 to 0.
+        jit.conditional_call(n != 0, Lock._really_release, self)
+        #debug_print("released")
 
     def __del__(self):
         if free_ll_lock is None:  # happens when tests are shutting down
