@@ -258,17 +258,17 @@ class AppTest_DictObject:
     def test_reversed_dict(self):
         import __pypy__
         for d in [{}, {1: 2, 3: 4, 5: 6}, {"a": 5, "b": 2, "c": 6}]:
-            assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
+            assert list(__pypy__.reversed_dict(d)) == list(d.keys())[::-1]
         raises(TypeError, __pypy__.reversed_dict, 42)
 
     def test_reversed_dict_runtimeerror(self):
         import __pypy__
         d = {1: 2, 3: 4, 5: 6}
         it = __pypy__.reversed_dict(d)
-        key = it.next()
+        key = next(it)
         assert key in [1, 3, 5]
         del d[key]
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, next, it)
 
     def test_keys(self):
         d = {1: 2, 3: 4}

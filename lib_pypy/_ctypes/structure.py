@@ -180,7 +180,7 @@ class StructOrUnionMeta(_CDataMeta):
         if isinstance(address, _rawffi.StructureInstance):
             address = address.buffer
         # fix the address: turn it into as unsigned, in case it is negative
-        address = address & (sys.maxint * 2 + 1)
+        address = address & (sys.maxsize * 2 + 1)
         instance.__dict__['_buffer'] = self._ffistruct.fromaddress(address)
         return instance
 
