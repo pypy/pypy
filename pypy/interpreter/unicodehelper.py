@@ -16,12 +16,20 @@ def decode_error_handler(space):
                                              space.wrap(msg)]))
     return raise_unicode_exception_decode
 
+class AppUnicodeEncodeError(Exception):
+    def __init__(self, encoding, object, start, end, reason):
+        self.encoding = encoding
+        self.object = object
+        self.start = start
+        self.end = end
+        self.reason = reason
+
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
-        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+        raise AppUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
     return raise_unicode_exception_encode
 
 # ____________________________________________________________
