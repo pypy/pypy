@@ -221,7 +221,7 @@ class BaseGCTransformer(object):
         # for sanity, we need an empty block at the start of the graph
         inserted_empty_startblock = False
         if not starts_with_empty_block(graph):
-            insert_empty_startblock(self.translator.annotator, graph)
+            insert_empty_startblock(graph)
             inserted_empty_startblock = True
         is_borrowed = self.compute_borrowed_vars(graph)
 
@@ -239,7 +239,7 @@ class BaseGCTransformer(object):
                 if link.prevblock.exitswitch is None:
                     link.prevblock.operations.extend(llops)
                 else:
-                    insert_empty_block(self.translator.annotator, link, llops)
+                    insert_empty_block(link, llops)
 
         # remove the empty block at the start of the graph, which should
         # still be empty (but let's check)
