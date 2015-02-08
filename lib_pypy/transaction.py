@@ -232,7 +232,8 @@ class _ThreadPool(object):
                 with atomic:
                     if len(exception) == 0:
                         try:
-                            f(*args, **kwds)
+                            with signals_enabled:
+                                f(*args, **kwds)
                         except:
                             exception.extend(sys.exc_info())
                 del next_transaction
