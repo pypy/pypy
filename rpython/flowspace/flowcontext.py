@@ -1187,6 +1187,7 @@ class Return(FlowSignal):
         w_result = self.w_value
         link = Link([w_result], ctx.graph.returnblock)
         ctx.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
     @property
     def args(self):
