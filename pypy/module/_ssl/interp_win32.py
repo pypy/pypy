@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_windowserror
 
 eci = ExternalCompilationInfo(
-    includes = ['windows.h', 'stdio.h', 'stdlib.h'],
+    includes = ['windows.h', 'wincrypt.h'],
     libraries = ['crypt32'],
 )
 
