@@ -359,12 +359,13 @@ void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
                avoid them --- at least the list should never be longer
                than 'modified_old_objects'. */
             i = list_count(STM_PSEGMENT->modified_old_hashtables);
-            if (i > 0 && list_item(STM_PSEGMENT->modified_old_hashtables, i - 1)
+            if (i > 0 && list_item(STM_PSEGMENT->modified_old_hashtables, i - 2)
                          == (uintptr_t)hobj) {
                 /* already added */
             }
             else {
-                LIST_APPEND(STM_PSEGMENT->modified_old_hashtables, hobj);
+                LIST_APPEND2(STM_PSEGMENT->modified_old_hashtables,
+                             hobj, entry);
             }
         }
     }

@@ -46,6 +46,9 @@ static inline struct list_s *list_append2(struct list_s *lst,
     return lst;
 }
 
+#define LIST_APPEND2(lst, e1, e2)   ((lst) = list_append2((lst),   \
+                                        (uintptr_t)(e1), (uintptr_t)(e2)))
+
 
 static inline void list_clear(struct list_s *lst)
 {

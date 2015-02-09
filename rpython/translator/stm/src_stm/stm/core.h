@@ -97,7 +97,8 @@ struct stm_priv_segment_info_s {
     uintptr_t modified_old_objects_markers_num_old;
 
     /* This list contains all old hashtables that have entries that we
-       modified.  Note that several transactions can all commit if
+       modified.  It's actually a list of pairs hashtable/sample_entry.
+       Note that several transactions can all commit if
        they have the same hashtable listed here.  The point of this
        list is only that if another segment does a global "read" of
        the hashtable (stm_hashtable_list), then it conflicts with this

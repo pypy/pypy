@@ -476,26 +476,13 @@ static void mark_visit_from_markers(void)
     }
 }
 
+static void clean_up_segment_lists(void)
+{
 #pragma push_macro("STM_PSEGMENT")
 #pragma push_macro("STM_SEGMENT")
 #undef STM_PSEGMENT
 #undef STM_SEGMENT
 
-static void remove_objects_that_die(struct list_s *lst)
-{
-    if (lst != NULL) {
-        uintptr_t n = list_count(lst);
-        while (n > 0) {
-            object_t *obj = (object_t *)list_item(lst, --n);
-            if (!mark_visited_test(obj)) {
-                list_set_item(lst, n, list_pop_item(lst));
-            }
-        }
-    }
-}
-
-static void clean_up_segment_lists(void)
-{
     long i;
     for (i = 1; i <= NB_SEGMENTS; i++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
@@ -554,14 +541,39 @@ static void clean_up_segment_lists(void)
             }));
         list_clear(lst);
 
-        /* Remove from 'large_overflow_objects' and 'modified_old_hashtables'
-           all objects that die */
-        remove_objects_that_die(pseg->large_overflow_objects);
-        remove_objects_that_die(pseg->modified_old_hashtables);
+        /* Remove from 'large_overflow_objects' all objects that die */
+        lst = pseg->large_overflow_objects;
+        if (lst != NULL) {
+            uintptr_t n = list_count(lst);
+            while (n > 0) {
+                object_t *obj = (object_t *)list_item(lst, --n);
+                if (!mark_visited_test(obj))
+                    list_set_item(lst, n, list_pop_item(lst));
+            }
+        }
+
+        /* Remove from 'modified_old_hashtables' all old hashtables that
+           die, but keeping the order */
+        {
+            lst = pseg->modified_old_hashtables;
+            uintptr_t j, k = 0, limit = list_count(lst);
+            for (j = 0; j < limit; j += 2) {
+                object_t *hobj = (object_t *)list_item(lst, j);
+                if (mark_visited_test(hobj)) {
+                    /* hobj does not die */
+                    if (j != k) {
+                        list_set_item(lst, k, (uintptr_t)hobj);
+                        list_set_item(lst, k + 1, list_item(lst, j + 1));
+                    }
+                    k += 2;
+                }
+            }
+            lst->count = k;
+        }
     }
-}
 #pragma pop_macro("STM_SEGMENT")
 #pragma pop_macro("STM_PSEGMENT")
+}
 
 static inline bool largemalloc_keep_object_at(char *data)
 {

@@ -436,26 +436,31 @@ static bool detect_write_read_conflicts(void)
 
         char *remote_base = get_segment_base(i);
         object_t *conflicting_obj;
+        uintptr_t j, limit;
+        struct list_s *lst;
 
-        LIST_FOREACH_R(
-            STM_PSEGMENT->modified_old_objects,
-            object_t * /*item*/,
-            ({
-                if (was_read_remote(remote_base, item)) {
-                    conflicting_obj = item;
-                    goto found_conflict;
-                }
-            }));
+        /* Look in forward order: this is an attempt to report the _first_
+           write that conflicts with another segment's reads
+        */
+        lst = STM_PSEGMENT->modified_old_objects;
+        limit = list_count(lst);
+        for (j = 0; j < limit; j++) {
+            object_t *obj = (object_t *)list_item(lst, j);
+            if (was_read_remote(remote_base, obj)) {
+                conflicting_obj = obj;
+                goto found_conflict;
+            }
+        }
 
-        LIST_FOREACH_R(
-            STM_PSEGMENT->modified_old_hashtables,
-            object_t * /*item*/,
-            ({
-                if (was_read_remote(remote_base, item)) {
-                    conflicting_obj = item;
-                    goto found_conflict;
-                }
-            }));
+        lst = STM_PSEGMENT->modified_old_hashtables;
+        limit = list_count(lst);
+        for (j = 0; j < limit; j += 2) {
+            object_t *hobj = (object_t *)list_item(lst, j);
+            if (was_read_remote(remote_base, hobj)) {
+                conflicting_obj = (object_t *)list_item(lst, j + 1);
+                goto found_conflict;
+            }
+        }
 
         continue;
 
