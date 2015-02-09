@@ -1,5 +1,5 @@
 from rpython.rlib import rwin32
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.interpreter.gateway import unwrap_spec
