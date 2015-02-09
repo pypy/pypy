@@ -159,6 +159,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
                 subbox = value.force_box(optforce)
+                # STM note: recording stm_location is pointless, because
+                # it should not fail here: we just allocated 'box'
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
                 optforce.emit_operation(op)

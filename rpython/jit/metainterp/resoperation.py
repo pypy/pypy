@@ -87,6 +87,7 @@ class AbstractResOp(object):
         if descr is None:
             descr = self.getdescr()
         newop = ResOperation(opnum, args, result, descr)
+        newop.stm_location = self.stm_location
         return newop
 
     def clone(self):
