@@ -48,6 +48,10 @@ class RPythonTyper(object):
         self.reprs = stmdict()
         self._seen_reprs_must_call_setup = stmset()
         self._all_lists_must_call_setup = []
+        try:
+            del annmodel.TLS._reprs_must_call_setup
+        except AttributeError:
+            pass
         self._dict_traits = {}
         self.rootclass_repr = RootClassRepr(self)
         self.rootclass_repr.setup()
@@ -306,10 +310,7 @@ class RPythonTyper(object):
         while True:
             if all_threads:
                 lsts = self._all_lists_must_call_setup
-                for lst in lsts:
-                    if lst:
-                        break
-                else:
+                if not any(lsts):
                     return      # nothing to do
             else:
                 lst = self._list_must_call_setup()

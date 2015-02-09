@@ -57,7 +57,8 @@ class __extend__(annmodel.SomeList):
                 return FixedSizeListRepr(rtyper, item_repr, listitem)
 
     def rtyper_makekey(self):
-        self.listdef.listitem.dont_change_any_more = True
+        if not self.listdef.listitem.dont_change_any_more:
+            self.listdef.listitem.dont_change_any_more = True
         return self.__class__, self.listdef.listitem
 
 
