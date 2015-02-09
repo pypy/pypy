@@ -10,7 +10,9 @@ class TestConflict(BaseTestSTM):
             x = X()     # shared
             x.a = 0
             def g():
+                X()           #loc0
                 x.a += 1      #loc1
+                X()           #loc2
             run_in_threads(g)
         #
         self.check_MANY_conflicts(f, jit=jit)
@@ -57,7 +59,9 @@ class TestConflict(BaseTestSTM):
             x.a = 0
             def g(tnum):
                 if tnum == 0:
+                    X()           #loc1
                     x.a += 1      #loc2
+                    X()           #loc3
                 else:
                     if x.a < 0:
                         raise AssertionError

@@ -87,6 +87,7 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
 
     def setup_method(self, meth):
         self.filepath = self.tmpdir.join(meth.im_func.func_name + '.py')
+        self.stmfile = self.filepath.new(ext='.stm')
         self.logfile = self.filepath.new(ext='.log')
 
     def _write_source(self, func_or_src, args=[]):
@@ -109,7 +110,8 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
             cmdline.append('-S')
         cmdline.append(str(self.filepath))
         env = os.environ.copy()
-        env['PYPYSTM'] = str(self.logfile)
+        env['PYPYSTM'] = str(self.stmfile)
+        env['PYPYLOG'] = str(self.logfile)
         #
         pipe = subprocess.Popen(cmdline,
                                 env=env,
@@ -125,7 +127,7 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
 
     def _parse_log(self):
         from pypy.stm.print_stm_log import StmLog
-        return StmLog(str(self.logfile))
+        return StmLog(str(self.stmfile))
 
     def _check_count_conflicts(self, func_or_src, args=[], **kwds):
         self._write_source(func_or_src, args)
