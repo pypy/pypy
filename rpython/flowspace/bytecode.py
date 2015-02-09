@@ -545,6 +545,7 @@ class SetupInstruction(BCInstruction):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         self.target = reader.get_block_at(self.arg)
+        reader.end_block()
 
     def do_signals(self, reader):
         reader.blockstack.append(self.make_block(-1))
@@ -593,6 +594,10 @@ class SETUP_WITH(SetupInstruction):
 
 @bc_reader.register_opcode
 class POP_BLOCK(BCInstruction):
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
+        reader.end_block()
+
     def do_signals(self, reader):
         reader.blockstack.pop()
 
