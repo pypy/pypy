@@ -101,8 +101,10 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
             f.write(str(src) + '\n')
             f.write("print %s(%s)\n" % (funcname, arglist))
 
-    def _execute(self, import_site=False):
+    def _execute(self, import_site=False, jit=True):
         cmdline = [sys.executable]
+        if not jit:
+            cmdline.extend(['--jit', 'off'])
         if not import_site:
             cmdline.append('-S')
         cmdline.append(str(self.filepath))
@@ -125,22 +127,27 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
         from pypy.stm.print_stm_log import StmLog
         return StmLog(str(self.logfile))
 
-    def _check_count_conflicts(self, func_or_src, args=[]):
+    def _check_count_conflicts(self, func_or_src, args=[], **kwds):
         self._write_source(func_or_src, args)
-        self._execute()
-        stmlog = self._parse_log()
-        count = stmlog.get_total_aborts_and_pauses()
+        self._execute(**kwds)
+        self.stmlog = self._parse_log()
+        self.stmlog.dump()
+        count = self.stmlog.get_total_aborts_and_pauses()
         print 'stmlog.get_total_aborts_and_pauses():', count
         return count
 
-    def check_almost_no_conflict(self, *args):
-        count = self._check_count_conflicts(*args)
+    def check_almost_no_conflict(self, *args, **kwds):
+        count = self._check_count_conflicts(*args, **kwds)
         assert count < 500
 
-    def check_MANY_conflicts(self, *args):
-        count = self._check_count_conflicts(*args)
+    def check_MANY_conflicts(self, *args, **kwds):
+        count = self._check_count_conflicts(*args, **kwds)
         assert count > 20000
 
-    def check_SOME_conflicts(self, *args):
-        count = self._check_count_conflicts(*args)
+    def check_SOME_conflicts(self, *args, **kwds):
+        count = self._check_count_conflicts(*args, **kwds)
         assert count > 1000
+
+    def check_conflict_location(self, text):
+        first_conflict = self.stmlog.get_conflicts()[0]
+        assert first_conflict.get_marker1().rstrip().endswith(text)
