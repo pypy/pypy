@@ -345,6 +345,17 @@ class RPythonTyper(object):
         return LowLevelOpList(self, block)
 
     def specialize_block(self, block):
+        lst = self._list_must_call_setup()
+        assert lst == []
+        self._specialize_block(block)
+        # There are cases here where the list of pending setups is not empty.
+        # Better empty it now during the same transaction.  Otherwise in rare
+        # cases some reprs stay non-setup()ed for a non-deterministic while
+        # and then other reprs' setup crash
+        while lst:
+            self.call_all_setups()
+
+    def _specialize_block(self, block):
         graph = self.annotator.annotated[block]
         if graph not in self.annotator.fixed_graphs:
             self.annotator.fixed_graphs.add(graph)
