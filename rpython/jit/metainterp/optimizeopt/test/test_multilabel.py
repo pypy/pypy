@@ -32,7 +32,6 @@ class BaseTestMultiLabel(BaseTest):
                   if op.getopnum()==rop.LABEL]
         prv = 0
         last_label = []
-        stm_info = {}
         for nxt in labels + [len(loop.operations)]:
             assert prv != nxt
             operations = last_label + loop.operations[prv:nxt]
@@ -45,7 +44,7 @@ class BaseTestMultiLabel(BaseTest):
             part.operations = operations
 
             self.add_guard_future_condition(part)
-            self._do_optimize_loop(part, None, stm_info)
+            self._do_optimize_loop(part, None)
             if part.operations[-1].getopnum() == rop.LABEL:
                 last_label = [part.operations.pop()]
             else:
@@ -497,7 +496,7 @@ dispatch_opt = make_dispatcher_method(OptRenameStrlen, 'optimize_',
 
 class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
 
-    def _do_optimize_loop(self, loop, call_pure_results, stminfo):
+    def _do_optimize_loop(self, loop, call_pure_results):
         from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
         from rpython.jit.metainterp.optimizeopt.util import args_dict
         from rpython.jit.metainterp.optimizeopt.pure import OptPure
