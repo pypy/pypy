@@ -303,21 +303,30 @@ class RPythonTyper(object):
 
     def call_all_setups(self, all_threads=False):
         # make sure all reprs so far have had their setup() called
-        must_setup_more = []
-        if all_threads:
-            lsts = self._all_lists_must_call_setup
-        else:
-            lsts = [self._list_must_call_setup()]
-        for lst in lsts:
-            while lst:
-                r = lst.pop()
-                if r.is_setup_delayed():
-                    pass    # will be re-added in set_setup_delayed(False)
+        while True:
+            if all_threads:
+                lsts = self._all_lists_must_call_setup
+                for lst in lsts:
+                    if lst:
+                        break
                 else:
-                    r.setup()
-                    must_setup_more.append(r)
-        for r in must_setup_more:
-            r.setup_final()
+                    return      # nothing to do
+            else:
+                lst = self._list_must_call_setup()
+                if not lst:
+                    return      # nothing to do
+                lsts = [lst]
+            must_setup_more = []
+            for lst in lsts:
+                while lst:
+                    r = lst.pop()
+                    if r.is_setup_delayed():
+                        pass    # will be re-added in set_setup_delayed(False)
+                    else:
+                        r.setup()
+                        must_setup_more.append(r)
+            for r in must_setup_more:
+                r.setup_final()
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)
@@ -352,8 +361,7 @@ class RPythonTyper(object):
         # Better empty it now during the same transaction.  Otherwise in rare
         # cases some reprs stay non-setup()ed for a non-deterministic while
         # and then other reprs' setup crash
-        while lst:
-            self.call_all_setups()
+        self.call_all_setups()
 
     def _specialize_block(self, block):
         graph = self.annotator.annotated[block]
