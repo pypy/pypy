@@ -132,11 +132,16 @@ class LogOperations(object):
             return '?'
 
     def repr_of_resop(self, op, ops_offset=None):
+        if op.stm_location is None or op.stm_location.num == 0:
+            stmloc = ''
+        else:
+            stmloc = ' {%d}' % op.stm_location.num
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
             s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
             s = s.replace(',', '.') # we use comma for argument splitting
-            return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
+            return "debug_merge_point(%d, %d, '%s')%s" % (
+                op.getarg(1).getint(), op.getarg(2).getint(), s, stmloc)
         if op.getopnum() == rop.JIT_DEBUG:
             args = op.getarglist()
             s = args[0]._get_str()
@@ -144,7 +149,7 @@ class LogOperations(object):
             s2 = ''
             for box in args[1:]:
                 s2 += ', %d' % box.getint()
-            return "jit_debug('%s'%s)" % (s, s2)
+            return "jit_debug('%s'%s)%s" % (s, s2, stmloc)
         if ops_offset is None:
             offset = -1
         else:
@@ -176,7 +181,8 @@ class LogOperations(object):
                                           for arg in op.getfailargs()]) + ']'
         else:
             fail_args = ''
-        return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
+        return '%s%s%s(%s)%s%s' % (s_offset, res, op.getopname(),
+                                   args, fail_args, stmloc)
 
     def _log_inputarg_setup_ops(self, op):
         target_token = op.getdescr()
