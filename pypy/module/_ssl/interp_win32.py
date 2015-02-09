@@ -24,8 +24,8 @@ class CConfig:
                          ('cbCertEncoded', rwin32.DWORD),
                          ('dwCertEncodingType', rwin32.DWORD)])
     CRL_CONTEXT = rffi_platform.Struct(
-        'CRL_CONTEXT', [('pbCertEncoded', rffi.CCHARP),
-                        ('cbCertEncoded', rwin32.DWORD),
+        'CRL_CONTEXT', [('pbCrlEncoded', rffi.CCHARP),
+                        ('cbCrlEncoded', rwin32.DWORD),
                         ('dwCertEncodingType', rwin32.DWORD)])
 
 for k, v in rffi_platform.configure(CConfig).items():
