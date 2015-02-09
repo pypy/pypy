@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib.rarithmetic import intmask
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._ssl import ssl_data
@@ -22,6 +23,10 @@ class Module(MixedModule):
         '_SSLSocket': 'interp_ssl._SSLSocket',
         '_SSLContext': 'interp_ssl._SSLContext',
     }
+
+    if sys.platform == 'win32':
+        interpleveldefs['enum_certificates'] = 'interp_win32.enum_certificates_w'
+        interpleveldefs['enum_crls'] = 'interp_win32.enum_crls_w'
 
     appleveldefs = {
     }
