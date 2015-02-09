@@ -20,7 +20,13 @@
 #define PAGE_FLAG_START   END_NURSERY_PAGE
 #define PAGE_FLAG_END     NB_PAGES
 
-#define USE_REMAP_FILE_PAGES
+/* can be compiled with "-DUSE_REMAP_FILE_PAGES=0" */
+#ifndef USE_REMAP_FILE_PAGES
+#  define USE_REMAP_FILE_PAGES   1
+#endif
+#if !USE_REMAP_FILE_PAGES
+#  undef USE_REMAP_FILE_PAGES
+#endif
 
 struct page_shared_s {
 #if NB_SEGMENTS <= 8

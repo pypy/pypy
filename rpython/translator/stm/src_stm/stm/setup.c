@@ -100,9 +100,21 @@ void stm_setup(void)
 
     stm_object_pages = setup_mmap("initial stm_object_pages mmap()",
                                   &stm_object_pages_fd);
+
+    /* remap MAP_PRIVATE pages on the initial part of each segment
+       in stm_object_pages */
+    long i;
+    for (i = 0; i <= NB_SEGMENTS; i++) {
+        char *res;
+        res = mmap(get_segment_base(i), END_NURSERY_PAGE * 4096UL,
+                   PROT_READ | PROT_WRITE,
+                   MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
+                   -1, 0);
+        if (res == MAP_FAILED)
+            stm_fatalerror("mmap(private) failed: %m");
+    }
     setup_protection_settings();
 
-    long i;
     for (i = 1; i <= NB_SEGMENTS; i++) {
         char *segment_base = get_segment_base(i);
 
@@ -134,16 +146,11 @@ void stm_setup(void)
         pr->old_objects_with_light_finalizers = list_create();
         pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
         highest_overflow_number = pr->overflow_number;
-        pr->pub.transaction_read_version = 0xff;
+        pr->pub.transaction_read_version = 0;
     }
 
     /* The pages are shared lazily, as remap_file_pages() takes a relatively
        long time for each page.
-
-       The read markers are initially zero, but we set anyway
-       transaction_read_version to 0xff in order to force the first
-       transaction to "clear" the read markers by mapping a different,
-       private range of addresses.
     */
 
     setup_sync();

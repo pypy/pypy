@@ -13,16 +13,6 @@ static int fork_big_copy_fd;
 static stm_thread_local_t *fork_this_tl;
 static bool fork_was_in_transaction;
 
-static bool page_is_null(char *p)
-{
-    long *q = (long *)p;
-    long i;
-    for (i = 0; i < 4096 / sizeof(long); i++)
-        if (q[i] != 0)
-            return false;
-    return true;
-}
-
 
 static void forksupport_prepare(void)
 {
@@ -71,27 +61,6 @@ static void forksupport_prepare(void)
     */
     int big_copy_fd;
     char *big_copy = setup_mmap("stmgc's fork support", &big_copy_fd);
-
-    /* Copy each of the segment infos into the new mmap, nurseries,
-       and associated read markers
-     */
-    long i;
-    for (i = 1; i <= NB_SEGMENTS; i++) {
-        char *src, *dst;
-        struct stm_priv_segment_info_s *psrc = get_priv_segment(i);
-        dst = big_copy + (((char *)psrc) - stm_object_pages);
-        *(struct stm_priv_segment_info_s *)dst = *psrc;
-
-        src = get_segment_base(i) + FIRST_READMARKER_PAGE * 4096UL;
-        dst = big_copy + (src - stm_object_pages);
-        long j;
-        for (j = 0; j < END_NURSERY_PAGE - FIRST_READMARKER_PAGE; j++) {
-            if (!page_is_null(src))
-                pagecopy(dst, src);
-            src += 4096;
-            dst += 4096;
-        }
-    }
 
     /* Copy all the data from the two ranges of objects (large, small)
        into the new mmap
@@ -202,16 +171,24 @@ static void forksupport_child(void)
        just release these locks early */
     s_mutex_unlock();
 
-    /* Move the copy of the mmap over the old one, overwriting it
-       and thus freeing the old mapping in this process
+    /* Move the copy of the mmap over the old one, overwriting it,
+       with "holes" for each segment's read markers (which are already
+       MAP_PRIVATE and shouldn't be overwritten).  Then free the copy.
     */
     assert(fork_big_copy != NULL);
     assert(stm_object_pages != NULL);
-    void *res = mremap(fork_big_copy, TOTAL_MEMORY, TOTAL_MEMORY,
-                       MREMAP_MAYMOVE | MREMAP_FIXED,
-                       stm_object_pages);
-    if (res != stm_object_pages)
-        stm_fatalerror("after fork: mremap failed: %m");
+
+    long j;
+    for (j = 0; j <= NB_SEGMENTS; j++) {
+        char *dst = get_segment_base(j) + END_NURSERY_PAGE * 4096UL;
+        char *src = fork_big_copy + (dst - stm_object_pages);
+        uintptr_t num_bytes = (NB_PAGES - END_NURSERY_PAGE) * 4096UL;
+        void *res = mremap(src, num_bytes, num_bytes,
+                           MREMAP_MAYMOVE | MREMAP_FIXED, dst);
+        if (res != dst)
+            stm_fatalerror("after fork: mremap failed: %m");
+    }
+    munmap(fork_big_copy, TOTAL_MEMORY);
     fork_big_copy = NULL;
     close_fd_mmap(stm_object_pages_fd);
     stm_object_pages_fd = fork_big_copy_fd;
