@@ -23,8 +23,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, StmLocation
+    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken, StmLocation)
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint

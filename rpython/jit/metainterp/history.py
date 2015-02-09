@@ -776,6 +776,16 @@ class History(object):
         op.stm_location = self.stm_location
         self.operations.append(op)
 
+    def set_stm_location(self, num, ref):
+        old = self.stm_location
+        if old is None or old.num != num or old.ref != ref:
+            self.stm_location = StmLocation(num, ref)
+
+class StmLocation(object):
+    def __init__(self, num, ref):
+        self.num = num
+        self.ref = ref
+
 # ____________________________________________________________
 
 

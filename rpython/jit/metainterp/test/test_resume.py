@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.virtualize import VStructValue, Abstract
 from rpython.jit.metainterp.resume import *
 from rpython.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
+from rpython.jit.metainterp.history import History, StmLocation
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
 from rpython.jit.codewriter import heaptracker, longlong
@@ -138,6 +139,9 @@ class MyMetaInterp:
     _already_allocated_resume_virtuals = None
     callinfocollection = None
 
+    class jitdriver_sd:
+        stm_report_location = 'yes please'
+
     def __init__(self, cpu=None):
         if cpu is None:
             cpu = LLtypeMixin.cpu
@@ -145,6 +149,7 @@ class MyMetaInterp:
         self.trace = []
         self.framestack = []
         self.resboxes = []
+        self.history = History()
 
     def newframe(self, jitcode):
         frame = FakeFrame(jitcode, -1)
@@ -157,6 +162,8 @@ class MyMetaInterp:
                            list(argboxes),
                            resbox,
                            descr))
+        if self.history.stm_location is not None:
+            self.trace[-1] += (self.history.stm_location,)
         if resbox is not None:
             self.resboxes.append(resbox)
         return resbox
@@ -1378,7 +1385,9 @@ def test_virtual_adder_pending_fields():
     liveboxes = []
     modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
     assert liveboxes == [b2s, b4s] or liveboxes == [b4s, b2s]
-    modifier._add_pending_fields([(LLtypeMixin.nextdescr, b2s, b4s, -1)])
+    stmloc = StmLocation(43, 'foobar')
+    modifier._add_pending_fields([(LLtypeMixin.nextdescr, b2s, b4s, -1,
+                                   stmloc)])
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
     # resume
@@ -1391,7 +1400,7 @@ def test_virtual_adder_pending_fields():
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
     assert reader.virtuals_cache is None
     trace = metainterp.trace
-    b2set = (rop.SETFIELD_GC, [b2t, b4t], None, LLtypeMixin.nextdescr)
+    b2set = (rop.SETFIELD_GC, [b2t, b4t], None, LLtypeMixin.nextdescr, stmloc)
     expected = [b2set]
 
     for x, y in zip(expected, trace):
@@ -1414,7 +1423,7 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     modifier = ResumeDataVirtualAdder(storage, None)
     modifier.liveboxes_from_env = {42: rffi.cast(rffi.SHORT, 1042),
                                    61: rffi.cast(rffi.SHORT, 1061)}
-    modifier._add_pending_fields([(field_a, 42, 61, -1)])
+    modifier._add_pending_fields([(field_a, 42, 61, -1, None)])
     pf = storage.rd_pendingfields
     assert len(pf) == 1
     assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
@@ -1430,8 +1439,8 @@ def test_virtual_adder_pending_fields_and_arrayitems():
                                    61: rffi.cast(rffi.SHORT, 1061),
                                    62: rffi.cast(rffi.SHORT, 1062),
                                    63: rffi.cast(rffi.SHORT, 1063)}
-    modifier._add_pending_fields([(array_a, 42, 61, 0),
-                                  (array_a, 42, 62, 2147483647)])
+    modifier._add_pending_fields([(array_a, 42, 61, 0, None),
+                                  (array_a, 42, 62, 2147483647, None)])
     pf = storage.rd_pendingfields
     assert len(pf) == 2
     assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
@@ -1446,7 +1455,7 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert rffi.cast(lltype.Signed, pf[1].itemindex) == 2147483647
     #
     py.test.raises(TagOverflow, modifier._add_pending_fields,
-                   [(array_a, 42, 63, 2147483648)])
+                   [(array_a, 42, 63, 2147483648, None)])
 
 def test_resume_reader_fields_and_arrayitems():
     class ResumeReader(AbstractResumeDataReader):

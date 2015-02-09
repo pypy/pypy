@@ -7,7 +7,8 @@ import re
 from rpython.jit.tool.oparser_model import get_model
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
                                             ResOpWithDescr, N_aryOp, \
-                                            UnaryOp, PlainResOp, StmLocation
+                                            UnaryOp, PlainResOp
+from rpython.jit.metainterp.history import StmLocation
 
 r_skip_thread = re.compile(r'^(\d+#)?')
 

@@ -428,7 +428,8 @@ class OptHeap(Optimization):
                 else:
                     assert 0
                 pendingfields.append((op.getdescr(), value.box,
-                                      fieldvalue.get_key_box(), itemindex))
+                                      fieldvalue.get_key_box(), itemindex,
+                                      op.stm_location))
             else:
                 cf.force_lazy_setfield(self)
         return pendingfields

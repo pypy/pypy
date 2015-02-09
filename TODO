@@ -146,6 +146,12 @@ replace "atomic transactions" with better management of thread.locks.
 stm_read(p125)
 cond_call_gc_wb_array(p125...)    # don't need the stm_read maybe?
 
+------------------------------------------------------------
+
+we should fake the stm_location inside jit/metainterp, so that it
+is reported correctly even if we're (1) tracing, (2) blackholing,
+or (3) in ResumeDataDirectReader.change_stm_location
+
 
 
 ===============================================================================
