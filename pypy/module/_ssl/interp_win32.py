@@ -4,7 +4,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_windowserror
-
+from rpython.rlib.rarithmetic import intmask, widen
 eci = ExternalCompilationInfo(
     includes = ['windows.h', 'wincrypt.h'],
     libraries = ['crypt32'],
@@ -15,6 +15,9 @@ class CConfig:
 
     X509_ASN_ENCODING = rffi_platform.ConstantInteger('X509_ASN_ENCODING')
     PKCS_7_ASN_ENCODING = rffi_platform.ConstantInteger('PKCS_7_ASN_ENCODING')
+    CERT_FIND_PROP_ONLY_ENHKEY_USAGE_FLAG = rffi_platform.ConstantInteger('CERT_FIND_PROP_ONLY_ENHKEY_USAGE_FLAG')
+    CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG = rffi_platform.ConstantInteger('CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG')
+    CRYPT_E_NOT_FOUND = rffi_platform.ConstantInteger('CRYPT_E_NOT_FOUND')
 
     CERT_ENHKEY_USAGE = rffi_platform.Struct(
         'CERT_ENHKEY_USAGE', [('cUsageIdentifier', rwin32.DWORD),
@@ -38,6 +41,7 @@ PCCRL_CONTEXT = lltype.Ptr(CRL_CONTEXT)
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
     kw['calling_conv'] = 'win'
+    kw['save_err'] = rffi.RFFI_SAVE_LASTERROR
     return rffi.llexternal(
         name, argtypes, restype, **kw)
 
@@ -69,22 +73,22 @@ def w_certEncodingType(space, encodingType):
         return space.wrap(encodingType)
 
 def w_parseKeyUsage(space, pCertCtx, flags):
-    with rffi.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
+    with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
         if not CertGetEnhancedKeyUsage(pCertCtx, flags, None, size_ptr):
             last_error = rwin32.lastSavedWindowsError()
-            if last_error == CRYPT_E_NOT_FOUND:
+            if last_error.errno == CRYPT_E_NOT_FOUND:
                 return space.w_True
-            raise wrap_windowserror(WindowsError(last_error))
+            raise wrap_windowserror(space, last_error)
 
-        size = rffi.widen(size_ptr[0])
-        with rffi.scoped_alloc(rffi.CCHARP.TO, size) as buf:
+        size = widen(size_ptr[0])
+        with lltype.scoped_alloc(rffi.CCHARP.TO, size) as buf:
             usage = rffi.cast(PCERT_ENHKEY_USAGE, buf)
             # Now get the actual enhanced usage property
             if not CertGetEnhancedKeyUsage(pCertCtx, flags, usage, size_ptr):
-                last_error = rwin32.lastSavedWindowsError()
-                if last_error == CRYPT_E_NOT_FOUND:
+                last_error= rwin32.lastSavedWindowsError()
+                if last_error.errno == CRYPT_E_NOT_FOUND:
                     return space.w_True
-                raise wrap_windowserror(WindowsError(last_error))
+                raise wrap_windowserror(space, last_error)
 
             result_w = []
             for i in range(usage.c_cUsageIdentifier):
@@ -93,7 +97,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
                 result_w.append(
                     space.wrap(rffi.charp2str(
                         usage.c_rgpszUsageIdentifier[i])))
-            return space.newset(result_w)
+            return space.newlist(result_w) #space.newset(result_w)
 
 @unwrap_spec(store_name=str)
 def enum_certificates_w(space, store_name):
@@ -107,10 +111,10 @@ def enum_certificates_w(space, store_name):
     boolean True."""
 
     result_w = []
-    pCertCtx = lltype.nullptr(PCCERT_CONTEXT)
+    pCertCtx = lltype.nullptr(CERT_CONTEXT)
     hStore = CertOpenSystemStore(None, store_name)
     if not hStore:
-        raise wrap_windowserror(rwin32.lastSavedWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
     try:
         while True:
             pCertCtx = CertEnumCertificatesInStore(hStore, pCertCtx)
@@ -118,7 +122,7 @@ def enum_certificates_w(space, store_name):
                 break
             w_cert = space.wrapbytes(
                 rffi.charpsize2str(pCertCtx.c_pbCertEncoded,
-                                   pCertCtx.c_cbCertEncoded))
+                                   intmask(pCertCtx.c_cbCertEncoded)))
             w_enc = w_certEncodingType(space, pCertCtx.c_dwCertEncodingType)
             w_keyusage = w_parseKeyUsage(
                 space, pCertCtx, CERT_FIND_PROP_ONLY_ENHKEY_USAGE_FLAG)
@@ -126,13 +130,15 @@ def enum_certificates_w(space, store_name):
                 w_keyusage = w_parseKeyUsage(
                     space, pCertCtx, CERT_FIND_EXT_ONLY_ENHKEY_USAGE_FLAG)
             result_w.append(space.newtuple([w_cert, w_enc, w_keyusage]))
+    except:
+        raise
     finally:
         if pCertCtx:
             # loop ended with an error, need to clean up context manually
             CertFreeCertificateContext(pCertCtx)
         if not CertCloseStore(hStore, 0):
             # This error case might shadow another exception.
-            raise wrap_windowserror(rwin32.lastSavedWindowsError())
+            raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
     return space.newlist(result_w)
 
@@ -146,10 +152,11 @@ def enum_crls_w(space, store_name):
     encoding_type flag can be interpreted with X509_ASN_ENCODING or
     PKCS_7_ASN_ENCODING."""
     result_w = []
-    pCrlCtx = lltype.nullptr(PCCRL_CONTEXT)
+
+    pCrlCtx = lltype.nullptr(CRL_CONTEXT)
     hStore = CertOpenSystemStore(None, store_name)
     if not hStore:
-        raise wrap_windowserror(rwin32.lastSavedWindowsError())
+        raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
     try:
         while True:
             pCrlCtx = CertEnumCRLsInStore(hStore, pCrlCtx)
@@ -157,13 +164,15 @@ def enum_crls_w(space, store_name):
                 break
             w_crl = space.wrapbytes(
                 rffi.charpsize2str(pCrlCtx.c_pbCrlEncoded,
-                                   pCrlCtx.c_cbCrlEncoded))
+                                   intmask(pCrlCtx.c_cbCrlEncoded)))
             w_enc = w_certEncodingType(space, pCrlCtx.c_dwCertEncodingType)
             result_w.append(space.newtuple([w_crl, w_enc]))
+    except:
+        raise
     finally:
         if pCrlCtx:
             # loop ended with an error, need to clean up context manually
             CertFreeCRLContext(pCrlCtx)
         if not CertCloseStore(hStore, 0):
             # This error case might shadow another exception.
-            raise wrap_windowserror(rwin32.lastSavedWindowsError())
+            raise wrap_windowserror(space, rwin32.lastSavedWindowsError())

@@ -552,6 +552,9 @@ class _SSLSocket(W_Root):
                 return _decode_certificate(space, self.peer_cert)
 
     def selected_npn_protocol(self, space):
+        if not HAS_NPN:
+            raise oefmt(space.w_NotImplementedError,
+                        "The NPN extension requires OpenSSL 1.0.1 or later.")
         with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as out_ptr:
             with lltype.scoped_alloc(rffi.UINTP.TO, 1) as len_ptr:
                 libssl_SSL_get0_next_proto_negotiated(self.ssl,
