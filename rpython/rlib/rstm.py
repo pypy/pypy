@@ -74,7 +74,7 @@ def stop_all_other_threads():
     llop.stm_become_globally_unique_transaction(lltype.Void)
 
 def partial_commit_and_resume_other_threads():
-    pass    # for now
+    hint_commit_soon()    # for now
 
 @specialize.arg(0)
 def should_break_transaction(keep):
