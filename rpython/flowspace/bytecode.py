@@ -529,7 +529,7 @@ class FOR_ITER(BCInstruction):
 class BREAK_LOOP(BCInstruction):
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Break
-        raise Break
+        return ctx.unroll(Break())
 
 @bc_reader.register_opcode
 class CONTINUE_LOOP(BCInstruction):
@@ -539,7 +539,7 @@ class CONTINUE_LOOP(BCInstruction):
 
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Continue
-        raise Continue(self.target)
+        return ctx.unroll(Continue(self.target))
 
 class SetupInstruction(BCInstruction):
     def bc_flow(self, reader):
