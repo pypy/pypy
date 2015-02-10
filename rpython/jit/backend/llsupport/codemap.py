@@ -21,10 +21,10 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 def stack_depth_at_loc(loc):
     _memmngr = asmmemmgr._memmngr
 
-    pos = bisect(_memmngr.jit_addr_map, loc)
+    pos = bisect(_memmngr.jit_addr_map, loc + 1)
     if pos == 0 or pos == len(_memmngr.jit_addr_map):
         return -1
-    return _memmngr.jit_frame_depth_map[pos-1]
+    return _memmngr.jit_frame_depth_map[pos - 1]
 
 @jit_entrypoint([], lltype.Signed, c_name='pypy_jit_start_addr')
 def jit_start_addr():
@@ -76,7 +76,8 @@ def yield_bytecode_at_addr(codemap_no, addr, current_pos_addr):
 
 def unpack_traceback(addr):
     codemap_pos = find_codemap_at_addr(addr)
-    assert codemap_pos >= 0
+    if codemap_pos == -1:
+        return [] # no codemap for that position
     storage = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
     storage[0] = 0
     res = []

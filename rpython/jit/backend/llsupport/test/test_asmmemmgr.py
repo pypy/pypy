@@ -3,6 +3,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.llsupport import asmmemmgr
+from rpython.jit.backend.llsupport.codemap import stack_depth_at_loc
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import debug
 
@@ -271,9 +272,9 @@ def test_find_jit_frame_depth():
     mgr.register_frame_depth_map(30, [0, 5, 10], [4, 5, 6])
     mgr.register_frame_depth_map(0, [0, 5, 10], [7, 8, 9])
     asmmemmgr._memmngr = mgr
-    assert asmmemmgr.stack_depth_at_loc(13) == 1
-    assert asmmemmgr.stack_depth_at_loc(-3) == -1
-    assert asmmemmgr.stack_depth_at_loc(41) == -1
-    assert asmmemmgr.stack_depth_at_loc(5) == 8
-    assert asmmemmgr.stack_depth_at_loc(17) == 2
-    assert asmmemmgr.stack_depth_at_loc(38) == 5
+    assert stack_depth_at_loc(13) == 1
+    assert stack_depth_at_loc(-3) == -1
+    assert stack_depth_at_loc(41) == -1
+    assert stack_depth_at_loc(5) == 8
+    assert stack_depth_at_loc(17) == 2
+    assert stack_depth_at_loc(38) == 5
