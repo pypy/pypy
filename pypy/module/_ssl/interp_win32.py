@@ -53,10 +53,10 @@ CertGetEnhancedKeyUsage = external(
     rwin32.BOOL)
 CertEnumCertificatesInStore = external(
     'CertEnumCertificatesInStore',
-    [rffi.HANDLE, PCCERT_CONTEXT], PCCERT_CONTEXT)
+    [rwin32.HANDLE, PCCERT_CONTEXT], PCCERT_CONTEXT)
 CertEnumCRLsInStore = external(
     'CertEnumCRLsInStore',
-    [rffi.HANDLE, PCCRLT_CONTEXT], PCCRL_CONTEXT)
+    [rwin32.HANDLE, PCCRLT_CONTEXT], PCCRL_CONTEXT)
 
 def w_certEncodingType(space, encodingType):
     if encodingType == X509_ASN_ENCODING:
@@ -75,7 +75,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
             raise wrap_windowserror(WindowsError(last_error))
 
         size = rffi.widen(size_ptr[0])
-        with rffi.scoped_alloc(rffi.CHARP, size) as buf:
+        with rffi.scoped_alloc(rffi.CCHARP.TO, size) as buf:
             usage = rffi.cast(PCERT_ENHKEY_USAGE, buf)
             # Now get the actual enhanced usage property
             if not CertGetEnhancedKeyUsage(pCertCtx, flags, usage, size_ptr):
