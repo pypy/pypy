@@ -5,7 +5,7 @@ from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rbisect import bisect, bisect_tuple
+from rpython.rlib.rbisect import bisect_left, bisect_left_tuple
 
 _memmngr = None # global reference so we can use @entrypoint :/
 
@@ -55,19 +55,16 @@ class AsmMemoryManager(object):
             self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
         # fix up jit_addr_map
-        jit_adr_start = bisect(self.jit_addr_map, start)
-        jit_adr_stop = bisect(self.jit_addr_map, stop)
-        self.jit_addr_map = (self.jit_addr_map[:jit_adr_start] +
-                             self.jit_addr_map[jit_adr_stop:])
-        self.jit_frame_depth_map = (self.jit_frame_depth_map[:jit_adr_start] +
-                                    self.jit_frame_depth_map[jit_adr_stop:])
+        jit_adr_start = bisect_left(self.jit_addr_map, start)
+        jit_adr_stop = bisect_left(self.jit_addr_map, stop)
+        del self.jit_addr_map[jit_adr_start:jit_adr_stop]
+        del self.jit_frame_depth_map[jit_adr_start:jit_adr_stop]
         # fix up codemap
         # (there should only be zero or one codemap entry in that range,
         # but still we use a range to distinguish between zero and one)
-        codemap_adr_start = bisect_tuple(self.jit_codemap, start)
-        codemap_adr_stop = bisect_tuple(self.jit_codemap, stop)
-        self.jit_codemap = (self.jit_codemap[:codemap_adr_start] +
-                            self.jit_codemap[codemap_adr_stop:])
+        codemap_adr_start = bisect_left_tuple(self.jit_codemap, start)
+        codemap_adr_stop = bisect_left_tuple(self.jit_codemap, stop)
+        del self.jit_codemap[codemap_adr_start:codemap_adr_stop]
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
@@ -183,7 +180,7 @@ class AsmMemoryManager(object):
             self.jit_addr_map += [0] * len(frame_positions)
             self.jit_frame_depth_map += [0] * len(frame_positions)
         else:
-            start = bisect(self.jit_addr_map, rawstart)
+            start = bisect_left(self.jit_addr_map, rawstart)
             self.jit_addr_map = (self.jit_addr_map[:start] +
                                  [0] * len(frame_positions) +
                                  self.jit_addr_map[start:])
@@ -196,12 +193,8 @@ class AsmMemoryManager(object):
 
     def register_codemap(self, codemap):
         start = codemap[0]
-        pos = bisect_tuple(self.jit_codemap, start)
-        if pos == len(self.jit_codemap): # common case
-            self.jit_codemap.append(codemap)
-        else:
-            self.jit_codemap = (self.jit_codemap[:pos] + [codemap] +
-                                self.jit_codemap[pos:])
+        pos = bisect_left_tuple(self.jit_codemap, start)
+        self.jit_codemap.insert(pos, codemap)
 
     def _delete(self):
         "NOT_RPYTHON"
