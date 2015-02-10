@@ -159,7 +159,7 @@ def enum_crls_w(space, store_name):
                 rffi.charpsize2str(pCrlCtx.c_pbCrlEncoded,
                                    pCrlCtx.c_cbCrlEncoded))
             w_enc = w_certEncodingType(space, pCrlCtx.c_dwCertEncodingType)
-            result_w.append(space.newtuple([w_cert, w_enc]))
+            result_w.append(space.newtuple([w_crl, w_enc]))
     finally:
         if pCrlCtx:
             # loop ended with an error, need to clean up context manually
