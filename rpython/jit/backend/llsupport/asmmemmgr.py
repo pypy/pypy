@@ -62,9 +62,12 @@ class AsmMemoryManager(object):
         self.jit_frame_depth_map = (self.jit_frame_depth_map[:jit_adr_start] +
                                     self.jit_frame_depth_map[jit_adr_stop:])
         # fix up codemap
-        codemap_adr = bisect_tuple(self.jit_codemap, start)
-        self.jit_codemap = (self.jit_codemap[:codemap_adr] +
-                            self.jit_codemap[codemap_adr + 1:])
+        # (there should only be zero or one codemap entry in that range,
+        # but still we use a range to distinguish between zero and one)
+        codemap_adr_start = bisect_tuple(self.jit_codemap, start)
+        codemap_adr_stop = bisect_tuple(self.jit_codemap, stop)
+        self.jit_codemap = (self.jit_codemap[:codemap_adr_start] +
+                            self.jit_codemap[codemap_adr_stop:])
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
