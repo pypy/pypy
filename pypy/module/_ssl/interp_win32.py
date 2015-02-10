@@ -4,7 +4,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_windowserror
-from rpython.rlib.rarithmetic import intmask, widen
+from rpython.rlib.rarithmetic import intmask
 eci = ExternalCompilationInfo(
     includes = ['windows.h', 'wincrypt.h'],
     libraries = ['crypt32'],
@@ -80,7 +80,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
                 return space.w_True
             raise wrap_windowserror(space, last_error)
 
-        size = widen(size_ptr[0])
+        size = intmask(size_ptr[0])
         with lltype.scoped_alloc(rffi.CCHARP.TO, size) as buf:
             usage = rffi.cast(PCERT_ENHKEY_USAGE, buf)
             # Now get the actual enhanced usage property
