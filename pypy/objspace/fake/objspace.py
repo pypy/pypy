@@ -145,6 +145,12 @@ class FakeObjSpace(ObjSpace):
             is_root(w_x)
         return w_some_obj()
 
+    def newset(self, list_w=None):
+        if list_w is not None:
+            for w_x in list_w:
+                is_root(w_x)
+        return w_some_obj()
+
     def newlist(self, list_w):
         for w_x in list_w:
             is_root(w_x)
