@@ -712,7 +712,7 @@ class ObjSpace(object):
         return self.wrap(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
+        """Implements equality with the double check 'x is y or x == y'."""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
     def is_(self, w_one, w_two):
