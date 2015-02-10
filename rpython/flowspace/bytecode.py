@@ -146,7 +146,6 @@ class BytecodeReader(object):
             if self.offset in self.pending_blocks:
                 next_block = self.pending_blocks[self.offset]
                 if not self.curr_block.operations:
-                    import pdb; pdb.set_trace
                     self.blocks.pop()
                 self.enter_next_block(next_block)
             elif self.needs_new_block:
@@ -221,6 +220,12 @@ class BytecodeReader(object):
                 instr.do_signals(self)
             for exit in block._exits:
                 exit.set_blockstack(self.blockstack)
+
+    def unroll(self, signal):
+        while self.blockstack:
+            block = self.blockstack.pop()
+            if isinstance(signal, block.handles):
+                return block
 
     def check_graph(self):
         for b in self.blocks:
@@ -527,6 +532,15 @@ class FOR_ITER(BCInstruction):
 
 @bc_reader.register_opcode
 class BREAK_LOOP(BCInstruction):
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
+        reader.end_block()
+
+    def do_signals(self, reader):
+        from rpython.flowspace.flowcontext import Break
+        frameblock = reader.unroll(Break())
+        reader.curr_block.set_exits([frameblock.handler])
+
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Break
         return ctx.unroll(Break())
