@@ -90,13 +90,12 @@ def w_parseKeyUsage(space, pCertCtx, flags):
                     return space.w_True
                 raise wrap_windowserror(space, last_error)
 
-            result_w = []
+            result_w = [None] * usage.c_cUsageIdentifier
             for i in range(usage.c_cUsageIdentifier):
                 if not usage.c_rgpszUsageIdentifier[i]:
                     continue
-                result_w.append(
-                    space.wrap(rffi.charp2str(
-                        usage.c_rgpszUsageIdentifier[i])))
+                result_w[i] = space.wrap(rffi.charp2str(
+                    usage.c_rgpszUsageIdentifier[i]))
             return space.newset(result_w)
 
 @unwrap_spec(store_name=str)
