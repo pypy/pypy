@@ -97,7 +97,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
                 result_w.append(
                     space.wrap(rffi.charp2str(
                         usage.c_rgpszUsageIdentifier[i])))
-            return space.newlist(result_w) #space.newset(result_w)
+            return space.newset(result_w)
 
 @unwrap_spec(store_name=str)
 def enum_certificates_w(space, store_name):
