@@ -48,8 +48,9 @@ CertCloseStore = external(
 CertFreeCertificateContext = external(
     'CertFreeCertificateContext', [PCCERT_CONTEXT], rwin32.BOOL)
 CertGetEnhancedKeyUsage = external(
-    'CertGetEnhancedKeyUsage', [PCCERT_CONTEXT, rwin32.DWORD,
-                                PCERT_ENHKEY_USAGE, rwin32.LPDWORD], rffi.BOOL)
+    'CertGetEnhancedKeyUsage',
+    [PCCERT_CONTEXT, rwin32.DWORD, PCERT_ENHKEY_USAGE, rwin32.LPDWORD],
+    rwin32.BOOL)
 CertEnumCertificatesInStore = external(
     'CertEnumCertificatesInStore',
     [rffi.HANDLE, PCCERT_CONTEXT], PCCERT_CONTEXT)
