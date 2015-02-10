@@ -122,8 +122,8 @@ class ModuleDictStrategy(DictStrategy):
 
     def w_keys(self, w_dict):
         space = self.space
-        l = self.unerase(w_dict.dstorage).keys()
-        return space.newlist_unicode(l)
+        keys = self.unerase(w_dict.dstorage).keys()
+        return space.newlist_unicode([key.decode('utf-8') for key in keys])
 
     def values(self, w_dict):
         iterator = self.unerase(w_dict.dstorage).itervalues
