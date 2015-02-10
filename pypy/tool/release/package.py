@@ -108,7 +108,7 @@ def generate_license(basedir, options):
 '''
 
 def create_cffi_import_libraries(pypy_c, options):
-    modules = ['_sqlite3']
+    modules = ['_sqlite3', 'audioop']
     subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
     if not sys.platform == 'win32':
         modules += ['_curses', 'syslog', 'gdbm', '_sqlite3']
