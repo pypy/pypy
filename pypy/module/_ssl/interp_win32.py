@@ -56,7 +56,7 @@ CertEnumCertificatesInStore = external(
     [rwin32.HANDLE, PCCERT_CONTEXT], PCCERT_CONTEXT)
 CertEnumCRLsInStore = external(
     'CertEnumCRLsInStore',
-    [rwin32.HANDLE, PCCRLT_CONTEXT], PCCRL_CONTEXT)
+    [rwin32.HANDLE, PCCRL_CONTEXT], PCCRL_CONTEXT)
 
 def w_certEncodingType(space, encodingType):
     if encodingType == X509_ASN_ENCODING:
