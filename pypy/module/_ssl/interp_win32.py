@@ -45,8 +45,6 @@ CertOpenSystemStore = external(
     'CertOpenSystemStoreA', [rffi.VOIDP, rffi.CCHARP], rwin32.HANDLE)
 CertCloseStore = external(
     'CertCloseStore', [rwin32.HANDLE, rwin32.DWORD], rwin32.BOOL)
-CertFreeCertificateContext = external(
-    'CertFreeCertificateContext', [PCCERT_CONTEXT], rwin32.BOOL)
 CertGetEnhancedKeyUsage = external(
     'CertGetEnhancedKeyUsage',
     [PCCERT_CONTEXT, rwin32.DWORD, PCERT_ENHKEY_USAGE, rwin32.LPDWORD],
@@ -54,9 +52,13 @@ CertGetEnhancedKeyUsage = external(
 CertEnumCertificatesInStore = external(
     'CertEnumCertificatesInStore',
     [rwin32.HANDLE, PCCERT_CONTEXT], PCCERT_CONTEXT)
+CertFreeCertificateContext = external(
+    'CertFreeCertificateContext', [PCCERT_CONTEXT], rwin32.BOOL)
 CertEnumCRLsInStore = external(
     'CertEnumCRLsInStore',
     [rwin32.HANDLE, PCCRL_CONTEXT], PCCRL_CONTEXT)
+CertFreeCRLContext = external(
+    'CertFreeCRLContext', [PCCRL_CONTEXT], rwin32.BOOL)
 
 def w_certEncodingType(space, encodingType):
     if encodingType == X509_ASN_ENCODING:
