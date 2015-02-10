@@ -76,7 +76,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
         if not CertGetEnhancedKeyUsage(pCertCtx, flags, None, size_ptr):
             last_error = rwin32.lastSavedWindowsError()
-            if last_error.errno == CRYPT_E_NOT_FOUND:
+            if last_error.winerror == CRYPT_E_NOT_FOUND:
                 return space.w_True
             raise wrap_windowserror(space, last_error)
 
@@ -86,7 +86,7 @@ def w_parseKeyUsage(space, pCertCtx, flags):
             # Now get the actual enhanced usage property
             if not CertGetEnhancedKeyUsage(pCertCtx, flags, usage, size_ptr):
                 last_error= rwin32.lastSavedWindowsError()
-                if last_error.errno == CRYPT_E_NOT_FOUND:
+                if last_error.winerror == CRYPT_E_NOT_FOUND:
                     return space.w_True
                 raise wrap_windowserror(space, last_error)
 
