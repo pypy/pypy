@@ -590,8 +590,8 @@ class SETUP_FINALLY(SetupInstruction):
 @bc_reader.register_opcode
 class SETUP_WITH(SetupInstruction):
     def make_block(self, stackdepth):
-        from rpython.flowspace.flowcontext import WithBlock
-        return WithBlock(stackdepth, self.target)
+        from rpython.flowspace.flowcontext import FinallyBlock
+        return FinallyBlock(stackdepth, self.target)
 
     def eval(self, ctx):
         # A simpler version than the 'real' 2.7 one:

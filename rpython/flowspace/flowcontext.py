@@ -1182,7 +1182,11 @@ class ExceptBlock(FrameBlock):
         return self.handler   # jump to the handler
 
 class FinallyBlock(FrameBlock):
-    """A try:finally: block.  Stores the position of the exception handler."""
+    """A try:finally: or with: block
+
+    A with: block begins with SETUP_WITH and its handler is just
+    'WITH_CLEANUP END_FINALLY'.
+    """
 
     handles = FlowSignal
 
@@ -1192,9 +1196,3 @@ class FinallyBlock(FrameBlock):
         self.cleanupstack(ctx)
         ctx.pushvalue(unroller)
         return self.handler   # jump to the handler
-
-
-class WithBlock(FinallyBlock):
-
-    def handle(self, ctx, unroller):
-        return FinallyBlock.handle(self, ctx, unroller)
