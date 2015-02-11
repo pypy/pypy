@@ -71,6 +71,32 @@ class StandaloneTests(object):
 
 class TestStandalone(StandaloneTests):
 
+    def compile(self, *args, **kwds):
+        t, builder = StandaloneTests.compile(self, *args, **kwds)
+        #
+        # verify that the executable re-export symbols, but not too many
+        if sys.platform.startswith('linux'):
+            seen_main = False
+            g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
+            for line in g:
+                if not line.strip():
+                    continue
+                if '*UND*' in line:
+                    continue
+                name = line.split()[-1]
+                if name.startswith('__'):
+                    continue
+                if name == 'main':
+                    seen_main = True
+                    continue
+                if 'pypy' in name.lower() or 'rpy' in name.lower():
+                    raise Exception("seeing unexpected exported name %r"
+                                    % (name,))
+            g.close()
+            assert seen_main, "did not see 'main' exported"
+        #
+        return t, builder
+
     def test_hello_world(self):
         def entry_point(argv):
             os.write(1, "hello world\n")
