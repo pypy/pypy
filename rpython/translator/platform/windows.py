@@ -271,6 +271,7 @@ class MsvcPlatform(Platform):
         linkflags = list(self.link_flags)
         if shared:
             linkflags = self._args_for_shared(linkflags)
+        linkflags += self._exportsymbols_link_flags()
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
