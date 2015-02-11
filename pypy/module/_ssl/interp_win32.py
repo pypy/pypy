@@ -74,7 +74,8 @@ def w_certEncodingType(space, encodingType):
 
 def w_parseKeyUsage(space, pCertCtx, flags):
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as size_ptr:
-        if not CertGetEnhancedKeyUsage(pCertCtx, flags, None, size_ptr):
+        if not CertGetEnhancedKeyUsage(pCertCtx, flags, 
+                             lltype.nullptr(CERT_ENHKEY_USAGE), size_ptr):
             last_error = rwin32.lastSavedWindowsError()
             if last_error.winerror == CRYPT_E_NOT_FOUND:
                 return space.w_True
