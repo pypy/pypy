@@ -75,7 +75,7 @@ class TestStandalone(StandaloneTests):
         t, builder = StandaloneTests.compile(self, *args, **kwds)
         #
         # verify that the executable re-export symbols, but not too many
-        if sys.platform.startswith('linux'):
+        if sys.platform.startswith('linux') and not kwds.get('shared', False):
             seen_main = False
             g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
             for line in g:
@@ -89,9 +89,13 @@ class TestStandalone(StandaloneTests):
                 if name == 'main':
                     seen_main = True
                     continue
+                if name == 'pypy_debug_file':     # ok to export this one
+                    continue
                 if 'pypy' in name.lower() or 'rpy' in name.lower():
-                    raise Exception("seeing unexpected exported name %r"
-                                    % (name,))
+                    raise Exception("Unexpected exported name %r.  "
+                        "What is likely missing is RPY_EXTERN before the "
+                        "declaration of this C function or global variable"
+                        % (name,))
             g.close()
             assert seen_main, "did not see 'main' exported"
         #
