@@ -176,3 +176,5 @@ def enum_crls_w(space, store_name):
         if not CertCloseStore(hStore, 0):
             # This error case might shadow another exception.
             raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
+
+    return space.newlist(result_w)
