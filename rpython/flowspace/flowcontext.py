@@ -610,29 +610,6 @@ class FlowContext(object):
         w_returnvalue = self.popvalue()
         raise Return(w_returnvalue)
 
-    def END_FINALLY(self, oparg):
-        # unlike CPython, there are two statically distinct cases: the
-        # END_FINALLY might be closing an 'except' block or a 'finally'
-        # block.  In the first case, the stack contains three items:
-        #   [exception type we are now handling]
-        #   [exception value we are now handling]
-        #   [Raise]
-        # In the case of a finally: block, the stack contains only one
-        # item (unlike CPython which can have 1, 2 or 3 items):
-        #   [subclass of FlowSignal]
-        w_top = self.popvalue()
-        if w_top == w_None:
-            # finally: block with no unroller active
-            return
-        elif isinstance(w_top, FlowSignal):
-            # case of a finally: block
-            raise w_top
-        else:
-            # case of an except: block.  We popped the exception type
-            self.popvalue()        #     Now we pop the exception value
-            signal = self.popvalue()
-            raise signal
-
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
         w_result = self.popvalue()

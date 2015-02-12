@@ -585,6 +585,33 @@ class CONTINUE_LOOP(BCInstruction):
         from rpython.flowspace.flowcontext import Continue
         return ctx.unroll(Continue(self.target))
 
+@bc_reader.register_opcode
+class END_FINALLY(BCInstruction):
+    def eval(self, ctx):
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block.  In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [Raise]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [subclass of FlowSignal]
+        from rpython.flowspace.flowcontext import FlowSignal
+        w_top = ctx.popvalue()
+        if w_top == const(None):
+            # finally: block with no unroller active
+            return
+        elif isinstance(w_top, FlowSignal):
+            # case of a finally: block
+            raise w_top
+        else:
+            # case of an except: block.  We popped the exception type
+            ctx.popvalue()        #     Now we pop the exception value
+            signal = ctx.popvalue()
+            raise signal
+
+
 class SetupInstruction(BCInstruction):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
