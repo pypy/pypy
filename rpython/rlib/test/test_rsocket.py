@@ -311,7 +311,7 @@ def getaddrinfo_pydotorg(i, result):
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '140.211.10.69':
+        if addr.get_host() == '104.130.43.121':
             found = True
     result[i] += found
 
@@ -574,6 +574,7 @@ def test_getaddrinfo_pydotorg_threadsafe():
 
 def test_translate_netdb_lock():
     def f():
+        rsocket_startup()
         gethostbyaddr("localhost")
         return 0
     fc = compile(f, [])
@@ -581,6 +582,7 @@ def test_translate_netdb_lock():
 
 def test_translate_netdb_lock_thread():
     def f():
+        rsocket_startup()
         gethostbyaddr("localhost")
         return 0
     fc = compile(f, [], thread=True)

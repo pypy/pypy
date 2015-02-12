@@ -144,3 +144,13 @@ def test_rpython_merge_RWeakValueDictionary2():
             d = RWeakValueDictionary(str, Y)
         d.set("x", X())
     py.test.raises(Exception, interpret, g, [1])
+
+
+def test_bogus_makekey():
+    class X: pass
+    class Y: pass
+    def g():
+        X(); Y()
+        RWeakValueDictionary(str, X).get("foobar")
+        RWeakValueDictionary(int, Y).get(42)
+    interpret(g, [])

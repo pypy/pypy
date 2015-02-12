@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.resume import Snapshot
+from rpython.jit.metainterp.resoperation import GuardResOp
 
 
 class Inliner(object):
@@ -26,20 +27,15 @@ class Inliner(object):
                 newop.setfailargs([self.inline_arg(a) for a in args])
             else:
                 newop.setfailargs([])
+            assert isinstance(newop, GuardResOp)
+            newop.rd_snapshot = self.inline_snapshot(newop.rd_snapshot)
 
         if newop.result and not ignore_result:
             old_result = newop.result
             newop.result = newop.result.clonebox()
             self.argmap[old_result] = newop.result
 
-        self.inline_descr_inplace(newop.getdescr())
-
         return newop
-
-    def inline_descr_inplace(self, descr):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr
-        if isinstance(descr, ResumeGuardDescr):
-            descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
 
     def inline_arg(self, arg):
         if arg is None:

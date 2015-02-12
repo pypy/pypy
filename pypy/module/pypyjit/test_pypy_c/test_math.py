@@ -21,7 +21,7 @@ class TestMath(BaseTestPyPyC):
             guard_true(i2, descr=...)
             guard_not_invalidated(descr=...)
             f1 = cast_int_to_float(i0)
-            i3 = float_le(f1, 0)
+            i3 = float_le(f1, 0.0)
             guard_false(i3, descr=...)
             f2 = call(ConstClass(log), f1, descr=<Callf . f EF=2>)
             f3 = call(ConstClass(log10), f1, descr=<Callf . f EF=2>)
@@ -56,7 +56,7 @@ class TestMath(BaseTestPyPyC):
             f3 = call(ConstClass(cos), f1, descr=<Callf . f EF=0>)
             f4 = float_sub(f2, f3)
             f5 = float_add(f0, f4)
-            i7 = int_add(i0, f1)
+            i7 = int_add(i0, 1)
             --TICK--
             jump(..., descr=)
         """)

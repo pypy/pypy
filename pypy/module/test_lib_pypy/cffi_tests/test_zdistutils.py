@@ -18,7 +18,7 @@ class DistUtilsTest(object):
 
     def teardown_class(self):
         if udir.isdir():
-            udir.remove()
+            udir.remove(ignore_errors=True)
 
     def test_locate_engine_class(self):
         cls = _locate_engine_class(FFI(), self.generic)

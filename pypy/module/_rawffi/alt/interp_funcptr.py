@@ -218,15 +218,16 @@ class CallFunctionConverter(ToAppLevelConverter):
         restype = w_ffitype.get_ffitype()
         call = self.func.call
         if restype is libffi.types.slong:
-            return call(self.argchain, rffi.LONG)
+            x = call(self.argchain, rffi.LONG)
         elif restype is libffi.types.sint:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
         elif restype is libffi.types.sshort:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
         elif restype is libffi.types.schar:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
         else:
-            self.error(w_ffitype)
+            raise self.error(w_ffitype)
+        return x
 
     def get_unsigned(self, w_ffitype):
         return self.func.call(self.argchain, rffi.ULONG)
@@ -239,13 +240,14 @@ class CallFunctionConverter(ToAppLevelConverter):
             assert not libffi.IS_32_BIT
             # on 32bit machines, we should never get here, because it's a case
             # which has already been handled by get_unsigned above.
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
         elif restype is libffi.types.ushort:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
         elif restype is libffi.types.uchar:
-            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
+            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
         else:
-            self.error(w_ffitype)
+            raise self.error(w_ffitype)
+        return x
 
 
     def get_pointer(self, w_ffitype):

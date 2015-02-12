@@ -107,7 +107,7 @@ def tweak_generator_body_graph(Entry, graph):
     # First, always run simplify_graph in order to reduce the number of
     # variables passed around
     simplify_graph(graph)
-    insert_empty_startblock(None, graph)
+    insert_empty_startblock(graph)
     _insert_reads(graph.startblock, Entry.varnames)
     Entry.block = graph.startblock
     #
@@ -130,7 +130,7 @@ def tweak_generator_body_graph(Entry, graph):
             if hlop.opname == 'yield_':
                 [v_yielded_value] = hlop.args
                 del block.operations[index]
-                newlink = split_block(None, block, index)
+                newlink = split_block(block, index)
                 newblock = newlink.target
                 #
                 class Resume(AbstractPosition):
