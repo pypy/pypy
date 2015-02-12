@@ -221,12 +221,6 @@ class BytecodeReader(object):
             for exit in block._exits:
                 exit.set_blockstack(self.blockstack)
 
-    def unroll(self, signal):
-        while self.blockstack:
-            block = self.blockstack.pop()
-            if isinstance(signal, block.handles):
-                return block
-
     def check_graph(self):
         for b in self.blocks:
             if not b._exits:
@@ -537,9 +531,24 @@ class BREAK_LOOP(BCInstruction):
         reader.end_block()
 
     def do_signals(self, reader):
-        from rpython.flowspace.flowcontext import Break
-        frameblock = reader.unroll(Break())
-        reader.curr_block.set_exits([frameblock.handler])
+        block = reader.curr_block
+        assert block.operations[-1] is self
+        del block.operations[-1]
+        from rpython.flowspace.flowcontext import ExceptBlock, FinallyBlock
+        while reader.blockstack:
+            context = reader.blockstack.pop()
+            if isinstance(context, ExceptBlock):
+                block.operations.append(POP_BLOCK(-1, self.offset))
+            elif isinstance(context, FinallyBlock):
+                block.operations.append(self)
+                block.set_exits([context.handler])
+                return
+            else:  # LoopBlock
+                block.operations.append(POP_BLOCK(-1, self.offset))
+                block.set_exits([context.handler])
+                return
+        raise BytecodeCorruption(
+            "A break statement should not escape from the function")
 
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Break
@@ -550,6 +559,27 @@ class CONTINUE_LOOP(BCInstruction):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         self.target = reader.get_block_at(self.arg)
+        reader.end_block()
+
+    def do_signals(self, reader):
+        block = reader.curr_block
+        assert block.operations[-1] is self
+        del block.operations[-1]
+        from rpython.flowspace.flowcontext import ExceptBlock, FinallyBlock
+        while reader.blockstack:
+            context = reader.blockstack.pop()
+            if isinstance(context, ExceptBlock):
+                block.operations.append(POP_BLOCK(-1, self.offset))
+            elif isinstance(context, FinallyBlock):
+                block.operations.append(self)
+                block.set_exits([context.handler])
+                return
+            else:  # LoopBlock
+                block.operations.append(POP_BLOCK(-1, self.offset))
+                block.set_exits([self.target])
+                return
+        raise BytecodeCorruption(
+            "A continue statement should not escape from the function")
 
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Continue
