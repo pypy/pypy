@@ -364,19 +364,8 @@ def tostereo(cp, size, fac1, fac2):
     sample_count = _sample_count(cp, size)
 
     rv = ffi.new("unsigned char[]", len(cp) * 2)
-    result = ffi.buffer(rv)
-    clip = _get_clipfn(size)
-
-    for i in range(sample_count):
-        sample = _get_sample(cp, size, i)
-
-        l_sample = clip(sample * fac1)
-        r_sample = clip(sample * fac2)
-
-        _put_sample(result, size, i * 2, l_sample)
-        _put_sample(result, size, i * 2 + 1, r_sample)
-
-    return result[:]
+    lib.tostereo(rv, cp, len(cp), size, fac1, fac2)
+    return ffi.buffer(rv)[:]
 
 
 def add(cp1, cp2, size):
@@ -385,20 +374,9 @@ def add(cp1, cp2, size):
     if len(cp1) != len(cp2):
         raise error("Lengths should be the same")
 
-    clip = _get_clipfn(size)
-    sample_count = _sample_count(cp1, size)
     rv = ffi.new("unsigned char[]", len(cp1))
-    result = ffi.buffer(rv)
-
-    for i in range(sample_count):
-        sample1 = getsample(cp1, size, i)
-        sample2 = getsample(cp2, size, i)
-
-        sample = clip(sample1 + sample2)
-
-        _put_sample(result, size, i, sample)
-
-    return result[:]
+    lib.add(rv, cp1, cp2, len(cp1), size)
+    return ffi.buffer(rv)[:]
 
 
 def bias(cp, size, bias):
@@ -477,11 +455,10 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     inrate //= d
     outrate //= d
 
-    prev_i = [0] * nchannels
-    cur_i = [0] * nchannels
-
     if state is None:
         d = -outrate
+        prev_i = ffi.new('int[]', nchannels)
+        cur_i = ffi.new('int[]', nchannels)
     else:
         d, samps = state
 
@@ -489,55 +466,36 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
             raise error("illegal state argument")
 
         prev_i, cur_i = zip(*samps)
-        prev_i, cur_i = list(prev_i), list(cur_i)
+        prev_i = ffi.new('int[]', prev_i)
+        cur_i = ffi.new('int[]', cur_i)
+    state_d = ffi.new('int[]', (d,))
 
     q = frame_count // inrate
     ceiling = (q + 1) * outrate
     nbytes = ceiling * bytes_per_frame
 
     rv = ffi.new("unsigned char[]", nbytes)
-    result = ffi.buffer(rv)
-
-    samples = _get_samples(cp, size)
-    out_i = 0
-    while True:
-        while d < 0:
-            if frame_count == 0:
-                samps = zip(prev_i, cur_i)
-                retval = result[:]
-
-                # slice off extra bytes
-                trim_index = (out_i * bytes_per_frame) - len(retval)
-                retval = retval[:trim_index]
-
-                return (retval, (d, tuple(samps)))
-
-            for chan in range(nchannels):
-                prev_i[chan] = cur_i[chan]
-                cur_i[chan] = next(samples)
-
-                cur_i[chan] = (
-                    (weightA * cur_i[chan] + weightB * prev_i[chan])
-                    // (weightA + weightB)
-                )
-
-            frame_count -= 1
-            d += outrate
-
-        while d >= 0:
-            for chan in range(nchannels):
-                cur_o = (
-                    (prev_i[chan] * d + cur_i[chan] * (outrate - d))
-                    // outrate
-                )
-                _put_sample(result, size, out_i, _overflow(cur_o, size))
-                out_i += 1
-                d -= inrate
+    trim_index = lib.ratecv(rv, cp, frame_count, size,
+                            nchannels, inrate, outrate,
+                            state_d, prev_i, cur_i,
+                            weightA, weightB)
+    result = ffi.buffer(rv)[:trim_index]
+    samps = zip(prev_i, cur_i)
+    return (result, (d, tuple(samps)))
 
 
 ffi = FFI()
 ffi.cdef("""
 typedef short PyInt16;
+
+int ratecv(char* rv, char* cp, size_t len, int size,
+           int nchannels, int inrate, int outrate,
+           int* state_d, int* prev_i, int* cur_i,
+           int weightA, int weightB);
+
+void tostereo(char* rv, char* cp, size_t len, int size,
+              double fac1, double fac2);
+void add(char* rv, char* cp1, char* cp2, size_t len1, int size);
 
 /* 2's complement (14-bit range) */
 unsigned char
@@ -829,7 +787,166 @@ static int stepsizeTable[89] = {
 #define LONGP(cp, i) ((Py_Int32 *)(cp+i))
 """
 
-lib = ffi.verify(_AUDIOOP_C_MODULE + """
+lib = ffi.verify(_AUDIOOP_C_MODULE + r"""
+#include <math.h>
+
+static const int maxvals[] = {0, 0x7F, 0x7FFF, 0x7FFFFF, 0x7FFFFFFF};
+/* -1 trick is needed on Windows to support -0x80000000 without a warning */
+static const int minvals[] = {0, -0x80, -0x8000, -0x800000, -0x7FFFFFFF-1};
+
+static int
+fbound(double val, double minval, double maxval)
+{
+    if (val > maxval)
+        val = maxval;
+    else if (val < minval + 1)
+        val = minval;
+    return val;
+}
+
+static int
+gcd(int a, int b)
+{
+    while (b > 0) {
+        int tmp = a % b;
+        a = b;
+        b = tmp;
+    }
+    return a;
+}
+
+int ratecv(char* rv, char* cp, size_t len, int size,
+           int nchannels, int inrate, int outrate,
+           int* state_d, int* prev_i, int* cur_i,
+           int weightA, int weightB)
+{
+    char *ncp = rv;
+    int d, chan;
+
+    /* divide inrate and outrate by their greatest common divisor */
+    d = gcd(inrate, outrate);
+    inrate /= d;
+    outrate /= d;
+    /* divide weightA and weightB by their greatest common divisor */
+    d = gcd(weightA, weightB);
+    weightA /= d;
+    weightA /= d;
+
+    d = *state_d;
+
+    for (;;) {
+        while (d < 0) {
+            if (len == 0) {
+                *state_d = d;
+                return ncp - rv;
+            }
+            for (chan = 0; chan < nchannels; chan++) {
+                prev_i[chan] = cur_i[chan];
+                if (size == 1)
+                    cur_i[chan] = ((int)*CHARP(cp, 0)) << 24;
+                else if (size == 2)
+                    cur_i[chan] = ((int)*SHORTP(cp, 0)) << 16;
+                else if (size == 4)
+                    cur_i[chan] = (int)*LONGP(cp, 0);
+                cp += size;
+                /* implements a simple digital filter */
+                cur_i[chan] = (int)(
+                    ((double)weightA * (double)cur_i[chan] +
+                     (double)weightB * (double)prev_i[chan]) /
+                    ((double)weightA + (double)weightB));
+            }
+            len--;
+            d += outrate;
+        }
+        while (d >= 0) {
+            for (chan = 0; chan < nchannels; chan++) {
+                int cur_o;
+                cur_o = (int)(((double)prev_i[chan] * (double)d +
+                         (double)cur_i[chan] * (double)(outrate - d)) /
+                    (double)outrate);
+                if (size == 1)
+                    *CHARP(ncp, 0) = (signed char)(cur_o >> 24);
+                else if (size == 2)
+                    *SHORTP(ncp, 0) = (short)(cur_o >> 16);
+                else if (size == 4)
+                    *LONGP(ncp, 0) = (Py_Int32)(cur_o);
+                ncp += size;
+            }
+            d -= inrate;
+        }
+    }
+}
+
+void tostereo(char* rv, char* cp, size_t len, int size,
+              double fac1, double fac2)
+{
+    int val1, val2, val = 0;
+    double fval, maxval, minval;
+    char *ncp = rv;
+    int i;
+
+    maxval = (double) maxvals[size];
+    minval = (double) minvals[size];
+
+    for ( i=0; i < len; i += size ) {
+        if ( size == 1 )      val = (int)*CHARP(cp, i);
+        else if ( size == 2 ) val = (int)*SHORTP(cp, i);
+        else if ( size == 4 ) val = (int)*LONGP(cp, i);
+
+        fval = (double)val*fac1;
+        val1 = (int)floor(fbound(fval, minval, maxval));
+
+        fval = (double)val*fac2;
+        val2 = (int)floor(fbound(fval, minval, maxval));
+
+        if ( size == 1 )      *CHARP(ncp, i*2) = (signed char)val1;
+        else if ( size == 2 ) *SHORTP(ncp, i*2) = (short)val1;
+        else if ( size == 4 ) *LONGP(ncp, i*2) = (Py_Int32)val1;
+
+        if ( size == 1 )      *CHARP(ncp, i*2+1) = (signed char)val2;
+        else if ( size == 2 ) *SHORTP(ncp, i*2+2) = (short)val2;
+        else if ( size == 4 ) *LONGP(ncp, i*2+4) = (Py_Int32)val2;
+    }
+}
+
+void add(char* rv, char* cp1, char* cp2, size_t len1, int size)
+{
+    int i;
+    int val1 = 0, val2 = 0, minval, maxval, newval;
+    char* ncp = rv;
+
+    maxval = maxvals[size];
+    minval = minvals[size];
+
+    for ( i=0; i < len1; i += size ) {
+        if ( size == 1 )      val1 = (int)*CHARP(cp1, i);
+        else if ( size == 2 ) val1 = (int)*SHORTP(cp1, i);
+        else if ( size == 4 ) val1 = (int)*LONGP(cp1, i);
+
+        if ( size == 1 )      val2 = (int)*CHARP(cp2, i);
+        else if ( size == 2 ) val2 = (int)*SHORTP(cp2, i);
+        else if ( size == 4 ) val2 = (int)*LONGP(cp2, i);
+
+        if (size < 4) {
+            newval = val1 + val2;
+            /* truncate in case of overflow */
+            if (newval > maxval)
+                newval = maxval;
+            else if (newval < minval)
+                newval = minval;
+        }
+        else {
+            double fval = (double)val1 + (double)val2;
+            /* truncate in case of overflow */
+            newval = (int)floor(fbound(fval, minval, maxval));
+        }
+
+        if ( size == 1 )      *CHARP(ncp, i) = (signed char)newval;
+        else if ( size == 2 ) *SHORTP(ncp, i) = (short)newval;
+        else if ( size == 4 ) *LONGP(ncp, i) = (Py_Int32)newval;
+    }
+}
+
 void lin2adcpm(unsigned char* ncp, unsigned char* cp, size_t len,
                size_t size, int* state)
 {
