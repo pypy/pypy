@@ -201,6 +201,7 @@ class BytecodeReader(object):
 
     def build_flow(self, code):
         self.pending_blocks = {}
+        self.handlerstack = []
         self.blocks = [SimpleBlock([])]
         self.curr_block = self.blocks[0]
         self.needs_new_block = False
@@ -587,6 +588,11 @@ class CONTINUE_LOOP(BCInstruction):
 
 @bc_reader.register_opcode
 class END_FINALLY(BCInstruction):
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
+        signal = reader.handlerstack.pop()
+        signal.handler_end = reader.curr_block
+
     def eval(self, ctx):
         # unlike CPython, there are two statically distinct cases: the
         # END_FINALLY might be closing an 'except' block or a 'finally'
@@ -613,42 +619,59 @@ class END_FINALLY(BCInstruction):
 
 
 class SetupInstruction(BCInstruction):
+    def __init__(self, arg, offset=-1):
+        BCInstruction.__init__(self, arg, offset=offset)
+        self.block = self.make_block(-1)
+
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         self.target = reader.get_block_at(self.arg)
+        self.block.handler = self.target
         reader.end_block()
 
     def do_signals(self, reader):
-        reader.blockstack.append(self.make_block(-1))
+        reader.blockstack.append(self.block)
 
     def eval(self, ctx):
-        block = self.make_block(ctx.stackdepth)
-        ctx.blockstack.append(block)
+        self.block.stackdepth = ctx.stackdepth
+        ctx.blockstack.append(self.block)
 
 
 @bc_reader.register_opcode
 class SETUP_EXCEPT(SetupInstruction):
+    def bc_flow(self, reader):
+        SetupInstruction.bc_flow(self, reader)
+        reader.handlerstack.append(self.block)
+
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import ExceptBlock
-        return ExceptBlock(stackdepth, self.target)
+        return ExceptBlock(stackdepth, None)
 
 @bc_reader.register_opcode
 class SETUP_LOOP(SetupInstruction):
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import LoopBlock
-        return LoopBlock(stackdepth, self.target)
+        return LoopBlock(stackdepth, None)
 
 @bc_reader.register_opcode
 class SETUP_FINALLY(SetupInstruction):
+    def bc_flow(self, reader):
+        SetupInstruction.bc_flow(self, reader)
+        reader.handlerstack.append(self.block)
+
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import FinallyBlock
-        return FinallyBlock(stackdepth, self.target)
+        return FinallyBlock(stackdepth, None)
 
 @bc_reader.register_opcode
 class SETUP_WITH(SetupInstruction):
+    def bc_flow(self, reader):
+        SetupInstruction.bc_flow(self, reader)
+        reader.handlerstack.append(self.block)
+
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import FinallyBlock
-        return FinallyBlock(stackdepth, self.target)
+        return FinallyBlock(stackdepth, None)
 
     def eval(self, ctx):
         # A simpler version than the 'real' 2.7 one:
@@ -659,8 +682,8 @@ class SETUP_WITH(SetupInstruction):
         ctx.settopvalue(w_exit)
         w_enter = op.getattr(w_manager, const('__enter__')).eval(ctx)
         w_result = op.simple_call(w_enter).eval(ctx)
-        block = self.make_block(ctx.stackdepth)
-        ctx.blockstack.append(block)
+        self.block.stackdepth = ctx.stackdepth
+        ctx.blockstack.append(self.block)
         ctx.pushvalue(w_result)
 
 @bc_reader.register_opcode
