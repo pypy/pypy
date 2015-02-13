@@ -217,20 +217,13 @@ class BytecodeReader(object):
 
     def analyze_contexts(self, graph):
         start = graph.entry._exits[0]
-        self.pending = [start]
         start.set_blockstack([])
-        done = set()
-        while self.pending:
-            block = self.pending.pop(0)
-            if block in done:
-                continue
+        for block in graph.iterblocks():
             self.blockstack = block.blockstack[:]
             for instr in block:
                 instr.context_effect(self)
             for child in block._exits:
                 child.set_blockstack(self.blockstack)
-                self.pending.append(child)
-            done.add(block)
 
     def analyze_signals(self, graph):
         for block in graph.iterblocks():
@@ -294,10 +287,13 @@ class BytecodeGraph(object):
         stack = block._exits[:]
         while stack:
             block = stack.pop()
-            if block not in seen:
-                yield block
-                seen.add(block)
-                stack.extend(block._exits[:])
+            if block in seen:
+                continue
+            yield block
+            seen.add(block)
+            stack.extend(block._exits[:])
+            if block.special_exit:
+                stack.append(block.special_exit)
 
     def all_blocks(self):
         return list(self.iterblocks())
@@ -368,6 +364,7 @@ class SimpleBlock(BytecodeBlock):
     def __init__(self, operations, exit=None):
         BytecodeBlock.__init__(self)
         self.operations = operations
+        self.special_exit = None
         if exit:
             self.set_exits([exit])
 
@@ -655,14 +652,15 @@ class SetupInstruction(BCInstruction):
         self.block = self.make_block(-1)
 
     def bc_flow(self, reader):
-        reader.curr_block.operations.append(self)
+        block = reader.curr_block
+        block.operations.append(self)
         self.target = reader.get_block_at(self.arg)
         self.block.handler = self.target
+        block.special_exit = self.target
         reader.end_block()
 
     def context_effect(self, reader):
         self.target.set_blockstack(reader.blockstack)
-        reader.pending.append(self.target)
         reader.blockstack.append(self.block)
 
     def eval(self, ctx):
