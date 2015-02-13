@@ -298,25 +298,16 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                synchronization with other pieces of the code that may
                change.
             */
-            acquire_privatization_lock();
-            char *p = allocate_outside_nursery_large(
-                          sizeof(stm_hashtable_entry_t));
-            entry = (stm_hashtable_entry_t *)(p - stm_object_pages);
-
-            long j;
-            for (j = 0; j <= NB_SEGMENTS; j++) {
-                struct stm_hashtable_entry_s *e;
-                e = (struct stm_hashtable_entry_s *)
-                        REAL_ADDRESS(get_segment_base(j), entry);
-                e->header.stm_flags = GCFLAG_WRITE_BARRIER;
-                e->userdata = stm_hashtable_entry_userdata;
-                e->index = index;
-                e->object = NULL;
-            }
+            struct stm_hashtable_entry_s initial = {
+                .userdata = stm_hashtable_entry_userdata,
+                .index = index,
+                .object = NULL
+            };
+            entry = (stm_hashtable_entry_t *)
+                stm_allocate_preexisting(sizeof(stm_hashtable_entry_t),
+                                         (char *)&initial.header);
             hashtable->additions += 0x100;
-            release_privatization_lock();
         }
-        write_fence();     /* make sure 'entry' is fully initialized here */
         table->items[i] = entry;
         write_fence();     /* make sure 'table->items' is written here */
         VOLATILE_TABLE(table)->resize_counter = rc - 6;    /* unlock */

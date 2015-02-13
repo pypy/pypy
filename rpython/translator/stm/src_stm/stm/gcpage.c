@@ -128,6 +128,26 @@ object_t *_stm_allocate_old(ssize_t size_rounded_up)
     return o;
 }
 
+object_t *stm_allocate_preexisting(ssize_t size_rounded_up,
+                                   const char *initial_data)
+{
+    acquire_privatization_lock();
+
+    char *p = allocate_outside_nursery_large(size_rounded_up);
+    uintptr_t nobj = p - stm_object_pages;
+    long j;
+    for (j = 0; j <= NB_SEGMENTS; j++) {
+        char *dest = get_segment_base(j) + nobj;
+        memcpy(dest, initial_data, size_rounded_up);
+        ((struct object_s *)dest)->stm_flags = GCFLAG_WRITE_BARRIER;
+    }
+
+    release_privatization_lock();
+
+    write_fence();     /* make sure 'nobj' is fully initialized from
+                          all threads here */
+    return (object_t *)nobj;
+}
 
 /************************************************************/
 

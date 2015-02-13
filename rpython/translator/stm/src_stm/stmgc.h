@@ -563,6 +563,16 @@ struct stm_hashtable_entry_s {
     object_t *object;
 };
 
+/* Make an object "that always existed".  Can be used for cases where
+   the object pointer could also be seen by other running transactions
+   even if the current one did not commit yet (by means outside the
+   normal scope of stmgc).  Must provide the initial content of the
+   object seen in all threads; afterwards, the running transaction can
+   use stm_write() and make local changes.
+*/
+object_t *stm_allocate_preexisting(ssize_t size_rounded_up,
+                                   const char *initial_data);
+
 /* ==================== END ==================== */
 
 #endif
