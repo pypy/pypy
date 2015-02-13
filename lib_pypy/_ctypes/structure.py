@@ -60,7 +60,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             is_bitfield = (len(field) == 3)
             startpos = self._ffistruct.fieldoffset(name)
             if name in anonymous_fields:
-                for subname in value._pyctypes__names:
+                for subname in value._names_:
                     resnames.append(subname)
                     subfield = getattr(value, subname)
                     relpos = startpos + subfield.offset
@@ -71,7 +71,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             else:
                 resnames.append(name)
         names = resnames
-    self._pyctypes__names = names
+    self._names_ = names
     for name, field in fields.items():
         setattr(self, name, field)
 
@@ -230,9 +230,9 @@ class StructOrUnion(_CData):
 
     def __init__(self, *args, **kwds):
         type(self)._make_final()
-        if len(args) > len(self._pyctypes__names):
+        if len(args) > len(self._names_):
             raise TypeError("too many initializers")
-        for name, arg in zip(self._pyctypes__names, args):
+        for name, arg in zip(self._names_, args):
             if name in kwds:
                 raise TypeError("duplicate value for argument %r" % (
                     name,))
