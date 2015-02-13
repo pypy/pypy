@@ -4,7 +4,7 @@ __all__ = ['FFI', 'VerificationError', 'VerificationMissing', 'CDefError',
 from .api import FFI, CDefError, FFIError
 from .ffiplatform import VerificationError, VerificationMissing
 
-__version__ = "0.8.6"
+__version__ = "0.8.6+"
 __version_info__ = (0, 8, 6)
 
 # The verifier module file names are based on the CRC32 of a string that
