@@ -1123,20 +1123,7 @@ class FrameBlock(object):
 
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
-
     handles = (Break, Continue)
-
-    def handle(self, ctx, unroller):
-        if isinstance(unroller, Continue):
-            # re-push the loop block without cleaning up the value stack,
-            # and jump to the beginning of the loop, stored in the
-            # exception's argument
-            ctx.blockstack.append(self)
-            return unroller.jump_to
-        else:
-            # jump to the end of the loop
-            self.cleanupstack(ctx)
-            return self.handler
 
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
