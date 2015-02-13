@@ -202,25 +202,54 @@ class BytecodeReader(object):
     def build_flow(self, code):
         self.pending_blocks = {}
         self.handlerstack = []
-        self.blocks = [SimpleBlock([])]
-        self.curr_block = self.blocks[0]
+        self.all_handlers = []
+        start_block = self.new_block()
+        self.blocks = [start_block]
+        self.curr_block = start_block
         self.needs_new_block = False
-        self.graph = graph = BytecodeGraph(self.blocks[0])
+        self.graph = graph = BytecodeGraph(start_block)
         for instr in self._iter_instr(code):
             instr.bc_flow(self)
+        self.analyze_contexts(graph)
         self.analyze_signals(graph)
         self.check_graph()
         return graph
 
+    def analyze_contexts(self, graph):
+        start = graph.entry._exits[0]
+        self.pending = [start]
+        start.set_blockstack([])
+        done = set()
+        while self.pending:
+            block = self.pending.pop(0)
+            if block in done:
+                continue
+            self.blockstack = block.blockstack[:]
+            for instr in block:
+                instr.context_effect(self)
+            for child in block._exits:
+                child.set_blockstack(self.blockstack)
+                self.pending.append(child)
+            done.add(block)
+
     def analyze_signals(self, graph):
         for block in graph.iterblocks():
             self.curr_block = block
-            block.init_blockstack()
             self.blockstack = block.blockstack[:]
             for instr in block:
                 instr.do_signals(self)
-            for exit in block._exits:
-                exit.set_blockstack(self.blockstack)
+
+    def splice_finally_handler(self, block, context):
+        def copy_block(handler):
+            b = handler.copy()
+            if handler is context.handler_end:
+                instr = b.operations.pop()
+                assert isinstance(instr, END_FINALLY)
+            else:
+                b.set_exits([copy_block(child) for child in handler._exits])
+            self.blocks.append(b)
+            return b
+        block.set_exits([copy_block(context.handler)])
 
     def check_graph(self):
         for b in self.blocks:
@@ -315,7 +344,7 @@ class BytecodeBlock(object):
 
     def set_blockstack(self, blockstack):
         if self.blockstack is None:
-            self.blockstack = blockstack
+            self.blockstack = blockstack[:]
         else:
             assert self.blockstack == blockstack
 
@@ -342,6 +371,13 @@ class SimpleBlock(BytecodeBlock):
         if exit:
             self.set_exits([exit])
 
+    def copy(self):
+        block = SimpleBlock(self.operations[:])
+        block.set_exits(self._exits)
+        if self.blockstack is not None:
+            block.blockstack = self.blockstack[:]
+        return block
+
 
 OPNAMES = host_bytecode_spec.method_names
 NO_ARG = -1
@@ -360,6 +396,9 @@ class BCInstruction(object):
         if self.has_jump():
             reader.end_block()
             reader.get_block_at(self.arg)
+
+    def context_effect(self, reader):
+        pass
 
     def do_signals(self, reader):
         pass
@@ -538,22 +577,17 @@ class BREAK_LOOP(BCInstruction):
         from rpython.flowspace.flowcontext import ExceptBlock, FinallyBlock
         while reader.blockstack:
             context = reader.blockstack.pop()
+            block.operations.append(POP_BLOCK(-1, self.offset))
             if isinstance(context, ExceptBlock):
-                block.operations.append(POP_BLOCK(-1, self.offset))
+                pass
             elif isinstance(context, FinallyBlock):
-                block.operations.append(self)
-                block.set_exits([context.handler])
-                return
+                reader.splice_finally_handler(block, context)
+                block = context.handler_end
             else:  # LoopBlock
-                block.operations.append(POP_BLOCK(-1, self.offset))
                 block.set_exits([context.handler])
                 return
         raise BytecodeCorruption(
             "A break statement should not escape from the function")
-
-    def eval(self, ctx):
-        from rpython.flowspace.flowcontext import Break
-        return ctx.unroll(Break())
 
 @bc_reader.register_opcode
 class CONTINUE_LOOP(BCInstruction):
@@ -572,19 +606,15 @@ class CONTINUE_LOOP(BCInstruction):
             if isinstance(context, ExceptBlock):
                 block.operations.append(POP_BLOCK(-1, self.offset))
             elif isinstance(context, FinallyBlock):
-                block.operations.append(self)
-                block.set_exits([context.handler])
-                return
-            else:  # LoopBlock
                 block.operations.append(POP_BLOCK(-1, self.offset))
+                reader.splice_finally_handler(block, context)
+                block = context.handler_end
+            else:  # LoopBlock
+                reader.blockstack.append(context)
                 block.set_exits([self.target])
                 return
         raise BytecodeCorruption(
             "A continue statement should not escape from the function")
-
-    def eval(self, ctx):
-        from rpython.flowspace.flowcontext import Continue
-        return ctx.unroll(Continue(self.target))
 
 @bc_reader.register_opcode
 class END_FINALLY(BCInstruction):
@@ -592,6 +622,7 @@ class END_FINALLY(BCInstruction):
         reader.curr_block.operations.append(self)
         signal = reader.handlerstack.pop()
         signal.handler_end = reader.curr_block
+        reader.end_block()
 
     def eval(self, ctx):
         # unlike CPython, there are two statically distinct cases: the
@@ -629,7 +660,9 @@ class SetupInstruction(BCInstruction):
         self.block.handler = self.target
         reader.end_block()
 
-    def do_signals(self, reader):
+    def context_effect(self, reader):
+        self.target.set_blockstack(reader.blockstack)
+        reader.pending.append(self.target)
         reader.blockstack.append(self.block)
 
     def eval(self, ctx):
@@ -642,6 +675,7 @@ class SETUP_EXCEPT(SetupInstruction):
     def bc_flow(self, reader):
         SetupInstruction.bc_flow(self, reader)
         reader.handlerstack.append(self.block)
+        reader.all_handlers.append(self.block)
 
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import ExceptBlock
@@ -658,6 +692,7 @@ class SETUP_FINALLY(SetupInstruction):
     def bc_flow(self, reader):
         SetupInstruction.bc_flow(self, reader)
         reader.handlerstack.append(self.block)
+        reader.all_handlers.append(self.block)
 
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import FinallyBlock
@@ -668,6 +703,7 @@ class SETUP_WITH(SetupInstruction):
     def bc_flow(self, reader):
         SetupInstruction.bc_flow(self, reader)
         reader.handlerstack.append(self.block)
+        reader.all_handlers.append(self.block)
 
     def make_block(self, stackdepth):
         from rpython.flowspace.flowcontext import FinallyBlock
@@ -692,7 +728,7 @@ class POP_BLOCK(BCInstruction):
         reader.curr_block.operations.append(self)
         reader.end_block()
 
-    def do_signals(self, reader):
+    def context_effect(self, reader):
         reader.blockstack.pop()
 
     def eval(self, ctx):
