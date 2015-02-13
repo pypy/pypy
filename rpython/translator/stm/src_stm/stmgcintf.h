@@ -30,6 +30,7 @@ long _pypy_stm_start_transaction(void);
 
 void _pypy_stm_become_inevitable(const char *);
 void pypy_stm_become_globally_unique_transaction(void);
+void pypy_stm_commit_and_start_inevitable(void);
 
 char *_pypy_stm_test_expand_marker(void);
 void pypy_stm_setup_expand_marker(long co_filename_ofs,

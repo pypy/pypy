@@ -331,10 +331,11 @@ static uint64_t _global_start_time = 0;
 
 static void _stm_start_transaction(stm_thread_local_t *tl)
 {
-    assert(!_stm_in_transaction(tl));
-
-    while (!acquire_thread_segment(tl))
-        ;
+    if (!will_start_inevitable) {
+        assert(!_stm_in_transaction(tl));
+        while (!acquire_thread_segment(tl))
+            ;
+    }
     /* GS invalid before this point! */
 
     assert(STM_PSEGMENT->safe_point == SP_NO_TRANSACTION);
@@ -351,10 +352,12 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
 
-    enter_safe_point_if_requested();
-    dprintf(("start_transaction\n"));
+    if (!will_start_inevitable) {
+        enter_safe_point_if_requested();
+        dprintf(("start_transaction\n"));
 
-    s_mutex_unlock();
+        s_mutex_unlock();
+    }
 
     /* Now running the SP_RUNNING start.  We can set our
        'transaction_read_version' after releasing the mutex,
@@ -828,7 +831,8 @@ static void _finish_transaction(enum stm_event_e event)
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
     timing_event(tl, event);
 
-    release_thread_segment(tl);
+    if (!will_start_inevitable)
+        release_thread_segment(tl);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 }
 
@@ -847,6 +851,11 @@ void stm_commit_transaction(void)
     push_overflow_objects_from_privatized_pages();
 
     s_mutex_lock();
+
+    if (will_start_inevitable) {
+        assert(will_start_inevitable == 1);
+        assert(will_start_inevitable = 2);   /* 1 -> 2, only if !NDEBUG */
+    }
 
  restart:
     /* force all other threads to be paused.  They will unpause
@@ -905,6 +914,9 @@ void stm_commit_transaction(void)
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
     _finish_transaction(STM_TRANSACTION_COMMIT);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
+
+    if (will_start_inevitable)
+        return;    /* hack: return with the mutex still held */
 
     s_mutex_unlock();
 
@@ -1159,5 +1171,31 @@ void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
 
     s_mutex_lock();
     synchronize_all_threads(STOP_OTHERS_AND_BECOME_GLOBALLY_UNIQUE);
+    s_mutex_unlock();
+}
+
+void stm_commit_and_start_inevitable(stm_thread_local_t *tl, const char *msg)
+{
+    stm_become_inevitable(tl, msg);   /* may still abort */
+
+    /* cannot abort any more from here */
+    will_start_inevitable = 1;
+
+    /* as long as 'will_start_inevitable' is true, we cannot release the
+       mutex_lock or do a cond_wait.  We must go through uninterrupted
+       with all the steps below.
+    */
+    stm_commit_transaction();
+    assert(will_start_inevitable == 2);
+    assert(_has_mutex());
+
+    _stm_start_transaction(tl);
+    assert(_has_mutex());
+
+    /* this line should be the only step from _stm_become_inevitable() we
+       must do in this case */
+    STM_PSEGMENT->transaction_state = TS_INEVITABLE;
+
+    will_start_inevitable = 0;
     s_mutex_unlock();
 }

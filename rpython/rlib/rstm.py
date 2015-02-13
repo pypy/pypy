@@ -73,8 +73,9 @@ def become_inevitable():
 def stop_all_other_threads():
     llop.stm_become_globally_unique_transaction(lltype.Void)
 
+@dont_look_inside
 def partial_commit_and_resume_other_threads():
-    hint_commit_soon()    # for now
+    llop.stm_commit_and_start_inevitable(lltype.Void)
 
 @specialize.arg(0)
 def should_break_transaction(keep):

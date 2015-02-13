@@ -171,6 +171,9 @@ def stm_become_inevitable(funcgen, op):
 def stm_become_globally_unique_transaction(funcgen, op):
     return 'pypy_stm_become_globally_unique_transaction();'
 
+def stm_commit_and_start_inevitable(funcgen, op):
+    return 'pypy_stm_commit_and_start_inevitable();'
+
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     return 'STM_PUSH_ROOT(stm_thread_local, %s);' % (arg0,)
