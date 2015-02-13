@@ -206,6 +206,22 @@ class TestFlowObjSpace(Base):
     def test_break_continue(self):
         x = self.codetest(self.break_continue)
 
+    def test_break_from_handler(self):
+        def f(x):
+            while True:
+                try:
+                    x()
+                except TypeError:
+                    if x:
+                        raise
+                    break
+        assert f(0) is None
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        entrymap = mkentrymap(graph)
+        links = entrymap[graph.returnblock]
+        assert len(links) == 1
+
     #__________________________________________________________
     def unpack_tuple(lst):
         a, b, c = lst
