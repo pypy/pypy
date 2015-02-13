@@ -108,6 +108,15 @@ def stm_allocate_f_light(funcgen, op):
             '((rpyobj_t *)%s)->tid = %s;\n' % (result, arg_type_id) +
             'stm_enable_light_finalizer((object_t *)%s);' % (result,))
 
+def stm_allocate_preexisting(funcgen, op):
+    arg_size   = funcgen.expr(op.args[0])
+    arg_idata  = funcgen.expr(op.args[1])
+    result     = funcgen.expr(op.result)
+    resulttype = cdecl(funcgen.lltypename(op.result), '')
+    return ('%s = (%s)stm_allocate_preexisting(%s,'
+            ' _stm_real_address((object_t *)%s));' % (
+        result, resulttype, arg_size, arg_idata))
+
 def stm_get_from_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
     arg_obj = funcgen.expr(op.args[0])

@@ -162,6 +162,12 @@ def pop_marker():
 def stm_count():
     return llop.stm_count(lltype.Signed)
 
+@specialize.ll()
+def allocate_preexisting(p):
+    TP = lltype.typeOf(p)
+    size = llmemory.sizeof(TP.TO)
+    return llop.stm_allocate_preexisting(TP, size, p)
+
 # ____________________________________________________________
 
 class _Entry(ExtRegistryEntry):

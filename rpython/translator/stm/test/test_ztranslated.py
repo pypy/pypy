@@ -603,3 +603,20 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main, backendopt=True)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
+
+    def test_allocate_preexisting(self):
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+
+        def main(argv):
+            s1 = lltype.malloc(S)
+            s1.n = 42
+            s2 = rstm.allocate_preexisting(s1)
+            s1.n += 1
+            assert s2.n == 42
+            #
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
