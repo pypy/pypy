@@ -222,11 +222,6 @@ void pypy_stm_become_globally_unique_transaction(void)
     stm_become_globally_unique_transaction(&stm_thread_local, "for the JIT");
 }
 
-void pypy_stm_commit_and_start_inevitable(void)
-{
-    stm_commit_and_start_inevitable(&stm_thread_local, "for the JIT");
-}
-
 long _pypy_stm_count(void)
 {
     static long value = 1;

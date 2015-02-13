@@ -429,7 +429,6 @@ LL_OPERATIONS = {
     'stm_get_root_stack_top': LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(canmallocgc=True),
     'stm_become_globally_unique_transaction': LLOp(canmallocgc=True),
-    'stm_commit_and_start_inevitable': LLOp(canmallocgc=True),
     'stm_push_root':          LLOp(),
     'stm_pop_root_into':      LLOp(),
     'stm_commit_if_not_atomic':           LLOp(canmallocgc=True),

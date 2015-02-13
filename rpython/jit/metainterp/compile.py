@@ -248,12 +248,16 @@ def compile_retrace(metainterp, greenkey, start,
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
+    if rgc.stm_is_enabled():
+        rstm.stop_all_other_threads()
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
 
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
     record_loop_or_bridge(metainterp_sd, loop)
+    if rgc.stm_is_enabled():
+        rstm.partial_commit_and_resume_other_threads()
 
     return target_token
 
@@ -820,9 +824,13 @@ def compile_trace(metainterp, resumekey):
     if new_trace.operations[-1].getopnum() != rop.LABEL:
         # We managed to create a bridge.  Dispatch to resumekey to
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+        if rgc.stm_is_enabled():
+            rstm.stop_all_other_threads()
         target_token = new_trace.operations[-1].getdescr()
         resumekey.compile_and_attach(metainterp, new_trace)
         record_loop_or_bridge(metainterp_sd, new_trace)
+        if rgc.stm_is_enabled():
+            rstm.partial_commit_and_resume_other_threads()
         return target_token
     else:
         metainterp.retrace_needed(new_trace)

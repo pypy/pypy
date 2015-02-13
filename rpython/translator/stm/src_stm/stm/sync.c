@@ -92,7 +92,6 @@ static inline void s_mutex_lock(void)
 static inline void s_mutex_unlock(void)
 {
     assert(_has_mutex_here);
-    assert(!will_start_inevitable);
     if (UNLIKELY(pthread_mutex_unlock(&sync_ctl.global_mutex) != 0))
         stm_fatalerror("pthread_mutex_unlock: %m");
     assert((_has_mutex_here = false, 1));
@@ -105,7 +104,6 @@ static inline void cond_wait(enum cond_type_e ctype)
 #endif
 
     assert(_has_mutex_here);
-    assert(will_start_inevitable < 2);
     if (UNLIKELY(pthread_cond_wait(&sync_ctl.cond[ctype],
                                    &sync_ctl.global_mutex) != 0))
         stm_fatalerror("pthread_cond_wait/%d: %m", (int)ctype);

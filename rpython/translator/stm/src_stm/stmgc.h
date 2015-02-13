@@ -409,15 +409,6 @@ long stm_call_on_commit(stm_thread_local_t *, void *key, void callback(void *));
 void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
                                             const char *msg);
 
-/* Commit and start the next transaction as inevitable.  Provided the
-   commit succeeds, the next transaction is immediately made
-   inevitable: no other transaction can commit (or turn inevitable)
-   between the two steps.  The only reason to use this function
-   instead of stm_become_inevitable() is that the forced commit ends a
-   globally unique transaction.  If there is already another inevitable
-   transaction, this function will come stm_become_inevitable() first. */
-void stm_commit_and_start_inevitable(stm_thread_local_t *tl, const char *msg);
-
 
 /* Profiling events.  In the comments: content of the markers, if any */
 enum stm_event_e {
