@@ -164,6 +164,14 @@ def stm_count():
 
 @specialize.ll()
 def allocate_preexisting(p):
+    """Return a copy of p, which must be a Ptr(GcStruct), which
+    we pretend existed all along (including in other transactions).
+    Used in cases where other concurrent transactions have a non-
+    official way to get a pointer to that object even before we commit.
+    The copied content should be the "default initial" state which
+    the current transaction can then proceed to change normally.  This
+    initial state must not contain GC pointers to any other uncommitted
+    object."""
     TP = lltype.typeOf(p)
     size = llmemory.sizeof(TP.TO)
     return llop.stm_allocate_preexisting(TP, size, p)
