@@ -382,5 +382,8 @@ class PyCode(eval.Code):
         return "<code object %s, file '%s', line %d>" % (
             self.co_name, self.co_filename, self.co_firstlineno)
 
+    def __repr__(self):
+        return self.get_repr()
+
     def repr(self, space):
         return space.wrap(self.get_repr())

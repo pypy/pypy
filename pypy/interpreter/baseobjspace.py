@@ -1509,6 +1509,8 @@ class ObjSpace(object):
     def str_w(self, w_obj):
         return w_obj.str_w(self)
 
+    bytes_w = str_w  # Python2
+
     def str0_w(self, w_obj):
         "Like str_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring

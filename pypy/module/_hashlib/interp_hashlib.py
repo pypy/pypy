@@ -1,17 +1,62 @@
 from __future__ import with_statement
+
+from rpython.rlib import rgc, ropenssl
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.sourcetools import func_renamer
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError
-from rpython.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import W_Root
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import rgc, ropenssl
-from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
+def hash_name_mapper_callback(obj_name, userdata):
+    state = global_state[0]
+    assert state is not None
+    if not obj_name:
+        return
+    # Ignore aliased names, they pollute the list and OpenSSL appears
+    # to have a its own definition of alias as the resulting list
+    # still contains duplicate and alternate names for several
+    # algorithms.
+    if obj_name[0].c_alias:
+        return
+    try:
+        w_name = state.space.wrap(rffi.charp2str(obj_name[0].c_name))
+        state.space.call_method(state.w_meth_names, "add", w_name)
+    except OperationError, e:
+        state.w_error = e
+
+# XXX make it threadlocal?
+global_state = [None]
+
+class State:
+    def __init__(self, space):
+        self.space = space
+        self.generate_method_names(space)
+
+    def generate_method_names(self, space):
+        if not we_are_translated():
+            ropenssl.init_digests()
+        self.w_error = None
+        try:
+            global_state[0] = self
+            self.w_meth_names = space.call_function(space.w_set)
+            ropenssl.OBJ_NAME_do_all(
+                ropenssl.OBJ_NAME_TYPE_MD_METH,
+                hash_name_mapper_callback, None)
+        finally:
+            global_state[0] = None
+        if self.w_error:
+            raise self.w_error
+
+def get(space):
+    return space.fromcache(State)
 
 class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
