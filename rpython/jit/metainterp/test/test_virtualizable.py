@@ -1682,6 +1682,25 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(f, [], listops=True)
         assert res == 0
 
+    def test_constant_virtualizable(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        driver = JitDriver(greens=['b'], reds=['a'], virtualizables=['a'])
+
+        def f():
+            a = A(10)
+            b = promote(a)
+            while a.x > 0:
+                driver.jit_merge_point(a=a, b=b)
+                a.x = b.x - 1
+            return a.x
+
+        res = self.meta_interp(f, [], listops=True)
+        assert res == 0
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

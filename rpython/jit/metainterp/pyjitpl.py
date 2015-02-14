@@ -790,7 +790,8 @@ class MIFrame(object):
                 eqbox = self.implement_guard_value(eqbox, pc)
                 isstandard = eqbox.getint()
                 if isstandard:
-                    self.metainterp.replace_box(box, standard_box)
+                    if isinstance(box, history.BoxPtr):
+                        self.metainterp.replace_box(box, standard_box)
                     return False
         if not self.metainterp.heapcache.is_unescaped(box):
             self.emit_force_virtualizable(fielddescr, box)
