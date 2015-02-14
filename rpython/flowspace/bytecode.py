@@ -233,22 +233,27 @@ class BytecodeReader(object):
                 instr.do_signals(self)
 
     def splice_finally_handler(self, block, context):
+        cell = []
         def copy_block(handler):
             b = handler.copy()
             if handler is context.handler_end:
                 instr = b.operations.pop()
                 assert isinstance(instr, END_FINALLY)
+                cell.append(b)
             else:
                 b.set_exits([copy_block(child) for child in handler._exits])
             self.blocks.append(b)
             return b
         block.set_exits([copy_block(context.handler)])
+        copy_of_handler_end, = cell
+        return copy_of_handler_end
 
     def check_graph(self):
         for b in self.blocks:
             if not b._exits:
-                assert any(instr.name in ('RETURN_VALUE', 'RAISE_VARARGS')
-                        for instr in b.operations)
+                instr = b.operations[-1]
+                assert instr.name in (
+                        'RETURN_VALUE', 'RAISE_VARARGS', 'EXEC_STMT')
             for x in b._exits:
                 assert x in self.blocks
 
@@ -612,6 +617,17 @@ class CONTINUE_LOOP(BCInstruction):
                 return
         raise BytecodeCorruption(
             "A continue statement should not escape from the function")
+
+@bc_reader.register_opcode
+class RETURN_VALUE(BCInstruction):
+    def bc_flow(self, reader):
+        reader.curr_block.operations.append(self)
+        reader.end_block()
+
+    def eval(self, ctx):
+        from rpython.flowspace.flowcontext import Return
+        w_returnvalue = ctx.popvalue()
+        raise Return(w_returnvalue)
 
 @bc_reader.register_opcode
 class END_FINALLY(BCInstruction):

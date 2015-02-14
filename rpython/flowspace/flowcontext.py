@@ -606,9 +606,10 @@ class FlowContext(object):
         w_module = self.peekvalue()
         self.pushvalue(self.import_from(w_module, w_name))
 
-    def RETURN_VALUE(self, oparg):
-        w_returnvalue = self.popvalue()
-        raise Return(w_returnvalue)
+    def return_value(self, w_result):
+        link = Link([w_result], self.graph.returnblock)
+        self.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
     def YIELD_VALUE(self, _):
         assert self.pycode.is_generator
@@ -1014,10 +1015,7 @@ class Return(FlowSignal):
         self.w_value = w_value
 
     def nomoreblocks(self, ctx):
-        w_result = self.w_value
-        link = Link([w_result], ctx.graph.returnblock)
-        ctx.recorder.crnt_block.closeblock(link)
-        raise StopFlowing
+        ctx.return_value(self.w_value)
 
     @property
     def args(self):
