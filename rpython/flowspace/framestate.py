@@ -16,10 +16,12 @@ def _union(seq1, seq2):
 
 
 class FrameState(object):
-    def __init__(self, locals_w, stack, last_exception, blocklist, position):
+    def __init__(self, locals_w, stack, last_exception, w_return_value,
+                 blocklist, position):
         self.locals_w = locals_w
         self.stack = stack
         self.last_exception = last_exception
+        self.w_return_value = w_return_value
         self.blocklist = blocklist
         self.position = position
         self._mergeable = None
@@ -35,6 +37,7 @@ class FrameState(object):
         else:
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
+        data.append(self.w_return_value)
         recursively_flatten(data)
         return data
 
@@ -44,7 +47,7 @@ class FrameState(object):
         if exc is not None:
             exc = FSException(_copy(exc.w_type), _copy(exc.w_value))
         return FrameState(map(_copy, self.locals_w), map(_copy, self.stack),
-                exc, self.blocklist, self.position)
+                exc, _copy(self.w_return_value), self.blocklist, self.position)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
@@ -84,9 +87,10 @@ class FrameState(object):
                 args2 = other._exc_args()
                 exc = FSException(union(args1[0], args2[0]),
                         union(args1[1], args2[1]))
+            w_rv = union(self.w_return_value, other.w_return_value)
         except UnionError:
             return None
-        return FrameState(locals, stack, exc, self.blocklist, self.position)
+        return FrameState(locals, stack, exc, w_rv, self.blocklist, self.position)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."

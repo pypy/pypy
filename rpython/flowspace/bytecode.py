@@ -253,7 +253,7 @@ class BytecodeReader(object):
             if not b._exits:
                 instr = b.operations[-1]
                 assert instr.name in (
-                        'RETURN_VALUE', 'RAISE_VARARGS', 'EXEC_STMT')
+                        'RETURN', 'RAISE_VARARGS', 'EXEC_STMT')
             for x in b._exits:
                 assert x in self.blocks
 
@@ -630,13 +630,24 @@ class CONTINUE_LOOP(BCInstruction):
 @bc_reader.register_opcode
 class RETURN_VALUE(NullaryOpcode):
     def bc_flow(self, reader):
-        reader.curr_block.operations.append(self)
+        block = reader.curr_block
+        block.operations.append(SET_RETURN_VALUE(offset=self.offset))
+        block.operations.append(RETURN(offset=self.offset))
         reader.end_block()
 
+class SET_RETURN_VALUE(NullaryOpcode):
+    num = name = 'SET_RETURN_VALUE'
+    arg = NO_ARG
+    def eval(self, ctx):
+        w_value = ctx.popvalue()
+        ctx.w_return_value = w_value
+
+class RETURN(NullaryOpcode):
+    num = name = 'RETURN'
+    arg = NO_ARG
     def eval(self, ctx):
         from rpython.flowspace.flowcontext import Return
-        w_returnvalue = ctx.popvalue()
-        raise Return(w_returnvalue)
+        raise Return()
 
 @bc_reader.register_opcode
 class END_FINALLY(NullaryOpcode):

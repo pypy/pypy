@@ -16,7 +16,7 @@ class PyGraph(FunctionGraph):
             locals[i] = Variable(code.co_varnames[i])
         bc_graph = code.graph
         start_pos = bc_graph.entry._exits[0], 0
-        state = FrameState(locals, [], None, [], start_pos)
+        state = FrameState(locals, [], None, None, [], start_pos)
         initialblock = SpamBlock(state)
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)
         self.func = func

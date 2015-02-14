@@ -291,13 +291,15 @@ class FlowContext(object):
 
     def getstate(self, position):
         return FrameState(self.locals_w[:], self.stack[:],
-                self.last_exception, self.blockstack[:], position)
+                self.last_exception, self.w_return_value,
+                self.blockstack[:], position)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
         self.locals_w = state.locals_w[:]
         self.stack = state.stack[:]
         self.last_exception = state.last_exception
+        self.w_return_value = state.w_return_value
         self.blockstack = state.blocklist[:]
         self._normalize_raise_signals()
 
@@ -606,7 +608,8 @@ class FlowContext(object):
         w_module = self.peekvalue()
         self.pushvalue(self.import_from(w_module, w_name))
 
-    def return_value(self, w_result):
+    def do_return(self):
+        w_result = self.w_return_value
         link = Link([w_result], self.graph.returnblock)
         self.recorder.crnt_block.closeblock(link)
         raise StopFlowing
@@ -1008,22 +1011,18 @@ class FlowSignal(Exception):
 
 
 class Return(FlowSignal):
-    """Signals a 'return' statement.
-    Argument is the wrapped object to return.
-    """
-    def __init__(self, w_value):
-        self.w_value = w_value
-
+    """Signals a 'return' statement.  """
     def nomoreblocks(self, ctx):
-        ctx.return_value(self.w_value)
+        ctx.do_return()
 
     @property
     def args(self):
-        return [self.w_value]
+        return []
 
     @staticmethod
-    def rebuild(w_value):
-        return Return(w_value)
+    def rebuild():
+        return Return()
+
 
 class Raise(FlowSignal):
     """Signals an application-level exception
