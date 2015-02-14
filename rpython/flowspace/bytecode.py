@@ -429,6 +429,15 @@ class GenericOpcode(BCInstruction):
         return getattr(ctx, self.name)(self.arg)
 
 
+class NullaryOpcode(BCInstruction):
+    def __init__(self, arg=NO_ARG, offset=-1):
+        self.arg = NO_ARG
+        self.offset = offset
+
+    def __repr__(self):
+        return self.name
+
+
 def flow_opcode(func):
     name = func.__name__
     class Op(BCInstruction):
@@ -450,13 +459,13 @@ class LOAD_CONST(BCInstruction):
         ctx.pushvalue(v_arg)
 
 @bc_reader.register_opcode
-class DUP_TOP(BCInstruction):
+class DUP_TOP(NullaryOpcode):
     def eval(self, ctx):
         w_1 = ctx.peekvalue()
         ctx.pushvalue(w_1)
 
 @bc_reader.register_opcode
-class POP_TOP(BCInstruction):
+class POP_TOP(NullaryOpcode):
     def eval(self, ctx):
         ctx.popvalue()
 
@@ -511,7 +520,7 @@ class JUMP_IF_TRUE_OR_POP(BCInstruction):
         return self.on_False
 
 
-class SWITCH_BOOL(BCInstruction):
+class SWITCH_BOOL(NullaryOpcode):
     name = 'SWITCH_BOOL'
     arg = NO_ARG
     def __init__(self, on_False, on_True, offset=-1):
@@ -567,7 +576,7 @@ class FOR_ITER(BCInstruction):
                 raise
 
 @bc_reader.register_opcode
-class BREAK_LOOP(BCInstruction):
+class BREAK_LOOP(NullaryOpcode):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         reader.end_block()
@@ -579,7 +588,7 @@ class BREAK_LOOP(BCInstruction):
         from rpython.flowspace.flowcontext import ExceptBlock, FinallyBlock
         while reader.blockstack:
             context = reader.blockstack.pop()
-            block.operations.append(POP_BLOCK(-1, self.offset))
+            block.operations.append(POP_BLOCK(offset=self.offset))
             if isinstance(context, ExceptBlock):
                 pass
             elif isinstance(context, FinallyBlock):
@@ -606,9 +615,9 @@ class CONTINUE_LOOP(BCInstruction):
         while reader.blockstack:
             context = reader.blockstack.pop()
             if isinstance(context, ExceptBlock):
-                block.operations.append(POP_BLOCK(-1, self.offset))
+                block.operations.append(POP_BLOCK(offset=self.offset))
             elif isinstance(context, FinallyBlock):
-                block.operations.append(POP_BLOCK(-1, self.offset))
+                block.operations.append(POP_BLOCK(offset=self.offset))
                 reader.splice_finally_handler(block, context)
                 block = context.handler_end
             else:  # LoopBlock
@@ -619,7 +628,7 @@ class CONTINUE_LOOP(BCInstruction):
             "A continue statement should not escape from the function")
 
 @bc_reader.register_opcode
-class RETURN_VALUE(BCInstruction):
+class RETURN_VALUE(NullaryOpcode):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         reader.end_block()
@@ -630,7 +639,7 @@ class RETURN_VALUE(BCInstruction):
         raise Return(w_returnvalue)
 
 @bc_reader.register_opcode
-class END_FINALLY(BCInstruction):
+class END_FINALLY(NullaryOpcode):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         signal = reader.handlerstack.pop()
@@ -737,7 +746,7 @@ class SETUP_WITH(SetupInstruction):
         ctx.pushvalue(w_result)
 
 @bc_reader.register_opcode
-class POP_BLOCK(BCInstruction):
+class POP_BLOCK(NullaryOpcode):
     def bc_flow(self, reader):
         reader.curr_block.operations.append(self)
         reader.end_block()
@@ -758,7 +767,7 @@ _unary_ops = [
 ]
 
 def unaryoperation(OPCODE, oper):
-    class UNARY_OP(BCInstruction):
+    class UNARY_OP(NullaryOpcode):
         def eval(self, ctx):
             w_1 = ctx.popvalue()
             w_result = oper(w_1).eval(ctx)
@@ -800,7 +809,7 @@ _binary_ops = [
 ]
 
 def binaryoperation(OPCODE, oper):
-    class BINARY_OP(BCInstruction):
+    class BINARY_OP(NullaryOpcode):
         def eval(self, ctx):
             w_2 = ctx.popvalue()
             w_1 = ctx.popvalue()
