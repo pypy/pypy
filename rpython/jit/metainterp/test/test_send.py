@@ -202,7 +202,7 @@ class SendTests(object):
         # the final one.
         self.check_trace_count(1)
         self.check_resops(guard_class=1, int_add=4, int_sub=4)
-        self.check_jumps(14)
+        #self.check_jumps(14)
 
     def test_oosend_guard_failure_2(self):
         # same as above, but using prebuilt objects 'w1' and 'w2'
@@ -244,7 +244,7 @@ class SendTests(object):
         assert res == f(4, 28)
         self.check_trace_count(1)
         self.check_resops(guard_class=1, int_add=4, int_sub=4)
-        self.check_jumps(14)
+        #self.check_jumps(14)
 
     def test_oosend_different_initial_class(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])

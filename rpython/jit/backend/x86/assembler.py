@@ -934,7 +934,7 @@ class Assembler386(BaseAssembler):
             getattr(self.mc, asmop)(arglocs[0])
         return genop_unary
 
-    def _binaryop(asmop, can_swap=False):
+    def _binaryop(asmop):
         def genop_binary(self, op, arglocs, result_loc):
             getattr(self.mc, asmop)(arglocs[0], arglocs[1])
         return genop_binary
@@ -1078,18 +1078,18 @@ class Assembler386(BaseAssembler):
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
-    genop_int_add = _binaryop_or_lea("ADD", True)
-    genop_int_sub = _binaryop_or_lea("SUB", False)
-    genop_int_mul = _binaryop("IMUL", True)
-    genop_int_and = _binaryop("AND", True)
-    genop_int_or  = _binaryop("OR", True)
-    genop_int_xor = _binaryop("XOR", True)
+    genop_int_add = _binaryop_or_lea("ADD", is_add=True)
+    genop_int_sub = _binaryop_or_lea("SUB", is_add=False)
+    genop_int_mul = _binaryop("IMUL")
+    genop_int_and = _binaryop("AND")
+    genop_int_or  = _binaryop("OR")
+    genop_int_xor = _binaryop("XOR")
     genop_int_lshift = _binaryop("SHL")
     genop_int_rshift = _binaryop("SAR")
     genop_uint_rshift = _binaryop("SHR")
-    genop_float_add = _binaryop("ADDSD", True)
+    genop_float_add = _binaryop("ADDSD")
     genop_float_sub = _binaryop('SUBSD')
-    genop_float_mul = _binaryop('MULSD', True)
+    genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
 
     genop_int_lt = _cmpop("L", "G")
@@ -1273,11 +1273,11 @@ class Assembler386(BaseAssembler):
         self.mc.XOR_rr(edx.value, edx.value)
         self.mc.DIV_r(ecx.value)
 
-    genop_llong_add = _binaryop("PADDQ", True)
+    genop_llong_add = _binaryop("PADDQ")
     genop_llong_sub = _binaryop("PSUBQ")
-    genop_llong_and = _binaryop("PAND",  True)
-    genop_llong_or  = _binaryop("POR",   True)
-    genop_llong_xor = _binaryop("PXOR",  True)
+    genop_llong_and = _binaryop("PAND")
+    genop_llong_or  = _binaryop("POR")
+    genop_llong_xor = _binaryop("PXOR")
 
     def genop_llong_to_int(self, op, arglocs, resloc):
         loc = arglocs[0]

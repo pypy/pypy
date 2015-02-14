@@ -3,7 +3,7 @@ Type inference for user-defined classes.
 """
 from rpython.annotator.model import (
     SomePBC, s_ImpossibleValue, unionof, s_None, SomeInteger,
-    SomeTuple, SomeString, AnnotatorError)
+    SomeTuple, SomeString, AnnotatorError, SomeUnicodeString)
 from rpython.annotator import description
 
 

@@ -81,7 +81,10 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
                 return w_object.descr_copy(space, w_order)
             elif not copy and (subok or type(w_object) is W_NDimArray):
                 return w_object
-        # we have a ndarray, but need to copy or change dtype or create W_NDimArray
+        if subok:
+            raise oefmt(space.w_NotImplementedError, 
+                "array(..., subok=True) only partially implemented")
+        # we have a ndarray, but need to copy or change dtype 
         if dtype is None:
             dtype = w_object.get_dtype()
         if dtype != w_object.get_dtype():
@@ -89,13 +92,12 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             copy = True
         if copy:
             shape = w_object.get_shape()
-            _elems_w = w_object.reshape(space, space.wrap(-1))
             elems_w = [None] * w_object.get_size()
-            for i in range(len(elems_w)):
-                elems_w[i] = _elems_w.descr_getitem(space, space.wrap(i))
-        elif subok:
-            raise oefmt(space.w_NotImplementedError, 
-                "array(...copy=False, subok=True) not implemented yet")
+            elsize = w_object.get_dtype().elsize
+            # TODO - use w_object.implementation without copying to a list
+            # unfortunately that causes a union error in translation
+            for i in range(w_object.get_size()):
+                elems_w[i] = w_object.implementation.getitem(i * elsize)
         else:
             sz = support.product(w_object.get_shape()) * dtype.elsize
             return W_NDimArray.from_shape_and_storage(space,
@@ -113,7 +115,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    if len(elems_w) == 1:
+    if support.product(shape) == 1:
         w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
     else:
         loop.assign(space, w_arr, elems_w)

@@ -304,7 +304,7 @@ class PtrOptValue(OptValue):
         level = self.getlevel()
         if level == LEVEL_KNOWNCLASS:
             return self.known_class
-        elif level == LEVEL_CONSTANT:
+        elif level == LEVEL_CONSTANT and not self.is_null():
             return cpu.ts.cls_of_box(self.box)
         else:
             return None

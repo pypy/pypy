@@ -52,7 +52,7 @@ class _CDataMeta(type):
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape)
+        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape_)
         return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):

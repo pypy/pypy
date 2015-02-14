@@ -36,6 +36,13 @@ class Darwin(posix.BasePosix):
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
 
+    def _exportsymbols_link_flags(self):
+        # XXX unsure if OS/X requires an option to the linker to tell
+        # "please export all RPY_EXPORTED symbols even in the case of
+        # making a binary and not a dynamically-linked library".
+        # It's not "-exported_symbols_list" but something close.
+        return []
+
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
                      no_precompile_cfiles = []):

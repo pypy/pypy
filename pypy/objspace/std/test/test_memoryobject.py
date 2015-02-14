@@ -127,3 +127,9 @@ class AppTestMemoryView:
             assert cm is v
         raises(ValueError, bytes, v)
         assert "released memory" in repr(v)
+
+    def test_pypy_raw_address_base(self):
+        raises(ValueError, memoryview("foobar")._pypy_raw_address)
+        e = raises(ValueError, memoryview(bytearray("foobar"))._pypy_raw_address)
+        assert 'BytearrayBuffer' in str(e.value)
+
