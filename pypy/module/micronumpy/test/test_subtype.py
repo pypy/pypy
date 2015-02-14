@@ -26,6 +26,12 @@ class AppTestSupport(BaseNumpyAppTest):
                     self.called_finalize = True
             return SubType ''')
 
+    def test_subtype_ndarray(self):
+        from numpy import arange, array
+        a = arange(24, dtype='int32').reshape((6,4))
+        b = array(a, dtype='float64', subok=True)
+        assert (a == b).all()
+
     def test_subtype_base(self):
         from numpy import ndarray, dtype
         class C(ndarray):
