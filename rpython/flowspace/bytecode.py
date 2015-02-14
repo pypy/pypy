@@ -618,8 +618,7 @@ class CONTINUE_LOOP(BCInstruction):
                 block.operations.append(POP_BLOCK(offset=self.offset))
             elif isinstance(context, FinallyBlock):
                 block.operations.append(POP_BLOCK(offset=self.offset))
-                reader.splice_finally_handler(block, context)
-                block = context.handler_end
+                block = reader.splice_finally_handler(block, context)
             else:  # LoopBlock
                 reader.blockstack.append(context)
                 block.set_exits([self.target])
@@ -645,9 +644,20 @@ class SET_RETURN_VALUE(NullaryOpcode):
 class RETURN(NullaryOpcode):
     num = name = 'RETURN'
     arg = NO_ARG
+    def do_signals(self, reader):
+        block = reader.curr_block
+        assert block.operations[-1] is self
+        del block.operations[-1]
+        from rpython.flowspace.flowcontext import FinallyBlock
+        while reader.blockstack:
+            context = reader.blockstack.pop()
+            block.operations.append(POP_BLOCK(offset=self.offset))
+            if isinstance(context, FinallyBlock):
+                block = reader.splice_finally_handler(block, context)
+        block.operations.append(self)
+
     def eval(self, ctx):
-        from rpython.flowspace.flowcontext import Return
-        raise Return()
+        ctx.do_return()
 
 @bc_reader.register_opcode
 class END_FINALLY(NullaryOpcode):

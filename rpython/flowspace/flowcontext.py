@@ -1012,9 +1012,6 @@ class FlowSignal(Exception):
 
 class Return(FlowSignal):
     """Signals a 'return' statement.  """
-    def nomoreblocks(self, ctx):
-        ctx.do_return()
-
     @property
     def args(self):
         return []
