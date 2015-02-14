@@ -241,7 +241,7 @@ def simpleops():
     >>> element.remove(subelement)
     >>> serialize(element) # 5
     '<tag key="value" />'
-    >>> element.remove(subelement)
+    >>> element.remove(subelement)     # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ValueError: list.remove(x): x not in list
     >>> serialize(element) # 6
