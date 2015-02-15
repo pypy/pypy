@@ -66,7 +66,7 @@ class W_UnicodeObject(W_Root):
         if identifier is not None:
             return identifier
         u = self._value
-        eh = unicodehelper.encode_error_handler(space)
+        eh = unicodehelper.rpy_encode_error_handler()
         try:
             identifier = unicode_encode_utf_8(u, len(u), None,
                                               errorhandler=eh)
@@ -493,12 +493,12 @@ def encode_object(space, w_object, encoding, errors):
             try:
                 if encoding == 'ascii':
                     u = space.unicode_w(w_object)
-                    eh = unicodehelper.encode_error_handler(space)
+                    eh = unicodehelper.rpy_encode_error_handler()
                     return space.wrapbytes(unicode_encode_ascii(
                             u, len(u), None, errorhandler=eh))
                 if encoding == 'utf-8':
                     u = space.unicode_w(w_object)
-                    eh = unicodehelper.encode_error_handler(space)
+                    eh = unicodehelper.rpy_encode_error_handler()
                     return space.wrapbytes(unicode_encode_utf_8(
                             u, len(u), None, errorhandler=eh))
             except unicodehelper.RUnicodeEncodeError, ue:

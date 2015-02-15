@@ -24,6 +24,19 @@ def decode_error_handler(space):
                                              space.wrap(msg)]))
     return raise_unicode_exception_decode
 
+@specialize.memo()
+def encode_error_handler(space):
+    # Fast version of the "strict" errors handler.
+    def raise_unicode_exception_encode(errors, encoding, msg, u,
+                                       startingpos, endingpos):
+        raise OperationError(space.w_UnicodeEncodeError,
+                             space.newtuple([space.wrap(encoding),
+                                             space.wrap(u),
+                                             space.wrap(startingpos),
+                                             space.wrap(endingpos),
+                                             space.wrap(msg)]))
+    return raise_unicode_exception_encode
+
 class RUnicodeEncodeError(Exception):
     def __init__(self, encoding, object, start, end, reason):
         self.encoding = encoding
@@ -33,8 +46,8 @@ class RUnicodeEncodeError(Exception):
         self.reason = reason
 
 @specialize.memo()
-def encode_error_handler(space):
-    # Fast version of the "strict" errors handler.
+def rpy_encode_error_handler():
+    # A RPython version of the "strict" error handler.
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
         raise RUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
