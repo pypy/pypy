@@ -68,16 +68,19 @@ class CConfigBootstrap:
     _compilation_info_ = eci
     OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
-if rffi_platform.configure(CConfigBootstrap)["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
+    OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
+        "OPENSSL_VERSION_NUMBER")
+
+cconfig = rffi_platform.configure(CConfigBootstrap)
+if cconfig["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
     ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 else:
     ASN1_ITEM_EXP = ASN1_ITEM
+OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
 
 class CConfig:
     _compilation_info_ = eci
 
-    OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
-        "OPENSSL_VERSION_NUMBER")
     SSLEAY_VERSION = rffi_platform.DefinedConstantString(
         "SSLEAY_VERSION", "SSLeay_version(SSLEAY_VERSION)")
     OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
@@ -147,6 +150,7 @@ class CConfig:
     NID_ad_ca_issuers = rffi_platform.ConstantInteger("NID_ad_ca_issuers")
     NID_info_access = rffi_platform.ConstantInteger("NID_info_access")
     NID_X9_62_prime256v1 = rffi_platform.ConstantInteger("NID_X9_62_prime256v1")
+    NID_crl_distribution_points = rffi_platform.ConstantInteger("NID_crl_distribution_points")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
     GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
     GEN_DNS = rffi_platform.ConstantInteger("GEN_DNS")
@@ -162,9 +166,10 @@ class CConfig:
     OBJ_NAME_TYPE_MD_METH = rffi_platform.ConstantInteger(
         "OBJ_NAME_TYPE_MD_METH")
 
-    X509_st = rffi_platform.Struct(
-        'struct x509_st',
-        [('crldp', stack_st_DIST_POINT)])
+    if OPENSSL_VERSION_NUMBER >= 0x10001000:
+        X509_st = rffi_platform.Struct(
+            'struct x509_st',
+            [('crldp', stack_st_DIST_POINT)])
 
     # Some structures, with only the fields used in the _ssl module
     X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
@@ -226,7 +231,10 @@ SSL_CTX = rffi.COpaquePtr('SSL_CTX')
 SSL_CIPHER = rffi.COpaquePtr('SSL_CIPHER')
 SSL = rffi.COpaquePtr('SSL')
 BIO = rffi.COpaquePtr('BIO')
-X509 = rffi.CArrayPtr(X509_st)
+if OPENSSL_VERSION_NUMBER >= 0x10001000:
+    X509 = rffi.CArrayPtr(X509_st)
+else:
+    X509 = rffi.COpaquePtr('X509')
 X509_NAME_ENTRY = rffi.CArrayPtr(X509_name_entry_st)
 X509_EXTENSION = rffi.CArrayPtr(X509_extension_st)
 X509_STORE = rffi.CArrayPtr(x509_store_st)
