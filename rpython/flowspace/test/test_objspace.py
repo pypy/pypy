@@ -960,6 +960,20 @@ class TestFlowObjSpace(Base):
             'simple_call': 4, # __enter__, g and 2 possible calls to __exit__
             }
 
+    def test_return_in_with(self):
+        def f(x):
+            with x:
+                return 1
+        self.codetest(f)
+
+    def test_break_in_with(self):
+        def f(n, x):
+            for i in range(n):
+                with x:
+                    break
+            return 1
+        self.codetest(f)
+
     def monkey_patch_code(self, code, stacksize, flags, codestring, names, varnames):
         c = code
         return types.CodeType(c.co_argcount, c.co_nlocals, stacksize, flags,
