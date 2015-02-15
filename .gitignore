@@ -9,7 +9,7 @@ bin/pypy-c
 include/*.h
 include/numpy/
 lib_pypy/ctypes_config_cache/_[^_]*_*.py
-libpypy-c.dylib
+libpypy-c.*
 pypy-c
 pypy/_cache
 pypy/doc/*.html
