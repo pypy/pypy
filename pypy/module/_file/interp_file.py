@@ -209,9 +209,9 @@ class W_File(W_AbstractStream):
                     # Note that we can get EAGAIN while there is buffered data
                     # waiting; read that too.
                     if is_wouldblock_error(e):
-                        pos, buf = stream.peek()
-                        if len(buf) > pos:
-                            result.append(stream.read(min(n, len(buf) - pos)))
+                        m = stream.count_buffered_bytes()
+                        if m > 0:
+                            result.append(stream.read(min(n, m)))
                         got = result.build()
                         if len(got) > 0:
                             return got
