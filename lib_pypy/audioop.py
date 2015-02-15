@@ -480,6 +480,7 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
                             state_d, prev_i, cur_i,
                             weightA, weightB)
     result = ffi.buffer(rv)[:trim_index]
+    d = state_d[0]
     samps = zip(prev_i, cur_i)
     return (result, (d, tuple(samps)))
 
