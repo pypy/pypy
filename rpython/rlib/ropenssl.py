@@ -96,7 +96,7 @@ class CConfig:
         "SSL_OP_SINGLE_DH_USE")
     SSL_OP_SINGLE_ECDH_USE = rffi_platform.ConstantInteger(
         "SSL_OP_SINGLE_ECDH_USE")
-    SSL_OP_NO_COMPRESSION = rffi_platform.ConstantInteger(
+    SSL_OP_NO_COMPRESSION = rffi_platform.DefinedConstantInteger(
         "SSL_OP_NO_COMPRESSION")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
