@@ -964,7 +964,9 @@ class TestFlowObjSpace(Base):
         def f(x):
             with x:
                 return 1
-        self.codetest(f)
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getattr': 2, 'simple_call': 2}
 
     def test_break_in_with(self):
         def f(n, x):

@@ -584,17 +584,15 @@ class BREAK_LOOP(NullaryOpcode):
         block = reader.curr_block
         assert block.operations[-1] is self
         del block.operations[-1]
-        from rpython.flowspace.flowcontext import ExceptBlock, FinallyBlock
         while reader.blockstack:
             context = reader.blockstack.pop()
             block.operations.append(POP_BLOCK(offset=self.offset))
-            if isinstance(context, ExceptBlock):
+            if isinstance(context, SETUP_EXCEPT):
                 pass
-            elif isinstance(context, FinallyBlock):
-                reader.splice_finally_handler(block, context)
-                block = context.handler_end
+            elif isinstance(context, (SETUP_WITH, SETUP_FINALLY)):
+                block = reader.splice_finally_handler(block, context.block)
             else:  # LoopBlock
-                block.set_exits([context.handler])
+                block.set_exits([context.target])
                 return
         raise BytecodeCorruption(
             "A break statement should not escape from the function")
@@ -610,15 +608,14 @@ class CONTINUE_LOOP(BCInstruction):
         block = reader.curr_block
         assert block.operations[-1] is self
         del block.operations[-1]
-        from rpython.flowspace.flowcontext import ExceptBlock, FinallyBlock
         while reader.blockstack:
             context = reader.blockstack.pop()
-            if isinstance(context, ExceptBlock):
+            if isinstance(context, SETUP_EXCEPT):
                 block.operations.append(POP_BLOCK(offset=self.offset))
-            elif isinstance(context, FinallyBlock):
+            elif isinstance(context, (SETUP_FINALLY, SETUP_WITH)):
                 block.operations.append(POP_BLOCK(offset=self.offset))
-                block = reader.splice_finally_handler(block, context)
-            else:  # LoopBlock
+                block = reader.splice_finally_handler(block, context.block)
+            else:  # SETUP_LOOP
                 reader.blockstack.append(context)
                 block.set_exits([self.target])
                 return
@@ -647,12 +644,11 @@ class RETURN(NullaryOpcode):
         block = reader.curr_block
         assert block.operations[-1] is self
         del block.operations[-1]
-        from rpython.flowspace.flowcontext import FinallyBlock
         while reader.blockstack:
             context = reader.blockstack.pop()
             block.operations.append(POP_BLOCK(offset=self.offset))
-            if isinstance(context, FinallyBlock):
-                block = reader.splice_finally_handler(block, context)
+            if isinstance(context, SETUP_FINALLY):
+                block = reader.splice_finally_handler(block, context.block)
         block.operations.append(self)
 
     def eval(self, ctx):
@@ -706,7 +702,7 @@ class SetupInstruction(BCInstruction):
 
     def context_effect(self, reader):
         self.target.set_blockstack(reader.blockstack)
-        reader.blockstack.append(self.block)
+        reader.blockstack.append(self)
 
     def eval(self, ctx):
         self.block.stackdepth = ctx.stackdepth
