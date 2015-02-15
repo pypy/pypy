@@ -205,6 +205,17 @@ class TestKQueue(unittest.TestCase):
         b.close()
         kq.close()
 
+    def test_control_raises_oserror(self):
+        kq = select.kqueue()
+        event = select.kevent(123456, select.KQ_FILTER_READ, select.KQ_EV_DELETE)
+        with self.assertRaises(OSError) as cm:
+            kq.control([event], 0, 0)
+
+        self.assertEqual(cm.exception.args[0], errno.EBADF)
+        self.assertEqual(cm.exception.errno, errno.EBADF)
+
+        kq.close()
+
 def test_main():
     test_support.run_unittest(TestKQueue)
 
