@@ -107,6 +107,13 @@ class _UnbufferedTextIOWrapper(io.TextIOWrapper):
         super(_UnbufferedTextIOWrapper, self).write(s)
         self.flush()
 
+
+class _UnbufferedTextIOWrapper(io.TextIOWrapper):
+    def write(self, s):
+        super(_UnbufferedTextIOWrapper, self).write(s)
+        self.flush()
+
+
 class XMLGenerator(handler.ContentHandler):
 
     def __init__(self, out=None, encoding="iso-8859-1"):

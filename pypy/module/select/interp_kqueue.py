@@ -201,7 +201,7 @@ class W_Kqueue(W_Root):
                                           max_events,
                                           ptimeout)
                     if nfds < 0:
-                        raise exception_from_saved_errno(space, space.w_IOError)
+                        raise exception_from_saved_errno(space, space.w_OSError)
                     else:
                         elist_w = [None] * nfds
                         for i in xrange(nfds):

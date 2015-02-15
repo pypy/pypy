@@ -81,7 +81,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
                 return w_object.descr_copy(space, w_order)
             elif not copy and (subok or type(w_object) is W_NDimArray):
                 return w_object
-        if subok:
+        if subok and not type(w_object) is W_NDimArray:
             raise oefmt(space.w_NotImplementedError, 
                 "array(..., subok=True) only partially implemented")
         # we have a ndarray, but need to copy or change dtype 

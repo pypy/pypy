@@ -80,6 +80,12 @@ class PyFrame(W_Root):
         self.initialize_frame_scopes(outer_func, code)
         self.f_lineno = code.co_firstlineno
 
+    def __repr__(self):
+        # NOT_RPYTHON: useful in tracebacks
+        return "<%s.%s executing %s at line %s" % (
+            self.__class__.__module__, self.__class__.__name__,
+            self.pycode, self.get_last_lineno())
+
     def mark_as_escaped(self):
         """
         Must be called on frames that are exposed to applevel, e.g. by

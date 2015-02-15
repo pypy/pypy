@@ -891,8 +891,8 @@ class AppTestCompiler:
             assert co2.co_filename == '%s3' % fname
 
 
-class AppTestOptimizer:
 
+class AppTestOptimizer:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
@@ -1052,7 +1052,7 @@ class AppTestOptimizer:
             sys.stdout = save_stdout
         output = s.getvalue()
         assert "STOP_CODE" not in output
-    
+
     def test_optimize_list_comp(self):
         source = """def _f(a):
             return [x for x in a if None]
@@ -1060,7 +1060,7 @@ class AppTestOptimizer:
         ns = {}
         exec(source, ns)
         code = ns['_f'].__code__
-        
+
         import sys, dis
         from io import StringIO
         s = StringIO()
@@ -1094,7 +1094,7 @@ class AppTestOptimizer:
         ns = {}
         exec(source, ns)
         code = ns['_f'].__code__
-        
+
         import sys, dis
         from io import StringIO
         s = StringIO()
@@ -1126,8 +1126,6 @@ class AppTestExceptions:
             pass
         else:
             raise Exception("DID NOT RAISE")
-
-
 
     def test_bad_oudent(self):
         source = """if 1:
@@ -1185,3 +1183,24 @@ class AppTestExceptions:
             assert e.filename == fname
         else:
             assert False, 'SyntaxError expected'
+
+    def test_encoding(self):
+        code = b'# -*- coding: badencoding -*-\npass\n'
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = u"# -*- coding: utf-8 -*-\npass\n"
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = 'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = u'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xa4'
+        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\u20ac'
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
+        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
+        assert eval(code) == u'# -*- coding: utf-8 -*-\n\xc2\xa4'

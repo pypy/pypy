@@ -295,6 +295,10 @@ class Stream(object):
     def peek(self):
         return (0, '')
 
+    def count_buffered_bytes(self):
+        pos, buf = self.peek()
+        return len(buf) - pos
+
     def try_to_find_file_descriptor(self):
         return -1
 

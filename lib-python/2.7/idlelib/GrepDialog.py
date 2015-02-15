@@ -45,10 +45,10 @@ class GrepDialog(SearchDialogBase):
 
     def create_entries(self):
         SearchDialogBase.create_entries(self)
-        self.globent = self.make_entry("In files:", self.globvar)
+        self.globent = self.make_entry("In files:", self.globvar)[0]
 
     def create_other_buttons(self):
-        f = self.make_frame()
+        f = self.make_frame()[0]
 
         btn = Checkbutton(f, anchor="w",
                 variable=self.recvar,
@@ -131,7 +131,7 @@ class GrepDialog(SearchDialogBase):
             self.top.withdraw()
 
 
-def _grep_dialog(parent):  # for htest
+def _grep_dialog(parent):  # htest #
     from idlelib.PyShell import PyShellFileList
     root = Tk()
     root.title("Test GrepDialog")

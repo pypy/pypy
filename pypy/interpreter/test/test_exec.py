@@ -17,7 +17,7 @@ class AppTestExecStmt:
         g = {}
         exec("a = 3", g)
         assert g['a'] == 3
-        
+
     def test_builtinsupply(self):
         g = {}
         exec("pass", g)
@@ -50,7 +50,7 @@ class AppTestExecStmt:
         l = {}
         exec("a = 3", g, l)
         assert l['a'] == 3
-        
+
     def test_tupleglobals(self):
         g = {}
         exec("a = 3", g)
@@ -158,8 +158,8 @@ class AppTestExecStmt:
     def test_exec_and_name_lookups(self):
         ns = {}
         exec("""def f():
-        exec('x=1', globals())
-        return x\n""", ns)
+            exec('x=1', globals())
+            return x\n""", ns)
 
         f = ns['f']
 
