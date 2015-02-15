@@ -369,7 +369,8 @@ for code in library_codes:
     LIBRARY_CODES_TO_NAMES[cconfig[code]] = code
 ERROR_CODES_TO_NAMES = {}
 for lib, code in error_codes:
-    ERROR_CODES_TO_NAMES[cconfig[lib], cconfig[code]] = code
+    if cconfig[code] is not None:
+        ERROR_CODES_TO_NAMES[cconfig[lib], cconfig[code]] = code
 
 ALERT_DESCRIPTION_CODES = {}
 for name in AD_NAMES:
