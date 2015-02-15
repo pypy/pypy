@@ -138,7 +138,6 @@ class BytecodeReader(object):
         except KeyError:
             return GenericOpcode(self.opnames[opnum], opnum, arg, offset)
 
-
     def _iter_instr(self, code):
         self.offset = 0
         i = 0

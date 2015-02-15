@@ -2,14 +2,11 @@
 import pytest
 from rpython.flowspace.model import Variable, FSException
 from rpython.flowspace.flowcontext import (
-    Return, Raise, RaiseImplicit, Continue, Break)
+    Raise, RaiseImplicit)
 
 @pytest.mark.parametrize('signal', [
-    Return(),
     Raise(FSException(Variable(), Variable())),
     RaiseImplicit(FSException(Variable(), Variable())),
-    Break(),
-    Continue(42),
 ])
 def test_signals(signal):
     assert signal.rebuild(*signal.args) == signal

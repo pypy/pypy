@@ -1010,17 +1010,6 @@ class FlowSignal(Exception):
         return type(other) is type(self) and other.args == self.args
 
 
-class Return(FlowSignal):
-    """Signals a 'return' statement.  """
-    @property
-    def args(self):
-        return []
-
-    @staticmethod
-    def rebuild():
-        return Return()
-
-
 class Raise(FlowSignal):
     """Signals an application-level exception
     (i.e. an OperationException)."""
@@ -1061,35 +1050,6 @@ class RaiseImplicit(Raise):
         raise StopFlowing
 
 
-class Break(FlowSignal):
-    """Signals a 'break' statement."""
-
-    @property
-    def args(self):
-        return []
-
-    @staticmethod
-    def rebuild():
-        return Break.singleton
-
-Break.singleton = Break()
-
-class Continue(FlowSignal):
-    """Signals a 'continue' statement.
-    Argument is the bytecode position of the beginning of the loop."""
-
-    def __init__(self, jump_to):
-        self.jump_to = jump_to
-
-    @property
-    def args(self):
-        return [const(self.jump_to)]
-
-    @staticmethod
-    def rebuild(w_jump_to):
-        return Continue(w_jump_to.value)
-
-
 class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
@@ -1117,7 +1077,7 @@ class FrameBlock(object):
 
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
-    handles = (Break, Continue)
+    handles = type(None)
 
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
