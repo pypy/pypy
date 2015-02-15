@@ -25,8 +25,8 @@ class RUnicodeEncodeError(Exception):
         self.reason = reason
 
 @specialize.memo()
-def encode_error_handler(space):
-    # Fast version of the "strict" errors handler.
+def rpy_encode_error_handler():
+    # A RPython version of the "strict" error handler.
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
         raise RUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
