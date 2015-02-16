@@ -1187,20 +1187,15 @@ class AppTestExceptions:
     def test_encoding(self):
         code = b'# -*- coding: badencoding -*-\npass\n'
         raises(SyntaxError, compile, code, 'tmp', 'exec')
-        code = u"# -*- coding: utf-8 -*-\npass\n"
-        raises(SyntaxError, compile, code, 'tmp', 'exec')
         code = 'u"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\xa4'
         code = u'u"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\xa4'
-        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        code = b'# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\xa4'
-        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        code = b'# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
         assert eval(code) == u'\xa4'
-        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        code = b'# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
         assert eval(code) == u'\xc2\u20ac'
-        import sys
-        if sys.version_info < (2, 7, 9):
-            skip()
-        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
-        assert eval(code) == u'# -*- coding: utf-8 -*-\n\xc2\xa4'
+        code = b'u"""\\\n# -*- coding: ascii -*-\n\xc2\xa4"""\n'
+        assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'
