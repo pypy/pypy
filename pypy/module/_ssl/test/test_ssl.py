@@ -307,12 +307,13 @@ class AppTestContext:
             os.path.dirname(__file__), 'dh512.pem'))
 
     def test_load_cert_chain(self):
-        import _ssl
+        import _ssl, errno
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx.load_cert_chain(self.keycert)
         ctx.load_cert_chain(self.cert, self.key)
-        raises(IOError, ctx.load_cert_chain, "inexistent.pem")
-        raises(_ssl.SSLError, ctx.load_cert_chain, self.badcert)
+        exc = raises(IOError, ctx.load_cert_chain, "inexistent.pem")
+        assert exc.value.errno == errno.ENOENT
+        exc = raises(_ssl.SSLError, ctx.load_cert_chain, self.badcert)
         raises(_ssl.SSLError, ctx.load_cert_chain, self.emptycert)
         # Password protected key and cert
         raises(_ssl.SSLError, ctx.load_cert_chain, self.cert_protected,
