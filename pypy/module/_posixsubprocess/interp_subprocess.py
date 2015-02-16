@@ -7,7 +7,7 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.error import (
-    OperationError, exception_from_errno, oefmt, wrap_oserror)
+    OperationError, exception_from_saved_errno, oefmt, wrap_oserror)
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.posix.interp_posix import run_fork_hooks
 
@@ -50,7 +50,8 @@ c_cloexec_pipe = rffi.llexternal(
     'pypy_subprocess_cloexec_pipe',
     [rffi.CArrayPtr(rffi.INT)], rffi.INT,
     compilation_info=eci,
-    releasegil=True)
+    releasegil=True,
+    save_err=rffi.RFFI_SAVE_ERRNO)
 c_init = rffi.llexternal(
     'pypy_subprocess_init',
     [], lltype.Void,
@@ -225,7 +226,7 @@ def cloexec_pipe(space):
     with lltype.scoped_alloc(rffi.CArrayPtr(rffi.INT).TO, 2) as fds:
         res = c_cloexec_pipe(fds)
         if res != 0:
-            raise exception_from_errno(space, space.w_OSError)
+            raise exception_from_saved_errno(space, space.w_OSError)
 
         return space.newtuple([space.wrap(fds[0]),
                                space.wrap(fds[1]),

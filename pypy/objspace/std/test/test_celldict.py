@@ -106,6 +106,11 @@ class AppTestModuleDict(object):
         assert "s" not in d
         assert F() not in d
 
+    def test_reversed(self):
+        import __pypy__
+        name = next(__pypy__.reversed_dict(__pypy__.__dict__))
+        assert isinstance(name, str)
+
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
     StrategyClass = ModuleDictStrategy

@@ -7255,11 +7255,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         short = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        guard_nonnull(p1) []
-        guard_class(p1, ConstClass(node_vtable)) []
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
         p2 = getfield_gc(p1, descr=nextdescr)
-        guard_nonnull(p2) []
-        guard_class(p2, ConstClass(node_vtable)) []
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
         jump(p0)
         """
         self.optimize_loop(ops, expected, expected_short=short)

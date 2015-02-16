@@ -397,6 +397,9 @@ class PyCode(eval.Code):
             self.co_name, self.co_filename,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno)
 
+    def __repr__(self):
+        return self.get_repr()
+
     def repr(self, space):
         space = self.space
         # co_name should be an identifier

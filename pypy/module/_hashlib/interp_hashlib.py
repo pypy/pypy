@@ -1,20 +1,22 @@
 from __future__ import with_statement
-from pypy.interpreter.gateway import unwrap_spec, interp2app
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError
-from rpython.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import W_Root
-from rpython.rtyper.lltypesystem import lltype, rffi
+
 from rpython.rlib import rgc, ropenssl
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.sourcetools import func_renamer
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.thread.os_lock import Lock
 
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
 def hash_name_mapper_callback(obj_name, userdata):
-    state = global_state[0] 
+    state = global_state[0]
     assert state is not None
     if not obj_name:
         return
@@ -33,11 +35,11 @@ def hash_name_mapper_callback(obj_name, userdata):
 # XXX make it threadlocal?
 global_state = [None]
 
-class State: 
-    def __init__(self, space): 
+class State:
+    def __init__(self, space):
         self.space = space
         self.generate_method_names(space)
-    
+
     def generate_method_names(self, space):
         if not we_are_translated():
             ropenssl.init_digests()
@@ -46,7 +48,7 @@ class State:
             global_state[0] = self
             self.w_meth_names = space.call_function(space.w_set)
             ropenssl.OBJ_NAME_do_all(
-                ropenssl.OBJ_NAME_TYPE_MD_METH, 
+                ropenssl.OBJ_NAME_TYPE_MD_METH,
                 hash_name_mapper_callback, None)
         finally:
             global_state[0] = None

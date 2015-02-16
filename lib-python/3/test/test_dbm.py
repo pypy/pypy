@@ -110,6 +110,8 @@ class AnyDBMTestCase:
         f.close()
 
     def read_helper(self, f):
+        f['a']  # Work around a bug in BerkeleyDB:
+                # https://bugs.launchpad.net/ubuntu/+source/db5.3/+bug/1421223
         keys = self.keys_helper(f)
         for key in self._dict:
             self.assertEqual(self._dict[key], f[key.encode("ascii")])

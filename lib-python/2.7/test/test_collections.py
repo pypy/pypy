@@ -8,13 +8,14 @@ import pickle, cPickle, copy
 from random import randrange, shuffle
 import keyword
 import re
-import sets
 import sys
 from collections import Hashable, Iterable, Iterator
 from collections import Sized, Container, Callable
 from collections import Set, MutableSet
 from collections import Mapping, MutableMapping
 from collections import Sequence, MutableSequence
+# Silence deprecation warning
+sets = test_support.import_module('sets', deprecated=True)
 
 TestNT = namedtuple('TestNT', 'x y z')    # type used for pickle tests
 
@@ -578,7 +579,12 @@ class TestCollectionABCs(ABCTestCase):
             def __repr__(self):
                 return "MySet(%s)" % repr(list(self))
         s = MySet([5,43,2,1])
-        self.assertEqual(s.pop(), 1)
+        # changed from CPython 2.7: it was "s.pop() == 1" but I see
+        # nothing that guarantees a particular order here.  In the
+        # 'all_ordered_dicts' branch of PyPy (or with OrderedDict
+        # instead of sets), it consistently returns 5, but this test
+        # should not rely on this or any other order.
+        self.assert_(s.pop() in [5,43,2,1])
 
     def test_issue8750(self):
         empty = WithSet()
@@ -713,10 +719,12 @@ class TestCollectionABCs(ABCTestCase):
         self.assertTrue(r1 < r3)
         self.assertFalse(r1 < r1)
         self.assertFalse(r1 < r2)
-        # python 2 only, cross-type compares will succeed
-        f1 < l3
-        f1 < l1
-        f1 < l2
+
+        with test_support.check_py3k_warnings():
+            # python 2 only, cross-type compares will succeed
+            f1 < l3
+            f1 < l1
+            f1 < l2
 
         # any subset
         self.assertTrue(f1 <= f3)
@@ -728,10 +736,12 @@ class TestCollectionABCs(ABCTestCase):
         self.assertTrue(r1 <= r3)
         self.assertTrue(r1 <= r1)
         self.assertFalse(r1 <= r2)
-        # python 2 only, cross-type compares will succeed
-        f1 <= l3
-        f1 <= l1
-        f1 <= l2
+
+        with test_support.check_py3k_warnings():
+            # python 2 only, cross-type compares will succeed
+            f1 <= l3
+            f1 <= l1
+            f1 <= l2
 
         # proper superset
         self.assertTrue(f3 > f1)
@@ -743,10 +753,12 @@ class TestCollectionABCs(ABCTestCase):
         self.assertTrue(r3 > r1)
         self.assertFalse(r1 > r1)
         self.assertFalse(r2 > r1)
-        # python 2 only, cross-type compares will succeed
-        f1 > l3
-        f1 > l1
-        f1 > l2
+
+        with test_support.check_py3k_warnings():
+            # python 2 only, cross-type compares will succeed
+            f1 > l3
+            f1 > l1
+            f1 > l2
 
         # any superset
         self.assertTrue(f3 >= f1)
@@ -758,10 +770,12 @@ class TestCollectionABCs(ABCTestCase):
         self.assertTrue(r3 >= r1)
         self.assertTrue(r1 >= r1)
         self.assertFalse(r2 >= r1)
-        # python 2 only, cross-type compares will succeed
-        f1 >= l3
-        f1 >=l1
-        f1 >= l2
+
+        with test_support.check_py3k_warnings():
+            # python 2 only, cross-type compares will succeed
+            f1 >= l3
+            f1 >=l1
+            f1 >= l2
 
         # equality
         self.assertTrue(f1 == f1)
@@ -1010,8 +1024,9 @@ class TestOrderedDict(unittest.TestCase):
                                           c=3, e=5).items()), pairs)                # mixed input
 
         # make sure no positional args conflict with possible kwdargs
-        self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
-                         ['self'])
+        if '__init__' in OrderedDict.__dict__:   # absent in PyPy
+            self.assertEqual(inspect.getargspec(OrderedDict.__dict__['__init__']).args,
+                             ['self'])
 
         # Make sure that direct calls to __init__ do not clear previous contents
         d = OrderedDict([('a', 1), ('b', 2), ('c', 3), ('d', 44), ('e', 55)])

@@ -110,10 +110,18 @@ class Tcl_Obj(object):
             return self._string
         return tkffi.string(tklib.Tcl_GetString(self._value)).decode('utf-8')
 
+    def __repr__(self):
+        return "<%s object at 0x%x>" % (
+            self.typename, tkffi.cast("intptr_t", self._value))
+
     def __eq__(self, other):
         if not isinstance(other, Tcl_Obj):
             return NotImplemented
         return self._value == other._value
+
+    @property
+    def typename(self):
+        return tkffi.string(self._value.typePtr.name)
 
     @property
     def string(self):

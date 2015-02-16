@@ -304,13 +304,20 @@ REX_X = 2
 REX_B = 1
 
 @specialize.arg(2)
-def encode_rex(mc, rexbyte, basevalue, orbyte):
+def encode_rex(mc, rexbyte, w, orbyte):
     if mc.WORD == 8:
         assert 0 <= rexbyte < 8
-        if basevalue != 0 or rexbyte != 0:
-            if basevalue == 0:
-                basevalue = 0x40
-            mc.writechar(chr(basevalue | rexbyte))
+        mc.writechar(chr(0x40 | w | rexbyte))
+    else:
+        assert rexbyte == 0
+    return 0
+
+@specialize.arg(2)
+def encode_rex_opt(mc, rexbyte, _, orbyte):
+    if mc.WORD == 8:
+        assert 0 <= rexbyte < 8
+        if rexbyte != 0:
+            mc.writechar(chr(0x40 | rexbyte))
     else:
         assert rexbyte == 0
     return 0
@@ -322,9 +329,9 @@ def encode_rex(mc, rexbyte, basevalue, orbyte):
 # the REX prefix in all cases.  It is only useful on instructions which
 # have an 8-bit register argument, to force access to the "sil" or "dil"
 # registers (as opposed to "ah-dh").
-rex_w  = encode_rex, 0, (0x40 | REX_W), None      # a REX.W prefix
-rex_nw = encode_rex, 0, 0, None                   # an optional REX prefix
-rex_fw = encode_rex, 0, 0x40, None                # a forced REX prefix
+rex_w  = encode_rex, 0, REX_W, None       # a REX.W prefix
+rex_nw = encode_rex_opt, 0, 0, None       # an optional REX prefix
+rex_fw = encode_rex, 0, 0, None           # a forced REX prefix
 
 # ____________________________________________________________
 
@@ -536,6 +543,7 @@ class AbstractX86CodeBuilder(object):
 
     PUSH_r = insn(rex_nw, register(1), '\x50')
     PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
+    PUSH_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
     PUSH_i8 = insn('\x6A', immediate(1, 'b'))
     PUSH_i32 = insn('\x68', immediate(1, 'i'))
     def PUSH_i(mc, immed):

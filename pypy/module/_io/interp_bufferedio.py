@@ -18,9 +18,15 @@ STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
 
 def make_write_blocking_error(space, written):
+    # XXX CPython reads 'errno' here.  I *think* it doesn't make sense,
+    # because we might reach this point after calling a write() method
+    # that may be overridden by the user, if that method returns None.
+    # In that case what we get is a potentially nonsense errno.  But
+    # we'll use get_saved_errno() anyway, and hope (like CPython does)
+    # that we're getting a reasonable value at this point.
     w_value = space.call_function(
         space.w_BlockingIOError,
-        space.wrap(rposix.get_errno()),
+        space.wrap(rposix.get_saved_errno()),
         space.wrap("write could not complete without blocking"),
         space.wrap(written))
     return OperationError(space.w_BlockingIOError, w_value)

@@ -62,7 +62,8 @@ if _WIN:
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
         [rwin32.HANDLE], rwin32.BOOL,
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     class GlobalState:
         def __init__(self):
@@ -79,8 +80,8 @@ if _WIN:
             except WindowsError, e:
                 raise wrap_windowserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
-                raise wrap_windowserror(
-                    space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
+                raise wrap_windowserror(space,
+                    rwin32.lastSavedWindowsError("SetConsoleCtrlHandler"))
 
     globalState = GlobalState()
 
@@ -145,7 +146,7 @@ for k, v in platform.configure(CConfig).items():
     setattr(cConfig, k, v)
 cConfig.tm.__name__ = "_tm"
 
-def external(name, args, result, eci=CConfig._compilation_info_):
+def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
     if _WIN and rffi.sizeof(rffi.TIME_T) == 8:
         # Recent Microsoft compilers use 64bit time_t and
         # the corresponding functions are named differently
@@ -155,7 +156,8 @@ def external(name, args, result, eci=CConfig._compilation_info_):
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
                            calling_conv=calling_conv,
-                           releasegil=False)
+                           releasegil=False,
+                           **kwds)
 
 if _POSIX:
     cConfig.timeval.__name__ = "_timeval"
@@ -171,9 +173,11 @@ if cConfig.has_gettimeofday:
 TM_P = lltype.Ptr(tm)
 c_clock = external('clock', [rffi.TIME_TP], clock_t)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
-c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)
+c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
-c_localtime = external('localtime', [rffi.TIME_TP], TM_P)
+c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -298,7 +302,7 @@ def _init_timezone(space):
     _set_module_object(space, 'altzone', space.wrap(altzone))
 
 def _get_error_msg():
-    errno = rposix.get_errno()
+    errno = rposix.get_saved_errno()
     return os.strerror(errno)
 
 if sys.platform != 'win32':

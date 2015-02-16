@@ -77,12 +77,15 @@ class BaseConcreteArray(object):
             else:
                 new_strides = calc_new_strides(new_shape, self.get_shape(),
                                                self.get_strides(), self.order)
+                if new_strides is None or len(new_strides) != len(new_shape):
+                    return None
         if new_strides is not None:
             # We can create a view, strides somehow match up.
             new_backstrides = calc_backstrides(new_strides, new_shape)
             assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
+        return None
 
     def get_view(self, space, orig_array, dtype, new_shape):
         strides, backstrides = calc_strides(new_shape, dtype,
@@ -452,7 +455,7 @@ class SliceArray(BaseConcreteArray):
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
                                        self.order)
-        if new_strides is None:
+        if new_strides is None or len(new_strides) != len(new_shape):
             raise oefmt(space.w_AttributeError,
                 "incompatible shape for a non-contiguous array")
         new_backstrides = [0] * len(new_shape)

@@ -15,6 +15,7 @@ class FakeArrayImplementation(BaseConcreteArray):
         self._base = base
         self.dtype = base.get_dtype()
         self.shape = [base.get_size()]
+        self.storage = self._base.implementation.storage
 
     def base(self):
         return self._base

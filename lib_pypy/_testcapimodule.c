@@ -778,7 +778,7 @@ test_L_code(PyObject *self)
         return raiseTestError("test_L_code",
             "L code returned wrong value for long 42");
 
-    Py_DECREF(num);
+    /* Py_DECREF(num);  <== CPython bug */
     num = PyLong_FromLong(42);
     if (num == NULL)
         return NULL;
@@ -985,7 +985,7 @@ test_k_code(PyObject *self)
         return raiseTestError("test_k_code",
             "k code returned wrong value for long 0xFFF...FFF");
 
-    Py_DECREF(num);
+    /* Py_DECREF(num);  <== CPython bug */
     num = PyLong_FromString("-FFFFFFFF000000000000000042", NULL, 16);
     if (num == NULL)
         return NULL;

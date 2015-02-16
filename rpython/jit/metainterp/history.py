@@ -170,6 +170,10 @@ class BasicFailDescr(AbstractFailDescr):
         self.identifier = identifier      # for testing
 
 
+class MissingValue(object):
+    "NOT_RPYTHON"
+
+
 class Const(AbstractValue):
     __slots__ = ()
 

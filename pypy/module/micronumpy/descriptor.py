@@ -16,6 +16,8 @@ from pypy.module.micronumpy.converters import byteorder_converter
 def decode_w_dtype(space, w_dtype):
     if space.is_none(w_dtype):
         return None
+    if isinstance(w_dtype, W_Dtype):
+        return w_dtype
     return space.interp_w(
         W_Dtype, space.call_function(space.gettypefor(W_Dtype), w_dtype))
 

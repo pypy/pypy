@@ -711,8 +711,15 @@ class InstanceRepr(Repr):
                     continue
                 value = self.classdef.classdesc.read_attribute(fldname, None)
                 if value is not None:
-                    cvalue = inputconst(r.lowleveltype,
-                                        r.convert_desc_or_const(value))
+                    ll_value = r.convert_desc_or_const(value)
+                    # don't write NULL GC pointers: we know that the malloc
+                    # done above initialized at least the GC Ptr fields to
+                    # NULL already, and that's true for all our GCs
+                    if (isinstance(r.lowleveltype, Ptr) and
+                            r.lowleveltype.TO._gckind == 'gc' and
+                            not ll_value):
+                        continue
+                    cvalue = inputconst(r.lowleveltype, ll_value)
                     self.setfield(vptr, fldname, cvalue, llops,
                                   flags={'access_directly': True})
         return vptr

@@ -75,6 +75,7 @@ int Tcl_GetDouble(Tcl_Interp* interp, const char* src, double* doublePtr);
 char *Tcl_GetString(Tcl_Obj* objPtr);
 char *Tcl_GetStringFromObj(Tcl_Obj* objPtr, int* lengthPtr);
 unsigned char *Tcl_GetByteArrayFromObj(Tcl_Obj* objPtr, int* lengthPtr);
+Tcl_Obj *Tcl_NewByteArrayObj(unsigned char *bytes, int length);
 
 int Tcl_ExprBoolean(Tcl_Interp* interp, const char *expr, int *booleanPtr);
 int Tcl_ExprLong(Tcl_Interp* interp, const char *expr, long* longPtr);

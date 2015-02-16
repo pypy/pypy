@@ -703,7 +703,7 @@ class ObjSpace(object):
         return self.wrap(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
+        """Implements equality with the double check 'x is y or x == y'."""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
     def is_(self, w_one, w_two):
@@ -1012,6 +1012,9 @@ class ObjSpace(object):
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
+
+    def newlist_int(self, list_i):
+        return self.newlist([self.wrap(i) for i in list_i])
 
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size

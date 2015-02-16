@@ -365,6 +365,9 @@ LL_OPERATIONS = {
     'convert_float_bytes_to_longlong': LLOp(canfold=True),
     'convert_longlong_bytes_to_float': LLOp(canfold=True),
 
+    'likely':               LLOp(canfold=True),
+    'unlikely':             LLOp(canfold=True),
+
     # __________ pointer operations __________
 
     'malloc':               LLOp(canmallocgc=True),
@@ -396,6 +399,7 @@ LL_OPERATIONS = {
     'direct_arrayitems':    LLOp(canfold=True),
     'direct_ptradd':        LLOp(canfold=True),
     'cast_opaque_ptr':      LLOp(sideeffects=False),
+    'length_of_simple_gcarray_from_opaque': LLOp(sideeffects=False),
 
     # __________ address operations __________
 

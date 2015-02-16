@@ -37,6 +37,22 @@ def encode_error_handler(space):
                                              space.wrap(msg)]))
     return raise_unicode_exception_encode
 
+class RUnicodeEncodeError(Exception):
+    def __init__(self, encoding, object, start, end, reason):
+        self.encoding = encoding
+        self.object = object
+        self.start = start
+        self.end = end
+        self.reason = reason
+
+@specialize.memo()
+def rpy_encode_error_handler():
+    # A RPython version of the "strict" error handler.
+    def raise_unicode_exception_encode(errors, encoding, msg, u,
+                                       startingpos, endingpos):
+        raise RUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+    return raise_unicode_exception_encode
+
 # ____________________________________________________________
 
 def fsdecode(space, w_string):
@@ -123,6 +139,9 @@ def decode_utf8(space, string, allow_surrogates=False):
     return result
 
 def encode_utf8(space, uni, allow_surrogates=False):
+    # Note that this function never raises UnicodeEncodeError,
+    # since surrogate pairs are allowed.
+    # This is not the case with Python3.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
         errorhandler=encode_error_handler(space),

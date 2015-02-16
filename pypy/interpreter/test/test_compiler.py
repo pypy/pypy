@@ -664,6 +664,18 @@ def test():
         assert ex.match(space, space.w_SyntaxError)
         assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
 
+    def test_del_None(self):
+        snippet = '''if 1:
+            try:
+                del None
+            except NameError:
+                pass
+        '''
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+
     def test_from_future_import(self):
         source = """from __future__ import with_statement
 with somtehing as stuff:
@@ -907,8 +919,8 @@ class AppTestCompiler:
         assert str(exc.value) == "empty targets on Delete"
 
 
-class AppTestOptimizer:
 
+class AppTestOptimizer:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
@@ -1068,7 +1080,7 @@ class AppTestOptimizer:
             sys.stdout = save_stdout
         output = s.getvalue()
         assert "STOP_CODE" not in output
-    
+
     def test_optimize_list_comp(self):
         source = """def _f(a):
             return [x for x in a if None]
@@ -1076,7 +1088,7 @@ class AppTestOptimizer:
         ns = {}
         exec(source, ns)
         code = ns['_f'].__code__
-        
+
         import sys, dis
         from io import StringIO
         s = StringIO()
@@ -1110,7 +1122,7 @@ class AppTestOptimizer:
         ns = {}
         exec(source, ns)
         code = ns['_f'].__code__
-        
+
         import sys, dis
         from io import StringIO
         s = StringIO()
@@ -1142,8 +1154,6 @@ class AppTestExceptions:
             pass
         else:
             raise Exception("DID NOT RAISE")
-
-
 
     def test_bad_oudent(self):
         source = """if 1:
@@ -1201,3 +1211,19 @@ class AppTestExceptions:
             assert e.filename == fname
         else:
             assert False, 'SyntaxError expected'
+
+    def test_encoding(self):
+        code = b'# -*- coding: badencoding -*-\npass\n'
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = 'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = u'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = b'# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = b'# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xa4'
+        code = b'# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\u20ac'
+        code = b'u"""\\\n# -*- coding: ascii -*-\n\xc2\xa4"""\n'
+        assert eval(code) == u'# -*- coding: ascii -*-\n\xa4'

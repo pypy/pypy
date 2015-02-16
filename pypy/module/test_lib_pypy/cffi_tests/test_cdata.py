@@ -20,6 +20,8 @@ class FakeBackend(object):
         return FakeType("void")
     def new_pointer_type(self, x):
         return FakeType('ptr-to-%r' % (x,))
+    def new_array_type(self, x, y):
+        return FakeType('array-from-%r-len-%r' % (x, y))
     def cast(self, x, y):
         return 'casted!'
     def _get_types(self):

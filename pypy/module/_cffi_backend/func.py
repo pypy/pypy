@@ -48,13 +48,28 @@ def alignof(space, w_ctype):
     align = w_ctype.alignof()
     return space.wrap(align)
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType, fieldname="str_or_None")
-def typeoffsetof(space, w_ctype, fieldname):
-    ctype, offset = w_ctype.typeoffsetof(fieldname)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
+def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
+    try:
+        fieldname = space.str_w(w_field_or_index)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        try:
+            index = space.int_w(w_field_or_index)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise OperationError(space.w_TypeError,
+                    space.wrap("field name or array index expected"))
+        ctype, offset = w_ctype.typeoffsetof_index(index)
+    else:
+        ctype, offset = w_ctype.typeoffsetof_field(fieldname, following)
+    #
     return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
-def rawaddressof(space, w_ctype, w_cdata, offset=0):
+def rawaddressof(space, w_ctype, w_cdata, offset):
     return w_ctype.rawaddressof(w_cdata, offset)
 
 # ____________________________________________________________

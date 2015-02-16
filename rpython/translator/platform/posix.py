@@ -43,6 +43,12 @@ class BasePosix(Platform):
     def _link_args_from_eci(self, eci, standalone):
         return Platform._link_args_from_eci(self, eci, standalone)
 
+    def _exportsymbols_link_flags(self):
+        if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
+                or sys.platform == 'cygwin'):
+            return ["-Wl,--export-all-symbols"]
+        return ["-Wl,--export-dynamic"]
+
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = [str(ofile) for ofile in ofiles] + link_args
         args += ['-o', str(exe_name)]
@@ -105,6 +111,8 @@ class BasePosix(Platform):
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
+        linkflags += self._exportsymbols_link_flags()
+
         if shared:
             libname = exe_name.new(ext='').basename
             target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
@@ -112,9 +120,9 @@ class BasePosix(Platform):
             target_name = exe_name.basename
 
         if shared:
-            cflags = self.cflags + self.get_shared_only_compile_flags()
+            cflags = tuple(self.cflags) + self.get_shared_only_compile_flags()
         else:
-            cflags = self.cflags + self.standalone_only
+            cflags = tuple(self.cflags) + tuple(self.standalone_only)
 
         m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)

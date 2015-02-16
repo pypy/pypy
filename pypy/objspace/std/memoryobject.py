@@ -180,6 +180,17 @@ class W_MemoryView(W_Root):
         self.buf = None
         return space.w_None
 
+    def descr_pypy_raw_address(self, space):
+        from rpython.rtyper.lltypesystem import lltype, rffi
+        try:
+            ptr = self.buf.get_raw_address()
+        except ValueError:
+            # report the error using the RPython-level internal repr of self.buf
+            msg = ("cannot find the underlying address of buffer that "
+                   "is internally %r" % (self.buf,))
+            raise OperationError(space.w_ValueError, space.wrap(msg))
+        return space.wrap(rffi.cast(lltype.Signed, ptr))
+
 
 W_MemoryView.typedef = TypeDef(
     "memoryview",
@@ -207,5 +218,6 @@ Create a new memoryview object which references the given object.
     shape       = GetSetProperty(W_MemoryView.w_get_shape),
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
     suboffsets  = GetSetProperty(W_MemoryView.w_get_suboffsets),
+    _pypy_raw_address = interp2app(W_MemoryView.descr_pypy_raw_address),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False

@@ -196,6 +196,13 @@ class W_Socket(W_Root):
             if e.match(space, space.w_Warning):
                 e.write_unraisable(space, '', space.wrap(self))
 
+    def descr_repr(self, space):
+        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        return space.wrap("<socket object, fd=%d, family=%d,"
+                          " type=%d, protocol=%d>" %
+                          (fd, self.sock.family,
+                           self.sock.type, self.sock.proto))
+
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
 
@@ -675,6 +682,7 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = interp2app(W_Socket.descr_new.im_func),
     __init__ = interp2app(W_Socket.descr_init),
+    __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),
     family = GetSetProperty(W_Socket.get_family_w),
