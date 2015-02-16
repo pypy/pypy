@@ -6,8 +6,8 @@ What's new in PyPy 2.5+
 .. startrev: 397b96217b85
 
 
-Fix non-blocking file reads sometimes raising EAGAIN even though they
-have buffered data waiting (b1c4fcb04a42)
+Non-blocking file reads sometimes raised EAGAIN even though they
+had buffered data waiting, fixed in b1c4fcb04a42
 
 
 .. branch: vmprof
@@ -18,3 +18,8 @@ by ignoring the part of the stack that didn't change
 
 .. branch: stdlib-2.7.9
 Update stdlib to version 2.7.9
+
+.. branch: fix-kqueue-error2
+Fix exception being raised by kqueue.control (CPython compatibility)
+
+.. branch: gitignore
