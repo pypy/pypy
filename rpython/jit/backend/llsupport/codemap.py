@@ -12,7 +12,7 @@
 from rpython.rlib import rgc
 from rpython.rlib.entrypoint import jit_entrypoint
 from rpython.jit.backend.llsupport import asmmemmgr
-from rpython.rlib.rbisect import bisect, bisect_tuple
+from rpython.rlib.rbisect import bisect_right, bisect_right_tuple
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 @jit_entrypoint([lltype.Signed], lltype.Signed,
@@ -21,7 +21,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 def stack_depth_at_loc(loc):
     _memmngr = asmmemmgr._memmngr
 
-    pos = bisect(_memmngr.jit_addr_map, loc + 1)
+    pos = bisect_right(_memmngr.jit_addr_map, loc)
     if pos == 0 or pos == len(_memmngr.jit_addr_map):
         return -1
     return _memmngr.jit_frame_depth_map[pos - 1]
@@ -43,9 +43,7 @@ def jit_end_addr():
 def find_codemap_at_addr(addr):
     _memmngr = asmmemmgr._memmngr
 
-    res = bisect_tuple(_memmngr.jit_codemap, addr) - 1
-    if res == len(_memmngr.jit_codemap):
-        return -1
+    res = bisect_right_tuple(_memmngr.jit_codemap, addr) - 1
     return res
 
 @jit_entrypoint([lltype.Signed, lltype.Signed,
