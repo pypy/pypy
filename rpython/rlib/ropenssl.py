@@ -5,7 +5,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib._rsocket_rffi import MAX_FD_SIZE, SAVE_ERR
+from rpython.rlib._rsocket_rffi import SAVE_ERR
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
@@ -467,7 +467,7 @@ ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
 ssl_external('BIO_new_file', [rffi.CCHARP, rffi.CCHARP], BIO,
-             save_err=SAVE_ERR)
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('BIO_new_mem_buf', [rffi.VOIDP, rffi.INT], BIO)
 ssl_external('BIO_free', [BIO], rffi.INT)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)

@@ -361,12 +361,14 @@ class AppTestContext:
         assert ctx.cert_store_stats() == {'x509_ca': 0, 'crl': 0, 'x509': 1}
 
     def test_load_dh_params(self):
-        import _ssl
+        import _ssl, errno
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx.load_dh_params(self.dh512)
         raises(TypeError, ctx.load_dh_params)
         raises(TypeError, ctx.load_dh_params, None)
         raises(_ssl.SSLError, ctx.load_dh_params, self.keycert)
+        exc = raises(IOError, ctx.load_dh_params, "inexistent.pem")
+        assert exc.value.errno == errno.ENOENT
 
     def test_set_ecdh_curve(self):
         import _ssl
