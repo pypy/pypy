@@ -4,7 +4,7 @@ from . import ffiplatform
 
 if sys.version_info >= (3, 3):
     import importlib.machinery
-    def extension_suffixes():
+    def _extension_suffixes():
         return importlib.machinery.EXTENSION_SUFFIXES[:]
 else:
     import imp
