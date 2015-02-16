@@ -155,7 +155,7 @@ class StdObjSpace(ObjSpace):
                 # poor man's x.decode('ascii', 'replace'), since it's not
                 # supported by RPython
                 if not we_are_translated():
-                    print 'WARNING: space.str() called on a non-ascii byte string: %r' % x
+                    print 'WARNING: space.wrap() called on a non-ascii byte string: %r' % x
                 lst = []
                 for ch in x:
                     ch = ord(ch)

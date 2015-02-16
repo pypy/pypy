@@ -73,28 +73,6 @@ class AppTestSSL:
         s = _socket.socket()
         ss = ssl.wrap_socket(s)
 
-        exc = raises(_socket.error, ss.do_handshake)
-        if sys.platform == 'win32':
-            assert exc.value.errno == 10057 # WSAENOTCONN
-        else:
-            assert exc.value.errno == 32 # Broken pipe
-        del exc, ss, s
-        gc.collect()     # force the destructor() to be called now
-
-    def test_async_closed(self):
-        import _ssl, _socket, sys, gc
-        s = _socket.socket()
-        s.settimeout(3)
-        if sys.version_info < (2, 7, 9):
-            ss = _ssl.sslwrap(s, 0)
-        else:
-            ss = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)._wrap_socket(s, 0)
-        s.close()
-        exc = raises(_ssl.SSLError, ss.write, "data")
-        assert exc.value.message == 'Underlying socket has been closed.'
-        del exc, ss, s
-        gc.collect()     # force the destructor() to be called now
-
     def test_test_decode_nullbytecert(self):
         import _ssl
         p = _ssl._test_decode_cert(self.nullbytecert)
@@ -119,7 +97,7 @@ class AppTestSSL:
         s = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         raises(ValueError, _ssl._SSLContext, -1)
 
-        assert type(s.options) is long
+        assert type(s.options) is int
         assert s.options & _ssl.OP_NO_SSLv2
         s.options &= ~_ssl.OP_NO_SSLv2
         assert not s.options & _ssl.OP_NO_SSLv2
@@ -136,7 +114,7 @@ class AppTestSSL:
         exc = raises(ValueError, "s.verify_mode = 1234")
         assert str(exc.value) == "invalid value for verify_mode"
 
-        assert type(s.verify_flags) is long
+        assert type(s.verify_flags) is int
         assert s.verify_flags == _ssl.VERIFY_DEFAULT
         s.verify_flags = _ssl.VERIFY_CRL_CHECK_LEAF
         assert s.verify_flags == _ssl.VERIFY_CRL_CHECK_LEAF
@@ -260,7 +238,7 @@ class AppTestConnectedSSL:
         import socket, _ssl, gc
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx._set_npn_protocols(b'\x08http/1.1\x06spdy/2')
-        ss = ctx._wrap_socket(self.s._sock, True,
+        ss = ctx._wrap_socket(self.s, True,
                               server_hostname="svn.python.org")
         self.s.close()
         del ss; gc.collect()
@@ -269,7 +247,7 @@ class AppTestConnectedSSL:
         import ssl, sys, gc
         ss = ssl.wrap_socket(self.s)
         ss.do_handshake()
-        assert isinstance(ss.get_channel_binding(), bytes)
+        assert isinstance(ss._sslobj.tls_unique_cb(), bytes)
         self.s.close()
         del ss; gc.collect()
 
@@ -277,7 +255,7 @@ class AppTestConnectedSSL:
         import ssl, sys, gc
         ss = ssl.wrap_socket(self.s)
         ss.do_handshake()
-        assert ss.compression() in [None, 'ZLIB', 'RLE']
+        assert ss._sslobj.compression() in [None, 'ZLIB', 'RLE']
         self.s.close()
         del ss; gc.collect()
 
@@ -351,7 +329,7 @@ class AppTestContext:
 
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         with open(self.keycert) as f:
-            cacert_pem = f.read().decode('ascii')
+            cacert_pem = f.read()
         ctx.load_verify_locations(cadata=cacert_pem)
         assert ctx.cert_store_stats()["x509_ca"] == 0
 
@@ -449,32 +427,6 @@ class AppTestSSLError:
         assert exc.value.reason == 'NO_START_LINE'
         s = str(exc.value)
         assert s.startswith("[PEM: NO_START_LINE] no start line")
-
-    def test_subclass(self):
-        # Check that the appropriate SSLError subclass is raised
-        # (this only tests one of them)
-        import _ssl, _socket
-        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
-        s = _socket.socket()
-        try:
-            s.bind(("127.0.0.1", 0))
-            s.listen(5)
-            c = _socket.socket()
-            c.connect(s.getsockname())
-            c.setblocking(False)
-            
-            c = ctx._wrap_socket(c, False)
-            try:
-                exc = raises(_ssl.SSLWantReadError, c.do_handshake)
-                msg= str(exc.value)
-                assert msg.startswith("The operation did not complete (read)")
-                # For compatibility
-                assert exc.value.errno == _ssl.SSL_ERROR_WANT_READ
-            finally:
-                c.shutdown()
-        finally:
-            s.close()
->>>>>>> other
 
 SSL_CERTIFICATE = """
 -----BEGIN CERTIFICATE-----
