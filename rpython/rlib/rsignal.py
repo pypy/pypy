@@ -102,7 +102,8 @@ if sys.platform != 'win32':
                            save_err=rffi.RFFI_SAVE_ERRNO)
     c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)
 
-c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT)
+c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)
@@ -110,7 +111,10 @@ if sys.platform != 'win32':
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT,
-                         releasegil=True)
-    c_sigpending = external('sigpending', [c_sigset_t], rffi.INT)
+                         releasegil=True,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_sigpending = external('sigpending', [c_sigset_t], rffi.INT,
+                            save_err=rffi.RFFI_SAVE_ERRNO)
     c_pthread_sigmask = external('pthread_sigmask',
-                                 [rffi.INT, c_sigset_t, c_sigset_t], rffi.INT)
+                                 [rffi.INT, c_sigset_t, c_sigset_t], rffi.INT,
+                                 save_err=rffi.RFFI_SAVE_ERRNO)

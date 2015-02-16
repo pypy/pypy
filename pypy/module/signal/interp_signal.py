@@ -335,7 +335,7 @@ def pthread_kill(space, tid, signum):
     "Send a signal to a thread."
     ret = c_pthread_kill(tid, signum)
     if widen(ret) < 0:
-        raise exception_from_errno(space, space.w_OSError)
+        raise exception_from_saved_errno(space, space.w_OSError)
     # the signal may have been send to the current thread
     space.getexecutioncontext().checksignals()
 
@@ -379,7 +379,7 @@ def sigwait(space, w_signals):
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
             ret = c_sigwait(sigset, signum_ptr)
             if ret != 0:
-                raise exception_from_errno(space, space.w_OSError)
+                raise exception_from_saved_errno(space, space.w_OSError)
             signum = signum_ptr[0]
     return space.wrap(signum)
 
@@ -387,7 +387,7 @@ def sigpending(space):
     with lltype.scoped_alloc(c_sigset_t.TO) as mask:
         ret = c_sigpending(mask)
         if ret != 0:
-            raise exception_from_errno(space, space.w_OSError)
+            raise exception_from_saved_errno(space, space.w_OSError)
         return _sigset_to_signals(space, mask)
 
 @unwrap_spec(how=int)
@@ -396,7 +396,7 @@ def pthread_sigmask(space, how, w_signals):
         with lltype.scoped_alloc(c_sigset_t.TO) as previous:
             ret = c_pthread_sigmask(how, sigset, previous)
             if ret != 0:
-                raise exception_from_errno(space, space.w_OSError)
+                raise exception_from_saved_errno(space, space.w_OSError)
             # if signals was unblocked, signal handlers have been called
             space.getexecutioncontext().checksignals()
             return _sigset_to_signals(space, previous)

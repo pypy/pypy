@@ -411,6 +411,7 @@ class AppTestSSLError:
         cls.w_keycert = cls.space.wrap(str(tmpfile))
 
     def test_str(self):
+        import _ssl
         # The str() of a SSLError doesn't include the errno
         e = _ssl.SSLError(1, "foo")
         assert str(e) == "foo"
