@@ -235,7 +235,10 @@ class BytecodeReader(object):
 
     def splice_finally_handler(self, block, context):
         cell = []
+        copied = {}
         def copy_block(handler):
+            if handler in copied:
+                return copied[handler]
             b = handler.copy()
             if handler is context.handler_end:
                 instr = b.operations.pop()
@@ -244,13 +247,17 @@ class BytecodeReader(object):
             else:
                 b.set_exits([copy_block(child) for child in handler._exits])
             self.blocks.append(b)
+            copied[handler] = b
             return b
         block.set_exits([copy_block(context.handler)])
-        copy_of_handler_end, = cell
-        return copy_of_handler_end
+        if cell:
+            copy_of_handler_end, = cell
+            return copy_of_handler_end
+        else:  # END_FINALLY is unreachable
+            return None
 
     def check_graph(self):
-        for b in self.blocks:
+        for b in self.graph.iterblocks():
             if not b._exits:
                 instr = b.operations[-1]
                 assert instr.name in (
@@ -670,7 +677,9 @@ class RETURN(NullaryOpcode):
                 block = reader.splice_finally_handler(block, context.block)
                 assert len(block.operations) == 1
                 block.operations = [PUSH_NONE()] + block.operations + [POP_TOP()]
-        block.operations.append(self)
+        if block is not None:
+            block.operations.append(self)
+            block.set_exits([])
 
     def eval(self, ctx):
         ctx.do_return()

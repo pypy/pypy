@@ -263,6 +263,19 @@ class TestFlowObjSpace(Base):
     def test_finallys(self):
         x = self.codetest(self.finallys)
 
+    def test_branching_in_finally(self):
+        def f(x, y):
+            try:
+                return x
+            finally:
+                if x:
+                    x = 0
+                if y > 0:
+                    y -= 1
+                return y
+        self.codetest(f)
+
+
     #__________________________________________________________
     def const_pow():
         return 2 ** 5
