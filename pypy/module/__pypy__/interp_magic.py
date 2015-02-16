@@ -130,3 +130,15 @@ def add_memory_pressure(estimate):
 def locals_to_fast(space, w_frame):
     assert isinstance(w_frame, PyFrame)
     w_frame.locals2fast()
+
+def all_code_info(space):
+    ec = space.getexecutioncontext()
+    if not ec.code_info_file_present or ec.code_info_file is None:
+        raise OperationError(space.w_RuntimeError, space.wrap(
+            "Info file not present, error writing it"))
+    ec.code_info_file.flush()
+    ec.code_info_file.seek(0, 0)
+    try:
+        return space.wrap(ec.code_info_file.read())
+    finally:
+        ec.code_info_file.seek(2, 0)

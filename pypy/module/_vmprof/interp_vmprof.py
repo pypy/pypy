@@ -138,6 +138,7 @@ class VMProf(object):
         self.fileno = -1
 
     def enable(self, space, fileno, period):
+        xxx
         if self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof already enabled")
         self.fileno = fileno
