@@ -12,6 +12,8 @@ CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
 CO_VARKEYWORDS = 0x0008
 
+w_None = const(None)
+
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
     argcount = code.co_argcount
@@ -589,8 +591,12 @@ class BREAK_LOOP(NullaryOpcode):
             block.operations.append(POP_BLOCK(offset=self.offset))
             if isinstance(context, SETUP_EXCEPT):
                 pass
-            elif isinstance(context, (SETUP_WITH, SETUP_FINALLY)):
+            elif isinstance(context, SETUP_FINALLY):
                 block = reader.splice_finally_handler(block, context.block)
+            elif isinstance(context, SETUP_WITH):
+                block = reader.splice_finally_handler(block, context.block)
+                assert len(block.operations) == 1
+                block.operations = [PUSH_NONE()] + block.operations + [POP_TOP()]
             else:  # LoopBlock
                 block.set_exits([context.target])
                 return
@@ -612,9 +618,14 @@ class CONTINUE_LOOP(BCInstruction):
             context = reader.blockstack.pop()
             if isinstance(context, SETUP_EXCEPT):
                 block.operations.append(POP_BLOCK(offset=self.offset))
-            elif isinstance(context, (SETUP_FINALLY, SETUP_WITH)):
+            elif isinstance(context, SETUP_FINALLY):
                 block.operations.append(POP_BLOCK(offset=self.offset))
                 block = reader.splice_finally_handler(block, context.block)
+            elif isinstance(context, SETUP_WITH):
+                block.operations.append(POP_BLOCK(offset=self.offset))
+                block = reader.splice_finally_handler(block, context.block)
+                assert len(block.operations) == 1
+                block.operations = [PUSH_NONE()] + block.operations + [POP_TOP()]
             else:  # SETUP_LOOP
                 reader.blockstack.append(context)
                 block.set_exits([self.target])
@@ -637,6 +648,12 @@ class SET_RETURN_VALUE(NullaryOpcode):
         w_value = ctx.popvalue()
         ctx.w_return_value = w_value
 
+class PUSH_NONE(NullaryOpcode):
+    num = name = 'PUSH_NONE'
+    arg = NO_ARG
+    def eval(self, ctx):
+        ctx.pushvalue(w_None)
+
 class RETURN(NullaryOpcode):
     num = name = 'RETURN'
     arg = NO_ARG
@@ -649,6 +666,10 @@ class RETURN(NullaryOpcode):
             block.operations.append(POP_BLOCK(offset=self.offset))
             if isinstance(context, SETUP_FINALLY):
                 block = reader.splice_finally_handler(block, context.block)
+            elif isinstance(context, SETUP_WITH):
+                block = reader.splice_finally_handler(block, context.block)
+                assert len(block.operations) == 1
+                block.operations = [PUSH_NONE()] + block.operations + [POP_TOP()]
         block.operations.append(self)
 
     def eval(self, ctx):
