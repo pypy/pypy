@@ -1094,13 +1094,16 @@ def _password_callback(buf, size, rwflag, userdata):
     if pw_info.w_callable:
         try:
             w_result = space.call_function(pw_info.w_callable)
-            try:
-                password = pw_info.space.bufferstr_w(w_result)
-            except OperationError as e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise oefmt(space.w_TypeError, 
-                            "password callback must return a string")
+            if space.isinstance_w(w_result, space.w_unicode):
+                password = space.str_w(w_result)
+            else:
+                try:
+                    password = pw_info.space.bufferstr_w(w_result)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    raise oefmt(space.w_TypeError, 
+                                "password callback must return a string")
         except OperationError as e:
             pw_info.operationerror = e
             return rffi.cast(rffi.INT, -1)
@@ -1362,13 +1365,16 @@ class SSLContext(W_Root):
             if space.is_true(space.callable(w_password)):
                 pw_info.w_callable = w_password
             else:
-                try:
-                    pw_info.password = space.bufferstr_w(w_password)
-                except OperationError as e:
-                    if not e.match(space, space.w_TypeError):
-                        raise
-                    raise oefmt(space.w_TypeError, 
-                                "password should be a string or callable")
+                if space.isinstance_w(w_password, space.w_unicode):
+                    pw_info.password = space.str_w(w_password)
+                else:
+                    try:
+                        pw_info.password = space.bufferstr_w(w_password)
+                    except OperationError as e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                        raise oefmt(space.w_TypeError, 
+                                    "password should be a string or callable")
 
             libssl_SSL_CTX_set_default_passwd_cb(
                 self.ctx, _password_callback)
