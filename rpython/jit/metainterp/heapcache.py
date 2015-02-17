@@ -1,14 +1,19 @@
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.resoperation import rop
 
+class HeapCacheValue(object):
+    def __init__(self, box):
+        self.box = box
+        self.known_class = False
+        self.nonstandard_virtualizable = False
 
 class HeapCache(object):
     def __init__(self):
         self.reset()
 
     def reset(self, reset_virtuals=True, trace_branch=True):
-        # contains boxes where the class is already known
-        self.known_class_boxes = {}
+        # maps boxes to values
+        self.values = {}
         # store the boxes that contain newly allocated objects, this maps the
         # boxes to a bool, the bool indicates whether or not the object has
         # escaped the trace or not (True means the box never escaped, False
@@ -50,6 +55,12 @@ class HeapCache(object):
         # caching than possible is done, which is not a huge problem.
         self.input_indirections = {}
         self.output_indirections = {}
+
+    def get_value(self, box):
+        value = self.values.get(box, None)
+        if not value:
+            value = self.values[box] = HeapCacheValue(box)
+        return value
 
     def _input_indirection(self, box):
         return self.input_indirections.get(box, box)
@@ -215,16 +226,22 @@ class HeapCache(object):
         self.reset(reset_virtuals=False, trace_branch=False)
 
     def is_class_known(self, box):
-        return box in self.known_class_boxes
+        value = self.values.get(box, None)
+        if value:
+            return value.known_class
+        return False
 
     def class_now_known(self, box):
-        self.known_class_boxes[box] = None
+        self.get_value(box).known_class = True
 
     def is_nonstandard_virtualizable(self, box):
-        return box in self.nonstandard_virtualizables
+        value = self.values.get(box, None)
+        if value:
+            return value.nonstandard_virtualizable
+        return False
 
     def nonstandard_virtualizables_now_known(self, box):
-        self.nonstandard_virtualizables[box] = None
+        self.get_value(box).nonstandard_virtualizable = True
 
     def is_unescaped(self, box):
         return self.new_boxes.get(box, False)
@@ -276,6 +293,7 @@ class HeapCache(object):
             if frombox in self.new_boxes:
                 new_d[frombox] = tobox
         new_d[box] = fieldbox
+        print len(self.new_boxes), len(d), len(new_d)
         return new_d
 
     def getarrayitem(self, box, indexbox, descr):
