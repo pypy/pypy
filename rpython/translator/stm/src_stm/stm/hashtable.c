@@ -120,16 +120,17 @@ static bool _stm_was_read_by_anybody(object_t *obj)
 #define VOLATILE_TABLE(p)  ((volatile stm_hashtable_table_t *)(p))
 
 static void _insert_clean(stm_hashtable_table_t *table,
-                          stm_hashtable_entry_t *entry)
+                          stm_hashtable_entry_t *entry,
+                          uintptr_t index)
 {
     uintptr_t mask = table->mask;
-    uintptr_t i = entry->index & mask;
+    uintptr_t i = index & mask;
     if (table->items[i] == NULL) {
         table->items[i] = entry;
         return;
     }
 
-    uintptr_t perturb = entry->index;
+    uintptr_t perturb = index;
     while (1) {
         i = (i << 2) + i + perturb + 1;
         i &= mask;
@@ -178,7 +179,17 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
                 continue;
             }
         }
-        _insert_clean(biggertable, entry);
+
+        uintptr_t eindex;
+        if (remove_unread_from_seg == 0)
+            eindex = entry->index;   /* read from STM_SEGMENT */
+        else
+            eindex = ((struct stm_hashtable_entry_s *)
+                       REAL_ADDRESS(segment_base, entry))->index;
+
+        dprintf(("  insert_clean %p at index=%ld\n",
+                 entry, eindex));
+        _insert_clean(biggertable, entry, eindex);
         assert(rc > 6);
         rc -= 6;
     }
