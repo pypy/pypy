@@ -130,7 +130,7 @@ def set_saved_alterrno(errno):
     initialize the real errno just before calling the following C function,
     provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO | rffl.RFFI_ALT_ERRNO).
     Note also that it is more common to want the real errno to be initially
-    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE | rffl.RFFI_ALT_ERRNO)
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
     and then you don't need set_saved_errno(0).
     """
     from rpython.rlib import rthread
