@@ -753,6 +753,17 @@ class Assembler386(BaseAssembler):
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         assert adr_jump_offset != 0
+        faildescr._x86_adr_jump_offset = 0    # means "patched"
+        #
+        if self.cpu.gc_ll_descr.stm:
+            # In STM mode, we produced a small STM_GUARD_FAILURE object
+            # that we patch now.  We can't easily patch the assembler
+            # because other threads must not see the patching before the
+            # current transaction commits.
+            p = faildescr._x86_stm_guard_failure
+            p.jump_target = adr_new_target
+            return
+        #
         offset = adr_new_target - (adr_jump_offset + 4)
         # If the new target fits within a rel32 of the jump, just patch
         # that. Otherwise, leave the original rel32 to the recovery stub in
@@ -771,7 +782,6 @@ class Assembler386(BaseAssembler):
             p = rffi.cast(rffi.INTP, adr_jump_offset)
             adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
             mc.copy_to_raw_memory(adr_target)
-        faildescr._x86_adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
@@ -1934,10 +1944,30 @@ class Assembler386(BaseAssembler):
         """
         startpos = self.mc.get_relative_pos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
-        self.mc.PUSH(imm(fail_descr))
-        self.push_gcmap(self.mc, guardtok.gcmap, push=True)
-        self.mc.JMP(imm(target))
+        if self.cpu.gc_ll_descr.stm:
+            self._generate_quick_failure_stm(fail_descr, target, guardtok)
+        else:
+            self.mc.PUSH(imm(fail_descr))
+            self.push_gcmap(self.mc, guardtok.gcmap, push=True)
+            self.mc.JMP(imm(target))
         return startpos
+
+    def _generate_quick_failure_stm(self, fail_descr, target, guardtok):
+        assert IS_X86_64
+        p = lltype.malloc(lltype.Ptr(STM_GUARD_FAILURE))
+        p.fail_descr = fail_descr
+        p.target = target
+        p.gcmap = guardtok.gcmap
+        # unclear if we really need a preexisting object here, or if we
+        # just need a regular but non-moving pointer.  In the latter case
+        # we could maybe store the data directly on the faildescr.
+        p = rstm.allocate_preexisting(p)
+        guardtok.faildescr._x86_stm_guard_failure = lltype.cast_opaque_ptr(
+            llmemory.GCREF, p)
+        addr = rffi.cast(lltype.Signed, p)
+        addr += llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target')
+        self.mc.MOV_ri(X86_64_SCRATCH_REG.value, addr)
+        self.mc.JMP_m((self.SEGMENT_GC, X86_64_SCRATCH_REG.value, 0))
 
     def update_stm_location(self, mc, extra_stack=0):
         if self.cpu.gc_ll_descr.stm:
@@ -2032,6 +2062,9 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         self.mc = mc
 
+        if self.cpu.gc_ll_descr.stm:    # see below
+            mc.PUSH_r(X86_64_SCRATCH_REG.value)
+
         self._push_all_regs_to_frame(mc, [], withfloats)
 
         if exc:
@@ -2049,8 +2082,26 @@ class Assembler386(BaseAssembler):
         # did just above.
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.POP_b((self.SEGMENT_FRAME, ofs2))
-        mc.POP_b((self.SEGMENT_FRAME, ofs))
+        if self.cpu.gc_ll_descr.stm:
+            mc.POP_r(ebx.value)
+            # We pop to rbx the original pointer inside the STM_GUARD_FAILURE.
+            # More precisely it points to the 'jump_target' field.  Adding the
+            # following two offset differences will make it point to the two
+            # other fields, which we load and copy into the jf_descr and
+            # jf_gcmap fields of the frame.
+            ofs_fail_descr = (
+                llmemory.offsetof(STM_GUARD_FAILURE, 'fail_descr') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
+            ofs_gcmap = (
+                llmemory.offsetof(STM_GUARD_FAILURE, 'gcmap') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
+            mc.MOV_rm(eax.value, (self.SEGMENT_GC, ebx.value, ofs_fail_descr))
+            mc.MOV_rm(ecx.value, (self.SEGMENT_GC, ebx.value, ofs_gcmap))
+            mc.MOV_br((self.SEGMENT_FRAME, ofs),  eax.value)
+            mc.MOV_br((self.SEGMENT_FRAME, ofs2), ecx.value)
+        else:
+            mc.POP_b((self.SEGMENT_FRAME, ofs2))
+            mc.POP_b((self.SEGMENT_FRAME, ofs))
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -2842,3 +2893,9 @@ def todo():
 
 class BridgeAlreadyCompiled(Exception):
     pass
+
+STM_GUARD_FAILURE = lltype.GcStruct(
+    "STM_GUARD_FAILURE",
+    ("fail_descr", lltype.Signed),
+    ("jump_target", lltype.Signed),
+    ("gcmap", lltype.Ptr(jitframe.GCMAP)))
