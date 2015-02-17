@@ -428,7 +428,6 @@ LL_OPERATIONS = {
     'stm_addr_get_tid':       LLOp(canfold=True),
     'stm_get_root_stack_top': LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(canmallocgc=True),
-    'stm_become_globally_unique_transaction': LLOp(canmallocgc=True),
     'stm_push_root':          LLOp(),
     'stm_pop_root_into':      LLOp(),
     'stm_commit_if_not_atomic':           LLOp(canmallocgc=True),
@@ -440,6 +439,8 @@ LL_OPERATIONS = {
     'stm_should_break_transaction':       LLOp(sideeffects=False),
     'stm_rewind_jmp_frame':               LLOp(canrun=True),
     'stm_set_transaction_length':         LLOp(),
+    'stm_stop_all_other_threads':         LLOp(canmallocgc=True),
+    'stm_resume_all_other_threads':       LLOp(),
 
     'stm_hint_commit_soon':   LLOp(canrun=True),
 

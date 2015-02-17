@@ -168,8 +168,11 @@ def stm_become_inevitable(funcgen, op):
     string_literal = c_string_constant(info)
     return 'pypy_stm_become_inevitable(%s);' % (string_literal,)
 
-def stm_become_globally_unique_transaction(funcgen, op):
-    return 'pypy_stm_become_globally_unique_transaction();'
+def stm_stop_all_other_threads(funcgen, op):
+    return 'stm_stop_all_other_threads();'
+
+def stm_resume_all_other_threads(funcgen, op):
+    return 'stm_resume_all_other_threads();'
 
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])

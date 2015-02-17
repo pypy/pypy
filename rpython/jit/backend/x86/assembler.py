@@ -617,12 +617,8 @@ class Assembler386(BaseAssembler):
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
 
-        if self.cpu.gc_ll_descr.stm:
-            rstm.stop_all_other_threads()
         # patch the jump from original guard after the frame-depth update
         self.patch_jump_for_descr(faildescr, rawstart)
-        if self.cpu.gc_ll_descr.stm:
-            rstm.partial_commit_and_resume_other_threads()
 
         self.teardown()
         # oprofile support

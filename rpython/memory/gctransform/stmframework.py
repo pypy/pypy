@@ -203,7 +203,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
 
     # sync with lloperation.py
     gct_stm_become_inevitable                       = _gct_with_roots_pushed
-    gct_stm_become_globally_unique_transaction      = _gct_with_roots_pushed
+    gct_stm_stop_all_other_threads                  = _gct_with_roots_pushed
     gct_stm_transaction_break                       = _gct_with_roots_pushed
     gct_stm_collect                                 = _gct_with_roots_pushed
 
