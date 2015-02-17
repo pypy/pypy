@@ -525,8 +525,7 @@ class Assembler386(BaseAssembler):
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
-        if looptoken.redirectable:
-            self._redirection_header()
+        self._redirection_header()
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
 
@@ -542,8 +541,7 @@ class Assembler386(BaseAssembler):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
-        if looptoken.redirectable:
-            self._patch_redirection_header(rawstart)
+        self._patch_redirection_header(rawstart)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
@@ -988,7 +986,6 @@ class Assembler386(BaseAssembler):
         # with STM, we don't change the assembler, but simply patch
         # the content of the CompiledLoopToken's _stm_redirection object
         if self.cpu.gc_ll_descr.stm:
-            assert oldlooptoken.redirectable
             p = oldlooptoken.compiled_loop_token._stm_redirection
             p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE), p)
             p.jump_target = target

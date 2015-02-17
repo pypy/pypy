@@ -303,7 +303,7 @@ class WarmEnterState(object):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         old_token = cell.get_procedure_token()
         cell.set_procedure_token(procedure_token)
-        if old_token is not None and old_token.redirectable:
+        if old_token is not None:
             self.cpu.redirect_call_assembler(old_token, procedure_token)
             # procedure_token is also kept alive by any loop that used
             # to point to old_token.  Actually freeing old_token early
