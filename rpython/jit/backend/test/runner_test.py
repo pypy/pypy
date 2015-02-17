@@ -3243,7 +3243,9 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             if use_alt_errno:
-            llerrno.set_debug_saved_errno(self.cpu, 8)
+                llerrno.set_debug_saved_alterrno(self.cpu, 8)
+            else:
+                llerrno.set_debug_saved_errno(self.cpu, 8)
             llerrno.set_debug_saved_lasterror(self.cpu, 9)
             deadframe = self.cpu.execute_token(looptoken, 1, 2, 3, 4, 5, 6, 7)
             result = self.cpu.get_int_value(deadframe, 0)
