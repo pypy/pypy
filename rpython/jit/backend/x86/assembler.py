@@ -525,6 +525,8 @@ class Assembler386(BaseAssembler):
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
+        if looptoken.redirectable:
+            self._redirection_header()
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
 
@@ -540,6 +542,8 @@ class Assembler386(BaseAssembler):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
+        if looptoken.redirectable:
+            self._patch_redirection_header(rawstart)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
@@ -859,6 +863,28 @@ class Assembler386(BaseAssembler):
         self.mc.ADD_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.RET()
 
+    def _redirection_header(self):
+        if self.cpu.gc_ll_descr.stm:
+            # produce a header that takes a STM_GUARD_FAILURE and jumps
+            # to the target written there
+            assert IS_X86_64
+            p = malloc(STM_GUARD_FAILURE)
+            p = rstm.allocate_preexisting(p)
+            self.current_clt._stm_redirection = lltype.cast_opaque_ptr(
+                llmemory.GCREF, p)
+            addr = rffi.cast(lltype.Signed, p)
+            addr += llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target')
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, addr)
+            self.mc.JMP_m((self.SEGMENT_GC, X86_64_SCRATCH_REG.value, 0))
+            p.jump_target = self.mc.get_relative_pos()
+            # ^^^ temporary, patched later with an absolute address
+
+    def _patch_redirection_header(self, rawstart):
+        if self.cpu.gc_ll_descr.stm:
+            p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE),
+                                       self.current_clt._stm_redirection)
+            p.jump_target += rawstart
+
     def heap_shadowstack_top(self):
         """Return an AddressLoc for '&shadowstack', the shadow stack top."""
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -960,6 +986,16 @@ class Assembler386(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
+        #
+        # with STM, we don't change the assembler, but simply patch
+        # the content of the CompiledLoopToken's _stm_redirection object
+        if self.cpu.gc_ll_descr.stm:
+            assert oldlooptoken.redirectable
+            p = oldlooptoken.compiled_loop_token._stm_redirection
+            p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE, p))
+            p.jump_target = target
+            return
+        #
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
@@ -967,11 +1003,7 @@ class Assembler386(BaseAssembler):
         else:
             assert mc.get_relative_pos() <= 13
         # patch assembler:
-        if self.cpu.gc_ll_descr.stm:
-            rstm.stop_all_other_threads()
         mc.copy_to_raw_memory(oldadr)
-        if self.cpu.gc_ll_descr.stm:
-            rstm.partial_commit_and_resume_other_threads()
 
 
     def dump(self, text):

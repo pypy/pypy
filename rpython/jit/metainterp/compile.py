@@ -856,6 +856,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     version of the code may end up replacing it.
     """
     jitcell_token = make_jitcell_token(jitdriver_sd)
+    jitcell_token.redirectable = True
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
     inputargs = []
