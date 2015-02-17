@@ -13,11 +13,11 @@ _errno_before = rposix._errno_before
 _errno_after  = rposix._errno_after
 
 def get_errno(space):
-    return space.wrap(rposix.get_saved_errno())
+    return space.wrap(rposix.get_saved_alterrno())
 
 @unwrap_spec(errno=int)
 def set_errno(space, errno):
-    rposix.set_saved_errno(errno)
+    rposix.set_saved_alterrno(errno)
 
 # ____________________________________________________________
 

@@ -206,11 +206,14 @@ class CallBuilderX86(AbstractCallBuilder):
             self.mc.MOV(esp, self.saved_stack_position_reg)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
-            # Just before a call, read 'rpy_errno' and write it into the
+            # Just before a call, read '*_errno' and write it into the
             # real 'errno'.  Most registers are free here, including the
             # callee-saved ones, except 'ebx' and except the ones used to
             # pass the arguments on x86-64.
-            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
             if IS_X86_32:
@@ -234,11 +237,14 @@ class CallBuilderX86(AbstractCallBuilder):
 
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
-            # it inside our thread-local 'rpy_errno'.  Most registers are
+            # it inside our thread-local '*_errno'.  Most registers are
             # free here, including the callee-saved ones, except 'ebx'.
             # The tlofs register might have been loaded earlier and is
             # callee-saved, so it does not need to be reloaded.
-            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()   # => esi or r12 (possibly reused)
             mc.MOV_rm(edi.value, (tlofsreg.value, p_errno))
