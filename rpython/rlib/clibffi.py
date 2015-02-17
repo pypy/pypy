@@ -424,6 +424,7 @@ def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     userdata.callback(ll_args, ll_res, userdata)
 
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+    # Note these flags match the ones in pyjitpl.direct_libffi_call
     rposix._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
     _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata)
     rposix._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
