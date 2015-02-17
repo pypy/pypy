@@ -160,56 +160,8 @@ class HeapCache(object):
             # A special case for ll_arraycopy, because it is so common, and its
             # effects are so well defined.
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
-                seen_allocation_of_target = self.getvalue(argboxes[2]).seen_allocation
-                if (
-                    isinstance(argboxes[3], ConstInt) and
-                    isinstance(argboxes[4], ConstInt) and
-                    isinstance(argboxes[5], ConstInt) and
-                    len(effectinfo.write_descrs_arrays) == 1
-                ):
-                    descr = effectinfo.write_descrs_arrays[0]
-                    cache = self.heap_array_cache.get(descr, None)
-                    srcstart = argboxes[3].getint()
-                    dststart = argboxes[4].getint()
-                    length = argboxes[5].getint()
-                    for i in xrange(length):
-                        value = self.getarrayitem(
-                            argboxes[1],
-                            ConstInt(srcstart + i),
-                            descr,
-                        )
-                        if value is not None:
-                            self.setarrayitem(
-                                argboxes[2],
-                                ConstInt(dststart + i),
-                                value,
-                                descr,
-                            )
-                        elif cache is not None:
-                            try:
-                                idx_cache = cache[dststart + i]
-                            except KeyError:
-                                pass
-                            else:
-                                if seen_allocation_of_target:
-                                    for fromvalue in idx_cache.keys():
-                                        if not fromvalue.seen_allocation:
-                                            del idx_cache[fromvalue]
-                                else:
-                                    idx_cache.clear()
-                    return
-                elif (
-                    seen_allocation_of_target and
-                    len(effectinfo.write_descrs_arrays) == 1
-                ):
-                    # Fish the descr out of the effectinfo
-                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
-                    if cache is not None:
-                        for idx, cache in cache.iteritems():
-                            for fromvalue in cache.keys():
-                                if not fromvalue.seen_allocation:
-                                    del cache[fromvalue]
-                    return
+                self._clear_caches_arraycopy(opnum, descr, argboxes, effectinfo)
+                return
             else:
                 # Only invalidate things that are either escaped or arguments
                 for descr, values in self.heap_cache.iteritems():
@@ -227,6 +179,59 @@ class HeapCache(object):
         # state at least in the 'CALL_*' operations that release the GIL.  We
         # tried to do only the kind of resetting done by the two loops just
         # above, but hit an assertion in "pypy test_multiprocessing.py".
+        self.reset_keep_likely_virtuals()
+
+    def _clear_caches_arraycopy(self, opnum, desrc, argboxes, effectinfo):
+        seen_allocation_of_target = self.getvalue(argboxes[2]).seen_allocation
+        if (
+            isinstance(argboxes[3], ConstInt) and
+            isinstance(argboxes[4], ConstInt) and
+            isinstance(argboxes[5], ConstInt) and
+            len(effectinfo.write_descrs_arrays) == 1
+        ):
+            descr = effectinfo.write_descrs_arrays[0]
+            cache = self.heap_array_cache.get(descr, None)
+            srcstart = argboxes[3].getint()
+            dststart = argboxes[4].getint()
+            length = argboxes[5].getint()
+            for i in xrange(length):
+                value = self.getarrayitem(
+                    argboxes[1],
+                    ConstInt(srcstart + i),
+                    descr,
+                )
+                if value is not None:
+                    self.setarrayitem(
+                        argboxes[2],
+                        ConstInt(dststart + i),
+                        value,
+                        descr,
+                    )
+                elif cache is not None:
+                    try:
+                        idx_cache = cache[dststart + i]
+                    except KeyError:
+                        pass
+                    else:
+                        if seen_allocation_of_target:
+                            for fromvalue in idx_cache.keys():
+                                if not fromvalue.seen_allocation:
+                                    del idx_cache[fromvalue]
+                        else:
+                            idx_cache.clear()
+            return
+        elif (
+            seen_allocation_of_target and
+            len(effectinfo.write_descrs_arrays) == 1
+        ):
+            # Fish the descr out of the effectinfo
+            cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
+            if cache is not None:
+                for idx, cache in cache.iteritems():
+                    for fromvalue in cache.keys():
+                        if not fromvalue.seen_allocation:
+                            del cache[fromvalue]
+            return
         self.reset_keep_likely_virtuals()
 
     def is_class_known(self, box):
