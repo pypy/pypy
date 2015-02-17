@@ -601,8 +601,6 @@ class TestHeapCache(object):
             EF_LOOPINVARIANT = 1
             EF_ELIDABLE_CANNOT_RAISE = 2
             EF_ELIDABLE_CAN_RAISE = 3
-            def has_random_effects(self):
-                return True
         descr.get_extra_info = XTra
         h.invalidate_caches(rop.CALL, descr, [])
         assert h.is_unescaped(box1)

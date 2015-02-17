@@ -51,6 +51,14 @@ class CacheEntry(object):
     def read_now_known(self, value, fieldvalue):
         self._getdict(value)[value] = fieldvalue
 
+    def invalidate_unescaped(self):
+        self._invalidate_unescaped(self.cache_anything)
+        self._invalidate_unescaped(self.cache_seen_allocation)
+
+    def _invalidate_unescaped(self, d):
+        for value in d.keys():
+            if not value.is_unescaped:
+                del d[value]
 
 class HeapCache(object):
     def __init__(self):
@@ -190,29 +198,17 @@ class HeapCache(object):
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
                 self._clear_caches_arraycopy(opnum, descr, argboxes, effectinfo)
                 return
-#            else:
-#                # Only invalidate things that are either escaped or arguments
-#                for descr, values in self.heap_cache.iteritems():
-#                    for value in values.keys():
-#                        if not self.is_unescaped(value.box) or value.box in argboxes:
-#                            del values[value]
-#                for descr, indices in self.heap_array_cache.iteritems():
-#                    for values in indices.itervalues():
-#                        for value in values.keys():
-#                            if not self.is_unescaped(value.box) or value.box in argboxes:
-#                                del values[value]
+            else:
+                # first escape arguments:
+                for argbox in argboxes:
+                    self._escape_box(argbox)
 
-            elif not effectinfo.has_random_effects():
-                for fielddescr in effectinfo.write_descrs_fields:
-                    try:
-                        del self.heap_cache[fielddescr]
-                    except KeyError:
-                        pass
-                for arraydescr in effectinfo.write_descrs_arrays:
-                    try:
-                        del self.heap_array_cache[arraydescr]
-                    except KeyError:
-                        pass
+                # Only invalidate things that are escaped
+                for descr, cache in self.heap_cache.iteritems():
+                    cache.invalidate_unescaped()
+                for descr, indices in self.heap_array_cache.iteritems():
+                    for cache in indices.itervalues():
+                        cache.invalidate_unescaped()
                 return
 
         # XXX not completely sure, but I *think* it is needed to reset() the
