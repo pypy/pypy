@@ -19,6 +19,39 @@ class HeapCacheValue(object):
     def __repr__(self):
         return 'HeapCacheValue(%s)' % (self.box, )
 
+
+class CacheEntry(object):
+    def __init__(self):
+        # both are {from_value: to_value} dicts
+        # the first is for boxes where we did not see the allocation, the
+        # second for anything else. the reason that distinction makes sense is
+        # because if we saw the allocation, we know it cannot alias with
+        # anything else where we saw the allocation.
+        self.cache_anything = {}
+        self.cache_seen_allocation = {}
+
+    def _clear_cache_on_write(self, seen_allocation_of_target):
+        if not seen_allocation_of_target:
+            self.cache_seen_allocation.clear()
+        self.cache_anything.clear()
+
+    def _getdict(self, value):
+        if value.seen_allocation:
+            return self.cache_seen_allocation
+        else:
+            return self.cache_anything
+
+    def do_write_with_aliasing(self, value, fieldvalue):
+        self._clear_cache_on_write(value.seen_allocation)
+        self._getdict(value)[value] = fieldvalue
+
+    def read(self, value):
+        return self._getdict(value).get(value, None)
+
+    def read_now_known(self, value, fieldvalue):
+        self._getdict(value)[value] = fieldvalue
+
+
 class HeapCache(object):
     def __init__(self):
         self.reset()
@@ -45,7 +78,7 @@ class HeapCache(object):
         #self.dependencies = {}
 
         # heap cache
-        # maps descrs to {from_value, to_value} dicts
+        # maps descrs to CacheEntry
         self.heap_cache = {}
         # heap array cache
         # maps descrs to {index: {from_value: to_value}} dicts
@@ -65,14 +98,6 @@ class HeapCache(object):
 
     def getvalues(self, boxes):
         return [self.getvalue(box) for box in boxes]
-
-    def _input_indirection(self, box):
-        value = self.values.get(box, None)
-        if value is None:
-            return box
-        return value.box
-
-    _output_indirection = _input_indirection
 
     def invalidate_caches(self, opnum, descr, argboxes):
         self.mark_escaped(opnum, descr, argboxes)
@@ -165,17 +190,29 @@ class HeapCache(object):
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
                 self._clear_caches_arraycopy(opnum, descr, argboxes, effectinfo)
                 return
-            else:
-                # Only invalidate things that are either escaped or arguments
-                for descr, values in self.heap_cache.iteritems():
-                    for value in values.keys():
-                        if not self.is_unescaped(value.box) or value.box in argboxes:
-                            del values[value]
-                for descr, indices in self.heap_array_cache.iteritems():
-                    for values in indices.itervalues():
-                        for value in values.keys():
-                            if not self.is_unescaped(value.box) or value.box in argboxes:
-                                del values[value]
+#            else:
+#                # Only invalidate things that are either escaped or arguments
+#                for descr, values in self.heap_cache.iteritems():
+#                    for value in values.keys():
+#                        if not self.is_unescaped(value.box) or value.box in argboxes:
+#                            del values[value]
+#                for descr, indices in self.heap_array_cache.iteritems():
+#                    for values in indices.itervalues():
+#                        for value in values.keys():
+#                            if not self.is_unescaped(value.box) or value.box in argboxes:
+#                                del values[value]
+
+            elif not effectinfo.has_random_effects():
+                for fielddescr in effectinfo.write_descrs_fields:
+                    try:
+                        del self.heap_cache[fielddescr]
+                    except KeyError:
+                        pass
+                for arraydescr in effectinfo.write_descrs_arrays:
+                    try:
+                        del self.heap_array_cache[arraydescr]
+                    except KeyError:
+                        pass
                 return
 
         # XXX not completely sure, but I *think* it is needed to reset() the
@@ -216,7 +253,7 @@ class HeapCache(object):
                     except KeyError:
                         pass
                     else:
-                        self._clear_cache_on_write(idx_cache, seen_allocation_of_target)
+                        idx_cache._clear_cache_on_write(seen_allocation_of_target)
             return
         elif (
             len(effectinfo.write_descrs_arrays) == 1
@@ -225,18 +262,9 @@ class HeapCache(object):
             cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
             if cache is not None:
                 for idx, cache in cache.iteritems():
-                    self._clear_cache_on_write(cache, seen_allocation_of_target)
+                    cache._clear_cache_on_write(seen_allocation_of_target)
             return
         self.reset_keep_likely_virtuals()
-
-    def _clear_cache_on_write(self, cache, seen_allocation_of_target):
-        if seen_allocation_of_target:
-            for fromvalue in cache.keys():
-                if not fromvalue.seen_allocation:
-                    del cache[fromvalue]
-        else:
-            cache.clear()
-
 
     def is_class_known(self, box):
         value = self.values.get(box, None)
@@ -281,9 +309,9 @@ class HeapCache(object):
     def getfield(self, box, descr):
         value = self.values.get(box, None)
         if value:
-            d = self.heap_cache.get(descr, None)
-            if d:
-                tovalue = d.get(value, None)
+            cache = self.heap_cache.get(descr, None)
+            if cache:
+                tovalue = cache.read(value)
                 if tovalue:
                     return tovalue.box
         return None
@@ -291,32 +319,18 @@ class HeapCache(object):
     def getfield_now_known(self, box, descr, fieldbox):
         value = self.getvalue(box)
         fieldvalue = self.getvalue(fieldbox)
-        self.heap_cache.setdefault(descr, {})[value] = fieldvalue
+        cache = self.heap_cache.get(descr, None)
+        if cache is None:
+            cache = self.heap_cache[descr] = CacheEntry()
+        cache.read_now_known(value, fieldvalue)
 
     def setfield(self, box, fieldbox, descr):
-        d = self.heap_cache.get(descr, None)
-        new_d = self._do_write_with_aliasing(d, box, fieldbox)
-        self.heap_cache[descr] = new_d
-
-    def _do_write_with_aliasing(self, d, box, fieldbox):
+        cache = self.heap_cache.get(descr, None)
+        if cache is None:
+            cache = self.heap_cache[descr] = CacheEntry()
         value = self.getvalue(box)
         fieldvalue = self.getvalue(fieldbox)
-        # slightly subtle logic here
-        # a write to an arbitrary value, all other valuees can alias this one
-        if not d or not value.seen_allocation:
-            # therefore we throw away the cache
-            return {value: fieldvalue}
-        # the object we are writing to is freshly allocated
-        # only remove some valuees from the cache
-        new_d = {}
-        for fromvalue, tovalue in d.iteritems():
-            # the other value is *also* one where we saw the allocation
-            # therefore fromvalue and value *must* contain different objects
-            # thus we can keep it in the cache
-            if fromvalue.seen_allocation:
-                new_d[fromvalue] = tovalue
-        new_d[value] = fieldvalue
-        return new_d
+        cache.do_write_with_aliasing(value, fieldvalue)
 
     def getarrayitem(self, box, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
@@ -329,23 +343,28 @@ class HeapCache(object):
         if cache:
             indexcache = cache.get(index, None)
             if indexcache is not None:
-                resvalue = indexcache.get(value, None)
+                resvalue = indexcache.read(value)
                 if resvalue:
                     return resvalue.box
-                return None
+        return None
 
-    def getarrayitem_now_known(self, box, indexbox, fieldbox, descr):
+    def _get_or_make_array_cache_entry(self, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
-            return
-        value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
+            return None
         index = indexbox.getint()
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)
-        if indexcache is not None:
-            indexcache[value] = fieldvalue
-        else:
-            cache[index] = {value: fieldvalue}
+        if indexcache is None:
+            cache[index] = indexcache = CacheEntry()
+        return indexcache
+
+
+    def getarrayitem_now_known(self, box, indexbox, fieldbox, descr):
+        value = self.getvalue(box)
+        fieldvalue = self.getvalue(fieldbox)
+        indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
+        if indexcache:
+            indexcache.read_now_known(value, fieldvalue)
 
     def setarrayitem(self, box, indexbox, fieldbox, descr):
         if not isinstance(indexbox, ConstInt):
@@ -353,10 +372,11 @@ class HeapCache(object):
             if cache is not None:
                 cache.clear()
             return
-        index = indexbox.getint()
-        cache = self.heap_array_cache.setdefault(descr, {})
-        indexcache = cache.get(index, None)
-        cache[index] = self._do_write_with_aliasing(indexcache, box, fieldbox)
+        value = self.getvalue(box)
+        fieldvalue = self.getvalue(fieldbox)
+        indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
+        if indexcache:
+            indexcache.do_write_with_aliasing(value, fieldvalue)
 
     def arraylen(self, box):
         value = self.values.get(box, None)

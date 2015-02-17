@@ -29,21 +29,27 @@ class FakeEffectinfo(object):
 
     OS_ARRAYCOPY = 0
 
-    def __init__(self, extraeffect, oopspecindex, write_descrs_arrays):
+    def __init__(self, extraeffect, oopspecindex, write_descrs_fields, write_descrs_arrays):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
+        self.write_descrs_fields = write_descrs_fields
         self.write_descrs_arrays = write_descrs_arrays
 
+    def has_random_effects(self):
+        return self.extraeffect == self.EF_RANDOM_EFFECTS
+
 class FakeCallDescr(object):
-    def __init__(self, extraeffect, oopspecindex=None, write_descrs_arrays=[]):
+    def __init__(self, extraeffect, oopspecindex=None, write_descrs_fields=[], write_descrs_arrays=[]):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
+        self.write_descrs_fields = write_descrs_fields
         self.write_descrs_arrays = write_descrs_arrays
 
     def get_extra_info(self):
         return FakeEffectinfo(
             self.extraeffect, self.oopspecindex,
-            write_descrs_arrays=self.write_descrs_arrays
+            write_descrs_fields=self.write_descrs_fields,
+            write_descrs_arrays=self.write_descrs_arrays,
         )
 
 arraycopydescr1 = FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1])
@@ -595,6 +601,8 @@ class TestHeapCache(object):
             EF_LOOPINVARIANT = 1
             EF_ELIDABLE_CANNOT_RAISE = 2
             EF_ELIDABLE_CAN_RAISE = 3
+            def has_random_effects(self):
+                return True
         descr.get_extra_info = XTra
         h.invalidate_caches(rop.CALL, descr, [])
         assert h.is_unescaped(box1)
