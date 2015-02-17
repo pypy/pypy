@@ -204,6 +204,7 @@ class HeapCache(object):
                     self._escape_box(argbox)
 
                 # Only invalidate things that are escaped
+                # XXX can do better, only do it for the descrs in the effectinfo
                 for descr, cache in self.heap_cache.iteritems():
                     cache.invalidate_unescaped()
                 for descr, indices in self.heap_array_cache.iteritems():
