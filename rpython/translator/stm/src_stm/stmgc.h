@@ -405,9 +405,15 @@ long stm_call_on_commit(stm_thread_local_t *, void *key, void callback(void *));
    other threads.  A very heavy-handed way to make sure that no other
    transaction is running concurrently.  Avoid as much as possible.
    Other transactions will continue running only after this transaction
-   commits. */
+   commits.  (xxx deprecated and may be removed) */
 void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
                                             const char *msg);
+
+/* Temporarily stop all the other threads, by waiting until they
+   reach a safe-point.  Don't nest the calls to stop/resume and make sure
+   that resume is called.  The current transaction is turned inevitable. */
+void stm_stop_all_other_threads(void);
+void stm_resume_all_other_threads(void);
 
 
 /* Profiling events.  In the comments: content of the markers, if any */
