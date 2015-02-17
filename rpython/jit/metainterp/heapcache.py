@@ -10,7 +10,7 @@ class HeapCacheValue(object):
         self.is_unescaped = False
         self.likely_virtual = False
         self.nonstandard_virtualizable = False
-        self.lengthvalue = None
+        self.length = None
         self.dependencies = None
 
     def __repr__(self):
