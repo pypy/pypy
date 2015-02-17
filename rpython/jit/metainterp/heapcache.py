@@ -102,6 +102,7 @@ class HeapCache(object):
               len(descr.get_extra_info().write_descrs_arrays) == 1):
             # ARRAYCOPY with constant starts and constant length doesn't escape
             # its argument
+            # XXX really?
             pass
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
