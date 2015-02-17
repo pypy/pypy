@@ -213,26 +213,27 @@ class HeapCache(object):
                     except KeyError:
                         pass
                     else:
-                        if seen_allocation_of_target:
-                            for fromvalue in idx_cache.keys():
-                                if not fromvalue.seen_allocation:
-                                    del idx_cache[fromvalue]
-                        else:
-                            idx_cache.clear()
+                        self._clear_cache_on_write(idx_cache, seen_allocation_of_target)
             return
         elif (
-            seen_allocation_of_target and
             len(effectinfo.write_descrs_arrays) == 1
         ):
             # Fish the descr out of the effectinfo
             cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
             if cache is not None:
                 for idx, cache in cache.iteritems():
-                    for fromvalue in cache.keys():
-                        if not fromvalue.seen_allocation:
-                            del cache[fromvalue]
+                    self._clear_cache_on_write(cache, seen_allocation_of_target)
             return
         self.reset_keep_likely_virtuals()
+
+    def _clear_cache_on_write(self, cache, seen_allocation_of_target):
+        if seen_allocation_of_target:
+            for fromvalue in cache.keys():
+                if not fromvalue.seen_allocation:
+                    del cache[fromvalue]
+        else:
+            cache.clear()
+
 
     def is_class_known(self, box):
         value = self.values.get(box, None)
