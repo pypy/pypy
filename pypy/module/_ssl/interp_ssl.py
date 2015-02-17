@@ -1,6 +1,8 @@
 from rpython.rlib import rpoll, rsocket, rthread, rweakref
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
+from pypy.module._socket import interp_socket
+from rpython.rlib._rsocket_rffi import MAX_FD_SIZE
 from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rlib.objectmodel import specialize, compute_unique_id
@@ -12,7 +14,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._ssl.ssl_data import (
     LIBRARY_CODES_TO_NAMES, ERROR_CODES_TO_NAMES)
-from pypy.module._socket import interp_socket
 
 
 # user defined constants
