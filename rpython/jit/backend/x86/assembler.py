@@ -1954,16 +1954,15 @@ class Assembler386(BaseAssembler):
 
     def _generate_quick_failure_stm(self, fail_descr, target, guardtok):
         assert IS_X86_64
-        p = lltype.malloc(lltype.Ptr(STM_GUARD_FAILURE))
+        p = lltype.malloc(STM_GUARD_FAILURE)
         p.fail_descr = fail_descr
-        p.target = target
+        p.jump_target = target
         p.gcmap = guardtok.gcmap
         # unclear if we really need a preexisting object here, or if we
         # just need a regular but non-moving pointer.  In the latter case
         # we could maybe store the data directly on the faildescr.
         p = rstm.allocate_preexisting(p)
-        guardtok.faildescr._x86_stm_guard_failure = lltype.cast_opaque_ptr(
-            llmemory.GCREF, p)
+        guardtok.faildescr._x86_stm_guard_failure = p
         addr = rffi.cast(lltype.Signed, p)
         addr += llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target')
         self.mc.MOV_ri(X86_64_SCRATCH_REG.value, addr)
