@@ -54,3 +54,8 @@ class AppTestMemoryView:
         assert memoryview("abc") != u"abc"
         assert not u"abc" == memoryview("abc")
         assert u"abc" != memoryview("abc")
+
+    def test_pypy_raw_address_base(self):
+        raises(ValueError, memoryview("foobar")._pypy_raw_address)
+        e = raises(ValueError, memoryview(bytearray("foobar"))._pypy_raw_address)
+        assert 'BytearrayBuffer' in str(e.value)

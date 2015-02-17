@@ -171,7 +171,7 @@ def prepare_constant_fold_link(link, constants, splitblocks):
             v_result.concretetype = nextop.result.concretetype
             constants[nextop.result] = v_result
             callop = SpaceOperation('direct_call', callargs, v_result)
-            newblock = insert_empty_block(None, link, [callop])
+            newblock = insert_empty_block(link, [callop])
             [link] = newblock.exits
             assert link.target is block
             folded_count += 1
@@ -197,7 +197,7 @@ def rewire_links(splitblocks, graph):
                 splitlink = block.exits[0]
             else:
                 # split the block at the given position
-                splitlink = split_block(None, block, position)
+                splitlink = split_block(block, position)
                 assert list(block.exits) == [splitlink]
             assert link.target is block
             assert splitlink.prevblock is block

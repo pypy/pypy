@@ -4,6 +4,93 @@ Getting Started Developing With PyPy
 .. contents::
 
 
+Using Mercurial
+---------------
+
+PyPy development is based on Mercurial (hg).  If you are not used to
+version control, the cycle for a new PyPy contributor goes typically
+like this:
+
+* Make an account on bitbucket_.
+
+* Go to https://bitbucket.org/pypy/pypy/ and click "fork" (left
+  icons).  You get a fork of the repository, e.g. in
+  https://bitbucket.org/yourname/pypy/.
+
+* Clone this new repo (i.e. the fork) to your local machine with the command 
+  ``hg clone ssh://hg@bitbucket.org/yourname/pypy``.  It is a very slow
+  operation but only ever needs to be done once.  If you already cloned
+  ``https://bitbucket.org/pypy/pypy`` before, even if some time ago,
+  then you can reuse the same clone by editing the file ``.hg/hgrc`` in
+  your clone to contain the line ``default =
+  ssh://hg@bitbucket.org/yourname/pypy``, and then do ``hg pull && hg
+  up``.  If you already have such a clone but don't want to change it,
+  you can clone that copy with ``hg clone /path/to/other/copy``, and
+  then edit ``.hg/hgrc`` as above and do ``hg pull && hg up``.
+
+* Now you have a complete copy of the PyPy repo.  Make a branch
+  with a command like ``hg branch name_of_your_branch``.
+
+* Edit things.  Use ``hg diff`` to see what you changed.  Use ``hg add``
+  to make Mercurial aware of new files you added, e.g. new test files.
+  Use ``hg status`` to see if there are such files.  Run tests!  (See
+  the rest of this page.)
+
+* Commit regularly with ``hg commit``.  A one-line commit message is
+  fine.  We love to have tons of commits; make one as soon as you have
+  some progress, even if it is only some new test that doesn't pass yet,
+  or fixing things even if not all tests pass.  Step by step, you are
+  building the history of your changes, which is the point of a version
+  control system.  (There are commands like ``hg log`` and ``hg up``
+  that you should read about later, to learn how to navigate this
+  history.)
+
+* The commits stay on your machine until you do ``hg push`` to "push"
+  them back to the repo named in the file ``.hg/hgrc``.  Repos are
+  basically just collections of commits (a commit is also called a
+  changeset): there is one repo per url, plus one for each local copy on
+  each local machine.  The commands ``hg push`` and ``hg pull`` copy
+  commits around, with the goal that all repos in question end up with
+  the exact same set of commits.  By opposition, ``hg up`` only updates
+  the "working copy" by reading the local repository, i.e. it makes the
+  files that you see correspond to the latest (or any other) commit
+  locally present.
+
+* You should push often; there is no real reason not to.  Remember that
+  even if they are pushed, with the setup above, the commits are (1)
+  only in ``bitbucket.org/yourname/pypy``, and (2) in the branch you
+  named.  Yes, they are publicly visible, but don't worry about someone
+  walking around the thousands of repos on bitbucket saying "hah, look
+  at the bad coding style of that guy".  Try to get into the mindset
+  that your work is not secret and it's fine that way.  We might not
+  accept it as is for PyPy, asking you instead to improve some things,
+  but we are not going to judge you.
+
+* The final step is to open a pull request, so that we know that you'd
+  like to merge that branch back to the original ``pypy/pypy`` repo.
+  This can also be done several times if you have interesting
+  intermediate states, but if you get there, then we're likely to
+  proceed to the next stage, which is...
+
+* Get a regular account for pushing directly to
+  ``bitbucket.org/pypy/pypy`` (just ask and you'll get it, basically).
+  Once you have it you can rewrite your file ``.hg/hgrc`` to contain
+  ``default = ssh://hg@bitbucket.org/pypy/pypy``.  Your changes will
+  then be pushed directly to the official repo, but (if you follow these
+  rules) they are still on a branch, and we can still review the
+  branches you want to merge.
+
+* If you get closer to the regular day-to-day development, you'll notice
+  that we generally push small changes as one or a few commits directly
+  to the branch ``default``.  Also, we often collaborate even if we are
+  on other branches, which do not really "belong" to anyone.  At this
+  point you'll need ``hg merge`` and learn how to resolve conflicts that
+  sometimes occur when two people try to push different commits in
+  parallel on the same branch.  But it is likely an issue for later ``:-)``
+
+.. _bitbucket: https://bitbucket.org/
+
+
 Running PyPy's unit tests
 -------------------------
 
@@ -100,6 +187,10 @@ The mechanism works in both directions. If you define a variable with the ``w_``
 Note that the prompt of the interpreter-level console is only '>>>' since
 it runs on CPython level. If you want to return to PyPy, press <Ctrl-D> (under
 Linux) or <Ctrl-Z>, <Enter> (under Windows).
+
+Also note that not all modules are available by default in this mode (for
+example: ``_continuation`` needed by ``greenlet``) , you may need to use one of
+``--withmod-...`` command line options.
 
 You may be interested in reading more about the distinction between
 :ref:`interpreter-level and app-level <interpreter-level>`.

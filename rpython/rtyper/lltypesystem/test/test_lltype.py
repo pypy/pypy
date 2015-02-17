@@ -808,6 +808,20 @@ def test_typedef():
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
 
+def test_cannot_inline_random_stuff_in_gcstruct():
+    S = GcStruct('S')
+    GcStruct('X', ('a', S))    # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', Signed), ('b', S))
+    GcStruct('X', ('a', Array(Signed)))   # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', Array(Signed)),
+                                             ('b', Signed))
+    Struct('X', ('a', Array(Signed, hints={'nolength': True})))   # works
+    py.test.raises(TypeError, GcStruct, 'X',
+                   ('a', Array(Signed, hints={'nolength': True})))
+    GcStruct('X', ('a', OpaqueType('foo')))   # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', GcOpaqueType('foo')))
+
+
 class TestTrackAllocation:
     def test_automatic_tracking(self):
         # calls to start_tracking_allocations/stop_tracking_allocations

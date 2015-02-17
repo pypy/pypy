@@ -493,7 +493,7 @@ class DefinedConstantString(CConfigEntry):
     def prepare_code(self):
         yield '#ifdef %s' % self.macro
         yield 'int i;'
-        yield 'char *p = %s;' % self.name
+        yield 'const char *p = %s;' % self.name
         yield 'dump("defined", 1);'
         yield 'for (i = 0; p[i] != 0; i++ ) {'
         yield '  printf("value_%d: %d\\n", i, (int)(unsigned char)p[i]);'

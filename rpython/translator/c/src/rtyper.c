@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct _RPyString_dump_t {
+static struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
 	char data[1];
 } *_RPyString_dump = NULL;

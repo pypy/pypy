@@ -3,6 +3,12 @@ Frequently Asked Questions
 
 .. contents::
 
+See also: `Frequently ask questions about PyPy.`__
+
+.. __: http://pypy.readthedocs.org/en/latest/faq.html
+
+--------------------------
+
 What is RPython?
 ----------------
 

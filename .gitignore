@@ -7,7 +7,10 @@
 
 bin/pypy-c
 include/*.h
+include/numpy/
 lib_pypy/ctypes_config_cache/_[^_]*_*.py
+libpypy-c.*
+pypy-c
 pypy/_cache
 pypy/doc/*.html
 pypy/doc/config/*.html
@@ -19,3 +22,4 @@ pypy/translator/c/src/dtoa.o
 pypy/translator/goal/pypy-c
 pypy/translator/goal/target*-c
 release/
+rpython/_cache/

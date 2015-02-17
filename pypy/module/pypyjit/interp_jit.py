@@ -173,7 +173,7 @@ from the interpreted mode, and from the JIT creation (pyjitpl) or
 exiting (blackhole) steps, but just not from the final assembler.
 
 Note that the return value of the callable is ignored, because
-there is no reasonable way to guess what it sound be in case the
+there is no reasonable way to guess what it should be in case the
 function is not called.
 
 This is meant to be used notably in sys.settrace() for coverage-

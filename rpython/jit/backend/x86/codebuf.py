@@ -46,9 +46,9 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
         if self.relocations is not None:
-            for reloc in self.relocations:
+            for reloc in self.relocations:       # for 32-bit only
                 p = addr + reloc
-                adr = rffi.cast(rffi.LONGP, p - WORD)
-                adr[0] = intmask(adr[0] - p)
+                adr = rffi.cast(rffi.INTP, p - 4)
+                adr[0] = rffi.cast(rffi.INT, intmask(adr[0]) - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)

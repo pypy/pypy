@@ -5,7 +5,7 @@ import sys
 import os
 import errno
 
-from pypy.interpreter.error import OperationError, exception_from_errno
+from pypy.interpreter.error import OperationError, exception_from_saved_errno
 from pypy.interpreter.executioncontext import (AsyncAction, AbstractActionFlag,
     PeriodicAsyncAction)
 from pypy.interpreter.gateway import unwrap_spec
@@ -258,7 +258,7 @@ def set_wakeup_fd(space, fd):
 def siginterrupt(space, signum, flag):
     check_signum_in_range(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
-        errno = rposix.get_errno()
+        errno = rposix.get_saved_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))
 
 
@@ -311,7 +311,7 @@ def setitimer(space, which, first, interval=0):
 
             ret = c_setitimer(which, new, old)
             if ret != 0:
-                raise exception_from_errno(space, get_itimer_error(space))
+                raise exception_from_saved_errno(space, get_itimer_error(space))
 
             return itimer_retval(space, old[0])
 

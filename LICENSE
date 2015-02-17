@@ -28,7 +28,7 @@ the 'rpython', 'pypy', 'ctype_configure', 'dotviewer', 'demo', 'lib_pypy',
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2014
+PyPy Copyright holders 2003-2015
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -42,19 +42,19 @@ copyrighted by one or more of the following people and organizations:
   Amaury Forgeot d'Arc
   Samuele Pedroni
   Alex Gaynor
+  Brian Kearns
+  Matti Picus
+  Philip Jenvey
   Michael Hudson
   David Schneider
-  Matti Picus
-  Brian Kearns
-  Philip Jenvey
   Holger Krekel
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
   Manuel Jacob
+  Ronan Lamy
   Anders Chrigstrom
   Eric van Riet Paap
-  Ronan Lamy
   Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
@@ -68,9 +68,9 @@ copyrighted by one or more of the following people and organizations:
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
+  Romain Guillebert
   Leonardo Santagada
   Seo Sanghyeon
-  Romain Guillebert
   Justin Peel
   Ronny Pfannschmidt
   David Edelsohn
@@ -91,15 +91,16 @@ copyrighted by one or more of the following people and organizations:
   Michal Bendowski
   Jan de Mooij
   stian
+  Tyler Wade
   Michael Foord
   Stephan Diehl
-  Tyler Wade
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
   Patrick Maupin
   Bob Ippolito
   Bruno Gola
+  David Malcolm
   Jean-Paul Calderone
   Timo Paulssen
   Squeaky
@@ -108,18 +109,19 @@ copyrighted by one or more of the following people and organizations:
   Marius Gedminas
   Martin Matusiak
   Konstantin Lopuhin
-  John Witulski
   Wenzhu Man
+  John Witulski
+  Laurence Tratt
+  Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Ivan Sichmann Freitas
   Andreas Stührk
+  Stefano Rivera
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Stefano Rivera
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
@@ -129,7 +131,6 @@ copyrighted by one or more of the following people and organizations:
   tav
   Taavi Burns
   Georg Brandl
-  Laurence Tratt
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -141,13 +142,12 @@ copyrighted by one or more of the following people and organizations:
   Jeremy Thurgood
   Rami Chowdhury
   Tobias Pape
-  David Malcolm
   Eugene Oden
   Henry Mason
   Vasily Kuznetsov
   Preston Timmons
-  Jeff Terrace
   David Ripton
+  Jeff Terrace
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
@@ -166,13 +166,16 @@ copyrighted by one or more of the following people and organizations:
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
+  Yichao Yu
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
+  Wouter van Heyst
   Brian Dorsey
   Victor Stinner
   Andrews Medina
+  anatoly techtonik
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -182,12 +185,11 @@ copyrighted by one or more of the following people and organizations:
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
-  anatoly techtonik
   Neil Shepperd
+  Stanislaw Halik
   Mikael Schönenberg
   Elmo M?ntynen
   Jonathan David Riehl
-  Stanislaw Halik
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
@@ -196,10 +198,13 @@ copyrighted by one or more of the following people and organizations:
   Vincent Legoll
   Alan McIntyre
   Alexander Sedov
+  Attila Gobi
   Christopher Pope
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
+  Arjun Naik
+  Valentina Mukhamedzhanova
   Stefano Parmesan
   Alexis Daboville
   Jens-Uwe Mager
@@ -213,8 +218,6 @@ copyrighted by one or more of the following people and organizations:
   Sylvain Thenault
   Nathan Taylor
   Vladimir Kryachko
-  Arjun Naik
-  Attila Gobi
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -222,22 +225,23 @@ copyrighted by one or more of the following people and organizations:
   Ryan Gonzalez
   Ian Foote
   Kristjan Valur Jonsson
+  David Lievens
   Neil Blakey-Milner
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
-  Valentina Mukhamedzhanova
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
-  Yichao Yu
   Ignas Mikalajunas
   Christoph Gerum
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Toni Mattis
+  Lucas Stadler
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
@@ -265,23 +269,30 @@ copyrighted by one or more of the following people and organizations:
   Stephan Busemann
   Rafał Gałczyński
   Christian Muirhead
+  Berker Peksag
   James Lan
   shoma hosaka
-  Daniel Neuh?user
-  Matthew Miller
+  Daniel Neuhäuser
+  Ben Mather
+  halgari
+  Boglarka Vezer
+  Chris Pressey
   Buck Golemon
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
-  Rodrigo Araújo
   Jim Baker
+  Rodrigo Araújo
+  Nikolaos-Digenis Karagiannis
   James Robert
   Armin Ronacher
   Brett Cannon
+  Donald Stufft
   yrttyr
   aliceinwire
   OlivierBlanvillain
+  Dan Sanders
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
@@ -295,6 +306,7 @@ copyrighted by one or more of the following people and organizations:
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
+  squeaky
   soareschen
   Kurt Griffiths
   Mike Bayer
@@ -306,6 +318,7 @@ copyrighted by one or more of the following people and organizations:
   Anna Ravencroft
   Dan Crosta
   Julien Phalip
+  Roman Podoliaka
   Dan Loewenherz
 
   Heinrich-Heine University, Germany 

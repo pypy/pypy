@@ -699,6 +699,14 @@ def op_raw_load(TVAL, p, ofs):
     return p[0]
 op_raw_load.need_result_type = True
 
+def op_likely(x):
+    assert isinstance(x, bool)
+    return x
+
+def op_unlikely(x):
+    assert isinstance(x, bool)
+    return x
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

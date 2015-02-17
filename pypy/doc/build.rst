@@ -47,6 +47,15 @@ where XXXXX is the revision id.
 
 Install build-time dependencies
 -------------------------------
+(**Note**: for some hints on how to translate the Python interpreter under
+Windows, see the `windows document`_ . For hints on how to cross-compile in
+a chroot using scratchbox2, see the `arm document`_ in the 
+`RPython documentation`_)
+
+.. _`windows document`: windows.html
+.. _`arm document`: http://rpython.readthedocs.org/en/latest/arm.html
+.. _`RPython documentation`: http://rpython.readthedocs.org
+
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional

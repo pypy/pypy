@@ -38,7 +38,7 @@ The tools required to cross translate from a Linux based host to an ARM based Li
 - The dependencies above are in addition to the ones needed for a regular
   translation, `listed here`_.
 
-.. _`listed here`: getting-started-python.html#translating-the-pypy-python-interpreter
+.. _`listed here`: http://pypy.readthedocs.org/en/latest/build.html#install-build-time-dependencies
 
 
 Creating a Qemu based ARM chroot

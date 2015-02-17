@@ -3,6 +3,7 @@ import cPickle as pickle
 
 from rpython.tool.ansicolor import red, yellow, green
 from rpython.rtyper.lltypesystem.lltype import typeOf, _ptr, Ptr, ContainerType
+from rpython.rtyper.lltypesystem.lltype import GcOpaqueType
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.memory.lltypelayout import convert_offset_to_int
 
@@ -54,6 +55,8 @@ def values_to_nodes(database, values):
         if isinstance(typeOf(value), Ptr):
             container = value._obj
             if isinstance(typeOf(container), ContainerType):
+                if isinstance(typeOf(container), GcOpaqueType):
+                    container = container.container
                 node = database.getcontainernode(container)
                 if node.nodekind != 'func':
                     nodes.append(node)
@@ -77,7 +80,10 @@ def guess_size_obj(obj):
                 return 0
     else:
         length = None
-    return convert_offset_to_int(llmemory.sizeof(TYPE, length))
+    #print obj, ', length =', length
+    r = convert_offset_to_int(llmemory.sizeof(TYPE, length))
+    #print '\tr =', r
+    return r
 
 
 def guess_size(database, node, recursive=None):

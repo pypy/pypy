@@ -23,7 +23,7 @@ class TestSubclasses(BaseCTypesTestChecker):
         assert Y._fields_ == [("b", c_int)]
         assert Z._fields_ == [("a", c_int)]
 
-        assert Y._names == ['a', 'b']
+        assert Y._names_ == ['a', 'b']
 
     def test_subclass_delayed(self):
         class X(Structure):

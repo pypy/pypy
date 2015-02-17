@@ -253,6 +253,12 @@ class Transformer(object):
                 return [None, # hack, do the right renaming from op.args[0] to op.result
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
+    def rewrite_op_likely(self, op):
+        return None   # "no real effect"
+
+    def rewrite_op_unlikely(self, op):
+        return None   # "no real effect"
+
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
             return   # the operation disappears
@@ -439,8 +445,6 @@ class Transformer(object):
         elif oopspec_name.endswith('dict.lookup'):
             # also ordereddict.lookup
             prepare = self._handle_dict_lookup_call
-        elif oopspec_name.startswith('rposix.'):
-            prepare = self._handle_rposix_call
         else:
             prepare = self.prepare_builtin_call
         try:
@@ -1267,19 +1271,12 @@ class Transformer(object):
 
         result = []
         if min2:
-            c_min2 = Constant(min2, lltype.Signed)
-            v2 = varoftype(lltype.Signed)
-            result.append(SpaceOperation('int_sub', [v_arg, c_min2], v2))
+            c_bytes = Constant(size2, lltype.Signed)
+            result.append(SpaceOperation('int_signext', [v_arg, c_bytes],
+                                         v_result))
         else:
-            v2 = v_arg
-        c_mask = Constant(int((1 << (8 * size2)) - 1), lltype.Signed)
-        if min2:
-            v3 = varoftype(lltype.Signed)
-        else:
-            v3 = v_result
-        result.append(SpaceOperation('int_and', [v2, c_mask], v3))
-        if min2:
-            result.append(SpaceOperation('int_add', [v3, c_min2], v_result))
+            c_mask = Constant(int((1 << (8 * size2)) - 1), lltype.Signed)
+            result.append(SpaceOperation('int_and', [v_arg, c_mask], v_result))
         return result
 
     def _float_to_float_cast(self, v_arg, v_result):
@@ -1986,16 +1983,6 @@ class Transformer(object):
         else:
             raise NotImplementedError(oopspec_name)
 
-    def _handle_rposix_call(self, op, oopspec_name, args):
-        if oopspec_name == 'rposix.get_errno':
-            return self._handle_oopspec_call(op, args, EffectInfo.OS_GET_ERRNO,
-                                             EffectInfo.EF_CANNOT_RAISE)
-        elif oopspec_name == 'rposix.set_errno':
-            return self._handle_oopspec_call(op, args, EffectInfo.OS_SET_ERRNO,
-                                             EffectInfo.EF_CANNOT_RAISE)
-        else:
-            raise NotImplementedError(oopspec_name)
-
     def rewrite_op_ll_read_timestamp(self, op):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
         return self.handle_residual_call(op1,
@@ -2012,16 +1999,15 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_threadlocalref_get(self, op):
-        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
-        opaqueid = op.args[0].value
-        op1 = self.prepare_builtin_call(op, 'threadlocalref_getter', [],
-                                        extra=(opaqueid,),
-                                        extrakey=opaqueid._obj)
-        extradescr = ThreadLocalRefDescr(opaqueid)
+        c_offset, = op.args
+        op1 = self.prepare_builtin_call(op, 'threadlocalref_get', [c_offset])
+        if c_offset.value.loop_invariant:
+            effect = EffectInfo.EF_LOOPINVARIANT
+        else:
+            effect = EffectInfo.EF_CANNOT_RAISE
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
-            extraeffect=EffectInfo.EF_LOOPINVARIANT,
-            extradescr=[extradescr])
+            extraeffect=effect)
 
 # ____________________________________________________________
 

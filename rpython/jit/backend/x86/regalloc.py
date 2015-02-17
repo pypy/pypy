@@ -421,15 +421,29 @@ class RegAlloc(BaseRegalloc):
 
     consider_guard_nonnull_class = consider_guard_class
 
-    def _consider_binop_part(self, op):
+    def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
-        argloc = self.loc(op.getarg(1))
+        y = op.getarg(1)
+        argloc = self.loc(y)
+        #
+        # For symmetrical operations, if 'y' is already in a register
+        # and won't be used after the current operation finishes,
+        # then swap the role of 'x' and 'y'
+        if (symm and isinstance(argloc, RegLoc) and
+                self.rm.longevity[y][1] == self.rm.position):
+            x, y = y, x
+            argloc = self.loc(y)
+        #
         args = op.getarglist()
         loc = self.rm.force_result_in_reg(op.result, x, args)
         return loc, argloc
 
     def _consider_binop(self, op):
         loc, argloc = self._consider_binop_part(op)
+        self.perform(op, [loc, argloc], loc)
+
+    def _consider_binop_symm(self, op):
+        loc, argloc = self._consider_binop_part(op, symm=True)
         self.perform(op, [loc, argloc], loc)
 
     def _consider_lea(self, op, loc):
@@ -444,7 +458,7 @@ class RegAlloc(BaseRegalloc):
             isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
             self._consider_lea(op, loc)
         else:
-            self._consider_binop(op)
+            self._consider_binop_symm(op)
 
     def consider_int_sub(self, op):
         loc = self.loc(op.getarg(0))
@@ -455,24 +469,34 @@ class RegAlloc(BaseRegalloc):
         else:
             self._consider_binop(op)
 
-    consider_int_mul = _consider_binop
-    consider_int_and = _consider_binop
-    consider_int_or  = _consider_binop
-    consider_int_xor = _consider_binop
+    consider_int_mul = _consider_binop_symm
+    consider_int_and = _consider_binop_symm
+    consider_int_or  = _consider_binop_symm
+    consider_int_xor = _consider_binop_symm
 
     def _consider_binop_with_guard(self, op, guard_op):
         loc, argloc = self._consider_binop_part(op)
         self.perform_with_guard(op, guard_op, [loc, argloc], loc)
 
-    consider_int_mul_ovf = _consider_binop_with_guard
+    def _consider_binop_with_guard_symm(self, op, guard_op):
+        loc, argloc = self._consider_binop_part(op, symm=True)
+        self.perform_with_guard(op, guard_op, [loc, argloc], loc)
+
+    consider_int_mul_ovf = _consider_binop_with_guard_symm
     consider_int_sub_ovf = _consider_binop_with_guard
-    consider_int_add_ovf = _consider_binop_with_guard
+    consider_int_add_ovf = _consider_binop_with_guard_symm
 
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op.result, op.getarg(0))
         self.perform(op, [res], res)
 
     consider_int_invert = consider_int_neg
+
+    def consider_int_signext(self, op):
+        argloc = self.loc(op.getarg(0))
+        numbytesloc = self.loc(op.getarg(1))
+        resloc = self.force_allocate_reg(op.result)
+        self.perform(op, [argloc, numbytesloc], resloc)
 
     def consider_int_lshift(self, op):
         if isinstance(op.getarg(1), Const):
@@ -545,9 +569,9 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [loc0, loc1], loc0)
 
-    consider_float_add = _consider_float_op
+    consider_float_add = _consider_float_op      # xxx could be _symm
     consider_float_sub = _consider_float_op
-    consider_float_mul = _consider_float_op
+    consider_float_mul = _consider_float_op      # xxx could be _symm
     consider_float_truediv = _consider_float_op
 
     def _consider_float_cmp(self, op, guard_op):
@@ -626,6 +650,7 @@ class RegAlloc(BaseRegalloc):
         # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned.  Exception: if the second
         # argument is a constant, we can ask it to be aligned to 16 bytes.
+        # xxx some of these operations could be '_symm'.
         args = [op.getarg(1), op.getarg(2)]
         loc1 = self.load_xmm_aligned_16_bytes(args[1])
         loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)
@@ -693,29 +718,14 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
-    TLREF_SUPPORT = sys.platform.startswith('linux')
-    ERRNO_SUPPORT = sys.platform.startswith('linux')
-
     def _consider_threadlocalref_get(self, op):
-        if self.TLREF_SUPPORT:
+        if self.translate_support_code:
+            offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
+            calldescr = op.getdescr()
+            size = calldescr.get_result_size()
+            sign = calldescr.is_result_signed()
             resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_get(op, resloc)
-        else:
-            self._consider_call(op)
-
-    def _consider_get_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            resloc = self.force_allocate_reg(op.result)
-            self.assembler.get_set_errno(op, resloc, issue_a_write=False)
-        else:
-            self._consider_call(op)
-
-    def _consider_set_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            # op.getarg(0) is the function set_errno; op.getarg(1) is
-            # the new errno value
-            loc0 = self.rm.make_sure_var_in_reg(op.getarg(1))
-            self.assembler.get_set_errno(op, loc0, issue_a_write=True)
+            self.assembler.threadlocalref_get(offset, resloc, size, sign)
         else:
             self._consider_call(op)
 
@@ -755,10 +765,10 @@ class RegAlloc(BaseRegalloc):
         else:
             self.perform(op, arglocs, resloc)
 
-    def _consider_call(self, op, guard_not_forced_op=None):
+    def _consider_call(self, op, guard_not_forced_op=None, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
-        assert len(calldescr.arg_classes) == op.numargs() - 1
+        assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
         size = calldescr.get_result_size()
         sign = calldescr.is_result_signed()
         if sign:
@@ -798,10 +808,6 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_math_sqrt(op)
             if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 return self._consider_threadlocalref_get(op)
-            if oopspecindex == EffectInfo.OS_GET_ERRNO:
-                return self._consider_get_errno(op)
-            if oopspecindex == EffectInfo.OS_SET_ERRNO:
-                return self._consider_set_errno(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
@@ -811,8 +817,9 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op, guard_op)
 
     def consider_call_release_gil(self, op, guard_op):
+        # [Const(save_err), func_addr, args...]
         assert guard_op is not None
-        self._consider_call(op, guard_op)
+        self._consider_call(op, guard_op, first_arg_index=2)
 
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)

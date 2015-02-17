@@ -99,7 +99,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.shadow_stack_pool.initial_setup()
         BaseRootWalker.setup_root_walker(self)
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
         self.rootstackhook(collect_stack_root,
                            gcdata.root_stack_base, gcdata.root_stack_top)
@@ -132,8 +132,12 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.root_stack_top/root_stack_base is the one corresponding
             to the current thread.
             No GC operation here, e.g. no mallocs or storing in a dict!
+
+            Note that here specifically we don't call rthread.get_ident(),
+            but rthread.get_or_make_ident().  We are possibly in a fresh
+            new thread, so we need to be careful.
             """
-            tid = get_tid()
+            tid = rthread.get_or_make_ident()
             if gcdata.active_tid != tid:
                 switch_shadow_stacks(tid)
 

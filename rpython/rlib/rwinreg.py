@@ -40,9 +40,9 @@ cConfig = platform.configure(CConfig)
 constants.update(cConfig)
 globals().update(cConfig)
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv='win')
+                           calling_conv='win', **kwds)
 
 HKEY = rwin32.HANDLE
 PHKEY = rffi.CArrayPtr(HKEY)
@@ -146,17 +146,18 @@ RegConnectRegistry = external(
 _ExpandEnvironmentStringsW = external(
     'ExpandEnvironmentStringsW',
     [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD],
-    rwin32.DWORD)
+    rwin32.DWORD,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
 
 def ExpandEnvironmentStrings(source):
     with rffi.scoped_unicode2wcharp(source) as src_buf:
         size = _ExpandEnvironmentStringsW(src_buf,
                                           lltype.nullptr(rffi.CWCHARP.TO), 0)
         if size == 0:
-            raise rwin32.lastWindowsError("ExpandEnvironmentStrings")
+            raise rwin32.lastSavedWindowsError("ExpandEnvironmentStrings")
         size = intmask(size)
         with rffi.scoped_alloc_unicodebuffer(size) as dest_buf:
             if _ExpandEnvironmentStringsW(src_buf,
                                           dest_buf.raw, size) == 0:
-                raise rwin32.lastWindowsError("ExpandEnvironmentStrings")
+                raise rwin32.lastSavedWindowsError("ExpandEnvironmentStrings")
             return dest_buf.str(size - 1) # remove trailing \0

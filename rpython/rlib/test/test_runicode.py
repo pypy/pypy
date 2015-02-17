@@ -118,6 +118,17 @@ class UnicodeTests(object):
         if addstuff:
             assert result.endswith(u"some rest in ascii")
 
+    def test_charmap_encodeerror(self):
+        def errorhandler(errors, enc, msg, t, startingpos,
+                         endingpos):
+            assert t[startingpos:endingpos] == u'\t\n  \r'
+            return None, ' ', endingpos
+        s = u'aa\t\n  \raa'
+        mapping = {u'a': 'a'}
+        r = runicode.unicode_encode_charmap(s, len(s), None, errorhandler,
+                                            mapping=mapping)
+        assert r == 'aa aa'
+
 
 class TestDecoding(UnicodeTests):
     # XXX test bom recognition in utf-16

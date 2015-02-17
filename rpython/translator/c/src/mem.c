@@ -15,6 +15,7 @@ struct pypy_debug_alloc_s {
 
 static struct pypy_debug_alloc_s *pypy_debug_alloc_list = NULL;
 
+RPY_EXTERN
 void pypy_debug_alloc_start(void *addr, const char *funcname)
 {
   struct pypy_debug_alloc_s *p = malloc(sizeof(struct pypy_debug_alloc_s));
@@ -25,6 +26,7 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
   pypy_debug_alloc_list = p;
 }
 
+RPY_EXTERN
 void pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
@@ -40,6 +42,7 @@ void pypy_debug_alloc_stop(void *addr)
   RPyAssert(0, "free() of a never-malloc()ed object");
 }
 
+RPY_EXTERN
 void pypy_debug_alloc_results(void)
 {
   long count = 0;

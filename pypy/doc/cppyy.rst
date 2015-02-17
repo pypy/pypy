@@ -74,7 +74,9 @@ chosen (it is, by default).
 See the :doc:`backend documentation <cppyy_backend>`.
 
 A standalone version of Reflex that also provides the dynamically loadable
-backend is available for `download`_.
+backend is available for `download`_. Note this is currently the only way to
+get the dynamically loadable backend, so use this first.
+
 That version, as well as any other distribution of Reflex (e.g. the one that
 comes with `ROOT`_, which may be part of your Linux distribution as part of
 the selection of scientific software) will also work for a build with the

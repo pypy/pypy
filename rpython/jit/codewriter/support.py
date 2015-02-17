@@ -107,7 +107,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """
     # split the block just before the jit_merge_point()
     if portalopindex > 0:
-        link = split_block(None, portalblock, portalopindex)
+        link = split_block(portalblock, portalopindex)
         portalblock = link.target
     portalop = portalblock.operations[0]
     # split again, this time enforcing the order of the live vars
@@ -115,7 +115,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     assert portalop.opname == 'jit_marker'
     assert portalop.args[0].value == 'jit_merge_point'
     greens_v, reds_v = decode_hp_hint_args(portalop)
-    link = split_block(None, portalblock, 0, greens_v + reds_v)
+    link = split_block(portalblock, 0, greens_v + reds_v)
     return link.target
 
 def sort_vars(args_v):
@@ -702,10 +702,9 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
-    def build_ll_0_threadlocalref_getter(opaqueid):
-        def _ll_0_threadlocalref_getter():
-            return llop.threadlocalref_get(rclass.OBJECTPTR, opaqueid)
-        return _ll_0_threadlocalref_getter
+    def _ll_1_threadlocalref_get(TP, offset):
+        return llop.threadlocalref_get(TP, offset)
+    _ll_1_threadlocalref_get.need_result_type = 'exact'   # don't deref
 
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)
@@ -818,8 +817,18 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
     s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
-        bk = rtyper.annotator.bookkeeper
-        args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))
+        if hasattr(rtyper, 'annotator'):
+            bk = rtyper.annotator.bookkeeper
+            ll_restype = ll_res
+            if impl.need_result_type != 'exact':
+                ll_restype = deref(ll_restype)
+            desc = bk.getdesc(ll_restype)
+        else:
+            class TestingDesc(object):
+                knowntype = int
+                pyobj = None
+            desc = TestingDesc()
+        args_s.insert(0, annmodel.SomePBC([desc]))
     #
     if hasattr(rtyper, 'annotator'):  # regular case
         mixlevelann = MixLevelHelperAnnotator(rtyper)

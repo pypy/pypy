@@ -484,10 +484,6 @@ class TestFTPClass(TestCase):
         dir = self.client.cwd('/foo')
         self.assertEqual(dir, '250 cwd ok')
 
-    def test_mkd(self):
-        dir = self.client.mkd('/foo')
-        self.assertEqual(dir, '/foo')
-
     def test_pwd(self):
         dir = self.client.pwd()
         self.assertEqual(dir, 'pwd ok')
@@ -693,7 +689,7 @@ class TestTLS_FTPClass(TestCase):
 
     def test_auth_ssl(self):
         try:
-            self.client.ssl_version = ssl.PROTOCOL_SSLv3
+            self.client.ssl_version = ssl.PROTOCOL_SSLv23
             self.client.auth()
             self.assertRaises(ValueError, self.client.auth)
         finally:

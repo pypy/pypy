@@ -23,8 +23,6 @@ class EffectInfo(object):
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
-    OS_GET_ERRNO                = 6    # rposix.get_errno
-    OS_SET_ERRNO                = 7    # rposix.set_errno
     OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
@@ -100,6 +98,8 @@ class EffectInfo(object):
         OS_NOT_IN_TRACE,
     ])
 
+    _NO_CALL_RELEASE_GIL_TARGET = (llmemory.NULL, 0)
+
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 readonly_descrs_interiorfields,
                 write_descrs_fields, write_descrs_arrays,
@@ -107,7 +107,7 @@ class EffectInfo(object):
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL,
+                call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
                 extradescrs=None):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
@@ -118,7 +118,8 @@ class EffectInfo(object):
                extraeffect,
                oopspecindex,
                can_invalidate)
-        if call_release_gil_target:
+        tgt_func, tgt_saveerr = call_release_gil_target
+        if tgt_func:
             key += (object(),)    # don't care about caching in this case
         if key in cls._cache:
             return cls._cache[key]
@@ -173,7 +174,8 @@ class EffectInfo(object):
         return self.extraeffect >= self.EF_RANDOM_EFFECTS
 
     def is_call_release_gil(self):
-        return bool(self.call_release_gil_target)
+        tgt_func, tgt_saveerr = self.call_release_gil_target
+        return bool(tgt_func)
 
     def __repr__(self):
         more = ''
@@ -196,7 +198,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL,
+                                 call_release_gil_target=
+                                     EffectInfo._NO_CALL_RELEASE_GIL_TARGET,
                                  extradescr=None):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:

@@ -142,6 +142,13 @@ class W_Socket(W_Root):
     def get_family_w(self, space):
         return space.wrap(self.sock.family)
 
+    def descr_repr(self, space):
+        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        return space.wrap("<socket object, fd=%d, family=%d,"
+                          " type=%d, protocol=%d>" %
+                          (fd, self.sock.family,
+                           self.sock.type, self.sock.proto))
+
     def accept_w(self, space):
         """accept() -> (socket object, address info)
 
@@ -661,6 +668,7 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
     __weakref__ = make_weakref_descr(W_Socket),
+    __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),
     family = GetSetProperty(W_Socket.get_family_w),

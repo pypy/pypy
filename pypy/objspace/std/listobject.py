@@ -176,6 +176,12 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_u)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+    @staticmethod
+    def newlist_int(space, list_i):
+        strategy = space.fromcache(IntegerListStrategy)
+        storage = strategy.erase(list_i)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
@@ -618,8 +624,8 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, 0, sys.maxint)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.remove(x): x not in list"))
+            raise oefmt(space.w_ValueError,
+                        "list.remove(): %R is not in list", w_value)
         if i < self.length():  # otherwise list was mutated
             self.pop(i)
 
@@ -633,8 +639,7 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, i, stop)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.index(x): x not in list"))
+            raise oefmt(space.w_ValueError, "%R is not in list", w_value)
         return space.wrap(i)
 
     @unwrap_spec(reverse=bool)
@@ -1664,6 +1669,25 @@ class FloatListStrategy(ListStrategy):
 
     def getitems_float(self, w_list):
         return self.unerase(w_list.lstorage)
+
+    def _safe_find(self, w_list, obj, start, stop):
+        from rpython.rlib.rfloat import isnan
+        from rpython.rlib.longlong2float import float2longlong
+        #
+        l = self.unerase(w_list.lstorage)
+        stop = min(stop, len(l))
+        if not isnan(obj):
+            for i in range(start, stop):
+                val = l[i]
+                if val == obj:
+                    return i
+        else:
+            search = float2longlong(obj)
+            for i in range(start, stop):
+                val = l[i]
+                if float2longlong(val) == search:
+                    return i
+        raise ValueError
 
 
 class BytesListStrategy(ListStrategy):

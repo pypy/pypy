@@ -65,9 +65,9 @@ class CFuncPtr(_CData):
     _restype_ = None
     _errcheck_ = None
     _flags_ = 0
-    _ffiargshape = 'P'
-    _ffishape = 'P'
-    _fficompositesize = None
+    _ffiargshape_ = 'P'
+    _ffishape_ = 'P'
+    _fficompositesize_ = None
     _ffiarray = _rawffi.Array('P')
     _needs_free = False
     callable = None
@@ -98,7 +98,7 @@ class CFuncPtr(_CData):
     argtypes = property(_getargtypes, _setargtypes)
 
     def _check_argtypes_for_fastpath(self):
-        if all([hasattr(argtype, '_ffiargshape') for argtype in self._argtypes_]):
+        if all([hasattr(argtype, '_ffiargshape_') for argtype in self._argtypes_]):
             fastpath_cls = make_fastpath_subclass(self.__class__)
             fastpath_cls.enable_fastpath_maybe(self)
 
@@ -135,7 +135,7 @@ class CFuncPtr(_CData):
             _flag = flag & PARAMFLAG_COMBINED
             if _flag == PARAMFLAG_FOUT:
                 typ = self._argtypes_[idx]
-                if getattr(typ, '_ffiargshape', None) not in ('P', 'z', 'Z'):
+                if getattr(typ, '_ffiargshape_', None) not in ('P', 'z', 'Z'):
                     raise TypeError(
                         "'out' parameter %d must be a pointer type, not %s"
                         % (idx+1, type(typ).__name__)
@@ -182,11 +182,11 @@ class CFuncPtr(_CData):
     def _ffishapes(self, args, restype):
         if args is None:
             args = []
-        argtypes = [arg._ffiargshape for arg in args]
+        argtypes = [arg._ffiargshape_ for arg in args]
         if restype is not None:
             if not isinstance(restype, SimpleType):
                 raise TypeError("invalid result type for callback function")
-            restype = restype._ffiargshape
+            restype = restype._ffiargshape_
         else:
             restype = 'O' # void
         return argtypes, restype
@@ -599,7 +599,7 @@ class CFuncPtr(_CData):
         if self._is_primitive(restype) and not restype._is_pointer_like():
             return result
         #
-        shape = restype._ffishape
+        shape = restype._ffishape_
         if is_struct_shape(shape):
             buf = result
         else:

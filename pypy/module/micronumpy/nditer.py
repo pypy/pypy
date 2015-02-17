@@ -1,11 +1,12 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy import ufuncs, support, concrete
+from pypy.module.micronumpy import support, concrete
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.descriptor import decode_w_dtype
-from pypy.module.micronumpy.iterators import ArrayIter, SliceIter, OpFlag
+from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 
@@ -34,6 +35,16 @@ def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
             ret.append(op_flag)
     return ret
 
+
+class OpFlag(object):
+    def __init__(self):
+        self.rw = ''
+        self.broadcast = True
+        self.force_contig = False
+        self.force_align = False
+        self.native_byte_order = False
+        self.tmp_copy = ''
+        self.allocate = False
 
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
@@ -141,11 +152,71 @@ def is_backward(imp, order):
         raise NotImplementedError('not implemented yet')
 
 
-def get_iter(space, order, arr, shape, dtype, op_flags):
+class OperandIter(ArrayIter):
+    _immutable_fields_ = ['slice_shape', 'slice_stride', 'slice_backstride',
+                          'operand_type', 'base']
+
+    def getitem(self, state):
+        # cannot be called - must return a boxed value
+        assert False
+
+    def getitem_bool(self, state):
+        # cannot be called - must return a boxed value
+        assert False
+
+    def setitem(self, state, elem):
+        # cannot be called - must return a boxed value
+        assert False
+
+
+class ConcreteIter(OperandIter):
+    def __init__(self, array, size, shape, strides, backstrides,
+                 op_flags, base):
+        OperandIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape =[] 
+        self.slice_stride = []
+        self.slice_backstride = []
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.ConcreteNonWritableArrayWithBase
+        else:
+            self.operand_type = concrete.ConcreteArrayWithBase
+        self.base = base
+
+    def getoperand(self, state):
+        assert state.iterator is self
+        impl = self.operand_type
+        res = impl([], self.array.dtype, self.array.order, [], [],
+                   self.array.storage, self.base)
+        res.start = state.offset
+        return res
+
+
+class SliceIter(OperandIter):
+    def __init__(self, array, size, shape, strides, backstrides, slice_shape,
+                 slice_stride, slice_backstride, op_flags, base):
+        OperandIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape = slice_shape
+        self.slice_stride = slice_stride
+        self.slice_backstride = slice_backstride
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.NonWritableSliceArray
+        else:
+            self.operand_type = concrete.SliceArray
+        self.base = base
+
+    def getoperand(self, state):
+        assert state.iterator is self
+        impl = self.operand_type
+        arr = impl(state.offset, self.slice_stride, self.slice_backstride,
+                   self.slice_shape, self.array, self.base)
+        return arr
+
+
+def get_iter(space, order, arr, shape, dtype, op_flags, base):
     imp = arr.implementation
     backward = is_backward(imp, order)
     if arr.is_scalar():
-        return ArrayIter(imp, 1, [], [], [], op_flags=op_flags)
+        return ConcreteIter(imp, 1, [], [], [], op_flags, base)
     if (imp.strides[0] < imp.strides[-1] and not backward) or \
        (imp.strides[0] > imp.strides[-1] and backward):
         # flip the strides. Is this always true for multidimension?
@@ -160,7 +231,10 @@ def get_iter(space, order, arr, shape, dtype, op_flags):
         backstrides = imp.backstrides
     r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                     shape, backward)
-    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1], op_flags=op_flags)
+    if len(shape) != len(r[0]):
+        # shape can be shorter when using an external loop, just return a view
+        return ConcreteIter(imp, imp.get_size(), imp.shape, r[0], r[1], op_flags, base)
+    return ConcreteIter(imp, imp.get_size(), shape, r[0], r[1], op_flags, base)
 
 def calculate_ndim(op_in, oa_ndim):
     if oa_ndim >=0:
@@ -178,10 +252,6 @@ def coalesce_axes(it, space):
     # Copy logic from npyiter_coalesce_axes, used in ufunc iterators
     # and in nditer's with 'external_loop' flag
     can_coalesce = True
-    if it.order == 'F':
-        fastest = 0
-    else:
-        fastest = -1
     for idim in range(it.ndim - 1):
         for op_it, _ in it.iters:
             if op_it is None:
@@ -200,27 +270,8 @@ def coalesce_axes(it, space):
                 break
         if can_coalesce:
             for i in range(len(it.iters)):
-                old_iter = it.iters[i][0]
-                shape = [s+1 for s in old_iter.shape_m1]
-                strides = old_iter.strides
-                backstrides = old_iter.backstrides
-                if it.order == 'F':
-                    new_shape = shape[1:]
-                    new_strides = strides[1:]
-                    new_backstrides = backstrides[1:]
-                    _stride = min(strides[0], old_iter.slice_stride)
-                else:
-                    new_shape = shape[:-1]
-                    new_strides = strides[:-1]
-                    new_backstrides = backstrides[:-1]
-                    _stride = old_iter.slice_stride
-                # We always want the "fastest" iterator in external loops
-                _shape = shape[fastest] * old_iter.slice_shape
-                _backstride = (_shape - 1) * _stride
-                new_iter = SliceIter(old_iter.array, old_iter.size / shape[fastest],
-                            new_shape, new_strides, new_backstrides,
-                            _shape, _stride, _backstride,
-                            it.op_flags[i], it)
+                new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it,
+                                         it.order)
                 it.iters[i] = (new_iter, new_iter.reset())
             if len(it.shape) > 1:
                 if it.order == 'F':
@@ -229,26 +280,12 @@ def coalesce_axes(it, space):
                     it.shape = it.shape[:-1]
             else:
                 it.shape = [1]
+
         else:
             break
     # Always coalesce at least one
     for i in range(len(it.iters)):
-        old_iter = it.iters[i][0]
-        shape = [s+1 for s in old_iter.shape_m1]
-        strides = old_iter.strides
-        backstrides = old_iter.backstrides
-        new_shape = shape[:-1]
-        new_strides = strides[:-1]
-        new_backstrides = backstrides[:-1]
-        _shape = shape[-1] * old_iter.slice_shape
-        # use the operand's iterator's rightmost stride,
-        # even if it is not the fastest (for 'F' or swapped axis)
-        _stride = old_iter.slice_stride
-        _backstride = (_shape - 1) * _stride
-        new_iter = SliceIter(old_iter.array, old_iter.size / shape[-1],
-                    new_shape, new_strides, new_backstrides,
-                    _shape, _stride, _backstride,
-                    it.op_flags[i], it)
+        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C')
         it.iters[i] = (new_iter, new_iter.reset())
     if len(it.shape) > 1:
         if it.order == 'F':
@@ -258,14 +295,55 @@ def coalesce_axes(it, space):
     else:
         it.shape = [1]
 
+
+def coalesce_iter(old_iter, op_flags, it, order, flat=True):
+    '''
+    We usually iterate through an array one value at a time.
+    But after coalesce(), getoperand() will return a slice by removing
+    the fastest varying dimension(s) from the beginning or end of the shape.
+    If flat is true, then the slice will be 1d, otherwise stack up the shape of
+    the fastest varying dimension in the slice, so an iterator of a  'C' array 
+    of shape (2,4,3) after two calls to coalesce will iterate 2 times over a slice
+    of shape (4,3) by setting the offset to the beginning of the data at each iteration
+    '''
+    shape = [s+1 for s in old_iter.shape_m1]
+    strides = old_iter.strides
+    backstrides = old_iter.backstrides
+    if order == 'F':
+        new_shape = shape[1:]
+        new_strides = strides[1:]
+        new_backstrides = backstrides[1:]
+        _stride = old_iter.slice_stride + [strides[0]]
+        _shape =  old_iter.slice_shape + [shape[0]]
+        _backstride = old_iter.slice_backstride + [strides[0] * (shape[0] - 1)]
+        fastest = shape[0]
+    else:
+        new_shape = shape[:-1]
+        new_strides = strides[:-1]
+        new_backstrides = backstrides[:-1]
+        # use the operand's iterator's rightmost stride,
+        # even if it is not the fastest (for 'F' or swapped axis)
+        _stride = [strides[-1]] + old_iter.slice_stride
+        _shape = [shape[-1]]  + old_iter.slice_shape
+        _backstride = [(shape[-1] - 1) * strides[-1]] + old_iter.slice_backstride
+        fastest = shape[-1]
+    if flat:
+        _shape = [support.product(_shape)]
+        if len(_stride) > 1:
+            _stride = [min(_stride[0], _stride[1])]
+        _backstride = [(shape[0] - 1) * _stride[0]]
+    return SliceIter(old_iter.array, old_iter.size / fastest,
+                new_shape, new_strides, new_backstrides,
+                _shape, _stride, _backstride, op_flags, it)
+
 class IndexIterator(object):
     def __init__(self, shape, backward=False):
         self.shape = shape
         self.index = [0] * len(shape)
         self.backward = backward
 
+    @jit.unroll_safe
     def next(self):
-        # TODO It's probably possible to refactor all the "next" method from each iterator
         for i in range(len(self.shape) - 1, -1, -1):
             if self.index[i] < self.shape[i] - 1:
                 self.index[i] += 1
@@ -287,8 +365,10 @@ class IndexIterator(object):
 
 class W_NDIter(W_Root):
     _immutable_fields_ = ['ndim', ]
-    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting,
-                 w_op_axes, w_itershape, w_buffersize, order):
+    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
+        from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
+        
         self.order = order
         self.external_loop = False
         self.buffered = False
@@ -340,7 +420,11 @@ class W_NDIter(W_Root):
             out_shape = shape_agreement_multiple(space, [self.seq[i] for i in outargs])
         else:
             out_shape = None
-        self.shape = shape_agreement_multiple(space, self.seq,
+        if space.isinstance_w(w_itershape, space.w_tuple) or \
+           space.isinstance_w(w_itershape, space.w_list):
+            self.shape = [space.int_w(i) for i in space.listview(w_itershape)]
+        else:
+            self.shape = shape_agreement_multiple(space, self.seq,
                                                            shape=out_shape)
         if len(outargs) > 0:
             # Make None operands writeonly and flagged for allocation
@@ -354,7 +438,7 @@ class W_NDIter(W_Root):
                         continue
                     if self.op_flags[i].rw == 'w':
                         continue
-                    out_dtype = ufuncs.find_binop_result_dtype(
+                    out_dtype = find_binop_result_dtype(
                         space, self.seq[i].get_dtype(), out_dtype)
             for i in outargs:
                 if self.seq[i] is None:
@@ -397,7 +481,7 @@ class W_NDIter(W_Root):
         self.iters = []
         for i in range(len(self.seq)):
             it = get_iter(space, self.order, self.seq[i], self.shape,
-                          self.dtypes[i], self.op_flags[i])
+                          self.dtypes[i], self.op_flags[i], self)
             it.contiguous = False
             self.iters.append((it, it.reset()))
 
@@ -436,7 +520,7 @@ class W_NDIter(W_Root):
         return space.wrap(self)
 
     def getitem(self, it, st):
-        res = it.getoperand(st, self)
+        res = it.getoperand(st)
         return W_NDimArray(res)
 
     def descr_getitem(self, space, w_idx):
@@ -454,6 +538,7 @@ class W_NDIter(W_Root):
     def descr_len(self, space):
         space.wrap(len(self.iters))
 
+    @jit.unroll_safe
     def descr_next(self, space):
         for it, st in self.iters:
             if not it.done(st):
@@ -575,14 +660,14 @@ class W_NDIter(W_Root):
 @unwrap_spec(w_flags=WrappedDefault(None), w_op_flags=WrappedDefault(None),
              w_op_dtypes=WrappedDefault(None), order=str,
              w_casting=WrappedDefault(None), w_op_axes=WrappedDefault(None),
-             w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(None))
-def descr__new__(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, w_buffersize, order='K'):
+             w_itershape=WrappedDefault(None), buffersize=int)
+def descr_new_nditer(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                    w_itershape, w_buffersize, order)
+                    w_itershape, buffersize, order)
 
 W_NDIter.typedef = TypeDef('numpy.nditer',
-    __new__ = interp2app(descr__new__),
+    __new__ = interp2app(descr_new_nditer),
 
     __iter__ = interp2app(W_NDIter.descr_iter),
     __getitem__ = interp2app(W_NDIter.descr_getitem),

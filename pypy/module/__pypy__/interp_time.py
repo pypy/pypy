@@ -1,7 +1,7 @@
 from __future__ import with_statement
 import sys
 
-from pypy.interpreter.error import exception_from_errno
+from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -48,11 +48,13 @@ if HAS_CLOCK_GETTIME:
 
     c_clock_gettime = rffi.llexternal("clock_gettime",
         [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
-        compilation_info=CConfig._compilation_info_, releasegil=False
+        compilation_info=CConfig._compilation_info_, releasegil=False,
+        save_err=rffi.RFFI_SAVE_ERRNO
     )
     c_clock_getres = rffi.llexternal("clock_getres",
         [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
-        compilation_info=CConfig._compilation_info_, releasegil=False
+        compilation_info=CConfig._compilation_info_, releasegil=False,
+        save_err=rffi.RFFI_SAVE_ERRNO
     )
 
     @unwrap_spec(clk_id="c_int")
@@ -60,7 +62,7 @@ if HAS_CLOCK_GETTIME:
         with lltype.scoped_alloc(TIMESPEC) as tp:
             ret = c_clock_gettime(clk_id, tp)
             if ret != 0:
-                raise exception_from_errno(space, space.w_IOError)
+                raise exception_from_saved_errno(space, space.w_IOError)
             return space.wrap(int(tp.c_tv_sec) + 1e-9 * int(tp.c_tv_nsec))
 
     @unwrap_spec(clk_id="c_int")
@@ -68,5 +70,5 @@ if HAS_CLOCK_GETTIME:
         with lltype.scoped_alloc(TIMESPEC) as tp:
             ret = c_clock_getres(clk_id, tp)
             if ret != 0:
-                raise exception_from_errno(space, space.w_IOError)
+                raise exception_from_saved_errno(space, space.w_IOError)
             return space.wrap(int(tp.c_tv_sec) + 1e-9 * int(tp.c_tv_nsec))

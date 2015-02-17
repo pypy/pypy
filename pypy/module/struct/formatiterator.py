@@ -65,26 +65,24 @@ class PackFormatIterator(FormatIterator):
             w_index = w_obj
         else:
             w_index = None
-            w_index_method = space.lookup(w_obj, "__index__")
-            if w_index_method is not None:
+            if space.lookup(w_obj, '__index__'):
                 try:
                     w_index = space.index(w_obj)
                 except OperationError, e:
                     if not e.match(space, space.w_TypeError):
                         raise
                     pass
+            if w_index is None and space.lookup(w_obj, '__int__'):
+                if space.isinstance_w(w_obj, space.w_float):
+                    msg = "integer argument expected, got float"
+                else:
+                    msg = "integer argument expected, got non-integer" \
+                          " (implicit conversion using __int__ is deprecated)"
+                space.warn(space.wrap(msg), space.w_DeprecationWarning)
+                w_index = space.int(w_obj)   # wrapped float -> wrapped int or long
             if w_index is None:
-                w_index = self._maybe_float(w_obj)
+                raise StructError("cannot convert argument to integer")
         return getattr(space, meth)(w_index)
-
-    def _maybe_float(self, w_obj):
-        space = self.space
-        if space.isinstance_w(w_obj, space.w_float):
-            msg = "struct: integer argument expected, got float"
-        else:
-            msg = "integer argument expected, got non-integer"
-        space.warn(space.wrap(msg), space.w_DeprecationWarning)
-        return space.int(w_obj)   # wrapped float -> wrapped int or long
 
     def accept_bool_arg(self):
         w_obj = self.accept_obj_arg()
@@ -100,7 +98,12 @@ class PackFormatIterator(FormatIterator):
 
     def accept_float_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.float_w(w_obj)
+        try:
+            return self.space.float_w(w_obj)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_TypeError):
+                raise StructError("required argument is not a float")
+            raise
 
 
 class UnpackFormatIterator(FormatIterator):

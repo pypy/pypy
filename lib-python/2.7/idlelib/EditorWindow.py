@@ -1,6 +1,6 @@
 import sys
 import os
-from platform import python_version
+import platform
 import re
 import imp
 from Tkinter import *
@@ -21,6 +21,8 @@ from idlelib import macosxSupport
 
 # The default tab setting for a Text widget, in average-width characters.
 TK_TABWIDTH_DEFAULT = 8
+
+_py_version = ' (%s)' % platform.python_version()
 
 def _sphinx_version():
     "Format sys.version_info to produce the Sphinx version string used to install the chm docs"
@@ -151,7 +153,7 @@ class EditorWindow(object):
                     # Safari requires real file:-URLs
                     EditorWindow.help_url = 'file://' + EditorWindow.help_url
             else:
-                EditorWindow.help_url = "http://docs.python.org/%d.%d" % sys.version_info[:2]
+                EditorWindow.help_url = "https://docs.python.org/%d.%d/" % sys.version_info[:2]
         currentTheme=idleConf.CurrentTheme()
         self.flist = flist
         root = root or flist.root
@@ -214,6 +216,8 @@ class EditorWindow(object):
         text.bind("<<python-docs>>", self.python_docs)
         text.bind("<<about-idle>>", self.about_dialog)
         text.bind("<<open-config-dialog>>", self.config_dialog)
+        text.bind("<<open-config-extensions-dialog>>",
+                  self.config_extensions_dialog)
         text.bind("<<open-module>>", self.open_module)
         text.bind("<<do-nothing>>", lambda event: "break")
         text.bind("<<select-all>>", self.select_all)
@@ -568,6 +572,8 @@ class EditorWindow(object):
 
     def config_dialog(self, event=None):
         configDialog.ConfigDialog(self.top,'Settings')
+    def config_extensions_dialog(self, event=None):
+        configDialog.ConfigExtensionsDialog(self.top)
 
     def help_dialog(self, event=None):
         if self.root:
@@ -691,30 +697,29 @@ class EditorWindow(object):
             return
         # XXX Ought to insert current file's directory in front of path
         try:
-            (f, file, (suffix, mode, type)) = _find_module(name)
+            (f, file_path, (suffix, mode, mtype)) = _find_module(name)
         except (NameError, ImportError) as msg:
             tkMessageBox.showerror("Import error", str(msg), parent=self.text)
             return
-        if type != imp.PY_SOURCE:
+        if mtype != imp.PY_SOURCE:
             tkMessageBox.showerror("Unsupported type",
                 "%s is not a source module" % name, parent=self.text)
             return
         if f:
             f.close()
         if self.flist:
-            self.flist.open(file)
+            self.flist.open(file_path)
         else:
-            self.io.loadfile(file)
+            self.io.loadfile(file_path)
+        return file_path
 
     def open_class_browser(self, event=None):
         filename = self.io.filename
-        if not filename:
-            tkMessageBox.showerror(
-                "No filename",
-                "This buffer has no associated filename",
-                master=self.text)
-            self.text.focus_set()
-            return None
+        if not (self.__class__.__name__ == 'PyShellEditorWindow'
+                and filename):
+            filename = self.open_module()
+            if filename is None:
+                return
         head, tail = os.path.split(filename)
         base, ext = os.path.splitext(tail)
         from idlelib import ClassBrowser
@@ -779,7 +784,7 @@ class EditorWindow(object):
         self.color = None
 
     def ResetColorizer(self):
-        "Update the colour theme"
+        "Update the color theme"
         # Called from self.filename_change_hook and from configDialog.py
         self._rmcolorizer()
         self._addcolorizer()
@@ -944,7 +949,7 @@ class EditorWindow(object):
         short = self.short_title()
         long = self.long_title()
         if short and long:
-            title = short + " - " + long
+            title = short + " - " + long + _py_version
         elif short:
             title = short
         elif long:
@@ -968,14 +973,13 @@ class EditorWindow(object):
         self.undo.reset_undo()
 
     def short_title(self):
-        pyversion = "Python " + python_version() + ": "
         filename = self.io.filename
         if filename:
             filename = os.path.basename(filename)
         else:
             filename = "Untitled"
         # return unicode string to display non-ASCII chars correctly
-        return pyversion + self._filename_to_unicode(filename)
+        return self._filename_to_unicode(filename)
 
     def long_title(self):
         # return unicode string to display non-ASCII chars correctly
@@ -1711,7 +1715,8 @@ def fixwordbreaks(root):
     tk.call('set', 'tcl_nonwordchars', '[^a-zA-Z0-9_]')
 
 
-def _editor_window(parent):
+def _editor_window(parent):  # htest #
+    # error if close master window first - timer event, after script
     root = parent
     fixwordbreaks(root)
     if sys.argv[1:]:
@@ -1721,7 +1726,8 @@ def _editor_window(parent):
     macosxSupport.setupApp(root, None)
     edit = EditorWindow(root=root, filename=filename)
     edit.text.bind("<<close-all-windows>>", edit.close_event)
-    parent.mainloop()
+    # Does not stop error, neither does following
+    # edit.text.bind("<<close-window>>", edit.close_event)
 
 
 if __name__ == '__main__':

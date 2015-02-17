@@ -308,7 +308,9 @@ def main():
                 samefile = this_exe.samefile(exe_name)
                 assert not samefile, (
                     'Output file %s is the currently running '
-                    'interpreter (use --output=...)' % exe_name)
+                    'interpreter (please move the executable, and '
+                    'possibly its associated libpypy-c, somewhere else '
+                    'before you execute it)' % exe_name)
             except EnvironmentError:
                 pass
 

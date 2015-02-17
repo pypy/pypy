@@ -244,26 +244,19 @@ def unmarshal_complex_bin(space, u, tc):
     return space.newcomplex(real, imag)
 
 
-# XXX currently, intern() is at applevel,
-# and there is no interface to get at the
-# internal table.
-# Move intern to interplevel and add a flag
-# to strings.
-def PySTRING_CHECK_INTERNED(w_str):
-    return False
-
 @marshaller(W_BytesObject)
 def marshal_bytes(space, w_str, m):
     s = space.str_w(w_str)
-    if m.version >= 1 and PySTRING_CHECK_INTERNED(w_str):
+    if m.version >= 1 and space.is_interned_str(s):
         # we use a native rtyper stringdict for speed
-        idx = m.stringtable.get(s, -1)
-        if idx >= 0:
-            m.atom_int(TYPE_STRINGREF, idx)
-        else:
+        try:
+            idx = m.stringtable[s]
+        except KeyError:
             idx = len(m.stringtable)
             m.stringtable[s] = idx
             m.atom_str(TYPE_INTERNED, s)
+        else:
+            m.atom_int(TYPE_STRINGREF, idx)
     else:
         m.atom_str(TYPE_STRING, s)
 
@@ -273,10 +266,8 @@ def unmarshal_bytes(space, u, tc):
 
 @unmarshaller(TYPE_INTERNED)
 def unmarshal_interned(space, u, tc):
-    w_ret = space.wrap(u.get_str())
+    w_ret = space.new_interned_str(u.get_str())
     u.stringtable_w.append(w_ret)
-    w_intern = space.builtin.get('intern')
-    space.call_function(w_intern, w_ret)
     return w_ret
 
 @unmarshaller(TYPE_STRINGREF)
@@ -338,6 +329,12 @@ def unmarshal_NULL(self, u, tc):
     return None
 
 
+def _put_interned_str_list(space, m, strlist):
+    lst = [None] * len(strlist)
+    for i in range(len(strlist)):
+        lst[i] = space.new_interned_str(strlist[i])
+    m.put_tuple_w(TYPE_TUPLE, lst)
+
 @marshaller(PyCode)
 def marshal_pycode(space, w_pycode, m):
     m.start(TYPE_CODE)
@@ -348,19 +345,18 @@ def marshal_pycode(space, w_pycode, m):
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
-    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w[:])
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, [space.str_w(w_name) for w_name in x.co_names_w])
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_varnames)
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_freevars)
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_cellvars)
-    m.atom_str(TYPE_INTERNED, x.co_filename)
-    m.atom_str(TYPE_INTERNED, x.co_name)
+    m.put_tuple_w(TYPE_TUPLE, x.co_consts_w)
+    m.put_tuple_w(TYPE_TUPLE, x.co_names_w)
+    _put_interned_str_list(space, m, x.co_varnames)
+    _put_interned_str_list(space, m, x.co_freevars)
+    _put_interned_str_list(space, m, x.co_cellvars)
+    m.put_w_obj(space.new_interned_str(x.co_filename))
+    m.put_w_obj(space.new_interned_str(x.co_name))
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
-# helper for unmarshalling string lists of code objects.
-# unfortunately they now can be interned or referenced,
-# so we no longer can handle it in interp_marshal.atom_strlist
+# helper for unmarshalling "tuple of string" objects
+# into rpython-level lists of strings.  Only for code objects.
 
 def unmarshal_str(u):
     w_obj = u.get_w_obj()

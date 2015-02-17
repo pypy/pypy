@@ -2,6 +2,9 @@
 /************************************************************/
  /***  C header subsection: support functions              ***/
 
+#ifndef _SRC_SUPPORT_H
+#define _SRC_SUPPORT_H
+
 #define RUNNING_ON_LLINTERP	0
 #define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
 
@@ -65,3 +68,5 @@ void RPyAbort(void);
 #  define RPyNLenItem(array, index)          ((array)->items[index])
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif
+
+#endif  /* _SRC_SUPPORT_H */

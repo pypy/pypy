@@ -7,7 +7,7 @@ Getting Started with RPython
 
     Please `read this FAQ entry`_ first!
 
-.. _`read this FAQ entry`: http://doc.pypy.org/en/latest/faq.html#do-i-have-to-rewrite-my-programs-in-rpython
+.. _`read this FAQ entry`: http://rpython.readthedocs.org/en/latest/faq.html#do-i-have-to-rewrite-my-programs-in-rpython
 
 RPython is a subset of Python that can be statically compiled. The PyPy
 interpreter is written mostly in RPython (with pieces in Python), while

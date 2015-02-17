@@ -617,7 +617,7 @@ def remove_identical_vars_SSA(graph):
             if simplify_phis(block):
                 progress = True
 
-    renaming = {key: uf[key].rep for key in uf}
+    renaming = dict((key, uf[key].rep) for key in uf)
     for block, links in entrymap.items():
         if inputs[block]:
             new_inputs, new_args = zip(*inputs[block])
@@ -1072,7 +1072,7 @@ class ListComprehensionDetector(object):
                         link.target in stopblocks):
                         hints['exactlength'] = True
                     chints = Constant(hints)
-                    newblock = unsimplify.insert_empty_block(None, link)
+                    newblock = unsimplify.insert_empty_block(link)
                     index = link.args.index(vlist)
                     vlist2 = newblock.inputargs[index]
                     vlist3 = Variable(vlist2)

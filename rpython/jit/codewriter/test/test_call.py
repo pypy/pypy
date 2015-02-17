@@ -206,7 +206,8 @@ def test_call_release_gil():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
     T = rffi.CArrayPtr(rffi.TIME_T)
-    external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True)
+    external = rffi.llexternal("time", [T], rffi.TIME_T, releasegil=True,
+                               save_err=rffi.RFFI_SAVE_ERRNO)
 
     # no jit.dont_look_inside in this test
     def f():
@@ -220,12 +221,16 @@ def test_call_release_gil():
     [llext_graph] = [x for x in res if x.func is external]
     [block, _] = list(llext_graph.iterblocks())
     [op] = block.operations
-    call_target = op.args[0].value._obj.graph.func._call_aroundstate_target_
+    tgt_tuple = op.args[0].value._obj.graph.func._call_aroundstate_target_
+    assert type(tgt_tuple) is tuple and len(tgt_tuple) == 2
+    call_target, saveerr = tgt_tuple
+    assert saveerr == rffi.RFFI_SAVE_ERRNO
     call_target = llmemory.cast_ptr_to_adr(call_target)
     call_descr = cc.getcalldescr(op)
     assert call_descr.extrainfo.has_random_effects()
     assert call_descr.extrainfo.is_call_release_gil() is True
-    assert call_descr.extrainfo.call_release_gil_target == call_target
+    assert call_descr.extrainfo.call_release_gil_target == (
+        call_target, rffi.RFFI_SAVE_ERRNO)
 
 def test_random_effects_on_stacklet_switch():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU

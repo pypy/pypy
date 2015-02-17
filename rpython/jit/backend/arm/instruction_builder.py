@@ -379,7 +379,6 @@ def define_simd_instructions_3regs_func(name, table):
                 | Q << 6
                 | M << 5
                 | (dm & 0xf))
-        
         self.write32(instr)
     return f
 

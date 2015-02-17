@@ -274,8 +274,7 @@ class W_ComplexObject(W_Root):
         return space.newlong_from_rbigint(val)
 
     def int(self, space):
-        raise oefmt(space.w_TypeError,
-                    "can't convert complex to int; use int(abs(z))")
+        raise oefmt(space.w_TypeError, "can't convert complex to int")
 
     def _to_complex(self, space, w_obj):
         if isinstance(w_obj, W_ComplexObject):
@@ -381,8 +380,7 @@ class W_ComplexObject(W_Root):
         return space.newbool((self.realval != 0.0) or (self.imagval != 0.0))
 
     def descr_float(self, space):
-        raise oefmt(space.w_TypeError,
-                    "can't convert complex to float; use abs(z)")
+        raise oefmt(space.w_TypeError, "can't convert complex to float")
 
     def descr_neg(self, space):
         return W_ComplexObject(-self.realval, -self.imagval)
@@ -603,6 +601,7 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __coerce__ = interp2app(W_ComplexObject.descr_coerce),
     __format__ = interp2app(W_ComplexObject.descr_format),
     __nonzero__ = interp2app(W_ComplexObject.descr_nonzero),
+    __int__ = interp2app(W_ComplexObject.int),
     __float__ = interp2app(W_ComplexObject.descr_float),
     __neg__ = interp2app(W_ComplexObject.descr_neg),
     __pos__ = interp2app(W_ComplexObject.descr_pos),

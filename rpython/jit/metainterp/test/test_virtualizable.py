@@ -1645,6 +1645,62 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(f, [], listops=True)
         assert res == -101
 
+    def test_same_virtualizable_for_two_invocations(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        driver = JitDriver(greens=['k'], reds=['a'], virtualizables=['a'])
+
+        def foo(a, k):
+            while True:
+                driver.jit_merge_point(a=a, k=k)
+                if k == 99:
+                    return 61
+                if a.x <= k:
+                    return 0
+                a.x -= 1
+
+        def f():
+            # first, compile foo(k=2) fully, including the exit bridge
+            for i in range(10):
+                a = A(5)
+                foo(a, 2)
+            #
+            for i in range(5):
+                # then take a 'a' still virtualized
+                a = A(5)
+                foo(a, 2)
+                # and use it in foo(k=99), which will be compiled (as a
+                # trivial finish) if we repeat the whole procedure a
+                # few times
+                foo(a, 99)
+            #
+            return 0
+
+        res = self.meta_interp(f, [], listops=True)
+        assert res == 0
+
+    def test_constant_virtualizable(self):
+        class A:
+            _virtualizable_ = ['x']
+            def __init__(self, x):
+                self.x = x
+
+        driver = JitDriver(greens=['b'], reds=['a'], virtualizables=['a'])
+
+        def f():
+            a = A(10)
+            b = promote(a)
+            while a.x > 0:
+                driver.jit_merge_point(a=a, b=b)
+                a.x = b.x - 1
+            return a.x
+
+        res = self.meta_interp(f, [], listops=True)
+        assert res == 0
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,

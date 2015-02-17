@@ -19,7 +19,7 @@ def test_cffi_handles_1():
         pwr = PseudoWeakRef()
         expected_content[index] = pwr
         ch.handles[index] = pwr
-    assert len(ch.handles) < 13500
+    assert len(ch.handles) <= 16384
     for index, pwr in expected_content.items():
         assert ch.handles[index] is pwr
 

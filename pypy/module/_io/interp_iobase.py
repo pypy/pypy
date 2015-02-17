@@ -385,20 +385,22 @@ class AutoFlusher(rweaklist.RWeakListMixin):
     def flush_all(self, space):
         while True:
             handles = self.get_all_handles()
-            if len(handles) == 0:
-                break
             self.initialize()  # reset the state here
+            progress = False
             for wr in handles:
                 w_iobase = wr()
                 if w_iobase is None:
                     continue
+                progress = True
                 try:
                     space.call_method(w_iobase, 'flush')
                 except OperationError:
                     # Silencing all errors is bad, but getting randomly
                     # interrupted here is equally as bad, and potentially
                     # more frequent (because of shutdown issues).
-                    pass 
+                    pass
+            if not progress:
+                break
 
 def get_autoflusher(space):
     return space.fromcache(AutoFlusher)

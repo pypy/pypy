@@ -127,6 +127,9 @@ class StdObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
+    def wrapbytes(self, x):
+        return wrapstr(self, x)
+
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
         # You might notice that this function is rather conspicuously
@@ -287,6 +290,9 @@ class StdObjSpace(ObjSpace):
 
     def newlist_unicode(self, list_u):
         return W_ListObject.newlist_unicode(self, list_u)
+
+    def newlist_int(self, list_i):
+        return W_ListObject.newlist_int(self, list_i)
 
     def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):

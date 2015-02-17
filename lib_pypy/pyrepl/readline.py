@@ -73,6 +73,7 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
     assume_immutable_completions = False
     use_brackets = False
     sort_in_column = True
+    tab_insert_spaces_if_stem_is_empty = False
 
     def error(self, msg="none"):
         pass    # don't show error messages by default
@@ -86,6 +87,13 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
         return ''.join(b[p+1:self.pos])
 
     def get_completions(self, stem):
+        if len(stem) == 0 and self.tab_insert_spaces_if_stem_is_empty:
+            b = self.buffer
+            p = self.pos
+            while p > 0 and b[p - 1] != '\n':
+                p -= 1
+            num_spaces = 4 - ((self.pos - p) % 4)
+            return [' ' * num_spaces]
         result = []
         function = self.config.readline_completer
         if function is not None:
@@ -204,14 +212,15 @@ class _ReadlineWrapper(object):
         boolean value is true.
         """
         reader = self.get_reader()
-        saved = reader.more_lines
+        saved = reader.more_lines, reader.tab_insert_spaces_if_stem_is_empty
         try:
             reader.more_lines = more_lines
             reader.ps1 = reader.ps2 = ps1
             reader.ps3 = reader.ps4 = ps2
+            reader.tab_insert_spaces_if_stem_is_empty = True
             return reader.readline(returns_unicode=returns_unicode)
         finally:
-            reader.more_lines = saved
+            reader.more_lines, reader.tab_insert_spaces_if_stem_is_empty = saved
 
     def parse_and_bind(self, string):
         pass  # XXX we don't support parsing GNU-readline-style init files

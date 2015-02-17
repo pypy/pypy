@@ -5,6 +5,7 @@ from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.longlong2float import float2longlong
 
 
 class NotSpecialised(Exception):
@@ -97,6 +98,11 @@ def make_specialised_class(typetuple):
                         return space.w_False
                 else:
                     if myval != otherval:
+                        if typetuple[i] == float:
+                            # issue with NaNs, which should be equal here
+                            if (float2longlong(myval) ==
+                                float2longlong(otherval)):
+                                continue
                         return space.w_False
             return space.w_True
 

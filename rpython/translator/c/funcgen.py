@@ -13,6 +13,7 @@ from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
 from rpython.tool.identity_dict import identity_dict
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 
 
 LOCALVAR = 'l_%s'
@@ -652,6 +653,11 @@ class FunctionCodeGenerator(object):
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
+    def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
+        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+                '  /* length_of_simple_gcarray_from_opaque */'
+            % (self.expr(op.result), self.expr(op.args[0])))
+
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
@@ -899,5 +905,22 @@ class FunctionCodeGenerator(object):
                 self.expr(op.args[0]))
         else:
             return None    # use the default
+
+    def OP_THREADLOCALREF_GET(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        if isinstance(op.args[0], Constant):
+            assert isinstance(op.args[0].value, CDefinedIntSymbolic)
+            fieldname = op.args[0].value.expr
+            assert fieldname.startswith('RPY_TLOFS_')
+            fieldname = fieldname[10:]
+            return '%s = (%s)RPY_THREADLOCALREF_GET(%s);' % (
+                self.expr(op.result),
+                cdecl(typename, ''),
+                fieldname)
+        else:
+            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
+                cdecl(typename, ''),
+                self.expr(op.args[0]),
+                self.expr(op.result))
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

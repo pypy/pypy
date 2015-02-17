@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
-#include <errno.h>
 
 
 /*
@@ -26,15 +25,6 @@ typedef struct {
 
 static long _pypythread_stacksize = 0;
 
-/*
- * Return the thread Id instead of an handle. The Id is said to uniquely
-   identify the thread in the system
- */
-long RPyThreadGetIdent()
-{
-  return GetCurrentThreadId();
-}
-
 static void
 bootstrap(void *call)
 {
@@ -42,7 +32,7 @@ bootstrap(void *call)
 	/* copy callobj since other thread might free it before we're done */
 	void (*func)(void) = obj->func;
 
-	obj->id = RPyThreadGetIdent();
+	obj->id = GetCurrentThreadId();
 	ReleaseSemaphore(obj->done, 1, NULL);
 	func();
 }
@@ -252,10 +242,5 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 #endif
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
-
-#define SAVE_ERRNO()      int saved_errno = errno; \
-                          DWORD saved_lasterr = GetLastError()
-#define RESTORE_ERRNO()   errno = saved_errno; \
-                          SetLastError(saved_lasterr)
 
 #include "src/thread_gil.c"

@@ -41,16 +41,6 @@ from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
 
-class OpFlag(object):
-    def __init__(self):
-        self.rw = ''
-        self.broadcast = True
-        self.force_contig = False
-        self.force_align = False
-        self.native_byte_order = False
-        self.tmp_copy = ''
-        self.allocate = False
-
 
 class PureShapeIter(object):
     def __init__(self, shape, idx_w):
@@ -87,25 +77,24 @@ class PureShapeIter(object):
 
 
 class IterState(object):
-    _immutable_fields_ = ['iterator', 'index', 'indices', 'offset']
+    _immutable_fields_ = ['iterator', '_indices']
 
     def __init__(self, iterator, index, indices, offset):
         self.iterator = iterator
         self.index = index
-        self.indices = indices
+        self._indices = indices
         self.offset = offset
 
 
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',
-                          'slice_shape', 'slice_stride', 'slice_backstride',
-                          'track_index', 'operand_type', 'slice_operand_type']
+                          'track_index']
 
     track_index = True
 
-    def __init__(self, array, size, shape, strides, backstrides, op_flags=OpFlag()):
-        from pypy.module.micronumpy import concrete
+    @jit.unroll_safe
+    def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
         _update_contiguous_flags(array)
         self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
@@ -117,12 +106,6 @@ class ArrayIter(object):
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
-        self.slice_shape = 1
-        self.slice_stride = -1
-        if strides:
-            self.slice_stride = strides[-1]
-        self.slice_backstride = 1
-        self.slice_operand_type = concrete.SliceArray
 
         ndim = len(shape)
         factors = [0] * ndim
@@ -132,32 +115,35 @@ class ArrayIter(object):
             else:
                 factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
         self.factors = factors
-        if op_flags.rw == 'r':
-            self.operand_type = concrete.ConcreteNonWritableArrayWithBase
-        else:
-            self.operand_type = concrete.ConcreteArrayWithBase
 
     @jit.unroll_safe
-    def reset(self, state=None):
+    def reset(self, state=None, mutate=False):
+        index = 0
         if state is None:
             indices = [0] * len(self.shape_m1)
         else:
             assert state.iterator is self
-            indices = state.indices
+            indices = state._indices
             for i in xrange(self.ndim_m1, -1, -1):
                 indices[i] = 0
-        return IterState(self, 0, indices, self.array.start)
+        offset = self.array.start
+        if not mutate:
+            return IterState(self, index, indices, offset)
+        state.index = index
+        state.offset = offset
 
     @jit.unroll_safe
-    def next(self, state):
+    def next(self, state, mutate=False):
         assert state.iterator is self
         index = state.index
         if self.track_index:
             index += 1
-        indices = state.indices
+        indices = state._indices
         offset = state.offset
         if self.contiguous:
             offset += self.array.dtype.elsize
+        elif self.ndim_m1 == 0:
+            offset += self.strides[0]
         else:
             for i in xrange(self.ndim_m1, -1, -1):
                 idx = indices[i]
@@ -168,13 +154,18 @@ class ArrayIter(object):
                 else:
                     indices[i] = 0
                     offset -= self.backstrides[i]
-        return IterState(self, index, indices, offset)
+        if not mutate:
+            return IterState(self, index, indices, offset)
+        state.index = index
+        state.offset = offset
 
     @jit.unroll_safe
     def goto(self, index):
         offset = self.array.start
         if self.contiguous:
             offset += index * self.array.dtype.elsize
+        elif self.ndim_m1 == 0:
+            offset += index * self.strides[0]
         else:
             current = index
             for i in xrange(len(self.shape_m1)):
@@ -183,20 +174,20 @@ class ArrayIter(object):
         return IterState(self, index, None, offset)
 
     @jit.unroll_safe
-    def update(self, state):
+    def indices(self, state):
         assert state.iterator is self
         assert self.track_index
-        if not self.contiguous:
-            return state
+        indices = state._indices
+        if not (self.contiguous or self.ndim_m1 == 0):
+            return indices
         current = state.index
-        indices = state.indices
         for i in xrange(len(self.shape_m1)):
             if self.factors[i] != 0:
                 indices[i] = current / self.factors[i]
                 current %= self.factors[i]
             else:
                 indices[i] = 0
-        return IterState(self, state.index, indices, state.offset)
+        return indices
 
     def done(self, state):
         assert state.iterator is self
@@ -215,12 +206,6 @@ class ArrayIter(object):
         assert state.iterator is self
         self.array.setitem(state.offset, elem)
 
-    def getoperand(self, st, base):
-        impl = self.operand_type
-        res = impl([], self.array.dtype, self.array.order, [], [],
-                   self.array.storage, base)
-        res.start = st.offset
-        return res
 
 def AxisIter(array, shape, axis, cumulative):
     strides = array.get_strides()
@@ -244,42 +229,3 @@ def AllButAxisIter(array, axis):
         size /= shape[axis]
     shape[axis] = backstrides[axis] = 0
     return ArrayIter(array, size, shape, array.strides, backstrides)
-
-class SliceIter(ArrayIter):
-    '''
-    used with external loops, getitem and setitem return a SliceArray
-    view into the original array
-    '''
-    _immutable_fields_ = ['base', 'slice_shape[*]', 'slice_stride[*]', 'slice_backstride[*]']
-
-    def __init__(self, array, size, shape, strides, backstrides, slice_shape,
-                 slice_stride, slice_backstride, op_flags, base):
-        from pypy.module.micronumpy import concrete
-        ArrayIter.__init__(self, array, size, shape, strides, backstrides, op_flags)
-        self.slice_shape = slice_shape
-        self.slice_stride = slice_stride
-        self.slice_backstride = slice_backstride
-        self.base = base
-        if op_flags.rw == 'r':
-            self.slice_operand_type = concrete.NonWritableSliceArray
-        else:
-            self.slice_operand_type = concrete.SliceArray
-
-    def getitem(self, state):
-        # XXX cannot be called - must return a boxed value
-        assert False
-
-    def getitem_bool(self, state):
-        # XXX cannot be called - must return a boxed value
-        assert False
-
-    def setitem(self, state, elem):
-        # XXX cannot be called - must return a boxed value
-        assert False
-
-    def getoperand(self, state, base):
-        assert state.iterator is self
-        impl = self.slice_operand_type
-        arr = impl(state.offset, [self.slice_stride], [self.slice_backstride],
-                   [self.slice_shape], self.array, self.base)
-        return arr
