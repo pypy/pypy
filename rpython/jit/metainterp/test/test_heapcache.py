@@ -370,12 +370,13 @@ class TestHeapCache(object):
         # Just need the destination box for this call
         h.invalidate_caches(
             rop.CALL,
+            arraycopydescr1,
             [None, box5, box2, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            arraycopydescr,
+            arraycopydescr1,
             [None, box5, box3, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -384,7 +385,7 @@ class TestHeapCache(object):
         assert h.getarrayitem(box4, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            arraycopydescr,
+            arraycopydescr1,
             [None, box3, box5, index1, index1, index2]
         )
         assert h.getarrayitem(box4, index1, descr1) is None
