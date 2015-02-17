@@ -4,11 +4,14 @@ from rpython.jit.metainterp.resoperation import rop
 class HeapCacheValue(object):
     def __init__(self, box):
         self.box = box
+        self.likely_virtual = False
+        self.reset_keep_likely_virtual()
+
+    def reset_keep_likely_virtual(self):
         self.known_class = False
         # did we see the allocation during tracing?
         self.seen_allocation = False
         self.is_unescaped = False
-        self.likely_virtual = False
         self.nonstandard_virtualizable = False
         self.length = None
         self.dependencies = None
@@ -50,7 +53,7 @@ class HeapCache(object):
 
     def reset_keep_likely_virtuals(self):
         for value in self.values.itervalues():
-            value.is_unescaped = False
+            value.reset_keep_likely_virtual()
         self.heap_cache = {}
         self.heap_array_cache = {}
 
