@@ -868,7 +868,9 @@ class Assembler386(BaseAssembler):
             # produce a header that takes a STM_GUARD_FAILURE and jumps
             # to the target written there
             assert IS_X86_64
-            p = malloc(STM_GUARD_FAILURE)
+            p = lltype.malloc(STM_GUARD_FAILURE)
+            # xxx don't really need allocate_preexisting().  we only need
+            # some non-movable object
             p = rstm.allocate_preexisting(p)
             self.current_clt._stm_redirection = lltype.cast_opaque_ptr(
                 llmemory.GCREF, p)
@@ -992,7 +994,7 @@ class Assembler386(BaseAssembler):
         if self.cpu.gc_ll_descr.stm:
             assert oldlooptoken.redirectable
             p = oldlooptoken.compiled_loop_token._stm_redirection
-            p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE, p))
+            p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE), p)
             p.jump_target = target
             return
         #
