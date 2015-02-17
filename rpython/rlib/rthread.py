@@ -365,7 +365,6 @@ class ThreadLocalReference(ThreadLocalField):
         self.set = set
 
 
-# the order of these must be reflected in llsupport/llerrno.py
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
                                         loop_invariant=True)
 tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",

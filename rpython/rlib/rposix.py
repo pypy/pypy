@@ -172,9 +172,9 @@ def _errno_after(save_err):
     if save_err & rffi.RFFI_SAVE_ERRNO:
         from rpython.rlib import rthread
         if save_err & rffi.RFFI_ALT_ERRNO:
-            rthread.tlfield_rpy_errno.setraw(_get_errno())
-        else:
             rthread.tlfield_alt_errno.setraw(_get_errno())
+        else:
+            rthread.tlfield_rpy_errno.setraw(_get_errno())
 
 
 if os.name == 'nt':
