@@ -202,7 +202,7 @@ class Test__ffi(BaseTestPyPyC):
         assert loop.match_by_id('cfficall', """
             p96 = force_token()
             setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
-            f97 = call_release_gil(27, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """, ignore_ops=['guard_not_invalidated'])
