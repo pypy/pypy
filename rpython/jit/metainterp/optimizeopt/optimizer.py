@@ -185,7 +185,7 @@ class OptValue(object):
         if level == LEVEL_KNOWNCLASS:
             return self.known_class
         # stmgc: added "and not self.is_null()" here, it's also in default
-        # but the method was moved.  Ignore the conflict.
+        # but the method was moved.  Ignore the conflict.  (97c2a0a39120)
         elif level == LEVEL_CONSTANT and not self.is_null():
             return cpu.ts.cls_of_box(self.box)
         else:
