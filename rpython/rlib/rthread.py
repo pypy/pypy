@@ -144,9 +144,11 @@ class Lock(object):
             return res != 0
         else:
             # acquire(True): if res == 0, we must invoke the slow-path
-            # releasing the GIL.  This is done with conditional_call() to
-            # avoid JIT branches.
-            jit.conditional_call(res == 0, c_thread_acquirelock, self._lock, 1)
+            # releasing the GIL.  Too bad we can't use jit.conditional_call()
+            # here, because it can't be used with functions that can release
+            # the GIL...
+            if res == 0:
+                c_thread_acquirelock(self._lock, 1)
             return True
 
     def acquire_timed(self, timeout):
