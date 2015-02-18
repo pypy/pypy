@@ -236,6 +236,9 @@ class AppTestConnectedSSL:
 
     def test_npn_protocol(self):
         import socket, _ssl, gc
+        if not _ssl.HAS_NPN:
+            skip("NPN requires OpenSSL 1.0.1 or greater")
+
         ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
         ctx._set_npn_protocols(b'\x08http/1.1\x06spdy/2')
         ss = ctx._wrap_socket(self.s._sock, True,
