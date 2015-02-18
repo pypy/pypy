@@ -133,23 +133,16 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
-        # fast-path: try to acquire the lock without releasing the GIL
-        res = c_thread_acquirelock_timed_NOAUTO(
-            self._lock,
-            rffi.cast(rffi.LONGLONG, 0),
-            rffi.cast(rffi.INT, 0))
-        res = rffi.cast(lltype.Signed, res)
-        if not flag:
-            # acquire(False): return a boolean that says if it worked
-            return res != 0
-        else:
-            # acquire(True): if res == 0, we must invoke the slow-path
-            # releasing the GIL.  Too bad we can't use jit.conditional_call()
-            # here, because it can't be used with functions that can release
-            # the GIL...
-            if res == 0:
-                c_thread_acquirelock(self._lock, 1)
+        if flag:
+            c_thread_acquirelock(self._lock, 1)
             return True
+        else:
+            res = c_thread_acquirelock_timed_NOAUTO(
+                self._lock,
+                rffi.cast(rffi.LONGLONG, 0),
+                rffi.cast(rffi.INT, 0))
+            res = rffi.cast(lltype.Signed, res)
+            return bool(res)
 
     def acquire_timed(self, timeout):
         """Timeout is in microseconds.  Returns 0 in case of failure,
