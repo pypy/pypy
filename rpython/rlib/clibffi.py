@@ -332,6 +332,7 @@ else:
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
                                    VOIDPP], c_ffi_call_return_type,
                       save_err=rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
+# Note: the RFFI_ALT_ERRNO flag matches the one in pyjitpl.direct_libffi_call
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
@@ -424,7 +425,6 @@ def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     userdata.callback(ll_args, ll_res, userdata)
 
 def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
-    # Note these flags match the ones in pyjitpl.direct_libffi_call
     rposix._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
     _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata)
     rposix._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
