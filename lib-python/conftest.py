@@ -59,7 +59,7 @@ class RegrTest:
     def __init__(self, basename, core=False, compiler=None, usemodules='',
                  skip=None):
         self.basename = basename
-        self._usemodules = usemodules.split() + ['signal', 'rctime', 'itertools', '_socket']
+        self._usemodules = usemodules.split() + ['signal', 'time', 'itertools', '_socket']
         self._compiler = compiler
         self.core = core
         self.skip = skip
@@ -205,6 +205,7 @@ testmap = [
     RegrTest('test_email.py'),
     RegrTest('test_email_codecs.py'),
     RegrTest('test_email_renamed.py'),
+    RegrTest('test_ensurepip.py'),
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
     RegrTest('test_epoll.py'),

@@ -164,8 +164,12 @@ def test_define_not_supported_for_now():
     ffi = FFI(backend=FakeBackend())
     e = py.test.raises(CDefError, ffi.cdef, '#define FOO "blah"')
     assert str(e.value) == (
-        'only supports the syntax "#define FOO ..." (literally)'
-        ' or "#define FOO 0x1FF" for now')
+        'only supports one of the following syntax:\n'
+        '  #define FOO ...     (literally dot-dot-dot)\n'
+        '  #define FOO NUMBER  (with NUMBER an integer'
+                                    ' constant, decimal/hex/octal)\n'
+        'got:\n'
+        '  #define FOO "blah"')
 
 def test_unnamed_struct():
     ffi = FFI(backend=FakeBackend())
@@ -248,7 +252,8 @@ def test_win_common_types():
         ct = win_common_types(maxsize)
         clear_all(ct)
         for key in sorted(ct):
-            resolve_common_type(key)
+            if ct[key] != 'set-unicode-needed':
+                resolve_common_type(key)
     # assert did not crash
     # now try to use e.g. WPARAM (-> UINT_PTR -> unsigned 32/64-bit)
     for maxsize in [2**32-1, 2**64-1]:
@@ -289,3 +294,14 @@ def test__is_constant_globalvar():
         decl = ast.children()[0][1]
         node = decl.type
         assert p._is_constant_globalvar(node) == expected_output
+
+def test_enum():
+    ffi = FFI()
+    ffi.cdef("""
+        enum Enum { POS = +1, TWO = 2, NIL = 0, NEG = -1};
+        """)
+    C = ffi.dlopen(None)
+    assert C.POS == 1
+    assert C.TWO == 2
+    assert C.NIL == 0
+    assert C.NEG == -1

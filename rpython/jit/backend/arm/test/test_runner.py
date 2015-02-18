@@ -6,7 +6,8 @@ from rpython.jit.metainterp.history import (BasicFailDescr, BasicFinalDescr,
                                             BoxInt)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import JitCellToken, TargetToken

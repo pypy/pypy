@@ -109,10 +109,11 @@ def addr_from_object(family, space, w_address):
 
 # XXX Hack to seperate rpython and pypy
 def make_ushort_port(space, port):
+    assert isinstance(port, int)
     if port < 0 or port > 0xffff:
         raise OperationError(space.w_OverflowError, space.wrap(
             "port must be 0-65535."))
-    return rffi.cast(rffi.USHORT, port)
+    return port
 
 def make_unsigned_flowinfo(space, flowinfo):
     if flowinfo < 0 or flowinfo > 0xfffff:
@@ -140,6 +141,13 @@ class W_Socket(W_Root):
 
     def get_family_w(self, space):
         return space.wrap(self.sock.family)
+
+    def descr_repr(self, space):
+        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        return space.wrap("<socket object, fd=%d, family=%d,"
+                          " type=%d, protocol=%d>" %
+                          (fd, self.sock.family,
+                           self.sock.type, self.sock.proto))
 
     def accept_w(self, space):
         """accept() -> (socket object, address info)
@@ -401,8 +409,10 @@ class W_Socket(W_Root):
         The value argument can either be an integer or a string.
         """
         try:
-            optval = space.int_w(w_optval)
-        except:
+            optval = space.c_int_w(w_optval)
+        except OperationError, e:
+            if e.async(space):
+                raise
             optval = space.str_w(w_optval)
             try:
                 self.sock.setsockopt(level, optname, optval)
@@ -658,6 +668,7 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
     __weakref__ = make_weakref_descr(W_Socket),
+    __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),
     family = GetSetProperty(W_Socket.get_family_w),

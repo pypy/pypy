@@ -194,6 +194,14 @@ def oopspec(spec):
         return func
     return decorator
 
+def not_in_trace(func):
+    """A decorator for a function with no return value.  It makes the
+    function call disappear from the jit traces. It is still called in
+    interpreted mode, and by the jit tracing and blackholing, but not
+    by the final assembler."""
+    func.oopspec = "jit.not_in_trace()"   # note that 'func' may take arguments
+    return func
+
 @oopspec("jit.isconstant(value)")
 def isconstant(value):
     """
@@ -455,6 +463,7 @@ PARAMETER_DOCS = {
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
+    'max_unroll_recursion': 'how many levels deep to unroll a recursive function'
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -468,6 +477,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'enable_opts': 'all',
+              'max_unroll_recursion': 7,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -993,7 +1003,8 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import rclass, lltype
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper import rclass
 
         classrepr = rclass.get_type_repr(hop.rtyper)
 

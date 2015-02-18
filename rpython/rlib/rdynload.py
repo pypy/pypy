@@ -91,6 +91,18 @@ if not _WIN32:
             return ""
         return rffi.charp2str(res)
 
+    def _dlerror_on_dlopen_untranslated(name):
+        "NOT_RPYTHON: aaargh"
+        import ctypes
+        name = rffi.charp2str(name)
+        try:
+            ctypes.CDLL(name)
+        except OSError, e:
+            return str(e)
+        else:
+            return ("opening %r with ctypes.CDLL() works, "
+                    "but not with c_dlopen()??" % (name,))
+
     def dlopen(name, mode=-1):
         """ Wrapper around C-level dlopen
         """
@@ -103,7 +115,10 @@ if not _WIN32:
             mode |= RTLD_NOW
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
-            err = dlerror()
+            if not we_are_translated():
+                err = _dlerror_on_dlopen_untranslated(name)
+            else:
+                err = dlerror()
             raise DLOpenError(err)
         return res
 
@@ -130,7 +145,7 @@ else:  # _WIN32
         # mode is unused on windows, but a consistant signature
         res = rwin32.LoadLibrary(name)
         if not res:
-            err = rwin32.GetLastError()
+            err = rwin32.GetLastError_saved()
             raise DLOpenError(rwin32.FormatError(err))
         return res
 
@@ -158,3 +173,4 @@ else:  # _WIN32
         return res
 
     LoadLibrary = rwin32.LoadLibrary
+    GetModuleHandle = rwin32.GetModuleHandle

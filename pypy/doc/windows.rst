@@ -1,10 +1,9 @@
-===============
-PyPy on Windows
-===============
+Translating on Windows
+======================
 
-PyPy is supported on Windows platforms, starting with Windows 2000.
-The following text gives some hints about how to translate the PyPy
-interpreter.
+RPython is supported on Windows platforms, starting with Windows 2000.
+The following text gives some hints about how to translate a interpreter
+written in RPython, using PyPy as an example.
 
 PyPy supports only being translated as a 32bit program, even on
 64bit Windows.  See at the end of this page for what is missing
@@ -13,38 +12,46 @@ for a full 64bit translation.
 To build pypy-c you need a working python environment, and a C compiler.
 It is possible to translate with a CPython 2.6 or later, but this is not
 the preferred way, because it will take a lot longer to run – depending
-on your architecture, between two and three times as long. So head to 
+on your architecture, between two and three times as long. So head to
 `our downloads`_ and get the latest stable version.
 
-Microsoft Visual Studio is preferred as a compiler, but there are reports 
+Microsoft Visual Studio is preferred as a compiler, but there are reports
 of success with the mingw32 port of gcc.
+
+.. _our downloads: http://pypy.org/download.html
 
 
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the `RPython translation toolchain`_ using 
-Visual Studio 2008, Express
+We routinely test translation using Visual Studio 2008, Express
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
-for the compiler, so you do not need to run vcvars before translation.  
+for the compiler, so you do not need to run vcvars before translation.
 They will attempt to locate the same compiler version that
 was used to build the Python interpreter doing the
 translation.  Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
-using a 32 bit Python and vice versa. By default pypy is built using the 
-Multi-threaded DLL (/MD) runtime environment.
+using a 32 bit Python and vice versa. By default the interpreter is built using
+the Multi-threaded DLL (/MD) runtime environment.
 
-**Note:** PyPy is currently not supported for 64 bit Python, and translation
-will fail in this case.
+If you wish to override this detection method to use a different compiler
+(mingw or a different version of MSVC):
+
+* set up the PATH and other environment variables as needed
+* set the `CC` environment variable to compiler exe to be used,
+  for a different version of MSVC `SET CC=cl.exe`.
+
+**Note:** The RPython translator does currently not support 64 bit Python, and
+translation will fail in this case.
 
 Python and a C compiler are all you need to build pypy, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
 
-Please see the `non-windows instructions`_ for more information, especially note
+Please see the :doc:`non-windows instructions <build>` for more information, especially note
 that translation is RAM-hungry. A standard translation requires around 4GB, so
 special preparations are necessary, or you may want to use the method in the
 notes of the `build instructions`_ to reduce memory usage at the price of a
@@ -54,8 +61,11 @@ slower translation::
     pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
     set PYPY_GC_MAX_DELTA=
 
-Preping Windows for the Large Build
------------------------------------
+.. _build instructions: http://pypy.org/download.html#building-from-source
+
+
+Preparing Windows for the large build
+-------------------------------------
 
 Normally 32bit programs are limited to 2GB of memory on Windows. It is
 possible to raise this limit, to 3GB on Windows 32bit, and almost 4GB
@@ -68,10 +78,12 @@ Windows 64bit.
 
 Then you need to execute::
 
+    <path-to-visual>\vc\vcvars.bat
     editbin /largeaddressaware translator.exe
 
-where ``translator.exe`` is the pypy.exe or cpython.exe you will use to 
-translate with. 
+where ``translator.exe`` is the pypy.exe or cpython.exe you will use to
+translate with.
+
 
 Installing external packages
 ----------------------------
@@ -83,9 +95,11 @@ directory of the pypy checkout.  For example, if you installed pypy in
 directory is ``d:\pypy``. You must then set the
 INCLUDE, LIB and PATH (for DLLs) environment variables appropriately.
 
+
 Abridged method (for -Ojit builds using Visual Studio 2008)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Download the versions of all the external packages from 
+-----------------------------------------------------------
+
+Download the versions of all the external packages from
 https://bitbucket.org/pypy/pypy/downloads/local_2.4.zip
 (for 2.4 release and later) or
 https://bitbucket.org/pypy/pypy/downloads/local.zip
@@ -97,7 +111,14 @@ to reflect this::
     set INCLUDE=<base_dir>\include;<base_dir>\tcltk\include;%INCLUDE%
     set LIB=<base_dir>\lib;<base_dir>\tcltk\lib;%LIB%
 
-Now you should be good to go. Read on for more information. 
+Now you should be good to go. If you choose this method, you do not need
+to download/build anything else. 
+
+Nonabrided method (building from scratch)
+-----------------------------------------
+
+If you want to, you can rebuild everything from scratch by continuing.
+
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -109,7 +130,7 @@ You may get it at
 http://hboehm.info/gc/gc_source/gc-7.1.tar.gz
 
 Versions 7.0 and 7.1 are known to work; the 6.x series won't work with
-pypy. Unpack this folder in the base directory. 
+RPython. Unpack this folder in the base directory.
 The default GC_abort(...) function in misc.c will try to open a MessageBox.
 You may want to disable this with the following patch::
 
@@ -124,12 +145,13 @@ You may want to disable this with the following patch::
               (void) MessageBoxA(NULL, msg, "Fatal error in gc", MB_ICONERROR|MB_OK);
                #   else
                       GC_err_printf("%s\n", msg);
-    
+
 Then open a command prompt::
 
     cd gc-7.1
     nmake -f NT_THREADS_MAKEFILE
     copy Release\gc.dll <somewhere in the PATH>
+
 
 The zlib compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,6 +164,7 @@ the base directory.  Then compile as a static library::
     copy zlib.lib <somewhere in LIB>
     copy zlib.h zconf.h <somewhere in INCLUDE>
 
+
 The bz2 compression library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Get the same version of bz2 used by python and compile as a static library::
@@ -152,7 +175,7 @@ Get the same version of bz2 used by python and compile as a static library::
     copy libbz2.lib <somewhere in LIB>
     copy bzlib.h <somewhere in INCLUDE>
 
-    
+
 The sqlite3 database library
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -160,20 +183,21 @@ PyPy uses cffi to interact with sqlite3.dll. Only the dll is needed, the cffi
 wrapper is compiled when the module is imported for the first time.
 The sqlite3.dll should be version 3.6.21 for CPython2.7 compatablility.
 
+
 The expat XML parser
 ~~~~~~~~~~~~~~~~~~~~
 
 Download the source code of expat on sourceforge:
-http://sourceforge.net/projects/expat/ and extract it in the base
-directory.  Version 2.1.0 is known to pass tests. Then open the project 
-file ``expat.dsw`` with Visual
-Studio; follow the instruction for converting the project files,
+http://sourceforge.net/projects/expat/ and extract it in the base directory.
+Version 2.1.0 is known to pass tests. Then open the project file ``expat.dsw``
+with Visual Studio; follow the instruction for converting the project files,
 switch to the "Release" configuration, use the ``expat_static`` project,
 reconfigure the runtime for Multi-threaded DLL (/MD) and build.
 
-Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in
-somewhere in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h``
-somewhere in INCLUDE.
+Then, copy the file ``win32\bin\release\libexpat.lib`` somewhere in somewhere
+in LIB, and both ``lib\expat.h`` and ``lib\expat_external.h`` somewhere in
+INCLUDE.
+
 
 The OpenSSL library
 ~~~~~~~~~~~~~~~~~~~
@@ -190,7 +214,8 @@ use the one distributed by ActiveState, or the one from cygwin.::
 Then, copy the files ``out32\*.lib`` somewhere in
 somewhere in LIB, and the entire ``include\openssl`` directory as-is somewhere
 in INCLUDE.
-    
+
+
 TkInter module support
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -199,47 +224,49 @@ Tkinter is imported via cffi, so the module is optional. To recreate the tcltk
 directory found for the release script, create the dlls, libs, headers and
 runtime by running::
 
-	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85 
+	svn export http://svn.python.org/projects/external/tcl-8.5.2.1 tcl85
 	svn export http://svn.python.org/projects/external/tk-8.5.2.0 tk85
-	cd tcl85\win 
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all 
+	cd tcl85\win
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 DEBUG=0 INSTALLDIR=..\..\tcltk clean all
 	nmake -f makefile.vc DEBUG=0 INSTALLDIR=..\..\tcltk install
-	cd ..\..\tk85\win 
-	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all 
+	cd ..\..\tk85\win
+	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 clean all
 	nmake -f makefile.vc COMPILERFLAGS=-DWINVER=0x0500 OPTS=noxp DEBUG=1 INSTALLDIR=..\..\tcltk TCLDIR=..\..\tcl85 install
 
 Now you should have a tcktk\bin, tcltk\lib, and tcltk\include directory ready
 for use. The release packaging script will pick up the tcltk runtime in the lib
 directory and put it in the archive.
 
+
 Using the mingw compiler
 ------------------------
 
-You can compile pypy with the mingw compiler, using the --cc=mingw32 option;
-gcc.exe must be on the PATH. If the -cc flag does not begin with "ming", it should be
-the name of a valid gcc-derivative compiler, i.e. x86_64-w64-mingw32-gcc for the 64 bit
-compiler creating a 64 bit target.
+You can compile an RPython program with the mingw compiler, using the
+--cc=mingw32 option; gcc.exe must be on the PATH. If the -cc flag does not
+begin with "ming", it should be the name of a valid gcc-derivative compiler,
+i.e. x86_64-w64-mingw32-gcc for the 64 bit compiler creating a 64 bit target.
 
-You probably want to set the CPATH, LIBRARY_PATH, and PATH environment variable to
-the header files, lib or dlls, and dlls respectively of the locally installed packages 
-if they are not in the mingw directory heirarchy. 
+You probably want to set the CPATH, LIBRARY_PATH, and PATH environment
+variables to the header files, lib or dlls, and dlls respectively of the
+locally installed packages if they are not in the mingw directory heirarchy.
+
 
 libffi for the mingw compiler
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To enable the _rawffi (and ctypes) module, you need to compile a mingw
 version of libffi.  Here is one way to do this, wich should allow you to try
 to build for win64 or win32:
 
 #. Download and unzip a `mingw32 build`_ or `mingw64 build`_, say into c:\mingw
-#. If you do not use cygwin, you will need msys to provide make, 
+#. If you do not use cygwin, you will need msys to provide make,
    autoconf tools and other goodies.
 
     #. Download and unzip a `msys for mingw`_, say into c:\msys
     #. Edit the c:\msys\etc\fstab file to mount c:\mingw
 
 #. Download and unzip the `libffi source files`_, and extract
-   them in the base directory.  
+   them in the base directory.
 #. Run c:\msys\msys.bat or a cygwin shell which should make you
    feel better since it is a shell prompt with shell tools.
 #. From inside the shell, cd to the libffi directory and do::
@@ -248,7 +275,7 @@ to build for win64 or win32:
     make
     cp .libs/libffi-5.dll <somewhere on the PATH>
 
-If you can't find the dll, and the libtool issued a warning about 
+If you can't find the dll, and the libtool issued a warning about
 "undefined symbols not allowed", you will need to edit the libffi
 Makefile in the toplevel directory. Add the flag -no-undefined to
 the definition of libffi_la_LDFLAGS
@@ -259,21 +286,19 @@ If you wish to experiment with win64, you must run configure with flags::
 
 or such, depending on your mingw64 download.
 
+
 hacking on PyPy with the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Since hacking on PyPy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
-environment variable CC to the compliter exe, testing will use it.
+environment variable CC to the compiler exe, testing will use it.
 
-.. _`mingw32 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
-.. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
-.. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29   
-.. _`libffi source files`: http://sourceware.org/libffi/
-.. _`RPython translation toolchain`: translation.html
-.. _`our downloads`: http://pypy.org/download.html   
-.. _`non-windows instructions`: getting-started-python.html#translating-the-pypy-python-interpreter
-.. _`build instructions`: http://pypy.org/download.html#building-from-source
+.. _mingw32 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
+.. _mingw64 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
+.. _msys for mingw: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29
+.. _libffi source files: http://sourceware.org/libffi/
+
 
 What is missing for a full 64-bit translation
 ---------------------------------------------
@@ -282,7 +307,7 @@ The main blocker is that we assume that the integer type of RPython is
 large enough to (occasionally) contain a pointer value cast to an
 integer.  The simplest fix is to make sure that it is so, but it will
 give the following incompatibility between CPython and PyPy on Win64:
-  
+
 CPython: ``sys.maxint == 2**32-1, sys.maxsize == 2**64-1``
 
 PyPy: ``sys.maxint == sys.maxsize == 2**64-1``

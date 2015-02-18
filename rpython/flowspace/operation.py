@@ -7,13 +7,14 @@ import __future__
 import operator
 import sys
 import types
-from rpython.tool.pairtype import pair
+from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
-from rpython.annotator.model import SomeTuple
+from rpython.annotator.model import (
+    SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
 
@@ -54,6 +55,11 @@ class HLOperationMeta(type):
         type.__init__(cls, name, bases, attrdict)
         if hasattr(cls, 'opname'):
             setattr(op, cls.opname, cls)
+        if cls.dispatch == 1:
+            cls._registry = {}
+        elif cls.dispatch == 2:
+            cls._registry = DoubleDispatchRegistry()
+
 
 class HLOperation(SpaceOperation):
     __metaclass__ = HLOperationMeta
@@ -90,11 +96,13 @@ class HLOperation(SpaceOperation):
     def constfold(self):
         return None
 
-    def consider(self, annotator, *argcells):
-        consider_meth = getattr(annotator, 'consider_op_' + self.opname, None)
-        if not consider_meth:
-            raise Exception("unknown op: %r" % op)
-        return consider_meth(*argcells)
+    def consider(self, annotator):
+        args_s = [annotator.annotation(arg) for arg in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return spec(annotator, *self.args)
+
+    def get_can_only_throw(self, annotator):
+        return None
 
 class PureOperation(HLOperation):
     pure = True
@@ -141,16 +149,72 @@ class OverflowingOperation(PureOperation):
 class SingleDispatchMixin(object):
     dispatch = 1
 
-    def consider(self, annotator, arg, *other_args):
-        impl = getattr(arg, self.opname)
-        return impl(*other_args)
+    @classmethod
+    def register(cls, Some_cls):
+        def decorator(func):
+            cls._registry[Some_cls] = func
+            return func
+        return decorator
+
+    @classmethod
+    def _dispatch(cls, Some_cls):
+        for c in Some_cls.__mro__:
+            try:
+                return cls._registry[c]
+            except KeyError:
+                pass
+        raise AnnotatorError("Unknown operation")
+
+    def get_can_only_throw(self, annotator):
+        args_s = [annotator.annotation(v) for v in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return read_can_only_throw(spec, args_s[0])
+
+    @classmethod
+    def get_specialization(cls, s_arg, *_ignored):
+        try:
+            impl = getattr(s_arg, cls.opname)
+
+            def specialized(annotator, arg, *other_args):
+                return impl(*[annotator.annotation(x) for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
+            return specialized
+        except AttributeError:
+            return cls._dispatch(type(s_arg))
+
 
 class DoubleDispatchMixin(object):
     dispatch = 2
 
-    def consider(self, annotator, arg1, arg2, *other_args):
-        impl = getattr(pair(arg1, arg2), self.opname)
-        return impl(*other_args)
+    @classmethod
+    def register(cls, Some1, Some2):
+        def decorator(func):
+            cls._registry[Some1, Some2] = func
+            return func
+        return decorator
+
+    @classmethod
+    def get_specialization(cls, s_arg1, s_arg2, *_ignored):
+        try:
+            impl = getattr(pair(s_arg1, s_arg2), cls.opname)
+
+            def specialized(annotator, arg1, arg2, *other_args):
+                return impl(*[annotator.annotation(x) for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
+            return specialized
+        except AttributeError:
+            return cls._registry[type(s_arg1), type(s_arg2)]
+
+    def get_can_only_throw(self, annotator):
+        args_s = [annotator.annotation(v) for v in self.args]
+        spec = type(self).get_specialization(*args_s)
+        return read_can_only_throw(spec, args_s[0], args_s[1])
 
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
@@ -368,21 +432,22 @@ add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
 
-class Contains(PureOperation):
+class Contains(SingleDispatchMixin, PureOperation):
     opname = 'contains'
     arity = 2
     pyfunc = staticmethod(operator.contains)
 
-    # XXX "contains" clash with SomeObject method
-    def consider(self, annotator, seq, elem):
-        return seq.op_contains(elem)
+    # XXX "contains" clashes with SomeObject method
+    @classmethod
+    def get_specialization(cls, s_seq, s_elem):
+        return cls._dispatch(type(s_seq))
 
 
 class NewDict(HLOperation):
     opname = 'newdict'
     canraise = []
 
-    def consider(self, annotator, *args):
+    def consider(self, annotator):
         return annotator.bookkeeper.newdict()
 
 
@@ -391,16 +456,17 @@ class NewTuple(PureOperation):
     pyfunc = staticmethod(lambda *args: args)
     canraise = []
 
-    def consider(self, annotator, *args):
-        return SomeTuple(items=args)
+    def consider(self, annotator):
+        return SomeTuple(items=[annotator.annotation(arg) for arg in self.args])
 
 
 class NewList(HLOperation):
     opname = 'newlist'
     canraise = []
 
-    def consider(self, annotator, *args):
-        return annotator.bookkeeper.newlist(*args)
+    def consider(self, annotator):
+        return annotator.bookkeeper.newlist(
+                *[annotator.annotation(arg) for arg in self.args])
 
 
 class Pow(PureOperation):
@@ -462,6 +528,10 @@ class GetAttr(SingleDispatchMixin, HLOperation):
     pyfunc = staticmethod(getattr)
 
     def constfold(self):
+        from rpython.flowspace.flowcontext import FlowingError
+        if len(self.args) == 3:
+            raise FlowingError(
+                "getattr() with three arguments not supported: %s" % (self,))
         w_obj, w_name = self.args
         # handling special things like sys
         if (w_obj in NOT_REALLY_CONST and
@@ -472,7 +542,6 @@ class GetAttr(SingleDispatchMixin, HLOperation):
             try:
                 result = getattr(obj, name)
             except Exception as e:
-                from rpython.flowspace.flowcontext import FlowingError
                 etype = e.__class__
                 msg = "getattr(%s, %s) always raises %s: %s" % (
                     obj, name, etype, e)

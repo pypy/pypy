@@ -12,7 +12,7 @@ def teardown_module(mod):
 
 class AppTestFcntl:
     spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios',
-                                   'select', 'rctime'))
+                                   'select', 'time'))
 
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))

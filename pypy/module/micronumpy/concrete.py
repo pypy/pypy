@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides)
+    calculate_broadcast_strides, calc_backstrides)
 
 
 class BaseConcreteArray(object):
@@ -19,6 +19,7 @@ class BaseConcreteArray(object):
                           'strides[*]', 'backstrides[*]', 'order']
     start = 0
     parent = None
+    flags = 0
 
     # JIT hints that length of all those arrays is a constant
 
@@ -46,6 +47,7 @@ class BaseConcreteArray(object):
     def setitem(self, index, value):
         self.dtype.itemtype.store(self, index, 0, value)
 
+    @jit.unroll_safe
     def setslice(self, space, arr):
         if len(arr.get_shape()) > 0 and len(self.get_shape()) == 0:
             raise oefmt(space.w_ValueError,
@@ -75,15 +77,15 @@ class BaseConcreteArray(object):
             else:
                 new_strides = calc_new_strides(new_shape, self.get_shape(),
                                                self.get_strides(), self.order)
+                if new_strides is None or len(new_strides) != len(new_shape):
+                    return None
         if new_strides is not None:
             # We can create a view, strides somehow match up.
-            ndims = len(new_shape)
-            new_backstrides = [0] * ndims
-            for nd in range(ndims):
-                new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            new_backstrides = calc_backstrides(new_strides, new_shape)
             assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
+        return None
 
     def get_view(self, space, orig_array, dtype, new_shape):
         strides, backstrides = calc_strides(new_shape, dtype,
@@ -357,11 +359,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.dtype = dtype
 
     def argsort(self, space, w_axis):
-        from pypy.module.micronumpy.sort import argsort_array
+        from .selection import argsort_array
         return argsort_array(self, space, w_axis)
 
     def sort(self, space, w_axis, w_order):
-        from pypy.module.micronumpy.sort import sort_array
+        from .selection import sort_array
         return sort_array(self, space, w_axis, w_order)
 
     def base(self):
@@ -448,19 +450,25 @@ class SliceArray(BaseConcreteArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            return SliceArray(self.start, strides, backstrides, new_shape,
+            return self.__class__(self.start, strides, backstrides, new_shape,
                               self, orig_array)
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
                                        self.order)
-        if new_strides is None:
+        if new_strides is None or len(new_strides) != len(new_shape):
             raise oefmt(space.w_AttributeError,
                 "incompatible shape for a non-contiguous array")
         new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        return SliceArray(self.start, new_strides, new_backstrides, new_shape,
+        return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
+
+class NonWritableSliceArray(SliceArray):
+    def descr_setitem(self, space, orig_array, w_index, w_value):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "assignment destination is read-only"))
 
 
 class VoidBoxStorage(BaseConcreteArray):

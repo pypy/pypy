@@ -15,7 +15,8 @@ from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import rclass, rstr
+from rpython.rtyper.lltypesystem import rstr
+from rpython.rtyper import rclass
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
@@ -333,7 +334,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 3, 0])
         assert self.getints(3) == [1, -3, 10]
-        
+
     def test_compare_memory_result_survives(self):
         ops = '''
         [i0, i1, i2, i3]

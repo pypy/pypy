@@ -14,9 +14,11 @@ def _get_compiler_type(cc, x64_flag):
     if not cc:
         cc = os.environ.get('CC','')
     if not cc:
-        return MsvcPlatform(cc=cc, x64=x64_flag)
+        return MsvcPlatform(x64=x64_flag)
     elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
+    else:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
     try:
         subprocess.check_output([cc, '--version'])
     except:
@@ -108,11 +110,14 @@ class MsvcPlatform(Platform):
 
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
-        msvc_compiler_environ = find_msvc_env(x64)
-        Platform.__init__(self, 'cl.exe')
-        if msvc_compiler_environ:
-            self.c_environ = os.environ.copy()
-            self.c_environ.update(msvc_compiler_environ)
+        if cc is None:
+            msvc_compiler_environ = find_msvc_env(x64)
+            Platform.__init__(self, 'cl.exe')
+            if msvc_compiler_environ:
+                self.c_environ = os.environ.copy()
+                self.c_environ.update(msvc_compiler_environ)
+        else:
+            self.cc = cc
 
         # detect version of current compiler
         returncode, stdout, stderr = _run_subprocess(self.cc, '',
@@ -181,20 +186,6 @@ class MsvcPlatform(Platform):
         # Windows needs to resolve all symbols even for DLLs
         return super(MsvcPlatform, self)._link_args_from_eci(eci, standalone=True)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if not eci.export_symbols:
-            return []
-
-        response_file = self._make_response_file("exported_symbols_")
-        f = response_file.open("w")
-        for sym in eci.export_symbols:
-            f.write("/EXPORT:%s\n" % (sym,))
-        f.close()
-
-        if relto:
-            response_file = relto.bestrelpath(response_file)
-        return ["@%s" % (response_file,)]
-
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = self._make_o_file(cfile, ext='obj')
         # notabene: (tismer)
@@ -205,7 +196,7 @@ class MsvcPlatform(Platform):
         # So please be careful with the order of parameters! ;-)
         pdb_dir = oname.dirname
         if pdb_dir:
-                compile_args += ['/Fd%s\\' % (pdb_dir,)]
+                compile_args = compile_args + ['/Fd%s\\' % (pdb_dir,)]
         args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
@@ -279,9 +270,8 @@ class MsvcPlatform(Platform):
 
         linkflags = list(self.link_flags)
         if shared:
-            linkflags = self._args_for_shared(linkflags) + [
-                '/EXPORT:$(PYPY_MAIN_FUNCTION)']
-        linkflags += self._exportsymbols_link_flags(eci, relto=path)
+            linkflags = self._args_for_shared(linkflags)
+        linkflags += self._exportsymbols_link_flags()
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
@@ -304,7 +294,7 @@ class MsvcPlatform(Platform):
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('RPYDIR', rpydir),
+            ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

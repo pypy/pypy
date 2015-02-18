@@ -3,13 +3,13 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestNumSupport(BaseNumpyAppTest):
     def test_zeros(self):
-        from numpypy import zeros
+        from numpy import zeros
         a = zeros(3)
         assert len(a) == 3
         assert a[0] == a[1] == a[2] == 0
 
     def test_empty(self):
-        from numpypy import empty
+        from numpy import empty
         import gc
         for i in range(1000):
             a = empty(3)
@@ -26,26 +26,26 @@ class AppTestNumSupport(BaseNumpyAppTest):
                 "empty() returned a zeroed out array every time")
 
     def test_where(self):
-        from numpypy import where, ones, zeros, array
+        from numpy import where, ones, zeros, array
         a = [1, 2, 3, 0, -3]
         a = where(array(a) > 0, ones(5), zeros(5))
         assert (a == [1, 1, 1, 0, 0]).all()
 
     def test_where_differing_dtypes(self):
-        from numpypy import array, ones, zeros, where
+        from numpy import array, ones, zeros, where
         a = [1, 2, 3, 0, -3]
         a = where(array(a) > 0, ones(5, dtype=int), zeros(5, dtype=float))
         assert (a == [1, 1, 1, 0, 0]).all()
 
     def test_where_broadcast(self):
-        from numpypy import array, where
+        from numpy import array, where
         a = where(array([[1, 2, 3], [4, 5, 6]]) > 3, [1, 1, 1], 2)
         assert (a == [[2, 2, 2], [1, 1, 1]]).all()
         a = where(True, [1, 1, 1], 2)
         assert (a == [1, 1, 1]).all()
 
     def test_where_errors(self):
-        from numpypy import where, array
+        from numpy import where, array
         raises(ValueError, "where([1, 2, 3], [3, 4, 5])")
         raises(ValueError, "where([1, 2, 3], [3, 4, 5], [6, 7])")
         assert where(True, 1, 2) == array(1)
@@ -58,14 +58,14 @@ class AppTestNumSupport(BaseNumpyAppTest):
     #    xxx
 
     def test_where_invalidates(self):
-        from numpypy import where, ones, zeros, array
+        from numpy import where, ones, zeros, array
         a = array([1, 2, 3, 0, -3])
         b = where(a > 0, ones(5), zeros(5))
         a[0] = 0
         assert (b == [1, 1, 1, 0, 0]).all()
 
     def test_dot_basic(self):
-        from numpypy import array, dot, arange
+        from numpy import array, dot, arange
         a = array(range(5))
         assert dot(a, a) == 30.0
 
@@ -100,7 +100,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert (dot([[1,2],[3,4]],[5,6]) == [17, 39]).all()
 
     def test_dot_constant(self):
-        from numpypy import array, dot
+        from numpy import array, dot
         a = array(range(5))
         b = a.dot(2.5)
         for i in xrange(5):
@@ -111,7 +111,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert c == 12.0
 
     def test_dot_out(self):
-        from numpypy import arange, dot
+        from numpy import arange, dot
         a = arange(12).reshape(3, 4)
         b = arange(12).reshape(4, 3)
         out = arange(9).reshape(3, 3)
@@ -124,19 +124,19 @@ class AppTestNumSupport(BaseNumpyAppTest):
                                 'right type, nr dimensions, and be a C-Array)')
 
     def test_choose_basic(self):
-        from numpypy import array
+        from numpy import array
         a, b, c = array([1, 2, 3]), array([4, 5, 6]), array([7, 8, 9])
         r = array([2, 1, 0]).choose([a, b, c])
         assert (r == [7, 5, 3]).all()
 
     def test_choose_broadcast(self):
-        from numpypy import array
+        from numpy import array
         a, b, c = array([1, 2, 3]), [4, 5, 6], 13
         r = array([2, 1, 0]).choose([a, b, c])
         assert (r == [13, 5, 3]).all()
 
     def test_choose_out(self):
-        from numpypy import array
+        from numpy import array
         a, b, c = array([1, 2, 3]), [4, 5, 6], 13
         r = array([2, 1, 0]).choose([a, b, c], out=None)
         assert (r == [13, 5, 3]).all()
@@ -146,7 +146,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert (a == [13, 5, 3]).all()
 
     def test_choose_modes(self):
-        from numpypy import array
+        from numpy import array
         a, b, c = array([1, 2, 3]), [4, 5, 6], 13
         raises(ValueError, "array([3, 1, 0]).choose([a, b, c])")
         raises(ValueError, "array([3, 1, 0]).choose([a, b, c], mode='raises')")
@@ -158,20 +158,20 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert (r == [4, 5, 3]).all()
 
     def test_choose_dtype(self):
-        from numpypy import array
+        from numpy import array
         a, b, c = array([1.2, 2, 3]), [4, 5, 6], 13
         r = array([2, 1, 0]).choose([a, b, c])
         assert r.dtype == float
 
     def test_choose_dtype_out(self):
-        from numpypy import array
+        from numpy import array
         a, b, c = array([1, 2, 3]), [4, 5, 6], 13
         x = array([0, 0, 0], dtype='i2')
         r = array([2, 1, 0]).choose([a, b, c], out=x)
         assert r.dtype == 'i2'
 
     def test_put_basic(self):
-        from numpypy import arange, array
+        from numpy import arange, array
         a = arange(5)
         a.put([0, 2], [-44, -55])
         assert (a == array([-44, 1, -55, 3, 4])).all()
@@ -183,7 +183,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert (a == array([0, 7, 2, 3, 4])).all()
 
     def test_put_modes(self):
-        from numpypy import array, arange
+        from numpy import array, arange
         a = arange(5)
         a.put(22, -5, mode='clip')
         assert (a == array([0, 1, 2, 3, -5])).all()
@@ -199,3 +199,19 @@ class AppTestNumSupport(BaseNumpyAppTest):
         a.put(23, -1, mode=1)  # wrap
         assert (a == array([0, 1, -10, -1, -15])).all()
         raises(TypeError, "arange(5).put(22, -5, mode='zzzz')")  # unrecognized mode
+
+    def test_result_type(self):
+        import numpy as np
+        exc = raises(ValueError, np.result_type)
+        assert str(exc.value) == "at least one array or dtype is required"
+        exc = raises(TypeError, np.result_type, a=2)
+        assert str(exc.value) == "result_type() takes no keyword arguments"
+        assert np.result_type(True) is np.dtype('bool')
+        assert np.result_type(1) is np.dtype('int')
+        assert np.result_type(1.) is np.dtype('float64')
+        assert np.result_type(1+2j) is np.dtype('complex128')
+        assert np.result_type(1, 1.) is np.dtype('float64')
+        assert np.result_type(np.array([1, 2])) is np.dtype('int')
+        assert np.result_type(np.array([1, 2]), 1, 1+2j) is np.dtype('complex128')
+        assert np.result_type(np.array([1, 2]), 1, 'float64') is np.dtype('float64')
+        assert np.result_type(np.array([1, 2]), 1, None) is np.dtype('float64')

@@ -7,7 +7,7 @@ import platform
 
 class AppTestEpoll(object):
     spaceconfig = {
-        "usemodules": ["select", "_socket", "posix", "rctime"],
+        "usemodules": ["select", "_socket", "posix", "time"],
     }
 
     def setup_class(cls):

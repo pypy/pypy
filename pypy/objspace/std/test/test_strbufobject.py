@@ -78,3 +78,8 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         c = '0'.__add__('1')
         x = c + a
         assert x == '01ab'
+
+    def test_add_non_string(self):
+        a = 'a'
+        a += 'b'
+        raises(TypeError, "a += 5")

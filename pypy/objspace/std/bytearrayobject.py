@@ -4,13 +4,14 @@ from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rstring import StringBuilder, ByteListBuilder
+from rpython.rlib.debug import check_list_of_chars
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.interpreter.signature import Signature
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.stringmethods import StringMethods, _get_buffer
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.util import get_positive_index
@@ -22,6 +23,7 @@ class W_BytearrayObject(W_Root):
     import_from_mixin(StringMethods)
 
     def __init__(self, data):
+        check_list_of_chars(data)
         self.data = data
 
     def __repr__(self):
@@ -988,7 +990,7 @@ class BytearrayDocstrings:
         """
 
 
-W_BytearrayObject.typedef = StdTypeDef(
+W_BytearrayObject.typedef = TypeDef(
     "bytearray",
     __doc__ = BytearrayDocstrings.__doc__,
     __new__ = interp2app(W_BytearrayObject.descr_new),

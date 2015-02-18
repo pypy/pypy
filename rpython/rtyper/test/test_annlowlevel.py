@@ -4,11 +4,11 @@
 
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem.rstr import mallocstr, mallocunicode
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import hlstr, llstr
 from rpython.rtyper.annlowlevel import hlunicode, llunicode
 from rpython.rtyper import annlowlevel
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 
 
 class TestLLType(BaseRtypingTest):
@@ -71,6 +71,15 @@ class TestLLType(BaseRtypingTest):
         ptr = annlowlevel.cast_instance_to_base_ptr(x)
         assert lltype.typeOf(ptr) == OBJECTPTR
         y = annlowlevel.cast_base_ptr_to_instance(X, ptr)
+        assert y is x
+
+    def test_cast_instance_to_gcref(self):
+        class X(object):
+            pass
+        x = X()
+        ptr = annlowlevel.cast_instance_to_gcref(x)
+        assert lltype.typeOf(ptr) == llmemory.GCREF
+        y = annlowlevel.cast_gcref_to_instance(X, ptr)
         assert y is x
 
     def test_delayedptr(self):

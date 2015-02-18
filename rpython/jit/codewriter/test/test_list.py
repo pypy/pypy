@@ -87,20 +87,10 @@ def test_newlist():
                  """new_array $0, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed)], FIXEDLIST,
                  """new_array $5, <ArrayDescr> -> %r0""")
-    builtin_test('newlist', [Constant(-2, lltype.Signed)], FIXEDLIST,
-                 """new_array $0, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], FIXEDLIST,
-                 """int_force_ge_zero %i0 -> %i1\n"""
-                 """new_array %i1, <ArrayDescr> -> %r0""")
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(0, lltype.Signed)], FIXEDLIST,
-                 """new_array $5, <ArrayDescr> -> %r0""")
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(1, lltype.Signed)], FIXEDLIST,
-                 NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             varoftype(lltype.Signed)], FIXEDLIST,
-                 NotSupported)
+                 """new_array %i0, <ArrayDescr> -> %r0""")
+    builtin_test('newlist_clear', [Constant(5, lltype.Signed)], FIXEDLIST,
+                 """new_array_clear $5, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [], FIXEDPTRLIST,
                  """new_array_clear $0, <ArrayDescr> -> %r0""")
 
@@ -179,15 +169,8 @@ def test_resizable_newlist():
                  """newlist $5, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], VARLIST,
                  """newlist %i0, """+alldescrs+""" -> %r0""")
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(0, lltype.Signed)], VARLIST,
-                 """newlist $5, """+alldescrs+""" -> %r0""")
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(1, lltype.Signed)], VARLIST,
-                 NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             varoftype(lltype.Signed)], VARLIST,
-                 NotSupported)
+    builtin_test('newlist_clear', [Constant(5, lltype.Signed)], VARLIST,
+                 """newlist_clear $5, """+alldescrs+""" -> %r0""")
 
 def test_resizable_getitem():
     builtin_test('list.getitem/NONNEG',

@@ -383,3 +383,35 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_list_of_chars(l):
+    if not we_are_translated():
+        assert isinstance(l, list)
+        for x in l:
+            assert isinstance(x, (unicode, str)) and len(x) == 1
+    return l
+
+class NotAListOfChars(Exception):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_list_of_chars
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.annotator.model import SomeList, s_None
+        from rpython.annotator.model import SomeChar, SomeUnicodeCodePoint
+        from rpython.annotator.model import SomeImpossibleValue
+        if s_None.contains(s_arg):
+            return s_arg    # only None: just return
+        assert isinstance(s_arg, SomeList)
+        if not isinstance(
+                s_arg.listdef.listitem.s_value,
+                (SomeChar, SomeUnicodeCodePoint, SomeImpossibleValue)):
+            raise NotAListOfChars
+        return s_arg
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+

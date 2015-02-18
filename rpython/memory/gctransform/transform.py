@@ -221,7 +221,7 @@ class BaseGCTransformer(object):
         # for sanity, we need an empty block at the start of the graph
         inserted_empty_startblock = False
         if not starts_with_empty_block(graph):
-            insert_empty_startblock(self.translator.annotator, graph)
+            insert_empty_startblock(graph)
             inserted_empty_startblock = True
         is_borrowed = self.compute_borrowed_vars(graph)
 
@@ -239,7 +239,7 @@ class BaseGCTransformer(object):
                 if link.prevblock.exitswitch is None:
                     link.prevblock.operations.extend(llops)
                 else:
-                    insert_empty_block(self.translator.annotator, link, llops)
+                    insert_empty_block(link, llops)
 
         # remove the empty block at the start of the graph, which should
         # still be empty (but let's check)
@@ -342,6 +342,21 @@ class BaseGCTransformer(object):
         # that rgc.ll_arraycopy() will do the copy by hand (i.e. with a
         # 'for' loop).  Subclasses that have their own logic, or that don't
         # need any kind of write barrier, may return True.
+        op = hop.spaceop
+        hop.genop("same_as",
+                  [rmodel.inputconst(lltype.Bool, False)],
+                  resultvar=op.result)
+
+    def gct_gc_pin(self, hop):
+        op = hop.spaceop
+        hop.genop("same_as",
+                    [rmodel.inputconst(lltype.Bool, False)],
+                    resultvar=op.result)
+
+    def gct_gc_unpin(self, hop):
+        pass
+
+    def gct_gc__is_pinned(self, hop):
         op = hop.spaceop
         hop.genop("same_as",
                   [rmodel.inputconst(lltype.Bool, False)],

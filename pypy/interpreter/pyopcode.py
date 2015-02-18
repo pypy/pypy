@@ -1619,13 +1619,6 @@ app = gateway.applevel(r'''
     def prepare_exec(f, prog, globals, locals, compile_flags, builtin, codetype):
         """Manipulate parameters to exec statement to (codeobject, dict, dict).
         """
-        if (globals is None and locals is None and
-            isinstance(prog, tuple) and
-            (len(prog) == 2 or len(prog) == 3)):
-            globals = prog[1]
-            if len(prog) == 3:
-                locals = prog[2]
-            prog = prog[0]
         if globals is None:
             globals = f.f_globals
             if locals is None:

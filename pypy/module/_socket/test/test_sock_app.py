@@ -372,6 +372,19 @@ class AppTestSocket:
         assert s.fileno() > -1
         assert isinstance(s.fileno(), int)
 
+    def test_socket_repr(self):
+        import _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        try:
+            expected = ('<socket object, fd=%s, family=%s, type=%s, protocol=%s>'
+                        % (s.fileno(), s.family, s.type, s.proto))
+            assert repr(s) == expected
+        finally:
+            s.close()
+        expected = ('<socket object, fd=-1, family=%s, type=%s, protocol=%s>'
+                    % (s.family, s.type, s.proto))
+        assert repr(s) == expected
+
     def test_socket_close(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
@@ -498,6 +511,13 @@ class AppTestSocket:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse == 0
+        #
+        raises(TypeError, s.setsockopt, socket.SOL_SOCKET,
+                          socket.SO_REUSEADDR, 2 ** 31)
+        raises(TypeError, s.setsockopt, socket.SOL_SOCKET,
+                          socket.SO_REUSEADDR, 2 ** 32 + 1)
+        assert s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) == 0
+        #
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse != 0

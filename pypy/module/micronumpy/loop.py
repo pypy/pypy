@@ -7,9 +7,10 @@ from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
     AllButAxisIter
+from pypy.interpreter.argument import Arguments
 
 
 call2_driver = jit.JitDriver(
@@ -42,22 +43,38 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
 
     # TODO handle __array_priorities__ and maybe flip the order
 
+    if w_lhs.get_size() == 1:
+        w_left = w_lhs.get_scalar_value().convert_to(space, calc_dtype)
+        left_iter = left_state = None
+    else:
+        w_left = None
+        left_iter, left_state = w_lhs.create_iter(shape)
+        left_iter.track_index = False
+
+    if w_rhs.get_size() == 1:
+        w_right = w_rhs.get_scalar_value().convert_to(space, calc_dtype)
+        right_iter = right_state = None
+    else:
+        w_right = None
+        right_iter, right_state = w_rhs.create_iter(shape)
+        right_iter.track_index = False
+
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype,
                                      w_instance=lhs_for_subtype)
-    left_iter, left_state = w_lhs.create_iter(shape)
-    right_iter, right_state = w_rhs.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      calc_dtype=calc_dtype, res_dtype=res_dtype)
-        w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
-        w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
+        if left_iter:
+            w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
+            left_state = left_iter.next(left_state)
+        if right_iter:
+            w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
+            right_state = right_iter.next(right_state)
         out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
             space, res_dtype))
-        left_state = left_iter.next(left_state)
-        right_state = right_iter.next(right_state)
         out_state = out_iter.next(out_state)
     return out
 
@@ -67,9 +84,11 @@ call1_driver = jit.JitDriver(
     reds='auto')
 
 def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
+    obj_iter, obj_state = w_obj.create_iter(shape)
+    obj_iter.track_index = False
+
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
-    obj_iter, obj_state = w_obj.create_iter(shape)
     out_iter, out_state = out.create_iter(shape)
     shapelen = len(shape)
     while not out_iter.done(out_state):
@@ -81,15 +100,110 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         obj_state = obj_iter.next(obj_state)
     return out
 
+call_many_to_one_driver = jit.JitDriver(
+    name='numpy_call_many_to_one',
+    greens=['shapelen', 'nin', 'func', 'res_dtype'],
+    reds='auto')
+
+def call_many_to_one(space, shape, func, res_dtype, in_args, out):
+    # out must hav been built. func needs no calc_type, is usually an
+    # external ufunc
+    nin = len(in_args)
+    in_iters = [None] * nin
+    in_states = [None] * nin
+    for i in range(nin):
+        in_i = in_args[i]
+        assert isinstance(in_i, W_NDimArray)
+        in_iter, in_state = in_i.create_iter(shape)
+        in_iters[i] = in_iter
+        in_states[i] = in_state
+    shapelen = len(shape)
+    assert isinstance(out, W_NDimArray)
+    out_iter, out_state = out.create_iter(shape)
+    vals = [None] * nin
+    while not out_iter.done(out_state):
+        call_many_to_one_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     res_dtype=res_dtype, nin=nin)
+        for i in range(nin):
+            vals[i] = in_iters[i].getitem(in_states[i])
+        w_arglist = space.newlist(vals)
+        w_out_val = space.call_args(func, Arguments.frompacked(space, w_arglist))
+        out_iter.setitem(out_state, res_dtype.coerce(space, w_out_val))
+        for i in range(nin):
+            in_states[i] = in_iters[i].next(in_states[i])
+        out_state = out_iter.next(out_state)
+    return out
+
+call_many_to_many_driver = jit.JitDriver(
+    name='numpy_call_many_to_many',
+    greens=['shapelen', 'nin', 'nout', 'func', 'res_dtype'],
+    reds='auto')
+
+def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
+    # out must hav been built. func needs no calc_type, is usually an
+    # external ufunc
+    nin = len(in_args)
+    in_iters = [None] * nin
+    in_states = [None] * nin
+    nout = len(out_args)
+    out_iters = [None] * nout
+    out_states = [None] * nout
+    for i in range(nin):
+        in_i = in_args[i]
+        assert isinstance(in_i, W_NDimArray)
+        in_iter, in_state = in_i.create_iter(shape)
+        in_iters[i] = in_iter
+        in_states[i] = in_state
+    for i in range(nout):
+        out_i = out_args[i]
+        assert isinstance(out_i, W_NDimArray)
+        out_iter, out_state = out_i.create_iter(shape)
+        out_iters[i] = out_iter
+        out_states[i] = out_state
+    shapelen = len(shape)
+    vals = [None] * nin
+    while not out_iters[0].done(out_states[0]):
+        call_many_to_many_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     res_dtype=res_dtype, nin=nin, nout=nout)
+        for i in range(nin):
+            vals[i] = in_iters[i].getitem(in_states[i])
+        w_arglist = space.newlist(vals)
+        w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
+        # w_outvals should be a tuple, but func can return a single value as well 
+        if space.isinstance_w(w_outvals, space.w_tuple):
+            batch = space.listview(w_outvals)
+            for i in range(len(batch)):
+                out_iters[i].setitem(out_states[i], res_dtype.coerce(space, batch[i]))
+                out_states[i] = out_iters[i].next(out_states[i])
+        else:
+            out_iters[0].setitem(out_states[0], res_dtype.coerce(space, w_outvals))
+            out_states[0] = out_iters[0].next(out_states[0])
+        for i in range(nin):
+            in_states[i] = in_iters[i].next(in_states[i])
+    return space.newtuple([convert_to_array(space, o) for o in out_args])
+
 setslice_driver = jit.JitDriver(name='numpy_setslice',
                                 greens = ['shapelen', 'dtype'],
                                 reds = 'auto')
 
 def setslice(space, shape, target, source):
+    if not shape:
+        dtype = target.dtype
+        val = source.getitem(source.start)
+        if dtype.is_str_or_unicode():
+            val = dtype.coerce(space, val)
+        else:
+            val = val.convert_to(space, dtype)
+        target.setitem(target.start, val)
+        return target
+    return _setslice(space, shape, target, source)
+
+def _setslice(space, shape, target, source):
     # note that unlike everything else, target and source here are
     # array implementations, not arrays
     target_iter, target_state = target.create_iter(shape)
     source_iter, source_state = source.create_iter(shape)
+    source_iter.track_index = False
     dtype = target.dtype
     shapelen = len(shape)
     while not target_iter.done(target_state):
@@ -135,6 +249,7 @@ reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
 def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     obj_iter, obj_state = obj.create_iter()
     out_iter, out_state = out.create_iter()
+    out_iter.track_index = False
     if identity is None:
         cur_value = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         out_iter.setitem(out_state, cur_value)
@@ -182,6 +297,9 @@ def where(space, out, shape, arr, x, y, dtype):
             iter, state = y_iter, y_state
     else:
         iter, state = x_iter, x_state
+    out_iter.track_index = x_iter.track_index = False
+    arr_iter.track_index = y_iter.track_index = False
+    iter.track_index = True
     shapelen = len(shape)
     while not iter.done(state):
         where_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
@@ -205,10 +323,9 @@ def where(space, out, shape, arr, x, y, dtype):
             state = x_state
     return out
 
-axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
-                                    greens=['shapelen',
-                                            'func', 'dtype'],
-                                    reds='auto')
+axis_reduce_driver = jit.JitDriver(name='numpy_axis_reduce',
+                                   greens=['shapelen', 'func', 'dtype'],
+                                   reds='auto')
 
 def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulative,
                    temp):
@@ -221,20 +338,24 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
         temp_iter = out_iter  # hack
         temp_state = out_state
     arr_iter, arr_state = arr.create_iter()
+    arr_iter.track_index = False
     if identity is not None:
         identity = identity.convert_to(space, dtype)
     shapelen = len(shape)
     while not out_iter.done(out_state):
-        axis_reduce__driver.jit_merge_point(shapelen=shapelen, func=func,
-                                            dtype=dtype)
-        assert not arr_iter.done(arr_state)
+        axis_reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                           dtype=dtype)
         w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
-        if out_state.indices[axis] == 0:
+        arr_state = arr_iter.next(arr_state)
+
+        out_indices = out_iter.indices(out_state)
+        if out_indices[axis] == 0:
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
         else:
             cur = temp_iter.getitem(temp_state)
             w_val = func(dtype, cur, w_val)
+
         out_iter.setitem(out_state, w_val)
         out_state = out_iter.next(out_state)
         if cumulative:
@@ -242,7 +363,6 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
             temp_state = temp_iter.next(temp_state)
         else:
             temp_state = out_state
-        arr_state = arr_iter.next(arr_state)
     return out
 
 
@@ -298,6 +418,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     assert left_shape[-1] == right_shape[right_critical_dim]
     assert result.get_dtype() == dtype
     outi, outs = result.create_iter()
+    outi.track_index = False
     lefti = AllButAxisIter(left_impl, len(left_shape) - 1)
     righti = AllButAxisIter(right_impl, right_critical_dim)
     lefts = lefti.reset()
@@ -322,7 +443,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
             outi.setitem(outs, oval)
             outs = outi.next(outs)
             rights = righti.next(rights)
-        rights = righti.reset()
+        rights = righti.reset(rights)
         lefts = lefti.next(lefts)
     return result
 
@@ -360,8 +481,9 @@ def nonzero(res, arr, box):
     while not arr_iter.done(arr_state):
         nonzero_driver.jit_merge_point(shapelen=shapelen, dims=dims, dtype=dtype)
         if arr_iter.getitem_bool(arr_state):
+            arr_indices = arr_iter.indices(arr_state)
             for d in dims:
-                res_iter.setitem(res_state, box(arr_state.indices[d]))
+                res_iter.setitem(res_state, box(arr_indices[d]))
                 res_state = res_iter.next(res_state)
         arr_state = arr_iter.next(arr_state)
     return res
@@ -435,7 +557,7 @@ def flatiter_getitem(res, base_iter, base_state, step):
     while not ri.done(rs):
         flatiter_getitem_driver.jit_merge_point(dtype=dtype)
         ri.setitem(rs, base_iter.getitem(base_state))
-        base_state = base_iter.next_skip_x(base_state, step)
+        base_state = base_iter.goto(base_state.index + step)
         rs = ri.next(rs)
     return res
 
@@ -443,11 +565,8 @@ flatiter_setitem_driver = jit.JitDriver(name = 'numpy_flatiter_setitem',
                                         greens = ['dtype'],
                                         reds = 'auto')
 
-def flatiter_setitem(space, arr, val, start, step, length):
-    dtype = arr.get_dtype()
-    arr_iter, arr_state = arr.create_iter()
+def flatiter_setitem(space, dtype, val, arr_iter, arr_state, step, length):
     val_iter, val_state = val.create_iter()
-    arr_state = arr_iter.next_skip_x(arr_state, start)
     while length > 0:
         flatiter_setitem_driver.jit_merge_point(dtype=dtype)
         val = val_iter.getitem(val_state)
@@ -456,9 +575,10 @@ def flatiter_setitem(space, arr, val, start, step, length):
         else:
             val = val.convert_to(space, dtype)
         arr_iter.setitem(arr_state, val)
-        # need to repeat i_nput values until all assignments are done
-        arr_state = arr_iter.next_skip_x(arr_state, step)
+        arr_state = arr_iter.goto(arr_state.index + step)
         val_state = val_iter.next(val_state)
+        if val_iter.done(val_state):
+            val_state = val_iter.reset(val_state)
         length -= 1
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
@@ -694,3 +814,43 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
         out_iter.setitem(out_state, arr.getitem_index(space, indexes))
         iter.next()
         out_state = out_iter.next(out_state)
+
+def _new_binsearch(side, op_name):
+    binsearch_driver = jit.JitDriver(name='numpy_binsearch_' + side,
+                                     greens=['dtype'],
+                                     reds='auto')
+
+    def binsearch(space, arr, key, ret):
+        assert len(arr.get_shape()) == 1
+        dtype = key.get_dtype()
+        op = getattr(dtype.itemtype, op_name)
+        key_iter, key_state = key.create_iter()
+        ret_iter, ret_state = ret.create_iter()
+        ret_iter.track_index = False
+        size = arr.get_size()
+        min_idx = 0
+        max_idx = size
+        last_key_val = key_iter.getitem(key_state)
+        while not key_iter.done(key_state):
+            key_val = key_iter.getitem(key_state)
+            if dtype.itemtype.lt(last_key_val, key_val):
+                max_idx = size
+            else:
+                min_idx = 0
+                max_idx = max_idx + 1 if max_idx < size else size
+            last_key_val = key_val
+            while min_idx < max_idx:
+                binsearch_driver.jit_merge_point(dtype=dtype)
+                mid_idx = min_idx + ((max_idx - min_idx) >> 1)
+                mid_val = arr.getitem(space, [mid_idx]).convert_to(space, dtype)
+                if op(mid_val, key_val):
+                    min_idx = mid_idx + 1
+                else:
+                    max_idx = mid_idx
+            ret_iter.setitem(ret_state, ret.get_dtype().box(min_idx))
+            ret_state = ret_iter.next(ret_state)
+            key_state = key_iter.next(key_state)
+    return binsearch
+
+binsearch_left = _new_binsearch('left', 'lt')
+binsearch_right = _new_binsearch('right', 'le')

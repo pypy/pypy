@@ -12,6 +12,9 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pycode import CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame, Yield
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import interp2app
 from opcode import opmap
 
 
@@ -144,3 +147,40 @@ def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
+
+
+class W_NotFromAssembler(W_Root):
+    def __init__(self, space, w_callable):
+        self.space = space
+        self.w_callable = w_callable
+    def descr_call(self, __args__):
+        _call_not_in_trace(self.space, self.w_callable, __args__)
+        return self
+
+@jit.not_in_trace
+def _call_not_in_trace(space, w_callable, __args__):
+    # this _call_not_in_trace() must return None
+    space.call_args(w_callable, __args__)
+
+def not_from_assembler_new(space, w_subtype, w_callable):
+    return W_NotFromAssembler(space, w_callable)
+
+W_NotFromAssembler.typedef = TypeDef("not_from_assembler",
+    __doc__ = """\
+A decorator that returns a callable that invokes the original
+callable, but not from the JIT-produced assembler.  It is called
+from the interpreted mode, and from the JIT creation (pyjitpl) or
+exiting (blackhole) steps, but just not from the final assembler.
+
+Note that the return value of the callable is ignored, because
+there is no reasonable way to guess what it should be in case the
+function is not called.
+
+This is meant to be used notably in sys.settrace() for coverage-
+like tools.  For that purpose, if g = not_from_assembler(f), then
+'g(*args)' may call 'f(*args)' but it always return g itself.
+""",
+    __new__ = interp2app(not_from_assembler_new),
+    __call__ = interp2app(W_NotFromAssembler.descr_call),
+)
+W_NotFromAssembler.typedef.acceptable_as_base_class = False

@@ -20,6 +20,7 @@ class MultiArrayModule(MixedModule):
         'concatenate': 'arrayops.concatenate',
         'count_nonzero': 'arrayops.count_nonzero',
         'dot': 'arrayops.dot',
+        'result_type': 'arrayops.result_type',
         'where': 'arrayops.where',
 
         'set_string_function': 'appbridge.set_string_function',
@@ -32,7 +33,10 @@ class MultiArrayModule(MixedModule):
 
 class UMathModule(MixedModule):
     appleveldefs = {}
-    interpleveldefs = {'FLOATING_POINT_SUPPORT': 'space.wrap(1)'}
+    interpleveldefs = {
+        'FLOATING_POINT_SUPPORT': 'space.wrap(1)',
+        'frompyfunc': 'ufuncs.frompyfunc',
+        }
     # ufuncs
     for exposed, impl in [
         ("absolute", "absolute"),

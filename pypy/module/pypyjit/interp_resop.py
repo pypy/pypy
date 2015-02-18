@@ -7,7 +7,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import jit_hooks

@@ -19,18 +19,40 @@ from rpython.annotator.argument import simple_args, complex_args
 
 UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
+UNARY_OPERATIONS.remove('contains')
 
+@op.type.register(SomeObject)
+def type_SomeObject(annotator, arg):
+    r = SomeType()
+    r.is_type_of = [arg]
+    return r
+
+@op.bool.register(SomeObject)
+def bool_SomeObject(annotator, obj):
+    r = SomeBool()
+    annotator.annotation(obj).bool_behavior(r)
+    s_nonnone_obj = annotator.annotation(obj)
+    if s_nonnone_obj.can_be_none():
+        s_nonnone_obj = s_nonnone_obj.nonnoneify()
+    knowntypedata = {}
+    add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
+    r.set_knowntypedata(knowntypedata)
+    return r
+
+@op.contains.register(SomeObject)
+def contains_SomeObject(annotator, obj, element):
+    return s_Bool
+contains_SomeObject.can_only_throw = []
+
+@op.simple_call.register(SomeObject)
+def simple_call_SomeObject(annotator, func, *args):
+    return annotator.annotation(func).call(simple_args([annotator.annotation(arg) for arg in args]))
+
+@op.call_args.register(SomeObject)
+def call_args(annotator, func, *args):
+    return annotator.annotation(func).call(complex_args([annotator.annotation(arg) for arg in args]))
 
 class __extend__(SomeObject):
-
-    def type(self, *moreargs):
-        if moreargs:
-            raise Exception('type() called with more than one argument')
-        r = SomeType()
-        bk = getbookkeeper()
-        op = bk._find_current_op(opname="type", arity=1, pos=0, s_type=self)
-        r.is_type_of = [op.args[0]]
-        return r
 
     def issubtype(self, s_cls):
         if hasattr(self, 'is_type_of'):
@@ -52,21 +74,6 @@ class __extend__(SomeObject):
             s_len = self.len()
             if s_len.is_immutable_constant():
                 s.const = s_len.const > 0
-
-    def bool(s_obj):
-        r = SomeBool()
-        s_obj.bool_behavior(r)
-
-        bk = getbookkeeper()
-        knowntypedata = {}
-        op = bk._find_current_op(opname="bool", arity=1)
-        arg = op.args[0]
-        s_nonnone_obj = s_obj
-        if s_obj.can_be_none():
-            s_nonnone_obj = s_obj.nonnoneify()
-        add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
-        r.set_knowntypedata(knowntypedata)
-        return r
 
     def hash(self):
         raise AnnotatorError("cannot use hash() in RPython")
@@ -133,18 +140,8 @@ class __extend__(SomeObject):
     def bind_callables_under(self, classdef, name):
         return self   # default unbound __get__ implementation
 
-    def simple_call(self, *args_s):
-        return self.call(simple_args(args_s))
-
-    def call_args(self, *args_s):
-        return self.call(complex_args(args_s))
-
     def call(self, args, implicit_init=False):
         raise AnnotatorError("Cannot prove that the object is callable")
-
-    def op_contains(self, s_element):
-        return s_Bool
-    op_contains.can_only_throw = []
 
     def hint(self, *args_s):
         return self
@@ -249,6 +246,12 @@ class __extend__(SomeTuple):
         items = self.items[s_start.const:s_stop.const]
         return SomeTuple(items)
 
+@op.contains.register(SomeList)
+def contains_SomeList(annotator, obj, element):
+    annotator.annotation(obj).listdef.generalize(annotator.annotation(element))
+    return s_Bool
+contains_SomeList.can_only_throw = []
+
 
 class __extend__(SomeList):
 
@@ -296,11 +299,6 @@ class __extend__(SomeList):
     def getanyitem(self):
         return self.listdef.read_item()
 
-    def op_contains(self, s_element):
-        self.listdef.generalize(s_element)
-        return s_Bool
-    op_contains.can_only_throw = []
-
     def hint(self, *args_s):
         hints = args_s[-1].const
         if 'maxlength' in hints:
@@ -339,6 +337,21 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
            getattr(s_stop, 'const', 0) != -1:
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
+
+def _can_only_throw(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
+        return None    # r_dict: can throw anything
+    return []          # else: no possible exception
+
+@op.contains.register(SomeDict)
+def contains_SomeDict(annotator, dct, element):
+    annotator.annotation(dct).dictdef.generalize_key(annotator.annotation(element))
+    if annotator.annotation(dct)._is_empty():
+        s_bool = SomeBool()
+        s_bool.const = False
+        return s_bool
+    return s_Bool
+contains_SomeDict.can_only_throw = _can_only_throw
 
 class __extend__(SomeDict):
 
@@ -421,19 +434,19 @@ class __extend__(SomeDict):
             self.dictdef.generalize_value(s_dfl)
         return self.dictdef.read_value()
 
-    def _can_only_throw(self, *ignore):
-        if self.dictdef.dictkey.custom_eq_hash:
-            return None    # r_dict: can throw anything
-        return []          # else: no possible exception
-
-    def op_contains(self, s_element):
-        self.dictdef.generalize_key(s_element)
-        if self._is_empty():
-            s_bool = SomeBool()
-            s_bool.const = False
-            return s_bool
-        return s_Bool
-    op_contains.can_only_throw = _can_only_throw
+@op.contains.register(SomeString)
+@op.contains.register(SomeUnicodeString)
+def contains_String(annotator, string, char):
+    if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
+        r = SomeBool()
+        knowntypedata = {}
+        add_knowntypedata(knowntypedata, False, [string],
+                          annotator.annotation(string).nonnulify())
+        r.set_knowntypedata(knowntypedata)
+        return r
+    else:
+        return contains_SomeObject(annotator, string, char)
+contains_String.can_only_throw = []
 
 
 class __extend__(SomeString,
@@ -507,19 +520,6 @@ class __extend__(SomeString,
         check_negative_slice(s_start, s_stop)
         result = self.basestringclass(no_nul=self.no_nul)
         return result
-
-    def op_contains(self, s_element):
-        if s_element.is_constant() and s_element.const == "\0":
-            r = SomeBool()
-            bk = getbookkeeper()
-            op = bk._find_current_op(opname="contains", arity=2, pos=0, s_type=self)
-            knowntypedata = {}
-            add_knowntypedata(knowntypedata, False, [op.args[0]], self.nonnulify())
-            r.set_knowntypedata(knowntypedata)
-            return r
-        else:
-            return SomeObject.op_contains(self, s_element)
-    op_contains.can_only_throw = []
 
     def method_format(self, *args):
         raise AnnotatorError("Method format() is not RPython")
@@ -709,9 +709,6 @@ class __extend__(SomeInstance):
         return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
 
 class __extend__(SomeBuiltin):
-    def simple_call(self, *args):
-        return self.analyser(*args)
-
     def call(self, args, implicit_init=False):
         args_s, kwds = args.unpack()
         # prefix keyword arguments with 's_'

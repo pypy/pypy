@@ -177,7 +177,7 @@ class AppTestPyexpat:
 
 class AppTestPyexpat2:
     spaceconfig = dict(usemodules=['pyexpat', 'itertools', '_socket',
-                                   'rctime', 'struct', 'binascii'])
+                                   'time', 'struct', 'binascii'])
 
     def test_django_bug(self):
         xml_str = '<?xml version="1.0" standalone="no"?><!DOCTYPE example SYSTEM "http://example.com/example.dtd"><root/>'

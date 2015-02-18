@@ -19,7 +19,7 @@ from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.jump import remap_frame_layout
 from rpython.jit.backend.arm.regalloc import TempBox
-from rpython.jit.backend.arm.locations import imm
+from rpython.jit.backend.arm.locations import imm, RawSPStackLocation
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
@@ -100,6 +100,17 @@ class ResOpAssembler(BaseAssembler):
         self.mc.CMP_ri(arg.value, 0)
         self.mc.MOV_ri(res.value, 0, cond=c.LT)
         self.mc.MOV_rr(res.value, arg.value, cond=c.GE)
+        return fcond
+
+    def emit_op_int_signext(self, op, arglocs, regalloc, fcond):
+        arg, numbytes, res = arglocs
+        assert numbytes.is_imm()
+        if numbytes.value == 1:
+            self.mc.SXTB_rr(res.value, arg.value)
+        elif numbytes.value == 2:
+            self.mc.SXTH_rr(res.value, arg.value)
+        else:
+            raise AssertionError("bad number of bytes")
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
@@ -392,7 +403,9 @@ class ResOpAssembler(BaseAssembler):
         # args = [resloc, size, sign, args...]
         from rpython.jit.backend.llsupport.descr import CallDescr
 
-        cb = callbuilder.get_callbuilder(self.cpu, self, arglocs[3], arglocs[4:], arglocs[0])
+        func_index = 3 + is_call_release_gil
+        cb = callbuilder.get_callbuilder(self.cpu, self, arglocs[func_index],
+                                         arglocs[func_index+1:], arglocs[0])
 
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
@@ -407,7 +420,9 @@ class ResOpAssembler(BaseAssembler):
         cb.ressign = signloc.value
 
         if is_call_release_gil:
-            cb.emit_call_release_gil()
+            saveerrloc = arglocs[3]
+            assert saveerrloc.is_imm()
+            cb.emit_call_release_gil(saveerrloc.value)
         else:
             cb.emit()
         return fcond
@@ -971,7 +986,9 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def _call_assembler_emit_call(self, addr, argloc, resloc):
-        self.simple_call(addr, [argloc], result_loc=resloc)
+        ofs = self.saved_threadlocal_addr
+        threadlocal_loc = RawSPStackLocation(ofs, INT)
+        self.simple_call(addr, [argloc, threadlocal_loc], result_loc=resloc)
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
         self.simple_call(addr, arglocs, result_loc=resloc)
@@ -1097,7 +1114,7 @@ class ResOpAssembler(BaseAssembler):
 
     emit_op_float_neg = gen_emit_unary_float_op('float_neg', 'VNEG')
     emit_op_float_abs = gen_emit_unary_float_op('float_abs', 'VABS')
-    emit_op_math_sqrt = gen_emit_unary_float_op('math_sqrt', 'VSQRT')
+    emit_opx_math_sqrt = gen_emit_unary_float_op('math_sqrt', 'VSQRT')
 
     emit_op_float_lt = gen_emit_float_cmp_op('float_lt', c.VFP_LT)
     emit_op_float_le = gen_emit_float_cmp_op('float_le', c.VFP_LE)
@@ -1131,13 +1148,13 @@ class ResOpAssembler(BaseAssembler):
 
     # the following five instructions are only ARMv7;
     # regalloc.py won't call them at all on ARMv6
-    emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
-    emit_op_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
-    emit_op_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
-    emit_op_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
-    emit_op_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
+    emit_opx_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
+    emit_opx_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
+    emit_opx_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
+    emit_opx_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
+    emit_opx_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
 
-    def emit_op_llong_to_int(self, op, arglocs, regalloc, fcond):
+    def emit_opx_llong_to_int(self, op, arglocs, regalloc, fcond):
         loc = arglocs[0]
         res = arglocs[1]
         assert loc.is_vfp_reg()
@@ -1221,17 +1238,29 @@ class ResOpAssembler(BaseAssembler):
                 length_box.getint() <= 14 and     # same limit as GCC
                 itemsize in (4, 2, 1)):
             # Inline a series of STR operations, starting at 'dstaddr_loc'.
-            # XXX we could optimize STRB/STRH into STR, but this needs care:
-            # XXX it only works if startindex_loc is a constant, otherwise
-            # XXX we'd be doing unaligned accesses
+            next_group = -1
+            if itemsize < 4 and startindex >= 0:
+                # we optimize STRB/STRH into STR, but this needs care:
+                # it only works if startindex_loc is a constant, otherwise
+                # we'd be doing unaligned accesses.
+                next_group = (-startindex * itemsize) & 3
+            #
             self.mc.gen_load_int(r.ip.value, 0)
-            for i in range(length_box.getint()):
-                if itemsize == 4:
-                    self.mc.STR_ri(r.ip.value, dstaddr_loc.value, imm=i*4)
-                elif itemsize == 2:
-                    self.mc.STRH_ri(r.ip.value, dstaddr_loc.value, imm=i*2)
+            i = 0
+            total_size = length_box.getint() * itemsize
+            while i < total_size:
+                sz = itemsize
+                if i == next_group:
+                    next_group += 4
+                    if next_group <= total_size:
+                        sz = 4
+                if sz == 4:
+                    self.mc.STR_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                elif sz == 2:
+                    self.mc.STRH_ri(r.ip.value, dstaddr_loc.value, imm=i)
                 else:
-                    self.mc.STRB_ri(r.ip.value, dstaddr_loc.value, imm=i*1)
+                    self.mc.STRB_ri(r.ip.value, dstaddr_loc.value, imm=i)
+                i += sz
 
         else:
             if isinstance(length_box, ConstInt):
@@ -1258,4 +1287,17 @@ class ResOpAssembler(BaseAssembler):
                                         [dstaddr_loc, imm(0), length_loc])
             regalloc.rm.possibly_free_var(length_box)
         regalloc.rm.possibly_free_var(dstaddr_box)
+        return fcond
+
+    def emit_opx_threadlocalref_get(self, op, arglocs, regalloc, fcond):
+        ofs_loc, size_loc, sign_loc, res_loc = arglocs
+        assert ofs_loc.is_imm()
+        assert size_loc.is_imm()
+        assert sign_loc.is_imm()
+        ofs = self.saved_threadlocal_addr
+        self.load_reg(self.mc, res_loc, r.sp, ofs)
+        scale = get_scale(size_loc.value)
+        signed = (sign_loc.value != 0)
+        self._load_from_mem(res_loc, res_loc, ofs_loc, imm(scale), signed,
+                            fcond)
         return fcond

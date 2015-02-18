@@ -11,7 +11,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLOpenError, DLLHANDLE
-from rpython.rlib import jit
+from rpython.rlib import jit, rposix
 from rpython.rlib.objectmodel import specialize
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
@@ -44,10 +44,12 @@ if _WIN32:
 
 if _WIN32:
     separate_module_sources = ['''
+    #include "src/precommondefs.h"
     #include <stdio.h>
     #include <windows.h>
 
     /* Get the module where the "fopen" function resides in */
+    RPY_EXTERN
     HANDLE pypy_get_libc_handle() {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
@@ -93,7 +95,6 @@ elif _MINGW:
     eci = ExternalCompilationInfo(
         libraries = libraries,
         includes = includes,
-        export_symbols = [],
         separate_module_sources = separate_module_sources,
         )
 
@@ -113,15 +114,13 @@ else:
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
-        include_dirs = [libffidir],
+        include_dirs = [libffidir, cdir],
         separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
                                  libffidir.join(asm_ifc),
                                  libffidir.join('pypy_ffi.c'),
                                  ],
-        export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
-                          'pypy_get_libc_handle'],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
@@ -331,7 +330,8 @@ if _MSVC:
 else:
     c_ffi_call_return_type = lltype.Void
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
-                                   VOIDPP], c_ffi_call_return_type)
+                                   VOIDPP], c_ffi_call_return_type,
+                      save_err=rffi.RFFI_ERR_ALL)
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
@@ -412,7 +412,7 @@ USERDATA_P.TO.become(lltype.Struct('userdata',
 
 
 @jit.jit_callback("CLIBFFI")
-def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+def _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
     ll_args - rffi.VOIDPP - pointer to array of pointers to args
@@ -422,6 +422,12 @@ def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """
     userdata = rffi.cast(USERDATA_P, ll_userdata)
     userdata.callback(ll_args, ll_res, userdata)
+
+def ll_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+    rposix._errno_after(rffi.RFFI_ERR_ALL)
+    _ll_callback(ffi_cif, ll_res, ll_args, ll_userdata)
+    rposix._errno_before(rffi.RFFI_ERR_ALL)
+
 
 class StackCheckError(ValueError):
     message = None

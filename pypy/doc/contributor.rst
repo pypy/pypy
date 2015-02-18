@@ -1,4 +1,3 @@
-
 Contributors to PyPy
 ====================
 
@@ -13,19 +12,19 @@ appropriate measure but it's something)::
   Amaury Forgeot d'Arc
   Samuele Pedroni
   Alex Gaynor
+  Brian Kearns
+  Matti Picus
+  Philip Jenvey
   Michael Hudson
   David Schneider
-  Matti Picus
-  Brian Kearns
-  Philip Jenvey
   Holger Krekel
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
   Manuel Jacob
+  Ronan Lamy
   Anders Chrigstrom
   Eric van Riet Paap
-  Ronan Lamy
   Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
@@ -39,9 +38,9 @@ appropriate measure but it's something)::
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
+  Romain Guillebert
   Leonardo Santagada
   Seo Sanghyeon
-  Romain Guillebert
   Justin Peel
   Ronny Pfannschmidt
   David Edelsohn
@@ -62,15 +61,16 @@ appropriate measure but it's something)::
   Michal Bendowski
   Jan de Mooij
   stian
+  Tyler Wade
   Michael Foord
   Stephan Diehl
-  Tyler Wade
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
   Patrick Maupin
   Bob Ippolito
   Bruno Gola
+  David Malcolm
   Jean-Paul Calderone
   Timo Paulssen
   Squeaky
@@ -79,18 +79,19 @@ appropriate measure but it's something)::
   Marius Gedminas
   Martin Matusiak
   Konstantin Lopuhin
-  John Witulski
   Wenzhu Man
+  John Witulski
+  Laurence Tratt
+  Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Ivan Sichmann Freitas
   Andreas Stührk
+  Stefano Rivera
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Stefano Rivera
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
@@ -100,7 +101,6 @@ appropriate measure but it's something)::
   tav
   Taavi Burns
   Georg Brandl
-  Laurence Tratt
   Bert Freudenberg
   Stian Andreassen
   Wanja Saatkamp
@@ -112,13 +112,12 @@ appropriate measure but it's something)::
   Jeremy Thurgood
   Rami Chowdhury
   Tobias Pape
-  David Malcolm
   Eugene Oden
   Henry Mason
   Vasily Kuznetsov
   Preston Timmons
-  Jeff Terrace
   David Ripton
+  Jeff Terrace
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
@@ -137,13 +136,16 @@ appropriate measure but it's something)::
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
+  Yichao Yu
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
+  Wouter van Heyst
   Brian Dorsey
   Victor Stinner
   Andrews Medina
+  anatoly techtonik
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -153,12 +155,11 @@ appropriate measure but it's something)::
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
-  anatoly techtonik
   Neil Shepperd
+  Stanislaw Halik
   Mikael Schönenberg
   Elmo M?ntynen
   Jonathan David Riehl
-  Stanislaw Halik
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
@@ -167,10 +168,13 @@ appropriate measure but it's something)::
   Vincent Legoll
   Alan McIntyre
   Alexander Sedov
+  Attila Gobi
   Christopher Pope
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
+  Arjun Naik
+  Valentina Mukhamedzhanova
   Stefano Parmesan
   Alexis Daboville
   Jens-Uwe Mager
@@ -184,8 +188,6 @@ appropriate measure but it's something)::
   Sylvain Thenault
   Nathan Taylor
   Vladimir Kryachko
-  Arjun Naik
-  Attila Gobi
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -193,22 +195,23 @@ appropriate measure but it's something)::
   Ryan Gonzalez
   Ian Foote
   Kristjan Valur Jonsson
+  David Lievens
   Neil Blakey-Milner
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
-  Valentina Mukhamedzhanova
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
-  Yichao Yu
   Ignas Mikalajunas
   Christoph Gerum
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Toni Mattis
+  Lucas Stadler
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
@@ -236,23 +239,30 @@ appropriate measure but it's something)::
   Stephan Busemann
   Rafał Gałczyński
   Christian Muirhead
+  Berker Peksag
   James Lan
   shoma hosaka
-  Daniel Neuh?user
-  Matthew Miller
+  Daniel Neuhäuser
+  Ben Mather
+  halgari
+  Boglarka Vezer
+  Chris Pressey
   Buck Golemon
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
-  Rodrigo Araújo
   Jim Baker
+  Rodrigo Araújo
+  Nikolaos-Digenis Karagiannis
   James Robert
   Armin Ronacher
   Brett Cannon
+  Donald Stufft
   yrttyr
   aliceinwire
   OlivierBlanvillain
+  Dan Sanders
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
@@ -266,6 +276,7 @@ appropriate measure but it's something)::
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
+  squeaky
   soareschen
   Kurt Griffiths
   Mike Bayer
@@ -277,5 +288,6 @@ appropriate measure but it's something)::
   Anna Ravencroft
   Dan Crosta
   Julien Phalip
+  Roman Podoliaka
   Dan Loewenherz
 

@@ -1,12 +1,12 @@
 from rpython.translator.simplify import join_blocks, cleanup_graph
-from rpython.translator.unsimplify import copyvar, varoftype
+from rpython.translator.unsimplify import varoftype
 from rpython.translator.unsimplify import insert_empty_block, split_block
 from rpython.translator.backendopt import canraise, inline
 from rpython.flowspace.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
-from rpython.rtyper.lltypesystem.rclass import ll_inst_type
+from rpython.rtyper.rclass import ll_inst_type
 from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -259,7 +259,7 @@ class ExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            splitlink = split_block(None, block, i+1)
+            splitlink = split_block(block, i+1)
             afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
@@ -305,8 +305,7 @@ class ExceptionTransformer(object):
         reraise = self.comes_from_last_exception(entrymap, link)
         result = Variable()
         result.concretetype = lltype.Void
-        block = Block([copyvar(None, v)
-                       for v in graph.exceptblock.inputargs])
+        block = Block([v.copy() for v in graph.exceptblock.inputargs])
         if reraise:
             block.operations = [
                 SpaceOperation("direct_call",
@@ -345,7 +344,7 @@ class ExceptionTransformer(object):
         inlined, the correct exception matching blocks are produced."""
         # XXX slightly annoying: construct a graph by hand
         # but better than the alternative
-        result = copyvar(None, op.result)
+        result = op.result.copy()
         opargs = []
         inputargs = []
         callargs = []
@@ -399,6 +398,10 @@ class ExceptionTransformer(object):
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
             var_no_exc = self.gen_isnull(v_exc_type, llops)
+        #
+        # We could add a "var_no_exc is likely true" hint, but it seems
+        # not to help, so it was commented out again.
+        #var_no_exc = llops.genop('likely', [var_no_exc], lltype.Bool)
 
         block.operations.extend(llops)
 
@@ -429,13 +432,13 @@ class ExceptionTransformer(object):
 
         if insert_zeroing_op:
             if normalafterblock is None:
-                normalafterblock = insert_empty_block(None, l0)
+                normalafterblock = insert_empty_block(l0)
             v_result = spaceop.result
             if v_result in l0.args:
                 result_i = l0.args.index(v_result)
                 v_result_after = normalafterblock.inputargs[result_i]
             else:
-                v_result_after = copyvar(None, v_result)
+                v_result_after = v_result.copy()
                 l0.args.append(v_result)
                 normalafterblock.inputargs.append(v_result_after)
             if true_zero:

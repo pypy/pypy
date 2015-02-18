@@ -3,7 +3,6 @@ from rpython.rlib.debug import ll_assert
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.tool.staticmethods import StaticMethods
 
 
 NULL_SUSPSTACK = lltype.nullptr(llmemory.GCREF.TO)
@@ -68,9 +67,7 @@ def get_result_suspstack(h):
     return oldsuspstack
 
 
-class StackletGcRootFinder:
-    __metaclass__ = StaticMethods
-
+class StackletGcRootFinder(object):
     def new(thrd, callback, arg):
         gcrootfinder.callback = callback
         thread_handle = thrd._thrd
@@ -78,6 +75,7 @@ class StackletGcRootFinder:
         h = _c.new(thread_handle, llhelper(_c.run_fn, _new_callback), arg)
         return get_result_suspstack(h)
     new._dont_inline_ = True
+    new = staticmethod(new)
 
     def switch(suspstack):
         # suspstack has a handle to target, i.e. where to switch to
@@ -90,10 +88,13 @@ class StackletGcRootFinder:
         h = _c.switch(h)
         return get_result_suspstack(h)
     switch._dont_inline_ = True
+    switch = staticmethod(switch)
 
+    @staticmethod
     def is_empty_handle(suspstack):
         return not suspstack
 
+    @staticmethod
     def get_null_handle():
         return NULL_SUSPSTACK
 

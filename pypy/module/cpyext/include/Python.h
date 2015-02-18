@@ -11,8 +11,8 @@
 # include <errno.h>
 # include <unistd.h>
 # define Py_DEPRECATED(VERSION_UNUSED) __attribute__((__deprecated__))
-# define PyAPI_FUNC(RTYPE) RTYPE
-# define PyAPI_DATA(RTYPE) extern RTYPE
+# define PyAPI_FUNC(RTYPE) __attribute__((visibility("default"))) RTYPE
+# define PyAPI_DATA(RTYPE) extern PyAPI_FUNC(RTYPE)
 # define Py_LOCAL_INLINE(type) static inline type
 #else
 # define MS_WIN32 1
@@ -47,7 +47,7 @@
 # endif
 #endif
 #ifndef DL_EXPORT
-#       define DL_EXPORT(RTYPE) RTYPE
+#       define DL_EXPORT(RTYPE) PyAPI_FUNC(RTYPE)
 #endif
 #ifndef DL_IMPORT
 #       define DL_IMPORT(RTYPE) RTYPE

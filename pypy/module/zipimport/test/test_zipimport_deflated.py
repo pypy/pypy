@@ -8,7 +8,7 @@ BAD_ZIP = str(py.path.local(__file__).dirpath('bad.zip'))
 class AppTestZipimportDeflated(Base):
     compression = ZIP_DEFLATED
     spaceconfig = {
-        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'itertools', 'binascii'],
+        "usemodules": ['zipimport', 'zlib', 'time', 'struct', 'itertools', 'binascii'],
     }
 
     def setup_class(cls):

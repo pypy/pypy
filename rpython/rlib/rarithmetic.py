@@ -635,6 +635,12 @@ def int_between(n, m, p):
         assert n <= p
     return llop.int_between(lltype.Bool, n, m, p)
 
+def int_force_ge_zero(n):
+    """ The JIT special-cases this too. """
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    return llop.int_force_ge_zero(lltype.Signed, n)
+
 @objectmodel.specialize.ll()
 def byteswap(arg):
     """ Convert little->big endian and the opposite

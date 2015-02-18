@@ -2,10 +2,13 @@ import os
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import Const
+from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization,\
+     MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -62,6 +65,18 @@ class CachedField(object):
             # cancelling its previous effects with no side effect.
             self._lazy_setfield = None
 
+    def value_updated(self, oldvalue, newvalue, exporting_state):
+        try:
+            fieldvalue = self._cached_fields[oldvalue]
+        except KeyError:
+            pass
+        else:
+            self._cached_fields[newvalue] = fieldvalue
+            if exporting_state:
+                op = self._cached_fields_getfield_op[oldvalue].clone()
+                op.setarg(0, newvalue.box)
+                self._cached_fields_getfield_op[newvalue] = op
+
     def possible_aliasing(self, optheap, structvalue):
         # If lazy_setfield is set and contains a setfield on a different
         # structvalue, then we are annoyed, because it may point to either
@@ -81,10 +96,13 @@ class CachedField(object):
         else:
             return self._cached_fields.get(structvalue, None)
 
-    def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
+    def remember_field_value(self, structvalue, fieldvalue, op=None,
+                             optimizer=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        self._cached_fields_getfield_op[structvalue] = getfield_op
+        if optimizer.exporting_state:
+            op = optimizer.get_op_replacement(op)
+            self._cached_fields_getfield_op[structvalue] = op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -108,7 +126,8 @@ class CachedField(object):
             # field.
             structvalue = optheap.getvalue(op.getarg(0))
             fieldvalue = optheap.getvalue(op.getarglist()[-1])
-            self.remember_field_value(structvalue, fieldvalue, op)
+            self.remember_field_value(structvalue, fieldvalue, op,
+                                      optheap.optimizer)
         elif not can_cache:
             self.clear()
 
@@ -116,19 +135,8 @@ class CachedField(object):
         self._cached_fields.clear()
         self._cached_fields_getfield_op.clear()
 
-    def turned_constant(self, newvalue, value):
-        if newvalue not in self._cached_fields and value in self._cached_fields:
-            self._cached_fields[newvalue] = self._cached_fields[value]
-            op = self._cached_fields_getfield_op[value].clone()
-            constbox = value.box
-            assert isinstance(constbox, Const)
-            op.setarg(0, constbox)
-            self._cached_fields_getfield_op[newvalue] = op
-        for structvalue in self._cached_fields.keys():
-            if self._cached_fields[structvalue] is value:
-                self._cached_fields[structvalue] = newvalue
-
     def produce_potential_short_preamble_ops(self, optimizer, shortboxes, descr):
+        assert optimizer.exporting_state
         if self._lazy_setfield is not None:
             return
         for structvalue in self._cached_fields_getfield_op.keys():
@@ -137,7 +145,7 @@ class CachedField(object):
                 continue
             value = optimizer.getvalue(op.getarg(0))
             if value in optimizer.opaque_pointers:
-                if value.level < LEVEL_KNOWNCLASS:
+                if value.getlevel() < LEVEL_KNOWNCLASS:
                     continue
                 if op.getopnum() != rop.SETFIELD_GC and op.getopnum() != rop.GETFIELD_GC:
                     continue
@@ -184,6 +192,18 @@ class OptHeap(Optimization):
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
         self.postponed_op = None
+
+    def setup(self):
+        self.optimizer.optheap = self
+
+    def value_updated(self, oldvalue, newvalue):
+        # XXXX very unhappy about that
+        for cf in self.cached_fields.itervalues():
+            cf.value_updated(oldvalue, newvalue, self.optimizer.exporting_state)
+        for submap in self.cached_arrayitems.itervalues():
+            for cf in submap.itervalues():
+                cf.value_updated(oldvalue, newvalue,
+                                 self.optimizer.exporting_state)
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
@@ -272,6 +292,7 @@ class OptHeap(Optimization):
             opnum == rop.STRSETITEM or           # no effect on GC struct/array
             opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
             opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
+            opnum == rop.JIT_DEBUG or            # no effect whatsoever
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
@@ -305,6 +326,29 @@ class OptHeap(Optimization):
         self.emit_operation(op)
 
     def _optimize_CALL_DICT_LOOKUP(self, op):
+        # Cache consecutive lookup() calls on the same dict and key,
+        # depending on the 'flag_store' argument passed:
+        # FLAG_LOOKUP: always cache and use the cached result.
+        # FLAG_STORE:  don't cache (it might return -1, which would be
+        #                incorrect for future lookups); but if found in
+        #                the cache and the cached value was already checked
+        #                non-negative, then we can reuse it.
+        # FLAG_DELETE: never cache, never use the cached result (because
+        #                if there is a cached result, the FLAG_DELETE call
+        #                is needed for its side-effect of removing it).
+        #                In theory we could cache a -1 for the case where
+        #                the delete is immediately followed by a lookup,
+        #                but too obscure.
+        #
+        from rpython.rtyper.lltypesystem.rordereddict import FLAG_LOOKUP
+        from rpython.rtyper.lltypesystem.rordereddict import FLAG_STORE
+        flag_value = self.getvalue(op.getarg(4))
+        if not flag_value.is_constant():
+            return False
+        flag = flag_value.get_constant_int()
+        if flag != FLAG_LOOKUP and flag != FLAG_STORE:
+            return False
+        #
         descrs = op.getdescr().get_extra_info().extradescrs
         assert descrs        # translation hint
         descr1 = descrs[0]
@@ -313,13 +357,20 @@ class OptHeap(Optimization):
         except KeyError:
             d = self.cached_dict_reads[descr1] = args_dict()
             self.corresponding_array_descrs[descrs[1]] = descr1
-        args = self.optimizer.make_args_key(op)
+        #
+        key = [self.optimizer.get_box_replacement(op.getarg(1)),   # dict
+               self.optimizer.get_box_replacement(op.getarg(2))]   # key
+               # other args can be ignored here (hash, store_flag)
         try:
-            res_v = d[args]
+            res_v = d[key]
         except KeyError:
-            d[args] = self.getvalue(op.result)
+            if flag == FLAG_LOOKUP:
+                d[key] = self.getvalue(op.result)
             return False
         else:
+            if flag != FLAG_LOOKUP:
+                if not res_v.getintbound().known_ge(IntBound(0, 0)):
+                    return False
             self.make_equal_to(op.result, res_v)
             self.last_emitted_operation = REMOVED
             return True
@@ -358,16 +409,6 @@ class OptHeap(Optimization):
             # ^^^ we only need to force this field; the other fields
             # of virtualref_info and virtualizable_info are not gcptrs.
 
-    def turned_constant(self, value):
-        assert value.is_constant()
-        newvalue = self.getvalue(value.box)
-        if value is not newvalue:
-            for cf in self.cached_fields.itervalues():
-                cf.turned_constant(newvalue, value)
-            for submap in self.cached_arrayitems.itervalues():
-                for cf in submap.itervalues():
-                    cf.turned_constant(newvalue, value)
-
     def force_lazy_setfield(self, descr, can_cache=True):
         try:
             cf = self.cached_fields[descr]
@@ -381,7 +422,7 @@ class OptHeap(Optimization):
         except KeyError:
             return
         for idx, cf in submap.iteritems():
-            if indexvalue is None or indexvalue.intbound.contains(idx):
+            if indexvalue is None or indexvalue.getintbound().contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
     def _assert_valid_cf(self, cf):
@@ -443,7 +484,7 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
-        cf.remember_field_value(structvalue, fieldvalue, op)
+        cf.remember_field_value(structvalue, fieldvalue, op, self.optimizer)
 
     def optimize_GETFIELD_GC_PURE(self, op):
         structvalue = self.getvalue(op.getarg(0))
@@ -487,7 +528,7 @@ class OptHeap(Optimization):
         # the remember the result of reading the array item
         if cf is not None:
             fieldvalue = self.getvalue(op.result)
-            cf.remember_field_value(arrayvalue, fieldvalue, op)
+            cf.remember_field_value(arrayvalue, fieldvalue, op, self.optimizer)
 
     def optimize_GETARRAYITEM_GC_PURE(self, op):
         arrayvalue = self.getvalue(op.getarg(0))
@@ -531,10 +572,14 @@ class OptHeap(Optimization):
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC(s, descr='inst_x')
-        # If 's' is a constant (after optimizations), then we make 's.inst_x'
-        # a constant too, and we rely on the rest of the optimizations to
-        # constant-fold the following getfield_gc.
+        #          x = GETFIELD_GC_PURE(s, descr='inst_x')
+        # If 's' is a constant (after optimizations) we rely on the rest of the
+        # optimizations to constant-fold the following getfield_gc_pure.
+        # in addition, we record the dependency here to make invalidation work
+        # correctly.
+        # NB: emitting the GETFIELD_GC_PURE is only safe because the
+        # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
+        # registered.
         structvalue = self.getvalue(op.getarg(0))
         if not structvalue.is_constant():
             self._remove_guard_not_invalidated = True
@@ -544,21 +589,14 @@ class OptHeap(Optimization):
         qmutdescr = op.getdescr()
         assert isinstance(qmutdescr, QuasiImmutDescr)
         # check that the value is still correct; it could have changed
-        # already between the tracing and now.  In this case, we are
-        # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
-        # as a regular getfield.
+        # already between the tracing and now.  In this case, we mark the loop
+        # as invalid
         if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
-            self._remove_guard_not_invalidated = True
-            return
+            raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
         self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        # perform the replacement in the list of operations
-        fieldvalue = self.getvalue(qmutdescr.constantfieldbox)
-        cf = self.field_cache(qmutdescr.fielddescr)
-        cf.force_lazy_setfield(self)
-        cf.remember_field_value(structvalue, fieldvalue)
         self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):

@@ -11,6 +11,8 @@ extern "C" {
 #endif
 
 #include "old_defines.h"
+#include "npy_common.h"
+#include "__multiarray_api.h"
 
 #define NPY_UNUSED(x) x
 #define PyArray_MAX(a,b) (((a)>(b))?(a):(b))
@@ -22,23 +24,10 @@ extern "C" {
 
 PyAPI_DATA(PyTypeObject) PyArray_Type;
 
-typedef unsigned char npy_bool;
-typedef unsigned char npy_uint8;
-typedef unsigned short npy_uint16;
-typedef signed short npy_int16;
-typedef signed char npy_int8;
-typedef int npy_int;
-
-typedef long npy_intp;
-#ifndef NPY_INTP_FMT
-#define NPY_INTP_FMT "ld"
-#endif
-#ifndef import_array
-#define import_array()
-#endif
 
 #define NPY_MAXDIMS 32
 
+#ifndef NDARRAYTYPES_H
 typedef struct {
     npy_intp *ptr;
     int len;
@@ -72,19 +61,6 @@ enum NPY_TYPES {    NPY_BOOL=0,
                     /* The number of types not including the new 1.6 types */
                     NPY_NTYPES_ABI_COMPATIBLE=21
 };
-
-#define NPY_INT8      NPY_BYTE
-#define NPY_UINT8     NPY_UBYTE
-#define NPY_INT16     NPY_SHORT
-#define NPY_UINT16    NPY_USHORT
-#define NPY_INT32     NPY_INT
-#define NPY_UINT32    NPY_UINT
-#define NPY_INT64     NPY_LONG
-#define NPY_UINT64    NPY_ULONG
-#define NPY_FLOAT32   NPY_FLOAT
-#define NPY_FLOAT64   NPY_DOUBLE
-#define NPY_COMPLEX32 NPY_CFLOAT
-#define NPY_COMPLEX64 NPY_CDOUBLE
 
 #define PyTypeNum_ISBOOL(type)      ((type) == NPY_BOOL)
 #define PyTypeNum_ISINTEGER(type)  (((type) >= NPY_BYTE) && \
@@ -167,6 +143,21 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_ISNOTSWAPPED(arr)  (1)
 #define PyArray_ISBYTESWAPPED(arr) (0)
 
+#endif
+
+#define NPY_INT8      NPY_BYTE
+#define NPY_UINT8     NPY_UBYTE
+#define NPY_INT16     NPY_SHORT
+#define NPY_UINT16    NPY_USHORT
+#define NPY_INT32     NPY_INT
+#define NPY_UINT32    NPY_UINT
+#define NPY_INT64     NPY_LONG
+#define NPY_UINT64    NPY_ULONG
+#define NPY_FLOAT32   NPY_FLOAT
+#define NPY_FLOAT64   NPY_DOUBLE
+#define NPY_COMPLEX32 NPY_CFLOAT
+#define NPY_COMPLEX64 NPY_CDOUBLE
+
 
 /* functions */
 #ifndef PyArray_NDIM
@@ -204,9 +195,9 @@ enum NPY_TYPES {    NPY_BOOL=0,
 #define PyArray_EMPTY(nd, dims, type_num, fortran) \
         PyArray_SimpleNew(nd, dims, type_num)
 
-void _PyArray_FILLWBYTE(PyObject* obj, int val);
-PyObject* _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
-int _PyArray_CopyInto(PyArrayObject* dest, PyArrayObject* src);
+PyAPI_FUNC(void) _PyArray_FILLWBYTE(PyObject* obj, int val);
+PyAPI_FUNC(PyObject *) _PyArray_ZEROS(int nd, npy_intp* dims, int type_num, int fortran);
+PyAPI_FUNC(int) _PyArray_CopyInto(PyArrayObject* dest, PyArrayObject* src);
 
 #define PyArray_FILLWBYTE _PyArray_FILLWBYTE
 #define PyArray_ZEROS _PyArray_ZEROS

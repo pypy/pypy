@@ -254,11 +254,15 @@ def test_custom_tracer():
     frame.jf_gcmap[2] = r_uint(2 | 16 | 32 | 128)
     frame.jf_gcmap[3] = r_uint(0)
     frame_adr = llmemory.cast_ptr_to_adr(frame)
+    #
     all_addrs = []
-    next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
-    while next:
-        all_addrs.append(next)
-        next = jitframe.jitframe_trace(frame_adr, next)
+    class FakeGC:
+        def _trace_callback(self, callback, arg, addr):
+            assert callback == "hello"
+            assert arg == "world"
+            all_addrs.append(addr)
+    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world")
+    #
     counter = 0
     for name in jitframe.JITFRAME._names:
         TP = getattr(jitframe.JITFRAME, name)
@@ -297,12 +301,12 @@ def test_custom_tracer_2():
     frame.jf_gcmap[0] = r_uint(18446744073441116160)
     frame.jf_gcmap[1] = r_uint(18446740775107559407)
     frame.jf_gcmap[2] = r_uint(3)
-    all_addrs = []
     frame_adr = llmemory.cast_ptr_to_adr(frame)
-    next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
-    while next:
-        all_addrs.append(next)
-        next = jitframe.jitframe_trace(frame_adr, next)
+    class FakeGC:
+        def _trace_callback(self, callback, arg, addr):
+            assert callback == "hello"
+            assert arg == "world"
+    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world")
     # assert did not hang
 
     lltype.free(frame_info, flavor='raw')

@@ -3,7 +3,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, interpindirect2app
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import TypeDef
 
 
 class W_AbstractSeqIterObject(W_Root):
@@ -40,7 +40,7 @@ class W_AbstractSeqIterObject(W_Root):
     def descr_length_hint(self, space):
         return self.getlength(space)
 
-W_AbstractSeqIterObject.typedef = StdTypeDef(
+W_AbstractSeqIterObject.typedef = TypeDef(
     "sequenceiterator",
     __doc__ = '''iter(collection) -> iterator
 iter(callable, sentinel) -> iterator
@@ -159,7 +159,7 @@ class W_ReverseSeqIterObject(W_Root):
             raise OperationError(space.w_StopIteration, space.w_None)
         return w_item
 
-W_ReverseSeqIterObject.typedef = StdTypeDef(
+W_ReverseSeqIterObject.typedef = TypeDef(
     "reversesequenceiterator",
     __iter__ = interp2app(W_ReverseSeqIterObject.descr_iter),
     next = interp2app(W_ReverseSeqIterObject.descr_next),

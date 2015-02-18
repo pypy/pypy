@@ -7,6 +7,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 
+WIN32 = os.name == "nt"
+
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -44,7 +46,7 @@ if os.name == 'nt':
 
         /* This function emulates what the windows CRT
             does to validate file handles */
-        int
+        RPY_EXTERN int
         _PyVerify_fd(int fd)
         {
             const int i1 = fd >> IOINFO_L2E;
@@ -81,30 +83,72 @@ if os.name == 'nt':
             return 0;
         }
     ''',]
-    export_symbols = ['_PyVerify_fd']
 else:
     separate_module_sources = []
-    export_symbols = []
     includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
     includes=includes,
     separate_module_sources=separate_module_sources,
-    export_symbols=export_symbols,
 )
 
+# Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
                                          _nowrapper=True, c_type='int')
-# the default wrapper for set_errno is not suitable for use in critical places
-# like around GIL handling logic, so we provide our own wrappers.
 
-@jit.oopspec("rposix.get_errno()")
-def get_errno():
-    return intmask(_get_errno())
+def get_saved_errno():
+    """Return the value of the "saved errno".
+    This value is saved after a call to a C function, if it was declared
+    with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO).
+    Functions without that flag don't change the saved errno.
+    """
+    from rpython.rlib import rthread
+    return intmask(rthread.tlfield_rpy_errno.getraw())
 
-@jit.oopspec("rposix.set_errno(errno)")
-def set_errno(errno):
-    _set_errno(rffi.cast(INT, errno))
+def set_saved_errno(errno):
+    """Set the value of the saved errno.  This value will be used to
+    initialize the real errno just before calling the following C function,
+    provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO).
+    Note also that it is more common to want the real errno to be initially
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
+    and then you don't need set_saved_errno(0).
+    """
+    from rpython.rlib import rthread
+    rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
+
+
+@specialize.call_location()
+def _errno_before(save_err):
+    if save_err & rffi.RFFI_READSAVED_ERRNO:
+        from rpython.rlib import rthread
+        _set_errno(rthread.tlfield_rpy_errno.getraw())
+    elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+        _set_errno(rffi.cast(rffi.INT, 0))
+    if WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        err = rthread.tlfield_rpy_lasterror.getraw()
+        # careful, getraw() overwrites GetLastError.
+        # We must assign it with _SetLastError() as the last
+        # operation, i.e. after the errno handling.
+        rwin32._SetLastError(err)
+
+@specialize.call_location()
+def _errno_after(save_err):
+    if WIN32:
+        if save_err & rffi.RFFI_SAVE_LASTERROR:
+            from rpython.rlib import rthread, rwin32
+            err = rwin32._GetLastError()
+            # careful, setraw() overwrites GetLastError.
+            # We must read it first, before the errno handling.
+            rthread.tlfield_rpy_lasterror.setraw(err)
+        elif save_err & rffi.RFFI_SAVE_WSALASTERROR:
+            from rpython.rlib import rthread, _rsocket_rffi
+            err = _rsocket_rffi._WSAGetLastError()
+            rthread.tlfield_rpy_lasterror.setraw(err)
+    if save_err & rffi.RFFI_SAVE_ERRNO:
+        from rpython.rlib import rthread
+        rthread.tlfield_rpy_errno.setraw(_get_errno())
+
 
 if os.name == 'nt':
     is_valid_fd = jit.dont_look_inside(rffi.llexternal(
@@ -113,7 +157,8 @@ if os.name == 'nt':
         ))
     def validate_fd(fd):
         if not is_valid_fd(fd):
-            raise OSError(get_errno(), 'Bad file descriptor')
+            from errno import EBADF
+            raise OSError(EBADF, 'Bad file descriptor')
 else:
     def is_valid_fd(fd):
         return 1

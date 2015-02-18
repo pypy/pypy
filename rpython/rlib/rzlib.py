@@ -37,7 +37,7 @@ constantnames = '''
     Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH  Z_FULL_FLUSH
     MAX_WBITS  MAX_MEM_LEVEL
     Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
-    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY
+    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY Z_NEED_DICT
     '''.split()
 
 class SimpleCConfig:
@@ -165,6 +165,10 @@ def _inflateInit2(stream, wbits):
     result = _inflateInit2_(stream, wbits, ZLIB_VERSION, size)
     return result
 
+_deflateSetDictionary = zlib_external('deflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
+_inflateSetDictionary = zlib_external('inflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
+_zlibVersion = zlib_external('zlibVersion', [], rffi.CCHARP)
+
 # ____________________________________________________________
 
 CRC32_DEFAULT_START = 0
@@ -174,27 +178,40 @@ def crc32(string, start=CRC32_DEFAULT_START):
     Compute the CRC32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.get_nonmovingbuffer(string)
-    try:
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _crc32(start, rffi.cast(Bytefp, bytes), len(string))
-    finally:
-        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
 
 
 ADLER32_DEFAULT_START = 1
 
+def deflateSetDictionary(stream, string):
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _deflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
+    if err == Z_STREAM_ERROR:
+        raise RZlibError("Parameter is invalid or the stream state is inconsistent")
+
+def inflateSetDictionary(stream, string):
+    with rffi.scoped_nonmovingbuffer(string) as buf:
+        err = _inflateSetDictionary(stream, rffi.cast(Bytefp, buf), len(string))
+    if err == Z_STREAM_ERROR:
+        raise RZlibError("Parameter is invalid or the stream state is inconsistent")
+    elif err == Z_DATA_ERROR:
+        raise RZlibError("The given dictionary doesn't match the expected one")
+
+    
 def adler32(string, start=ADLER32_DEFAULT_START):
     """
     Compute the Adler-32 checksum of the string, possibly with the given
     start value, and return it as a unsigned 32 bit integer.
     """
-    bytes = rffi.get_nonmovingbuffer(string)
-    try:
+    with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
-    finally:
-        rffi.free_nonmovingbuffer(string, bytes)
     return checksum
+
+def zlibVersion():
+    """Return the runtime version of zlib library"""
+    return rffi.charp2str(_zlibVersion())
 
 # ____________________________________________________________
 
@@ -352,6 +369,8 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """
     # Prepare the input buffer for the stream
     with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
+        # XXX (groggi) should be possible to improve this with pinning by
+        # not performing the 'copy_string_to_raw' if non-movable/pinned
         copy_string_to_raw(llstr(data), inbuf, 0, len(data))
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))

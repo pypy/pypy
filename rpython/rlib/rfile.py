@@ -57,17 +57,23 @@ NEWLINE_CRLF = 4
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
-c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP)
-c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP)
+c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
-                      [rffi.INT, rffi.CCHARP], FILEP)
-c_tmpfile = llexternal('tmpfile', [], FILEP)
+                      [rffi.INT, rffi.CCHARP], FILEP,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+c_tmpfile = llexternal('tmpfile', [], FILEP,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 c_setvbuf = llexternal('setvbuf', [FILEP, rffi.CCHARP, rffi.INT, rffi.SIZE_T],
                        rffi.INT)
 
-c_fclose = llexternal('fclose', [FILEP], rffi.INT)
-c_pclose = llexternal('pclose', [FILEP], rffi.INT)
+c_fclose = llexternal('fclose', [FILEP], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+c_pclose = llexternal('pclose', [FILEP], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
 
 # Note: the following two functions are called from __del__ methods,
 # so must be 'releasegil=False'.  Otherwise, a program using both
@@ -84,21 +90,28 @@ c_fread = llexternal('fread', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                      rffi.SIZE_T)
 
 c_fwrite = llexternal('fwrite', [rffi.CCHARP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                      rffi.SIZE_T)
-c_fflush = llexternal('fflush', [FILEP], rffi.INT)
-c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True)
+                      rffi.SIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
+c_fflush = llexternal('fflush', [FILEP], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+c_ftruncate = llexternal(ftruncate, [rffi.INT, OFF_T], rffi.INT, macro=True,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 
-c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT)
-c_ftell = llexternal('ftell', [FILEP], rffi.LONG)
+c_fseek = llexternal('fseek', [FILEP, rffi.LONG, rffi.INT], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+c_ftell = llexternal('ftell', [FILEP], rffi.LONG,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 c_fileno = llexternal(fileno, [FILEP], rffi.INT)
 
 c_feof = llexternal('feof', [FILEP], rffi.INT)
 c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
-c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*')[0]
-c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*')[0]
-c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*')[0]
+c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*',
+                               getter_only=True)
+c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*',
+                                getter_only=True)
+c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*',
+                                getter_only=True)
 
 
 def _error(ll_file):
@@ -146,7 +159,7 @@ def create_file(filename, mode="r", buffering=-1):
         try:
             ll_file = c_fopen(ll_name, ll_mode)
             if not ll_file:
-                errno = rposix.get_errno()
+                errno = rposix.get_saved_errno()
                 raise IOError(errno, os.strerror(errno))
         finally:
             lltype.free(ll_mode, flavor='raw')
@@ -166,7 +179,7 @@ def create_fdopen_rfile(fd, mode="r", buffering=-1):
     try:
         ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))
     finally:
         lltype.free(ll_mode, flavor='raw')
@@ -179,7 +192,7 @@ def create_fdopen_rfile(fd, mode="r", buffering=-1):
 def create_temp_rfile():
     res = c_tmpfile()
     if not res:
-        errno = rposix.get_errno()
+        errno = rposix.get_saved_errno()
         raise OSError(errno, os.strerror(errno))
     return RFile(res)
 
@@ -191,7 +204,7 @@ def create_popen_file(command, type):
         try:
             ll_file = c_popen(ll_command, ll_type)
             if not ll_file:
-                errno = rposix.get_errno()
+                errno = rposix.get_saved_errno()
                 raise OSError(errno, os.strerror(errno))
         finally:
             lltype.free(ll_type, flavor='raw')
@@ -271,7 +284,7 @@ class RFile(object):
                 if do_close:
                     res = do_close(ll_file)
                     if res == -1:
-                        errno = rposix.get_errno()
+                        errno = rposix.get_saved_errno()
                         raise IOError(errno, os.strerror(errno))
             finally:
                 if self._setbuf:
@@ -464,24 +477,21 @@ class RFile(object):
     @enforceargs(None, str)
     def write(self, value):
         self._check_closed()
-        ll_value = rffi.get_nonmovingbuffer(value)
-        try:
+        with rffi.scoped_nonmovingbuffer(value) as ll_value:
             # note that since we got a nonmoving buffer, it is either raw
             # or already cannot move, so the arithmetics below are fine
             length = len(value)
             bytes = c_fwrite(ll_value, 1, length, self._ll_file)
             if bytes != length:
-                errno = rposix.get_errno()
+                errno = rposix.get_saved_errno()
                 c_clearerr(self._ll_file)
                 raise IOError(errno, os.strerror(errno))
-        finally:
-            rffi.free_nonmovingbuffer(value, ll_value)
 
     def flush(self):
         self._check_closed()
         res = c_fflush(self._ll_file)
         if res != 0:
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise IOError(errno, os.strerror(errno))
 
     def truncate(self, arg=-1):
@@ -491,14 +501,14 @@ class RFile(object):
         self.flush()
         res = c_ftruncate(self.fileno(), arg)
         if res == -1:
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise IOError(errno, os.strerror(errno))
 
     def seek(self, pos, whence=0):
         self._check_closed()
         res = c_fseek(self._ll_file, pos, whence)
         if res == -1:
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise IOError(errno, os.strerror(errno))
         self._skipnextlf = False
 
@@ -506,7 +516,7 @@ class RFile(object):
         self._check_closed()
         res = intmask(c_ftell(self._ll_file))
         if res == -1:
-            errno = rposix.get_errno()
+            errno = rposix.get_saved_errno()
             raise IOError(errno, os.strerror(errno))
         if self._skipnextlf:
             c = c_getc(self._ll_file)
@@ -525,3 +535,9 @@ class RFile(object):
     def isatty(self):
         self._check_closed()
         return os.isatty(c_fileno(self._ll_file))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()

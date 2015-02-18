@@ -58,14 +58,16 @@ class GcRewriterAssembler(object):
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
-        for op in operations:
+        for i in range(len(operations)):
+            op = operations[i]
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
-            if op.is_guard():
+            if (op.is_guard() or
+                    self.could_merge_with_next_guard(op, i, operations)):
                 self.emit_pending_zeros()
             elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
@@ -102,6 +104,21 @@ class GcRewriterAssembler(object):
             #
             self.newops.append(op)
         return self.newops
+
+    def could_merge_with_next_guard(self, op, i, operations):
+        # return True in cases where the operation and the following guard
+        # should likely remain together.  Simplified version of
+        # can_merge_with_next_guard() in llsupport/regalloc.py.
+        if not op.is_comparison():
+            return op.is_ovf()    # int_xxx_ovf() / guard_no_overflow()
+        if i + 1 >= len(operations):
+            return False
+        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
+            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+            return False
+        if operations[i + 1].getarg(0) is not op.result:
+            return False
+        return True
 
     # ----------
 
@@ -246,7 +263,7 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info, frame, size_box):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_depth)
             self.newops.append(op0)
@@ -255,7 +272,7 @@ class GcRewriterAssembler(object):
             self.handle_new_array(descrs.arraydescr, op1)
         else:
             # we read size in bytes here, not the length
-            op0 = ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+            op0 = ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
                                size_box,
                                descr=descrs.jfi_frame_size)
             self.newops.append(op0)
@@ -265,7 +282,7 @@ class GcRewriterAssembler(object):
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
             extra_ops = [
-                ResOperation(rop.GETFIELD_GC, [history.ConstInt(frame_info)],
+                ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
                              length_box, descr=descrs.jfi_frame_depth),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
                              None, descr=descrs.jf_extra_stack_depth),

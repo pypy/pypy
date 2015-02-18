@@ -18,9 +18,10 @@ a drop-in replacement for the 'socket' module.
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib.rthread import dummy_lock
+from rpython.rlib import rthread
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.rffi import sizeof, offsetof
+from rpython.rtyper.extregistry import ExtRegistryEntry
 
 
 # Usage of @jit.dont_look_inside in this file is possibly temporary
@@ -51,6 +52,7 @@ else:
 
 
 def ntohs(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.ntohs(x))
 
 def ntohl(x):
@@ -58,6 +60,7 @@ def ntohl(x):
     return rffi.cast(lltype.Unsigned, _c.ntohl(x))
 
 def htons(x):
+    assert isinstance(x, int)
     return rffi.cast(lltype.Signed, _c.htons(x))
 
 def htonl(x):
@@ -220,7 +223,6 @@ if HAS_AF_PACKET:
         def get_protocol(self):
             a = self.lock(_c.sockaddr_ll)
             proto = rffi.getintfield(a, 'c_sll_protocol')
-            proto = rffi.cast(rffi.USHORT, proto)
             res = ntohs(proto)
             self.unlock()
             return res
@@ -256,7 +258,6 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
-        port = rffi.cast(rffi.USHORT, port)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
@@ -268,7 +269,7 @@ class INETAddress(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in)
-        port = ntohs(a.c_sin_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin_port'))
         self.unlock()
         return port
 
@@ -321,7 +322,7 @@ class INET6Address(IPAddress):
 
     def get_port(self):
         a = self.lock(_c.sockaddr_in6)
-        port = ntohs(a.c_sin6_port)
+        port = ntohs(rffi.getintfield(a, 'c_sin6_port'))
         self.unlock()
         return port
 
@@ -516,7 +517,7 @@ class RSocket(object):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
             self.fd = _c.INVALID_SOCKET
-            _c.socketclose(fd)
+            _c.socketclose_no_errno(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
@@ -888,19 +889,15 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        dataptr = rffi.get_nonmovingbuffer(data)
-        try:
+        with rffi.scoped_nonmovingbuffer(data) as dataptr:
             return self.send_raw(dataptr, len(data), flags)
-        finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendall(self, data, flags=0, signal_checker=None):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent."""
-        dataptr = rffi.get_nonmovingbuffer(data)
-        try:
+        with rffi.scoped_nonmovingbuffer(data) as dataptr:
             remaining = len(data)
             p = dataptr
             while remaining > 0:
@@ -913,8 +910,6 @@ class RSocket(object):
                         raise
                 if signal_checker is not None:
                     signal_checker()
-        finally:
-            rffi.free_nonmovingbuffer(data, dataptr)
 
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
@@ -1135,24 +1130,54 @@ def gethost_common(hostname, hostent, addr=None):
         paddr = h_addr_list[i]
     return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
-def gethostbyname_ex(name, lock=dummy_lock):
+def gethostbyname_ex(name):
     # XXX use gethostbyname_r() if available instead of locks
     addr = gethostbyname(name)
-    with lock:
+    with _get_netdb_lock():
         hostent = _c.gethostbyname(name)
         return gethost_common(name, hostent, addr)
 
-def gethostbyaddr(ip, lock=dummy_lock):
+def gethostbyaddr(ip):
     # XXX use gethostbyaddr_r() if available, instead of locks
     addr = makeipaddr(ip)
     assert isinstance(addr, IPAddress)
-    with lock:
+    with _get_netdb_lock():
         p, size = addr.lock_in_addr()
         try:
             hostent = _c.gethostbyaddr(p, size, addr.family)
         finally:
             addr.unlock()
         return gethost_common(ip, hostent, addr)
+
+# RPython magic to make _netdb_lock turn either into a regular
+# rthread.Lock or a rthread.DummyLock, depending on the config
+def _get_netdb_lock():
+    return rthread.dummy_lock
+
+class _Entry(ExtRegistryEntry):
+    _about_ = _get_netdb_lock
+
+    def compute_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.thread:
+            fn = _get_netdb_lock_thread
+        else:
+            fn = _get_netdb_lock_nothread
+        return self.bookkeeper.immutablevalue(fn)
+
+def _get_netdb_lock_nothread():
+    return rthread.dummy_lock
+
+class _LockCache(object):
+    lock = None
+_lock_cache = _LockCache()
+
+@jit.elidable
+def _get_netdb_lock_thread():
+    if _lock_cache.lock is None:
+        _lock_cache.lock = rthread.allocate_lock()
+    return _lock_cache.lock
+# done RPython magic
 
 def getaddrinfo(host, port_or_service,
                 family=AF_UNSPEC, socktype=0, proto=0, flags=0,
@@ -1201,13 +1226,13 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    port = rffi.cast(rffi.UINT, servent.c_s_port)
+    port = rffi.getintfield(servent, 'c_s_port')
     return ntohs(port)
 
 def getservbyport(port, proto=None):
     # This function is only called from pypy/module/_socket and the range of
     # port is checked there
-    port = rffi.cast(rffi.USHORT, port)
+    assert isinstance(port, int)
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
@@ -1313,8 +1338,7 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = rffi.get_nonmovingbuffer(packed)
-        try:
+        with rffi.scoped_nonmovingbuffer(packed) as srcbuf:
             dstbuf = mallocbuf(dstsize)
             try:
                 res = _c.inet_ntop(family, rffi.cast(rffi.VOIDP, srcbuf),
@@ -1324,8 +1348,6 @@ if hasattr(_c, 'inet_ntop'):
                 return rffi.charp2str(res)
             finally:
                 lltype.free(dstbuf, flavor='raw')
-        finally:
-            rffi.free_nonmovingbuffer(packed, srcbuf)
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:

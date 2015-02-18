@@ -10,10 +10,11 @@ class Darwin(posix.BasePosix):
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
+    rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
 
     def _args_for_shared(self, args):
         return (list(self.shared_only)
-                + ['-dynamiclib', '-undefined', 'dynamic_lookup']
+                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
                 + args)
 
     def _include_dirs_for_libffi(self):
@@ -35,19 +36,12 @@ class Darwin(posix.BasePosix):
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
 
-    def _exportsymbols_link_flags(self, eci, relto=None):
-        if not eci.export_symbols:
-            return []
-
-        response_file = self._make_response_file("dynamic-symbols-")
-        f = response_file.open("w")
-        for sym in eci.export_symbols:
-            f.write("_%s\n" % (sym,))
-        f.close()
-
-        if relto:
-            response_file = relto.bestrelpath(response_file)
-        return ["-Wl,-exported_symbols_list,%s" % (response_file,)]
+    def _exportsymbols_link_flags(self):
+        # XXX unsure if OS/X requires an option to the linker to tell
+        # "please export all RPY_EXPORTED symbols even in the case of
+        # making a binary and not a dynamically-linked library".
+        # It's not "-exported_symbols_list" but something close.
+        return []
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],

@@ -25,7 +25,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper import raddress
 from rpython.translator.platform import platform
 from array import array

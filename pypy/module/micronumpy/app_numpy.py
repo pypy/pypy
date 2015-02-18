@@ -16,9 +16,9 @@ def arange(start, stop=None, step=1, dtype=None):
         dtype = test.dtype
     length = math.ceil((float(stop) - start) / step)
     length = int(length)
-    arr = _numpypy.multiarray.zeros(length, dtype=dtype)
+    arr = _numpypy.multiarray.empty(length, dtype=dtype)
     i = start
-    for j in range(arr.size):
+    for j in xrange(arr.size):
         arr[j] = i
         i += step
     return arr

@@ -32,6 +32,17 @@ class ExecutionContext(object):
         self.compiler = space.createcompiler()
         self.profilefunc = None
         self.w_profilefuncarg = None
+        self.thread_disappeared = False   # might be set to True after os.fork()
+
+    @staticmethod
+    def _mark_thread_disappeared(space):
+        # Called in the child process after os.fork() by interp_posix.py.
+        # Marks all ExecutionContexts except the current one
+        # with 'thread_disappeared = True'.
+        me = space.getexecutioncontext()
+        for ec in space.threadlocals.getallvalues().values():
+            if ec is not me:
+                ec.thread_disappeared = True
 
     def gettopframe(self):
         return self.topframeref()

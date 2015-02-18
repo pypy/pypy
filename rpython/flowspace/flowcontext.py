@@ -7,6 +7,7 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
+from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -16,6 +17,7 @@ from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
+from rpython.flowspace.bytecode import BytecodeCorruption
 
 w_None = const(None)
 
@@ -27,14 +29,13 @@ class FlowingError(Exception):
         msg = ["\n"]
         msg += map(str, self.args)
         msg += [""]
-        msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_instr)
+        msg += source_lines(self.ctx.graph, None, offset=self.ctx.last_offset)
         return "\n".join(msg)
+
 
 class StopFlowing(Exception):
     pass
 
-class BytecodeCorruption(Exception):
-    pass
 
 class SpamBlock(Block):
     def __init__(self, framestate):
@@ -79,34 +80,9 @@ class EggBlock(Block):
         self.last_exception = last_exception
 
 def fixeggblocks(graph):
-    varnames = graph.func.func_code.co_varnames
     for block in graph.iterblocks():
         if isinstance(block, SpamBlock):
-            for name, w_value in zip(varnames, block.framestate.mergeable):
-                if isinstance(w_value, Variable):
-                    w_value.rename(name)
             del block.framestate     # memory saver
-
-    # EggBlocks reuse the variables of their previous block,
-    # which is deemed not acceptable for simplicity of the operations
-    # that will be performed later on the flow graph.
-    for link in list(graph.iterlinks()):
-        block = link.target
-        if isinstance(block, EggBlock):
-            if (not block.operations and len(block.exits) == 1 and
-                link.args == block.inputargs):   # not renamed
-                # if the variables are not renamed across this link
-                # (common case for EggBlocks) then it's easy enough to
-                # get rid of the empty EggBlock.
-                link2 = block.exits[0]
-                link.args = list(link2.args)
-                link.target = link2.target
-                assert link2.exitcase is None
-            else:
-                mapping = {}
-                for a in block.inputargs:
-                    mapping[a] = Variable(a)
-                block.renamevariables(mapping)
 
 # ____________________________________________________________
 
@@ -132,12 +108,11 @@ class BlockRecorder(Recorder):
 
     def guessbool(self, ctx, w_condition):
         block = self.crnt_block
-        vars = block.getvariables()
         links = []
         for case in [False, True]:
-            egg = EggBlock(vars, block, case)
+            egg = EggBlock([], block, case)
             ctx.pendingblocks.append(egg)
-            link = Link(vars, egg, case)
+            link = Link([], egg, case)
             links.append(link)
 
         block.exitswitch = w_condition
@@ -154,16 +129,16 @@ class BlockRecorder(Recorder):
         links = []
         for case in [None] + list(cases):
             if case is not None:
-                assert block.operations[-1].result is bvars[-1]
-                vars = bvars[:-1]
-                vars2 = bvars[:-1]
                 if case is Exception:
                     last_exc = Variable('last_exception')
                 else:
                     last_exc = Constant(case)
                 last_exc_value = Variable('last_exc_value')
-                vars.extend([last_exc, last_exc_value])
-                vars2.extend([Variable(), Variable()])
+                vars = [last_exc, last_exc_value]
+                vars2 = [Variable(), Variable()]
+            else:
+                vars = []
+                vars2 = []
             egg = EggBlock(vars2, block, case)
             ctx.pendingblocks.append(egg)
             link = Link(vars, egg, case)
@@ -313,7 +288,7 @@ class FlowContext(object):
 
         self.init_closure(func.func_closure)
         self.f_lineno = code.co_firstlineno
-        self.last_instr = 0
+        self.last_offset = 0
 
         self.init_locals_stack(code)
 
@@ -384,7 +359,7 @@ class FlowContext(object):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-    def getstate(self, next_pos):
+    def getstate(self, next_offset):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()
         if self.last_exception is None:
@@ -394,7 +369,7 @@ class FlowContext(object):
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
         recursively_flatten(data)
-        return FrameState(data, self.blockstack[:], next_pos)
+        return FrameState(data, self.blockstack[:], next_offset)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
@@ -418,7 +393,7 @@ class FlowContext(object):
         if getattr(recorder, 'final_state', None) is not None:
             self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
-        spaceop.offset = self.last_instr
+        spaceop.offset = self.last_offset
         recorder.append(spaceop)
 
     def do_op(self, op):
@@ -449,12 +424,12 @@ class FlowContext(object):
 
     def record_block(self, block):
         self.setstate(block.framestate)
-        next_pos = block.framestate.next_instr
+        next_offset = block.framestate.next_offset
         self.recorder = block.make_recorder()
         try:
             while True:
-                next_pos = self.handle_bytecode(next_pos)
-                self.recorder.final_state = self.getstate(next_pos)
+                next_offset = self.handle_bytecode(next_offset)
+                self.recorder.final_state = self.getstate(next_offset)
 
         except RaiseImplicit as e:
             w_exc = e.w_exc
@@ -492,39 +467,49 @@ class FlowContext(object):
         self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
-        next_instr = currentstate.next_instr
+        next_offset = currentstate.next_offset
         # can 'currentstate' be merged with one of the blocks that
         # already exist for this bytecode position?
-        candidates = self.joinpoints.setdefault(next_instr, [])
+        candidates = self.joinpoints.setdefault(next_offset, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
-            if newstate is None:
-                continue
-            elif newstate == block.framestate:
-                outputargs = currentstate.getoutputargs(newstate)
-                currentblock.closeblock(Link(outputargs, block))
-                return
-            else:
+            if newstate is not None:
                 break
         else:
             newstate = currentstate.copy()
-            block = None
+            newblock = SpamBlock(newstate)
+            # unconditionally link the current block to the newblock
+            outputargs = currentstate.getoutputargs(newstate)
+            link = Link(outputargs, newblock)
+            currentblock.closeblock(link)
+            candidates.insert(0, newblock)
+            self.pendingblocks.append(newblock)
+            return
+
+        if newstate.matches(block.framestate):
+            outputargs = currentstate.getoutputargs(newstate)
+            currentblock.closeblock(Link(outputargs, block))
+            return
 
         newblock = SpamBlock(newstate)
+        varnames = self.pycode.co_varnames
+        for name, w_value in zip(varnames, newstate.mergeable):
+            if isinstance(w_value, Variable):
+                w_value.rename(name)
         # unconditionally link the current block to the newblock
         outputargs = currentstate.getoutputargs(newstate)
         link = Link(outputargs, newblock)
         currentblock.closeblock(link)
 
-        if block is not None:
-            # to simplify the graph, we patch the old block to point
-            # directly at the new block which is its generalization
-            block.dead = True
-            block.operations = ()
-            block.exitswitch = None
-            outputargs = block.framestate.getoutputargs(newstate)
-            block.recloseblock(Link(outputargs, newblock))
-            candidates.remove(block)
+        # to simplify the graph, we patch the old block to point
+        # directly at the new block which is its generalization
+        block.dead = True
+        block.operations = ()
+        block.exitswitch = None
+        outputargs = block.framestate.getoutputargs(newstate)
+        block.recloseblock(Link(outputargs, newblock))
+        candidates.remove(block)
+
         candidates.insert(0, newblock)
         self.pendingblocks.append(newblock)
 
@@ -541,12 +526,12 @@ class FlowContext(object):
                     stack_items_w[i] = w_new
                     break
 
-    def handle_bytecode(self, next_instr):
-        self.last_instr = next_instr
-        next_instr, methodname, oparg = self.pycode.read(next_instr)
+    def handle_bytecode(self, next_offset):
+        self.last_offset = next_offset
+        next_offset, methodname, oparg = self.pycode.read(next_offset)
         try:
-            res = getattr(self, methodname)(oparg)
-            return res if res is not None else next_instr
+            offset = getattr(self, methodname)(oparg)
+            return offset if offset is not None else next_offset
         except FlowSignal as signal:
             return self.unroll(signal)
 
@@ -871,14 +856,9 @@ class FlowContext(object):
     def WITH_CLEANUP(self, oparg):
         # Note: RPython context managers receive None in lieu of tracebacks
         # and cannot suppress the exception.
-        # This opcode changed a lot between CPython versions
-        if sys.version_info >= (2, 6):
-            unroller = self.popvalue()
-            w_exitfunc = self.popvalue()
-            self.pushvalue(unroller)
-        else:
-            w_exitfunc = self.popvalue()
-            unroller = self.peekvalue(0)
+        unroller = self.popvalue()
+        w_exitfunc = self.popvalue()
+        self.pushvalue(unroller)
 
         if isinstance(unroller, Raise):
             w_exc = unroller.w_exc
@@ -936,6 +916,8 @@ class FlowContext(object):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
+        if isinstance(w_newvalue, Variable):
+            w_newvalue.rename(self.getlocalvarname(varindex))
 
     def STORE_GLOBAL(self, nameindex):
         varname = self.getname_u(nameindex)

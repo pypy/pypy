@@ -405,9 +405,11 @@ def check_string(space, w_obj):
 
 def get_field(space, w_node, name, optional):
     w_obj = w_node.getdictvalue(space, name)
-    if w_obj is None and not optional:
-        raise oefmt(space.w_TypeError,
+    if w_obj is None:
+        if not optional:
+            raise oefmt(space.w_TypeError,
                 "required field \"%s\" missing from %T", name, w_node)
+        w_obj = space.w_None
     return w_obj
 
 

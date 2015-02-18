@@ -111,7 +111,9 @@ def test_aliasing():
         a.x = 12
         return a1.x
     t, adi, graph = build_adi(fn6, [int])
-    avar = graph.startblock.exits[0].target.inputargs[1]
+    op = graph.startblock.exits[0].target.operations[0]
+    assert op.opname == 'setfield'
+    avar = op.args[0]
     state = adi.getstate(avar)
     assert len(state.creation_points) == 2
     for crep in state.creation_points:
@@ -179,7 +181,7 @@ def test_substruct():
     t, adi, graph = build_adi(f, [])
     g_graph = graphof(t, g)
     a0var = graph.startblock.operations[0].result
-    b0var = graph.startblock.operations[3].result 
+    b0var = graph.startblock.operations[3].result
     a0state = adi.getstate(a0var)
     b0state = adi.getstate(b0var)
     a0crep, = a0state.creation_points

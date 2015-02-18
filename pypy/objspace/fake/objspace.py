@@ -2,7 +2,6 @@ from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.sliceobject import W_SliceObject
 from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.objectmodel import instantiate, we_are_translated, specialize
@@ -112,6 +111,10 @@ class Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 
+BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
+                 'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
+                 'bytearray', 'buffer']
+
 class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
         self._seen_extras = []
@@ -140,6 +143,12 @@ class FakeObjSpace(ObjSpace):
     def newtuple(self, list_w):
         for w_x in list_w:
             is_root(w_x)
+        return w_some_obj()
+
+    def newset(self, list_w=None):
+        if list_w is not None:
+            for w_x in list_w:
+                is_root(w_x)
         return w_some_obj()
 
     def newlist(self, list_w):
@@ -178,6 +187,9 @@ class FakeObjSpace(ObjSpace):
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
+
+    def wrapbytes(self, x):
+        return w_some_obj()
 
     def wrap(self, x):
         if not we_are_translated():
@@ -342,9 +354,7 @@ class FakeObjSpace(ObjSpace):
     def setup(space):
         for name in (ObjSpace.ConstantTable +
                      ObjSpace.ExceptionTable +
-                     ['int', 'str', 'float', 'long', 'tuple', 'list',
-                      'dict', 'unicode', 'complex', 'slice', 'bool',
-                      'basestring', 'object', 'bytearray', 'buffer']):
+                     BUILTIN_TYPES):
             setattr(space, 'w_' + name, w_some_obj())
         space.w_type = w_some_type()
         #
@@ -375,7 +385,7 @@ class FakeObjSpace(ObjSpace):
 @specialize.memo()
 def see_typedef(space, typedef):
     assert isinstance(typedef, TypeDef)
-    if not isinstance(typedef, StdTypeDef):
+    if typedef.name not in BUILTIN_TYPES:
         for name, value in typedef.rawdict.items():
             space.wrap(value)
 

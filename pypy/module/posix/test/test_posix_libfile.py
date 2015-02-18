@@ -10,7 +10,7 @@ def setup_module(mod):
 
 class AppTestPosix:
     spaceconfig = {
-        "usemodules": ['posix', 'rctime'],
+        "usemodules": ['posix', 'time'],
     }
 
     def setup_class(cls):

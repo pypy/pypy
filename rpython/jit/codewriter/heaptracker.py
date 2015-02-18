@@ -1,5 +1,7 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_uint, intmask
 
 
 def adr2int(addr):
@@ -9,6 +11,14 @@ def adr2int(addr):
 
 def int2adr(int):
     return llmemory.cast_int_to_adr(int)
+
+def int_signext(value, numbytes):
+    b8 = numbytes * 8
+    a = r_uint(value)
+    a += r_uint(1 << (b8 - 1))     # a += 128
+    a &= r_uint((1 << b8) - 1)     # a &= 255
+    a -= r_uint(1 << (b8 - 1))     # a -= 128
+    return intmask(a)
 
 def count_fields_if_immutable(STRUCT):
     assert isinstance(STRUCT, lltype.GcStruct)
@@ -125,7 +135,7 @@ def descr2vtable(cpu, descr):
     vtable = descr.as_vtable_size_descr()._corresponding_vtable
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
-    
+
 def gc_fielddescrs(gccache, STRUCT, res=None):
     from rpython.jit.backend.llsupport import descr
 
