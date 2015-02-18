@@ -1983,6 +1983,9 @@ class Assembler386(BaseAssembler):
         p.fail_descr = fail_descr
         p.jump_target = target
         p.gcmap = guardtok.gcmap
+        # xxx this code is only translated, so the following check is
+        # good enough to say "nobody stored _x86_stm_guard_failure yet"
+        assert not guardtok.faildescr._x86_stm_guard_failure
         guardtok.faildescr._x86_stm_guard_failure = p
         addr = rffi.cast(lltype.Signed, p)
         addr += llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target')

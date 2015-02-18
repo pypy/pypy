@@ -1628,7 +1628,6 @@ class MetaInterpStaticData(object):
         #
         # store this information for fastpath of call_assembler
         # (only the paths that can actually be taken)
-        exc_descr = compile.PropagateExceptionDescr()
         for jd in self.jitdrivers_sd:
             name = {history.INT: 'int',
                     history.REF: 'ref',
@@ -1636,9 +1635,6 @@ class MetaInterpStaticData(object):
                     history.VOID: 'void'}[jd.result_type]
             tokens = getattr(self, 'loop_tokens_done_with_this_frame_%s' % name)
             jd.portal_finishtoken = tokens[0].finishdescr
-            jd.propagate_exc_descr = exc_descr
-        #
-        self.cpu.propagate_exception_descr = exc_descr
         #
         self.globaldata = MetaInterpGlobalData(self)
 

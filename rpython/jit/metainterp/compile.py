@@ -882,7 +882,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
         finishargs = []
     #
     jd = jitdriver_sd
-    faildescr = jitdriver_sd.propagate_exc_descr
+    faildescr = PropagateExceptionDescr()
     operations = [
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
