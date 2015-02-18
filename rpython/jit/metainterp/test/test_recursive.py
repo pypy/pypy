@@ -774,8 +774,8 @@ class RecursiveTests:
         def main(codeno):
             frame = Frame()
             frame.thing = Thing(0)
-            portal(codeno, frame)
-            return frame.thing.val
+            result = portal(codeno, frame)
+            return result
 
         def portal(codeno, frame):
             i = 0
@@ -791,7 +791,7 @@ class RecursiveTests:
                     s += subframe.thing.val
                 frame.thing = Thing(nextval + 1)
                 i += 1
-            return frame.thing.val
+            return frame.thing.val + s
 
         res = self.meta_interp(main, [0], inline=True)
         self.check_resops(call=0, cond_call=0) # got removed by optimization
