@@ -173,9 +173,14 @@ def allocate_preexisting(p):
     the current transaction can then proceed to change normally.  This
     initial state must not contain GC pointers to any other uncommitted
     object."""
+    # XXX is this buggy?
     TP = lltype.typeOf(p)
     size = llmemory.sizeof(TP.TO)
     return llop.stm_allocate_preexisting(TP, size, p)
+
+@specialize.ll()
+def allocate_nonmovable(GCTYPE):
+    return llop.stm_malloc_nonmovable(lltype.Ptr(GCTYPE))
 
 # ____________________________________________________________
 

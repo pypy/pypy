@@ -117,6 +117,15 @@ def stm_allocate_preexisting(funcgen, op):
             ' _stm_real_address((object_t *)%s));' % (
         result, resulttype, arg_size, arg_idata))
 
+def stm_allocate_nonmovable(funcgen, op):
+    arg_size    = funcgen.expr(op.args[0])  # <- could be smaller than 16 here
+    arg_type_id = funcgen.expr(op.args[1])
+    result      = funcgen.expr(op.result)
+    # XXX NULL returns?
+    return ('%s = (rpygcchar_t *)_stm_allocate_external(%s >= 16 ? %s : 16); ' %
+                (result, arg_size, arg_size) +
+            '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
+
 def stm_get_from_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
     arg_obj = funcgen.expr(op.args[0])

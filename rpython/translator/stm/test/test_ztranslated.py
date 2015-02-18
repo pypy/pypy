@@ -620,3 +620,19 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
+
+    def test_allocate_nonmovable(self):
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+
+        def main(argv):
+            s1 = rstm.allocate_nonmovable(S)
+            s1.n = 42
+            assert s1.n == 42
+            assert not rgc.can_move(s1)
+            #
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data

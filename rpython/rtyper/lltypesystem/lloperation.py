@@ -419,6 +419,8 @@ LL_OPERATIONS = {
     'stm_allocate_finalizer': LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_f_light':   LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_preexisting':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_allocate_nonmovable':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_malloc_nonmovable':  LLOp(sideeffects=False, canmallocgc=True),
     'stm_get_from_obj':       LLOp(sideeffects=False),
     'stm_get_from_obj_const': LLOp(canfold=True),
     'stm_set_into_obj':       LLOp(),
