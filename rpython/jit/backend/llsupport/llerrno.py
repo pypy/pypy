@@ -47,6 +47,13 @@ def get_rpy_lasterror_offset(cpu):
     else:
         return 5 * WORD
 
+def get_alt_lasterror_offset(cpu):
+    if cpu.translate_support_code:
+        from rpython.rlib import rthread
+        return rthread.tlfield_alt_lasterror.getoffset()
+    else:
+        return 6 * WORD
+
 
 def _fetch_addr_errno():
     eci = ExternalCompilationInfo(

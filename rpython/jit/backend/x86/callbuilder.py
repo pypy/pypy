@@ -196,10 +196,13 @@ class CallBuilderX86(AbstractCallBuilder):
             SetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
-            rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
+            else:
+                lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()    # => esi, callee-saved
             self.save_stack_position()         # => edi, callee-saved
-            mc.PUSH_m((tlofsreg.value, rpy_lasterror))
+            mc.PUSH_m((tlofsreg.value, lasterror))
             mc.CALL(imm(SetLastError_addr))
             # restore the stack position without assuming a particular
             # calling convention of _SetLastError()
@@ -262,13 +265,16 @@ class CallBuilderX86(AbstractCallBuilder):
             GetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
-            rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
+            else:
+                lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
             self.save_result_value(save_edx=True)   # save eax/edx/xmm0
             self.result_value_saved_early = True
             mc.CALL(imm(GetLastError_addr))
             #
             tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
-            mc.MOV32_mr((tlofsreg.value, rpy_lasterror), eax.value)
+            mc.MOV32_mr((tlofsreg.value, lasterror), eax.value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86

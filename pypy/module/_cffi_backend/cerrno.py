@@ -23,8 +23,8 @@ def set_errno(space, errno):
 
 @unwrap_spec(code=int)
 def getwinerror(space, code=-1):
-    from rpython.rlib.rwin32 import GetLastError_saved, FormatError
+    from rpython.rlib.rwin32 import GetLastError_alt_saved, FormatError
     if code == -1:
-        code = GetLastError_saved()
+        code = GetLastError_alt_saved()
     message = FormatError(code)
     return space.newtuple([space.wrap(code), space.wrap(message)])

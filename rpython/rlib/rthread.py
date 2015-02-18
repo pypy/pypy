@@ -374,6 +374,7 @@ tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")
 if sys.platform == "win32":
     from rpython.rlib import rwin32
     tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
+    tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")
 
 def _threadlocalref_seeme(field):
     "NOT_RPYTHON"

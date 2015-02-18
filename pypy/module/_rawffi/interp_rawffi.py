@@ -617,10 +617,10 @@ if sys.platform == 'win32':
     # see also
     # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
     def get_last_error(space):
-        return space.wrap(rwin32.GetLastError_saved())
+        return space.wrap(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        rwin32.SetLastError_saved(error)
+        rwin32.SetLastError_alt_saved(error)
 else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)
