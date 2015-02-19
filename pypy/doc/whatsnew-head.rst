@@ -23,3 +23,6 @@ Update stdlib to version 2.7.9
 Fix exception being raised by kqueue.control (CPython compatibility)
 
 .. branch: gitignore
+
+.. branch: framestate2
+Refactor rpython.flowspace.framestate.FrameState.
