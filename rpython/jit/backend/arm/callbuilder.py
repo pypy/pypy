@@ -176,11 +176,14 @@ class ARMCallbuilder(AbstractCallBuilder):
 
     def write_real_errno(self, save_err):
         if save_err & rffi.RFFI_READSAVED_ERRNO:
-            # Just before a call, read 'rpy_errno' and write it into the
+            # Just before a call, read '*_errno' and write it into the
             # real 'errno'.  The r0-r3 registers contain arguments to the
             # future call; the r5-r7 registers contain various stuff.
             # We still have r8-r12.
-            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             self.mc.LDR_ri(r.r9.value, r.sp.value,
                            self.asm.saved_threadlocal_addr + self.current_sp)
@@ -199,10 +202,13 @@ class ARMCallbuilder(AbstractCallBuilder):
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
-            # it inside our thread-local 'rpy_errno'.  Registers r8-r12
+            # it inside our thread-local '*_errno'.  Registers r8-r12
             # are unused here, and registers r2-r3 never contain anything
             # after the call.
-            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             self.mc.LDR_ri(r.r3.value, r.sp.value,
                            self.asm.saved_threadlocal_addr)
