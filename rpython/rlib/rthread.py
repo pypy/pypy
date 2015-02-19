@@ -58,7 +58,8 @@ c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
                                         releasegil=True)    # release the GIL
-c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
+c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP],
+                                  lltype.Signed,
                                   _nowrapper=True)   # *don't* release the GIL
 
 # another set of functions, this time in versions that don't cause the
@@ -152,12 +153,8 @@ class Lock(object):
         return res
 
     def release(self):
-        # Sanity check: the lock must be locked
-        if self.acquire(False):
-            c_thread_releaselock(self._lock)
-            raise error("bad lock")
-        else:
-            c_thread_releaselock(self._lock)
+        if c_thread_releaselock(self._lock) != 0:
+            raise error("the lock was not previously acquired")
 
     def __del__(self):
         if free_ll_lock is None:  # happens when tests are shutting down
