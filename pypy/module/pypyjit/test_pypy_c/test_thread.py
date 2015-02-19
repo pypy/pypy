@@ -68,10 +68,9 @@ class TestThread(BaseTestPyPyC):
         guard_not_forced(descr=...)
         guard_no_exception(descr=...)
         i58 = int_sub(i44, 1)
-        i59 = call(ConstClass(RPyThreadAcquireLockTimed), i37, _, 0, descr=...)
-        i60 = int_is_true(i59)
+        i59 = call(ConstClass(RPyThreadReleaseLock), i37, descr=<Calli . i EF=2>)
+        i60 = int_ne(i59, 0)
         guard_false(i60, descr=...)
-        call(ConstClass(RPyThreadReleaseLock), i37, descr=<Callv 0 i EF=2>)
         guard_not_invalidated(descr=...)
         --TICK--
         jump(..., descr=...)
