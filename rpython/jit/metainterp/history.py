@@ -154,7 +154,8 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
-    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token')
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token',
+               '_x86_stm_guard_failure')    # only with stm
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError

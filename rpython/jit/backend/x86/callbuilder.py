@@ -189,6 +189,7 @@ class CallBuilderX86(AbstractCallBuilder):
         """This occurs just before emit_raw_call().
         """
         mc = self.mc
+        SEGMENT_NO = self.asm.SEGMENT_NO
 
         if handle_lasterror and (save_err & rffi.RFFI_READSAVED_LASTERROR):
             # must call SetLastError().  There are no registers to save
@@ -202,7 +203,7 @@ class CallBuilderX86(AbstractCallBuilder):
             rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()    # => esi, callee-saved
             self.save_stack_position()         # => edi, callee-saved
-            mc.PUSH_m((tlofsreg.value, rpy_lasterror))
+            mc.PUSH_m((SEGMENT_NO, tlofsreg.value, rpy_lasterror))
             mc.CALL(imm(SetLastError_addr))
             # restore the stack position without assuming a particular
             # calling convention of _SetLastError()
@@ -220,20 +221,21 @@ class CallBuilderX86(AbstractCallBuilder):
                 tmpreg = edx
             else:
                 tmpreg = r11     # edx is used for 3rd argument
-            mc.MOV_rm(tmpreg.value, (tlofsreg.value, p_errno))
-            mc.MOV32_rm(eax.value, (tlofsreg.value, rpy_errno))
-            mc.MOV32_mr((tmpreg.value, 0), eax.value)
+            mc.MOV_rm(tmpreg.value, (SEGMENT_NO, tlofsreg.value, p_errno))
+            mc.MOV32_rm(eax.value, (SEGMENT_NO, tlofsreg.value, rpy_errno))
+            mc.MOV32_mr((SEGMENT_NO, tmpreg.value, 0), eax.value)
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
-            mc.MOV_rm(eax.value, (tlofsreg.value, p_errno))
-            mc.MOV32_mi((eax.value, 0), 0)
+            mc.MOV_rm(eax.value, (SEGMENT_NO, tlofsreg.value, p_errno))
+            mc.MOV32_mi((SEGMENT_NO, eax.value, 0), 0)
 
     def read_real_errno(self, save_err):
         """This occurs after emit_raw_call() and after restore_stack_pointer().
         """
         mc = self.mc
+        SEGMENT_NO = self.asm.SEGMENT_NO
 
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
@@ -244,9 +246,9 @@ class CallBuilderX86(AbstractCallBuilder):
             rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()   # => esi or r12 (possibly reused)
-            mc.MOV_rm(edi.value, (tlofsreg.value, p_errno))
-            mc.MOV32_rm(edi.value, (edi.value, 0))
-            mc.MOV32_mr((tlofsreg.value, rpy_errno), edi.value)
+            mc.MOV_rm(edi.value, (SEGMENT_NO, tlofsreg.value, p_errno))
+            mc.MOV32_rm(edi.value, (SEGMENT_NO, edi.value, 0))
+            mc.MOV32_mr((SEGMENT_NO, tlofsreg.value, rpy_errno), edi.value)
 
         if handle_lasterror and (save_err & (rffi.RFFI_SAVE_LASTERROR |
                                              rffi.RFFI_SAVE_WSALASTERROR)):
@@ -265,7 +267,7 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.CALL(imm(GetLastError_addr))
             #
             tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
-            mc.MOV32_mr((tlofsreg.value, rpy_lasterror), eax.value)
+            mc.MOV32_mr((SEGMENT_NO, tlofsreg.value, rpy_lasterror), eax.value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
@@ -688,9 +690,9 @@ class CallBuilder64(CallBuilderX86):
         from rpython.rlib import rstm
         # after any CALL_RELEASE_GIL, invoke the
         # pypy_stm_start_if_not_atomic() function
-        self.save_result_value_reacq()
+        self.save_result_value(True)
         self.mc.CALL(imm(rstm.adr_pypy_stm_start_if_not_atomic))
-        self.restore_result_value_reacq()
+        self.restore_result_value(True)
 
 
 if IS_X86_32:

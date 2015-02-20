@@ -106,7 +106,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def guard_already_patched(self, faildescr):
         # only needed for STM so far
-        return faildescr._x86_adr_jump_offset == 0
+        return faildescr.adr_jump_offset == 0
 
         
     def clear_latest_values(self, count):
