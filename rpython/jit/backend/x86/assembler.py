@@ -2815,7 +2815,8 @@ class Assembler386(BaseAssembler):
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
-        self.load_from_mem(resloc, addr_add_const(resloc, offset),
+        self.load_from_mem(resloc,
+                           addr_add_const(self.SEGMENT_NO, resloc, offset),
                            imm(size), imm(sign))
 
     def genop_discard_zero_array(self, op, arglocs):
