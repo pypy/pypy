@@ -27,6 +27,6 @@ Fix exception being raised by kqueue.control (CPython compatibility)
 .. branch: framestate2
 Refactor rpython.flowspace.framestate.FrameState.
 
-.. branch alt_errno
+.. branch: alt_errno
 Add an alternative location to save LastError, errno around ctypes,
 cffi external calls so things like pdb will not overwrite it
