@@ -262,9 +262,10 @@ class RPythonTyper(object):
                 # try a version using the transaction module
                 self.log.event('specializing transactionally %d blocks' %
                                (len(pending),))
-                with transaction.TransactionQueue():
-                    for block in pending:
-                        transaction.add(self.specialize_block, block)
+                tq = transaction.TransactionQueue()
+                for block in pending:
+                    tq.add(self.specialize_block, block)
+                tq.run()
                 self.log.event('left transactional mode')
                 blockcount += len(pending)
                 self.already_seen.update(dict.fromkeys(pending, True))
