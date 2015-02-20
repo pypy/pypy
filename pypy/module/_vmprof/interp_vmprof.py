@@ -138,7 +138,6 @@ class VMProf(object):
         self.fileno = -1
 
     def enable(self, space, fileno, period):
-        xxx
         if self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof already enabled")
         self.fileno = fileno
@@ -148,11 +147,6 @@ class VMProf(object):
             if we_are_translated():
                 pypy_vmprof_init()
             self.ever_enabled = True
-        for weakcode in space.all_code_objs.get_all_handles():
-            code = weakcode()
-            if code:
-                self.register_code(space, code)
-        space.set_code_callback(vmprof_register_code)
         if we_are_translated():
             # does not work untranslated
             res = vmprof_enable(fileno, period, 0,
