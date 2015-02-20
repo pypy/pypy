@@ -678,13 +678,15 @@ class FunctionCodeGenerator(object):
     OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
 
     def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
-        header0 = 'struct pypy_header0'
-        if hasattr(self.db.gcpolicy, 'headertype'):
-            header0 = self.db.gcpolicy.headertype('')
-        return ('%s = *(long *)(((char *)%s) + sizeof(%s));'
+        if self.db.with_stm:
+            header0 = 'rpyobj_t'
+            long0 = 'TLPREFIX long'
+        else:
+            header0 = 'struct pypy_header0'
+            long0 = 'long'
+        return ('%s = *(%s *)(((%s *)%s) + 1);'
                 '  /* length_of_simple_gcarray_from_opaque */'
-            % (self.expr(op.result), self.expr(op.args[0]),
-               header0))
+            % (self.expr(op.result), long0, header0, self.expr(op.args[0])))
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
