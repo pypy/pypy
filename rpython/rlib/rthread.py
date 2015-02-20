@@ -276,6 +276,13 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 # KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
 # We use _make_sure_does_not_move() to make sure the pointer will not move.
 
+def _field2structptr(FIELDTYPE, cache={}):
+    if FIELDTYPE not in cache:
+        cache[FIELDTYPE] = lltype.Ptr(lltype.Struct(
+            'pypythread%d' % len(cache), ('c_value', FIELDTYPE),
+            hints={'stm_dont_track_raw_accesses': True}))
+    return cache[FIELDTYPE]
+
 
 class ThreadLocalField(object):
     def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
@@ -290,6 +297,9 @@ class ThreadLocalField(object):
         offset.loop_invariant = loop_invariant
         self.offset = offset
 
+        # for STM only
+        PSTRUCTTYPE = _field2structptr(FIELDTYPE)
+
         def getraw():
             if we_are_translated():
                 _threadlocalref_seeme(self)
@@ -302,7 +312,11 @@ class ThreadLocalField(object):
             if we_are_translated():
                 _threadlocalref_seeme(self)
                 addr = llop.threadlocalref_addr(llmemory.Address)
-                return llop.raw_load(FIELDTYPE, addr, offset)
+                if rgc.stm_is_enabled():
+                    p = llmemory.cast_adr_to_ptr(addr + offset, PSTRUCTTYPE)
+                    return p.c_value
+                else:
+                    return llop.raw_load(FIELDTYPE, addr, offset)
             else:
                 return getattr(self.local, 'rawvalue', zero)
 
@@ -311,7 +325,11 @@ class ThreadLocalField(object):
             if we_are_translated():
                 _threadlocalref_seeme(self)
                 addr = llop.threadlocalref_addr(llmemory.Address)
-                llop.raw_store(lltype.Void, addr, offset, value)
+                if rgc.stm_is_enabled():
+                    p = llmemory.cast_adr_to_ptr(addr + offset, PSTRUCTTYPE)
+                    p.c_value = value
+                else:
+                    llop.raw_store(lltype.Void, addr, offset, value)
             else:
                 self.local.rawvalue = value
 

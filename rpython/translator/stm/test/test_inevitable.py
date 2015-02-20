@@ -287,14 +287,19 @@ class TestTransform:
         assert res is None
 
     def test_threadlocal(self):
-        from rpython.rlib.rthread import ThreadLocalReference
-        opaque_id = lltype.opaqueptr(ThreadLocalReference.OPAQUEID, "foobar")
-        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        from rpython.rlib.rthread import ThreadLocalField
+        from rpython.rlib.rthread import _threadlocalref_seeme
+        from rpython.rlib.rthread import _field2structptr
+        foobar = ThreadLocalField(lltype.Signed, 'foobar')
+        offset = foobar.offset
+        PSTRUCTTYPE = _field2structptr(lltype.Signed)
         def f1():
-            x = lltype.malloc(X)
-            llop.threadlocalref_set(lltype.Void, opaque_id, x)
-            y = llop.threadlocalref_get(lltype.Ptr(X), opaque_id)
-            return x == y
+            addr = llop.threadlocalref_addr(llmemory.Address)
+            # ...The rest of this test does not run on the llinterp so far...
+            #p = llmemory.cast_adr_to_ptr(addr + offset, PSTRUCTTYPE)
+            #p.c_value = 42
+            #x = llop.threadlocalref_get(lltype.Signed, offset)
+            #assert x == 42
 
         res = self.interpret_inevitable(f1, [])
         assert res is None
