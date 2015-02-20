@@ -192,7 +192,6 @@ class VMProf(object):
             res = vmprof_disable()
         else:
             res = 0
-        space.set_code_callback(None)
         if res == -1:
             raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.disable"))
