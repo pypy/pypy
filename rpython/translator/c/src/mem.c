@@ -6,7 +6,6 @@
 
 #ifdef RPY_STM
 # include "src/mem.h"
-# include "src/allocator.h"
 # ifdef RPY_ASSERT
 int try_pypy_debug_alloc_stop(void *);
 # else
@@ -21,7 +20,7 @@ void _pypy_stm_cb_free(void *ptr)
        free the object in the normal way.  Finally we increment the
        free counter to keep it in sync. */
     try_pypy_debug_alloc_stop(ptr);
-    PyObject_Free(ptr);
+    free(ptr);
     COUNT_FREE;
 }
 void _pypy_stm_op_free(void *ptr)
