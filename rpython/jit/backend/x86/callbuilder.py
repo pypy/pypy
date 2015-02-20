@@ -326,8 +326,8 @@ class CallBuilderX86(AbstractCallBuilder):
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
             mc.J_il8(rx86.Conditions['NE'], 0)
             jne_location = mc.get_relative_pos()
-            # here, ecx is zero (so rpy_fastgil was in 'released' state
-            # before the XCHG, but the XCHG acquired it by writing 1)
+            # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
+            # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
