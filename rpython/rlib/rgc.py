@@ -374,6 +374,14 @@ def ll_arrayclear(p):
 
     length = len(p)
     ARRAY = lltype.typeOf(p).TO
+    if stm_is_enabled():
+        # do the clearing element by element
+        from rpython.rtyper.lltypesystem import rffi
+        i = 0
+        while i < length:
+            p[i] = rffi.cast(ARRAY.OF, 0)
+            i += 1
+        return
     offset = llmemory.itemoffsetof(ARRAY, 0)
     dest_addr = llmemory.cast_ptr_to_adr(p) + offset
     llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)

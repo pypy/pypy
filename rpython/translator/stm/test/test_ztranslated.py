@@ -636,3 +636,19 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
+
+    def test_ll_arrayclear(self):
+        A = lltype.GcArray(rffi.SHORT)
+        def main(argv):
+            p = lltype.malloc(A, 11)
+            for i in range(11):
+                p[i] = rffi.cast(rffi.SHORT, -4242)
+            rgc.ll_arrayclear(p)
+            for i in range(11):
+                assert rffi.cast(lltype.Signed, p[i]) == 0
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
