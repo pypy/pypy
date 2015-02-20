@@ -398,6 +398,10 @@ class ExceptionTransformer(object):
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
             var_no_exc = self.gen_isnull(v_exc_type, llops)
+        #
+        # We could add a "var_no_exc is likely true" hint, but it seems
+        # not to help, so it was commented out again.
+        #var_no_exc = llops.genop('likely', [var_no_exc], lltype.Bool)
 
         block.operations.extend(llops)
 

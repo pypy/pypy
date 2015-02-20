@@ -60,8 +60,6 @@ struct RPyOpaque_ThreadLock {
 /* prototypes */
 
 RPY_EXTERN
-long RPyThreadGetIdent(void);
-RPY_EXTERN
 long RPyThreadStart(void (*func)(void));
 RPY_EXTERN
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);

@@ -1,47 +1,30 @@
+from rpython.rlib import jit
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import constants as NPY
-
+from pypy.module.micronumpy.strides import is_c_contiguous, is_f_contiguous
 
 def enable_flags(arr, flags):
     arr.flags |= flags
 
-
 def clear_flags(arr, flags):
     arr.flags &= ~flags
 
-
 def _update_contiguous_flags(arr):
-    shape = arr.shape
-    strides = arr.strides
-
-    is_c_contig = True
-    sd = arr.dtype.elsize
-    for i in range(len(shape) - 1, -1, -1):
-        dim = shape[i]
-        if strides[i] != sd:
-            is_c_contig = False
-            break
-        if dim == 0:
-            break
-        sd *= dim
+    is_c_contig = is_c_contiguous(arr)
     if is_c_contig:
         enable_flags(arr, NPY.ARRAY_C_CONTIGUOUS)
     else:
         clear_flags(arr, NPY.ARRAY_C_CONTIGUOUS)
 
-    sd = arr.dtype.elsize
-    for i in range(len(shape)):
-        dim = shape[i]
-        if strides[i] != sd:
-            clear_flags(arr, NPY.ARRAY_F_CONTIGUOUS)
-            return
-        if dim == 0:
-            break
-        sd *= dim
-    enable_flags(arr, NPY.ARRAY_F_CONTIGUOUS)
+    is_f_contig = is_f_contiguous(arr)
+    if is_f_contig:
+        enable_flags(arr, NPY.ARRAY_F_CONTIGUOUS)
+    else:
+        clear_flags(arr, NPY.ARRAY_F_CONTIGUOUS)
 
 
 class W_FlagsObject(W_Root):

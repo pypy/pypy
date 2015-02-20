@@ -145,6 +145,19 @@ class LLInterpreter(object):
         for line in lines:
             log.traceback(line)
 
+    def get_tlobj(self):
+        try:
+            return self._tlobj
+        except AttributeError:
+            from rpython.rtyper.lltypesystem import rffi
+            PERRNO = rffi.CArrayPtr(rffi.INT)
+            fake_p_errno = lltype.malloc(PERRNO.TO, 1, flavor='raw', zero=True,
+                                         track_allocation=False)
+            self._tlobj = {'RPY_TLOFS_p_errno': fake_p_errno,
+                           #'thread_ident': ...,
+                           }
+            return self._tlobj
+
     def find_roots(self):
         """Return a list of the addresses of the roots."""
         #log.findroots("starting")
@@ -739,6 +752,10 @@ class LLFrame(object):
         return lltype.cast_opaque_ptr(RESTYPE, obj)
     op_cast_opaque_ptr.need_result_type = True
 
+    def op_length_of_simple_gcarray_from_opaque(self, obj):
+        checkptr(obj)
+        return lltype.length_of_simple_gcarray_from_opaque(obj)
+
     def op_cast_ptr_to_adr(self, ptr):
         checkptr(ptr)
         return llmemory.cast_ptr_to_adr(ptr)
@@ -917,6 +934,9 @@ class LLFrame(object):
     def op_gc_typeids_z(self):
         raise NotImplementedError("gc_typeids_z")
 
+    def op_gc_typeids_list(self):
+        raise NotImplementedError("gc_typeids_list")
+
     def op_gc_gcflag_extra(self, subopnum, *args):
         return self.heap.gcflag_extra(subopnum, *args)
 
@@ -972,19 +992,12 @@ class LLFrame(object):
     def op_stm_should_break_transaction(self, keep):
         return False
 
-    def op_threadlocalref_set(self, key, value):
-        try:
-            d = self.llinterpreter.tlrefsdict
-        except AttributeError:
-            d = self.llinterpreter.tlrefsdict = {}
-        d[key._obj] = value
+    def op_threadlocalref_addr(self):
+        return _address_of_thread_local()
 
-    def op_threadlocalref_get(self, key):
-        d = self.llinterpreter.tlrefsdict
-        return d[key._obj]
-
-    def op_threadlocalref_getaddr(self, key):
-        raise NotImplementedError("threadlocalref_getaddr")
+    def op_threadlocalref_get(self, RESTYPE, offset):
+        return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
+    op_threadlocalref_get.need_result_type = True
 
     # __________________________________________________________
     # operations on addresses
@@ -1031,6 +1044,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(RESTYPE),
                              rffi.ptradd(ll_p, offset))
             value = ll_p[0]
+        elif getattr(addr, 'is_fake_thread_local_addr', False):
+            assert type(offset) is CDefinedIntSymbolic
+            value = self.llinterpreter.get_tlobj()[offset.expr]
         else:
             assert offset.TYPE == RESTYPE
             value = getattr(addr, str(RESTYPE).lower())[offset.repeat]
@@ -1051,6 +1067,9 @@ class LLFrame(object):
             ll_p = rffi.cast(rffi.CArrayPtr(ARGTYPE),
                              rffi.ptradd(ll_p, offset))
             ll_p[0] = value
+        elif getattr(addr, 'is_fake_thread_local_addr', False):
+            assert type(offset) is CDefinedIntSymbolic
+            self.llinterpreter.get_tlobj()[offset.expr] = value
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
@@ -1371,6 +1390,10 @@ class _address_of_local_var_accessor(object):
         if addr and isinstance(addr.ptr._obj, llmemory._gctransformed_wref):
             return llmemory.fakeaddress(addr.ptr._obj._ptr)
         return addr
+
+class _address_of_thread_local(object):
+    _TYPE = llmemory.Address
+    is_fake_thread_local_addr = True
 
 
 # by default we route all logging messages to nothingness

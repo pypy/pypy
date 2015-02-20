@@ -16,7 +16,8 @@ def dump_rpy_heap(file):
     [0][0][0][-1] inserted after all GC roots, before all non-roots.
 
     If the argument is a filename and the 'zlib' module is available,
-    we also write a 'typeids.txt' in the same directory, if none exists.
+    we also write 'typeids.txt' and 'typeids.lst' in the same directory,
+    if they don't already exist.
     """
     if isinstance(file, str):
         f = open(file, 'wb')
@@ -30,7 +31,13 @@ def dump_rpy_heap(file):
             filename2 = os.path.join(os.path.dirname(file), 'typeids.txt')
             if not os.path.exists(filename2):
                 data = zlib.decompress(gc.get_typeids_z())
-                f = open(filename2, 'wb')
+                f = open(filename2, 'w')
+                f.write(data)
+                f.close()
+            filename2 = os.path.join(os.path.dirname(file), 'typeids.lst')
+            if not os.path.exists(filename2):
+                data = ''.join(['%d\n' % n for n in gc.get_typeids_list()])
+                f = open(filename2, 'w')
                 f.write(data)
                 f.close()
     else:

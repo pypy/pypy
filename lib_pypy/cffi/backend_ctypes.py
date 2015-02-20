@@ -169,6 +169,7 @@ class CTypesGenericArray(CTypesData):
 class CTypesGenericPtr(CTypesData):
     __slots__ = ['_address', '_as_ctype_ptr']
     _automatic_casts = False
+    kind = "pointer"
 
     @classmethod
     def _newp(cls, init):
@@ -370,10 +371,12 @@ class CTypesBackend(object):
                                 (CTypesPrimitive, type(source).__name__))
             return source
         #
+        kind1 = kind
         class CTypesPrimitive(CTypesGenericPrimitive):
             __slots__ = ['_value']
             _ctype = ctype
             _reftypename = '%s &' % name
+            kind = kind1
 
             def __init__(self, value):
                 self._value = value
@@ -703,12 +706,13 @@ class CTypesBackend(object):
         class struct_or_union(base_ctypes_class):
             pass
         struct_or_union.__name__ = '%s_%s' % (kind, name)
+        kind1 = kind
         #
         class CTypesStructOrUnion(CTypesBaseStructOrUnion):
             __slots__ = ['_blob']
             _ctype = struct_or_union
             _reftypename = '%s &' % (name,)
-            _kind = kind
+            _kind = kind = kind1
         #
         CTypesStructOrUnion._fix_class()
         return CTypesStructOrUnion
@@ -994,27 +998,42 @@ class CTypesBackend(object):
     def getcname(self, BType, replace_with):
         return BType._get_c_name(replace_with)
 
-    def typeoffsetof(self, BType, fieldname):
-        if fieldname is not None and issubclass(BType, CTypesGenericPtr):
-            BType = BType._BItem
-        if not issubclass(BType, CTypesBaseStructOrUnion):
-            raise TypeError("expected a struct or union ctype")
-        if fieldname is None:
-            return (BType, 0)
-        else:
+    def typeoffsetof(self, BType, fieldname, num=0):
+        if isinstance(fieldname, str):
+            if num == 0 and issubclass(BType, CTypesGenericPtr):
+                BType = BType._BItem
+            if not issubclass(BType, CTypesBaseStructOrUnion):
+                raise TypeError("expected a struct or union ctype")
             BField = BType._bfield_types[fieldname]
             if BField is Ellipsis:
                 raise TypeError("not supported for bitfields")
             return (BField, BType._offsetof(fieldname))
+        elif isinstance(fieldname, (int, long)):
+            if issubclass(BType, CTypesGenericArray):
+                BType = BType._CTPtr
+            if not issubclass(BType, CTypesGenericPtr):
+                raise TypeError("expected an array or ptr ctype")
+            BItem = BType._BItem
+            offset = BItem._get_size() * fieldname
+            if offset > sys.maxsize:
+                raise OverflowError
+            return (BItem, offset)
+        else:
+            raise TypeError(type(fieldname))
 
-    def rawaddressof(self, BTypePtr, cdata, offset):
+    def rawaddressof(self, BTypePtr, cdata, offset=None):
         if isinstance(cdata, CTypesBaseStructOrUnion):
             ptr = ctypes.pointer(type(cdata)._to_ctypes(cdata))
         elif isinstance(cdata, CTypesGenericPtr):
+            if offset is None or not issubclass(type(cdata)._BItem,
+                                                CTypesBaseStructOrUnion):
+                raise TypeError("unexpected cdata type")
+            ptr = type(cdata)._to_ctypes(cdata)
+        elif isinstance(cdata, CTypesGenericArray):
             ptr = type(cdata)._to_ctypes(cdata)
         else:
             raise TypeError("expected a <cdata 'struct-or-union'>")
-        if offset != 0:
+        if offset:
             ptr = ctypes.cast(
                 ctypes.c_void_p(
                     ctypes.cast(ptr, ctypes.c_void_p).value + offset),

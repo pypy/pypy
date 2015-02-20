@@ -132,8 +132,12 @@ class ShadowStackRootWalker(BaseRootWalker):
             gcdata.root_stack_top/root_stack_base is the one corresponding
             to the current thread.
             No GC operation here, e.g. no mallocs or storing in a dict!
+
+            Note that here specifically we don't call rthread.get_ident(),
+            but rthread.get_or_make_ident().  We are possibly in a fresh
+            new thread, so we need to be careful.
             """
-            tid = get_tid()
+            tid = rthread.get_or_make_ident()
             if gcdata.active_tid != tid:
                 switch_shadow_stacks(tid)
 

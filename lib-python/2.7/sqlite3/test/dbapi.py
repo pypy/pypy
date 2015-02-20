@@ -478,6 +478,29 @@ class CursorTests(unittest.TestCase):
         except TypeError:
             pass
 
+    def CheckCurDescription(self):
+        self.cu.execute("select * from test")
+
+        actual = self.cu.description
+        expected = [
+            ('id', None, None, None, None, None, None),
+            ('name', None, None, None, None, None, None),
+            ('income', None, None, None, None, None, None),
+        ]
+        self.assertEqual(expected, actual)
+
+    def CheckCurDescriptionVoidStatement(self):
+        self.cu.execute("insert into test(name) values (?)", ("foo",))
+        self.assertIsNone(self.cu.description)
+
+    def CheckCurDescriptionWithoutStatement(self):
+        cu = self.cx.cursor()
+        try:
+            self.assertIsNone(cu.description)
+        finally:
+            cu.close()
+
+
 @unittest.skipUnless(threading, 'This test requires threading.')
 class ThreadTests(unittest.TestCase):
     def setUp(self):

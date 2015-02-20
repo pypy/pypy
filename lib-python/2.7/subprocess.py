@@ -1589,7 +1589,7 @@ def _pypy_install_libs_after_virtualenv(target_executable):
                   'copyfile' in caller.f_globals):
         dest_dir = sys.pypy_resolvedirof(target_executable)
         src_dir = sys.pypy_resolvedirof(sys.executable)
-        for libname in ['libpypy-c.so']:
+        for libname in ['libpypy-c.so', 'libpypy-c.dylib']:
             dest_library = os.path.join(dest_dir, libname)
             src_library = os.path.join(src_dir, libname)
             if os.path.exists(src_library):

@@ -2,6 +2,7 @@ import py
 import sys, os, re
 
 from rpython.config.translationoption import get_combined_translation_config
+from rpython.config.translationoption import SUPPORT__THREAD
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
@@ -819,12 +820,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, shared=True)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
-        if os.name == 'posix':
-            library_path = cbuilder.shared_library_name.dirpath()
-            if sys.platform == 'darwin':
-                monkeypatch.setenv('DYLD_LIBRARY_PATH', library_path)
-            else:
-                monkeypatch.setenv('LD_LIBRARY_PATH', library_path)
+        #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
 
@@ -1048,11 +1044,12 @@ class TestThread(object):
     gcrootfinder = 'shadowstack'
     config = None
 
-    def compile(self, entry_point):
+    def compile(self, entry_point, no__thread=True):
         t = TranslationContext(self.config)
         t.config.translation.gc = "semispace"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
+        t.config.translation.no__thread = no__thread
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
         #
@@ -1164,7 +1161,7 @@ class TestThread(object):
 
     def test_thread_and_gc(self):
         import time, gc
-        from rpython.rlib import rthread
+        from rpython.rlib import rthread, rposix
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -1185,14 +1182,22 @@ class TestThread(object):
                 self.head = head
                 self.tail = tail
 
+        def check_errno(value):
+            rposix.set_saved_errno(value)
+            for i in range(10000000):
+                pass
+            assert rposix.get_saved_errno() == value
+
         def bootstrap():
             rthread.gc_thread_start()
+            check_errno(42)
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
             rthread.gc_thread_die()
 
         def new_thread():
             ident = rthread.start_new_thread(bootstrap, ())
+            check_errno(41)
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
 
@@ -1231,14 +1236,19 @@ class TestThread(object):
                 os.write(1, "%d ok\n" % (i+1))
             return 0
 
-        t, cbuilder = self.compile(entry_point)
-        data = cbuilder.cmdexec('')
-        assert data.splitlines() == ['hello world',
-                                     '1 ok',
-                                     '2 ok',
-                                     '3 ok',
-                                     '4 ok',
-                                     '5 ok']
+        def runme(no__thread):
+            t, cbuilder = self.compile(entry_point, no__thread=no__thread)
+            data = cbuilder.cmdexec('')
+            assert data.splitlines() == ['hello world',
+                                         '1 ok',
+                                         '2 ok',
+                                         '3 ok',
+                                         '4 ok',
+                                         '5 ok']
+
+        if SUPPORT__THREAD:
+            runme(no__thread=False)
+        runme(no__thread=True)
 
 
     def test_gc_with_fork_without_threads(self):
@@ -1393,6 +1403,8 @@ class TestShared(StandaloneTests):
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'
+        elif cbuilder.eci.platform.name.startswith('darwin'):
+            ext_suffix = '.dylib'
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))

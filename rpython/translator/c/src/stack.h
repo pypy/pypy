@@ -5,15 +5,13 @@
 #ifndef _RPY_STACK_H_
 #define _RPY_STACK_H_
 
+#include <src/precommondefs.h>
+
 
 #ifndef MAX_STACK_SIZE
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
 #endif
 
-/* This include must be done in any case to initialise
- * the header dependencies early (winsock2, before windows.h).
- * It is needed to have RPyThreadStaticTLS, too. */
-#include "threadlocal.h"
 
 RPY_EXTERN char *_LLstacktoobig_stack_end;
 RPY_EXTERN long _LLstacktoobig_stack_length;

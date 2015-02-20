@@ -486,6 +486,12 @@ class RegAlloc(BaseRegalloc):
 
     consider_int_invert = consider_int_neg
 
+    def consider_int_signext(self, op):
+        argloc = self.loc(op.getarg(0))
+        numbytesloc = self.loc(op.getarg(1))
+        resloc = self.force_allocate_reg(op.result)
+        self.perform(op, [argloc, numbytesloc], resloc)
+
     def consider_int_lshift(self, op):
         if isinstance(op.getarg(1), Const):
             loc2 = self.rm.convert_to_imm(op.getarg(1))
@@ -705,29 +711,14 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
-    TLREF_SUPPORT = sys.platform.startswith('linux')
-    ERRNO_SUPPORT = sys.platform.startswith('linux')
-
     def _consider_threadlocalref_get(self, op):
-        if self.TLREF_SUPPORT:
+        if self.translate_support_code:
+            offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
+            calldescr = op.getdescr()
+            size = calldescr.get_result_size()
+            sign = calldescr.is_result_signed()
             resloc = self.force_allocate_reg(op.result)
-            self.assembler.threadlocalref_get(op, resloc)
-        else:
-            self._consider_call(op)
-
-    def _consider_get_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            resloc = self.force_allocate_reg(op.result)
-            self.assembler.get_set_errno(op, resloc, issue_a_write=False)
-        else:
-            self._consider_call(op)
-
-    def _consider_set_errno(self, op):
-        if self.ERRNO_SUPPORT:
-            # op.getarg(0) is the function set_errno; op.getarg(1) is
-            # the new errno value
-            loc0 = self.rm.make_sure_var_in_reg(op.getarg(1))
-            self.assembler.get_set_errno(op, loc0, issue_a_write=True)
+            self.assembler.threadlocalref_get(offset, resloc, size, sign)
         else:
             self._consider_call(op)
 
@@ -767,10 +758,10 @@ class RegAlloc(BaseRegalloc):
         else:
             self.perform(op, arglocs, resloc)
 
-    def _consider_call(self, op, guard_not_forced_op=None):
+    def _consider_call(self, op, guard_not_forced_op=None, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
-        assert len(calldescr.arg_classes) == op.numargs() - 1
+        assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
         size = calldescr.get_result_size()
         sign = calldescr.is_result_signed()
         if sign:
@@ -811,10 +802,6 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_math_sqrt(op)
             if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 return self._consider_threadlocalref_get(op)
-            if oopspecindex == EffectInfo.OS_GET_ERRNO:
-                return self._consider_get_errno(op)
-            if oopspecindex == EffectInfo.OS_SET_ERRNO:
-                return self._consider_set_errno(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
@@ -824,8 +811,9 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op, guard_op)
 
     def consider_call_release_gil(self, op, guard_op):
+        # [Const(save_err), func_addr, args...]
         assert guard_op is not None
-        self._consider_call(op, guard_op)
+        self._consider_call(op, guard_op, first_arg_index=2)
 
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)

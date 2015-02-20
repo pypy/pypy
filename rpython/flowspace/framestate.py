@@ -3,10 +3,10 @@ from rpython.rlib.unroll import SpecTag
 
 
 class FrameState(object):
-    def __init__(self, mergeable, blocklist, next_instr):
+    def __init__(self, mergeable, blocklist, next_offset):
         self.mergeable = mergeable
         self.blocklist = blocklist
-        self.next_instr = next_instr
+        self.next_offset = next_offset
 
     def copy(self):
         "Make a copy of this state in which all Variables are fresh."
@@ -15,7 +15,7 @@ class FrameState(object):
             if isinstance(w, Variable):
                 w = Variable(w)
             newstate.append(w)
-        return FrameState(newstate, self.blocklist, self.next_instr)
+        return FrameState(newstate, self.blocklist, self.next_offset)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
@@ -26,7 +26,7 @@ class FrameState(object):
         # safety check, don't try to compare states with different
         # nonmergeable states
         assert self.blocklist == other.blocklist
-        assert self.next_instr == other.next_instr
+        assert self.next_offset == other.next_offset
         for w1, w2 in zip(self.mergeable, other.mergeable):
             if not (w1 == w2 or (isinstance(w1, Variable) and
                                  isinstance(w2, Variable))):
@@ -44,7 +44,7 @@ class FrameState(object):
                 newstate.append(union(w1, w2))
         except UnionError:
             return None
-        return FrameState(newstate, self.blocklist, self.next_instr)
+        return FrameState(newstate, self.blocklist, self.next_offset)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."

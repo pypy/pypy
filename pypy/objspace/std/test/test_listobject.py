@@ -976,7 +976,10 @@ class AppTestListObject(object):
 
         c = [0.0, 2.2, 4.4]
         assert c.index(0) == 0.0
-        raises(ValueError, c.index, 3)
+        e = raises(ValueError, c.index, 3)
+        import sys
+        if sys.version_info[:2] == (2, 7):     # CPython 2.7, PyPy
+            assert str(e.value) == '3 is not in list'
 
     def test_index_cpython_bug(self):
         if self.on_cpython:
@@ -1228,7 +1231,9 @@ class AppTestListObject(object):
         assert l == [0.0, 1.1, 3.3, 4.4]
         l = [0.0, 3.3, 5.5]
         raises(ValueError, c.remove, 2)
-        raises(ValueError, c.remove, 2.2)
+        e = raises(ValueError, c.remove, 2.2)
+        if not self.on_cpython:
+            assert str(e.value) == 'list.remove(): 2.2 is not in list'
 
     def test_reverse(self):
         c = list('hello world')

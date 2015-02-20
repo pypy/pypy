@@ -57,11 +57,10 @@ class AbstractDictRepr(rmodel.Repr):
 
 
 def rtype_newdict(hop):
-    from rpython.rtyper.lltypesystem.rdict import ll_newdict
     hop.inputargs()    # no arguments expected
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
+    v_result = hop.gendirectcall(r_dict.ll_newdict, cDICT)
     return v_result
 
 
@@ -99,12 +98,12 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
             c_key = hop.inputconst(lltype.Void, 'key')
             v_key = hop.genop('getinteriorfield', [v_entries, v_index, c_key],
                               resulttype=KEY)
-        if variant != 'keys':
+        if variant != 'keys' and variant != 'reversed':
             VALUE = ENTRIES.TO.OF.value
             c_value = hop.inputconst(lltype.Void, 'value')
             v_value = hop.genop('getinteriorfield', [v_entries,v_index,c_value],
                                 resulttype=VALUE)
-        if variant == 'keys':
+        if variant == 'keys' or variant == 'reversed':
             return self.r_dict.recast_key(hop.llops, v_key)
         elif variant == 'values':
             return self.r_dict.recast_value(hop.llops, v_value)

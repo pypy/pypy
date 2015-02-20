@@ -5,7 +5,7 @@ from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 
 def has_side_effects(op):
-    if op.opname == 'debug_assert':
+    if op.opname == 'debug_assert' or op.opname == 'jit_force_virtualizable':
         return False
     try:
         return getattr(llop, op.opname).sideeffects

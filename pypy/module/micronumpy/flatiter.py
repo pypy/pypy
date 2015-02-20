@@ -22,6 +22,9 @@ class FakeArrayImplementation(BaseConcreteArray):
     def get_shape(self):
         return self.shape
 
+    def get_size(self):
+        return self.base().get_size()
+
     def create_iter(self, shape=None, backward_broadcast=False):
         assert isinstance(self.base(), W_NDimArray)
         return self.base().create_iter()
@@ -41,8 +44,8 @@ class W_FlatIterator(W_NDimArray):
         return space.wrap(self.state.index)
 
     def descr_coords(self, space):
-        self.state = self.iter.update(self.state)
-        return space.newtuple([space.wrap(c) for c in self.state.indices])
+        coords = self.iter.indices(self.state)
+        return space.newtuple([space.wrap(c) for c in coords])
 
     def descr_iter(self):
         return self
@@ -54,7 +57,7 @@ class W_FlatIterator(W_NDimArray):
         if self.iter.done(self.state):
             raise OperationError(space.w_StopIteration, space.w_None)
         w_res = self.iter.getitem(self.state)
-        self.state = self.iter.next(self.state)
+        self.iter.next(self.state, mutate=True)
         return w_res
 
     def descr_getitem(self, space, w_idx):
@@ -71,7 +74,7 @@ class W_FlatIterator(W_NDimArray):
                                          base.get_order(), w_instance=base)
             return loop.flatiter_getitem(res, self.iter, state, step)
         finally:
-            self.state = self.iter.reset(self.state)
+            self.iter.reset(self.state, mutate=True)
 
     def descr_setitem(self, space, w_idx, w_value):
         if not (space.isinstance_w(w_idx, space.w_int) or
@@ -91,7 +94,7 @@ class W_FlatIterator(W_NDimArray):
             arr = convert_to_array(space, w_value)
             loop.flatiter_setitem(space, dtype, arr, self.iter, state, step, length)
         finally:
-            self.state = self.iter.reset(self.state)
+            self.iter.reset(self.state, mutate=True)
 
 
 W_FlatIterator.typedef = TypeDef("numpy.flatiter",

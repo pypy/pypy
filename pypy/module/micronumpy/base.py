@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.tool.pairtype import extendabletype
-
+from pypy.module.micronumpy import support
 
 def wrap_impl(space, w_cls, w_instance, impl):
     if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
@@ -44,11 +44,32 @@ class W_NDimArray(W_NumpyObject):
         return W_NDimArray(impl)
 
     @staticmethod
-    def from_shape_and_storage(space, shape, storage, dtype, order='C', owning=False,
-                               w_subtype=None, w_base=None, writable=True):
+    def from_shape_and_storage(space, shape, storage, dtype, storage_bytes=-1,
+                               order='C', owning=False, w_subtype=None,
+                               w_base=None, writable=True, strides=None):
         from pypy.module.micronumpy import concrete
-        from pypy.module.micronumpy.strides import calc_strides
-        strides, backstrides = calc_strides(shape, dtype, order)
+        from pypy.module.micronumpy.strides import (calc_strides,
+                                                    calc_backstrides)
+        isize = dtype.elsize
+        if storage_bytes > 0 :
+            totalsize = support.product(shape) * isize
+            if totalsize > storage_bytes:
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "buffer is too small for requested array"))
+        else:
+            storage_bytes = support.product(shape) * isize
+        if strides is None:
+            strides, backstrides = calc_strides(shape, dtype, order)
+        else:
+            if len(strides) != len(shape):
+                raise oefmt(space.w_ValueError,
+                    'strides, if given, must be the same length as shape')
+            for i in range(len(strides)):
+                if strides[i] < 0 or strides[i]*shape[i] > storage_bytes:
+                    raise oefmt(space.w_ValueError,
+                        'strides is incompatible with shape of requested '
+                        'array and size of buffer')
+            backstrides = calc_backstrides(strides, shape)
         if w_base is not None:
             if owning:
                 raise OperationError(space.w_ValueError,
@@ -97,6 +118,19 @@ class W_NDimArray(W_NumpyObject):
         w_arr = W_NDimArray.from_shape(space, [], dtype)
         w_arr.set_scalar_value(w_scalar)
         return w_arr
+
+    def get_shape(self):
+        return self.implementation.get_shape()
+
+    def get_dtype(self):
+        return self.implementation.dtype
+
+    def get_order(self):
+        return self.implementation.order
+
+    def ndims(self):
+        return len(self.get_shape())
+    ndims._always_inline_ = True
 
 
 def convert_to_array(space, w_obj):

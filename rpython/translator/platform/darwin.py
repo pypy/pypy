@@ -10,10 +10,11 @@ class Darwin(posix.BasePosix):
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
+    rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
 
     def _args_for_shared(self, args):
         return (list(self.shared_only)
-                + ['-dynamiclib', '-undefined', 'dynamic_lookup']
+                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
                 + args)
 
     def _include_dirs_for_libffi(self):

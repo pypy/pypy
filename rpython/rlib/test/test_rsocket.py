@@ -311,7 +311,7 @@ def getaddrinfo_pydotorg(i, result):
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '140.211.10.69':
+        if addr.get_host() == '104.130.43.121':
             found = True
     result[i] += found
 

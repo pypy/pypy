@@ -52,6 +52,9 @@ class AbstractLLCPU(AbstractCPU):
         self._setup_frame_realloc(translate_support_code)
         self._setup_descrs()
         self.setup()
+        self._debug_errno_container = lltype.malloc(
+            rffi.CArray(lltype.Signed), 5, flavor='raw', zero=True,
+            track_allocation=False)
 
     def _setup_descrs(self):
         ad = self.gc_ll_descr.getframedescrs(self).arraydescr
@@ -228,7 +231,14 @@ class AbstractLLCPU(AbstractCPU):
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+        # The JIT backend must generate functions with the following
+        # signature: it takes the jitframe and the threadlocal_addr
+        # as arguments, and it returns the (possibly reallocated) jitframe.
+        # The backend can optimize OS_THREADLOCALREF_GET calls to return a
+        # field of this threadlocal_addr, but only if 'translate_support_code':
+        # in untranslated tests, threadlocal_addr is a dummy container
+        # for errno tests only.
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
                                              llmemory.GCREF))
 
         lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
@@ -260,14 +270,21 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
+                if self.translate_support_code:
+                    ll_threadlocal_addr = llop.threadlocalref_addr(
+                        llmemory.Address)
+                else:
+                    ll_threadlocal_addr = rffi.cast(llmemory.Address,
+                        self._debug_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
                 # This is the line that calls the assembler code.
-                # 'func(ll_frame)' would work here too, producing an
-                # indirect_call(func, ll_frame, None).  The main difference
-                # is that 'jit_assembler_call' is a hint to STM to not
-                # force the transaction to become inevitable.
+                # 'func(ll_frame, ll_threadlocal_addr)' would work here too,
+                # producing the operation
+                #     indirect_call(func, ll_frame, ll_threadlocal_addr, None)
+                # The main difference is that 'jit_assembler_call' is a hint
+                # to STM to not force the transaction to become inevitable.
                 ll_frame = llop.jit_assembler_call(llmemory.GCREF, func,
-                                                   ll_frame)
+                                               ll_frame, ll_threadlocal_addr)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter

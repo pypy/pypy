@@ -23,12 +23,12 @@ void _pypy_stm_op_free(void *);
 #define OP_FREE(p)                _pypy_stm_op_free(p)
 #else
 #define _OP_RAW_MALLOCED(r)       /* nothing */
-#define OP_FREE(p)                PyObject_Free(p); COUNT_FREE
+#define OP_FREE(p)                free(p); COUNT_FREE
 #endif
 
 
 #define OP_RAW_MALLOC(size, r, restype)  {				\
-	r = (restype) PyObject_Malloc(size);				\
+	r = (restype) malloc(size);				\
 	if (r != NULL) {						\
 	    COUNT_MALLOC;						\
             _OP_RAW_MALLOCED(r);                                        \

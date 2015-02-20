@@ -702,10 +702,9 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
-    def build_ll_0_threadlocalref_getter(opaqueid):
-        def _ll_0_threadlocalref_getter():
-            return llop.threadlocalref_get(rclass.OBJECTPTR, opaqueid)
-        return _ll_0_threadlocalref_getter
+    def _ll_1_threadlocalref_get(TP, offset):
+        return llop.threadlocalref_get(TP, offset)
+    _ll_1_threadlocalref_get.need_result_type = 'exact'   # don't deref
 
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)
@@ -818,8 +817,18 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
     s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
-        bk = rtyper.annotator.bookkeeper
-        args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))
+        if hasattr(rtyper, 'annotator'):
+            bk = rtyper.annotator.bookkeeper
+            ll_restype = ll_res
+            if impl.need_result_type != 'exact':
+                ll_restype = deref(ll_restype)
+            desc = bk.getdesc(ll_restype)
+        else:
+            class TestingDesc(object):
+                knowntype = int
+                pyobj = None
+            desc = TestingDesc()
+        args_s.insert(0, annmodel.SomePBC([desc]))
     #
     if hasattr(rtyper, 'annotator'):  # regular case
         mixlevelann = MixLevelHelperAnnotator(rtyper)

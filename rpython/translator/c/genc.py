@@ -455,13 +455,11 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('PROFOPT', profopt)
 
         rules = [
-            ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
-            ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
+            ('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
+            ('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
             ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
             ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
             ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
-            ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O2 -DRPY_ASSERT -DPYPY_NO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_LINUXMEMCHK" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT -DRPY_STM_ASSERT" debug_target'),
             ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DRPY_ASSERT -DRPY_LL_ASSERT -DRPY_STM_ASSERT" debug_target'),
@@ -507,7 +505,7 @@ class CStandaloneBuilder(CBuilder):
                     '-o $*.s -S $< $(INCLUDEDIRS)',
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.lbl.s',
+                '$(CC) $(CFLAGS) -o $*.o -c $*.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
 
@@ -529,7 +527,7 @@ class CStandaloneBuilder(CBuilder):
         if self.translator.platform.name == 'msvc':
             mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
         else:
-            mk.rule('debug_target', '$(TARGET)', '#')
+            mk.rule('debug_target', '$(DEFAULT_TARGET)', '#')
         mk.write()
         #self.translator.platform,
         #                           ,
@@ -763,7 +761,26 @@ def gen_structdef(f, database):
     for node in structdeflist:
         for line in node.definition():
             print >> f, line
+    gen_threadlocal_structdef(f, database)
     print >> f, "#endif"
+
+def gen_threadlocal_structdef(f, database):
+    from rpython.translator.c.support import cdecl
+    print >> f
+    bk = database.translator.annotator.bookkeeper
+    fields = list(bk.thread_local_fields)
+    fields.sort(key=lambda field: field.fieldname)
+    for field in fields:
+        print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
+                     'struct pypy_threadlocal_s, %s)' % field.fieldname)
+    print >> f, 'struct pypy_threadlocal_s {'
+    print >> f, '\tint ready;'
+    print >> f, '\tchar *stack_end;'
+    for field in fields:
+        typename = database.gettype(field.FIELDTYPE)
+        print >> f, '\t%s;' % cdecl(typename, field.fieldname)
+    print >> f, '};'
+    print >> f
 
 def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'
@@ -799,6 +816,13 @@ def gen_startupcode(f, database):
         print >> f, '\t/* XXX temporary workaround for late_initializations */'
         print >> f, '\tsyscall(SYS_arch_prctl, ARCH_SET_GS, (uint64_t)0);'
 
+    bk = database.translator.annotator.bookkeeper
+    if bk.thread_local_fields:
+        print >> f, '\tRPython_ThreadLocals_ProgramInit();'
+
+    for line in database.gcpolicy.gc_startup_code():
+        print >> f,"\t" + line
+
     # put float infinities in global constants, we should not have so many of them for now to make
     # a table+loop preferable
     for dest, value in database.late_initializations:
@@ -821,6 +845,7 @@ def gen_startupcode(f, database):
                 print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
+
     print >> f, '\treturn error;'
     print >> f, '}'
     print >> f
@@ -876,7 +901,6 @@ def add_extra_files(eci):
     srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
-        srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE
         srcdir / 'mem.c',
         srcdir / 'exception.c',
         srcdir / 'rtyper.c',           # ifdef HAVE_RTYPER
@@ -887,6 +911,8 @@ def add_extra_files(eci):
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
         srcdir / 'int.c',
+        srcdir / 'stack.c',
+        srcdir / 'threadlocal.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
