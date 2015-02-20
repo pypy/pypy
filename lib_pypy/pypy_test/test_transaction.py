@@ -104,6 +104,14 @@ def test_number_of_transactions_reported():
         raise AssertionError("should have raised NameError")
     assert tq.number_of_transactions_executed() == 4
 
+    tq.add(tq.number_of_transactions_executed)
+    try:
+        tq.run()
+    except transaction.TransactionError:
+        pass
+    else:
+        raise AssertionError("should have raised TransactionError")
+
     def add_transactions(l):
         if l:
             for x in range(l[0]):

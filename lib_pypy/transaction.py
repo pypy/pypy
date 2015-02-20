@@ -177,7 +177,9 @@ class TransactionQueue(object):
             raise exc_type, exc_value, exc_traceback
 
     def number_of_transactions_executed(self):
-        return self._number_transactions_exec
+        if self._pending is self._deque:
+            return self._number_transactions_exec
+        raise TransactionError("TransactionQueue.run() is currently running")
 
     def _thread_runner(self, locks, lock_done_running, lock_deque,
                        exception, nb_segments):
