@@ -12,10 +12,10 @@
 #include <windows.h>
 #endif
 #include "common_header.h"
+#include "structdef.h"
 #include "src/profiling.h"
 #include "src/debug_print.h"
 
-__thread_if_stm long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;   /* XXX make it thread-local too? */
 static unsigned char debug_ready = 0;
 static unsigned char debug_profile = 0;
