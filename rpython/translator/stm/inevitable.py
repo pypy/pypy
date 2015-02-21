@@ -18,7 +18,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'stack_current', 'gc_stack_bottom', 'cast_ptr_to_int',
     'jit_force_virtual', 'jit_force_virtualizable',
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
-    'jit_record_known_class',
+    'jit_record_known_class', 'jit_ffi_save_result',
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
     'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
     'gc_pin', 'gc_unpin', 'gc__is_pinned',
@@ -33,6 +33,12 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'length_of_simple_gcarray_from_opaque',
     'll_read_timestamp',
     'jit_conditional_call',
+    'get_exc_value_addr', 'get_exception_addr',
+    'get_write_barrier_failing_case',
+    'get_write_barrier_from_array_failing_case',
+    'gc_set_max_heap_size', 'gc_gcflag_extra',
+    'raw_malloc_usage',
+    'track_alloc_start', 'track_alloc_stop',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -63,24 +69,16 @@ INCOMPATIBLE_OPS = set([
     'gc_adr_of_root_stack_base', 'gc_asmgcroot_static',
     'gc_call_rtti_destructor', 'gc_deallocate',
     'gc_detach_callback_pieces', 'gc_fetch_exception',
-    'gc_set_max_heap_size',
     'gc_forget_current_state', 'gc_free',
-    'gc_gcflag_extra', 'gc_obtain_free_space',
+    'gc_obtain_free_space',
     'gc_reattach_callback_pieces', 'gc_reload_possibly_moved',
     'gc_restore_exception', 'gc_restore_state_from',
     'gc_save_current_state_away',
     'gc_shadowstackref_context', 'gc_shadowstackref_new',
-    'gc_thread_after_fork', 'gc_thread_before_fork',
     'gc_start_fresh_new_state', 'gc_thread_run',
     'gc_writebarrier_before_copy',
-    'get_exc_value_addr', 'get_exception_addr',
-    'get_write_barrier_failing_case',
-    'get_write_barrier_from_array_failing_case',
     'getslice', 'instrument_count',
-    'jit_ffi_save_result',
-    'raw_malloc_usage',
-    'raw_memclear', 'raw_memcopy', 'raw_memmove', 'raw_memset',
-    'stack_malloc', 'track_alloc_start', 'track_alloc_stop',
+    'stack_malloc',
     'zero_gc_pointers_inside',
     ])
 
@@ -88,6 +86,8 @@ INCOMPATIBLE_OPS = set([
 TURN_INEVITABLE_OPS = set([
     'debug_fatalerror', 'debug_llinterpcall', 'debug_print_traceback',
     'gc_dump_rpy_heap', 'gc_thread_start', 'gc_thread_die',
+    'raw_memclear', 'raw_memcopy', 'raw_memmove', 'raw_memset',
+    'gc_thread_after_fork', 'gc_thread_before_fork',
     ])
 
 # ____________________________________________________________
@@ -136,7 +136,7 @@ def should_turn_inevitable(op, block):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
-    assert op.opname not in INCOMPATIBLE_OPS
+    assert op.opname not in INCOMPATIBLE_OPS, repr(op)
     #
     # Getters and setters
     if op.opname in GETTERS:

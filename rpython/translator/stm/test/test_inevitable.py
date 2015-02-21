@@ -8,16 +8,26 @@ from rpython.translator.stm import inevitable
 from rpython.conftest import option
 
 
-KNOWN_OPERATIONS = (inevitable.ALWAYS_ALLOW_OPERATIONS |
-                    inevitable.CALLS |
-                    inevitable.GETTERS | inevitable.SETTERS |
-                    inevitable.MALLOCS | inevitable.FREES |
-                    inevitable.INCOMPATIBLE_OPS |
-                    inevitable.TURN_INEVITABLE_OPS)
+CATEGORIES = [inevitable.ALWAYS_ALLOW_OPERATIONS,
+              inevitable.CALLS,
+              inevitable.GETTERS, inevitable.SETTERS,
+              inevitable.MALLOCS, inevitable.FREES,
+              inevitable.INCOMPATIBLE_OPS,
+              inevitable.TURN_INEVITABLE_OPS]
+
+KNOWN_OPERATIONS = set()
+for _cat in CATEGORIES:
+    KNOWN_OPERATIONS |= _cat
 
 def test_defined_operations():
     for opname in KNOWN_OPERATIONS:
         getattr(llop, opname)   # the opname must exist!
+
+def test_no_duplicate_operations():
+    for i in range(len(CATEGORIES)):
+        for j in range(i):
+            common = (CATEGORIES[i] & CATEGORIES[j])
+            assert not common
 
 def test_no_missing_operation():
     ALL_OPERATIONS = set(lloperation.LL_OPERATIONS)
