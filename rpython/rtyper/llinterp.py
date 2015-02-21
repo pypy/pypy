@@ -960,34 +960,51 @@ class LLFrame(object):
 
     def _stm_not_implemented(self, *args):
         raise NotImplementedError
-    op_stm_initialize = _stm_not_implemented
-    op_stm_finalize = _stm_not_implemented
-    op_stm_perform_transaction = _stm_not_implemented
-    op_stm_commit_transaction = _stm_not_implemented
-    op_stm_begin_inevitable_transaction = _stm_not_implemented
-    op_stm_barrier = _stm_not_implemented
     op_stm_push_root = _stm_not_implemented
     op_stm_pop_root_into = _stm_not_implemented
-    op_stm_get_adr_of_nursery_current = _stm_not_implemented
-    op_stm_get_adr_of_nursery_nextlimit = _stm_not_implemented
-    op_stm_get_adr_of_active = _stm_not_implemented
-    op_stm_get_adr_of_read_barrier_cache = _stm_not_implemented
-    op_stm_get_adr_of_private_rev_num = _stm_not_implemented
+    op_stm_get_root_stack_top = _stm_not_implemented
+    op_stm_start_if_not_atomic = _stm_not_implemented
+    op_stm_commit_if_not_atomic = _stm_not_implemented
     op_stm_enter_callback_call = _stm_not_implemented
     op_stm_leave_callback_call = _stm_not_implemented
     op_stm_get_atomic = _stm_not_implemented
     op_stm_is_inevitable = _stm_not_implemented
-    op_stm_change_atomic = _stm_not_implemented
     op_stm_set_transaction_length = _stm_not_implemented
-    op_stm_hash = _stm_not_implemented
     op_stm_id = _stm_not_implemented
-    op_stm_allocate = _stm_not_implemented
-    op_stm_weakref_allocate = _stm_not_implemented
-    op_stm_allocate_nonmovable_int_adr = _stm_not_implemented
-    op_stm_minor_collect = _stm_not_implemented
-    op_stm_major_collect = _stm_not_implemented
     op_stm_abort_and_retry = _stm_not_implemented
     op_stm_become_inevitable = _stm_not_implemented
+    op_stm_stop_all_other_threads = _stm_not_implemented
+    op_stm_resume_all_other_threads = _stm_not_implemented
+    op_stm_set_into_obj = _stm_not_implemented
+    op_stm_addr_get_tid = _stm_not_implemented
+    op_stm_allocate_tid = _stm_not_implemented
+    op_stm_allocate_weakref = _stm_not_implemented
+    op_stm_allocate_f_light = _stm_not_implemented
+    op_stm_allocate_finalizer = _stm_not_implemented
+    op_stm_allocate_nonmovable = _stm_not_implemented
+    op_stm_allocate_preexisting = _stm_not_implemented
+    op_stm_malloc_nonmovable = _stm_not_implemented
+    op_stm_can_move = _stm_not_implemented
+    op_stm_read = _stm_not_implemented
+    op_stm_write = _stm_not_implemented
+    op_stm_hashtable_create = _stm_not_implemented
+    op_stm_hashtable_lookup = _stm_not_implemented
+    op_stm_hashtable_read = _stm_not_implemented
+    op_stm_hashtable_write = _stm_not_implemented
+    op_stm_hashtable_write_entry = _stm_not_implemented
+    op_stm_hashtable_tracefn = _stm_not_implemented
+    op_stm_hashtable_length_upper_bound = _stm_not_implemented
+    op_stm_hashtable_list = _stm_not_implemented
+    op_stm_hashtable_free = _stm_not_implemented
+    op_stm_register_thread_local = _stm_not_implemented
+    op_stm_unregister_thread_local = _stm_not_implemented
+    op_stm_really_force_cast_ptr = _stm_not_implemented
+    op_stm_identityhash = _stm_not_implemented
+    op_stm_expand_marker = _stm_not_implemented
+    op_stm_setup_expand_marker_for_pypy = _stm_not_implemented
+    op_stm_increment_atomic = _stm_not_implemented
+    op_stm_decrement_atomic = _stm_not_implemented
+    op_stm_collect = _stm_not_implemented
 
     def op_stm_should_break_transaction(self, keep):
         return False

@@ -126,17 +126,6 @@ def stm_allocate_nonmovable(funcgen, op):
                 (result, arg_size, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
-def stm_get_from_obj(funcgen, op):
-    assert op.args[0].concretetype == llmemory.GCREF
-    arg_obj = funcgen.expr(op.args[0])
-    arg_ofs = funcgen.expr(op.args[1])
-    result  = funcgen.expr(op.result)
-    resulttype = cdecl(funcgen.lltypename(op.result), '')
-    return '%s = *(TLPREFIX %s *)(%s + %s);' % (
-        result, resulttype, arg_obj, arg_ofs)
-
-stm_get_from_obj_const = stm_get_from_obj
-
 def stm_set_into_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
     arg_obj = funcgen.expr(op.args[0])
