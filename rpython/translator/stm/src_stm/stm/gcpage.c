@@ -135,11 +135,19 @@ object_t *stm_allocate_preexisting(ssize_t size_rounded_up,
 
     char *p = allocate_outside_nursery_large(size_rounded_up);
     uintptr_t nobj = p - stm_object_pages;
+    dprintf(("allocate_preexisting: %p\n", (object_t *)nobj));
     long j;
     for (j = 0; j <= NB_SEGMENTS; j++) {
         char *dest = get_segment_base(j) + nobj;
         memcpy(dest, initial_data, size_rounded_up);
         ((struct object_s *)dest)->stm_flags = GCFLAG_WRITE_BARRIER;
+#ifdef STM_TESTS
+        /* can't really enable this check outside tests, because there is
+           a change that the transaction_state changes in parallel */
+        if (j && get_priv_segment(j)->transaction_state != TS_NONE) {
+            assert(!was_read_remote(get_segment_base(j), (object_t *)nobj));
+        }
+#endif
     }
 
     release_privatization_lock();

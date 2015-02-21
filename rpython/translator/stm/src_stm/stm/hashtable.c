@@ -108,8 +108,12 @@ void stm_hashtable_free(stm_hashtable_t *hashtable)
 
 static bool _stm_was_read_by_anybody(object_t *obj)
 {
+    /* can only be safely called during major GC, when all other threads
+       are suspended */
     long i;
     for (i = 1; i <= NB_SEGMENTS; i++) {
+        if (get_priv_segment(i)->transaction_state == TS_NONE)
+            continue;
         if (was_read_remote(get_segment_base(i), obj))
             return true;
     }
