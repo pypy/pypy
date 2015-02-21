@@ -823,6 +823,13 @@ class AppTestBytesObject:
             assert bytes.maketrans(bb, bb)
             assert bytearray.maketrans(bb, bb)
 
+    def test_constructor_dont_convert_int(self):
+        class A(object):
+            def __int__(self):
+                return 42
+        raises(TypeError, bytes, A())
+
+
 class AppTestPrebuilt(AppTestBytesObject):
     spaceconfig = {"objspace.std.withprebuiltchar": True}
 

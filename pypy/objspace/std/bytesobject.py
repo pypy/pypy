@@ -685,7 +685,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
         return []
     # Is it an int?
     try:
-        count = space.int_w(w_source)
+        count = space.int_w(w_source, allow_conversion=False)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
