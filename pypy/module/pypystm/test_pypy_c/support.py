@@ -109,6 +109,7 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
         if not import_site:
             cmdline.append('-S')
         cmdline.append(str(self.filepath))
+        print '*', ' '.join(cmdline)
         env = os.environ.copy()
         env['PYPYSTM'] = str(self.stmfile)
         env['PYPYLOG'] = str(self.logfile)
