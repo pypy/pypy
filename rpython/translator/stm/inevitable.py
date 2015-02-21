@@ -7,9 +7,13 @@ from rpython.translator.unsimplify import varoftype
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
-    'cast_adr_to_int',
-    'debug_print', 'debug_assert',
+    'cast_adr_to_int', 'cast_int_to_ptr',
+    'cast_ptr_to_weakrefptr', 'cast_weakrefptr_to_ptr',
+    'debug_print', 'debug_assert', 'debug_flush', 'debug_offset',
     'debug_start', 'debug_stop', 'have_debug_prints',
+    'debug_catch_exception', 'debug_nonnull_pointer',
+    'debug_record_traceback', 'debug_start_traceback',
+    'debug_reraise_traceback',
     'cast_opaque_ptr', 'hint',
     'stack_current', 'gc_stack_bottom', 'cast_ptr_to_int',
     'jit_force_virtual', 'jit_force_virtualizable',
@@ -22,6 +26,13 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_assembler_call', 'gc_writebarrier',
     'shrink_array',
     'threadlocalref_addr', 'threadlocalref_get',
+    'gc_get_rpy_memory_usage', 'gc_get_rpy_referents',
+    'gc_get_rpy_roots', 'gc_get_rpy_type_index', 'gc_get_type_info_group',
+    'gc_heap_stats', 'gc_is_rpy_instance', 'gc_typeids_list',
+    'gc_typeids_z', 'nop',
+    'length_of_simple_gcarray_from_opaque',
+    'll_read_timestamp',
+    'jit_conditional_call',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -29,6 +40,7 @@ for opname, opdesc in lloperation.LL_OPERATIONS.iteritems():
     if opname.startswith('stm_'):
         ALWAYS_ALLOW_OPERATIONS.add(opname)
 
+CALLS   = set(['direct_call', 'indirect_call'])
 GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
 SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'])
 MALLOCS = set(['malloc', 'malloc_varsize',
@@ -37,8 +49,46 @@ MALLOCS = set(['malloc', 'malloc_varsize',
                'do_malloc_fixedsize_clear', 'do_malloc_varsize_clear'])
 FREES   = set(['free', 'raw_free'])
 
-for opname in ALWAYS_ALLOW_OPERATIONS | GETTERS | SETTERS | MALLOCS | FREES:
-    getattr(lloperation.llop, opname)   # the opname must exist!
+# These operations should not appear at all in an stm build at the
+# point this file is invoked (before gctransform)
+INCOMPATIBLE_OPS = set([
+    'bare_raw_store', 'bare_setarrayitem', 'bare_setfield',
+    'bare_setinteriorfield',
+    'boehm_disappearing_link', 'boehm_malloc', 'boehm_malloc_atomic',
+    'boehm_register_finalizer',
+    'check_and_clear_exc', 'check_no_more_arg', 'check_self_nonzero',
+    'debug_stm_flush_barrier', 'debug_view',
+    'decode_arg', 'decode_arg_def',
+    'gc_adr_of_nursery_free', 'gc_adr_of_nursery_top',
+    'gc_adr_of_root_stack_base', 'gc_asmgcroot_static',
+    'gc_call_rtti_destructor', 'gc_deallocate',
+    'gc_detach_callback_pieces', 'gc_fetch_exception',
+    'gc_set_max_heap_size',
+    'gc_forget_current_state', 'gc_free',
+    'gc_gcflag_extra', 'gc_obtain_free_space',
+    'gc_reattach_callback_pieces', 'gc_reload_possibly_moved',
+    'gc_restore_exception', 'gc_restore_state_from',
+    'gc_save_current_state_away',
+    'gc_shadowstackref_context', 'gc_shadowstackref_new',
+    'gc_thread_after_fork', 'gc_thread_before_fork',
+    'gc_start_fresh_new_state', 'gc_thread_run',
+    'gc_writebarrier_before_copy',
+    'get_exc_value_addr', 'get_exception_addr',
+    'get_write_barrier_failing_case',
+    'get_write_barrier_from_array_failing_case',
+    'getslice', 'instrument_count',
+    'jit_ffi_save_result',
+    'raw_malloc_usage',
+    'raw_memclear', 'raw_memcopy', 'raw_memmove', 'raw_memset',
+    'stack_malloc', 'track_alloc_start', 'track_alloc_stop',
+    'zero_gc_pointers_inside',
+    ])
+
+# These operations always turn the transaction inevitable.
+TURN_INEVITABLE_OPS = set([
+    'debug_fatalerror', 'debug_llinterpcall', 'debug_print_traceback',
+    'gc_dump_rpy_heap', 'gc_thread_start', 'gc_thread_die',
+    ])
 
 # ____________________________________________________________
 
@@ -86,6 +136,7 @@ def should_turn_inevitable(op, block):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
+    assert op.opname not in INCOMPATIBLE_OPS
     #
     # Getters and setters
     if op.opname in GETTERS:
@@ -104,7 +155,7 @@ def should_turn_inevitable(op, block):
         return False
     #
     # Function calls
-    if op.opname == 'direct_call' or op.opname == 'indirect_call':
+    if op.opname in CALLS:
         return should_turn_inevitable_call(op)
     #
     # Entirely unsupported operations cause a 'turn inevitable'

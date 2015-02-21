@@ -1,10 +1,28 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, lloperation
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.translator.stm.inevitable import insert_turn_inevitable
+from rpython.translator.stm import inevitable
 from rpython.conftest import option
+
+
+KNOWN_OPERATIONS = (inevitable.ALWAYS_ALLOW_OPERATIONS |
+                    inevitable.CALLS |
+                    inevitable.GETTERS | inevitable.SETTERS |
+                    inevitable.MALLOCS | inevitable.FREES |
+                    inevitable.INCOMPATIBLE_OPS |
+                    inevitable.TURN_INEVITABLE_OPS)
+
+def test_defined_operations():
+    for opname in KNOWN_OPERATIONS:
+        getattr(llop, opname)   # the opname must exist!
+
+def test_no_missing_operation():
+    ALL_OPERATIONS = set(lloperation.LL_OPERATIONS)
+    MISSING_OPERATIONS = ALL_OPERATIONS - KNOWN_OPERATIONS
+    assert not sorted(MISSING_OPERATIONS)
 
 
 class LLSTMInevFrame(LLFrame):
