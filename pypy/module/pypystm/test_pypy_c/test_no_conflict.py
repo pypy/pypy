@@ -29,6 +29,27 @@ class TestNoConflict(BaseTestSTM):
         #
         self.check_almost_no_conflict(f)
 
+    def test_stmdict_populate(self):
+        def f():
+            import pypystm, random
+            d = pypystm.stmdict()     # shared
+            def g(r):
+                value = r.randrange(0, 1000000000)
+                d[value] = None
+            run_in_threads(g, arg_class=random.Random)
+        #
+        self.check_almost_no_conflict(f)
+
+    def test_threadlocal(self):
+        def f():
+            import thread
+            tls = thread._local()
+            def g():
+                tls.value = getattr(tls, 'value', 0) + 1
+            run_in_threads(g)
+        #
+        self.check_almost_no_conflict(f)
+
     def test_weakrefs(self):
         py.test.skip("next issue")
         def f():
