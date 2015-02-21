@@ -29,14 +29,31 @@ class TestNoConflict(BaseTestSTM):
         #
         self.check_almost_no_conflict(f)
 
+    def test_hashtable_populate(self):
+        def f():
+            import pypystm
+            class TL(object):
+                step = 0
+            d = pypystm.hashtable()     # shared
+            def g(n, tl):
+                value = n + tl.step
+                tl.step += 10
+                d[value] = tl
+            run_in_threads(g, arg_thread_num=True, arg_class=TL)
+        #
+        self.check_almost_no_conflict(f)
+
     def test_stmdict_populate(self):
         def f():
-            import pypystm, random
+            import pypystm
+            class TL(object):
+                step = 0
             d = pypystm.stmdict()     # shared
-            def g(r):
-                value = r.randrange(0, 1000000000)
-                d[value] = None
-            run_in_threads(g, arg_class=random.Random)
+            def g(n, tl):
+                value = n + tl.step
+                tl.step += 10
+                d[value] = tl
+            run_in_threads(g, arg_thread_num=True, arg_class=TL)
         #
         self.check_almost_no_conflict(f)
 
