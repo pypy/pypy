@@ -28,7 +28,13 @@
    XXX XXX this will set to zero the bits that were at one before
    the transaction started; the log will be truncated sometimes.
 */
-RPY_EXTERN struct pypy_ExcData0 pypy_g_ExcData;
+#ifdef RPY_STM
+#define __thread_if_stm  __thread
+#else
+#define __thread_if_stm  /* nothing */
+#endif
+
+RPY_EXTERN __thread struct pypy_ExcData0 pypy_g_ExcData;
 #define pypy_have_debug_prints    pypy_g_ExcData.ed_have_debug_prints
 
 /* macros used by the generated code */
@@ -50,12 +56,6 @@ RPY_EXTERN void pypy_debug_start(const char *category);
 RPY_EXTERN void pypy_debug_stop(const char *category);
 RPY_EXTERN long pypy_debug_offset(void);
 RPY_EXTERN void pypy_debug_forked(long original_offset);
-
-#ifdef RPY_STM
-#define __thread_if_stm  __thread
-#else
-#define __thread_if_stm  /* nothing */
-#endif
 
 RPY_EXTERN __thread_if_stm char pypy_debug_threadid[];
 RPY_EXPORTED FILE *pypy_debug_file;
