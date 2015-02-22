@@ -23,6 +23,8 @@ class TestParsetring:
 
         # octal
         self.parse_and_compare(r'b"\0"', chr(0))
+        self.parse_and_compare(r'br"\0"', '\\0')
+        self.parse_and_compare(r'rb"\0"', '\\0')
         self.parse_and_compare(r'b"\07"', chr(7))
         self.parse_and_compare(r'b"\123"', chr(0123))
         self.parse_and_compare(r'b"\400"', chr(0))

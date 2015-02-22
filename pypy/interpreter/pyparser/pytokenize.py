@@ -32,9 +32,14 @@ endDFAs = {"'" : singleDFA,
 
 for uniPrefix in ("", "b", "B"):
     for rawPrefix in ("", "r", "R"):
-        prefix = uniPrefix + rawPrefix
-        endDFAs[prefix + "'''"] = single3DFA
-        endDFAs[prefix + '"""'] = double3DFA
+        prefix_1 = uniPrefix + rawPrefix
+        prefix_2 = rawPrefix + uniPrefix
+
+        endDFAs[prefix_1 + "'''"] = single3DFA
+        endDFAs[prefix_1 + '"""'] = double3DFA
+        endDFAs[prefix_2 + "'''"] = single3DFA
+        endDFAs[prefix_2 + '"""'] = double3DFA
+
 for uniPrefix in ("u", "U"):
     endDFAs[uniPrefix + "'''"] = single3DFA
     endDFAs[uniPrefix + '"""'] = double3DFA
@@ -52,7 +57,9 @@ for t in ("'''", '"""',
           "u'''", 'u"""', "U'''", 'U"""',
           "b'''", 'b"""', "B'''", 'B"""',
           "br'''", 'br"""', "Br'''", 'Br"""',
-          "bR'''", 'bR"""', "BR'''", 'BR"""'):
+          "bR'''", 'bR"""', "BR'''", 'BR"""',
+          "rb'''", 'rb"""', "rB'''", 'rB"""',
+          "Rb'''", 'Rb"""', "RB'''", 'RB"""'):
     triple_quoted[t] = t
 single_quoted = {}
 for t in ("'", '"',
@@ -60,7 +67,10 @@ for t in ("'", '"',
           "u'", 'u"', "U'", 'U"',
           "b'", 'b"', "B'", 'B"',
           "br'", 'br"', "Br'", 'Br"',
-          "bR'", 'bR"', "BR'", 'BR"'):
+          "bR'", 'bR"', "BR'", 'BR"',
+          "rb'", 'rb"', "rB'", 'rB"',
+          "Rb'", 'Rb"', "RB'", 'RB"'):
+
     single_quoted[t] = t
 
 tabsize = 8
