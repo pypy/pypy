@@ -208,6 +208,8 @@ class BlockBuilderMixin(object):
                    ('data', lltype.FixedSizeArray(lltype.Char, SUBBLOCK_SIZE)))
     SUBBLOCK_PTR.TO.become(SUBBLOCK)
 
+    ALIGN_MATERIALIZE = 16
+
     gcroot_markers = None
 
     def __init__(self, translated=None):
@@ -303,9 +305,12 @@ class BlockBuilderMixin(object):
 
     def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
         size = self.get_relative_pos()
+        align = self.ALIGN_MATERIALIZE
+        size += align - 1
         malloced = asmmemmgr.malloc(size, size)
         allblocks.append(malloced)
         rawstart = malloced[0]
+        rawstart = (rawstart + align - 1) & (-align)
         self.copy_to_raw_memory(rawstart)
         if self.gcroot_markers is not None:
             assert gcrootmap is not None

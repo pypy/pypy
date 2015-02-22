@@ -195,7 +195,8 @@ class AppTestZipimport:
         m0 ^= 0x04
         test_pyc = chr(m0) + self.test_pyc[1:]
         self.writefile("uu.pyc", test_pyc)
-        raises(ImportError, "__import__('uu', globals(), locals(), [])")
+        raises(zipimport.ZipImportError,
+               "__import__('uu', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
@@ -359,6 +360,11 @@ def get_co_filename():
         code = z.get_code('mymodule')
         co_filename = code.co_filename
         assert co_filename == expected
+
+    def test_import_exception(self):
+        self.writefile('x1test.py', '1/0')
+        self.writefile('x1test/__init__.py', 'raise ValueError')
+        raises(ValueError, __import__, 'x1test', None, None, [])
 
 
 if os.sep != '/':
