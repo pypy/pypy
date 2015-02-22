@@ -274,13 +274,23 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 	return success;
 }
 
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
-	sem_t *thelock = &lock->sem;
-	int status, error = 0;
+    sem_t *thelock = &lock->sem;
+    int status, error = 0;
+    int current_value;
 
-	status = sem_post(thelock);
-	CHECK_STATUS("sem_post");
+    /* If the current value is > 0, then the lock is not acquired so far.
+       Oops. */
+    sem_getvalue(thelock, &current_value);
+    if (current_value > 0) {
+        return -1;
+    }
+
+    status = sem_post(thelock);
+    CHECK_STATUS("sem_post");
+
+    return 0;
 }
 
 /************************************************************/
@@ -425,12 +435,17 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 	return success;
 }
 
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
+        long result;
 
 	status = pthread_mutex_lock( &lock->mut );
 	CHECK_STATUS("pthread_mutex_lock[3]");
+
+        /* If the lock was non-locked, then oops, we return -1 for failure.
+           Otherwise, we return 0 for success. */
+        result = (lock->locked == 0) ? -1 : 0;
 
 	lock->locked = 0;
 
@@ -440,6 +455,8 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 	/* wake up someone (anyone, if any) waiting on the lock */
 	status = pthread_cond_signal( &lock->lock_released );
 	CHECK_STATUS("pthread_cond_signal");
+
+        return result;
 }
 
 /************************************************************/

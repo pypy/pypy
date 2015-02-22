@@ -608,19 +608,19 @@ def get_libc(space):
     return space.wrap(W_CDLL(space, name, cdll))
 
 def get_errno(space):
-    return space.wrap(rposix.get_saved_errno())
+    return space.wrap(rposix.get_saved_alterrno())
 
 def set_errno(space, w_errno):
-    rposix.set_saved_errno(space.int_w(w_errno))
+    rposix.set_saved_alterrno(space.int_w(w_errno))
 
 if sys.platform == 'win32':
     # see also
     # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
     def get_last_error(space):
-        return space.wrap(rwin32.GetLastError_saved())
+        return space.wrap(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        rwin32.SetLastError_saved(error)
+        rwin32.SetLastError_alt_saved(error)
 else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)

@@ -210,6 +210,6 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         space.threadlocals.leave_thread(space)
 
 def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
-    cerrno._errno_after(rffi.RFFI_ERR_ALL)
+    cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
     _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata)
-    cerrno._errno_before(rffi.RFFI_ERR_ALL)
+    cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)

@@ -145,6 +145,29 @@ if WIN32:
         from rpython.rlib import rthread
         rthread.tlfield_rpy_lasterror.setraw(rffi.cast(DWORD, err))
 
+    def GetLastError_alt_saved():
+        """Return the value of the "saved alt LastError".
+        The C-level GetLastError() is saved there after a call to a C
+        function, if that C function was declared with the flag
+        llexternal(..., save_err=RFFI_SAVE_LASTERROR | RFFI_ALT_ERRNO).
+        Functions without that flag don't change the saved LastError.
+        Alternatively, if the function was declared 
+        RFFI_SAVE_WSALASTERROR | RFFI_ALT_ERRNO,
+        then the value of the C-level WSAGetLastError() is saved instead
+        (into the same "saved alt LastError" variable).
+        """
+        from rpython.rlib import rthread
+        return rffi.cast(lltype.Signed, rthread.tlfield_alt_lasterror.getraw())
+
+    def SetLastError_alt_saved(err):
+        """Set the value of the saved alt LastError.  This value will be used in
+        a call to the C-level SetLastError() just before calling the
+        following C function, provided it was declared
+        llexternal(..., save_err=RFFI_READSAVED_LASTERROR | RFFI_ALT_ERRNO).
+        """
+        from rpython.rlib import rthread
+        rthread.tlfield_alt_lasterror.setraw(rffi.cast(DWORD, err))
+
     # In tests, the first call to _GetLastError() is always wrong,
     # because error is hidden by operations in ll2ctypes.  Call it now.
     _GetLastError()
