@@ -1075,6 +1075,8 @@ class UnicodeTest(StringTest, unittest.TestCase):
         self.assertRaises(TypeError, a.fromunicode)
 
     def test_issue17223(self):
+        if support.check_impl_detail(pypy=True):
+            self.skipTest("specific to flexible string representation")
         # this used to crash
         if sizeof_wchar == 4:
             # U+FFFFFFFF is an invalid code point in Unicode 6.0
