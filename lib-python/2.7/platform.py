@@ -1382,7 +1382,7 @@ _ironpython26_sys_version_parser = re.compile(
 _pypy_sys_version_parser = re.compile(
     r'([\w.+]+)\s*'
     '\(#?([^,]+),\s*([\w ]+),\s*([\w :]+)\)\s*'
-    '\[PyPy [^\]]+\]?')
+    '\[PyPy[^\]]+\]?')   # this also covers 'PyPy-STM x.y'
 
 _sys_version_cache = {}
 
