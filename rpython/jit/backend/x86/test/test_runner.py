@@ -30,15 +30,18 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['mov',
-                             'nop',    # for the label
-                             'add', 'test', 'je', 'jmp',
-                             'data32',   # padding
-                             ]
     if WORD == 4:
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp'
-                                    'nop']   # padding
+        add_loop_instructions = ['mov',
+                                 'lea',    # a nop, for the label
+                                 'add', 'test', 'je', 'jmp',
+                                 'nop']    # padding
+        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp',
+                                    'lea', 'lea']   # padding
     else:
+        add_loop_instructions = ['mov',
+                                 'nop',    # for the label
+                                 'add', 'test', 'je', 'jmp',
+                                 'data32']   # padding
         bridge_loop_instructions = [
             'cmp', 'jge', 'mov', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
             'nop']      # padding
