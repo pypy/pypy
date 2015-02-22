@@ -3002,7 +3002,7 @@ char * _PyPy_dg_dtoa(double dd, int mode, int ndigits,
     _PyPy_SET_53BIT_PRECISION_END;
 #ifdef RPY_STM
     stm_call_on_abort(&stm_thread_local, result,
-                      (void(*)(void *))_PyPy_dg_freedtoa);
+                      (void(*)(void *))__Py_dg_freedtoa);
 #endif
     return result;
 }
