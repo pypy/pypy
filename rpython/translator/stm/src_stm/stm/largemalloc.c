@@ -2,7 +2,6 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
-
 /* This contains a lot of inspiration from malloc() in the GNU C Library.
    More precisely, this is (a subset of) the part that handles large
    blocks, which in our case means at least 288 bytes.  It is actually

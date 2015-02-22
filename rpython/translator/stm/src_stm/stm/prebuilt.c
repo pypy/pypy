@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 static struct list_s *prebuilt_objects_to_trace;
 static struct tree_s *tree_prebuilt_objs;  /* XXX from gcpage.c */
 

@@ -1,6 +1,5 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 
-
 /* callbacks */
 void (*stmcb_light_finalizer)(object_t *);
 void (*stmcb_finalizer)(object_t *);

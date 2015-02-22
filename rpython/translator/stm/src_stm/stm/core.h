@@ -1,6 +1,5 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #define _STM_CORE_H_
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

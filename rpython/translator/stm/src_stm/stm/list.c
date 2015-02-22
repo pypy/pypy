@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 #define LIST_SETSIZE(n)    (sizeof(struct list_s) + LIST_ITEMSSIZE(n))
 #define LIST_ITEMSSIZE(n)  ((n) * sizeof(uintptr_t))
 #define LIST_OVERCNT(n)    (33 + ((((n) / 2) * 3) | 1))

@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 struct finalizers_s {
     struct list_s *objects_with_finalizers;
     uintptr_t count_non_young;

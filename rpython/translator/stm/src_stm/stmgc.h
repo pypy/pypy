@@ -2,7 +2,6 @@
 #ifndef _STMGC_H
 #define _STMGC_H
 
-
 /* ==================== INTERNAL ==================== */
 
 /* See "API" below. */

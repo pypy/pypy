@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 static struct list_s *testing_prebuilt_objs = NULL;
 static struct tree_s *tree_prebuilt_objs = NULL;     /* XXX refactor */
 

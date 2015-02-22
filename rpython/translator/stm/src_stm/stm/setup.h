@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 static char *setup_mmap(char *reason, int *map_fd);
 static void close_fd_mmap(int map_fd);
 static void setup_protection_settings(void);

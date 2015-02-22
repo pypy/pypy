@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 #ifdef USE_REMAP_FILE_PAGES
 static char *setup_mmap(char *reason, int *ignored)
 {

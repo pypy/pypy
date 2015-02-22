@@ -2,7 +2,6 @@
 /*
 Design of stmgc's "hashtable" objects
 =====================================
-
 A "hashtable" is theoretically a lazily-filled array of objects of
 length 2**64.  Initially it is full of NULLs.  It's obviously
 implemented as a dictionary in which NULL objects are not needed.

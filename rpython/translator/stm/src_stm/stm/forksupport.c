@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 /* XXX this is currently not doing copy-on-write, but simply forces a
    copy of all pages as soon as fork() is called. */
 

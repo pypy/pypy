@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 char *_stm_real_address(object_t *o)
 {
     if (o == NULL)

@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 static void teardown_core(void)
 {
     memset(write_locks, 0, sizeof(write_locks));

@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 /* 'nursery_end' is either NURSERY_END or one of NSE_SIGxxx */
 #define NSE_SIGABORT        1
 #define NSE_SIGPAUSE        2

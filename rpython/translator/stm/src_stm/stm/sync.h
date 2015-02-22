@@ -1,6 +1,5 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 
-
 static void setup_sync(void);
 static void teardown_sync(void);
 

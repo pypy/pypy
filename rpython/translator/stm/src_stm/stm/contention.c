@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 /* Here are the possible kinds of contention:
 
    STM_CONTENTION_WRITE_WRITE

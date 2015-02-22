@@ -2,7 +2,6 @@
 #ifndef _REWIND_SETJMP_H_
 #define _REWIND_SETJMP_H_
 
-
 #include <stddef.h>
 
 /************************************************************

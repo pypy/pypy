@@ -2,7 +2,6 @@
 #include <sys/syscall.h>
 #include <sys/prctl.h>
 #include <asm/prctl.h>
-
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif

@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 static void marker_fetch(stm_loc_marker_t *out_marker)
 {
     /* Fetch the current marker from the 'out_marker->tl's shadow stack,

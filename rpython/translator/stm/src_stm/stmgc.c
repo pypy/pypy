@@ -17,7 +17,6 @@
 #include "stm/weakref.h"
 #include "stm/marker.h"
 #include "stm/finalizer.h"
-
 #include "stm/misc.c"
 #include "stm/list.c"
 #include "stm/pagecopy.c"

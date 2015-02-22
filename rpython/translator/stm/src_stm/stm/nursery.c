@@ -2,7 +2,6 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
-
 /************************************************************/
 
 /* xxx later: divide the nursery into sections, and zero them

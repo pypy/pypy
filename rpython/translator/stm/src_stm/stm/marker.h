@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 static void _timing_record_write(void);
 static void _timing_fetch_inev(void);
 static void _timing_contention(enum stm_event_e kind,

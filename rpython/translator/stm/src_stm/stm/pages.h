@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 /* This handles pages of objects outside the nursery.  Every page
    has a "shared copy" and zero or more "private copies".
 

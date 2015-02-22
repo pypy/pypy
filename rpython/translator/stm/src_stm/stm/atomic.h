@@ -1,7 +1,6 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #ifndef _STM_ATOMIC_H
 #define _STM_ATOMIC_H
-
 /* spin_loop() corresponds to the PAUSE instruction on x86.  On
    other architectures, we generate no instruction (but still need
    the compiler barrier); if on another architecture you find the

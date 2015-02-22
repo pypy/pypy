@@ -1,7 +1,6 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #include <stdlib.h>
 #include <stdbool.h>
-
 /************************************************************/
 
 struct list_s {

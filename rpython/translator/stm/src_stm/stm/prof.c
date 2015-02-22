@@ -1,7 +1,6 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #include <time.h>
 
-
 static FILE *profiling_file;
 static char *profiling_basefn = NULL;
 static int (*profiling_expand_marker)(stm_loc_marker_t *, char *, int);
