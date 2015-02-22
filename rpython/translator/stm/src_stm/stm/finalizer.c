@@ -41,6 +41,8 @@ static void _commit_finalizers(void)
             *STM_PSEGMENT->finalizers->running_next = (uintptr_t)-1;
         }
         if (frm < list_count(src)) {
+            if (g_finalizers.run_finalizers == NULL)
+                g_finalizers.run_finalizers = list_create();
             g_finalizers.run_finalizers = list_extend(
                 g_finalizers.run_finalizers,
                 src, frm);
