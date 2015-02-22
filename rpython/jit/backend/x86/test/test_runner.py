@@ -34,8 +34,10 @@ class TestX86(LLtypeBackendTest):
     if WORD == 4:
         bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp']
     else:
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
-                                    'call', 'mov', 'jmp']
+        bridge_loop_instructions = [
+            'cmp', 'jge', 'mov', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp']
+        bridge_loop_instructions_alternative = [
+            'cmp', 'jge', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp']
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
