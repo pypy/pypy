@@ -12,7 +12,7 @@ The input to this script is a logfile, a command and optional flags.
 If the name of the logfile includes one of the AVAILABLE_VMS as a substring, the first three global variables
 are automatically configured.
 The script should work without these configurations, but the output will probably not be that pretty.
-To avoid errors, use the -a flag when running without proper configuration.
+To avoid errors, the -a flag is implied when running without proper configuration.
 """
 
 # This should contain a full list of storage nodes (strategies).
@@ -44,6 +44,21 @@ def SET_VM(vm_name):
         raise Exception("Unhandled vm name %s" % vm_name)
 
 AVAILABLE_VMS = ['RSqueak', 'Pycket', 'Topaz']
+
+def configure_vm(logfile, flags):
+    vm_config_name = None
+    for vm_name in AVAILABLE_VMS:
+        if vm_name in logfile:
+            vm_config_name = vm_name
+            break
+    if vm_config_name is not None:
+        print "Using VM configuration %s" % vm_name
+        SET_VM(vm_name)
+    else:
+        print "No VM configuration found in filename '%s'. Available configurations: %s" % \
+                (logfile, AVAILABLE_VMS)
+        print "Please add new VM configuration or rename logfile. Turning on -a flag to avoid errors."
+        flags.allstorage = True
 
 # ====================================================================
 # ======== Logfile parsing
@@ -370,8 +385,6 @@ class StorageGraph(object):
         self.operations = set()
     
     def node(self, name):
-        if str(name) == 'None':
-            import pdb; pdb.set_trace()
         if name not in self.nodes:
             self.nodes[name] = StorageNode(name)
         return self.nodes[name]
@@ -666,11 +679,7 @@ def main(argv):
         usage(flags, commands)
     logfile = argv[0]
     flags.logfile = logfile
-    for vm_name in AVAILABLE_VMS:
-        if vm_name in logfile:
-            print "Using VM configuration %s" % vm_name
-            SET_VM(vm_name)
-            break
+    configure_vm(logfile, flags)
     command = argv[1]
     for flag in argv[2:]:
         if not flags.handle(flag):
