@@ -339,14 +339,21 @@ class RegAlloc(BaseRegalloc):
             self.possibly_free_var(arg)
 
     def flush_loop(self):
+        # Force the code to be aligned to a multiple of 16.  Also,
         # rare case: if the loop is too short, or if we are just after
-        # a GUARD_NOT_INVALIDATED, pad with NOPs.  Important!  This must
-        # be called to ensure that there are enough bytes produced,
-        # because GUARD_NOT_INVALIDATED or redirect_call_assembler()
-        # will maybe overwrite them.
+        # a GUARD_NOT_INVALIDATED, we need to make sure we insert enough
+        # NOPs.  This is important to ensure that there are enough bytes
+        # produced, because GUARD_NOT_INVALIDATED or
+        # redirect_call_assembler() will maybe overwrite them.  (In that
+        # rare case we don't worry too much about alignment.)
         mc = self.assembler.mc
-        while mc.get_relative_pos() < self.min_bytes_before_label:
-            mc.NOP()
+        current_pos = mc.get_relative_pos()
+        target_pos = (current_pos + 15) & ~15
+        target_pos = max(target_pos, self.min_bytes_before_label)
+        insert_nops = target_pos - current_pos
+        assert 0 <= insert_nops <= 15
+        for c in mc.MULTIBYTE_NOPs[insert_nops]:
+            mc.writechar(c)
 
     def loc(self, v):
         if v is None: # xxx kludgy
