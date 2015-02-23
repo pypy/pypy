@@ -48,7 +48,7 @@ void pypy_codemap_invalid_set(int value)
 ll_pypy_codemap_invalid_set = rffi.llexternal('pypy_codemap_invalid_set',
                                               [rffi.INT], lltype.Void,
                                               compilation_info=eci,
-                                              _nowrapper=True)
+                                              releasegil=False)
 
 def pypy_codemap_invalid_set(val):
     if we_are_translated():
