@@ -127,7 +127,7 @@ class gdbm(object):
     def __contains__(self, key):
         self._check_closed()
         key = _checkstr(key)
-        return lib.pygdbm_exists(self.ll_dbm, key, len(key)
+        return lib.pygdbm_exists(self.ll_dbm, key, len(key))
     has_key = __contains__
 
     def __getitem__(self, key):
