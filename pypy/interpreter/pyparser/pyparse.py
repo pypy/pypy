@@ -166,10 +166,27 @@ class PythonParser(parser.Parser):
                 compile_info.last_future_import = last_future_import
                 compile_info.flags |= newflags
                 self.grammar = pygram.python_grammar
-
-                for tp, value, lineno, column, line in tokens:
+                tokens_stream = iter(tokens)
+                for tp, value, lineno, column, line in tokens_stream:
                     if self.add_token(tp, value, lineno, column, line):
                         break
+
+                if compile_info.mode == 'single':
+                    for tp, _, _, _, _ in tokens_stream:
+                        if tp == pygram.tokens.NEWLINE:
+                            continue
+
+                        if tp == pygram.tokens.COMMENT:
+                            for tp, _, _, _, _ in tokens_stream:
+                                if tp == pygram.tokens.NEWLINE:
+                                    break
+                        else:
+                            new_err = error.SyntaxError
+                            msg = ("multiple statements found while "
+                                   "compiling a single statement")
+                            raise new_err(msg, lineno, column,
+                                          line, compile_info.filename)
+
             except error.TokenError, e:
                 e.filename = compile_info.filename
                 raise
