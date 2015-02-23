@@ -5,9 +5,6 @@ from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rbisect import bisect_left, bisect_left_tuple
-
-_memmngr = None # global reference so we can use @entrypoint :/
 
 
 class AsmMemoryManager(object):
@@ -27,12 +24,6 @@ class AsmMemoryManager(object):
         self.free_blocks = {}      # map {start: stop}
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
-        # two lists of jit addresses (sorted) and the corresponding stack
-        # depths
-        self.jit_addr_map = []
-        self.jit_frame_depth_map = []
-        self.jit_codemap = []
-        # see codemap.py
 
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
@@ -54,17 +45,6 @@ class AsmMemoryManager(object):
         if r_uint is not None:
             self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
-        # fix up jit_addr_map
-        jit_adr_start = bisect_left(self.jit_addr_map, start)
-        jit_adr_stop = bisect_left(self.jit_addr_map, stop)
-        del self.jit_addr_map[jit_adr_start:jit_adr_stop]
-        del self.jit_frame_depth_map[jit_adr_start:jit_adr_stop]
-        # fix up codemap
-        # (there should only be zero or one codemap entry in that range,
-        # but still we use a range to distinguish between zero and one)
-        codemap_adr_start = bisect_left_tuple(self.jit_codemap, start)
-        codemap_adr_stop = bisect_left_tuple(self.jit_codemap, stop)
-        del self.jit_codemap[codemap_adr_start:codemap_adr_stop]
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
@@ -170,31 +150,6 @@ class AsmMemoryManager(object):
         del self.free_blocks[start]
         del self.free_blocks_end[stop]
         return (start, stop)
-
-    def register_frame_depth_map(self, rawstart, frame_positions,
-                                 frame_assignments):
-        if not frame_positions:
-            return
-        if not self.jit_addr_map or rawstart > self.jit_addr_map[-1]:
-            start = len(self.jit_addr_map)
-            self.jit_addr_map += [0] * len(frame_positions)
-            self.jit_frame_depth_map += [0] * len(frame_positions)
-        else:
-            start = bisect_left(self.jit_addr_map, rawstart)
-            self.jit_addr_map = (self.jit_addr_map[:start] +
-                                 [0] * len(frame_positions) +
-                                 self.jit_addr_map[start:])
-            self.jit_frame_depth_map = (self.jit_frame_depth_map[:start] +
-                                 [0] * len(frame_positions) +
-                                 self.jit_frame_depth_map[start:])
-        for i, pos in enumerate(frame_positions):
-            self.jit_addr_map[i + start] = pos + rawstart
-            self.jit_frame_depth_map[i + start] = frame_assignments[i]
-
-    def register_codemap(self, codemap):
-        start = codemap[0]
-        pos = bisect_left_tuple(self.jit_codemap, start)
-        self.jit_codemap.insert(pos, codemap)
 
     def _delete(self):
         "NOT_RPYTHON"
@@ -349,9 +304,9 @@ class BlockBuilderMixin(object):
             #
         debug_stop(logname)
 
-    def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
+    def materialize(self, cpu, allblocks, gcrootmap=None):
         size = self.get_relative_pos()
-        malloced = asmmemmgr.malloc(size, size)
+        malloced = cpu.asmmemmgr.malloc(size, size)
         allblocks.append(malloced)
         rawstart = malloced[0]
         self.copy_to_raw_memory(rawstart)
@@ -359,8 +314,8 @@ class BlockBuilderMixin(object):
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
                 gcrootmap.register_asm_addr(rawstart + pos, mark)
-        asmmemmgr.register_frame_depth_map(rawstart, self.frame_positions,
-                                           self.frame_assignments)
+        cpu.codemap.register_frame_depth_map(rawstart, self.frame_positions,
+                                             self.frame_assignments)
         self.frame_positions = None
         self.frame_assignments = None
         return rawstart

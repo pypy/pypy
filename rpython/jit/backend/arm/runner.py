@@ -50,6 +50,7 @@ class AbstractARMCPU(AbstractLLCPU):
     def setup_once(self):
         self.cpuinfo.arch_version = detect_arch_version()
         self.cpuinfo.hf_abi = detect_hardfloat()
+        self.codemap.setup()
         self.assembler.setup_once()
 
     def finish_once(self):

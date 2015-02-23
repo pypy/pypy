@@ -149,7 +149,7 @@ class Assembler386(BaseAssembler):
         mc.MOV_bi(gcmap_ofs, 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
-        self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to
@@ -184,7 +184,7 @@ class Assembler386(BaseAssembler):
         self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
         self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
-        return mc.materialize(self.cpu.asmmemmgr, [])
+        return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -274,7 +274,7 @@ class Assembler386(BaseAssembler):
         mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         return rawstart
 
     def _build_propagate_exception_path(self):
@@ -295,7 +295,7 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(RawEbpLoc(ofs), imm(propagate_exception_descr))
         #
         self._call_footer()
-        rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = self.mc.materialize(self.cpu, [])
         self.propagate_exception_path = rawstart
         self.mc = None
 
@@ -343,7 +343,7 @@ class Assembler386(BaseAssembler):
         mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
@@ -430,7 +430,7 @@ class Assembler386(BaseAssembler):
             mc.LEA_rs(esp.value, 7 * WORD)
             mc.RET()
 
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         if for_frame:
             self.wb_slowpath[4] = rawstart
         else:
@@ -524,7 +524,8 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
+        self.codemap_builder.inherit_code_from_position(
+            faildescr.adr_jump_offset)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
         if log:
@@ -687,10 +688,10 @@ class Assembler386(BaseAssembler):
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         size = self.mc.get_relative_pos()
-        res = self.mc.materialize(self.cpu.asmmemmgr, allblocks,
+        res = self.mc.materialize(self.cpu, allblocks,
                                   self.cpu.gc_ll_descr.gcrootmap)
-        self.cpu.asmmemmgr.register_codemap(
-            self.codemap.get_final_bytecode(res, size))
+        self.cpu.codemap.register_codemap(
+            self.codemap_builder.get_final_bytecode(res, size))
         return res
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
@@ -1885,7 +1886,7 @@ class Assembler386(BaseAssembler):
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The _call_footer below does it.
         self._call_footer()
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
