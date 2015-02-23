@@ -505,7 +505,7 @@ def encode_object(space, w_object, encoding, errors):
         is_text_encoding = space.is_true(
                 space.getattr(codec_info, space.wrap('_is_text_encoding')))
     except OperationError as e:
-        if e.match(space.w_AttributeError):
+        if e.match(space, space.w_AttributeError):
             is_text_encoding = True
         else:
             raise
@@ -559,7 +559,7 @@ def decode_object(space, w_obj, encoding, errors):
         is_text_encoding = space.is_true(
                 space.getattr(codec_info, space.wrap('_is_text_encoding')))
     except OperationError as e:
-        if e.match(space.w_AttributeError):
+        if e.match(space, space.w_AttributeError):
             is_text_encoding = True
         else:
             raise
