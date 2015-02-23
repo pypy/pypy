@@ -38,8 +38,8 @@ working_modules.update([
     "_csv", "cppyy", "_pypyjson"
 ])
 
-#if sys.platform.startswith('linux') and sys.maxint > 2147483647:
-#    working_modules.add('_vmprof')
+if sys.platform.startswith('linux') and sys.maxint > 2147483647:
+    working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
