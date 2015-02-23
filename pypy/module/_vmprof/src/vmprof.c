@@ -141,6 +141,9 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
     if (recursive) {
         return 0;
     }
+	if (!custom_sanity_check()) {
+		return 0;
+	}
     ++recursive;
 
     int ret = unw_init_local(&cursor, &uc);

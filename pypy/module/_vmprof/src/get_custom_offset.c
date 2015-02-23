@@ -5,8 +5,15 @@ long pypy_jit_stack_depth_at_loc(long);
 long pypy_find_codemap_at_addr(long);
 long pypy_yield_codemap_at_addr(long, long, long*);
 
+extern volatile int pypy_codemap_currently_invalid;
+
 void vmprof_set_tramp_range(void* start, void* end)
 {
+}
+
+int custom_sanity_check()
+{
+	return !pypy_codemap_currently_invalid;
 }
 
 static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, unw_cursor_t *cp) {
