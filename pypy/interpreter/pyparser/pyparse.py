@@ -172,7 +172,7 @@ class PythonParser(parser.Parser):
                         break
 
                 if compile_info.mode == 'single':
-                    for tp, _, _, _, _ in tokens_stream:
+                    for tp, value, lineno, column, line in tokens_stream:
                         if tp == pygram.tokens.NEWLINE:
                             continue
 
