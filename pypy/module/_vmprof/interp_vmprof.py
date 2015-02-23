@@ -56,7 +56,7 @@ platform.verify_eci(check_eci)
 
 pypy_execute_frame_trampoline = rffi.llexternal(
     "pypy_execute_frame_trampoline",
-    [llmemory.GCREF, llmemory.GCREF, llmemory.GCREF],
+    [llmemory.GCREF, llmemory.GCREF, llmemory.GCREF, lltype.Signed],
     llmemory.GCREF,
     compilation_info=eci,
     _nowrapper=True, sandboxsafe=True,
@@ -96,23 +96,18 @@ class __extend__(PyFrame):
             gc_frame = cast_instance_to_gcref(frame)
             gc_inputvalue = cast_instance_to_gcref(w_inputvalue)
             gc_operr = cast_instance_to_gcref(operr)
-            gc_result = pypy_execute_frame_trampoline(gc_frame, gc_inputvalue, gc_operr)
+            unique_id = frame.pycode._unique_id
+            gc_result = pypy_execute_frame_trampoline(gc_frame, gc_inputvalue,
+                                                      gc_operr, unique_id)
             return cast_base_ptr_to_instance(W_Root, gc_result)
         else:
             return original_execute_frame(frame, w_inputvalue, operr)
 
 
-@entrypoint.entrypoint_lowlevel('main', [llmemory.GCREF],
+@entrypoint.entrypoint_lowlevel('main', [lltype.Signed],
                                 'pypy_vmprof_get_virtual_ip', True)
-def get_virtual_ip(gc_frame):
-    frame = cast_base_ptr_to_instance(PyFrame, gc_frame)
-    if jit._get_virtualizable_token(frame):
-        return rffi.cast(rffi.VOIDP, 0)
-    virtual_ip = do_get_virtual_ip(frame)
-    return rffi.cast(rffi.VOIDP, virtual_ip)
-
-def do_get_virtual_ip(frame):
-    return frame.pycode._unique_id
+def get_virtual_ip(unique_id):
+    return rffi.cast(rffi.VOIDP, unique_id)
 
 def write_long_to_string_builder(l, b):
     if sys.maxint == 2147483647:
