@@ -28,7 +28,7 @@ eci_kwds = dict(
     libraries = ['unwind'],
     
     post_include_bits=["""
-        void* pypy_vmprof_get_virtual_ip(void*);
+        void* pypy_vmprof_get_virtual_ip(long);
         void pypy_vmprof_init(void);
     """],
     
