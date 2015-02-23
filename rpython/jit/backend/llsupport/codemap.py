@@ -73,9 +73,9 @@ class ListStorageMixin(object):
         used = getattr(self, name + '_used')
         allocated = len(getattr(self, name))
         lst = getattr(self, name)
-        if pos + len(to_insert) > allocated or pos != used:
+        if used + len(to_insert) > allocated or pos != used:
             old_lst = lst
-            if pos + len(to_insert) > allocated:
+            if used + len(to_insert) > allocated:
                 new_size = max(4 * len(old_lst),
                                (len(old_lst) + len(to_insert)) * 2)
             else:
