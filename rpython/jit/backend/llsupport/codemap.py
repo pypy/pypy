@@ -34,9 +34,11 @@ CODEMAP_GCARRAY = lltype.GcArray(CODEMAP)
 _codemap = None
 
 eci = ExternalCompilationInfo(post_include_bits=["""
-volatile int pypy_codemap_currently_invalid = 0;
-void pypy_codemap_invalid_set(int);
+RPY_EXTERN volatile int pypy_codemap_currently_invalid;
+RPY_EXTERN void pypy_codemap_invalid_set(int);
 """], separate_module_sources=["""
+volatile int pypy_codemap_currently_invalid = 0;
+
 void pypy_codemap_invalid_set(int value)
 {
     pypy_codemap_currently_invalid = value;
