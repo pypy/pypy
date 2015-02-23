@@ -500,7 +500,20 @@ def encode_object(space, w_object, encoding, errors):
             raise wrap_encode_error(space, ue)
 
     from pypy.module._codecs.interp_codecs import lookup_codec
-    w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
+    codec_info = lookup_codec(space, encoding)
+    try:
+        is_text_encoding = space.is_true(
+                space.getattr(codec_info, space.wrap('_is_text_encoding')))
+    except OperationError as e:
+        if e.match(space.w_AttributeError):
+            is_text_encoding = True
+        else:
+            raise
+    if not is_text_encoding:
+        raise oefmt(space.w_LookupError,
+                    "'%s' is not a text encoding; "
+                    "use codecs.encode() to handle arbitrary codecs", encoding)
+    w_encoder = space.getitem(codec_info, space.wrap(0))
     if errors is None:
         w_errors = space.wrap('strict')
     else:
@@ -541,7 +554,20 @@ def decode_object(space, w_obj, encoding, errors):
                     s, len(s), None, final=True, errorhandler=eh)[0])
 
     from pypy.module._codecs.interp_codecs import lookup_codec
-    w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
+    codec_info = lookup_codec(space, encoding)
+    try:
+        is_text_encoding = space.is_true(
+                space.getattr(codec_info, space.wrap('_is_text_encoding')))
+    except OperationError as e:
+        if e.match(space.w_AttributeError):
+            is_text_encoding = True
+        else:
+            raise
+    if not is_text_encoding:
+        raise oefmt(space.w_LookupError,
+                    "'%s' is not a text encoding; "
+                    "use codecs.decode() to handle arbitrary codecs", encoding)
+    w_decoder = space.getitem(codec_info, space.wrap(1))
     if errors is None:
         w_errors = space.wrap('strict')
     else:
