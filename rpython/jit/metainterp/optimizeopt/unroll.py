@@ -521,7 +521,7 @@ class UnrollOptimizer(Optimization):
             self.import_box(a, inputargs, short_jumpargs, jumpargs)
 
     def jump_to_already_compiled_trace(self, jumpop, patchguardop):
-        jumpop = jumpop.clone()
+        jumpop = jumpop.copy_and_change(jumpop.getopnum())
         assert jumpop.getopnum() == rop.JUMP
         cell_token = jumpop.getdescr()
 

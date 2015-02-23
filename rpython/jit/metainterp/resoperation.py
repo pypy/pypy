@@ -120,7 +120,7 @@ class AbstractResOp(AbstractValue):
     def clone(self, memo):
         args = [memo.get(arg, arg) for arg in self.getarglist()]
         descr = self.getdescr()
-        op = ResOperation(self.getopnum(), args[:], self.result, descr)
+        op = ResOperation(self.getopnum(), args[:], descr)
         if not we_are_translated():
             op.name = self.name
             op.pc = self.pc
@@ -306,8 +306,7 @@ class GuardResOp(ResOpWithDescr):
         return newop
 
     def clone(self, memo):
-        xxx
-        newop = AbstractResOp.clone(self)
+        newop = AbstractResOp.clone(self, memo)
         assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
         newop.rd_snapshot = self.rd_snapshot
