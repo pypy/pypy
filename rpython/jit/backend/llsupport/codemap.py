@@ -127,6 +127,11 @@ class CodemapStorage(ListStorageMixin):
     """
     track_allocation = False
     jit_addr_map = lltype.nullptr(INT_LIST)
+    jit_addr_map_used = 0
+    jit_codemap = lltype.nullptr(CODEMAP_LIST)
+    jit_codemap_used = 0
+    jit_frame_depth_map = lltype.nullptr(INT_LIST)
+    jit_frame_depth_map_used = 0
     
     def __init__(self):
         global _codemap
