@@ -27,3 +27,5 @@ long pypy_yield_codemap_at_addr(long x, long y, long *a)
 void pypy_pyframe_execute_frame(void)
 {
 }
+
+volatile int pypy_codemap_currently_invalid = 0;
