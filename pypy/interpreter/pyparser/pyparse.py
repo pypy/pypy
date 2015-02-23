@@ -3,6 +3,7 @@ from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import rstring
 
+
 def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
         return bytes
@@ -167,12 +168,15 @@ class PythonParser(parser.Parser):
                 compile_info.flags |= newflags
                 self.grammar = pygram.python_grammar
                 tokens_stream = iter(tokens)
+
                 for tp, value, lineno, column, line in tokens_stream:
                     if self.add_token(tp, value, lineno, column, line):
                         break
 
                 if compile_info.mode == 'single':
                     for tp, value, lineno, column, line in tokens_stream:
+                        if tp == pygram.tokens.ENDMARKER:
+                            break
                         if tp == pygram.tokens.NEWLINE:
                             continue
 

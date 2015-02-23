@@ -3,6 +3,7 @@ import sys
 import _ast
 import types
 from test import support
+from test.support import check_impl_detail
 
 class TestSpecifics(unittest.TestCase):
 
@@ -466,7 +467,9 @@ if 1:
 
     def test_bad_single_statement(self):
         self.assertInvalidSingle('1\n2')
-        self.assertInvalidSingle('def f(): pass')
+        if check_impl_detail():
+            # it's a single statment in PyPy
+            self.assertInvalidSingle('def f(): pass')
         self.assertInvalidSingle('a = 13\nb = 187')
         self.assertInvalidSingle('del x\ndel y')
         self.assertInvalidSingle('f()\ng()')
