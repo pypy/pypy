@@ -658,7 +658,9 @@ class Optimizer(Optimization):
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
             val = self.getvalue(op)
-            val.box = newop
+            if val.box is not None:
+                assert val.box is op
+                val.box = newop
             self.values[newop] = val
         return newop
 
@@ -731,8 +733,8 @@ class Optimizer(Optimization):
     @specialize.argtype(0)
     def _emit_operation(self, op):
         assert not op.is_call_pure()
-        changed = False
         orig_op = op
+        op = self.replace_op_with(op, op.getopnum())
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:
@@ -743,9 +745,6 @@ class Optimizer(Optimization):
                 self.ensure_imported(value)
                 newbox = value.force_box(self)
                 if arg is not newbox:
-                    if not changed:
-                        op = self.replace_op_with(op, op.getopnum())
-                        changed = True
                     op.setarg(i, newbox)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
