@@ -9,7 +9,6 @@ pypy_execute_frame_trampoline:
 	pushq	%rcx
 	.cfi_def_cfa_offset 16
 	call pypy_pyframe_execute_frame@PLT
-	/* GCROOT 0(%rsp) */
 	popq	%rcx
 	.cfi_def_cfa_offset 8
 	ret
