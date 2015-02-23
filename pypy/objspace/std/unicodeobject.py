@@ -539,13 +539,19 @@ def decode_object(space, w_obj, encoding, errors):
             eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh)[0])
-    w_codecs = space.getbuiltinmodule("_codecs")
-    w_decode = space.getattr(w_codecs, space.wrap("decode"))
+
+    from pypy.module._codecs.interp_codecs import lookup_codec
+    w_decoder = space.getitem(lookup_codec(space, encoding), space.wrap(1))
     if errors is None:
-        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding))
+        w_errors = space.wrap('strict')
     else:
-        w_retval = space.call_function(w_decode, w_obj, space.wrap(encoding),
-                                       space.wrap(errors))
+        w_errors = space.wrap(errors)
+    w_restuple = space.call_function(w_decoder, w_obj, w_errors)
+    w_retval = space.getitem(w_restuple, space.wrap(0))
+    if not space.isinstance_w(w_retval, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "decoder did not return a bytes object (type '%T')",
+                    w_retval)
     return w_retval
 
 
