@@ -126,6 +126,7 @@ class CodemapStorage(ListStorageMixin):
     """ An immortal wrapper around underlaying jit codemap data
     """
     track_allocation = False
+    jit_addr_map = lltype.nullptr(INT_LIST)
     
     def __init__(self):
         global _codemap
@@ -155,7 +156,7 @@ class CodemapStorage(ListStorageMixin):
 
     def free(self):
         # if setup has not been called
-        if not hasattr(self, 'jit_addr_map') or not self.jit_addr_map:
+        if not self.jit_addr_map:
             return
         lltype.free(self.jit_addr_map, flavor='raw')
         i = 0
