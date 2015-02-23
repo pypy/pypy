@@ -73,18 +73,16 @@ class ListStorageMixin(object):
         used = getattr(self, name + '_used')
         allocated = len(getattr(self, name))
         lst = getattr(self, name)
-        if pos + len(to_insert) >= allocated or pos != used:
+        if pos + len(to_insert) > allocated or pos != used:
             old_lst = lst
-            if pos == used:
+            if pos + len(to_insert) > allocated:
                 new_size = max(4 * len(old_lst),
                                (len(old_lst) + len(to_insert)) * 2)
-                lst = lltype.malloc(lltype.typeOf(lst).TO, new_size,
-                                    flavor='raw',
-                                    track_allocation=self.track_allocation)
             else:
-                lst = lltype.malloc(lltype.typeOf(lst).TO, len(old_lst),
-                                    flavor='raw',
-                                    track_allocation=self.track_allocation)
+                new_size = len(old_lst)
+            lst = lltype.malloc(lltype.typeOf(lst).TO, new_size,
+                                flavor='raw',
+                                track_allocation=self.track_allocation)
             for i in range(0, pos):
                 copy_item(old_lst, lst, i, i)
             j = 0
