@@ -82,7 +82,6 @@ class OptPure(Optimization):
         args = op.getarglist()
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
-        self.remember_emitting_pure(op)
         self.emit_operation(newop)
         self.call_pure_positions.append(len(self.optimizer._newoperations) - 1)
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
