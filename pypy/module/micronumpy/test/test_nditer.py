@@ -167,7 +167,8 @@ class AppTestNDIter(BaseNumpyAppTest):
         exc = raises(TypeError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
         exc = raises(ValueError, nditer, a, op_flags=['copy'], op_dtypes=['complex128'])
-        assert str(exc.value) == "None of the iterator flags READWRITE, READONLY, or WRITEONLY were specified for an operand"
+        assert str(exc.value) == "None of the iterator flags READWRITE," \
+                    " READONLY, or WRITEONLY were specified for an operand"
         r = []
         for x in nditer(a, op_flags=['readonly','copy'],
                         op_dtypes=['complex128']):
@@ -320,3 +321,37 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert res == [(0, (0, 0)), (1, (0, 1)),
                        (2, (0, 2)), (3, (1, 0)),
                        (4, (1, 1)), (5, (1, 2))]
+
+    def test_itershape(self):
+        # Check that allocated outputs work with a specified shape
+        from numpy import nditer, arange
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            skip("op_axes not totally supported yet")
+        a = arange(6, dtype='i2').reshape(2,3)
+        i = nditer([a, None], [], [['readonly'], ['writeonly','allocate']],
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,-1,4))
+        assert_equal(i.operands[1].shape, (2,3,4))
+        assert_equal(i.operands[1].strides, (24,8,2))
+
+        i = nditer([a.T, None], [], [['readonly'], ['writeonly','allocate']],
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,-1,4))
+        assert_equal(i.operands[1].shape, (3,2,4))
+        assert_equal(i.operands[1].strides, (8,24,2))
+
+        i = nditer([a.T, None], [], [['readonly'], ['writeonly','allocate']],
+                            order='F',
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,-1,4))
+        assert_equal(i.operands[1].shape, (3,2,4))
+        assert_equal(i.operands[1].strides, (2,6,12))
+
+        # If we specify 1 in the itershape, it shouldn't allow broadcasting
+        # of that dimension to a bigger value
+        assert_raises(ValueError, nditer, [a, None], [],
+                            [['readonly'], ['writeonly','allocate']],
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,1,4))
+

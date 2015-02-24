@@ -1,7 +1,7 @@
 from rpython.jit.backend.arm import conditions as cond
 from rpython.jit.backend.arm import registers as reg
 from rpython.jit.backend.arm import support
-from rpython.jit.backend.arm.arch import (WORD, FUNC_ALIGN, PC_OFFSET)
+from rpython.jit.backend.arm.arch import WORD, PC_OFFSET
 from rpython.jit.backend.arm.instruction_builder import define_instructions
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.rlib.objectmodel import we_are_translated
@@ -29,13 +29,8 @@ def binary_helper_call(name):
 
 
 class AbstractARMBuilder(object):
-
     def __init__(self, arch_version=7):
         self.arch_version = arch_version
-
-    def align(self):
-        while(self.currpos() % FUNC_ALIGN != 0):
-            self.writechar(chr(0))
 
     def NOP(self):
         self.MOV_rr(0, 0)
@@ -466,21 +461,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractARMBuilder):
             for i in range(self.currpos()):
                 f.write(data[i])
             f.close()
-
-    # XXX remove and setup aligning in llsupport
-    def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
-        size = self.get_relative_pos() + WORD
-        malloced = asmmemmgr.malloc(size, size + 7)
-        allblocks.append(malloced)
-        rawstart = malloced[0]
-        while(rawstart % FUNC_ALIGN != 0):
-            rawstart += 1
-        self.copy_to_raw_memory(rawstart)
-        if self.gcroot_markers is not None:
-            assert gcrootmap is not None
-            for pos, mark in self.gcroot_markers:
-                gcrootmap.put(rawstart + pos, mark)
-        return rawstart
 
     def clear_cache(self, addr):
         if we_are_translated():

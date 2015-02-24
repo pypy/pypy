@@ -2,7 +2,6 @@
 #include "structdef.h"       /* for struct pypy_threadlocal_s */
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <string.h>
 #ifndef _WIN32
 # include <pthread.h>

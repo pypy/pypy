@@ -75,6 +75,7 @@ class UnrollOptimizer(Optimization):
         return Snapshot(prev, new_snapshot_args)
 
     def propagate_all_forward(self, starting_state, export_state=True):
+        self.optimizer.exporting_state = export_state
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
@@ -238,11 +239,7 @@ class UnrollOptimizer(Optimization):
         self.short_boxes = exported_state.short_boxes
         self.initial_virtual_state = target_token.virtual_state
 
-        seen = {}
         for box in self.inputargs:
-            if box in seen:
-                continue
-            seen[box] = None
             preamble_value = exported_state.exported_values[box]
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)

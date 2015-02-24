@@ -170,6 +170,10 @@ def newconst(value):
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)
         
+class MissingValue(object):
+    "NOT_RPYTHON"
+
+
 class Const(AbstractValue):
     __slots__ = ()
 

@@ -690,9 +690,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.default(hop)
             self.pop_roots(hop, livevars)
         else:
-            self.default(hop)
             if hop.spaceop.opname == "direct_call":
                 self.mark_call_cannotcollect(hop, hop.spaceop.args[0])
+            self.default(hop)
 
     def mark_call_cannotcollect(self, hop, name):
         pass
@@ -1462,7 +1462,8 @@ class BaseRootWalker(object):
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   is_minor=False):
         gcdata = self.gcdata
         gc = self.gc
         if collect_static_in_prebuilt_nongc:
@@ -1482,7 +1483,7 @@ class BaseRootWalker(object):
                     collect_static_in_prebuilt_gc(gc, result)
                 addr += sizeofaddr
         if collect_stack_root:
-            self.walk_stack_roots(collect_stack_root)     # abstract
+            self.walk_stack_roots(collect_stack_root, is_minor)     # abstract
 
     def finished_minor_collection(self):
         func = self.finished_minor_collection_func

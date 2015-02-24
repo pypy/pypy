@@ -101,7 +101,7 @@ def create_entry_point(space, w_dict):
         if space.is_none(w_path):
             if verbose:
                 debug("Failed to find library based on pypy_find_stdlib")
-            return 1
+            return rffi.cast(rffi.INT, 1)
         space.startup()
         space.call_function(w_pathsetter, w_path)
         # import site
@@ -109,13 +109,13 @@ def create_entry_point(space, w_dict):
             import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
-            return 0
+            return rffi.cast(rffi.INT, 0)
         except OperationError, e:
             if verbose:
                 debug("OperationError:")
                 debug(" operror-type: " + e.w_type.getname(space))
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
-            return -1
+            return rffi.cast(rffi.INT, -1)
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
@@ -234,8 +234,12 @@ class PyPyTarget(object):
             enable_translationmodules(config)
 
         config.translation.suggest(check_str_without_nul=True)
-        if sys.platform.startswith('linux'):
-            config.translation.suggest(shared=True)
+        config.translation.suggest(shared=True)
+        if config.translation.shared:
+            if config.translation.output is not None:
+                raise Exception("Cannot use the --output option with PyPy "
+                                "when --shared is on (it is by default). "
+                                "See issue #1971.")
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

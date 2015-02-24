@@ -59,12 +59,25 @@ class _IsLLPtrEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
+RFFI_SAVE_ERRNO          = 1     # save the real errno after the call
+RFFI_READSAVED_ERRNO     = 2     # copy saved errno into real errno before call
+RFFI_ZERO_ERRNO_BEFORE   = 4     # copy the value 0 into real errno before call
+RFFI_FULL_ERRNO          = RFFI_SAVE_ERRNO | RFFI_READSAVED_ERRNO
+RFFI_FULL_ERRNO_ZERO     = RFFI_SAVE_ERRNO | RFFI_ZERO_ERRNO_BEFORE
+RFFI_SAVE_LASTERROR      = 8     # win32: save GetLastError() after the call
+RFFI_READSAVED_LASTERROR = 16    # win32: call SetLastError() before the call
+RFFI_SAVE_WSALASTERROR   = 32    # win32: save WSAGetLastError() after the call
+RFFI_FULL_LASTERROR      = RFFI_SAVE_LASTERROR | RFFI_READSAVED_LASTERROR
+RFFI_ERR_NONE            = 0
+RFFI_ERR_ALL             = RFFI_FULL_ERRNO | RFFI_FULL_LASTERROR
+RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',
                _nowrapper=False, calling_conv='c',
                elidable_function=False, macro=None,
-               random_effects_on_gcobjs='auto'):
+               random_effects_on_gcobjs='auto',
+               save_err=RFFI_ERR_NONE):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -141,8 +154,8 @@ def llexternal(name, args, result, _callable=None,
         _callable.funcptr = funcptr
 
     if _nowrapper:
+        assert save_err == RFFI_ERR_NONE
         return funcptr
-
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -160,7 +173,13 @@ def llexternal(name, args, result, _callable=None,
                 before = aroundstate.before
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
+                if %(save_err)d:
+                    from rpython.rlib import rposix
+                    rposix._errno_before(%(save_err)d)
                 res = funcptr(%(argnames)s)
+                if %(save_err)d:
+                    from rpython.rlib import rposix
+                    rposix._errno_after(%(save_err)d)
                 after = aroundstate.after
                 if after: after()
                 return res
@@ -179,7 +198,7 @@ def llexternal(name, args, result, _callable=None,
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
         # 'funcptr' might be a C macro, though.
         if macro is None:
-            call_external_function._call_aroundstate_target_ = funcptr
+            call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
@@ -188,7 +207,7 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the aroundstate, we can just call
         # the low-level function pointer carelessly
-        if macro is None:
+        if macro is None and save_err == RFFI_ERR_NONE:
             call_external_function = funcptr
         else:
             # ...well, unless it's a macro, in which case we still have
@@ -196,7 +215,14 @@ def llexternal(name, args, result, _callable=None,
             argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
                 def call_external_function(%(argnames)s):
-                    return funcptr(%(argnames)s)
+                    if %(save_err)d:
+                        from rpython.rlib import rposix
+                        rposix._errno_before(%(save_err)d)
+                    res = funcptr(%(argnames)s)
+                    if %(save_err)d:
+                        from rpython.rlib import rposix
+                        rposix._errno_after(%(save_err)d)
+                    return res
             """ % locals())
             miniglobals = {'funcptr':     funcptr,
                            '__name__':    __name__,

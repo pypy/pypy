@@ -119,9 +119,7 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
-            # Synthesize the reverse ops for optimize_default to reuse
-            self.pure(rop.INT_ADD, [op, op.getarg(1)], op.getarg(0))
-            self.pure(rop.INT_SUB, [op.getarg(0), op], op.getarg(1))
+            self.optimizer.pure_reverse(op)
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -134,10 +132,7 @@ class OptRewrite(Optimization):
             self.make_equal_to(op, v1)
         else:
             self.emit_operation(op)
-            self.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op)
-            # Synthesize the reverse op for optimize_default to reuse
-            self.pure(rop.INT_SUB, [op, op.getarg(1)], op.getarg(0))
-            self.pure(rop.INT_SUB, [op, op.getarg(0)], op.getarg(1))
+            self.optimizer.pure_reverse(op)
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -223,7 +218,7 @@ class OptRewrite(Optimization):
                     self.emit_operation(newop)
                     return
         self.emit_operation(op)
-        self.pure(rop.FLOAT_MUL, [arg2, arg1], op)
+        self.optimizer.pure_reverse(op)
 
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
@@ -247,9 +242,8 @@ class OptRewrite(Optimization):
         self.emit_operation(newop)
 
     def optimize_FLOAT_NEG(self, op):
-        v1 = op.getarg(0)
         self.emit_operation(op)
-        self.pure(rop.FLOAT_NEG, [op], v1)
+        self.optimizer.pure_reverse(op)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.getarg(0))
@@ -300,7 +294,8 @@ class OptRewrite(Optimization):
                 name = "<unknown>"
             raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
         old_guard_op = value.get_last_guard(self.optimizer)
-        if old_guard_op:
+        if old_guard_op and not isinstance(old_guard_op.getdescr(),
+                                           compile.ResumeAtPositionDescr):
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
@@ -319,6 +314,11 @@ class OptRewrite(Optimization):
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                         args = [old_guard_op.getarg(0), op.getarg(1)],
                         descr = descr)
+            # Note: we give explicitly a new descr for 'op'; this is why the
+            # old descr must not be ResumeAtPositionDescr (checked above).
+            # Better-safe-than-sorry but it should never occur: we should
+            # not put in short preambles guard_xxx and guard_value
+            # on the same box.
             self.optimizer.replace_guard(op, value)
             descr.make_a_counter_per_value(op)
             # to be safe
@@ -357,7 +357,8 @@ class OptRewrite(Optimization):
                               % r)
         assert isinstance(value, PtrOptValue)
         old_guard_op = value.get_last_guard(self.optimizer)
-        if old_guard_op:
+        if old_guard_op and not isinstance(old_guard_op.getdescr(),
+                                           compile.ResumeAtPositionDescr):
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
@@ -367,6 +368,11 @@ class OptRewrite(Optimization):
                 op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
                             args = [old_guard_op.getarg(0), op.getarg(1)],
                             descr=descr)
+                # Note: we give explicitly a new descr for 'op'; this is why the
+                # old descr must not be ResumeAtPositionDescr (checked above).
+                # Better-safe-than-sorry but it should never occur: we should
+                # not put in short preambles guard_nonnull and guard_class
+                # on the same box.
                 self.optimizer.replace_guard(op, value)
                 # not emitting the guard, so we have to pass None to
                 # make_constant_class, so last_guard_pos is not updated
@@ -578,11 +584,11 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def optimize_CAST_PTR_TO_INT(self, op):
-        self.pure(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
+        self.optimizer.pure_reverse(op)
         self.emit_operation(op)
 
     def optimize_CAST_INT_TO_PTR(self, op):
-        self.pure(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
+        self.optimizer.pure_reverse(op)
         self.emit_operation(op)
 
     def optimize_SAME_AS_I(self, op):

@@ -5553,6 +5553,5 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
 
-
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

@@ -7,6 +7,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 
+WIN32 = os.name == "nt"
+
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -89,26 +91,100 @@ errno_eci = ExternalCompilationInfo(
     separate_module_sources=separate_module_sources,
 )
 
+# Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
                                          _nowrapper=True, c_type='int')
-# the default wrapper for set_errno is not suitable for use in critical places
-# like around GIL handling logic, so we provide our own wrappers.
 
-def get_errno():
-    if jit.we_are_jitted():
-        from rpython.rlib import rthread
-        perrno = rthread.tlfield_p_errno.getraw()
-        return intmask(perrno[0])
-    return intmask(_get_errno())
+def get_saved_errno():
+    """Return the value of the "saved errno".
+    This value is saved after a call to a C function, if it was declared
+    with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO).
+    Functions without that flag don't change the saved errno.
+    """
+    from rpython.rlib import rthread
+    return intmask(rthread.tlfield_rpy_errno.getraw())
 
-def set_errno(errno):
-    if jit.we_are_jitted():
+def set_saved_errno(errno):
+    """Set the value of the saved errno.  This value will be used to
+    initialize the real errno just before calling the following C function,
+    provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO).
+    Note also that it is more common to want the real errno to be initially
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
+    and then you don't need set_saved_errno(0).
+    """
+    from rpython.rlib import rthread
+    rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
+
+def get_saved_alterrno():
+    """Return the value of the "saved alterrno".
+    This value is saved after a call to a C function, if it was declared
+    with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO | rffl.RFFI_ALT_ERRNO).
+    Functions without that flag don't change the saved errno.
+    """
+    from rpython.rlib import rthread
+    return intmask(rthread.tlfield_alt_errno.getraw())
+
+def set_saved_alterrno(errno):
+    """Set the value of the saved alterrno.  This value will be used to
+    initialize the real errno just before calling the following C function,
+    provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO | rffl.RFFI_ALT_ERRNO).
+    Note also that it is more common to want the real errno to be initially
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
+    and then you don't need set_saved_errno(0).
+    """
+    from rpython.rlib import rthread
+    rthread.tlfield_alt_errno.setraw(rffi.cast(INT, errno))
+
+
+# These are not posix specific, but where should they move to?
+@specialize.call_location()
+def _errno_before(save_err):
+    if save_err & rffi.RFFI_READSAVED_ERRNO:
         from rpython.rlib import rthread
-        perrno = rthread.tlfield_p_errno.getraw()
-        perrno[0] = rffi.cast(INT, errno)
-        return
-    _set_errno(rffi.cast(INT, errno))
+        if save_err & rffi.RFFI_ALT_ERRNO:
+            _set_errno(rthread.tlfield_alt_errno.getraw())
+        else:
+            _set_errno(rthread.tlfield_rpy_errno.getraw())
+    elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+        _set_errno(rffi.cast(rffi.INT, 0))
+    if WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        if save_err & rffi.RFFI_ALT_ERRNO:
+            err = rthread.tlfield_alt_lasterror.getraw()
+        else:
+            err = rthread.tlfield_rpy_lasterror.getraw()
+        # careful, getraw() overwrites GetLastError.
+        # We must assign it with _SetLastError() as the last
+        # operation, i.e. after the errno handling.
+        rwin32._SetLastError(err)
+
+@specialize.call_location()
+def _errno_after(save_err):
+    if WIN32:
+        if save_err & rffi.RFFI_SAVE_LASTERROR:
+            from rpython.rlib import rthread, rwin32
+            err = rwin32._GetLastError()
+            # careful, setraw() overwrites GetLastError.
+            # We must read it first, before the errno handling.
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rthread.tlfield_alt_lasterror.setraw(err)
+            else:
+                rthread.tlfield_rpy_lasterror.setraw(err)
+        elif save_err & rffi.RFFI_SAVE_WSALASTERROR:
+            from rpython.rlib import rthread, _rsocket_rffi
+            err = _rsocket_rffi._WSAGetLastError()
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rthread.tlfield_alt_lasterror.setraw(err)
+            else:
+                rthread.tlfield_rpy_lasterror.setraw(err)
+    if save_err & rffi.RFFI_SAVE_ERRNO:
+        from rpython.rlib import rthread
+        if save_err & rffi.RFFI_ALT_ERRNO:
+            rthread.tlfield_alt_errno.setraw(_get_errno())
+        else:
+            rthread.tlfield_rpy_errno.setraw(_get_errno())
+
 
 if os.name == 'nt':
     is_valid_fd = jit.dont_look_inside(rffi.llexternal(
@@ -117,7 +193,8 @@ if os.name == 'nt':
         ))
     def validate_fd(fd):
         if not is_valid_fd(fd):
-            raise OSError(get_errno(), 'Bad file descriptor')
+            from errno import EBADF
+            raise OSError(EBADF, 'Bad file descriptor')
 else:
     def is_valid_fd(fd):
         return 1

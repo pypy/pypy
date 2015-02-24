@@ -19,9 +19,6 @@ from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles and also to compress the information
 
-class AlreadyForced(Exception):
-    pass
-
 class Snapshot(object):
     __slots__ = ('prev', 'boxes')
 

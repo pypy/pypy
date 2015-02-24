@@ -936,7 +936,6 @@ class LLFrame(object):
     execute_call_n = _execute_call
 
     def _execute_call_may_force(self, calldescr, func, *args):
-        call_op = self.lltrace.operations[self.current_index]
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
         self.force_guard_op = guard_op
@@ -949,7 +948,7 @@ class LLFrame(object):
     execute_call_may_force_f = _execute_call_may_force
     execute_call_may_force_i = _execute_call_may_force
 
-    def _execute_call_release_gil(self, descr, func, *args):
+    def _execute_call_release_gil(self, descr, saveerr, func, *args):
         if hasattr(descr, '_original_func_'):
             func = descr._original_func_     # see pyjitpl.py
             # we want to call the function that does the aroundstate

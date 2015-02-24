@@ -573,11 +573,12 @@ class Regalloc(BaseRegalloc):
             #    ...
         return self._prepare_call(op)
 
-    def _prepare_call(self, op, force_store=[], save_all_regs=False):
+    def _prepare_call(self, op, force_store=[], save_all_regs=False,
+                      first_arg_index=1):
         args = [None] * (op.numargs() + 3)
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
-        assert len(calldescr.arg_classes) == op.numargs() - 1
+        assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
 
         for i in range(op.numargs()):
             args[i + 3] = self.loc(op.getarg(i))
@@ -626,9 +627,12 @@ class Regalloc(BaseRegalloc):
         return [loc0, res]
 
     def _prepare_threadlocalref_get(self, op, fcond):
-        ofs0 = imm(op.getarg(1).getint())
-        res = self.force_allocate_reg(op.result)
-        return [ofs0, res]
+        ofs_loc = imm(op.getarg(1).getint())
+        calldescr = op.getdescr()
+        size_loc = imm(calldescr.get_result_size())
+        sign_loc = imm(calldescr.is_result_signed())
+        res_loc = self.force_allocate_reg(op.result)
+        return [ofs_loc, size_loc, sign_loc, res_loc]
 
     def _prepare_guard(self, op, args=None):
         if args is None:
@@ -1235,7 +1239,10 @@ class Regalloc(BaseRegalloc):
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         args = self._prepare_call(op, save_all_regs=True)
         return self._prepare_guard(guard_op, args)
-    prepare_guard_call_release_gil = prepare_guard_call_may_force
+
+    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
+        args = self._prepare_call(op, save_all_regs=True, first_arg_index=2)
+        return self._prepare_guard(guard_op, args)
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         locs = self.locs_for_call_assembler(op, guard_op)

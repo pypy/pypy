@@ -5,6 +5,7 @@ from pypy.module._hashlib.interp_hashlib import algorithms
 class Module(MixedModule):
     interpleveldefs = {
         'new' : 'interp_hashlib.new',
+        'openssl_md_meth_names': 'interp_hashlib.get(space).w_meth_names'
         }
 
     appleveldefs = {

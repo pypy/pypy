@@ -148,6 +148,12 @@ class OptValue(object):
         if self.getlevel() < LEVEL_NONNULL:
             self.setlevel(LEVEL_NONNULL)
 
+    def get_constant_int(self):
+        assert self.is_constant()
+        box = self.box
+        assert isinstance(box, ConstInt)
+        return box.getint()
+
     def is_virtual(self):
         # Don't check this with 'isinstance(_, VirtualValue)'!
         # Even if it is a VirtualValue, the 'box' can be non-None,
@@ -230,8 +236,11 @@ class PtrOptValue(OptValue):
 
     def make_len_gt(self, mode, descr, val):
         if self.lenbound:
-            assert self.lenbound.mode == mode
-            assert self.lenbound.descr == descr
+            if self.lenbound.mode != mode or self.lenbound.descr != descr:
+                # XXX a rare case?  it seems to occur sometimes when
+                # running lib-python's test_io.py in PyPy on Linux 32...
+                from rpython.jit.metainterp.optimize import InvalidLoop
+                raise InvalidLoop("bad mode/descr")
             self.lenbound.bound.make_gt(IntBound(val, val))
         else:
             self.lenbound = LenBound(mode, descr, IntLowerBound(val + 1))
@@ -269,9 +278,8 @@ class PtrOptValue(OptValue):
             op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
             guards.append(op)
         elif level == LEVEL_KNOWNCLASS:
-            op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            guards.append(op)
-            op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+            op = ResOperation(rop.GUARD_NONNULL_CLASS,
+                              [box, self.known_class], None)
             guards.append(op)
         else:
             if level == LEVEL_NONNULL:
@@ -296,7 +304,7 @@ class PtrOptValue(OptValue):
         level = self.getlevel()
         if level == LEVEL_KNOWNCLASS:
             return self.known_class
-        elif level == LEVEL_CONSTANT:
+        elif level == LEVEL_CONSTANT and not self.is_null():
             return cpu.ts.cls_of_box(self.box)
         else:
             return None
@@ -510,6 +518,8 @@ class Optimization(object):
 
 
 class Optimizer(Optimization):
+
+    exporting_state = False
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
@@ -850,6 +860,27 @@ class Optimizer(Optimization):
         return execute_nonspec_const(self.cpu, None,
                                        op.getopnum(), argboxes,
                                        op.getdescr(), op.type)
+
+    def pure_reverse(self, op):
+        if self.optpure is None:
+            return
+        optpure = self.optpure
+        if op.getopnum() == rop.INT_ADD:
+            optpure.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
+            # Synthesize the reverse op for optimize_default to reuse
+            optpure.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+            optpure.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+        elif op.getopnum() == rop.INT_SUB:
+            optpure.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+            optpure.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+        elif op.getopnum() == rop.FLOAT_MUL:
+            optpure.pure(rop.FLOAT_MUL, [op.getarg(1), op.getarg(0)], op.result)
+        elif op.getopnum() == rop.FLOAT_NEG:
+            optpure.pure(rop.FLOAT_NEG, [op.result], op.getarg(0))
+        elif op.getopnum() == rop.CAST_INT_TO_PTR:
+            optpure.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        elif op.getopnum() == rop.CAST_PTR_TO_INT:
+            optpure.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
 
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted

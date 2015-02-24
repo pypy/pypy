@@ -71,6 +71,36 @@ class StandaloneTests(object):
 
 class TestStandalone(StandaloneTests):
 
+    def compile(self, *args, **kwds):
+        t, builder = StandaloneTests.compile(self, *args, **kwds)
+        #
+        # verify that the executable re-export symbols, but not too many
+        if sys.platform.startswith('linux') and not kwds.get('shared', False):
+            seen_main = False
+            g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
+            for line in g:
+                if not line.strip():
+                    continue
+                if '*UND*' in line:
+                    continue
+                name = line.split()[-1]
+                if name.startswith('__'):
+                    continue
+                if name == 'main':
+                    seen_main = True
+                    continue
+                if name == 'pypy_debug_file':     # ok to export this one
+                    continue
+                if 'pypy' in name.lower() or 'rpy' in name.lower():
+                    raise Exception("Unexpected exported name %r.  "
+                        "What is likely missing is RPY_EXTERN before the "
+                        "declaration of this C function or global variable"
+                        % (name,))
+            g.close()
+            assert seen_main, "did not see 'main' exported"
+        #
+        return t, builder
+
     def test_hello_world(self):
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -808,12 +838,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, shared=True)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
-        if os.name == 'posix':
-            library_path = cbuilder.shared_library_name.dirpath()
-            if sys.platform == 'darwin':
-                monkeypatch.setenv('DYLD_LIBRARY_PATH', library_path)
-            else:
-                monkeypatch.setenv('LD_LIBRARY_PATH', library_path)
+        #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
 
@@ -1166,10 +1191,10 @@ class TestThread(object):
                 self.tail = tail
 
         def check_errno(value):
-            rposix.set_errno(value)
+            rposix.set_saved_errno(value)
             for i in range(10000000):
                 pass
-            assert rposix.get_errno() == value
+            assert rposix.get_saved_errno() == value
 
         def bootstrap():
             rthread.gc_thread_start()
@@ -1386,6 +1411,8 @@ class TestShared(StandaloneTests):
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'
+        elif cbuilder.eci.platform.name.startswith('darwin'):
+            ext_suffix = '.dylib'
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))

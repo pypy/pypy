@@ -191,7 +191,8 @@ class LLInterpRootWalker:
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   is_minor=False):
         gcheap = self.gcheap
         gc = gcheap.gc
         if collect_static_in_prebuilt_gc:
@@ -203,7 +204,7 @@ class LLInterpRootWalker:
                 if self.gcheap.gc.points_to_valid_gc_object(addrofaddr):
                     collect_static_in_prebuilt_nongc(gc, addrofaddr)
         if collect_stack_root:
-            for addrofaddr in gcheap.llinterp.find_roots():
+            for addrofaddr in gcheap.llinterp.find_roots(is_minor):
                 if self.gcheap.gc.points_to_valid_gc_object(addrofaddr):
                     collect_stack_root(gc, addrofaddr)
 

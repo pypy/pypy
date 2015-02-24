@@ -18,7 +18,6 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.buffer import RawFFIBuffer
 from pypy.module._rawffi.tracker import tracker
-from pypy.module._rawffi import lasterror
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
@@ -496,14 +495,10 @@ class W_FuncPtr(W_Root):
         try:
             if self.resshape is not None:
                 result = self.resshape.allocate(space, 1, autofree=True)
-                lasterror.restore_last_error(space)
                 self.ptr.call(args_ll, result.ll_buffer)
-                lasterror.save_last_error(space)
                 return space.wrap(result)
             else:
-                lasterror.restore_last_error(space)
                 self.ptr.call(args_ll, lltype.nullptr(rffi.VOIDP.TO))
-                lasterror.save_last_error(space)
                 return space.w_None
         except StackCheckError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
@@ -613,17 +608,19 @@ def get_libc(space):
     return space.wrap(W_CDLL(space, name, cdll))
 
 def get_errno(space):
-    return space.wrap(rposix.get_errno())
+    return space.wrap(rposix.get_saved_alterrno())
 
 def set_errno(space, w_errno):
-    rposix.set_errno(space.int_w(w_errno))
+    rposix.set_saved_alterrno(space.int_w(w_errno))
 
 if sys.platform == 'win32':
+    # see also
+    # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
     def get_last_error(space):
-        return space.wrap(lasterror.fetch_last_error(space))
+        return space.wrap(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
     def set_last_error(space, error):
-        lasterror.store_last_error(space, error)
+        rwin32.SetLastError_alt_saved(error)
 else:
     # always have at least a dummy version of these functions
     # (https://bugs.pypy.org/issue1242)

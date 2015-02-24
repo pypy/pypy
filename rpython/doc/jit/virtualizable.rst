@@ -66,3 +66,11 @@ up with a compile-time error (as opposed to strange behavior). The rules are:
   virtualizable survives for longer, you want to force it before returning.
   It's better to do it that way than by an external call some time later.
   It's done using ``jit.hint(frame, force_virtualizable=True)``
+
+* Your interpreter should have a local variable similar to ``frame``
+  above.  It must not be modified as long as it runs its
+  ``jit_merge_point`` loop, and in the loop it must be passed directly
+  to the ``jit_merge_point()`` and ``can_enter_jit()`` calls.  The JIT
+  generator is known to produce buggy code if you fetch the
+  virtualizable from somewhere every iteration, instead of reusing the
+  same unmodified local variable.

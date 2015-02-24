@@ -1,14 +1,23 @@
 Potential project list
 ======================
 
-===========================
-Simple tasks for newcomers:
-===========================
+==========================
+Simple tasks for newcomers
+==========================
 
-Optimize random
----------------
+* Tkinter module missing support for threads:
+  https://bitbucket.org/pypy/pypy/issue/1929/tkinter-broken-for-threaded-python-on-both
 
-https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+* Optimize random:
+  https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+
+* Implement AF_XXX packet types of sockets:
+  https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets
+
+
+==================
+Mid-to-large tasks
+==================
 
 Below is a list of projects that are interesting for potential contributors
 who are seriously interested in the PyPy project. They mostly share common
@@ -33,15 +42,8 @@ Make bytearray type fast
 ------------------------
 
 PyPy's bytearray type is very inefficient. It would be an interesting
-task to look into possible optimizations on this.
-
-Implement AF_XXX packet types for PyPy
---------------------------------------
-
-PyPy is missing AF_XXX types of sockets. Implementing it is easy-to-medium
-task. `bug report`_
-
-.. _`bug report`: https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets#more
+task to look into possible optimizations on this.  (XXX current status
+unknown; ask on #pypy for updates on this.)
 
 Implement copy-on-write list slicing
 ------------------------------------
@@ -105,6 +107,8 @@ for efficient indexing, like a cache.)
 
 Translation Toolchain
 ---------------------
+
+(XXX this is unlikely to be feasible.)
 
 * Incremental or distributed translation.
 * Allow separate compilation of extension modules.
@@ -187,3 +191,37 @@ have CPython extensions run much faster on PyPy than they currently do, or
 to make them work at all if they currently don't. A part of this work would
 be to get cpyext into a shape where it supports running Cython generated
 extensions.
+
+======================================
+Make more python modules pypy-friendly
+======================================
+
+Work has been started on a few popular python packages. Here is a partial
+list of good work that needs to be finished:
+
+**matplotlib** https://github.com/mattip/matplotlib
+
+    Status: the repo is an older version of matplotlib adapted to pypy and cpyext
+
+    TODO: A suggested first step would be to merge the differences into 
+    matplotlib/HEAD. The major problem is the use of a generic view into a
+    numpy ndarray. The int* fields would need to be converted into int[MAX_DIMS]
+    c-arrays and filled in.
+
+**wxPython** https://bitbucket.org/waedt/wxpython_cffi
+
+    Status: A GSOC 2013 project to adapt the Phoenix sip build system to cffi
+
+    TODO: Merge the latest version of the wrappers and finish the sip conversion
+
+**pygame** https://github.com/CTPUG/pygame_cffi
+
+    Status: see blog post <http://morepypy.blogspot.com/2014/03/pygamecffi-pygame-on-pypy.html>
+
+    TODO: see the end of the blog post
+
+**pyopengl** https://bitbucket.org/duangle/pyopengl-cffi
+
+    Status: unknown
+
+

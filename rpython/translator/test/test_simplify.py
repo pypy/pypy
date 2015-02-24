@@ -183,7 +183,9 @@ def test_get_graph():
                     print op
                     subgraph = get_graph(op.args[0], t)
                     if subgraph is None:
-                        found.append(op)
+                        # ignore 'get_errno' and 'set_errno'
+                        if 'et_errno' not in repr(op.args[0]):
+                            found.append(op)
                     else:
                         walkgraph(subgraph)
     walkgraph(graph)

@@ -245,6 +245,26 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert module.dump(self.tmpname, None)
         assert open(self.tmpname).read() == 'None'
 
+    def test_issue1970(self):
+        module = self.import_extension('foo', [
+            ("ismapping", "METH_O",
+             """
+                 PyObject* collections_mod =
+                     PyImport_ImportModule("collections");
+                 PyObject* mapping_t = PyObject_GetAttrString(
+                     collections_mod, "Mapping");
+                 Py_DECREF(collections_mod);
+                 if (PyObject_IsInstance(args, mapping_t)) {
+                     Py_DECREF(mapping_t);
+                     Py_RETURN_TRUE;
+                 } else {
+                     Py_DECREF(mapping_t);
+                     Py_RETURN_FALSE;
+                 }
+             """)])
+        import collections
+        assert isinstance(dict(), collections.Mapping)
+        assert module.ismapping(dict())
 
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):

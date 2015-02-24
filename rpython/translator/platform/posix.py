@@ -14,6 +14,7 @@ class BasePosix(Platform):
     relevant_environ = ('CPATH', 'LIBRARY_PATH', 'C_INCLUDE_PATH')
 
     DEFAULT_CC = 'gcc'
+    rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'']
 
     def __init__(self, cc=None):
         self.cc = cc or os.environ.get('CC', self.DEFAULT_CC)
@@ -41,6 +42,12 @@ class BasePosix(Platform):
 
     def _link_args_from_eci(self, eci, standalone):
         return Platform._link_args_from_eci(self, eci, standalone)
+
+    def _exportsymbols_link_flags(self):
+        if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
+                or sys.platform == 'cygwin'):
+            return ["-Wl,--export-all-symbols"]
+        return ["-Wl,--export-dynamic"]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
         args = [str(ofile) for ofile in ofiles] + link_args
@@ -104,6 +111,8 @@ class BasePosix(Platform):
         if shared:
             linkflags = self._args_for_shared(linkflags)
 
+        linkflags += self._exportsymbols_link_flags()
+
         if shared:
             libname = exe_name.new(ext='').basename
             target_name = 'lib' + exe_name.new(ext=self.so_ext).basename
@@ -111,9 +120,9 @@ class BasePosix(Platform):
             target_name = exe_name.basename
 
         if shared:
-            cflags = self.cflags + self.get_shared_only_compile_flags()
+            cflags = tuple(self.cflags) + self.get_shared_only_compile_flags()
         else:
-            cflags = self.cflags + self.standalone_only
+            cflags = tuple(self.cflags) + tuple(self.standalone_only)
 
         m = GnuMakefile(path)
         m.exe_name = path.join(exe_name.basename)
@@ -158,6 +167,7 @@ class BasePosix(Platform):
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
+            ('RPATH_FLAGS', self.rpath_flags),
             ]
         for args in definitions:
             m.definition(*args)
@@ -181,7 +191,7 @@ class BasePosix(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); }" > $@')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.o'],
-                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ -Wl,-rpath=\'$$ORIGIN/\'')
+                   '$(CC_LINK) $(LDFLAGS_LINK) main.o -L. -l$(SHARED_IMPORT_LIB) -o $@ $(RPATH_FLAGS)')
 
         return m
 
