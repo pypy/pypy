@@ -612,23 +612,17 @@ class Optimizer(Optimization):
             orig_op.set_forwarded(op)
         return op
 
+    def force_box(self, op):
+        return self.get_box_replacement(op)
+
     def ensure_imported(self, value):
         pass
 
-    @specialize.argtype(0)
     def get_constant_box(self, box):
+        box = self.get_box_replacement(box)
         if isinstance(box, Const):
             return box
-        try:
-            value = self.values[box]
-            self.ensure_imported(value)
-        except KeyError:
-            return None
-        if value.is_constant():
-            constbox = value.box
-            assert isinstance(constbox, Const)
-            return constbox
-        return None
+        #self.ensure_imported(value)
 
     def get_newoperations(self):
         self.flush()
@@ -734,16 +728,10 @@ class Optimizer(Optimization):
         orig_op = op
         op = self.replace_op_with(op, op.getopnum())
         for i in range(op.numargs()):
-            arg = op.getarg(i)
-            try:
-                value = self.values[arg]
-            except KeyError:
-                pass
-            else:
-                self.ensure_imported(value)
-                newbox = value.force_box(self)
-                if arg is not newbox:
-                    op.setarg(i, newbox)
+            arg = self.force_box(op.getarg(i))
+            #self.ensure_imported(value)
+            #    newbox = value.force_box(self)
+            op.setarg(i, arg)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)

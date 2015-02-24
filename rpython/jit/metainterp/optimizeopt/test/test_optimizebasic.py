@@ -115,6 +115,21 @@ class BaseTestBasic(BaseTest):
 
 class BaseTestOptimizeBasic(BaseTestBasic):
 
+    def test_very_simple(self):
+        ops = """
+        [i]
+        i0 = int_sub(i, 1)
+        guard_value(i0, 0) [i0]
+        jump(i0)
+        """
+        expected = """
+        [i]
+        i0 = int_sub(i, 1)
+        guard_value(i0, 0) [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_simple(self):
         ops = """
         [i]
