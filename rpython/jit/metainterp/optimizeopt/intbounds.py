@@ -4,7 +4,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound, IntLowerBound,
     IntUpperBound)
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
-    CONST_0, MODE_ARRAY, MODE_STR, MODE_UNICODE, IntOptValue)
+    CONST_0, MODE_ARRAY, MODE_STR, MODE_UNICODE, IntOptInfo)
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.backend.llsupport import symbolic
@@ -111,9 +111,10 @@ class OptIntBounds(Optimization):
             r.getintbound().intersect(IntBound(0, next_pow2_m1(lesser)))
 
     def optimize_INT_SUB(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        v1 = self.getinfo(op.getarg(0))
+        v2 = self.getinfo(op.getarg(1))
         self.emit_operation(op)
+        xxx
         r = self.getvalue(op)
         b = v1.getintbound().sub_bound(v2.getintbound())
         if b.bounded():

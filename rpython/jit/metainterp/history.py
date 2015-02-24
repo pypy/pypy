@@ -177,6 +177,8 @@ class MissingValue(object):
 class Const(AbstractValue):
     __slots__ = ()
 
+    forwarded = None
+
     @staticmethod
     def _new(x):
         "NOT_RPYTHON"
@@ -206,6 +208,9 @@ class Const(AbstractValue):
 
     def repr(self, memo):
         return self.repr_rpython()
+
+    def is_constant(self):
+        return True
 
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()

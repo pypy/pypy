@@ -6,7 +6,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
-    CONST_0, CONST_1, PtrOptValue)
+    CONST_0, CONST_1, PtrOptInfo)
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
@@ -108,14 +108,16 @@ class OptRewrite(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_SUB(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v2.is_constant() and v2.box.getint() == 0:
+        arg1 = self.get_box_replacement(op.getarg(0))
+        arg2 = self.get_box_replacement(op.getarg(1))
+        if arg2.is_constant() and arg2.getint() == 0:
+            xxx
             self.make_equal_to(op, v1)
-        elif v1.is_constant() and v1.box.getint() == 0:
+        elif arg1.is_constant() and arg1.getint() == 0:
+            xxx
             op = self.replace_op_with(op, rop.INT_NEG, args=[v2.box])
             self.emit_operation(op)
-        elif v1 is v2:
+        elif arg1 is arg2:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)

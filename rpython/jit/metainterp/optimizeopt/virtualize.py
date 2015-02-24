@@ -4,7 +4,7 @@ from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
 from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
 from rpython.jit.metainterp.optimizeopt import optimizer
-from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, REMOVED
+from rpython.jit.metainterp.optimizeopt.optimizer import OptInfo, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
                                                      descrlist_dict, sort_descrs)
 
@@ -13,7 +13,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-class AbstractVirtualValue(optimizer.PtrOptValue):
+class AbstractVirtualValue(optimizer.PtrOptInfo):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
     _tag = optimizer.LEVEL_NONNULL

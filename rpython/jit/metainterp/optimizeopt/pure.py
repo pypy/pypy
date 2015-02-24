@@ -39,12 +39,13 @@ class OptPure(Optimization):
                 return
 
             # did we do the exact same operation already?
-            args = self.optimizer.make_args_key(op.getopnum(),
-                                                op.getarglist(), op.getdescr())
-            oldval = self.pure_operations.get(args, None)
-            if oldval is not None:
-                self.optimizer.make_equal_to(op, oldval)
-                return
+            if 0:
+                args = self.optimizer.make_args_key(op.getopnum(),
+                                                    op.getarglist(), op.getdescr())
+                oldval = self.pure_operations.get(args, None)
+                if oldval is not None:
+                    self.optimizer.make_equal_to(op, oldval)
+                    return
 
         # otherwise, the operation remains
         self.emit_operation(op)
@@ -52,8 +53,8 @@ class OptPure(Optimization):
             self.optimizer.bool_boxes[self.getvalue(op)] = None
         if nextop:
             self.emit_operation(nextop)
-        if args is not None:
-            self.pure_operations[args] = self.getvalue(op)
+        #if args is not None:
+        #    self.pure_operations[args] = self.getvalue(op)
 
     def optimize_CALL_PURE_I(self, op):
         # Step 1: check if all arguments are constant
@@ -102,6 +103,7 @@ class OptPure(Optimization):
         self.optimizer.optpure = self
 
     def pure(self, opnum, args, result):
+        return # XXX
         key = self.optimizer.make_args_key(opnum, args, None)
         if key not in self.pure_operations:
             self.pure_operations[key] = self.getvalue(result)

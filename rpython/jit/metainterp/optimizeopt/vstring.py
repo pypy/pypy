@@ -45,46 +45,46 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 # ____________________________________________________________
 
 
-class __extend__(optimizer.OptValue):
-    """New methods added to the base class OptValue for this file."""
+# class __extend__(optimizer.OptValue):
+#     """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, string_optimizer, mode, lengthop):
-        if mode is mode_string:
-            s = self.get_constant_string_spec(mode_string)
-            if s is not None:
-                return ConstInt(len(s))
-        else:
-            s = self.get_constant_string_spec(mode_unicode)
-            if s is not None:
-                return ConstInt(len(s))
-        if string_optimizer is None:
-            return None
-        self.ensure_nonnull()
-        box = self.force_box(string_optimizer)
-        if lengthop is not None:
-            lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
-                mode.STRLEN, [box])
-        else:
-            lengthop = ResOperation(mode.STRLEN, [box])
-        string_optimizer.emit_operation(lengthop)
-        return lengthop
+#     def getstrlen(self, string_optimizer, mode, lengthop):
+#         if mode is mode_string:
+#             s = self.get_constant_string_spec(mode_string)
+#             if s is not None:
+#                 return ConstInt(len(s))
+#         else:
+#             s = self.get_constant_string_spec(mode_unicode)
+#             if s is not None:
+#                 return ConstInt(len(s))
+#         if string_optimizer is None:
+#             return None
+#         self.ensure_nonnull()
+#         box = self.force_box(string_optimizer)
+#         if lengthop is not None:
+#             lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
+#                 mode.STRLEN, [box])
+#         else:
+#             lengthop = ResOperation(mode.STRLEN, [box])
+#         string_optimizer.emit_operation(lengthop)
+#         return lengthop
 
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        if self.is_constant():
-            s = self.box.getref(lltype.Ptr(mode.LLTYPE))
-            return mode.hlstr(s)
-        else:
-            return None
+#     @specialize.arg(1)
+#     def get_constant_string_spec(self, mode):
+#         if self.is_constant():
+#             s = self.box.getref(lltype.Ptr(mode.LLTYPE))
+#             return mode.hlstr(s)
+#         else:
+#             return None
 
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        # Copies the pointer-to-string 'self' into the target string
-        # given by 'targetbox', at the specified offset.  Returns the offset
-        # at the end of the copy.
-        lengthbox = self.getstrlen(string_optimizer, mode, None)
-        srcbox = self.force_box(string_optimizer)
-        return copy_str_content(string_optimizer, srcbox, targetbox,
-                                CONST_0, offsetbox, lengthbox, mode)
+#     def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
+#         # Copies the pointer-to-string 'self' into the target string
+#         # given by 'targetbox', at the specified offset.  Returns the offset
+#         # at the end of the copy.
+#         lengthbox = self.getstrlen(string_optimizer, mode, None)
+#         srcbox = self.force_box(string_optimizer)
+#         return copy_str_content(string_optimizer, srcbox, targetbox,
+#                                 CONST_0, offsetbox, lengthbox, mode)
 
 
 class VAbstractStringValue(virtualize.AbstractVirtualValue):

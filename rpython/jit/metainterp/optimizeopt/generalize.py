@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import MININT, MAXINT,\
-     IntOptValue
+     IntOptInfo
 
 
 class GeneralizationStrategy(object):

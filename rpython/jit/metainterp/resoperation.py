@@ -15,6 +15,9 @@ class AbstractValue(object):
     def repr_short(self, memo):
         return self.repr(memo)
 
+    def is_constant(self):
+        return False
+
 DONT_CHANGE = AbstractValue()
 
 def ResOperation(opnum, args, descr=None):
@@ -42,8 +45,9 @@ class AbstractResOp(AbstractValue):
     type = 'v'
     boolreflex = -1
     boolinverse = -1
+    forwarded = None # either another resop or OptInfo
 
-    _attrs_ = ()
+    _attrs_ = ('forwarded',)
 
     def getopnum(self):
         return self.opnum
@@ -394,6 +398,7 @@ class RefOp(object):
         return InputArgRef()
 
 class AbstractInputArg(AbstractValue):
+    forwarded = None
     
     def repr(self, memo):
         try:

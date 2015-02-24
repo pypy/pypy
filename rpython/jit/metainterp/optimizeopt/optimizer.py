@@ -2,13 +2,11 @@ from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.history import Const, ConstInt, REF
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
-                                                     ImmutableIntUnbounded, \
-                                                     IntLowerBound, MININT,\
-                                                     MAXINT
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
+     ImmutableIntUnbounded, IntLowerBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     AbstractResOp, AbstractInputArg, DONT_CHANGE, GuardResOp
+     AbstractResOp, AbstractInputArg, GuardResOp
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
@@ -45,20 +43,16 @@ class LenBound(object):
                 self.descr == other.descr and
                 self.bound.contains_bound(other.bound))
 
-class OptValue(object):
-    __metaclass__ = extendabletype
-    _attrs_ = ('box', '_tag')
-
+class OptInfo(object):
+    _attrs_ = ('_tag',)
     _tag = 0
 
-    def __init__(self, box, level=None, known_class=None, intbound=None):
-        self.box = box
+    forwarded = None
+
+    def __init__(self, level=LEVEL_UNKNOWN, known_class=None, intbound=None):
+        assert isinstance(level, int)
         if level is not None:
             self._tag = level
-
-        if isinstance(box, Const):
-            self.make_constant(box)
-        # invariant: box is a Const if and only if level == LEVEL_CONSTANT
 
     def getlevel(self):
         return self._tag & 0x3
@@ -92,9 +86,7 @@ class OptValue(object):
         self._tag = other_value._tag
 
     def force_box(self, optforce):
-        return self.box
-
-    def get_key_box(self):
+        xxx
         return self.box
 
     def force_at_end_of_preamble(self, already_forced, optforce):
@@ -155,10 +147,7 @@ class OptValue(object):
         return box.getint()
 
     def is_virtual(self):
-        # Don't check this with 'isinstance(_, VirtualValue)'!
-        # Even if it is a VirtualValue, the 'box' can be non-None,
-        # meaning it has been forced.
-        return self.box is None
+        return False # overwridden in VirtualInfo
 
     def is_forced_virtual(self):
         return False
@@ -214,7 +203,7 @@ class OptValue(object):
     def get_constant_class(self, cpu):
         return None
 
-class PtrOptValue(OptValue):
+class PtrOptInfo(OptInfo):
     _attrs_ = ('known_class', 'last_guard_pos', 'lenbound')
 
     known_class = None
@@ -320,15 +309,13 @@ class PtrOptValue(OptValue):
     def get_known_class(self):
         return self.known_class
 
-class IntOptValue(OptValue):
+class IntOptInfo(OptInfo):
     _attrs_ = ('intbound',)
 
     intbound = ImmutableIntUnbounded()
 
-    def __init__(self, box, level=None, known_class=None, intbound=None):
-        OptValue.__init__(self, box, level, None, None)
-        if isinstance(box, Const):
-            return
+    def __init__(self, level=LEVEL_UNKNOWN, known_class=None, intbound=None):
+        OptInfo.__init__(self, level, None, None)
         if intbound:
             self.intbound = intbound
         else:
@@ -395,32 +382,11 @@ class IntOptValue(OptValue):
     def getlenbound(self):
         return None
 
-class ConstantFloatValue(OptValue):
-    def __init__(self, box):
-        self.make_constant(box)
-
-    def __repr__(self):
-        return 'Constant(%r)' % (self.box,)
-
-class ConstantIntValue(IntOptValue):
-    def __init__(self, box):
-        self.make_constant(box)
-
-    def __repr__(self):
-        return 'Constant(%r)' % (self.box,)
-
-class ConstantPtrValue(PtrOptValue):
-    def __init__(self, box):
-        self.make_constant(box)
-
-    def __repr__(self):
-        return 'Constant(%r)' % (self.box,)
 
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
-CVAL_ZERO    = ConstantIntValue(CONST_0)
-CVAL_ZERO_FLOAT = ConstantFloatValue(Const._new(0.0))
-llhelper.CVAL_NULLREF = ConstantPtrValue(llhelper.CONST_NULL)
+CONST_ZERO_FLOAT = Const._new(0.0)
+llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
 
@@ -438,8 +404,11 @@ class Optimization(object):
         self.next_optimization.propagate_forward(op)
 
     # FIXME: Move some of these here?
-    def getvalue(self, box):
-        return self.optimizer.getvalue(box)
+    def getinfo(self, op, create=True):
+        return self.optimizer.getinfo(op, create=create)
+
+    def get_box_replacement(self, op):
+        return self.optimizer.get_box_replacement(op)
 
     def getlastop(self):
         return self.optimizer._last_emitted_op
@@ -603,8 +572,25 @@ class Optimizer(Optimization):
         else:
             return box
 
-    @specialize.argtype(0)
-    def getvalue(self, box):
+    def getinfo(self, op, create=False):
+        while op.forwarded is not None:
+            op = op.forwarded
+        if isinstance(op, OptInfo) or isinstance(op, Const):
+            return op
+        if not create:
+            return None
+        if op.type == 'r':
+            optinfo = PtrOptInfo()
+        elif op.type == 'i':
+            optinfo = IntOptInfo()
+        else:
+            optinfo = OptInfo()
+        op.forwarded = optinfo
+        return optinfo
+        xxx
+        yyy
+
+        XXX
         box = self.getinterned(box)
         try:
             value = self.values[box]
@@ -619,12 +605,14 @@ class Optimizer(Optimization):
         self.ensure_imported(value)
         return value
 
-    def get_box_replacement(self, box):
-        try:
-            v = self.values[box]
-        except KeyError:
-            return box
-        return v.get_key_box()
+    def get_box_replacement(self, op):
+        orig_op = op
+        while (op.forwarded is not None and
+               not isinstance(op.forwarded, OptInfo)):
+            op = op.forwarded
+        if op is not orig_op:
+            orig_op.forwarded = op
+        return op
 
     def ensure_imported(self, value):
         pass
@@ -667,11 +655,8 @@ class Optimizer(Optimization):
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
-            val = self.getvalue(op)
-            if val.box is not None:
-                assert val.box is op
-                val.box = newop
-            self.values[newop] = val
+            assert op.forwarded is None
+            op.forwarded = newop
         return newop
 
     def make_constant(self, box, constbox):
@@ -775,6 +760,7 @@ class Optimizer(Optimization):
 
     def get_op_replacement(self, op):
         # XXX this is wrong
+        xxx
         changed = False
         for i, arg in enumerate(op.getarglist()):
             try:
