@@ -248,9 +248,8 @@ class OptRewrite(Optimization):
         self.optimizer.pure_reverse(op)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
-        value = self.getvalue(op.getarg(0))
-        if value.is_constant():
-            box = value.box
+        box = self.get_box_replacement(op.getarg(0))
+        if box.is_constant():
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
                 r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
@@ -259,9 +258,9 @@ class OptRewrite(Optimization):
             return
         if emit_operation:
             self.emit_operation(op)
-        value.make_constant(constbox)
-        if self.optimizer.optheap:
-            self.optimizer.optheap.value_updated(value, self.getvalue(constbox))
+        self.make_constant(box, constbox)
+        #if self.optimizer.optheap:  XXX
+        #    self.optimizer.optheap.value_updated(value, self.getvalue(constbox))
 
     def optimize_GUARD_ISNULL(self, op):
         value = self.getvalue(op.getarg(0))
@@ -286,46 +285,46 @@ class OptRewrite(Optimization):
         value.make_nonnull(self.optimizer)
 
     def optimize_GUARD_VALUE(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
-            arg = value.get_constant_class(self.optimizer.cpu)
-            if arg:
-                addr = arg.getaddr()
-                name = self.optimizer.metainterp_sd.get_name_from_address(addr)
-            else:
-                name = "<unknown>"
-            raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
-        old_guard_op = value.get_last_guard(self.optimizer)
-        if old_guard_op and not isinstance(old_guard_op.getdescr(),
-                                           compile.ResumeAtPositionDescr):
-            # there already has been a guard_nonnull or guard_class or
-            # guard_nonnull_class on this value, which is rather silly.
-            # replace the original guard with a guard_value
-            if old_guard_op.getopnum() != rop.GUARD_NONNULL:
-                # This is only safe if the class of the guard_value matches the
-                # class of the guard_*_class, otherwise the intermediate ops might
-                # be executed with wrong classes.
-                previous_classbox = value.get_constant_class(self.optimizer.cpu)
-                expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
-                assert previous_classbox is not None
-                assert expected_classbox is not None
-                if not previous_classbox.same_constant(expected_classbox):
-                    r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-                    raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
-            descr = compile.ResumeGuardValueDescr()
-            op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
-                        args = [old_guard_op.getarg(0), op.getarg(1)],
-                        descr = descr)
-            # Note: we give explicitly a new descr for 'op'; this is why the
-            # old descr must not be ResumeAtPositionDescr (checked above).
-            # Better-safe-than-sorry but it should never occur: we should
-            # not put in short preambles guard_xxx and guard_value
-            # on the same box.
-            self.optimizer.replace_guard(op, value)
-            descr.make_a_counter_per_value(op)
-            # to be safe
-            if isinstance(value, PtrOptValue):
-                value.last_guard_pos = -1
+        ## value = self.getvalue(op.getarg(0))
+        ## if value.is_virtual():
+        ##     arg = value.get_constant_class(self.optimizer.cpu)
+        ##     if arg:
+        ##         addr = arg.getaddr()
+        ##         name = self.optimizer.metainterp_sd.get_name_from_address(addr)
+        ##     else:
+        ##         name = "<unknown>"
+        ##     raise InvalidLoop('A promote of a virtual %s (a recently allocated object) never makes sense!' % name)
+        ## old_guard_op = value.get_last_guard(self.optimizer)
+        ## if old_guard_op and not isinstance(old_guard_op.getdescr(),
+        ##                                    compile.ResumeAtPositionDescr):
+        ##     # there already has been a guard_nonnull or guard_class or
+        ##     # guard_nonnull_class on this value, which is rather silly.
+        ##     # replace the original guard with a guard_value
+        ##     if old_guard_op.getopnum() != rop.GUARD_NONNULL:
+        ##         # This is only safe if the class of the guard_value matches the
+        ##         # class of the guard_*_class, otherwise the intermediate ops might
+        ##         # be executed with wrong classes.
+        ##         previous_classbox = value.get_constant_class(self.optimizer.cpu)
+        ##         expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
+        ##         assert previous_classbox is not None
+        ##         assert expected_classbox is not None
+        ##         if not previous_classbox.same_constant(expected_classbox):
+        ##             r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+        ##             raise InvalidLoop('A GUARD_VALUE (%s) was proven to always fail' % r)
+        ##     descr = compile.ResumeGuardValueDescr()
+        ##     op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
+        ##                 args = [old_guard_op.getarg(0), op.getarg(1)],
+        ##                 descr = descr)
+        ##     # Note: we give explicitly a new descr for 'op'; this is why the
+        ##     # old descr must not be ResumeAtPositionDescr (checked above).
+        ##     # Better-safe-than-sorry but it should never occur: we should
+        ##     # not put in short preambles guard_xxx and guard_value
+        ##     # on the same box.
+        ##     self.optimizer.replace_guard(op, value)
+        ##     descr.make_a_counter_per_value(op)
+        ##     # to be safe
+        ##     if isinstance(value, PtrOptValue):
+        ##         value.last_guard_pos = -1
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)

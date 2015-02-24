@@ -214,14 +214,19 @@ class ResumeDataLoopMemo(object):
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
-            info = optimizer.getinfo(box, create=False)
 
             if isinstance(box, Const):
                 tagged = self.getconst(box)
             elif box in liveboxes:
                 tagged = liveboxes[box]
             else:
-                if info is not None and info.is_virtual():
+                if box.type == 'r':
+                    xxx
+                    info = optimizer.getinfo(box, create=False)
+                    is_virtual = (info is not None and info.is_virtual())
+                else:
+                    is_virtual = False
+                if is_virtual:
                     tagged = tag(v, TAGVIRTUAL)
                     v += 1
                 else:

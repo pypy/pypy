@@ -14,7 +14,8 @@ class OptEarlyForce(Optimization):
     def propagate_forward(self, op):
         opnum = op.getopnum()
 
-        if (opnum != rop.SETFIELD_GC and
+        if 0:   # XXX
+          if (opnum != rop.SETFIELD_GC and
             opnum != rop.SETARRAYITEM_GC and
             opnum != rop.SETARRAYITEM_RAW and
             opnum != rop.QUASIIMMUT_FIELD and

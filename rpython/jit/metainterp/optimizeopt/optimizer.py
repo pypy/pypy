@@ -10,7 +10,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation,\
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 
 """ The tag field on OptValue has a following meaning:
 
@@ -509,7 +509,6 @@ class Optimizer(Optimization):
         self.cpu = metainterp_sd.cpu
         self.loop = loop
         self.logops = LogOperations(metainterp_sd, False)
-        self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
@@ -659,7 +658,12 @@ class Optimizer(Optimization):
         return newop
 
     def make_constant(self, box, constbox):
-        self.getvalue(box).make_constant(constbox)
+        assert isinstance(constbox, ConstInt)
+        box = self.get_box_replacement(box)
+        if not we_are_translated():    # safety-check
+            if box.get_forwarded() is not None:
+                assert box.get_forwarded().contains(constbox.getint())
+        box.set_forwarded(constbox)
 
     def make_constant_int(self, box, intvalue):
         self.make_constant(box, ConstInt(intvalue))
@@ -804,7 +808,7 @@ class Optimizer(Optimization):
             raise compile.giveup()
         descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
-        if op.getopnum() == rop.GUARD_VALUE:
+        if op.getopnum() == rop.GUARD_VALUE and 0: # XXX
             val = self.getvalue(op.getarg(0))
             if val in self.bool_boxes:
                 # Hack: turn guard_value(bool) into guard_true/guard_false.

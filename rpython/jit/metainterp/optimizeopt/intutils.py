@@ -45,12 +45,14 @@ class IntBound(AbstractValue):
         return self.make_ge(other.add(1))
 
     def make_constant(self, value):
+        XXXX # don't call me
         self.has_lower = True
         self.has_upper = True
         self.lower = value
         self.upper = value
 
     def make_unbounded(self):
+        XXX  # hum
         self.has_lower = False
         self.has_upper = False
 

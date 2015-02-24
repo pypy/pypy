@@ -63,9 +63,9 @@ class OptIntBounds(Optimization):
             dispatch_bounds_ops(self, box)
 
     def optimize_GUARD_TRUE(self, op):
-        v = self.getvalue(op.getarg(0))
         self.emit_operation(op)
-        self.propagate_bounds_backward(op.getarg(0), v)
+        #v = self.getintbound(op.getarg(0))
+        #self.propagate_bounds_backward(op.getarg(0), v) XXX
 
     optimize_GUARD_FALSE = optimize_GUARD_TRUE
     optimize_GUARD_VALUE = optimize_GUARD_TRUE
