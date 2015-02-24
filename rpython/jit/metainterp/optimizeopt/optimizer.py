@@ -657,6 +657,8 @@ class Optimizer(Optimization):
         if not we_are_translated():    # safety-check
             if box.get_forwarded() is not None:
                 assert box.get_forwarded().contains(constbox.getint())
+        if box.is_constant():
+            return
         box.set_forwarded(constbox)
 
     def make_constant_int(self, box, intvalue):

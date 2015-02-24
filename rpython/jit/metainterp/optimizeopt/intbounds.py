@@ -49,26 +49,24 @@ class OptIntBounds(Optimization):
         assert not op.is_ovf()
         self.emit_operation(op)
 
-    def propagate_bounds_backward(self, box, v):
+    def propagate_bounds_backward(self, box):
         # FIXME: This takes care of the instruction where box is the reuslt
         #        but the bounds produced by all instructions where box is
         #        an argument might also be tighten
-        b = v.getintbound()
-        if b is None:
-            return # pointer
+        b = self.getintbound(box)
         if b.has_lower and b.has_upper and b.lower == b.upper:
-            v.make_constant(ConstInt(b.lower))
+            self.make_constant_int(box, b.lower)
 
         if isinstance(box, AbstractResOp):
             dispatch_bounds_ops(self, box)
 
-    def optimize_GUARD_TRUE(self, op):
+    def _optimize_guard_true_false_value(self, op):
         self.emit_operation(op)
-        #v = self.getintbound(op.getarg(0))
-        #self.propagate_bounds_backward(op.getarg(0), v) XXX
+        self.propagate_bounds_backward(op.getarg(0))
 
-    optimize_GUARD_FALSE = optimize_GUARD_TRUE
-    optimize_GUARD_VALUE = optimize_GUARD_TRUE
+    optimize_GUARD_TRUE = _optimize_guard_true_false_value
+    optimize_GUARD_FALSE = _optimize_guard_true_false_value
+    optimize_GUARD_VALUE = _optimize_guard_true_false_value
 
     def optimize_INT_OR_or_XOR(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -533,15 +531,15 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_SUB(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        r = self.getvalue(op)
-        b = r.getintbound().add_bound(v2.getintbound())
-        if v1.getintbound().intersect(b):
-            self.propagate_bounds_backward(op.getarg(0), v1)
-        b = r.getintbound().sub_bound(v1.getintbound()).mul(-1)
-        if v2.getintbound().intersect(b):
-            self.propagate_bounds_backward(op.getarg(1), v2)
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        r = self.getintbound(op)
+        b = r.add_bound(b2)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+        b = r.sub_bound(b1).mul(-1)
+        if b2.intersect(b):
+            self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
