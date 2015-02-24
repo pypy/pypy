@@ -695,6 +695,10 @@ class AppTestBytesObject:
         assert 'hello'.encode() == b'hello'
         assert type('hello'.encode()) is bytes
 
+    def test_non_text_encoding(self):
+        raises(LookupError, b'hello'.decode, 'base64')
+        raises(LookupError, 'hello'.encode, 'base64')
+
     def test_hash(self):
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
