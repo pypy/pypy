@@ -3,7 +3,6 @@ from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt,\
      REF, BoxPtr, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded,\
-                                                     ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT,\
                                                      MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -323,19 +322,17 @@ class PtrOptValue(OptValue):
 class IntOptValue(OptValue):
     _attrs_ = ('intbound',)
 
-    intbound = ImmutableIntUnbounded()
-
     def __init__(self, box, level=None, known_class=None, intbound=None):
         OptValue.__init__(self, box, level, None, None)
         if isinstance(box, Const):
+            value = box.getint()
+            self.intbound = IntBound(value, value)
             return
         if intbound:
             self.intbound = intbound
         else:
-            if isinstance(box, BoxInt):
-                self.intbound = IntBound(MININT, MAXINT)
-            else:
-                self.intbound = IntUnbounded()
+            assert isinstance(box, BoxInt)
+            self.intbound = IntBound(MININT, MAXINT)
 
     def copy_from(self, other_value):
         assert isinstance(other_value, IntOptValue)
