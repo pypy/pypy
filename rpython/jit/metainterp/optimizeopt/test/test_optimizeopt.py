@@ -669,11 +669,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i]
         i1 = int_is_true(i)
         guard_false(i1) [i]
-        jump(i)
+        jump()
         """
         expected = """
-        [i]
-        jump(i)
+        []
+        jump()
         """
         self.optimize_loop(ops, expected, preamble)
 
