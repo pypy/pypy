@@ -564,6 +564,7 @@ class RawFuncPtr(AbstractFuncPtr):
         self.funcsym = funcsym
 
     def call(self, args_ll, ll_result):
+        # adjust_return_size() should always be used here on ll_result
         assert len(args_ll) == len(self.argtypes), (
             "wrong number of arguments in call to %s(): "
             "%d instead of %d" % (self.name, len(args_ll), len(self.argtypes)))
@@ -594,8 +595,8 @@ class FuncPtr(AbstractFuncPtr):
                                             intmask(argtypes[i].c_size),
                                             flavor='raw')
         if restype != ffi_type_void:
-            self.ll_result = lltype.malloc(rffi.VOIDP.TO,
-                                           intmask(restype.c_size),
+            size = adjust_return_size(intmask(restype.c_size))
+            self.ll_result = lltype.malloc(rffi.VOIDP.TO, size,
                                            flavor='raw')
 
     def push_arg(self, value):
@@ -693,3 +694,12 @@ class CDLL(RawCDLL):
             dlclose(self.lib)
             self.lib = rffi.cast(DLLHANDLE, -1)
 
+
+def adjust_return_size(memsize):
+    # Workaround for a strange behavior of libffi: make sure that
+    # we always have at least 8 bytes.  ffi_call() writes 8 bytes
+    # into the buffer even if the function's result type asks for
+    # less.  This strange behavior is documented.
+    if memsize < 8:
+        memsize = 8
+    return memsize
