@@ -59,6 +59,17 @@ class OptValue(object):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
 
+    def __repr__(self):
+        level = {LEVEL_UNKNOWN: 'UNKNOWN',
+                 LEVEL_NONNULL: 'NONNULL',
+                 LEVEL_KNOWNCLASS: 'KNOWNCLASS',
+                 LEVEL_CONSTANT: 'CONSTANT'}.get(self.getlevel(),
+                                                 self.getlevel())
+        return '<%s %s %s>' % (
+            self.__class__.__name__,
+            level,
+            self.box)
+
     def getlevel(self):
         return self._tag & 0x3
 
