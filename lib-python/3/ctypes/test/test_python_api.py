@@ -10,7 +10,8 @@ from _ctypes import PyObj_FromPtr
 
 ################################################################
 
-from sys import getrefcount as grc
+if is_resource_enabled("refcount"):
+    from sys import getrefcount as grc
 if sys.version_info > (2, 4):
     c_py_ssize_t = c_size_t
 else:
