@@ -3,7 +3,7 @@ from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.history import Const, ConstInt, REF
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     ImmutableIntUnbounded, IntLowerBound, MININT, MAXINT
+     IntLowerBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractResOp, AbstractInputArg, GuardResOp
@@ -322,8 +322,6 @@ class PtrOptInfo(OptInfo):
 
 class IntOptInfo(OptInfo):
     _attrs_ = ('intbound',)
-
-    intbound = ImmutableIntUnbounded()
 
     def __init__(self, level=LEVEL_UNKNOWN, known_class=None, intbound=None):
         OptInfo.__init__(self, level, None, None)
