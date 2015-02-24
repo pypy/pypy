@@ -221,7 +221,7 @@ class ResumeDataLoopMemo(object):
             elif box in liveboxes:
                 tagged = liveboxes[box]
             else:
-                if value is not None and value.is_virtual():
+                if info is not None and info.is_virtual():
                     tagged = tag(v, TAGVIRTUAL)
                     v += 1
                 else:

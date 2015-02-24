@@ -1,5 +1,4 @@
-from rpython.jit.metainterp.optimizeopt.optimizer import MININT, MAXINT,\
-     IntOptInfo
+from rpython.jit.metainterp.optimizeopt.optimizer import MININT, MAXINT
 
 
 class GeneralizationStrategy(object):

@@ -177,8 +177,6 @@ class MissingValue(object):
 class Const(AbstractValue):
     __slots__ = ()
 
-    forwarded = None
-
     @staticmethod
     def _new(x):
         "NOT_RPYTHON"

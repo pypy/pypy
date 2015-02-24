@@ -4,7 +4,7 @@ from rpython.jit.metainterp.history import (ConstInt, Const,
 from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.optimizeopt.optimizer import (LEVEL_CONSTANT,
-    LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN, OptInfo)
+    LEVEL_KNOWNCLASS, LEVEL_NONNULL, LEVEL_UNKNOWN)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractInputArg
 from rpython.jit.metainterp.compile import Memo

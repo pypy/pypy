@@ -5,7 +5,8 @@ from rpython.jit.codewriter import longlong
 
 class AbstractValue(object):
     _repr_memo = {}
-    
+    is_info_class = False
+
     def _get_hash_(self):
         return compute_identity_hash(self)
 
@@ -17,6 +18,12 @@ class AbstractValue(object):
 
     def is_constant(self):
         return False
+
+    def get_forwarded(self):
+        return None
+
+    def set_forwarded(self, forwarded_to):
+        raise Exception("oups")
 
 DONT_CHANGE = AbstractValue()
 
@@ -37,6 +44,8 @@ def ResOperation(opnum, args, descr=None):
 class AbstractResOp(AbstractValue):
     """The central ResOperation class, representing one operation."""
 
+    _attrs_ = ('_forwarded',)
+
     # debug
     name = ""
     pc = 0
@@ -45,12 +54,16 @@ class AbstractResOp(AbstractValue):
     type = 'v'
     boolreflex = -1
     boolinverse = -1
-    forwarded = None # either another resop or OptInfo
-
-    _attrs_ = ('forwarded',)
+    _forwarded = None # either another resop or OptInfo
 
     def getopnum(self):
         return self.opnum
+
+    def get_forwarded(self):
+        return self._forwarded
+
+    def set_forwarded(self, forwarded_to):
+        self._forwarded = forwarded_to
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -398,8 +411,14 @@ class RefOp(object):
         return InputArgRef()
 
 class AbstractInputArg(AbstractValue):
-    forwarded = None
-    
+    _forwarded = None
+
+    def get_forwarded(self):
+        return self._forwarded
+
+    def set_forwarded(self, forwarded_to):
+        self._forwarded = forwarded_to
+
     def repr(self, memo):
         try:
             return memo[self]

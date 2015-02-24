@@ -3,10 +3,10 @@ from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.history import Const, ConstInt, REF
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     IntLowerBound, MININT, MAXINT
+     IntLowerBound, MININT, MAXINT, IntUnbounded, ConstIntBound
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     AbstractResOp, AbstractInputArg, GuardResOp
+     AbstractResOp, AbstractInputArg, GuardResOp, AbstractValue
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
@@ -43,16 +43,172 @@ class LenBound(object):
                 self.descr == other.descr and
                 self.bound.contains_bound(other.bound))
 
-class OptInfo(object):
-    _attrs_ = ('_tag',)
+
+## class OptInfo(object):
+
+##     def getlevel(self):
+##         return self._tag & 0x3
+
+##     def setlevel(self, level):
+##         self._tag = (self._tag & (~0x3)) | level
+
+##     def import_from(self, other, optimizer):
+##         if self.getlevel() == LEVEL_CONSTANT:
+##             assert other.getlevel() == LEVEL_CONSTANT
+##             assert other.box.same_constant(self.box)
+##             return
+##         assert self.getlevel() <= LEVEL_NONNULL
+##         if other.getlevel() == LEVEL_CONSTANT:
+##             self.make_constant(other.get_key_box())
+##         elif other.getlevel() == LEVEL_KNOWNCLASS:
+##             self.make_constant_class(None, other.get_known_class())
+##         else:
+##             if other.getlevel() == LEVEL_NONNULL:
+##                 self.ensure_nonnull()
+
+##     def make_guards(self, box):
+##         if self.getlevel() == LEVEL_CONSTANT:
+##             op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
+##             return [op]
+##         return []
+
+##     def copy_from(self, other_value):
+##         assert isinstance(other_value, OptValue)
+##         self.box = other_value.box
+##         self._tag = other_value._tag
+
+##     def force_box(self, optforce):
+##         xxx
+##         return self.box
+
+##     def force_at_end_of_preamble(self, already_forced, optforce):
+##         return self
+
+##     # visitor API
+
+##     def visitor_walk_recursive(self, visitor):
+##         pass
+
+##     @specialize.argtype(1)
+##     def visitor_dispatch_virtual_type(self, visitor):
+##         if self.is_virtual():
+##             return self._visitor_dispatch_virtual_type(visitor)
+##         else:
+##             return visitor.visit_not_virtual(self)
+
+##     @specialize.argtype(1)
+##     def _visitor_dispatch_virtual_type(self, visitor):
+##         assert 0, "unreachable"
+
+##     def is_constant(self):
+##         return self.getlevel() == LEVEL_CONSTANT
+
+##     def is_null(self):
+##         if self.is_constant():
+##             box = self.box
+##             assert isinstance(box, Const)
+##             return not box.nonnull()
+##         return False
+
+##     def same_value(self, other):
+##         if not other:
+##             return False
+##         if self.is_constant() and other.is_constant():
+##             return self.box.same_constant(other.box)
+##         return self is other
+
+##     def is_nonnull(self):
+##         level = self.getlevel()
+##         if level == LEVEL_NONNULL or level == LEVEL_KNOWNCLASS:
+##             return True
+##         elif level == LEVEL_CONSTANT:
+##             box = self.box
+##             assert isinstance(box, Const)
+##             return box.nonnull()
+##         else:
+##             return False
+
+##     def ensure_nonnull(self):
+##         if self.getlevel() < LEVEL_NONNULL:
+##             self.setlevel(LEVEL_NONNULL)
+
+##     def get_constant_int(self):
+##         assert self.is_constant()
+##         box = self.box
+##         assert isinstance(box, ConstInt)
+##         return box.getint()
+
+##     def is_virtual(self):
+##         return False # overwridden in VirtualInfo
+
+##     def is_forced_virtual(self):
+##         return False
+
+##     def getfield(self, ofs, default):
+##         raise NotImplementedError
+
+##     def setfield(self, ofs, value):
+##         raise NotImplementedError
+
+##     def getlength(self):
+##         raise NotImplementedError
+
+##     def getitem(self, index):
+##         raise NotImplementedError
+
+##     def setitem(self, index, value):
+##         raise NotImplementedError
+
+##     def getitem_raw(self, offset, length, descr):
+##         raise NotImplementedError
+
+##     def setitem_raw(self, offset, length, descr, value):
+##         raise NotImplementedError
+
+##     def getinteriorfield(self, index, ofs, default):
+##         raise NotImplementedError
+
+##     def setinteriorfield(self, index, ofs, value):
+##         raise NotImplementedError
+
+##     def get_missing_null_value(self):
+##         raise NotImplementedError    # only for VArrayValue
+
+##     def make_constant(self, constbox):
+##         """Replace 'self.box' with a Const box."""
+##         assert isinstance(constbox, Const)
+##         self.box = constbox
+##         self.setlevel(LEVEL_CONSTANT)
+
+##     def get_last_guard(self, optimizer):
+##         return None
+
+##     def get_known_class(self):
+##         return None
+
+##     def getlenbound(self):
+##         return None
+
+##     def getintbound(self):
+##         return None
+
+##     def get_constant_class(self, cpu):
+##         return None
+
+
+class PtrOptInfo(AbstractValue):
+    _attrs_ = ('_tag', 'known_class', 'last_guard_pos', 'lenbound')
+    is_info_class = True
+
     _tag = 0
+    known_class = None
+    last_guard_pos = -1
+    lenbound = None
 
-    forwarded = None
-
-    def __init__(self, level=LEVEL_UNKNOWN, known_class=None, intbound=None):
-        assert isinstance(level, int)
-        if level is not None:
-            self._tag = level
+    def __init__(self, box, level=None, known_class=None, intbound=None):
+        OptValue.__init__(self, box, level, None, intbound)
+        if not isinstance(box, Const):
+            self.known_class = known_class
 
     def __repr__(self):
         level = {LEVEL_UNKNOWN: 'UNKNOWN',
@@ -64,167 +220,6 @@ class OptInfo(object):
             self.__class__.__name__,
             level,
             self.box)
-
-    def getlevel(self):
-        return self._tag & 0x3
-
-    def setlevel(self, level):
-        self._tag = (self._tag & (~0x3)) | level
-
-    def import_from(self, other, optimizer):
-        if self.getlevel() == LEVEL_CONSTANT:
-            assert other.getlevel() == LEVEL_CONSTANT
-            assert other.box.same_constant(self.box)
-            return
-        assert self.getlevel() <= LEVEL_NONNULL
-        if other.getlevel() == LEVEL_CONSTANT:
-            self.make_constant(other.get_key_box())
-        elif other.getlevel() == LEVEL_KNOWNCLASS:
-            self.make_constant_class(None, other.get_known_class())
-        else:
-            if other.getlevel() == LEVEL_NONNULL:
-                self.ensure_nonnull()
-
-    def make_guards(self, box):
-        if self.getlevel() == LEVEL_CONSTANT:
-            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
-            return [op]
-        return []
-
-    def copy_from(self, other_value):
-        assert isinstance(other_value, OptValue)
-        self.box = other_value.box
-        self._tag = other_value._tag
-
-    def force_box(self, optforce):
-        xxx
-        return self.box
-
-    def force_at_end_of_preamble(self, already_forced, optforce):
-        return self
-
-    # visitor API
-
-    def visitor_walk_recursive(self, visitor):
-        pass
-
-    @specialize.argtype(1)
-    def visitor_dispatch_virtual_type(self, visitor):
-        if self.is_virtual():
-            return self._visitor_dispatch_virtual_type(visitor)
-        else:
-            return visitor.visit_not_virtual(self)
-
-    @specialize.argtype(1)
-    def _visitor_dispatch_virtual_type(self, visitor):
-        assert 0, "unreachable"
-
-    def is_constant(self):
-        return self.getlevel() == LEVEL_CONSTANT
-
-    def is_null(self):
-        if self.is_constant():
-            box = self.box
-            assert isinstance(box, Const)
-            return not box.nonnull()
-        return False
-
-    def same_value(self, other):
-        if not other:
-            return False
-        if self.is_constant() and other.is_constant():
-            return self.box.same_constant(other.box)
-        return self is other
-
-    def is_nonnull(self):
-        level = self.getlevel()
-        if level == LEVEL_NONNULL or level == LEVEL_KNOWNCLASS:
-            return True
-        elif level == LEVEL_CONSTANT:
-            box = self.box
-            assert isinstance(box, Const)
-            return box.nonnull()
-        else:
-            return False
-
-    def ensure_nonnull(self):
-        if self.getlevel() < LEVEL_NONNULL:
-            self.setlevel(LEVEL_NONNULL)
-
-    def get_constant_int(self):
-        assert self.is_constant()
-        box = self.box
-        assert isinstance(box, ConstInt)
-        return box.getint()
-
-    def is_virtual(self):
-        return False # overwridden in VirtualInfo
-
-    def is_forced_virtual(self):
-        return False
-
-    def getfield(self, ofs, default):
-        raise NotImplementedError
-
-    def setfield(self, ofs, value):
-        raise NotImplementedError
-
-    def getlength(self):
-        raise NotImplementedError
-
-    def getitem(self, index):
-        raise NotImplementedError
-
-    def setitem(self, index, value):
-        raise NotImplementedError
-
-    def getitem_raw(self, offset, length, descr):
-        raise NotImplementedError
-
-    def setitem_raw(self, offset, length, descr, value):
-        raise NotImplementedError
-
-    def getinteriorfield(self, index, ofs, default):
-        raise NotImplementedError
-
-    def setinteriorfield(self, index, ofs, value):
-        raise NotImplementedError
-
-    def get_missing_null_value(self):
-        raise NotImplementedError    # only for VArrayValue
-
-    def make_constant(self, constbox):
-        """Replace 'self.box' with a Const box."""
-        assert isinstance(constbox, Const)
-        self.box = constbox
-        self.setlevel(LEVEL_CONSTANT)
-
-    def get_last_guard(self, optimizer):
-        return None
-
-    def get_known_class(self):
-        return None
-
-    def getlenbound(self):
-        return None
-
-    def getintbound(self):
-        return None
-
-    def get_constant_class(self, cpu):
-        return None
-
-class PtrOptInfo(OptInfo):
-    _attrs_ = ('known_class', 'last_guard_pos', 'lenbound')
-
-    known_class = None
-    last_guard_pos = -1
-    lenbound = None
-
-    def __init__(self, box, level=None, known_class=None, intbound=None):
-        OptValue.__init__(self, box, level, None, intbound)
-        if not isinstance(box, Const):
-            self.known_class = known_class
 
     def copy_from(self, other_value):
         assert isinstance(other_value, PtrOptValue)
@@ -320,76 +315,76 @@ class PtrOptInfo(OptInfo):
     def get_known_class(self):
         return self.known_class
 
-class IntOptInfo(OptInfo):
-    _attrs_ = ('intbound',)
+## class IntOptInfo(OptInfo):
+##     _attrs_ = ('intbound',)
 
-    def __init__(self, level=LEVEL_UNKNOWN, known_class=None, intbound=None):
-        OptInfo.__init__(self, level, None, None)
-        if intbound:
-            self.intbound = intbound
-        else:
-            self.intbound = IntBound(MININT, MAXINT)
+##     def __init__(self, level=LEVEL_UNKNOWN, known_class=None, intbound=None):
+##         OptInfo.__init__(self, level, None, None)
+##         if intbound:
+##             self.intbound = intbound
+##         else:
+##             self.intbound = IntBound(MININT, MAXINT)
 
-    def copy_from(self, other_value):
-        assert isinstance(other_value, IntOptValue)
-        self.box = other_value.box
-        self.intbound = other_value.intbound
-        self._tag = other_value._tag
+##     def copy_from(self, other_value):
+##         assert isinstance(other_value, IntOptValue)
+##         self.box = other_value.box
+##         self.intbound = other_value.intbound
+##         self._tag = other_value._tag
 
-    def make_constant(self, constbox):
-        """Replace 'self.box' with a Const box."""
-        assert isinstance(constbox, ConstInt)
-        self.box = constbox
-        self.setlevel(LEVEL_CONSTANT)
-        val = constbox.getint()
-        self.intbound = IntBound(val, val)
+##     def make_constant(self, constbox):
+##         """Replace 'self.box' with a Const box."""
+##         assert isinstance(constbox, ConstInt)
+##         self.box = constbox
+##         self.setlevel(LEVEL_CONSTANT)
+##         val = constbox.getint()
+##         self.intbound = IntBound(val, val)
 
-    def is_nonnull(self):
-        if OptValue.is_nonnull(self):
-            return True
-        if self.intbound:
-            if self.intbound.known_gt(IntBound(0, 0)) or \
-               self.intbound.known_lt(IntBound(0, 0)):
-                return True
-        return False
+##     def is_nonnull(self):
+##         if OptValue.is_nonnull(self):
+##             return True
+##         if self.intbound:
+##             if self.intbound.known_gt(IntBound(0, 0)) or \
+##                self.intbound.known_lt(IntBound(0, 0)):
+##                 return True
+##         return False
 
-    def make_nonnull(self, optimizer):
-        assert self.getlevel() < LEVEL_NONNULL
-        self.setlevel(LEVEL_NONNULL)
+##     def make_nonnull(self, optimizer):
+##         assert self.getlevel() < LEVEL_NONNULL
+##         self.setlevel(LEVEL_NONNULL)
 
-    def import_from(self, other, optimizer):
-        OptValue.import_from(self, other, optimizer)
-        if self.getlevel() != LEVEL_CONSTANT:
-            if other.getintbound() is not None: # VRawBufferValue
-                self.intbound.intersect(other.getintbound())
+##     def import_from(self, other, optimizer):
+##         OptValue.import_from(self, other, optimizer)
+##         if self.getlevel() != LEVEL_CONSTANT:
+##             if other.getintbound() is not None: # VRawBufferValue
+##                 self.intbound.intersect(other.getintbound())
 
-    def make_guards(self, box):
-        guards = []
-        level = self.getlevel()
-        if level == LEVEL_CONSTANT:
-            op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
-            guards.append(op)
-        elif level == LEVEL_KNOWNCLASS:
-            op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            guards.append(op)
-        else:
-            if level == LEVEL_NONNULL:
-                op = ResOperation(rop.GUARD_NONNULL, [box], None)
-                guards.append(op)
-            self.intbound.make_guards(box, guards)
-        return guards
+##     def make_guards(self, box):
+##         guards = []
+##         level = self.getlevel()
+##         if level == LEVEL_CONSTANT:
+##             op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
+##             guards.append(op)
+##         elif level == LEVEL_KNOWNCLASS:
+##             op = ResOperation(rop.GUARD_NONNULL, [box], None)
+##             guards.append(op)
+##         else:
+##             if level == LEVEL_NONNULL:
+##                 op = ResOperation(rop.GUARD_NONNULL, [box], None)
+##                 guards.append(op)
+##             self.intbound.make_guards(box, guards)
+##         return guards
 
-    def getintbound(self):
-        return self.intbound
+##     def getintbound(self):
+##         return self.intbound
 
-    def get_last_guard(self, optimizer):
-        return None
+##     def get_last_guard(self, optimizer):
+##         return None
 
-    def get_known_class(self):
-        return None
+##     def get_known_class(self):
+##         return None
 
-    def getlenbound(self):
-        return None
+##     def getlenbound(self):
+##         return None
 
 
 CONST_0      = ConstInt(0)
@@ -412,9 +407,18 @@ class Optimization(object):
         self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
 
-    # FIXME: Move some of these here?
-    def getinfo(self, op, create=True):
-        return self.optimizer.getinfo(op, create=create)
+    def getintbound(self, op):#, create=True):
+        assert op.type == 'i'
+        while op.get_forwarded() is not None:
+            op = op.get_forwarded()
+        if isinstance(op, IntBound):
+            return op
+        if isinstance(op, ConstInt):
+            return ConstIntBound(op.getint())
+        assert op.type == 'i'
+        intbound = IntUnbounded()
+        op.set_forwarded(intbound)
+        return intbound
 
     def get_box_replacement(self, op):
         return self.optimizer.get_box_replacement(op)
@@ -581,46 +585,32 @@ class Optimizer(Optimization):
         else:
             return box
 
-    def getinfo(self, op, create=False):
-        while op.forwarded is not None:
-            op = op.forwarded
-        if isinstance(op, OptInfo) or isinstance(op, Const):
-            return op
-        if not create:
-            return None
-        if op.type == 'r':
-            optinfo = PtrOptInfo()
-        elif op.type == 'i':
-            optinfo = IntOptInfo()
-        else:
-            optinfo = OptInfo()
-        op.forwarded = optinfo
-        return optinfo
-        xxx
-        yyy
+    ## def getinfo(self, op, create=False):
+    ##     xxx
+    ##     yyy
 
-        XXX
-        box = self.getinterned(box)
-        try:
-            value = self.values[box]
-        except KeyError:
-            if box.type == "r":
-                value = self.values[box] = PtrOptValue(box)
-            elif box.type == "i":
-                value = self.values[box] = IntOptValue(box)
-            else:
-                assert box.type == "f"
-                value = self.values[box] = OptValue(box)
-        self.ensure_imported(value)
-        return value
+    ##     XXX
+    ##     box = self.getinterned(box)
+    ##     try:
+    ##         value = self.values[box]
+    ##     except KeyError:
+    ##         if box.type == "r":
+    ##             value = self.values[box] = PtrOptValue(box)
+    ##         elif box.type == "i":
+    ##             value = self.values[box] = IntOptValue(box)
+    ##         else:
+    ##             assert box.type == "f"
+    ##             value = self.values[box] = OptValue(box)
+    ##     self.ensure_imported(value)
+    ##     return value
 
     def get_box_replacement(self, op):
         orig_op = op
-        while (op.forwarded is not None and
-               not isinstance(op.forwarded, OptInfo)):
-            op = op.forwarded
+        while (op.get_forwarded() is not None and
+               not op.get_forwarded().is_info_class):
+            op = op.get_forwarded()
         if op is not orig_op:
-            orig_op.forwarded = op
+            orig_op.set_forwarded(op)
         return op
 
     def ensure_imported(self, value):
@@ -664,8 +654,8 @@ class Optimizer(Optimization):
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
-            assert op.forwarded is None
-            op.forwarded = newop
+            assert op.get_forwarded() is None  #XXX
+            op.set_forwarded(newop)
         return newop
 
     def make_constant(self, box, constbox):
