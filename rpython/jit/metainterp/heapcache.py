@@ -204,10 +204,6 @@ class HeapCache(object):
                 self._clear_caches_arraycopy(opnum, descr, argboxes, effectinfo)
                 return
             else:
-                # first escape arguments:
-                for argbox in argboxes:
-                    self._escape_box(argbox)
-
                 # Only invalidate things that are escaped
                 # XXX can do better, only do it for the descrs in the effectinfo
                 for descr, cache in self.heap_cache.iteritems():

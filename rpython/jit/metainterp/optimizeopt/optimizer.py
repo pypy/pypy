@@ -54,6 +54,17 @@ class OptInfo(object):
         if level is not None:
             self._tag = level
 
+    def __repr__(self):
+        level = {LEVEL_UNKNOWN: 'UNKNOWN',
+                 LEVEL_NONNULL: 'NONNULL',
+                 LEVEL_KNOWNCLASS: 'KNOWNCLASS',
+                 LEVEL_CONSTANT: 'CONSTANT'}.get(self.getlevel(),
+                                                 self.getlevel())
+        return '<%s %s %s>' % (
+            self.__class__.__name__,
+            level,
+            self.box)
+
     def getlevel(self):
         return self._tag & 0x3
 

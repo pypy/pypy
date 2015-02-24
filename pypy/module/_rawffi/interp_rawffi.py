@@ -495,6 +495,7 @@ class W_FuncPtr(W_Root):
         try:
             if self.resshape is not None:
                 result = self.resshape.allocate(space, 1, autofree=True)
+                # adjust_return_size() was used here on result.ll_buffer
                 self.ptr.call(args_ll, result.ll_buffer)
                 return space.wrap(result)
             else:
