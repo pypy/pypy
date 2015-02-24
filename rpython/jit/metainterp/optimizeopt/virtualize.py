@@ -759,21 +759,23 @@ class OptVirtualize(optimizer.Optimization):
         self.emit_operation(op)
 
     def optimize_INT_ADD(self, op):
-        value = self.getvalue(op.getarg(0))
-        offsetbox = self.get_constant_box(op.getarg(1))
-        if value.is_virtual() and offsetbox is not None:
-            offset = offsetbox.getint()
-            # the following check is constant-folded to False if the
-            # translation occurs without any VRawXxxValue instance around
-            if value.is_about_raw:
-                if isinstance(value, VRawBufferValue):
-                    self.make_virtual_raw_slice(value, offset, op)
-                    return
-                elif isinstance(value, VRawSliceValue):
-                    offset = offset + value.offset
-                    self.make_virtual_raw_slice(value.rawbuffer_value, offset,
-                                                op)
-                    return
+        if 0:
+            XXX
+            value = self.getvalue(op.getarg(0))
+            offsetbox = self.get_constant_box(op.getarg(1))
+            if value.is_virtual() and offsetbox is not None:
+                offset = offsetbox.getint()
+                # the following check is constant-folded to False if the
+                # translation occurs without any VRawXxxValue instance around
+                if value.is_about_raw:
+                    if isinstance(value, VRawBufferValue):
+                        self.make_virtual_raw_slice(value, offset, op)
+                        return
+                    elif isinstance(value, VRawSliceValue):
+                        offset = offset + value.offset
+                        self.make_virtual_raw_slice(value.rawbuffer_value, offset,
+                                                    op)
+                        return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):

@@ -6,7 +6,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
-    CONST_0, CONST_1, PtrOptInfo)
+    CONST_0, CONST_1, PtrOptInfo, INFO_NONNULL, INFO_NULL)
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
@@ -124,13 +124,13 @@ class OptRewrite(Optimization):
             self.optimizer.pure_reverse(op)
 
     def optimize_INT_ADD(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        arg1 = self.get_box_replacement(op.getarg(0))
+        arg2 = self.get_box_replacement(op.getarg(1))
 
         # If one side of the op is 0 the result is the other side.
-        if v1.is_constant() and v1.box.getint() == 0:
+        if arg1.is_constant() and arg1.getint() == 0:
             self.make_equal_to(op, v2)
-        elif v2.is_constant() and v2.box.getint() == 0:
+        elif arg2.is_constant() and arg2.getint() == 0:
             self.make_equal_to(op, v1)
         else:
             self.emit_operation(op)
@@ -427,16 +427,17 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def _optimize_nullness(self, op, box, expect_nonnull):
-        value = self.getvalue(box)
-        if value.is_nonnull():
+        info = self.getnullness(box)
+        if info == INFO_NONNULL:
             self.make_constant_int(op, expect_nonnull)
-        elif value.is_null():
+        elif info == INFO_NULL:
             self.make_constant_int(op, not expect_nonnull)
         else:
             self.emit_operation(op)
 
     def optimize_INT_IS_TRUE(self, op):
-        if self.getvalue(op.getarg(0)) in self.optimizer.bool_boxes:
+        if self.getintbound(op.getarg(0)).is_bool():
+            xxx
             self.make_equal_to(op, self.getvalue(op.getarg(0)))
             return
         self._optimize_nullness(op, op.getarg(0), True)

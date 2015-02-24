@@ -252,6 +252,20 @@ class IntBound(AbstractValue):
             op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
 
+    def is_bool(self):
+        return (self.bounded() and self.known_ge(ConstIntBound(0)) and
+                self.known_le(ConstIntBound(1)))
+
+    def getnullness(self):
+        from rpython.jit.metainterp.optimizeopt import optimizer
+
+        if self.known_gt(IntBound(0, 0)) or \
+           self.known_lt(IntBound(0, 0)):
+            return optimizer.INFO_NONNULL
+        if self.known_ge(IntBound(0, 0)) and \
+           self.known_le(IntBound(0, 0)):
+            return optimizer.INFO_NULL
+        return optimizer.INFO_UNKNOWN
 
 def IntUpperBound(upper):
     b = IntBound(lower=0, upper=upper)

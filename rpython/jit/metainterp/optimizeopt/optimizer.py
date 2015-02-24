@@ -393,6 +393,9 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
+INFO_NULL = 0
+INFO_NONNULL = 1
+INFO_UNKNOWN = 2
 
 class Optimization(object):
     next_optimization = None
@@ -419,6 +422,11 @@ class Optimization(object):
         intbound = IntUnbounded()
         op.set_forwarded(intbound)
         return intbound
+
+    def getnullness(self, op):
+        if op.type == 'i':
+            return self.getintbound(op).getnullness()
+        xxxx
 
     def get_box_replacement(self, op):
         return self.optimizer.get_box_replacement(op)
@@ -512,7 +520,6 @@ class Optimizer(Optimization):
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
-        self.bool_boxes = {}
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
         self.quasi_immutable_deps = None
@@ -721,7 +728,7 @@ class Optimizer(Optimization):
 
     def emit_operation(self, op):
         if op.returns_bool_result():
-            self.bool_boxes[self.getvalue(op)] = None
+            self.getintbound(op).make_bool()
         self._emit_operation(op)
 
     @specialize.argtype(0)

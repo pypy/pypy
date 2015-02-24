@@ -110,20 +110,20 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_SUB(self, op):
         self.emit_operation(op)
-        v1 = self.getintbound(op.getarg(0))
-        v2 = self.getintbound(op.getarg(1))
-        b = v1.sub_bound(v2)
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        b = b1.sub_bound(b2)
         if b.bounded():
             self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
         self.emit_operation(op)
-        r = self.getvalue(op)
-        b = v1.getintbound().add_bound(v2.getintbound())
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        r = self.getintbound(op)
+        b = b1.add_bound(b2)
         if b.bounded():
-            r.getintbound().intersect(b)
+            r.intersect(b)
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -499,18 +499,19 @@ class OptIntBounds(Optimization):
                     self.propagate_bounds_backward(op.getarg(1), v2)
 
     def propagate_bounds_INT_IS_TRUE(self, op):
-        r = self.getvalue(op)
+        r = self.get_box_replacement(op)
         if r.is_constant():
-            if r.box.same_constant(CONST_1):
-                v1 = self.getvalue(op.getarg(0))
-                if v1.getintbound().known_ge(IntBound(0, 0)):
-                    v1.getintbound().make_gt(IntBound(0, 0))
-                    self.propagate_bounds_backward(op.getarg(0), v1)
+            if r.getint() == 1:
+                b1 = self.getintbound(op.getarg(0))
+                if b1.known_ge(IntBound(0, 0)):
+                    b1.make_gt(IntBound(0, 0))
+                    self.propagate_bounds_backward(op.getarg(0))
 
     def propagate_bounds_INT_IS_ZERO(self, op):
-        r = self.getvalue(op)
+        r = self.get_box_replacement(op)
         if r.is_constant():
-            if r.box.same_constant(CONST_1):
+            if r.getint() == 1:
+                xxx
                 v1 = self.getvalue(op.getarg(0))
                 # Clever hack, we can't use self.make_constant_int yet because
                 # the args aren't in the values dictionary yet so it runs into
@@ -520,15 +521,15 @@ class OptIntBounds(Optimization):
                 self.propagate_bounds_backward(op.getarg(0), v1)
 
     def propagate_bounds_INT_ADD(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        r = self.getvalue(op)
-        b = r.getintbound().sub_bound(v2.getintbound())
-        if v1.getintbound().intersect(b):
-            self.propagate_bounds_backward(op.getarg(0), v1)
-        b = r.getintbound().sub_bound(v1.getintbound())
-        if v2.getintbound().intersect(b):
-            self.propagate_bounds_backward(op.getarg(1), v2)
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        r = self.getintbound(op)
+        b = r.sub_bound(b2)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+        b = r.sub_bound(b1)
+        if b2.intersect(b):
+            self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_SUB(self, op):
         b1 = self.getintbound(op.getarg(0))
