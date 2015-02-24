@@ -346,7 +346,7 @@ class OptRewrite(Optimization):
         value.make_constant_class(None, expectedclassbox)
 
     def optimize_GUARD_CLASS(self, op):
-        value = self.getvalue(op.getarg(0))
+        value = self.getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)
         realclassbox = value.get_constant_class(self.optimizer.cpu)
@@ -356,7 +356,6 @@ class OptRewrite(Optimization):
             r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
             raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
                               % r)
-        assert isinstance(value, PtrOptValue)
         old_guard_op = value.get_last_guard(self.optimizer)
         if old_guard_op and not isinstance(old_guard_op.getdescr(),
                                            compile.ResumeAtPositionDescr):

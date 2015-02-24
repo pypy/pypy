@@ -1,7 +1,7 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.metainterp.history import Const, ConstInt, REF
+from rpython.jit.metainterp.history import Const, ConstInt, REF, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      IntLowerBound, MININT, MAXINT, IntUnbounded, ConstIntBound
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -205,10 +205,16 @@ class PtrOptInfo(AbstractValue):
     last_guard_pos = -1
     lenbound = None
 
-    def __init__(self, box, level=None, known_class=None, intbound=None):
-        OptValue.__init__(self, box, level, None, intbound)
-        if not isinstance(box, Const):
-            self.known_class = known_class
+    #def __init__(self, level=None, known_class=None, intbound=None):
+    #    OptValue.__init__(self, box, level, None, intbound)
+    #    if not isinstance(box, Const):
+    #        self.known_class = known_class
+
+    def getlevel(self):
+        return self._tag & 0x3
+
+    def setlevel(self, level):
+        self._tag = (self._tag & (~0x3)) | level
 
     def __repr__(self):
         level = {LEVEL_UNKNOWN: 'UNKNOWN',
@@ -412,12 +418,13 @@ class Optimization(object):
 
     def getintbound(self, op):#, create=True):
         assert op.type == 'i'
-        while op.get_forwarded() is not None:
-            op = op.get_forwarded()
-        if isinstance(op, IntBound):
-            return op
+        op = self.get_box_replacement(op)
         if isinstance(op, ConstInt):
             return ConstIntBound(op.getint())
+        fw = op.get_forwarded()
+        if isinstance(fw, IntBound):
+            return fw
+        assert fw is None
         assert op.type == 'i'
         intbound = IntUnbounded()
         op.set_forwarded(intbound)
@@ -427,6 +434,20 @@ class Optimization(object):
         if op.type == 'i':
             return self.getintbound(op).getnullness()
         xxxx
+
+    def getptrinfo(self, op):
+        assert op.type == 'r'
+        op = self.get_box_replacement(op)
+        assert op.type == 'r'
+        if isinstance(op, ConstPtr):
+            xxx
+        fw = op.get_forwarded()
+        if fw is not None:
+            assert isinstance(fw, PtrOptInfo)
+            return fw
+        ptrinfo = PtrOptInfo()
+        op.set_forwarded(ptrinfo)
+        return ptrinfo
 
     def get_box_replacement(self, op):
         return self.optimizer.get_box_replacement(op)
