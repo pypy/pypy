@@ -1089,6 +1089,27 @@ void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
 }
 
 
+void stm_stop_all_other_threads(void)
+{
+    if (!stm_is_inevitable())         /* may still abort */
+        _stm_become_inevitable("stop_all_other_threads");
+
+    s_mutex_lock();
+    synchronize_all_threads(STOP_OTHERS_AND_BECOME_GLOBALLY_UNIQUE);
+    s_mutex_unlock();
+}
+
+void stm_resume_all_other_threads(void)
+{
+    /* this calls 'committed_globally_unique_transaction()' even though
+       we're not committing now.  It's a way to piggyback on the existing
+       implementation for stm_become_globally_unique_transaction(). */
+    s_mutex_lock();
+    committed_globally_unique_transaction();
+    s_mutex_unlock();
+}
+
+
 
 static inline void _synchronize_fragment(stm_char *frag, ssize_t frag_size)
 {

@@ -269,6 +269,37 @@ static inline void stm_become_inevitable(stm_thread_local_t *tl,
 void stm_become_globally_unique_transaction(stm_thread_local_t *tl, const char *msg);
 void stm_validate(void);
 
+/* Temporarily stop all the other threads, by waiting until they
+   reach a safe-point.  Don't nest the calls to stop/resume and make sure
+   that resume is called.  The current transaction is turned inevitable. */
+void stm_stop_all_other_threads(void);
+void stm_resume_all_other_threads(void);
+
+
+/* Convenience macros to push the markers into the shadowstack */
+#define STM_PUSH_MARKER(tl, odd_num, p)   do {  \
+    uintptr_t _odd_num = (odd_num);             \
+    assert(_odd_num & 1);                       \
+    STM_PUSH_ROOT(tl, _odd_num);                \
+    STM_PUSH_ROOT(tl, p);                       \
+} while (0)
+
+#define STM_POP_MARKER(tl)   ({                 \
+    object_t *_popped = STM_POP_ROOT_RET(tl);   \
+    STM_POP_ROOT_RET(tl);                       \
+    _popped;                                    \
+})
+
+#define STM_UPDATE_MARKER_NUM(tl, odd_num)  do {                \
+    uintptr_t _odd_num = (odd_num);                             \
+    assert(_odd_num & 1);                                       \
+    struct stm_shadowentry_s *_ss = (tl).shadowstack - 2;       \
+    while (!(((uintptr_t)(_ss->ss)) & 1)) {                     \
+        _ss--;                                                  \
+        assert(_ss >= (tl).shadowstack_base);                   \
+    }                                                           \
+    _ss->ss = (object_t *)_odd_num;                             \
+} while (0)
 
 
 /* Support for light finalizers.  This is a simple version of

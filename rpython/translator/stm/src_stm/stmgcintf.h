@@ -38,6 +38,8 @@ void pypy_stm_setup_expand_marker(long co_filename_ofs,
 
 long _pypy_stm_count(void);
 
+
+
 /* C8: not implemented properly yet: */
 extern void stmcb_commit_soon(void);
 #define _STM_CARD_SIZE                 32     /* must be >= 32 */
