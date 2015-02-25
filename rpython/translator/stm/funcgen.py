@@ -108,16 +108,23 @@ def stm_allocate_f_light(funcgen, op):
             '((rpyobj_t *)%s)->tid = %s;\n' % (result, arg_type_id) +
             'stm_enable_light_finalizer((object_t *)%s);' % (result,))
 
-def stm_get_from_obj(funcgen, op):
-    assert op.args[0].concretetype == llmemory.GCREF
-    arg_obj = funcgen.expr(op.args[0])
-    arg_ofs = funcgen.expr(op.args[1])
-    result  = funcgen.expr(op.result)
+def stm_allocate_preexisting(funcgen, op):
+    arg_size   = funcgen.expr(op.args[0])
+    arg_idata  = funcgen.expr(op.args[1])
+    result     = funcgen.expr(op.result)
     resulttype = cdecl(funcgen.lltypename(op.result), '')
-    return '%s = *(TLPREFIX %s *)(%s + %s);' % (
-        result, resulttype, arg_obj, arg_ofs)
+    return ('%s = (%s)stm_allocate_preexisting(%s,'
+            ' _stm_real_address((object_t *)%s));' % (
+        result, resulttype, arg_size, arg_idata))
 
-stm_get_from_obj_const = stm_get_from_obj
+def stm_allocate_nonmovable(funcgen, op):
+    arg_size    = funcgen.expr(op.args[0])  # <- could be smaller than 16 here
+    arg_type_id = funcgen.expr(op.args[1])
+    result      = funcgen.expr(op.result)
+    # XXX NULL returns?
+    return ('%s = (rpygcchar_t *)_stm_allocate_external(%s >= 16 ? %s : 16); ' %
+                (result, arg_size, arg_size) +
+            '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
 def stm_set_into_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF
@@ -159,8 +166,11 @@ def stm_become_inevitable(funcgen, op):
     string_literal = c_string_constant(info)
     return 'pypy_stm_become_inevitable(%s);' % (string_literal,)
 
-def stm_become_globally_unique_transaction(funcgen, op):
-    return 'pypy_stm_become_globally_unique_transaction();'
+def stm_stop_all_other_threads(funcgen, op):
+    return 'stm_stop_all_other_threads();'
+
+def stm_resume_all_other_threads(funcgen, op):
+    return 'stm_resume_all_other_threads();'
 
 def stm_push_root(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
@@ -311,6 +321,13 @@ def stm_hashtable_write(funcgen, op):
     arg3 = funcgen.expr(op.args[3])
     return ('stm_hashtable_write((object_t *)%s, %s, %s, (object_t *)%s, '
             '&stm_thread_local);' % (arg0, arg1, arg2, arg3))
+
+def stm_hashtable_write_entry(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    return ('stm_hashtable_write_entry((object_t *)%s, %s, (object_t *)%s);' % (
+        arg0, arg1, arg2))
 
 def stm_hashtable_lookup(funcgen, op):
     arg0 = funcgen.expr(op.args[0])

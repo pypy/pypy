@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 /* all addresses passed to this interface should be "char *" pointers
    in the segment 0. */
 void _stm_largemalloc_init_arena(char *data_start, size_t data_size);

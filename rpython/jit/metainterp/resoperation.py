@@ -87,13 +87,12 @@ class AbstractResOp(object):
         if descr is None:
             descr = self.getdescr()
         newop = ResOperation(opnum, args, result, descr)
+        newop.stm_location = self.stm_location
         return newop
 
     def clone(self):
         args = self.getarglist()
         descr = self.getdescr()
-        if descr is not None:
-            descr = descr.clone_if_mutable()
         op = ResOperation(self.getopnum(), args[:], self.result, descr)
         op.stm_location = self.stm_location
         if not we_are_translated():
@@ -215,6 +214,9 @@ class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
 
+    rd_snapshot = None
+    rd_frame_info_list = None
+
     def getfailargs(self):
         return self._fail_args
 
@@ -223,12 +225,18 @@ class GuardResOp(ResOpWithDescr):
 
     def copy_and_change(self, opnum, args=None, result=None, descr=None):
         newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
     def clone(self):
         newop = AbstractResOp.clone(self)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
 # ============
@@ -373,12 +381,6 @@ class N_aryOp(object):
         self._args[i] = box
 
 
-class StmLocation(object):
-    def __init__(self, num, ref):
-        self.num = num
-        self.ref = ref
-
-
 # ____________________________________________________________
 
 _oplist = [
@@ -423,6 +425,7 @@ _oplist = [
     'INT_RSHIFT/2',
     'INT_LSHIFT/2',
     'UINT_RSHIFT/2',
+    'INT_SIGNEXT/2',
     'FLOAT_ADD/2',
     'FLOAT_SUB/2',
     'FLOAT_MUL/2',

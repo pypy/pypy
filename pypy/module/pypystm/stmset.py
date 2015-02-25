@@ -65,7 +65,7 @@ class W_STMSet(W_Root):
             narray = lltype.malloc(ARRAY, 1)
             L = 0
         narray[L] = cast_instance_to_gcref(w_key)
-        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
+        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
 
     def try_remove(self, space, w_key):
         hkey = space.hash_w(w_key)
@@ -84,7 +84,7 @@ class W_STMSet(W_Root):
             narray = lltype.malloc(ARRAY, L)
             ll_arraycopy(array, narray, 0, 0, i)
             ll_arraycopy(array, narray, i + 1, i, L - i)
-        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
+        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
         return True
 
     def remove_w(self, space, w_key):

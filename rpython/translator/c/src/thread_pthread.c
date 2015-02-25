@@ -56,30 +56,6 @@
 # endif
 #endif
 
-/* XXX This implementation is considered (to quote Tim Peters) "inherently
-   hosed" because:
-     - It does not guarantee the promise that a non-zero integer is returned.
-     - The cast to long is inherently unsafe.
-     - It is not clear that the 'volatile' (for AIX?) and ugly casting in the
-       latter return statement (for Alpha OSF/1) are any longer necessary.
-*/
-long RPyThreadGetIdent(void)
-{
-	volatile pthread_t threadid;
-	/* Jump through some hoops for Alpha OSF/1 */
-	threadid = pthread_self();
-
-#ifdef __CYGWIN__
-	/* typedef __uint32_t pthread_t; */
-	return (long) threadid;
-#else
-	if (sizeof(pthread_t) <= sizeof(long))
-		return (long) threadid;
-	else
-		return (long) *(long *) &threadid;
-#endif
-}
-
 static long _pypythread_stacksize = 0;
 
 static void *bootstrap_pthread(void *func)
@@ -556,8 +532,5 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay) {
 #define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
 #define atomic_increment(ptr)          __sync_fetch_and_add(ptr, 1)
 #define atomic_decrement(ptr)          __sync_fetch_and_sub(ptr, 1)
-
-#define SAVE_ERRNO()      int saved_errno = errno
-#define RESTORE_ERRNO()   errno = saved_errno
 
 #include "src/thread_gil.c"

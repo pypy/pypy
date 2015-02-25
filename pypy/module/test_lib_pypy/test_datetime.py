@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 import py
 
+
 class BaseTestDatetime:
     def test_repr(self):
         print datetime
@@ -210,10 +211,12 @@ class BaseTestDatetime:
             naive == aware
         assert str(e.value) == "can't compare offset-naive and offset-aware times"
 
-class TestDatetimeCPython(BaseTestDatetime):
+
+class TestDatetimeHost(BaseTestDatetime):
     def setup_class(cls):
         global datetime
         import datetime
+
 
 class TestDatetimePyPy(BaseTestDatetime):
     def setup_class(cls):

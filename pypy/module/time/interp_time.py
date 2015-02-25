@@ -62,7 +62,8 @@ if _WIN:
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
         [rwin32.HANDLE], rwin32.BOOL,
-        compilation_info=eci)
+        compilation_info=eci,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     class GlobalState:
         def __init__(self):
@@ -79,8 +80,8 @@ if _WIN:
             except WindowsError, e:
                 raise wrap_windowserror(space, e)
             if not _setCtrlHandlerRoutine(globalState.interrupt_event):
-                raise wrap_windowserror(
-                    space, rwin32.lastWindowsError("SetConsoleCtrlHandler"))
+                raise wrap_windowserror(space,
+                    rwin32.lastSavedWindowsError("SetConsoleCtrlHandler"))
 
     globalState = GlobalState()
 
@@ -166,10 +167,12 @@ glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T, transactionsafe=True)
 c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)   # not reentrant
-c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P)        # not reentrant
+c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,        # not reentrant
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_mktime = external('mktime', [TM_P], rffi.TIME_T, transactionsafe=True)
 c_asctime = external('asctime', [TM_P], rffi.CCHARP)       # not reentrant
-c_localtime = external('localtime', [rffi.TIME_TP], TM_P)  # not reentrant
+c_localtime = external('localtime', [rffi.TIME_TP], TM_P,  # not reentrant
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -301,7 +304,7 @@ def _init_timezone(space):
     _set_module_object(space, 'altzone', space.wrap(altzone))
 
 def _get_error_msg():
-    errno = rposix.get_errno()
+    errno = rposix.get_saved_errno()
     return os.strerror(errno)
 
 if sys.platform != 'win32':

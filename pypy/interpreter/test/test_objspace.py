@@ -378,3 +378,41 @@ class TestModuleMinimal:
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+
+    def test_interned_strings_are_weak(self):
+        import weakref, gc, random
+        space = self.space
+        assert space.config.translation.rweakref
+        w1 = space.new_interned_str("abcdef")
+        w2 = space.new_interned_str("abcdef")
+        assert w2 is w1
+        #
+        # check that 'w1' goes away if we don't hold a reference to it
+        rw1 = weakref.ref(w1)
+        del w1, w2
+        i = 10
+        while rw1() is not None:
+            i -= 1
+            assert i >= 0
+            gc.collect()
+        #
+        s = "foobar%r" % random.random()
+        w0 = space.wrap(s)
+        w1 = space.new_interned_w_str(w0)
+        assert w1 is w0
+        w2 = space.new_interned_w_str(w0)
+        assert w2 is w0
+        w3 = space.wrap(s)
+        assert w3 is not w0
+        w4 = space.new_interned_w_str(w3)
+        assert w4 is w0
+        #
+        # check that 'w0' goes away if we don't hold a reference to it
+        # (even if we hold a reference to 'w3')
+        rw0 = weakref.ref(w0)
+        del w0, w1, w2, w4
+        i = 10
+        while rw0() is not None:
+            i -= 1
+            assert i >= 0
+            gc.collect()

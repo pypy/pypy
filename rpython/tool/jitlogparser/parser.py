@@ -29,7 +29,7 @@ class Op(object):
     asm = None
     failargs = ()
 
-    def __init__(self, name, args, res, descr):
+    def __init__(self, name, args, res, descr, failargs=None):
         self.name = name
         self.args = args
         self.res = res
@@ -37,6 +37,7 @@ class Op(object):
         self._is_guard = name.startswith('guard_')
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard0x'):-1], 16)
+        self.failargs = failargs
 
     def as_json(self):
         d = {
@@ -167,8 +168,8 @@ class SimpleParser(OpParser):
     def box_for_var(self, res):
         return res
 
-    def create_op(self, opnum, args, res, descr):
-        return self.Op(intern(opname[opnum].lower()), args, res, descr)
+    def create_op(self, opnum, args, res, descr, fail_args):
+        return self.Op(intern(opname[opnum].lower()), args, res, descr, fail_args)
 
 
 
@@ -228,7 +229,7 @@ class TraceForOpcode(object):
     line_starts_here = property(getline_starts_here)
 
     def __repr__(self):
-        return "[%s]" % ", ".join([repr(op) for op in self.operations])
+        return "[%s\n]" % "\n    ".join([repr(op) for op in self.operations])
 
     def pretty_print(self, out):
         pass

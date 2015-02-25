@@ -269,3 +269,7 @@ def test_cornercases():
         assert unused > 0
         buf = buf[-unused:]
     rzlib.deflateEnd(stream)
+
+def test_zlibVersion():
+    runtime_version = rzlib.zlibVersion()
+    assert runtime_version[0] == rzlib.ZLIB_VERSION[0]

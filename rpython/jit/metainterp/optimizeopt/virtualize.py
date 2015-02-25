@@ -11,12 +11,12 @@ from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-
-class AbstractVirtualValue(optimizer.OptValue):
+class AbstractVirtualValue(optimizer.PtrOptValue):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
-    level = optimizer.LEVEL_NONNULL
+    _tag = optimizer.LEVEL_NONNULL
     is_about_raw = False
     _cached_vinfo = None
 
@@ -159,6 +159,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 iteritems.sort(key=lambda (x, y): x.sort_key())
             for ofs, value in iteritems:
                 subbox = value.force_box(optforce)
+                # STM note: recording stm_location is pointless, because
+                # it should not fail here: we just allocated 'box'
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
                 optforce.emit_operation(op)
@@ -198,7 +200,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualValue(AbstractVirtualStructValue):
-    level = optimizer.LEVEL_KNOWNCLASS
+    _tag = optimizer.LEVEL_KNOWNCLASS
 
     def __init__(self, cpu, known_class, keybox, source_op=None):
         AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)
@@ -433,6 +435,9 @@ class VRawBufferValue(AbstractVArrayValue):
         self.size = size
         self.buffer = RawBuffer(cpu, logops)
 
+    def getintbound(self):
+        return IntUnbounded()
+
     def getlength(self):
         return len(self.buffer.values)
 
@@ -491,6 +496,9 @@ class VRawSliceValue(AbstractVirtualValue):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.rawbuffer_value = rawbuffer_value
         self.offset = offset
+
+    def getintbound(self):
+        return IntUnbounded()
 
     def _really_force(self, optforce):
         op = self.source_op

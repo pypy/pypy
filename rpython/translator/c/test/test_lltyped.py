@@ -966,3 +966,18 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(f, [int])
         assert fn(6) == 6
+
+    def test_likely_unlikely(self):
+        from rpython.rlib.objectmodel import likely, unlikely
+
+        def f(n):
+            if unlikely(n > 50):
+                return -10
+            if likely(n > 5):
+                return 42
+            return 3
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == 3
+        assert fn(10) == 42
+        assert fn(100) == -10

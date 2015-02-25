@@ -43,7 +43,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
         for i in range(length):
             dest[dest_start + i] = source[source_start + i]
 
-def pop_from_entry(entry, space, w_key):
+def pop_from_entry(h, entry, space, w_key):
     array = lltype.cast_opaque_ptr(PARRAY, entry.object)
     if not array:
         return None
@@ -59,7 +59,7 @@ def pop_from_entry(entry, space, w_key):
         narray = lltype.malloc(ARRAY, L)
         ll_arraycopy(array, narray, 0, 0, i)
         ll_arraycopy(array, narray, i + 2, i, L - i)
-    entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
+    h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
     return w_value
 
 
@@ -96,12 +96,12 @@ class W_STMDict(W_Root):
             L = 0
         narray[L] = cast_instance_to_gcref(w_key)
         narray[L + 1] = cast_instance_to_gcref(w_value)
-        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
+        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
 
     def delitem_w(self, space, w_key):
         hkey = space.hash_w(w_key)
         entry = self.h.lookup(hkey)
-        if pop_from_entry(entry, space, w_key) is None:
+        if pop_from_entry(self.h, entry, space, w_key) is None:
             space.raise_key_error(w_key)
 
     def contains_w(self, space, w_key):
@@ -126,7 +126,7 @@ class W_STMDict(W_Root):
     def pop_w(self, space, w_key, w_default=None):
         hkey = space.hash_w(w_key)
         entry = self.h.lookup(hkey)
-        w_value = pop_from_entry(entry, space, w_key)
+        w_value = pop_from_entry(self.h, entry, space, w_key)
         if w_value is not None:
             return w_value
         elif w_default is not None:
@@ -152,7 +152,7 @@ class W_STMDict(W_Root):
             L = 0
         narray[L] = cast_instance_to_gcref(w_key)
         narray[L + 1] = cast_instance_to_gcref(w_default)
-        entry.object = lltype.cast_opaque_ptr(llmemory.GCREF, narray)
+        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
         return w_default
 
     def get_length(self):

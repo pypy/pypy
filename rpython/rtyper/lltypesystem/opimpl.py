@@ -749,6 +749,14 @@ def op_stm_count():
 _stm_counter = 0
 
 
+def op_likely(x):
+    assert isinstance(x, bool)
+    return x
+
+def op_unlikely(x):
+    assert isinstance(x, bool)
+    return x
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

@@ -478,6 +478,7 @@ OP_WEIGHTS = {'same_as': 0,
               'malloc': 2,
               'instrument_count': 0,
               'debug_assert': -1,
+              'jit_force_virtualizable': 0,
               }
 
 def block_weight(block, weights=OP_WEIGHTS):

@@ -76,7 +76,7 @@ def run_setup_and_program(dirname, python_snippet):
 class TestZIntegration(object):
     def teardown_class(self):
         if udir.isdir():
-            udir.remove()
+            udir.remove(ignore_errors=True)
 
     def test_infrastructure(self):
         run_setup_and_program('infrastructure', '''

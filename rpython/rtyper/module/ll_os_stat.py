@@ -349,7 +349,8 @@ def register_stat_variant(name, traits):
 
     posix_mystat = rffi.llexternal(c_func_name,
                                    [ARG1, STAT_STRUCT], rffi.INT,
-                                   compilation_info=compilation_info)
+                                   compilation_info=compilation_info,
+                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
     @func_renamer('os_%s_llimpl' % (name,))
     def posix_stat_llimpl(arg):
@@ -361,7 +362,7 @@ def register_stat_variant(name, traits):
             if arg_is_path:
                 traits.free_charp(arg)
             if error != 0:
-                raise OSError(rposix.get_errno(), "os_?stat failed")
+                raise OSError(rposix.get_saved_errno(), "os_?stat failed")
             return build_stat_result(stresult)
         finally:
             lltype.free(stresult, flavor='raw')
@@ -401,8 +402,8 @@ def register_statvfs_variant(name, traits):
 
     posix_mystatvfs = rffi.llexternal(name,
         [ARG1, STATVFS_STRUCT], rffi.INT,
-        compilation_info=compilation_info
-    )
+        compilation_info=compilation_info,
+        save_err=rffi.RFFI_SAVE_ERRNO)
 
     @func_renamer('os_%s_llimpl' % (name,))
     def posix_statvfs_llimpl(arg):
@@ -414,7 +415,7 @@ def register_statvfs_variant(name, traits):
             if arg_is_path:
                 traits.free_charp(arg)
             if error != 0:
-                raise OSError(rposix.get_errno(), "os_?statvfs failed")
+                raise OSError(rposix.get_saved_errno(), "os_?statvfs failed")
             return build_statvfs_result(stresult)
         finally:
             lltype.free(stresult, flavor='raw')
@@ -522,11 +523,11 @@ def make_win32_stat_impl(name, traits):
         try:
             l_path = traits.str2charp(path)
             res = win32traits.GetFileAttributesEx(l_path, win32traits.GetFileExInfoStandard, data)
-            errcode = rwin32.GetLastError()
+            errcode = rwin32.GetLastError_saved()
             if res == 0:
                 if errcode == win32traits.ERROR_SHARING_VIOLATION:
                     res = attributes_from_dir(l_path, data)
-                    errcode = rwin32.GetLastError()
+                    errcode = rwin32.GetLastError_saved()
             traits.free_charp(l_path)
             if res == 0:
                 raise WindowsError(errcode, "os_stat failed")
@@ -548,7 +549,7 @@ def make_win32_stat_impl(name, traits):
                                      0, 0, 0, 0, 0,
                                      0, 0, 0, 0))
         elif filetype == win32traits.FILE_TYPE_UNKNOWN:
-            error = rwin32.GetLastError()
+            error = rwin32.GetLastError_saved()
             if error != 0:
                 raise WindowsError(error, "os_fstat failed")
             # else: unknown but valid file
@@ -559,7 +560,8 @@ def make_win32_stat_impl(name, traits):
         try:
             res = win32traits.GetFileInformationByHandle(handle, info)
             if res == 0:
-                raise WindowsError(rwin32.GetLastError(), "os_fstat failed")
+                raise WindowsError(rwin32.GetLastError_saved(),
+                                   "os_fstat failed")
             return by_handle_info_to_stat(info)
         finally:
             lltype.free(info, flavor='raw')

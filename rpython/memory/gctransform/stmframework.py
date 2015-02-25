@@ -55,7 +55,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                   annmodel.SomeInteger()))
         #
         def pypy_stmcb_trace(obj, visit_fn):
-            gc.trace(obj, invokecallback, visit_fn)
+            gc.tracei(obj, invokecallback, visit_fn)
         pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
         self.autoregister_ptrs.append(
             getfn(pypy_stmcb_trace, [llannotation.SomeAddress(),
@@ -201,9 +201,26 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.default(hop)
         self.pop_roots(hop, livevars)
 
+    def gct_stm_malloc_nonmovable(self, hop):
+        op = hop.spaceop
+        PTRTYPE = op.result.concretetype
+        TYPE = PTRTYPE.TO
+        type_id = self.get_type_id(TYPE)
+
+        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
+        info = self.layoutbuilder.get_info(type_id)
+        c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
+
+        livevars = self.push_roots(hop)
+        v_result = hop.genop("stm_allocate_nonmovable",
+                             [c_size, c_type_id],
+                             resulttype=llmemory.GCREF)
+        self.pop_roots(hop, livevars)
+        hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
+
     # sync with lloperation.py
     gct_stm_become_inevitable                       = _gct_with_roots_pushed
-    gct_stm_become_globally_unique_transaction      = _gct_with_roots_pushed
+    gct_stm_stop_all_other_threads                  = _gct_with_roots_pushed
     gct_stm_transaction_break                       = _gct_with_roots_pushed
     gct_stm_collect                                 = _gct_with_roots_pushed
 

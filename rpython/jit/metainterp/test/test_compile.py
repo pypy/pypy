@@ -10,6 +10,9 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
+    class Storage:
+        pass
+    
     class tracker:
         pass
 
@@ -18,6 +21,7 @@ class FakeCPU(object):
         self.seen = []
     def compile_loop(self, inputargs, operations, token, log=True, name='',
                      logger=None):
+        token.compiled_loop_token = self.Storage()
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
@@ -121,7 +125,6 @@ def test_compile_tmp_callback():
         portal_runner_adr = llmemory.cast_ptr_to_adr(portal_runner_ptr)
         portal_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, None)
         portal_finishtoken = compile.DoneWithThisFrameDescrInt()
-        propagate_exc_descr = compile.PropagateExceptionDescr()
         num_red_args = 2
         result_type = INT
     #

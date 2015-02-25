@@ -225,9 +225,9 @@ def simpleops():
     >>> element.remove(subelement)
     >>> serialize(element) # 5
     '<tag key="value" />'
-    >>> element.remove(subelement)
+    >>> element.remove(subelement)    # doctest: +ELLIPSIS
     Traceback (most recent call last):
-    ValueError: list.remove(x): x not in list
+    ValueError: list.remove(...
     >>> serialize(element) # 6
     '<tag key="value" />'
     >>> element[0:0] = [subelement, subelement, subelement]

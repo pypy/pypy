@@ -2,7 +2,6 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
-
 /************************************************************/
 
 #define NURSERY_START         (FIRST_NURSERY_PAGE * 4096UL)

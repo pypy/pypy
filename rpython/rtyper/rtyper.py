@@ -48,6 +48,10 @@ class RPythonTyper(object):
         self.reprs = stmdict()
         self._seen_reprs_must_call_setup = stmset()
         self._all_lists_must_call_setup = []
+        try:
+            del annmodel.TLS._reprs_must_call_setup
+        except AttributeError:
+            pass
         self._dict_traits = {}
         self.rootclass_repr = RootClassRepr(self)
         self.rootclass_repr.setup()
@@ -64,6 +68,7 @@ class RPythonTyper(object):
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
+        self.isinstance_helpers = {}
         self.exceptiondata = ExceptionData(self)
         self.custom_trace_funcs = []
 
@@ -258,9 +263,10 @@ class RPythonTyper(object):
                 # try a version using the transaction module
                 self.log.event('specializing transactionally %d blocks' %
                                (len(pending),))
-                with transaction.TransactionQueue():
-                    for block in pending:
-                        transaction.add(self.specialize_block, block)
+                tq = transaction.TransactionQueue()
+                for block in pending:
+                    tq.add(self.specialize_block, block)
+                tq.run()
                 self.log.event('left transactional mode')
                 blockcount += len(pending)
                 self.already_seen.update(dict.fromkeys(pending, True))
@@ -303,21 +309,27 @@ class RPythonTyper(object):
 
     def call_all_setups(self, all_threads=False):
         # make sure all reprs so far have had their setup() called
-        must_setup_more = []
-        if all_threads:
-            lsts = self._all_lists_must_call_setup
-        else:
-            lsts = [self._list_must_call_setup()]
-        for lst in lsts:
-            while lst:
-                r = lst.pop()
-                if r.is_setup_delayed():
-                    pass    # will be re-added in set_setup_delayed(False)
-                else:
-                    r.setup()
-                    must_setup_more.append(r)
-        for r in must_setup_more:
-            r.setup_final()
+        while True:
+            if all_threads:
+                lsts = self._all_lists_must_call_setup
+                if not any(lsts):
+                    return      # nothing to do
+            else:
+                lst = self._list_must_call_setup()
+                if not lst:
+                    return      # nothing to do
+                lsts = [lst]
+            must_setup_more = []
+            for lst in lsts:
+                while lst:
+                    r = lst.pop()
+                    if r.is_setup_delayed():
+                        pass    # will be re-added in set_setup_delayed(False)
+                    else:
+                        r.setup()
+                        must_setup_more.append(r)
+            for r in must_setup_more:
+                r.setup_final()
 
     def setconcretetype(self, v):
         assert isinstance(v, Variable)
@@ -345,6 +357,16 @@ class RPythonTyper(object):
         return LowLevelOpList(self, block)
 
     def specialize_block(self, block):
+        lst = self._list_must_call_setup()
+        assert lst == []
+        self._specialize_block(block)
+        # There are cases here where the list of pending setups is not empty.
+        # Better empty it now during the same transaction.  Otherwise in rare
+        # cases some reprs stay non-setup()ed for a non-deterministic while
+        # and then other reprs' setup crash
+        self.call_all_setups()
+
+    def _specialize_block(self, block):
         graph = self.annotator.annotated[block]
         if graph not in self.annotator.fixed_graphs:
             self.annotator.fixed_graphs.add(graph)

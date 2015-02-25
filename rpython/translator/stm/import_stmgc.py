@@ -11,7 +11,11 @@ import sys, py, subprocess, os
 
 def mangle(lines):
     yield "/* Imported by rpython/translator/stm/import_stmgc.py */\n"
+    kill_first_empty_line = True
     for line in lines:
+        if kill_first_empty_line and line.strip() == '':
+            kill_first_empty_line = False
+            continue
         yield line
 
 def main(stmgc_dir):

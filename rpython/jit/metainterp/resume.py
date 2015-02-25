@@ -1,7 +1,7 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import jitprof
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, getkind,
-    BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT, AbstractDescr)
+    BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT, AbstractDescr, StmLocation)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib import rarithmetic, rstack
 from rpython.rlib.objectmodel import (we_are_translated, specialize,
@@ -55,7 +55,7 @@ def _ensure_parent_resumedata(framestack, n):
                                          back.get_list_of_active_boxes(True))
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
-                       storage):
+                       snapshot_storage):
     n = len(framestack) - 1
     if virtualizable_boxes is not None:
         boxes = virtualref_boxes + virtualizable_boxes
@@ -66,14 +66,14 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
         _ensure_parent_resumedata(framestack, n)
         frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
                                     top.jitcode, top.pc)
-        storage.rd_frame_info_list = frame_info_list
+        snapshot_storage.rd_frame_info_list = frame_info_list
         snapshot = Snapshot(top.parent_resumedata_snapshot,
                             top.get_list_of_active_boxes(False))
         snapshot = Snapshot(snapshot, boxes)
-        storage.rd_snapshot = snapshot
+        snapshot_storage.rd_snapshot = snapshot
     else:
-        storage.rd_frame_info_list = None
-        storage.rd_snapshot = Snapshot(None, boxes)
+        snapshot_storage.rd_frame_info_list = None
+        snapshot_storage.rd_snapshot = Snapshot(None, boxes)
 
 #
 # The following is equivalent to the RPython-level declaration:
@@ -95,7 +95,9 @@ PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
                                    ('num', rffi.SHORT),
                                    ('fieldnum', rffi.SHORT),
-                                   ('itemindex', rffi.INT))
+                                   ('itemindex', rffi.INT),
+                                   ('llstmloc', OBJECTPTR)) # xxx make this last
+                                                        # field optional on stm?
 PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
@@ -270,8 +272,9 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(VirtualVisitor):
 
-    def __init__(self, storage, memo):
+    def __init__(self, storage, snapshot_storage, memo):
         self.storage = storage
+        self.snapshot_storage = snapshot_storage
         self.memo = memo
 
     def make_virtual_info(self, value, fieldnums):
@@ -357,13 +360,14 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
-        snapshot = storage.rd_snapshot
+        snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
         numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
-        storage.rd_snapshot = None
+        self.snapshot_storage.rd_snapshot = None
+        storage.rd_frame_info_list = self.snapshot_storage.rd_frame_info_list
 
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
@@ -378,7 +382,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 value = optimizer.getvalue(box)
                 value.visitor_walk_recursive(self)
 
-        for _, box, fieldbox, _ in pending_setfields:
+        for _, box, fieldbox, _, _ in pending_setfields:
             self.register_box(box)
             self.register_box(fieldbox)
             value = optimizer.getvalue(fieldbox)
@@ -458,7 +462,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             n = len(pending_setfields)
             rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
             for i in range(n):
-                descr, box, fieldbox, itemindex = pending_setfields[i]
+                descr, box, fieldbox, itemindex, stmloc = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
@@ -471,6 +475,9 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 rd_pendingfields[i].num = num
                 rd_pendingfields[i].fieldnum = fieldnum
                 rd_pendingfields[i].itemindex = itemindex
+                if stmloc is not None:
+                    llstmloc = annlowlevel.cast_instance_to_base_ptr(stmloc)
+                    rd_pendingfields[i].llstmloc = llstmloc
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -880,14 +887,17 @@ class AbstractResumeDataReader(object):
                 num = pendingfields[i].num
                 fieldnum = pendingfields[i].fieldnum
                 itemindex = pendingfields[i].itemindex
+                llstmloc = pendingfields[i].llstmloc
                 descr = annlowlevel.cast_base_ptr_to_instance(AbstractDescr,
                                                               lldescr)
                 struct = self.decode_ref(num)
                 itemindex = rffi.cast(lltype.Signed, itemindex)
+                saved = self.change_stm_location(llstmloc)
                 if itemindex < 0:
                     self.setfield(struct, fieldnum, descr)
                 else:
                     self.setarrayitem(struct, itemindex, fieldnum, descr)
+                self.restore_stm_location(saved)
 
     def setarrayitem(self, array, index, fieldnum, arraydescr):
         if arraydescr.is_array_of_pointers():
@@ -917,6 +927,15 @@ class AbstractResumeDataReader(object):
     def _callback_f(self, index, register_index):
         value = self.decode_float(self.cur_numb.nums[index])
         self.write_a_float(register_index, value)
+
+    def change_stm_location(self, ignored):
+        # xxx maybe we should really use this STM location in
+        # ResumeDataDirectReader, but later
+        pass
+
+    def restore_stm_location(self, ignored):
+        pass
+
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
@@ -1180,6 +1199,18 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def int_add_const(self, intbox, offset):
         return self.metainterp.execute_and_record(rop.INT_ADD, None, intbox,
                                                   ConstInt(offset))
+
+    def change_stm_location(self, llstmloc):
+        if self.metainterp.jitdriver_sd.stm_report_location is None:
+            return None
+        saved_stm_location = self.metainterp.history.stm_location
+        stmloc = annlowlevel.cast_base_ptr_to_instance(StmLocation, llstmloc)
+        self.metainterp.history.stm_location = stmloc
+        return saved_stm_location
+
+    def restore_stm_location(self, stmloc):
+        self.metainterp.history.stm_location = stmloc
+
 
 # ---------- when resuming for blackholing, get direct values ----------
 

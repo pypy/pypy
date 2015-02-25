@@ -287,6 +287,7 @@ class AbstractCPU(object):
 class CompiledLoopToken(object):
     asmmemmgr_blocks = None
     asmmemmgr_gcroots = 0
+    _stm_redirection = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, cpu, number):
         cpu.tracker.total_compiled_loops += 1

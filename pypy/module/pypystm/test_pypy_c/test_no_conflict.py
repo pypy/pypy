@@ -29,6 +29,44 @@ class TestNoConflict(BaseTestSTM):
         #
         self.check_almost_no_conflict(f)
 
+    def test_hashtable_populate(self):
+        def f():
+            import pypystm
+            class TL(object):
+                step = 0
+            d = pypystm.hashtable()     # shared
+            def g(n, tl):
+                value = n + tl.step
+                tl.step += 10
+                d[value] = tl
+            run_in_threads(g, arg_thread_num=True, arg_class=TL)
+        #
+        self.check_almost_no_conflict(f)
+
+    def test_stmdict_populate(self):
+        def f():
+            import pypystm
+            class TL(object):
+                step = 0
+            d = pypystm.stmdict()     # shared
+            def g(n, tl):
+                value = n + tl.step
+                tl.step += 10
+                d[value] = tl
+            run_in_threads(g, arg_thread_num=True, arg_class=TL)
+        #
+        self.check_almost_no_conflict(f)
+
+    def test_threadlocal(self):
+        def f():
+            import thread
+            tls = thread._local()
+            def g():
+                tls.value = getattr(tls, 'value', 0) + 1
+            run_in_threads(g)
+        #
+        self.check_almost_no_conflict(f)
+
     def test_weakrefs(self):
         py.test.skip("next issue")
         def f():

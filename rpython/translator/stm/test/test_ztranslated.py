@@ -1,6 +1,6 @@
 import py
 from rpython.rlib import rstm, rgc, objectmodel
-from rpython.rlib.debug import debug_print
+from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -280,7 +280,9 @@ class TestSTMTranslated(CompiledSTMTests):
             if retry_counter < 1000:
                 if (retry_counter & 3) == 0:
                     lltype.free(x, flavor='raw')
+                debug_start('foo')
                 debug_print(rffi.cast(lltype.Signed, x))
+                debug_stop('foo')
                 rstm.abort_and_retry()
             lltype.free(x, flavor='raw')
             return 0
@@ -295,10 +297,14 @@ class TestSTMTranslated(CompiledSTMTests):
             return 0
 
         t, cbuilder = self.compile(main)
-        data, dataerr = cbuilder.cmdexec('', err=True)
-        lines = dataerr.split('\n')
-        assert len(lines) > 1000
-        addresses = map(int, lines[:1000])
+        data, dataerr = cbuilder.cmdexec('', err=True, env={'PYPYLOG': 'foo:-'})
+        lines = dataerr.splitlines()
+        assert len(lines) > 3000
+        addresses = []
+        for i in range(0, 3000, 3):
+            assert lines[i].endswith('{foo')
+            addresses.append(int(lines[i+1].split()[-1]))
+            assert lines[i+2].endswith('foo}')
         assert len(addresses) == 1000
         assert len(set(addresses)) < 500    # should ideally just be a few
         import re
@@ -601,5 +607,54 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'ok!\n' in data
 
         t, cbuilder = self.compile(main, backendopt=True)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
+
+    def test_allocate_preexisting(self):
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+
+        def main(argv):
+            s1 = lltype.malloc(S)
+            s1.n = 42
+            s2 = rstm.allocate_preexisting(s1)
+            s1.n += 1
+            assert s2.n == 42
+            #
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
+
+    def test_allocate_nonmovable(self):
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+
+        def main(argv):
+            s1 = rstm.allocate_nonmovable(S)
+            s1.n = 42
+            assert s1.n == 42
+            assert not rgc.can_move(s1)
+            #
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
+
+    def test_ll_arrayclear(self):
+        A = lltype.GcArray(rffi.SHORT)
+        def main(argv):
+            p = lltype.malloc(A, 11)
+            for i in range(11):
+                p[i] = rffi.cast(rffi.SHORT, -4242)
+            rgc.ll_arrayclear(p)
+            for i in range(11):
+                assert rffi.cast(lltype.Signed, p[i]) == 0
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data

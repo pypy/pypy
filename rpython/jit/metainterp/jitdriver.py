@@ -20,7 +20,6 @@ class JitDriverStaticData(object):
     #    self.no_loop_header    ... rpython.jit.metainterp.warmspot
     #    self.stm_report_location.. rpython.jit.metainterp.warmspot
     #    self.portal_finishtoken... rpython.jit.metainterp.pyjitpl
-    #    self.propagate_exc_descr.. rpython.jit.metainterp.pyjitpl
     #    self.index             ... rpython.jit.codewriter.call
     #    self.mainjitcode       ... rpython.jit.codewriter.call
 

@@ -398,6 +398,10 @@ class ExceptionTransformer(object):
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
             var_no_exc = self.gen_isnull(v_exc_type, llops)
+        #
+        # We could add a "var_no_exc is likely true" hint, but it seems
+        # not to help, so it was commented out again.
+        #var_no_exc = llops.genop('likely', [var_no_exc], lltype.Bool)
 
         block.operations.extend(llops)
 
@@ -449,12 +453,14 @@ class ExceptionTransformer(object):
         EXCDATA = lltype.Struct('ExcData',
             ('exc_type',  self.lltype_of_exception_type),
             ('exc_value', self.lltype_of_exception_value),
+            ('have_debug_prints', lltype.Signed),
             hints={'stm_thread_local': True,
                    'stm_dont_track_raw_accesses':True,
                    'is_excdata': True})
         self.EXCDATA = EXCDATA
 
         exc_data = lltype.malloc(EXCDATA, immortal=True)
+        exc_data.have_debug_prints = -1
         null_type = lltype.nullptr(self.lltype_of_exception_type.TO)
         null_value = lltype.nullptr(self.lltype_of_exception_value.TO)
 

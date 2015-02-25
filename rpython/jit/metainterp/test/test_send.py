@@ -385,8 +385,7 @@ class SendTests(object):
         self.check_target_token_count(4)
 
     def test_two_behaviors(self):
-        py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'x'])
         class Int:
             def __init__(self, value):
                 self.value = value
@@ -402,11 +401,6 @@ class SendTests(object):
             return x.value
         res = self.meta_interp(f, [len(cases)])
         assert res == 110
-        # The generated loops don't contain a new_with_vtable at all.  This
-        # is true if we replace "if cases[y]" above with "if not cases[y]"
-        # -- so there is no good reason that it fails.
-        self.check_loops(new_with_vtable=0)
-        self.check_trace_count(2)
 
     def test_behavior_change_after_a_while(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x'])

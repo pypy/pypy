@@ -8,9 +8,10 @@ VERBOSE = False
 def test_simple_random_order():
     for x in range(N):
         lst = []
-        with transaction.TransactionQueue():
-            for i in range(10):
-                transaction.add(lst.append, i)
+        tq = transaction.TransactionQueue()
+        for i in range(10):
+            tq.add(lst.append, i)
+        tq.run()
         if VERBOSE:
             print lst
         assert sorted(lst) == range(10), lst
@@ -22,9 +23,10 @@ def test_simple_fixed_order():
             lst.append(i)
             i += 1
             if i < 10:
-                transaction.add(do_stuff, i)
-        with transaction.TransactionQueue():
-            transaction.add(do_stuff, 0)
+                tq.add(do_stuff, i)
+        tq = transaction.TransactionQueue()
+        tq.add(do_stuff, 0)
+        tq.run()
         if VERBOSE:
             print lst
         assert lst == range(10), lst
@@ -36,10 +38,11 @@ def test_simple_random_and_fixed_order():
             lsts[i].append(j)
             j += 1
             if j < 10:
-                transaction.add(do_stuff, i, j)
-        with transaction.TransactionQueue():
-            for i in range(5):
-                transaction.add(do_stuff, i, 0)
+                tq.add(do_stuff, i, j)
+        tq = transaction.TransactionQueue()
+        for i in range(5):
+            tq.add(do_stuff, i, 0)
+        tq.run()
         if VERBOSE:
             print lsts
         assert lsts == (range(10),) * 5, lsts
@@ -53,14 +56,15 @@ def test_raise():
             lsts[i].append(j)
             j += 1
             if j < 5:
-                transaction.add(do_stuff, i, j)
+                tq.add(do_stuff, i, j)
             else:
                 lsts[i].append('foo')
                 raise FooError
+        tq = transaction.TransactionQueue()
+        for i in range(10):
+            tq.add(do_stuff, i, 0)
         try:
-            with transaction.TransactionQueue():
-                for i in range(10):
-                    transaction.add(do_stuff, i, 0)
+            tq.run()
         except FooError:
             pass
         else:
@@ -78,19 +82,74 @@ def test_raise():
 
 
 def test_number_of_transactions_reported():
-    py.test.skip("not reimplemented")
-    with transaction.TransactionQueue():
-        transaction.add(lambda: None)
-    assert transaction.number_of_transactions_in_last_run() == 1
+    tq = transaction.TransactionQueue()
+    tq.add(lambda: None)
+    tq.add(lambda: None)
+    tq.run()
+    assert tq.number_of_transactions_executed() == 2
+
+    tq.run()
+    assert tq.number_of_transactions_executed() == 2
+
+    tq.add(lambda: None)
+    tq.run()
+    assert tq.number_of_transactions_executed() == 3
+
+    tq.add(lambda: some_name_that_is_not_defined)
+    try:
+        tq.run()
+    except NameError:
+        pass
+    else:
+        raise AssertionError("should have raised NameError")
+    assert tq.number_of_transactions_executed() == 4
+
+    tq.add(tq.number_of_transactions_executed)
+    try:
+        tq.run()
+    except transaction.TransactionError:
+        pass
+    else:
+        raise AssertionError("should have raised TransactionError")
 
     def add_transactions(l):
         if l:
             for x in range(l[0]):
-                transaction.add(add_transactions, l[1:])
+                tq.add(add_transactions, l[1:])
 
-    with transaction.TransactionQueue():
-        transaction.add(add_transactions, [10, 10, 10])
-    assert transaction.number_of_transactions_in_last_run() == 1111
+    tq = transaction.TransactionQueue()
+    tq.add(add_transactions, [10, 10, 10])
+    tq.run()
+    assert tq.number_of_transactions_executed() == 1111
+
+def test_unexecuted_transactions_after_exception():
+    class FooError(Exception):
+        pass
+    class BarError(Exception):
+        pass
+    def raiseme(exc):
+        raise exc
+    seen = []
+    tq = transaction.TransactionQueue()
+    tq.add(raiseme, FooError)
+    tq.add(raiseme, BarError)
+    tq.add(seen.append, 42)
+    tq.add(seen.append, 42)
+    try:
+        tq.run()
+    except (FooError, BarError), e:
+        seen_exc = e.__class__
+    else:
+        raise AssertionError("should have raised FooError or BarError")
+    try:
+        tq.run()
+    except (FooError, BarError), e:
+        assert e.__class__ != seen_exc
+    else:
+        raise AssertionError("unexecuted transactions have disappeared")
+    for i in range(2):
+        tq.run()
+        assert seen == [42, 42]
 
 
 def test_stmidset():

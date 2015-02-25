@@ -199,21 +199,13 @@ class Test__ffi(BaseTestPyPyC):
         ldexp_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
-        if 'ConstClass(ldexp)' in repr(loop):   # e.g. OS/X
-            ldexp_addr = 'ConstClass(ldexp)'
         assert loop.match_by_id('cfficall', """
-            ...
-            f1 = call_release_gil(..., descr=<Callf 8 fi EF=6 OS=62>)
-            ...
-        """)
-        ops = loop.ops_by_id('cfficall')
-        for name in ['raw_malloc', 'raw_free']:
-            assert name not in str(ops)
-        for name in ['raw_load', 'raw_store', 'getarrayitem_raw', 'setarrayitem_raw']:
-            assert name not in log.opnames(ops)
-        # so far just check that call_release_gil() is produced.
-        # later, also check that the arguments to call_release_gil()
-        # are constants
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            f97 = call_release_gil(27, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+        """, ignore_ops=['guard_not_invalidated'])
 
     def test_cffi_call_guard_not_forced_fails(self):
         # this is the test_pypy_c equivalent of
@@ -340,18 +332,16 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p166, ConstPtr(ptr72), descr=...)
         p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
-        i112 = int_sub(i160, -32768)
+        i112 = int_signext(i160, 2)
         setfield_gc(p167, ConstPtr(null), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
-        i114 = uint_gt(i112, 65535)
+        i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
-        i115 = int_and(i112, 65535)
-        i116 = int_add(i115, -32768)
         --TICK--
         i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
-        raw_store(i119, 0, i116, descr=<ArrayS 2>)
-        raw_store(i119, 2, i116, descr=<ArrayS 2>)
-        raw_store(i119, 4, i116, descr=<ArrayS 2>)
+        raw_store(i119, 0, i160, descr=<ArrayS 2>)
+        raw_store(i119, 2, i160, descr=<ArrayS 2>)
+        raw_store(i119, 4, i160, descr=<ArrayS 2>)
         setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .+>)
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
         jump(..., descr=...)

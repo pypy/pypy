@@ -106,7 +106,7 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def guard_already_patched(self, faildescr):
         # only needed for STM so far
-        return faildescr._x86_adr_jump_offset == 0
+        return faildescr.adr_jump_offset == 0
 
         
     def clear_latest_values(self, count):
@@ -129,17 +129,17 @@ class AbstractX86CPU(AbstractLLCPU):
 
         if self.gc_ll_descr.stm:
             rstm.stop_all_other_threads()
-            
-        for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
-            mc = codebuf.MachineCodeBlockWrapper()
-            mc.JMP_l(tgt)
-            assert mc.get_relative_pos() == 5      # [JMP] [tgt 4 bytes]
-            mc.copy_to_raw_memory(addr - 1)
-        # positions invalidated
-        looptoken.compiled_loop_token.invalidate_positions = []
-        
-        if self.gc_ll_descr.stm:
-            rstm.partial_commit_and_resume_other_threads()
+        try:
+            for addr, tgt in looptoken.compiled_loop_token.invalidate_positions:
+                mc = codebuf.MachineCodeBlockWrapper()
+                mc.JMP_l(tgt)
+                assert mc.get_relative_pos() == 5      # [JMP] [tgt 4 bytes]
+                mc.copy_to_raw_memory(addr - 1)
+            # positions invalidated
+            looptoken.compiled_loop_token.invalidate_positions = []
+        finally:
+            if self.gc_ll_descr.stm:
+                rstm.resume_all_other_threads()
 
     def get_all_loop_runs(self):
         l = lltype.malloc(LOOP_RUN_CONTAINER,

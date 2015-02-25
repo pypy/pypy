@@ -40,6 +40,3 @@ typedef TLPREFIX char rpygcchar_t;
 typedef char rpygcchar_t;
 
 #endif
-
-
-#include "src/threadlocal.h"

@@ -65,7 +65,9 @@ if sys.platform != 'win32' and hasattr(os, 'fork') and not os.getenv("PYPY_DONT_
 
     def spawn_subprocess():
         global _child
-        _child = Popen([sys.executable, _source], bufsize=0,
+        # For STM, it doesn't make sense to run another STM subprocess.
+        # Better just start cpython.
+        _child = Popen(['/usr/bin/python', _source], bufsize=0,
                        stdin=PIPE, stdout=PIPE, close_fds=True)
     spawn_subprocess()
 

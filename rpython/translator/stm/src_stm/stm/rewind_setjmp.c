@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <alloca.h>
 
-
 struct _rewind_jmp_moved_s {
     struct _rewind_jmp_moved_s *next;
     size_t stack_size;

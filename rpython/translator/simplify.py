@@ -617,7 +617,7 @@ def remove_identical_vars_SSA(graph):
             if simplify_phis(block):
                 progress = True
 
-    renaming = {key: uf[key].rep for key in uf}
+    renaming = dict((key, uf[key].rep) for key in uf)
     for block, links in entrymap.items():
         if inputs[block]:
             new_inputs, new_args = zip(*inputs[block])

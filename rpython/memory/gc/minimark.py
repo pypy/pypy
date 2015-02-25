@@ -174,8 +174,8 @@ class MiniMarkGC(MovingGCBase):
         # fall-back number.
         "nursery_size": 896*1024,
 
-        # The system page size.  Like obmalloc.c, we assume that it is 4K
-        # for 32-bit systems; unlike obmalloc.c, we assume that it is 8K
+        # The system page size.  Like malloc, we assume that it is 4K
+        # for 32-bit systems; unlike malloc, we assume that it is 8K
         # for 64-bit systems, for consistent results.
         "page_size": 1024*WORD,
 

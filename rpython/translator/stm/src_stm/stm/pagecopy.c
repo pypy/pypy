@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 #define PAGECOPY_128(dest, src)                                         \
         asm volatile("movdqa (%0), %%xmm0\n"                            \
                      "movdqa 16(%0), %%xmm1\n"                          \

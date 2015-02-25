@@ -77,13 +77,12 @@ class TestLLTermios(object):
 
     def test_tcrest(self):
         from rpython.translator.c.test.test_genc import compile
-        from rpython.rtyper.module import ll_termios
-        import termios, time
+        from rpython.rlib import rtermios
         def runs_tcall():
-            termios.tcsendbreak(2, 0)
-            termios.tcdrain(2)
-            termios.tcflush(2, termios.TCIOFLUSH)
-            termios.tcflow(2, termios.TCOON)
+            rtermios.tcsendbreak(2, 0)
+            rtermios.tcdrain(2)
+            rtermios.tcflush(2, rtermios.TCIOFLUSH)
+            rtermios.tcflow(2, rtermios.TCOON)
             print "ok"
 
         fn = compile(runs_tcall, [], backendopt=False)

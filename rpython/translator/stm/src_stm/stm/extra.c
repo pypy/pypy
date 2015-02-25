@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 static long register_callbacks(stm_thread_local_t *tl,
                                void *key, void callback(void *), long index)
 {

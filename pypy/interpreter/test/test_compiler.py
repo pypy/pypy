@@ -654,6 +654,18 @@ def test():
         assert ex.match(space, space.w_SyntaxError)
         assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
 
+    def test_del_None(self):
+        snippet = '''if 1:
+            try:
+                del None
+            except NameError:
+                pass
+        '''
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+
 
 class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
     def setup_method(self, method):
@@ -970,7 +982,12 @@ class AppTestOptimizer:
             sys.stdout = out
         output = s.getvalue()
         assert "CALL_METHOD" in output
-            
+
+    def test_interned_strings(self):
+        source = """x = ('foo_bar42', 5); y = 'foo_bar42'; z = x[0]"""
+        exec source
+        assert y is z
+
 
 class AppTestExceptions:
     def test_indentation_error(self):

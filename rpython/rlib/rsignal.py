@@ -96,10 +96,12 @@ pypysig_set_occurred = external('pypysig_set_occurred', [lltype.Signed],
                                 lltype.Void, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
-c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
+c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 if sys.platform != 'win32':
     itimervalP = rffi.CArrayPtr(itimerval)
     c_setitimer = external('setitimer',
-                           [rffi.INT, itimervalP, itimervalP], rffi.INT)
+                           [rffi.INT, itimervalP, itimervalP], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
     c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)

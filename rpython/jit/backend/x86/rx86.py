@@ -33,8 +33,9 @@ class R(object):
     xmmnames = ['xmm%d' % i for i in range(16)]
 
 def low_byte(reg):
-    # XXX: On 32-bit, this only works for 0 <= reg < 4
-    # Maybe we should check this?
+    # On 32-bit, this only works for 0 <= reg < 4.  The caller checks that.
+    # On 64-bit, it works for any register, but the assembler instruction
+    # must include a REX prefix (possibly with no modifier flags).
     return reg | BYTE_REG_FLAG
 
 def high_byte(reg):
@@ -592,6 +593,7 @@ class AbstractX86CodeBuilder(object):
 
     JMP_l = insn('\xE9', relative(1))
     JMP_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
+    JMP_m = insn(rex_nw, '\xFF', orbyte(4<<3), mem_reg_plus_const(1))
     # FIXME: J_il8 and JMP_l8 assume the caller will do the appropriate
     # calculation to find the displacement, but J_il does it for the caller.
     # We need to be consistent.

@@ -3,17 +3,23 @@ from pypy.module.pypystm.test_pypy_c.support import BaseTestSTM
 
 class TestConflict(BaseTestSTM):
 
-    def test_obvious(self):
+    def test_obvious(self, jit=False):
         def f():
             class X(object):
                 pass
             x = X()     # shared
             x.a = 0
             def g():
-                x.a += 1
+                X()           #loc0
+                x.a += 1      #loc1
+                X()           #loc2
             run_in_threads(g)
         #
-        self.check_MANY_conflicts(f)
+        self.check_MANY_conflicts(f, jit=jit)
+        self.check_conflict_location("#loc1")
+
+    def test_obvious_with_jit(self):
+        self.test_obvious(jit=True)
 
     def test_plain_dict_access(self):
         def f():
@@ -44,3 +50,25 @@ class TestConflict(BaseTestSTM):
             run_in_threads(g, arg_thread_num=True)
         #
         self.check_SOME_conflicts(f)
+
+    def test_plain_write_read(self, jit=False):
+        def f():
+            class X(object):
+                pass
+            x = X()
+            x.a = 0
+            def g(tnum):
+                if tnum == 0:
+                    X()           #loc1
+                    x.a += 1      #loc2
+                    X()           #loc3
+                else:
+                    if x.a < 0:
+                        raise AssertionError
+            run_in_threads(g, arg_thread_num=True)
+        #
+        self.check_SOME_conflicts(f, jit=jit)
+        self.check_conflict_location("#loc2")
+
+    def test_plain_write_read_with_jit(self):
+        self.test_plain_write_read(jit=True)

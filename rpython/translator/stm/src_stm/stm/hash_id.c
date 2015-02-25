@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 static long mangle_hash(long i)
 {
     /* To hash pointers in dictionaries.  Assumes that i shows some

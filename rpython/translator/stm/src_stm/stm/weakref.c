@@ -2,7 +2,6 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
-
 #define WEAKREF_PTR(wr, sz)  ((object_t * TLPREFIX *)(((stm_char *)(wr)) + (sz) - sizeof(void*)))
 
 object_t *stm_allocate_weakref(ssize_t size_rounded_up)

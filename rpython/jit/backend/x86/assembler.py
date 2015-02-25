@@ -15,10 +15,11 @@ from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
-from rpython.jit.backend.x86.arch import (
-    FRAME_FIXED_SIZE, WORD, IS_X86_64, JITFRAME_FIXED_SIZE, IS_X86_32,
-    PASS_ON_MY_FRAME, STM_FRAME_FIXED_SIZE, STM_JMPBUF_OFS,
-    STM_SHADOWSTACK_BASE_OFS, STM_PREV_OFS)
+from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
+                                       JITFRAME_FIXED_SIZE, IS_X86_32,
+                                       PASS_ON_MY_FRAME, THREADLOCAL_OFS,
+                                       STM_FRAME_FIXED_SIZE, STM_JMPBUF_OFS,
+                                       STM_SHADOWSTACK_BASE_OFS, STM_PREV_OFS)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -323,22 +324,14 @@ class Assembler386(BaseAssembler):
         if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
         #
-        # make a "function" that is called immediately at the start of
-        # an assembler function.  In particular, the stack looks like:
-        #
-        #    |  ...                |    <-- aligned to a multiple of 16
-        #    |  retaddr of caller  |
-        #    |  my own retaddr     |    <-- esp
-        #    +---------------------+
-        #
+        # make a regular function that is called from a point near the start
+        # of an assembler function (after it adjusts the stack and saves
+        # registers).
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if IS_X86_64:
-            # on the x86_64, we have to save all the registers that may
-            # have been used to pass arguments. Note that we pass only
-            # one argument, that is the frame
             mc.MOV_rr(edi.value, esp.value)
-            mc.SUB_ri(esp.value, WORD)
+            mc.SUB_ri(esp.value, WORD)   # alignment
         #
         if IS_X86_32:
             mc.SUB_ri(esp.value, 2*WORD) # alignment
@@ -525,6 +518,7 @@ class Assembler386(BaseAssembler):
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
+        self._redirection_header()
         self._call_header_with_stack_check()
         self._check_frame_depth_debug(self.mc)
 
@@ -540,6 +534,7 @@ class Assembler386(BaseAssembler):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
+        self._patch_redirection_header(rawstart)
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
@@ -613,12 +608,8 @@ class Assembler386(BaseAssembler):
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
 
-        if self.cpu.gc_ll_descr.stm:
-            rstm.stop_all_other_threads()
         # patch the jump from original guard after the frame-depth update
         self.patch_jump_for_descr(faildescr, rawstart)
-        if self.cpu.gc_ll_descr.stm:
-            rstm.partial_commit_and_resume_other_threads()
 
         self.teardown()
         # oprofile support
@@ -638,13 +629,13 @@ class Assembler386(BaseAssembler):
 
     def patch_pending_failure_recoveries(self, rawstart):
         # after we wrote the assembler to raw memory, set up
-        # tok.faildescr._x86_adr_jump_offset to contain the raw address of
+        # tok.faildescr.adr_jump_offset to contain the raw address of
         # the 4-byte target field in the JMP/Jcond instruction, and patch
         # the field in question to point (initially) to the recovery stub
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
-            tok.faildescr._x86_adr_jump_offset = addr
+            tok.faildescr.adr_jump_offset = addr
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
             #
@@ -751,8 +742,19 @@ class Assembler386(BaseAssembler):
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
-        adr_jump_offset = faildescr._x86_adr_jump_offset
+        adr_jump_offset = faildescr.adr_jump_offset
         assert adr_jump_offset != 0
+        faildescr.adr_jump_offset = 0    # means "patched"
+        #
+        if self.cpu.gc_ll_descr.stm:
+            # In STM mode, we produced a small STM_GUARD_FAILURE object
+            # that we patch now.  We can't easily patch the assembler
+            # because other threads must not see the patching before the
+            # current transaction commits.
+            p = faildescr._x86_stm_guard_failure
+            p.jump_target = adr_new_target
+            return
+        #
         offset = adr_new_target - (adr_jump_offset + 4)
         # If the new target fits within a rel32 of the jump, just patch
         # that. Otherwise, leave the original rel32 to the recovery stub in
@@ -771,7 +773,6 @@ class Assembler386(BaseAssembler):
             p = rffi.cast(rffi.INTP, adr_jump_offset)
             adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
             mc.copy_to_raw_memory(adr_target)
-        faildescr._x86_adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
@@ -802,6 +803,7 @@ class Assembler386(BaseAssembler):
         self.mc.SUB_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
+            self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
             self.mc.MOV_rr(ebp.value, edi.value)
         else:
             self.mc.MOV_rs(ebp.value, (self._get_whole_frame_size() + 1) * WORD)
@@ -848,6 +850,27 @@ class Assembler386(BaseAssembler):
         self.mc.MOV_rs(ebp.value, PASS_ON_MY_FRAME * WORD)
         self.mc.ADD_ri(esp.value, self._get_whole_frame_size() * WORD)
         self.mc.RET()
+
+    def _redirection_header(self):
+        if self.cpu.gc_ll_descr.stm:
+            # produce a header that takes a STM_GUARD_FAILURE and jumps
+            # to the target written there
+            assert IS_X86_64
+            p = rstm.allocate_nonmovable(STM_GUARD_FAILURE)
+            self.current_clt._stm_redirection = lltype.cast_opaque_ptr(
+                llmemory.GCREF, p)
+            addr = rffi.cast(lltype.Signed, p)
+            addr += llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target')
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, addr)
+            self.mc.JMP_m((self.SEGMENT_GC, X86_64_SCRATCH_REG.value, 0))
+            p.jump_target = self.mc.get_relative_pos()
+            # ^^^ temporary, patched later with an absolute address
+
+    def _patch_redirection_header(self, rawstart):
+        if self.cpu.gc_ll_descr.stm:
+            p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE),
+                                       self.current_clt._stm_redirection)
+            p.jump_target += rawstart
 
     def heap_shadowstack_top(self):
         """Return an AddressLoc for '&shadowstack', the shadow stack top."""
@@ -950,6 +973,15 @@ class Assembler386(BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
+        #
+        # with STM, we don't change the assembler, but simply patch
+        # the content of the CompiledLoopToken's _stm_redirection object
+        if self.cpu.gc_ll_descr.stm:
+            p = oldlooptoken.compiled_loop_token._stm_redirection
+            p = lltype.cast_opaque_ptr(lltype.Ptr(STM_GUARD_FAILURE), p)
+            p.jump_target = target
+            return
+        #
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         if WORD == 4:         # keep in sync with prepare_loop()
@@ -957,11 +989,7 @@ class Assembler386(BaseAssembler):
         else:
             assert mc.get_relative_pos() <= 13
         # patch assembler:
-        if self.cpu.gc_ll_descr.stm:
-            rstm.stop_all_other_threads()
         mc.copy_to_raw_memory(oldadr)
-        if self.cpu.gc_ll_descr.stm:
-            rstm.partial_commit_and_resume_other_threads()
 
 
     def dump(self, text):
@@ -1285,6 +1313,31 @@ class Assembler386(BaseAssembler):
 
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
+
+    def genop_int_signext(self, op, arglocs, resloc):
+        argloc, numbytesloc = arglocs
+        assert isinstance(numbytesloc, ImmedLoc)
+        assert isinstance(resloc, RegLoc)
+        if numbytesloc.value == 1:
+            if isinstance(argloc, RegLoc):
+                if WORD == 4 and argloc.value >= 4:
+                    # meh, can't read the lowest byte of esi or edi on 32-bit
+                    if resloc is not argloc:
+                        self.mc.MOV(resloc, argloc)
+                        argloc = resloc
+                    if resloc.value >= 4:
+                        # still annoyed, hack needed
+                        self.mc.SHL_ri(resloc.value, 24)
+                        self.mc.SAR_ri(resloc.value, 24)
+                        return
+                argloc = argloc.lowest8bits()
+            self.mc.MOVSX8(resloc, argloc)
+        elif numbytesloc.value == 2:
+            self.mc.MOVSX16(resloc, argloc)
+        elif IS_X86_64 and numbytesloc.value == 4:
+            self.mc.MOVSX32(resloc, argloc)
+        else:
+            raise AssertionError("bad number of bytes")
 
     def genop_guard_float_ne(self, op, guard_op, guard_token, arglocs, result_loc):
         guard_opnum = guard_op.getopnum()
@@ -1934,10 +1987,27 @@ class Assembler386(BaseAssembler):
         """
         startpos = self.mc.get_relative_pos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
-        self.mc.PUSH(imm(fail_descr))
-        self.push_gcmap(self.mc, guardtok.gcmap, push=True)
-        self.mc.JMP(imm(target))
+        if self.cpu.gc_ll_descr.stm:
+            self._generate_quick_failure_stm(fail_descr, target, guardtok)
+        else:
+            self.mc.PUSH(imm(fail_descr))
+            self.push_gcmap(self.mc, guardtok.gcmap, push=True)
+            self.mc.JMP(imm(target))
         return startpos
+
+    def _generate_quick_failure_stm(self, fail_descr, target, guardtok):
+        assert IS_X86_64
+        # we could maybe store the data directly on the faildescr.
+        p = rstm.allocate_nonmovable(STM_GUARD_FAILURE)
+        p.fail_descr = fail_descr
+        p.jump_target = target
+        p.gcmap = guardtok.gcmap
+        assert not guardtok.faildescr._x86_stm_guard_failure
+        guardtok.faildescr._x86_stm_guard_failure = p
+        addr = rffi.cast(lltype.Signed, p)
+        addr += llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target')
+        self.mc.MOV_ri(X86_64_SCRATCH_REG.value, addr)
+        self.mc.JMP_m((self.SEGMENT_GC, X86_64_SCRATCH_REG.value, 0))
 
     def update_stm_location(self, mc, extra_stack=0):
         if self.cpu.gc_ll_descr.stm:
@@ -2032,6 +2102,9 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         self.mc = mc
 
+        if self.cpu.gc_ll_descr.stm:    # see below
+            mc.PUSH_r(X86_64_SCRATCH_REG.value)
+
         self._push_all_regs_to_frame(mc, [], withfloats)
 
         if exc:
@@ -2043,15 +2116,35 @@ class Assembler386(BaseAssembler):
             offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
             mc.MOV_br((self.SEGMENT_FRAME, offset), ebx.value)
 
-        # now we return from the complete frame, which starts from
-        # _call_header_with_stack_check().  The LEA in _call_footer below
-        # throws away most of the frame, including all the PUSHes that we
-        # did just above.
+        # fill in the jf_descr and jf_gcmap fields of the frame according
+        # to which failure we are resuming from.  These are constants
+        # pushed on the stack just before we jump to the current helper,
+        # in generate_quick_failure().
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.POP_b((self.SEGMENT_FRAME, ofs2))
-        mc.POP_b((self.SEGMENT_FRAME, ofs))
+        if self.cpu.gc_ll_descr.stm:
+            mc.POP_r(ebx.value)
+            # We pop to rbx the original pointer inside the STM_GUARD_FAILURE.
+            # More precisely it points to the 'jump_target' field.  Adding the
+            # following two offset differences will make it point to the two
+            # other fields, which we load and copy into the jf_descr and
+            # jf_gcmap fields of the frame.
+            ofs_fail_descr = (
+                llmemory.offsetof(STM_GUARD_FAILURE, 'fail_descr') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
+            ofs_gcmap = (
+                llmemory.offsetof(STM_GUARD_FAILURE, 'gcmap') -
+                llmemory.offsetof(STM_GUARD_FAILURE, 'jump_target'))
+            mc.MOV_rm(eax.value, (self.SEGMENT_GC, ebx.value, ofs_fail_descr))
+            mc.MOV_rm(ecx.value, (self.SEGMENT_GC, ebx.value, ofs_gcmap))
+            mc.MOV_br((self.SEGMENT_FRAME, ofs),  eax.value)
+            mc.MOV_br((self.SEGMENT_FRAME, ofs2), ecx.value)
+        else:
+            mc.POP_b((self.SEGMENT_FRAME, ofs2))
+            mc.POP_b((self.SEGMENT_FRAME, ofs))
 
+        # now we return from the complete frame, which starts from
+        # _call_header_with_stack_check().  The _call_footer below does it.
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
@@ -2108,7 +2201,9 @@ class Assembler386(BaseAssembler):
     def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
 
-        cb = callbuilder.CallBuilder(self, arglocs[2], arglocs[3:], resloc)
+        func_index = 2 + is_call_release_gil
+        cb = callbuilder.CallBuilder(self, arglocs[func_index],
+                                     arglocs[func_index+1:], resloc)
 
         descr = op.getdescr()
         effectinfo = descr.get_extra_info()
@@ -2124,7 +2219,9 @@ class Assembler386(BaseAssembler):
         cb.ressign = signloc.value
 
         if is_call_release_gil:
-            cb.emit_call_release_gil()
+            saveerrloc = arglocs[2]
+            assert isinstance(saveerrloc, ImmedLoc)
+            cb.emit_call_release_gil(saveerrloc.value)
         else:
             cb.emit()
 
@@ -2167,7 +2264,8 @@ class Assembler386(BaseAssembler):
         self._emit_guard_not_forced(guard_token)
 
     def _call_assembler_emit_call(self, addr, argloc, _):
-        self.simple_call(addr, [argloc])
+        threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)
+        self.simple_call(addr, [argloc, threadlocal_loc])
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
         self.simple_call(addr, arglocs, result_loc)
@@ -2707,46 +2805,19 @@ class Assembler386(BaseAssembler):
         return heap(self.SEGMENT_TL, adr)
 
 
-    def threadlocalref_get(self, op, resloc):
-        # this function is only called on Linux
-        from rpython.jit.codewriter.jitcode import ThreadLocalRefDescr
-        from rpython.jit.backend.x86 import stmtlocal
+    def threadlocalref_get(self, offset, resloc, size, sign):
+        # This loads the stack location THREADLOCAL_OFS into a
+        # register, and then read the word at the given offset.
+        # It is only supported if 'translate_support_code' is
+        # true; otherwise, the execute_token() was done with a
+        # dummy value for the stack location THREADLOCAL_OFS
+        # 
+        assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
-        effectinfo = op.getdescr().get_extra_info()
-        assert effectinfo.extradescrs is not None
-        ed = effectinfo.extradescrs[0]
-        assert isinstance(ed, ThreadLocalRefDescr)
-        addr1 = rffi.cast(lltype.Signed, ed.get_tlref_addr())
-        # 'addr1' is the address is the current thread, but we assume that
-        # it is a thread-local at a constant offset from %fs/%gs.
-        addr0 = stmtlocal.threadlocal_base()
-        addr = addr1 - addr0
-        assert rx86.fits_in_32bits(addr)
-        self.mc.MOV_rj(resloc.value, (self.SEGMENT_TL, addr))
-
-    def get_set_errno(self, op, loc, issue_a_write):
-        # this function is only called on Linux
-        from rpython.jit.backend.x86 import stmtlocal
-        addr = stmtlocal.get_errno_tl()
-        assert rx86.fits_in_32bits(addr)
-        mc = self.mc
-        SEGTL = self.SEGMENT_TL
-        if issue_a_write:
-            if isinstance(loc, RegLoc):
-                mc.MOV32_jr((SEGTL, addr), loc.value)  # memory write from reg
-            else:
-                assert isinstance(loc, ImmedLoc)
-                newvalue = loc.value
-                newvalue = rffi.cast(rffi.INT, newvalue)
-                newvalue = rffi.cast(lltype.Signed, newvalue)
-                mc.MOV32_ji((SEGTL, addr), newvalue)  # memory write immediate
-        else:
-            assert isinstance(loc, RegLoc)
-            if IS_X86_32:
-                mc.MOV_rj(loc.value, (SEGTL, addr))  # memory read
-            elif IS_X86_64:
-                mc.MOVSX32_rj(loc.value,
-                              (SEGTL, addr))        # memory read, sign-extend
+        self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
+        self.load_from_mem(resloc,
+                           addr_add_const(self.SEGMENT_NO, resloc, offset),
+                           imm(size), imm(sign))
 
     def genop_discard_zero_array(self, op, arglocs):
         (base_loc, startindex_loc, bytes_loc,
@@ -2842,3 +2913,10 @@ def todo():
 
 class BridgeAlreadyCompiled(Exception):
     pass
+
+STM_GUARD_FAILURE = lltype.GcStruct(
+    "STM_GUARD_FAILURE",
+    ("fail_descr", lltype.Signed),
+    ("jump_target", lltype.Signed),
+    ("gcmap", lltype.Ptr(jitframe.GCMAP)))
+AbstractFailDescr._x86_stm_guard_failure = lltype.nullptr(STM_GUARD_FAILURE)

@@ -134,14 +134,6 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def _clone_if_mutable(self):
-        return self
-    def clone_if_mutable(self):
-        clone = self._clone_if_mutable()
-        if not we_are_translated():
-            assert clone.__class__ is self.__class__
-        return clone
-
     def hide(self, cpu):
         descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(descr_ptr)
@@ -161,6 +153,9 @@ class AbstractDescr(AbstractValue):
 class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
+
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token',
+               '_x86_stm_guard_failure')    # only with stm
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
@@ -620,7 +615,6 @@ class TargetToken(AbstractDescr):
         self.original_jitcell_token = None
 
         self.virtual_state = None
-        self.exported_state = None
         self.short_preamble = None
 
     def repr_of_descr(self):
@@ -630,7 +624,6 @@ class TreeLoop(object):
     inputargs = None
     operations = None
     call_pure_results = None
-    stm_info = None
     logops = None
     quasi_immutable_deps = None
 
@@ -776,6 +769,16 @@ class History(object):
     def record_op(self, op):
         op.stm_location = self.stm_location
         self.operations.append(op)
+
+    def set_stm_location(self, num, ref):
+        old = self.stm_location
+        if old is None or old.num != num or old.ref != ref:
+            self.stm_location = StmLocation(num, ref)
+
+class StmLocation(object):
+    def __init__(self, num, ref):
+        self.num = num
+        self.ref = ref
 
 # ____________________________________________________________
 

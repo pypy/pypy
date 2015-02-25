@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides)
+    calculate_broadcast_strides, calc_backstrides)
 
 
 class BaseConcreteArray(object):
@@ -47,6 +47,7 @@ class BaseConcreteArray(object):
     def setitem(self, index, value):
         self.dtype.itemtype.store(self, index, 0, value)
 
+    @jit.unroll_safe
     def setslice(self, space, arr):
         if len(arr.get_shape()) > 0 and len(self.get_shape()) == 0:
             raise oefmt(space.w_ValueError,
@@ -78,10 +79,7 @@ class BaseConcreteArray(object):
                                                self.get_strides(), self.order)
         if new_strides is not None:
             # We can create a view, strides somehow match up.
-            ndims = len(new_shape)
-            new_backstrides = [0] * ndims
-            for nd in range(ndims):
-                new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            new_backstrides = calc_backstrides(new_strides, new_shape)
             assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)

@@ -71,10 +71,11 @@ def become_inevitable():
 
 @dont_look_inside
 def stop_all_other_threads():
-    llop.stm_become_globally_unique_transaction(lltype.Void)
+    llop.stm_stop_all_other_threads(lltype.Void)
 
-def partial_commit_and_resume_other_threads():
-    pass    # for now
+@dont_look_inside
+def resume_all_other_threads():
+    llop.stm_resume_all_other_threads(lltype.Void)
 
 @specialize.arg(0)
 def should_break_transaction(keep):
@@ -162,6 +163,25 @@ def pop_marker():
 def stm_count():
     return llop.stm_count(lltype.Signed)
 
+@specialize.ll()
+def allocate_preexisting(p):
+    """Return a copy of p, which must be a Ptr(GcStruct), which
+    we pretend existed all along (including in other transactions).
+    Used in cases where other concurrent transactions have a non-
+    official way to get a pointer to that object even before we commit.
+    The copied content should be the "default initial" state which
+    the current transaction can then proceed to change normally.  This
+    initial state must not contain GC pointers to any other uncommitted
+    object."""
+    # XXX is this buggy?
+    TP = lltype.typeOf(p)
+    size = llmemory.sizeof(TP.TO)
+    return llop.stm_allocate_preexisting(TP, size, p)
+
+@specialize.ll()
+def allocate_nonmovable(GCTYPE):
+    return llop.stm_malloc_nonmovable(lltype.Ptr(GCTYPE))
+
 # ____________________________________________________________
 
 class _Entry(ExtRegistryEntry):
@@ -218,6 +238,10 @@ def _ll_hashtable_lookup(h, key):
     return llop.stm_hashtable_lookup(_STM_HASHTABLE_ENTRY_P,
                                      h, h.ll_raw_hashtable, key)
 
+@dont_look_inside
+def _ll_hashtable_writeobj(h, entry, value):
+    llop.stm_hashtable_write_entry(lltype.Void, h, entry, value)
+
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
                                  rtti=True,
@@ -226,7 +250,8 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                            'len': _ll_hashtable_len,
                                           'list': _ll_hashtable_list,
                                       'freelist': _ll_hashtable_freelist,
-                                        'lookup': _ll_hashtable_lookup})
+                                        'lookup': _ll_hashtable_lookup,
+                                      'writeobj': _ll_hashtable_writeobj})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
 def _ll_hashtable_trace(gc, obj, callback, arg):
@@ -303,6 +328,10 @@ class HashtableForTest(object):
         assert type(key) is int
         return EntryObjectForTest(self, key)
 
+    def writeobj(self, entry, nvalue):
+        assert isinstance(entry, EntryObjectForTest)
+        self.set(entry.key, nvalue)
+
 class EntryObjectForTest(object):
     def __init__(self, hashtable, key):
         self.hashtable = hashtable
@@ -312,6 +341,7 @@ class EntryObjectForTest(object):
     def _getobj(self):
         return self.hashtable.get(self.key)
     def _setobj(self, nvalue):
-        self.hashtable.set(self.key, nvalue)
+        raise Exception("can't assign to the 'object' attribute:"
+                        " use h.writeobj() instead")
 
     object = property(_getobj, _setobj)

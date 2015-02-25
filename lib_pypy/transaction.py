@@ -108,106 +108,103 @@ class TransactionError(Exception):
     pass
 
 
-def add(f, *args, **kwds):
-    """Register a new transaction that will be done by 'f(*args, **kwds)'.
-    Must be called within the transaction in the "with TransactionQueue()"
-    block, or within a transaction started by this one, directly or
-    indirectly.
-    """
-    _thread_local.pending.append((f, args, kwds))
-
-
 class TransactionQueue(object):
-    """Use in 'with TransactionQueue():'.  Creates a queue of
-    transactions.  The first transaction in the queue is the content of
-    the 'with:' block, which is immediately started.
+    """A queue of pending transactions.
 
-    Any transaction can register new transactions that will be run
-    after the current one is finished, using the global function add().
+    Use the add() method to register new transactions into the queue.
+    Afterwards, call run() once.  While transactions run, it is possible
+    to add() more transactions, which will run after the current one is
+    finished.  The run() call only returns when the queue is completely
+    empty.
     """
-
-    def __init__(self, nb_segments=0):
-        if nb_segments <= 0:
-            nb_segments = getsegmentlimit()
-        _thread_pool.ensure_threads(nb_segments)
-
-    def __enter__(self):
-        if hasattr(_thread_local, "pending"):
-            raise TransactionError(
-                "recursive invocation of TransactionQueue()")
-        if is_atomic():
-            raise TransactionError(
-                "invocation of TransactionQueue() from an atomic context")
-        _thread_local.pending = []
-        atomic.__enter__()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        atomic.__exit__(exc_type, exc_value, traceback)
-        pending = _thread_local.pending
-        del _thread_local.pending
-        if exc_type is None and len(pending) > 0:
-            _thread_pool.run(pending)
-
-
-# ____________________________________________________________
-
-
-class _ThreadPool(object):
 
     def __init__(self):
-        self.lock_running = thread.allocate_lock()
-        self.lock_done_running = thread.allocate_lock()
-        self.lock_done_running.acquire()
-        self.nb_threads = 0
-        self.deque = collections.deque()
-        self.locks = []
-        self.lock_deque = thread.allocate_lock()
-        self.exception = []
+        self._deque = collections.deque()
+        self._pending = self._deque
+        self._number_transactions_exec = 0
 
-    def ensure_threads(self, n):
-        if n > self.nb_threads:
-            with self.lock_running:
-                for i in range(self.nb_threads, n):
-                    assert len(self.locks) == self.nb_threads
-                    self.nb_threads += 1
-                    thread.start_new_thread(self.thread_runner, ())
-                    # The newly started thread should run immediately into
-                    # the case 'if len(self.locks) == self.nb_threads:'
-                    # and release this lock.  Wait until it does.
-                    self.lock_done_running.acquire()
+    def add(self, f, *args, **kwds):
+        """Register a new transaction to be done by 'f(*args, **kwds)'.
+        """
+        # note: 'self._pending.append' can be two things here:
+        # * if we are outside run(), it is the regular deque.append method;
+        # * if we are inside run(), self._pending is a thread._local()
+        #   and then its append attribute is the append method of a
+        #   thread-local list.
+        self._pending.append((f, args, kwds))
 
-    def run(self, pending):
-        # For now, can't run multiple threads with each an independent
-        # TransactionQueue(): they are serialized.
-        with self.lock_running:
-            assert self.exception == []
-            assert len(self.deque) == 0
-            deque = self.deque
-            with self.lock_deque:
-                deque.extend(pending)
-                try:
-                    for i in range(len(pending)):
-                        self.locks.pop().release()
-                except IndexError:     # pop from empty list
-                    pass
+    def run(self, nb_segments=0):
+        """Run all transactions, and all transactions started by these
+        ones, recursively, until the queue is empty.  If one transaction
+        raises, run() re-raises the exception and the unexecuted transaction
+        are left in the queue.
+        """
+        if is_atomic():
+            raise TransactionError(
+                "TransactionQueue.run() cannot be called in an atomic context")
+        if not self._pending:
+            return
+        if nb_segments <= 0:
+            nb_segments = getsegmentlimit()
+
+        assert self._pending is self._deque, "broken state"
+        try:
+            self._pending = thread._local()
+            lock_done_running = thread.allocate_lock()
+            lock_done_running.acquire()
+            lock_deque = thread.allocate_lock()
+            locks = []
+            exception = []
+            args = (locks, lock_done_running, lock_deque,
+                    exception, nb_segments)
             #
-            self.lock_done_running.acquire()
+            for i in range(nb_segments):
+                thread.start_new_thread(self._thread_runner, args)
             #
-            if self.exception:
-                exc_type, exc_value, exc_traceback = self.exception
-                del self.exception[:]
-                raise exc_type, exc_value, exc_traceback
+            # The threads run here, and they will release this lock when
+            # they are all finished.
+            lock_done_running.acquire()
+            #
+            assert len(locks) == nb_segments
+            for lock in locks:
+                lock.release()
+            #
+        finally:
+            self._pending = self._deque
+        #
+        if exception:
+            exc_type, exc_value, exc_traceback = exception
+            raise exc_type, exc_value, exc_traceback
 
-    def thread_runner(self):
-        deque = self.deque
+    def number_of_transactions_executed(self):
+        if self._pending is self._deque:
+            return self._number_transactions_exec
+        raise TransactionError("TransactionQueue.run() is currently running")
+
+    def _thread_runner(self, locks, lock_done_running, lock_deque,
+                       exception, nb_segments):
+        pending = []
+        self._pending.append = pending.append
+        deque = self._deque
         lock = thread.allocate_lock()
         lock.acquire()
-        pending = []
-        _thread_local.pending = pending
-        lock_deque = self.lock_deque
-        exception = self.exception
+        next_transaction = None
+        count = [0]
         #
-        while True:
+        def _pause_thread():
+            self._number_transactions_exec += count[0]
+            count[0] = 0
+            locks.append(lock)
+            if len(locks) == nb_segments:
+                lock_done_running.release()
+            lock_deque.release()
+            #
+            # Now wait until our lock is released.
+            lock.acquire()
+            return len(locks) == nb_segments
+        #
+        while not exception:
+            assert next_transaction is None
             #
             # Look at the deque and try to fetch the next item on the left.
             # If empty, we add our lock to the 'locks' list.
@@ -216,13 +213,8 @@ class _ThreadPool(object):
                 next_transaction = deque.popleft()
                 lock_deque.release()
             else:
-                self.locks.append(lock)
-                if len(self.locks) == self.nb_threads:
-                    self.lock_done_running.release()
-                lock_deque.release()
-                #
-                # Now wait until our lock is released.
-                lock.acquire()
+                if _pause_thread():
+                    return
                 continue
             #
             # Now we have a next_transaction.  Run it.
@@ -230,12 +222,16 @@ class _ThreadPool(object):
             while True:
                 f, args, kwds = next_transaction
                 with atomic:
-                    if len(exception) == 0:
-                        try:
+                    if exception:
+                        break
+                    next_transaction = None
+                    try:
+                        with signals_enabled:
+                            count[0] += 1
                             f(*args, **kwds)
-                        except:
-                            exception.extend(sys.exc_info())
-                del next_transaction
+                    except:
+                        exception.extend(sys.exc_info())
+                        break
                 #
                 # If no new 'pending' transactions have been added, exit
                 # this loop and go back to fetch more from the deque.
@@ -251,19 +247,27 @@ class _ThreadPool(object):
                 # single item to 'next_transaction', because it looks
                 # like a good idea to preserve some first-in-first-out
                 # approximation.)
-                with self.lock_deque:
+                with lock_deque:
                     deque.extend(pending)
                     next_transaction = deque.popleft()
                     try:
                         for i in range(1, len(pending)):
-                            self.locks.pop().release()
+                            locks.pop().release()
                     except IndexError:     # pop from empty list
                         pass
                 del pending[:]
+        #
+        # We exit here with an exception.  Re-add 'next_transaction'
+        # if it is not None.
+        lock_deque.acquire()
+        if next_transaction is not None:
+            deque.appendleft(next_transaction)
+            next_transaction = None
+        while not _pause_thread():
+            lock_deque.acquire()
 
 
-_thread_pool = _ThreadPool()
-_thread_local = thread._local()
+# ____________________________________________________________
 
 
 def XXXreport_abort_info(info):

@@ -371,6 +371,9 @@ LL_OPERATIONS = {
     'convert_float_bytes_to_longlong': LLOp(canfold=True),
     'convert_longlong_bytes_to_float': LLOp(canfold=True),
 
+    'likely':               LLOp(canfold=True),
+    'unlikely':             LLOp(canfold=True),
+
     # __________ pointer operations __________
 
     'malloc':               LLOp(canmallocgc=True),
@@ -402,6 +405,7 @@ LL_OPERATIONS = {
     'direct_arrayitems':    LLOp(canfold=True),
     'direct_ptradd':        LLOp(canfold=True),
     'cast_opaque_ptr':      LLOp(sideeffects=False),
+    'length_of_simple_gcarray_from_opaque': LLOp(sideeffects=False),
 
     # __________ Software Transactional Memory __________
     # NOTE: use canmallocgc for all operations that can contain a collection.
@@ -418,16 +422,16 @@ LL_OPERATIONS = {
     'stm_allocate_weakref':   LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_finalizer': LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_f_light':   LLOp(sideeffects=False, canmallocgc=True),
-    'stm_get_from_obj':       LLOp(sideeffects=False),
-    'stm_get_from_obj_const': LLOp(canfold=True),
+    'stm_allocate_preexisting':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_allocate_nonmovable':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_malloc_nonmovable':  LLOp(sideeffects=False, canmallocgc=True),
     'stm_set_into_obj':       LLOp(),
     'stm_collect':            LLOp(canmallocgc=True),
     'stm_id':                 LLOp(sideeffects=False),
-    'stm_identityhash':       LLOp(canfold=True),
-    'stm_addr_get_tid':       LLOp(canfold=True),
+    'stm_identityhash':       LLOp(sideeffects=False),
+    'stm_addr_get_tid':       LLOp(sideeffects=False),
     'stm_get_root_stack_top': LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(canmallocgc=True),
-    'stm_become_globally_unique_transaction': LLOp(canmallocgc=True),
     'stm_push_root':          LLOp(),
     'stm_pop_root_into':      LLOp(),
     'stm_commit_if_not_atomic':           LLOp(canmallocgc=True),
@@ -439,6 +443,8 @@ LL_OPERATIONS = {
     'stm_should_break_transaction':       LLOp(sideeffects=False),
     'stm_rewind_jmp_frame':               LLOp(canrun=True),
     'stm_set_transaction_length':         LLOp(),
+    'stm_stop_all_other_threads':         LLOp(canmallocgc=True),
+    'stm_resume_all_other_threads':       LLOp(),
 
     'stm_hint_commit_soon':   LLOp(canrun=True),
 
@@ -465,6 +471,7 @@ LL_OPERATIONS = {
     'stm_hashtable_read':     LLOp(),
     'stm_hashtable_write':    LLOp(),
     'stm_hashtable_lookup':   LLOp(),
+    'stm_hashtable_write_entry':        LLOp(),
     'stm_hashtable_length_upper_bound': LLOp(),
     'stm_hashtable_list'  :   LLOp(),
     'stm_hashtable_tracefn':  LLOp(),
@@ -568,6 +575,7 @@ LL_OPERATIONS = {
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
+    'gc_typeids_list'     : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 
@@ -622,9 +630,8 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
-    'threadlocalref_get':   LLOp(sideeffects=False),
-    'threadlocalref_getaddr': LLOp(sideeffects=False),
-    'threadlocalref_set':   LLOp(),
+    'threadlocalref_addr':  LLOp(sideeffects=False),  # get (or make) addr of tl
+    'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
 
     # __________ debugging __________
     'debug_view':           LLOp(),

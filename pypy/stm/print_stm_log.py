@@ -146,9 +146,19 @@ class ConflictSummary(object):
     def sortkey(self):
         return self.aborted_time + self.paused_time
 
+    def get_event_name(self):
+        return event_name[self.event]
+
+    def get_marker1(self):
+        return print_marker(self.marker1)
+
+    def get_marker2(self):
+        return print_marker(self.marker2)
+
     def __str__(self):
         s = '%.3fs lost in aborts, %.3fs paused (%dx %s)\n' % (
-            self.aborted_time, self.paused_time, self.num_events, event_name[self.event])
+            self.aborted_time, self.paused_time, self.num_events,
+            self.get_event_name())
         s += print_marker(self.marker1)
         if self.marker2:
             s += '\n%s' % print_marker(self.marker2)
