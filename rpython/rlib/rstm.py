@@ -310,6 +310,28 @@ class HashtableEmulation(object):
     def len(self):
         return len(self._content)
 
+    def list(self):
+        items = []
+        for key in self._content.keys():
+            items.append(self.lookup(key))
+        count = len(items)
+        return items, count
+
+    def freelist(self, array):
+        pass
+
+    def lookup(self, key):
+        return EntryObjectEmulation(self, key)
+
+    def writeobj(self, entry, nvalue):
+        self.set(entry.key, nvalue)
+
+class EntryObjectEmulation(object):
+    def __init__(self, hashtable, key):
+        self.hashtable = hashtable
+        self.key = key
+        self.index = r_uint(key)
+        self.object = hashtable.get(key)
 
 
 class HashtableForTest(object):
