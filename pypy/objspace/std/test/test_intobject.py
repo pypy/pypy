@@ -486,7 +486,7 @@ class AppTestInt:
 
     def test_bit_length_max(self):
         import sys
-        val = -sys.maxint-1
+        val = -sys.maxsize-1
         bits = 32 if val == -2147483648 else 64
         assert val.bit_length() == bits
 
