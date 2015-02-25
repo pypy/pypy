@@ -44,7 +44,7 @@ class AppTestMemoryView:
 
     def test_suboffsets(self):
         v = memoryview(b"a"*100)
-        assert v.suboffsets == None
+        assert v.suboffsets == ()
 
     def test_compare(self):
         assert memoryview(b"abc") == b"abc"

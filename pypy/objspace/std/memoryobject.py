@@ -144,7 +144,7 @@ class W_MemoryView(W_Root):
     def w_get_suboffsets(self, space):
         self._check_released(space)
         # I've never seen anyone filling this field
-        return space.w_None
+        return space.newtuple([])
 
     def descr_repr(self, space):
         if self.buf is None:
