@@ -92,7 +92,7 @@ class W_MemoryView(W_Root):
         else:
             buf = SubBuffer(self.buf, start * self.itemsize,
                             size * self.itemsize)
-            return W_MemoryView(buf)
+            return W_MemoryView(buf, self.format, self.itemsize)
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
