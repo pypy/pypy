@@ -10,39 +10,25 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
 
-def _buffer_setitem(space, buf, w_index, w_obj):
-    if buf.readonly:
-        raise oefmt(space.w_TypeError, "cannot modify read-only memory")
-    start, stop, step, size = space.decode_index4(w_index, buf.getlength())
-    if step not in (0, 1):
-        raise oefmt(space.w_NotImplementedError, "")
-    value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-    if value.getlength() != size:
-        raise oefmt(space.w_ValueError,
-                    "cannot modify size of memoryview object")
-    if step == 0:  # index only
-        buf.setitem(start, value.getitem(0))
-    elif step == 1:
-        buf.setslice(start, value.as_str())
-
-
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
 
-    def __init__(self, buf):
+    def __init__(self, buf, format='B', itemsize=1):
         assert isinstance(buf, Buffer)
         self.buf = buf
+        self.format = format
+        self.itemsize = itemsize
 
-    def buffer_w(self, space, flags):
+    def buffer_w_ex(self, space, flags):
         self._check_released(space)
         space.check_buf_flags(flags, self.buf.readonly)
-        return self.buf
+        return self.buf, self.format, self.itemsize
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
-        return W_MemoryView(space.buffer_w(w_object, space.BUF_FULL_RO))
+        return W_MemoryView(*space.buffer_w_ex(w_object, space.BUF_FULL_RO))
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -71,10 +57,12 @@ class W_MemoryView(W_Root):
     descr_ne = _make_descr__cmp('ne')
 
     def as_str(self):
-        return self.buf.as_str()
+        buf = self.buf
+        n_bytes = buf.getlength()
+        return buf.getslice(0, n_bytes, 1, n_bytes)
 
     def getlength(self):
-        return self.buf.getlength()
+        return self.buf.getlength() // self.itemsize
 
     def descr_tobytes(self, space):
         self._check_released(space)
@@ -83,9 +71,12 @@ class W_MemoryView(W_Root):
     def descr_tolist(self, space):
         self._check_released(space)
         buf = self.buf
+        if self.format != 'B':
+            raise oefmt(space.w_NotImplementedError,
+                        "tolist() only supports byte views")
         result = []
         for i in range(buf.getlength()):
-            result.append(space.wrap(ord(buf.getitem(i))))
+            result.append(space.wrap(ord(buf.getitem(i)[0])))
         return space.newlist(result)
 
     def descr_getitem(self, space, w_index):
@@ -94,26 +85,39 @@ class W_MemoryView(W_Root):
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
         if step == 0:  # index only
-            return space.wrapbytes(self.buf.getitem(start))
+            a = start * self.itemsize
+            b = a + self.itemsize
+            return space.wrapbytes(
+                ''.join([self.buf.getitem(i) for i in range(a, b)]))
         else:
-            buf = SubBuffer(self.buf, start, size)
-            return W_MemoryView(buf)
+            buf = SubBuffer(self.buf, start * self.itemsize,
+                            size * self.itemsize)
+            return W_MemoryView(buf, self.format, self.itemsize)
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
-        _buffer_setitem(space, self.buf, w_index, w_obj)
+        if self.buf.readonly:
+            raise oefmt(space.w_TypeError, "cannot modify read-only memory")
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
+        if step not in (0, 1):
+            raise oefmt(space.w_NotImplementedError, "")
+        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+        if value.getlength() != size * self.itemsize:
+            raise oefmt(space.w_ValueError,
+                        "cannot modify size of memoryview object")
+        self.buf.setslice(start * self.itemsize, value.as_str())
 
     def descr_len(self, space):
         self._check_released(space)
-        return space.wrap(self.buf.getlength())
+        return space.wrap(self.getlength())
 
     def w_get_format(self, space):
         self._check_released(space)
-        return space.wrap("B")
+        return space.wrap(self.format)
 
     def w_get_itemsize(self, space):
         self._check_released(space)
-        return space.wrap(1)
+        return space.wrap(self.itemsize)
 
     def w_get_ndim(self, space):
         self._check_released(space)
@@ -129,7 +133,7 @@ class W_MemoryView(W_Root):
 
     def w_get_strides(self, space):
         self._check_released(space)
-        return space.newtuple([space.wrap(1)])
+        return space.newtuple([space.wrap(self.itemsize)])
 
     def w_get_suboffsets(self, space):
         self._check_released(space)
@@ -147,8 +151,8 @@ class W_MemoryView(W_Root):
 
     def _check_released(self, space):
         if self.buf is None:
-            raise OperationError(space.w_ValueError, space.wrap(
-                    "operation forbidden on released memoryview object"))
+            raise oefmt(space.w_ValueError,
+                        "operation forbidden on released memoryview object")
 
     def descr_enter(self, space):
         self._check_released(space)
