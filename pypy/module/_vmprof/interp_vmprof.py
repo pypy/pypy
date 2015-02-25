@@ -28,14 +28,13 @@ eci_kwds = dict(
     libraries = ['unwind'],
     
     post_include_bits=["""
-        void* pypy_vmprof_get_virtual_ip(long);
         void pypy_vmprof_init(void);
     """],
     
     separate_module_sources=["""
         void pypy_vmprof_init(void) {
             vmprof_set_mainloop(pypy_execute_frame_trampoline, 0,
-                                pypy_vmprof_get_virtual_ip);
+                                NULL);
         }
     """],
     )
@@ -104,10 +103,6 @@ class __extend__(PyFrame):
             return original_execute_frame(frame, w_inputvalue, operr)
 
 
-@entrypoint.entrypoint_lowlevel('main', [lltype.Signed],
-                                'pypy_vmprof_get_virtual_ip', True)
-def get_virtual_ip(unique_id):
-    return rffi.cast(rffi.VOIDP, unique_id)
 
 def write_long_to_string_builder(l, b):
     if sys.maxint == 2147483647:

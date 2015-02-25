@@ -176,7 +176,11 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
           void **arg_ptr = (void**)arg_addr;
           // fprintf(stderr, "stacktrace mainloop: rsp %p   &f2 %p   offset %ld\n", 
           //         sp, arg_addr, mainloop_sp_offset);
-          ip = mainloop_get_virtual_ip(*arg_ptr);
+		  if (mainloop_get_virtual_ip) {
+			  ip = mainloop_get_virtual_ip(*arg_ptr);
+		  } else {
+			  ip = *arg_ptr;
+		  }
         }
 
         result[n++] = ip;
