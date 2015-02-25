@@ -140,9 +140,9 @@ class AppTestMemoryView:
         assert m.itemsize == 4
         assert len(m) == 10
         assert len(m.tobytes()) == 40
-        assert m[0] == b'\x00\x00\x00\x00'
-        m[0] = b'\x00\x00\x00\x01'
-        assert m[0] == b'\x00\x00\x00\x01'
+        assert m[0] == 0
+        m[0] = 1
+        assert m[0] == 1
 
     def test_int_array_slice(self):
         import array
@@ -152,10 +152,10 @@ class AppTestMemoryView:
         assert slice.itemsize == 4
         assert len(slice) == 6
         assert len(slice.tobytes()) == 24
-        assert slice[0] in (b'\x00\x00\x00\x02', b'\x02\x00\x00\x00')
-        slice[0] = b'\x00\x00\x00\x01'
-        assert slice[0] == b'\x00\x00\x00\x01'
-        assert m[2] == b'\x00\x00\x00\x01'
+        assert slice[0] == 2
+        slice[0] = 1
+        assert slice[0] == 1
+        assert m[2] == 1
 
     def test_pypy_raw_address_base(self):
         raises(ValueError, memoryview(b"foobar")._pypy_raw_address)

@@ -9,6 +9,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
+from pypy.module.struct.formatiterator import UnpackFormatIterator, PackFormatIterator
 
 
 class W_MemoryView(W_Root):
@@ -72,23 +73,20 @@ class W_MemoryView(W_Root):
 
     def descr_tolist(self, space):
         self._check_released(space)
-        buf = self.buf
-        if self.format != 'B':
-            raise oefmt(space.w_NotImplementedError,
-                        "tolist() only supports byte views")
-        result = []
-        for i in range(buf.getlength()):
-            result.append(space.wrap(ord(buf.getitem(i)[0])))
-        return space.newlist(result)
+        # TODO: this probably isn't very fast
+        fmtiter = UnpackFormatIterator(space, self.buf)
+        fmtiter.interpret(self.format * self.getlength())
+        return space.newlist(fmtiter.result_w)
 
     def descr_getitem(self, space, w_index):
         self._check_released(space)
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step == 0:  # index only
-            a = start * self.itemsize
-            b = a + self.itemsize
-            return space.wrapbytes(
-                ''.join([self.buf.getitem(i) for i in range(a, b)]))
+            # TODO: this probably isn't very fast
+            buf = SubBuffer(self.buf, start * self.itemsize, self.itemsize)
+            fmtiter = UnpackFormatIterator(space, buf)
+            fmtiter.interpret(self.format)
+            return fmtiter.result_w[0]
         elif step == 1:
             buf = SubBuffer(self.buf, start * self.itemsize,
                             size * self.itemsize)
@@ -101,13 +99,19 @@ class W_MemoryView(W_Root):
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
-        if step not in (0, 1):
+        if step == 0:  # index only
+            # TODO: this probably isn't very fast
+            fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
+            fmtiter.interpret(self.format)
+            self.buf.setslice(start * self.itemsize, fmtiter.result.build())
+        elif step == 1:
+            value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
+            if value.getlength() != size * self.itemsize:
+                raise oefmt(space.w_ValueError,
+                            "cannot modify size of memoryview object")
+            self.buf.setslice(start * self.itemsize, value.as_str())
+        else:
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
-        if value.getlength() != size * self.itemsize:
-            raise oefmt(space.w_ValueError,
-                        "cannot modify size of memoryview object")
-        self.buf.setslice(start * self.itemsize, value.as_str())
 
     def descr_len(self, space):
         self._check_released(space)
