@@ -72,9 +72,9 @@ class error(IOError):
     pass
 
 def _checkstr(key):
-    if isinstance(key, unicode):
+    if isinstance(key, str):
         key = key.encode("ascii")
-    if not isinstance(key, str):
+    if not isinstance(key, bytes):
         raise TypeError("gdbm mappings have string indices only")
     return key
 
