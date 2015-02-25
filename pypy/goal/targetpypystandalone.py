@@ -106,6 +106,9 @@ def create_entry_point(space, w_dict):
         space.call_function(w_pathsetter, w_path)
         # import site
         try:
+            space.setattr(space.getbuiltinmodule('sys'),
+                          space.wrap('executable'),
+                          space.wrap(home))
             import_ = space.getattr(space.getbuiltinmodule('__builtin__'),
                                     space.wrap('__import__'))
             space.call_function(import_, space.wrap('site'))
