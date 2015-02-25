@@ -45,13 +45,7 @@ typedef struct {
     uintptr_t odd_number;  /* marker odd number, or 0 if marker is missing */
     object_t *object;      /* marker object, or NULL if marker is missing */
 } stm_loc_marker_t;
-extern void (*stmcb_light_finalizer)(object_t *o);
-extern void (*stmcb_finalizer)(object_t *o);
-static inline object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up) {
-    return stm_allocate(size_rounded_up);
-}
-static inline void stm_enable_light_finalizer(object_t *o) {};
-static inline int stm_set_timing_log(const char *profiling_file_name,
+static inline int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
                        int expand_marker(stm_loc_marker_t *, char *, int)) {return 0;}
 /* C8: not implemented properly yet ^^^^^^^^^^^^^^^^^^ */
 
