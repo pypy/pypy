@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 /* Outside the nursery, we are taking from the highest addresses
    complete pages, one at a time, which uniformly contain objects of
    size "8 * N" for some N in range(2, GC_N_SMALL_REQUESTS).  We are

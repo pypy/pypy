@@ -1,6 +1,5 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
 #define _STM_CORE_H_
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +39,7 @@ enum /* stm_flags */ {
     GCFLAG_HAS_SHADOW = 0x02,
     GCFLAG_WB_EXECUTED = 0x04,
     GCFLAG_VISITED = 0x08,
+    GCFLAG_FINALIZATION_ORDERING = 0x10,
 };
 
 
@@ -110,6 +110,14 @@ struct stm_priv_segment_info_s {
 #ifndef NDEBUG
     pthread_t running_pthread;
 #endif
+
+    /* light finalizers */
+    struct list_s *young_objects_with_light_finalizers;
+    struct list_s *old_objects_with_light_finalizers;
+
+    /* regular finalizers (objs from the current transaction only) */
+    struct finalizers_s *finalizers;
+
 
     /* This is for smallmalloc.c */
     struct small_malloc_data_s small_malloc_data;

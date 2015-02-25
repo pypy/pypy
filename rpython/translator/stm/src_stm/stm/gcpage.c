@@ -2,8 +2,6 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
-
-static struct list_s *testing_prebuilt_objs = NULL;
 static struct tree_s *tree_prebuilt_objs = NULL;     /* XXX refactor */
 
 
@@ -64,6 +62,10 @@ static stm_char *allocate_outside_nursery_large(uint64_t size)
                  size, (char*)(addr - stm_object_pages),
                  (uintptr_t)(addr - stm_object_pages) / 4096UL));
 
+        /* set stm_flags to 0 in seg0 so that major gc will see them
+           as not visited during sweeping */
+        ((struct object_s*)addr)->stm_flags = 0;
+
         return (stm_char*)(addr - stm_object_pages);
     }
 
@@ -91,6 +93,8 @@ static stm_char *allocate_outside_nursery_large(uint64_t size)
              size, (char*)(addr - stm_object_pages),
              (uintptr_t)(addr - stm_object_pages) / 4096UL));
 
+    ((struct object_s*)addr)->stm_flags = 0;
+
     spinlock_release(lock_growth_large);
     return (stm_char*)(addr - stm_object_pages);
 }
@@ -101,7 +105,9 @@ object_t *_stm_allocate_old(ssize_t size_rounded_up)
     stm_char *p = allocate_outside_nursery_large(size_rounded_up);
     object_t *o = (object_t *)p;
 
-    // sharing seg0 needs to be current:
+    /* Sharing seg0 needs to be current, because in core.c handle_segfault_in_page,
+       we depend on simply copying the page from seg0 if it was never accessed by
+       anyone so far (we only run in seg1 <= seg < NB_SEGMENT). */
     assert(STM_SEGMENT->segment_num == 0);
     memset(REAL_ADDRESS(STM_SEGMENT->segment_base, o), 0, size_rounded_up);
     o->stm_flags = GCFLAG_WRITE_BARRIER;
@@ -140,6 +146,7 @@ static void major_collection_if_requested(void)
     }
 
     s_mutex_unlock();
+    exec_local_finalizers();
 }
 
 
@@ -382,10 +389,10 @@ static void mark_visit_from_roots(void)
         */
 
         /* only for new, uncommitted objects:
-           If 'tl' is currently running, its 'associated_segment_num'
+           If 'tl' is currently running, its 'last_associated_segment_num'
            field is the segment number that contains the correct
            version of its overflowed objects. */
-        char *segment_base = get_segment_base(tl->associated_segment_num);
+        char *segment_base = get_segment_base(tl->last_associated_segment_num);
 
         struct stm_shadowentry_s *current = tl->shadowstack;
         struct stm_shadowentry_s *base = tl->shadowstack_base;
@@ -402,6 +409,7 @@ static void mark_visit_from_roots(void)
 
     /* also visit all objs in the rewind-shadowstack */
     long i;
+    assert(get_priv_segment(0)->transaction_state == TS_NONE);
     for (i = 1; i < NB_SEGMENTS; i++) {
         if (get_priv_segment(i)->transaction_state != TS_NONE) {
             mark_visit_possibly_new_object(
@@ -445,10 +453,13 @@ static void ready_new_objects(void)
                 assert(realobj = (struct object_s*)REAL_ADDRESS(pseg->pub.segment_base, item));
                 assert(realobj->stm_flags & GCFLAG_WB_EXECUTED);
 
-                /* clear VISITED and ensure WB_EXECUTED in seg0 */
+                /* clear VISITED (garbage) and ensure WB_EXECUTED in seg0 */
                 mark_visited_test_and_clear(item);
                 realobj = (struct object_s*)REAL_ADDRESS(stm_object_pages, item);
                 realobj->stm_flags |= GCFLAG_WB_EXECUTED;
+
+                /* make sure this flag is cleared as well */
+                realobj->stm_flags &= ~GCFLAG_FINALIZATION_ORDERING;
             }));
     }
 #pragma pop_macro("STM_SEGMENT")
@@ -475,6 +486,7 @@ static void clean_up_segment_lists(void)
            This is the case for transactions where
                MINOR_NOTHING_TO_DO() == true
            but they still did write-barriers on objects
+           (the objs are still in modified_old_objects list)
         */
         lst = pseg->objects_pointing_to_nursery;
         if (!list_is_empty(lst)) {
@@ -508,6 +520,7 @@ static void clean_up_segment_lists(void)
 #pragma pop_macro("STM_SEGMENT")
 #pragma pop_macro("STM_PSEGMENT")
 }
+
 
 static inline bool largemalloc_keep_object_at(char *data)
 {
@@ -569,16 +582,19 @@ static void clean_up_commit_log_entries()
 #ifndef NDEBUG
     /* check that all segments are at the same revision: */
     cl = get_priv_segment(0)->last_commit_log_entry;
-    for (long i = 1; i < NB_SEGMENTS; i++) {
-        assert(get_priv_segment(i)->last_commit_log_entry == cl);
+    for (long i = 0; i < NB_SEGMENTS; i++) {
+        struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
+        assert(pseg->last_commit_log_entry == cl);
     }
 #endif
 
     /* if there is only one element, we don't have to do anything: */
     cl = &commit_log_root;
 
-    if (cl->next == NULL || cl->next == INEV_RUNNING)
+    if (cl->next == NULL || cl->next == INEV_RUNNING) {
+        assert(get_priv_segment(0)->last_commit_log_entry == cl);
         return;
+    }
 
     bool was_inev = false;
     uint64_t rev_num = -1;
@@ -645,10 +661,18 @@ static void major_collection_now_at_safe_point(void)
     LIST_CREATE(marked_objects_to_trace);
     mark_visit_from_modified_objects();
     mark_visit_from_roots();
+    mark_visit_from_finalizer_pending();
+
+    /* finalizer support: will mark as visited all objects with a
+       finalizer and all objects reachable from there, and also moves
+       some objects from 'objects_with_finalizers' to 'run_finalizers'. */
+    deal_with_objects_with_finalizers();
+
     LIST_FREE(marked_objects_to_trace);
 
-    /* weakrefs */
+    /* weakrefs and execute old light finalizers */
     stm_visit_old_weakrefs();
+    deal_with_old_objects_with_finalizers();
 
     /* cleanup */
     clean_up_segment_lists();

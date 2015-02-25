@@ -3,7 +3,6 @@
 # error "must be compiled via stmgc.c"
 #endif
 
-
 #define PAGE_SMSIZE_START   0
 #define PAGE_SMSIZE_END     NB_SHARED_PAGES
 
@@ -65,7 +64,8 @@ static void grab_more_free_pages_for_small_allocations(void)
         uninitialized_page_stop -= decrease_by;
         first_small_uniform_loc = uninitialized_page_stop - stm_object_pages;
 
-        if (!_stm_largemalloc_resize_arena(uninitialized_page_stop - uninitialized_page_start))
+        char *base = stm_object_pages + END_NURSERY_PAGE * 4096UL;
+        if (!_stm_largemalloc_resize_arena(uninitialized_page_stop - base))
             goto out_of_memory;
 
         /* make writable in sharing seg */
@@ -176,13 +176,17 @@ static inline stm_char *allocate_outside_nursery_small(uint64_t size)
 
     increment_total_allocated(size);
 
-    if (UNLIKELY(result == NULL))
+    if (UNLIKELY(result == NULL)) {
+        char *addr = _allocate_small_slowpath(size);
+        ((struct object_s*)addr)->stm_flags = 0;
         return (stm_char*)
-            (_allocate_small_slowpath(size) - stm_object_pages);
+            (addr - stm_object_pages);
+    }
 
     *fl = result->next;
     /* dprintf(("allocate_outside_nursery_small(%lu): %p\n", */
     /*          size, (char*)((char *)result - stm_object_pages))); */
+    ((struct object_s*)result)->stm_flags = 0;
     return (stm_char*)
         ((char *)result - stm_object_pages);
 }
@@ -197,6 +201,10 @@ object_t *_stm_allocate_old_small(ssize_t size_rounded_up)
     memset(REAL_ADDRESS(STM_SEGMENT->segment_base, o), 0, size_rounded_up);
     o->stm_flags = GCFLAG_WRITE_BARRIER;
 
+    if (testing_prebuilt_objs == NULL)
+        testing_prebuilt_objs = list_create();
+    LIST_APPEND(testing_prebuilt_objs, o);
+
     dprintf(("_stm_allocate_old_small(%lu): %p, seg=%d, page=%lu\n",
              size_rounded_up, p,
              get_segment_of_linear_address(stm_object_pages + (uintptr_t)p),
@@ -204,6 +212,7 @@ object_t *_stm_allocate_old_small(ssize_t size_rounded_up)
 
     return o;
 }
+
 
 /************************************************************/
 

@@ -37,6 +37,10 @@ static inline bool _is_young(object_t *obj)
         tree_contains(STM_PSEGMENT->young_outside_nursery, (uintptr_t)obj));
 }
 
+static inline bool _is_from_same_transaction(object_t *obj) {
+    return _is_young(obj) || (obj->stm_flags & GCFLAG_WB_EXECUTED);
+}
+
 long stm_can_move(object_t *obj)
 {
     /* 'long' return value to avoid using 'bool' in the public interface */
@@ -226,6 +230,22 @@ static void collect_oldrefs_to_nursery(void)
     }
 }
 
+static void collect_objs_still_young_but_with_finalizers(void)
+{
+    struct list_s *lst = STM_PSEGMENT->finalizers->objects_with_finalizers;
+    uintptr_t i, total = list_count(lst);
+
+    for (i = STM_PSEGMENT->finalizers->count_non_young; i < total; i++) {
+
+        object_t *o = (object_t *)list_item(lst, i);
+        minor_trace_if_young(&o);
+
+        /* was not actually movable */
+        assert(o == (object_t *)list_item(lst, i));
+    }
+    STM_PSEGMENT->finalizers->count_non_young = total;
+}
+
 
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 {
@@ -296,12 +316,16 @@ static void _do_minor_collection(bool commit)
 
     collect_roots_in_nursery();
 
+    if (STM_PSEGMENT->finalizers != NULL)
+        collect_objs_still_young_but_with_finalizers();
+
     collect_oldrefs_to_nursery();
 
     /* now all surviving nursery objects have been moved out */
     acquire_privatization_lock(STM_SEGMENT->segment_num);
     stm_move_young_weakrefs();
     release_privatization_lock(STM_SEGMENT->segment_num);
+    deal_with_young_objects_with_finalizers();
 
     assert(list_is_empty(STM_PSEGMENT->objects_pointing_to_nursery));
 
@@ -429,11 +453,16 @@ static void major_do_validation_and_minor_collections(void)
     int original_num = STM_SEGMENT->segment_num;
     long i;
 
+    assert(_has_mutex());
+
     /* including the sharing seg0 */
     for (i = 0; i < NB_SEGMENTS; i++) {
         set_gs_register(get_segment_base(i));
 
-        if (!_stm_validate()) {
+        bool ok = _stm_validate();
+        assert(get_priv_segment(i)->last_commit_log_entry->next == NULL
+               || get_priv_segment(i)->last_commit_log_entry->next == INEV_RUNNING);
+        if (!ok) {
             assert(i != 0);     /* sharing seg0 should never need an abort */
 
             if (STM_PSEGMENT->transaction_state == TS_NONE) {

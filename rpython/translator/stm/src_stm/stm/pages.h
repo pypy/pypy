@@ -4,7 +4,6 @@
       logical page
   We have virtual pages: one virtual address can point in some
       virtual page. We have NB_SEGMENTS virtual pages per logical page.
-
   Each virtual page is either accessible, or PAGE_NO_ACCESS (and then
   has no underlying memory).
 

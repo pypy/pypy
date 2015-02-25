@@ -616,6 +616,7 @@ void _stm_largemalloc_sweep(void)
         /* use the callback to know if 'chunk' contains an object that
            survives or dies */
         if (!_largemalloc_sweep_keep(chunk)) {
+            dprintf(("dies: %p\n", (char*)((char*)&chunk->d - stm_object_pages)));
             _large_free(chunk);     /* dies */
         }
         chunk = mnext;

@@ -2,7 +2,6 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
-
 #include <signal.h>
 #include <fcntl.h>           /* For O_* constants */
 
@@ -109,6 +108,8 @@ void stm_setup(void)
         pr->nursery_objects_shadows = tree_create();
         pr->callbacks_on_commit_and_abort[0] = tree_create();
         pr->callbacks_on_commit_and_abort[1] = tree_create();
+        pr->young_objects_with_light_finalizers = list_create();
+        pr->old_objects_with_light_finalizers = list_create();
 
         pr->last_commit_log_entry = &commit_log_root;
         pr->pub.transaction_read_version = 0xff;
@@ -127,6 +128,8 @@ void stm_setup(void)
     setup_nursery();
     setup_gcpage();
     setup_pages();
+    setup_forksupport();
+    setup_finalizer();
 
     set_gs_register(get_segment_base(0));
 }
@@ -153,6 +156,8 @@ void stm_teardown(void)
         tree_free(pr->nursery_objects_shadows);
         tree_free(pr->callbacks_on_commit_and_abort[0]);
         tree_free(pr->callbacks_on_commit_and_abort[1]);
+        list_free(pr->young_objects_with_light_finalizers);
+        list_free(pr->old_objects_with_light_finalizers);
     }
 
     munmap(stm_object_pages, TOTAL_MEMORY);
@@ -160,6 +165,7 @@ void stm_teardown(void)
     commit_log_root.next = NULL; /* xxx:free them */
     commit_log_root.segment_num = -1;
 
+    teardown_finalizer();
     teardown_sync();
     teardown_gcpage();
     teardown_smallmalloc();
@@ -223,14 +229,15 @@ void stm_register_thread_local(stm_thread_local_t *tl)
         tl->prev = stm_all_thread_locals->prev;
         stm_all_thread_locals->prev->next = tl;
         stm_all_thread_locals->prev = tl;
-        num = (tl->prev->associated_segment_num) % (NB_SEGMENTS-1);
+        num = (tl->prev->last_associated_segment_num) % (NB_SEGMENTS-1);
     }
     tl->thread_local_obj = NULL;
 
     /* assign numbers consecutively, but that's for tests; we could also
        assign the same number to all of them and they would get their own
        numbers automatically. */
-    tl->associated_segment_num = num + 1;
+    tl->associated_segment_num = -1;
+    tl->last_associated_segment_num = num + 1;
     *_get_cpth(tl) = pthread_self();
     _init_shadow_stack(tl);
     set_gs_register(get_segment_base(num + 1));

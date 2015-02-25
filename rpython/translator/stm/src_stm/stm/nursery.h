@@ -1,5 +1,4 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-
 #define NSE_SIGPAUSE   _STM_NSE_SIGNAL_MAX
 #define NSE_SIGABORT   _STM_NSE_SIGNAL_ABORT
 
