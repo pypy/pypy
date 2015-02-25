@@ -35,8 +35,8 @@ class AppTestFunction(py.test.collect.Function):
         try:
             target(*args)
         except OperationError, e:
-            if self.config.option.verbose:
-                raise
+            #if self.config.option.verbose:
+            #    raise
             tb = sys.exc_info()[2]
             if e.match(space, space.w_KeyboardInterrupt):
                 raise KeyboardInterrupt, KeyboardInterrupt(), tb
