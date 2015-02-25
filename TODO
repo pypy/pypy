@@ -1,3 +1,10 @@
+------------------------------------------------------------
+
+maybe statically optimize away some stm_become_inevitable(), there
+are some loops that call it repeatedly (may be not relevant
+for performance) 
+
+------------------------------------------------------------
 
 1b664888133d (March 15, 2014): the overhead of a non-JIT STM, when
 compared with a non-JIT plain PyPy, is measured to be 54% in a
