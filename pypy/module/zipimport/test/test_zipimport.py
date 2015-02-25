@@ -195,7 +195,8 @@ def get_file():
         m0 ^= 0x04
         test_pyc = bytes([m0]) + self.get_pyc()[1:]
         self.writefile("uu.pyc", test_pyc)
-        raises(ImportError, "__import__('uu', globals(), locals(), [])")
+        raises(zipimport.ZipImportError,
+               "__import__('uu', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
@@ -385,6 +386,11 @@ def get_co_filename():
             zipimport.zipimporter(filename)
         finally:
             os.remove(filename)
+
+    def test_import_exception(self):
+        self.writefile('x1test.py', '1/0')
+        self.writefile('x1test/__init__.py', 'raise ValueError')
+        raises(ValueError, __import__, 'x1test', None, None, [])
 
 
 if os.sep != '/':

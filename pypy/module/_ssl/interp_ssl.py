@@ -4,6 +4,7 @@ from rpython.rlib import rpoll, rsocket
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib import rpoll, rsocket, rthread, rweakref
 from rpython.rlib.ropenssl import *
+from rpython.rlib._rsocket_rffi import MAX_FD_SIZE
 from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rlib.objectmodel import specialize, compute_unique_id

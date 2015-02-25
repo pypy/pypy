@@ -133,8 +133,31 @@ class AppTestMemoryView:
         raises(ValueError, bytes, v)
         assert "released memory" in repr(v)
 
+    def test_int_array_buffer(self):
+        import array
+        m = memoryview(array.array('i', list(range(10))))
+        assert m.format == 'i'
+        assert m.itemsize == 4
+        assert len(m) == 10
+        assert len(m.tobytes()) == 40
+        assert m[0] == b'\x00\x00\x00\x00'
+        m[0] = b'\x00\x00\x00\x01'
+        assert m[0] == b'\x00\x00\x00\x01'
+
+    def test_int_array_slice(self):
+        import array
+        m = memoryview(array.array('i', list(range(10))))
+        slice = m[2:8]
+        assert slice.format == 'i'
+        assert slice.itemsize == 4
+        assert len(slice) == 6
+        assert len(slice.tobytes()) == 24
+        assert slice[0] in (b'\x00\x00\x00\x02', b'\x02\x00\x00\x00')
+        slice[0] = b'\x00\x00\x00\x01'
+        assert slice[0] == b'\x00\x00\x00\x01'
+        assert m[2] == b'\x00\x00\x00\x01'
+
     def test_pypy_raw_address_base(self):
         raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
         e = raises(ValueError, memoryview(bytearray(b"foobar"))._pypy_raw_address)
         assert 'BytearrayBuffer' in str(e.value)
-

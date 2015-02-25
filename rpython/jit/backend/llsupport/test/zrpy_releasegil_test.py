@@ -98,6 +98,7 @@ class ReleaseGILTests(BaseFrameworkTests):
         self.run('close_stack')
         assert 'call_release_gil' in udir.join('TestCompileFramework.log').read()
 
+    # XXX this should also test get/set_alterrno ?
     def define_get_set_errno(self):
         eci = ExternalCompilationInfo(
             post_include_bits=[r'''

@@ -3,7 +3,6 @@ from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt,\
      REF, BoxPtr, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded,\
-                                                     ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT,\
                                                      MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -59,6 +58,17 @@ class OptValue(object):
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
+
+    def __repr__(self):
+        level = {LEVEL_UNKNOWN: 'UNKNOWN',
+                 LEVEL_NONNULL: 'NONNULL',
+                 LEVEL_KNOWNCLASS: 'KNOWNCLASS',
+                 LEVEL_CONSTANT: 'CONSTANT'}.get(self.getlevel(),
+                                                 self.getlevel())
+        return '<%s %s %s>' % (
+            self.__class__.__name__,
+            level,
+            self.box)
 
     def getlevel(self):
         return self._tag & 0x3
@@ -323,19 +333,17 @@ class PtrOptValue(OptValue):
 class IntOptValue(OptValue):
     _attrs_ = ('intbound',)
 
-    intbound = ImmutableIntUnbounded()
-
     def __init__(self, box, level=None, known_class=None, intbound=None):
         OptValue.__init__(self, box, level, None, None)
         if isinstance(box, Const):
+            value = box.getint()
+            self.intbound = IntBound(value, value)
             return
         if intbound:
             self.intbound = intbound
         else:
-            if isinstance(box, BoxInt):
-                self.intbound = IntBound(MININT, MAXINT)
-            else:
-                self.intbound = IntUnbounded()
+            assert isinstance(box, BoxInt)
+            self.intbound = IntBound(MININT, MAXINT)
 
     def copy_from(self, other_value):
         assert isinstance(other_value, IntOptValue)

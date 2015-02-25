@@ -255,5 +255,3 @@ def PyBytes_FromObject(space, w_obj):
         return w_obj
     buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
     return space.wrapbytes(buffer.as_str())
-    
-

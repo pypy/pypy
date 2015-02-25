@@ -413,7 +413,16 @@ class BaseArrayTests:
     def test_buffer(self):
         a = self.array('h', b'Hi')
         buf = memoryview(a)
-        assert buf[1] == ord('i')
+        assert buf[0] == 26952
+        raises(IndexError, 'buf[1]')
+        assert buf.tobytes() == b'Hi'
+        assert buf.tolist() == [26952]
+        assert buf.format == 'h'
+        assert buf.itemsize == 2
+        assert buf.shape == (1,)
+        assert buf.ndim == 1
+        assert buf.strides == (2,)
+        assert not buf.readonly
 
     def test_buffer_write(self):
         a = self.array('b', b'hello')
@@ -432,6 +441,11 @@ class BaseArrayTests:
         buf = memoryview(a)
         a.fromstring(b'some extra text')
         assert buf[:] == b'foobarbazsome extra text'
+
+    def test_memview_multi_tobytes(self):
+        a = self.array('i', list(b"abcdef"))
+        m = memoryview(a)
+        assert m.tobytes() == a.tobytes()
 
     def test_list_methods(self):
         assert repr(self.array('i')) == "array('i')"

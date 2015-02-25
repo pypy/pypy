@@ -511,7 +511,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.builtin_module_names, tuple)
         assert isinstance(sys.copyright, str)
         #assert isinstance(sys.exec_prefix, str) -- not present!
-        assert isinstance(sys.executable, str)
+        #assert isinstance(sys.executable, str)
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
@@ -564,6 +564,13 @@ class AppTestSysModulePortedFromCPython:
         #
         raises(AttributeError, "del ns.spam")
         del ns.y
+
+    def test_reload_doesnt_override_sys_executable(self):
+        import sys
+        from imp import reload
+        sys.executable = 'from_test_sysmodule'
+        reload(sys)
+        assert sys.executable == 'from_test_sysmodule'
 
     def test_settrace(self):
         import sys

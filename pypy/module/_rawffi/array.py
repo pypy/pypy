@@ -15,7 +15,7 @@ from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
 from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rlib import rgc
+from rpython.rlib import rgc, clibffi
 
 
 class W_Array(W_DataShape):
@@ -84,14 +84,11 @@ W_Array.typedef.acceptable_as_base_class = False
 
 class W_ArrayInstance(W_DataInstance):
     def __init__(self, space, shape, length, address=r_uint(0)):
-        # Workaround for a strange behavior of libffi: make sure that
-        # we always have at least 8 bytes.  For W_ArrayInstances that are
-        # used as the result value of a function call, ffi_call() writes
-        # 8 bytes into it even if the function's result type asks for less.
-        # This strange behavior is documented.
         memsize = shape.size * length
-        if memsize < 8:
-            memsize = 8
+        # For W_ArrayInstances that are used as the result value of a
+        # function call, ffi_call() writes 8 bytes into it even if the
+        # function's result type asks for less.
+        memsize = clibffi.adjust_return_size(memsize)
         W_DataInstance.__init__(self, space, memsize, address)
         self.length = length
         self.shape = shape

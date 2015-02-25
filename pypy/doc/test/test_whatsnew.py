@@ -85,7 +85,7 @@ def test_whatsnew():
     #whatsnew_list = doc.listdir('whatsnew-*.rst')
     #whatsnew_list.sort()
     #last_whatsnew = whatsnew_list[-1].read()
-    last_whatsnew = doc.join('whatsnew-head.rst').read()
+    last_whatsnew = doc.join('whatsnew-pypy3-head.rst').read()
     startrev, documented = parse_doc(last_whatsnew)
     merged, branch = get_merged_branches(ROOT, startrev, '')
     merged.discard('default')
@@ -100,5 +100,5 @@ def test_whatsnew():
     print '\n'.join(not_merged)
     print
     assert not not_documented
-    if branch == 'default':
+    if branch == 'py3k':
         assert not not_merged

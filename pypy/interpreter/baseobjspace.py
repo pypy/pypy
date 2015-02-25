@@ -25,6 +25,29 @@ unpackiterable_driver = jit.JitDriver(name='unpackiterable',
                                       reds=['items', 'w_iterator'])
 
 
+# It seems there's no way to do it without top-level-functions.
+
+@specialize.memo()
+def _does_override_buffer_w(type):
+    return type.buffer_w != W_Root.buffer_w
+
+@specialize.memo()
+def _does_override_buffer_w_ex(type):
+    return type.buffer_w_ex != W_Root.buffer_w_ex
+
+@specialize.argtype(0)
+def W_Root_buffer_w(self, space, flags):
+    if _does_override_buffer_w_ex(self.__class__):
+        return self.buffer_w_ex(space, flags)[0]
+    return self._buffer(space, flags).buffer_w(space, flags)
+
+@specialize.argtype(0)
+def W_Root_buffer_w_ex(self, space, flags):
+    if _does_override_buffer_w(self.__class__):
+        return self.buffer_w(space, flags), 'B', 1
+    return self._buffer(space, flags).buffer_w_ex(space, flags)
+
+
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
@@ -195,11 +218,17 @@ class W_Root(object):
         return None
 
     def buffer_w(self, space, flags):
+        return W_Root_buffer_w(self, space, flags)
+
+    def buffer_w_ex(self, space, flags):
+        return W_Root_buffer_w_ex(self, space, flags)
+
+    def _buffer(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
-                return w_result.buffer_w(space, flags)
+                return w_result
         raise TypeError
 
     def bytes_w(self, space):
@@ -1375,6 +1404,15 @@ class ObjSpace(object):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
             return w_obj.buffer_w(self, flags)
+        except TypeError:
+            raise oefmt(self.w_TypeError,
+                        "'%T' does not support the buffer interface", w_obj)
+
+    def buffer_w_ex(self, w_obj, flags):
+        # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
+        # Returns extra information: (buffer, typecode, itemsize)
+        try:
+            return w_obj.buffer_w_ex(self, flags)
         except TypeError:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)

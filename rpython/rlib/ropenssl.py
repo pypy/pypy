@@ -5,7 +5,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib._rsocket_rffi import MAX_FD_SIZE, SAVE_ERR
+from rpython.rlib._rsocket_rffi import SAVE_ERR
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
@@ -56,9 +56,9 @@ ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 ASN1_OBJECT = rffi.COpaquePtr('ASN1_OBJECT')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
-stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
+stack_st_X509_OBJECT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
 DIST_POINT = rffi.COpaquePtr('DIST_POINT')
-stack_st_DIST_POINT = rffi.COpaquePtr('struct stack_st_DIST_POINT')
+stack_st_DIST_POINT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
 DH = rffi.COpaquePtr('DH')
 EC_KEY = rffi.COpaquePtr('EC_KEY')
 AUTHORITY_INFO_ACCESS = rffi.COpaquePtr('AUTHORITY_INFO_ACCESS')
@@ -472,7 +472,7 @@ ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
 ssl_external('BIO_new_file', [rffi.CCHARP, rffi.CCHARP], BIO,
-             save_err=SAVE_ERR)
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('BIO_new_mem_buf', [rffi.VOIDP, rffi.INT], BIO)
 ssl_external('BIO_free', [BIO], rffi.INT)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)

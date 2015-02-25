@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# App-level version of py.py.
+# This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
 # Missing vs CPython: -b, -d, -v, -x, -3
@@ -158,11 +158,14 @@ def print_info(*args):
             current = group
     raise SystemExit
 
+def get_sys_executable():
+    return getattr(sys, 'executable', 'pypy')
+
 def print_help(*args):
     import os
     initstdio()
     print('usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
-        sys.executable,))
+        get_sys_executable(),))
     print(USAGE1, end='')
     if 'pypyjit' in sys.builtin_module_names:
         print("--jit options: advanced JIT options: try 'off' or 'help'")
@@ -174,7 +177,7 @@ def _print_jit_help():
     try:
         import pypyjit
     except ImportError:
-        print("No jit support in %s" % (sys.executable,), file=sys.stderr)
+        print("No jit support in %s" % (get_sys_executable(),), file=sys.stderr)
         return
     items = sorted(pypyjit.defaults.items())
     print('Advanced JIT options: a comma-separated list of OPTION=VALUE:')
@@ -213,7 +216,7 @@ def set_jit_option(options, jitparam, *args):
         raise SystemExit
     if 'pypyjit' not in sys.builtin_module_names:
         initstdio()
-        print("Warning: No jit support in %s" % (sys.executable,),
+        print("Warning: No jit support in %s" % (get_sys_executable(),),
               file=sys.stderr)
     else:
         import pypyjit
@@ -224,8 +227,8 @@ class CommandLineError(Exception):
 
 def print_error(msg):
     print(msg, file=sys.stderr)
-    print('usage: %s [options]' % (sys.executable,), file=sys.stderr)
-    print('Try `%s -h` for more information.' % (sys.executable,), file=sys.stderr)
+    print('usage: %s [options]' % (get_sys_executable(),), file=sys.stderr)
+    print('Try `%s -h` for more information.' % (get_sys_executable(),), file=sys.stderr)
 
 def fdopen(fd, mode, bufsize=-1):
     try:
