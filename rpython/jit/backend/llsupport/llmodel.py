@@ -79,6 +79,9 @@ class AbstractLLCPU(AbstractCPU):
     def setup(self):
         pass
 
+    def finish_once(self):
+        self.codemap.finish_once()
+
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
                                              llmemory.GCREF))

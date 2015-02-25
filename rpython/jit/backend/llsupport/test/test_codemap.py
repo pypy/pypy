@@ -1,39 +1,28 @@
 
 from rpython.jit.backend.llsupport.codemap import stack_depth_at_loc
 from rpython.jit.backend.llsupport.codemap import CodemapStorage,\
-     ListStorageMixin, INT_LIST, CodemapBuilder, unpack_traceback
-from rpython.rtyper.lltypesystem import lltype
+     ListStorageMixin, CodemapBuilder, unpack_traceback,\
+     pypy_get_codemap_storage
 
+g = pypy_get_codemap_storage()
 
 def test_list_storage_mixin():
     class X(ListStorageMixin):
-        track_allocation = True
-        
-        def __init__(self):
-            self.x = lltype.malloc(INT_LIST, 4, flavor='raw')
-            self.x_used = 0
-
         def unpack(self):
-            return [self.x[i] for i in range(self.x_used)]
-
-        def free_lst(self, name, lst):
-            lltype.free(lst, flavor='raw')
-        
-        def free(self):
-            lltype.free(self.x, flavor='raw')
+            return [g.jit_addr_map[i] for i in range(g.jit_addr_map_used)]
 
     x = X()
-    x.extend_with('x', [1, 2, 3], 0)
+    x.extend_with('jit_addr_map', [1, 2, 3], 0)
     assert x.unpack() == [1, 2, 3]
-    x.extend_with('x', [4, 5, 6], 3)
+    x.extend_with('jit_addr_map', [4, 5, 6], 3)
     assert x.unpack() == [1, 2, 3, 4, 5, 6]
-    x.extend_with('x', [7, 8, 9], 2, baseline=10)
+    x.extend_with('jit_addr_map', [7, 8, 9], 2, baseline=10)
     assert x.unpack() == [1, 2, 17, 18, 19, 3, 4, 5, 6]
-    x.remove('x', 3, 6)
+    x.remove('jit_addr_map', 3, 6)
     assert x.unpack() == [1, 2, 17, 4, 5, 6]
-    x.extend_with('x', [1] * 6, 6)
+    x.extend_with('jit_addr_map', [1] * 6, 6)
     assert x.unpack() == [1, 2, 17, 4, 5, 6, 1, 1, 1, 1, 1, 1]
-    x.extend_with('x', [10] * 4, 5)
+    x.extend_with('jit_addr_map', [10] * 4, 5)
     assert x.unpack() == [1, 2, 17, 4, 5, 10, 10, 10, 10, 6,
                           1, 1, 1, 1, 1, 1]
     x.free()
@@ -57,6 +46,7 @@ def test_find_jit_frame_depth():
     assert stack_depth_at_loc(5) == 8
     assert stack_depth_at_loc(17) == 9
     assert stack_depth_at_loc(38) == 5
+    codemap.free()
 
 def test_codemaps():
     builder = CodemapBuilder()
@@ -93,3 +83,4 @@ def test_codemaps():
     assert unpack_traceback(275) == [202]
     codemap.free_asm_block(200, 300)
     assert unpack_traceback(225) == []
+    codemap.free()
