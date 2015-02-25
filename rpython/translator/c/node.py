@@ -126,8 +126,9 @@ class StructDefNode(NodeWithDependencies):
         return self.prefix + name
 
     def verbatim_field_name(self, name):
-        assert name.startswith('c_')   # produced in this way by rffi
-        return name[2:]
+        if name.startswith('c_'):   # produced in this way by rffi
+            return name[2:]
+        return name
 
     def c_struct_field_type(self, name):
         return self.STRUCT._flds[name]
