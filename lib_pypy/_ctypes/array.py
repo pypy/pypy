@@ -11,7 +11,7 @@ class ArrayMeta(_CDataMeta):
         if cls == (_CData,): # this is the Array class defined below
             return res
 
-        ffiarray = res._ffiarray = _rawffi.Array(res._type_._ffishape)
+        ffiarray = res._ffiarray = _rawffi.Array(res._type_._ffishape_)
         subletter = getattr(res._type_, '_type_', None)
         if subletter == 'c':
             def getvalue(self):
@@ -58,8 +58,8 @@ class ArrayMeta(_CDataMeta):
                     target[len(val)] = '\x00'
             res.value = property(getvalue, setvalue)
 
-        res._ffishape = (ffiarray, res._length_)
-        res._fficompositesize = res._sizeofinstances()
+        res._ffishape_ = (ffiarray, res._length_)
+        res._fficompositesize_ = res._sizeofinstances()
         return res
 
     from_address = cdata_from_address
@@ -154,7 +154,7 @@ def array_slice_getitem(self, index):
     return l
 
 class Array(_CData, metaclass=ArrayMeta):
-    _ffiargshape = 'P'
+    _ffiargshape_ = 'P'
 
     def __init__(self, *args):
         if not hasattr(self, '_buffer'):
@@ -189,13 +189,13 @@ class Array(_CData, metaclass=ArrayMeta):
         if ensure_objects(cobj) is not None:
             store_reference(self, index, cobj._objects)
         arg = cobj._get_buffer_value()
-        if self._type_._fficompositesize is None:
+        if self._type_._fficompositesize_ is None:
             self._buffer[index] = arg
             # something more sophisticated, cannot set field directly
         else:
             from ctypes import memmove
             dest = self._buffer.itemaddress(index)
-            memmove(dest, arg, self._type_._fficompositesize)
+            memmove(dest, arg, self._type_._fficompositesize_)
 
     def __getitem__(self, index):
         if isinstance(index, slice):

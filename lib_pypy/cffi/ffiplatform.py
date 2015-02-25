@@ -11,6 +11,9 @@ class VerificationMissing(Exception):
     """
 
 
+LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
+                      'extra_objects', 'depends']
+
 def get_extension(srcfilename, modname, sources=(), **kwds):
     from distutils.core import Extension
     allsources = [srcfilename]

@@ -26,6 +26,12 @@ class AppTestSupport(BaseNumpyAppTest):
                     self.called_finalize = True
             return SubType ''')
 
+    def test_subtype_ndarray(self):
+        from numpy import arange, array
+        a = arange(24, dtype='int32').reshape((6,4))
+        b = array(a, dtype='float64', subok=True)
+        assert (a == b).all()
+
     def test_subtype_base(self):
         from numpy import ndarray, dtype
         class C(ndarray):
@@ -268,46 +274,129 @@ class AppTestSupport(BaseNumpyAppTest):
         c = array(a, float)
         assert c.dtype is dtype(float)
 
-    def test__getitem_modifies_shape(self):
+    def test_array_of_subtype(self):
         import numpy as N
         # numpy's matrix class caused an infinite loop
         class matrix(N.ndarray):
-            getcnt = 0
             def __new__(subtype, data, dtype=None, copy=True):
+                print('matrix __new__')
+                if isinstance(data, matrix):
+                    dtype2 = data.dtype
+                    if (dtype is None):
+                        dtype = dtype2
+                    if (dtype2 == dtype) and (not copy):
+                        return data
+                    return data.astype(dtype)
+
+                if isinstance(data, N.ndarray):
+                    if dtype is None:
+                        intype = data.dtype
+                    else:
+                        intype = N.dtype(dtype)
+                    new = data.view(subtype)
+                    if intype != data.dtype:
+                        return new.astype(intype)
+                    if copy: return new.copy()
+                    else: return new
+
+                if isinstance(data, str):
+                    data = _convert_from_string(data)
+
+                # now convert data to an array
                 arr = N.array(data, dtype=dtype, copy=copy)
+                ndim = arr.ndim
                 shape = arr.shape
+                if (ndim > 2):
+                    raise ValueError("matrix must be 2-dimensional")
+                elif ndim == 0:
+                    shape = (1, 1)
+                elif ndim == 1:
+                    shape = (1, shape[0])
+
+                order = False
+                if (ndim == 2) and arr.flags.fortran:
+                    order = True
+
+                if not (order or arr.flags.contiguous):
+                    arr = arr.copy()
 
                 ret = N.ndarray.__new__(subtype, shape, arr.dtype,
                                         buffer=arr,
-                                        order=True)
+                                        order=order)
                 return ret
 
+            def __array_finalize__(self, obj):
+                print('matrix __array_finalize__')
+                self._getitem = False
+                if (isinstance(obj, matrix) and obj._getitem): return
+                ndim = self.ndim
+                if (ndim == 2):
+                    return
+                if (ndim > 2):
+                    newshape = tuple([x for x in self.shape if x > 1])
+                    ndim = len(newshape)
+                    if ndim == 2:
+                        self.shape = newshape
+                        return
+                    elif (ndim > 2):
+                        raise ValueError("shape too large to be a matrix.")
+                else:
+                    newshape = self.shape
+                if ndim == 0:
+                    self.shape = (1, 1)
+                elif ndim == 1:
+                    self.shape = (1, newshape[0])
+                return
+
             def __getitem__(self, index):
-                matrix.getcnt += 1
-                if matrix.getcnt > 10:
-                    # XXX strides.find_shape_and_elems is sensitive
-                    # to shape modification
-                    xxx
-                out = N.ndarray.__getitem__(self, index)
+                print('matrix __getitem__')
+                self._getitem = True
+
+                try:
+                    out = N.ndarray.__getitem__(self, index)
+                finally:
+                    self._getitem = False
 
                 if not isinstance(out, N.ndarray):
                     return out
-                    # Determine when we should have a column array
-                old_shape = out.shape
-                if out.ndim < 2:
+
+                if out.ndim == 0:
+                    return out[()]
+                if out.ndim == 1:
                     sh = out.shape[0]
+                    # Determine when we should have a column array
                     try:
                         n = len(index)
                     except:
                         n = 0
-                    if n > 1:
+                    if n > 1 and isscalar(index[1]):
                         out.shape = (sh, 1)
                     else:
                         out.shape = (1, sh)
-                print 'out, shape was',old_shape,'now',out.shape
                 return out
-        a = matrix([[1., 2.]])
+
+        a = matrix([[1., 2.], [3., 4.]])
         b = N.array([a])
+        assert (b == a).all()
+
+        b = N.array(a)
+        assert len(b.shape) == 2
+        assert (b == a).all()
+
+        b = N.array(a, copy=False)
+        assert len(b.shape) == 2
+        assert (b == a).all()
+
+        b = N.array(a, copy=True, dtype=int)
+        assert len(b.shape) == 2
+        assert (b == a).all()
+
+        c = matrix(a, copy=False)
+        assert c.base is not None
+        c[0, 0] = 100
+        assert a[0, 0] == 100
+        b = N.array(c, copy=True)
+        assert (b == a).all()
 
     def test_setstate_no_version(self):
         # Some subclasses of ndarray, like MaskedArray, do not use

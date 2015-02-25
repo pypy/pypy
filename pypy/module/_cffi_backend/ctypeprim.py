@@ -158,21 +158,14 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
-    _attrs_            = ['value_fits_long', 'vmin', 'vrangemax']
-    _immutable_fields_ = ['value_fits_long', 'vmin', 'vrangemax']
+    _attrs_            = ['value_fits_long', 'value_smaller_than_long']
+    _immutable_fields_ = ['value_fits_long', 'value_smaller_than_long']
     is_primitive_integer = True
 
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
-        if self.size < rffi.sizeof(lltype.Signed):
-            assert self.value_fits_long
-            sh = self.size * 8
-            self.vmin = r_uint(-1) << (sh - 1)
-            self.vrangemax = (r_uint(1) << sh) - 1
-        else:
-            self.vmin = r_uint(0)
-            self.vrangemax = r_uint(-1)
+        self.value_smaller_than_long = self.size < rffi.sizeof(lltype.Signed)
 
     def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
@@ -192,8 +185,17 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def convert_from_object(self, cdata, w_ob):
         if self.value_fits_long:
             value = misc.as_long(self.space, w_ob)
-            if self.size < rffi.sizeof(lltype.Signed):
-                if r_uint(value) - self.vmin > self.vrangemax:
+            if self.value_smaller_than_long:
+                size = self.size
+                if size == 1:
+                    signextended = misc.signext(value, 1)
+                elif size == 2:
+                    signextended = misc.signext(value, 2)
+                elif size == 4:
+                    signextended = misc.signext(value, 4)
+                else:
+                    raise AssertionError("unsupported size")
+                if value != signextended:
                     self._overflow(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:
@@ -221,7 +223,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             length = w_cdata.get_array_length()
             populate_list_from_raw_array(res, buf, length)
             return res
-        elif self.value_fits_long:
+        elif self.value_smaller_than_long:
             res = [0] * w_cdata.get_array_length()
             misc.unpack_list_from_raw_array(res, w_cdata._cdata, self.size)
             return res
@@ -235,8 +237,8 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
                 cdata = rffi.cast(rffi.LONGP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
             else:
-                overflowed = misc.pack_list_to_raw_array_bounds(
-                    int_list, cdata, self.size, self.vmin, self.vrangemax)
+                overflowed = misc.pack_list_to_raw_array_bounds_signed(
+                    int_list, cdata, self.size)
                 if overflowed != 0:
                     self._overflow(self.space.wrap(overflowed))
             return True
@@ -314,8 +316,8 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def pack_list_of_items(self, cdata, w_ob):
         int_list = self.space.listview_int(w_ob)
         if int_list is not None:
-            overflowed = misc.pack_list_to_raw_array_bounds(
-                int_list, cdata, self.size, r_uint(0), self.vrangemax)
+            overflowed = misc.pack_list_to_raw_array_bounds_unsigned(
+                int_list, cdata, self.size, self.vrangemax)
             if overflowed != 0:
                 self._overflow(self.space.wrap(overflowed))
             return True

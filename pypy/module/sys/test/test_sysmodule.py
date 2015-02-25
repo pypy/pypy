@@ -497,7 +497,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.builtin_module_names, tuple)
         assert isinstance(sys.copyright, str)
         #assert isinstance(sys.exec_prefix, str) -- not present!
-        assert isinstance(sys.executable, str)
+        #assert isinstance(sys.executable, str)
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
@@ -514,6 +514,12 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+
+    def test_reload_doesnt_override_sys_executable(self):
+        import sys
+        sys.executable = 'from_test_sysmodule'
+        reload(sys)
+        assert sys.executable == 'from_test_sysmodule'
 
     def test_settrace(self):
         import sys
@@ -648,6 +654,9 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         assert s3 != s2
         s4 = s3.swapcase()
         assert intern(s4) is s2
+        s5 = "\ud800"
+        # previously failed
+        assert intern(s5) == s5
 
 
 class AppTestSysExcInfoDirect:

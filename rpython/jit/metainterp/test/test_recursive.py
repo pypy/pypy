@@ -774,8 +774,8 @@ class RecursiveTests:
         def main(codeno):
             frame = Frame()
             frame.thing = Thing(0)
-            portal(codeno, frame)
-            return frame.thing.val
+            result = portal(codeno, frame)
+            return result
 
         def portal(codeno, frame):
             i = 0
@@ -791,10 +791,10 @@ class RecursiveTests:
                     s += subframe.thing.val
                 frame.thing = Thing(nextval + 1)
                 i += 1
-            return frame.thing.val
+            return frame.thing.val + s
 
         res = self.meta_interp(main, [0], inline=True)
-        self.check_resops(call=0, cond_call=0) # got removed by optimization
+        self.check_resops(call=0, cond_call=2)
         assert res == main(0)
 
     def test_directly_call_assembler_virtualizable_reset_token(self):
@@ -1111,6 +1111,37 @@ class RecursiveTests:
         res = self.meta_interp(main, [0, 1], inline=True)
         assert res == 2095
         self.check_resops(call_assembler=12)
+
+    def test_inline_recursion_limit(self):
+        driver = JitDriver(greens = ["threshold", "loop"], reds=["i"])
+        @dont_look_inside
+        def f():
+            set_param(driver, "max_unroll_recursion", 10)
+        def portal(threshold, loop, i):
+            f()
+            if i > threshold:
+                return i
+            while True:
+                driver.jit_merge_point(threshold=threshold, loop=loop, i=i)
+                if loop:
+                    portal(threshold, False, 0)
+                else:
+                    portal(threshold, False, i + 1)
+                    return i
+                if i > 10:
+                    return 1
+                i += 1
+                driver.can_enter_jit(threshold=threshold, loop=loop, i=i)
+
+        res1 = portal(10, True, 0)
+        res2 = self.meta_interp(portal, [10, True, 0], inline=True)
+        assert res1 == res2
+        self.check_resops(call_assembler=2)
+
+        res1 = portal(9, True, 0)
+        res2 = self.meta_interp(portal, [9, True, 0], inline=True)
+        assert res1 == res2
+        self.check_resops(call_assembler=0)
 
     def test_handle_jitexception_in_portal(self):
         # a test for _handle_jitexception_in_portal in blackhole.py

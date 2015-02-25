@@ -19,9 +19,6 @@ from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles and also to compress the information
 
-class AlreadyForced(Exception):
-    pass
-
 class Snapshot(object):
     __slots__ = ('prev', 'boxes')
 
@@ -55,7 +52,7 @@ def _ensure_parent_resumedata(framestack, n):
                                          back.get_list_of_active_boxes(True))
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
-                       storage):
+                       snapshot_storage):
     n = len(framestack) - 1
     if virtualizable_boxes is not None:
         boxes = virtualref_boxes + virtualizable_boxes
@@ -66,14 +63,14 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
         _ensure_parent_resumedata(framestack, n)
         frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
                                     top.jitcode, top.pc)
-        storage.rd_frame_info_list = frame_info_list
+        snapshot_storage.rd_frame_info_list = frame_info_list
         snapshot = Snapshot(top.parent_resumedata_snapshot,
                             top.get_list_of_active_boxes(False))
         snapshot = Snapshot(snapshot, boxes)
-        storage.rd_snapshot = snapshot
+        snapshot_storage.rd_snapshot = snapshot
     else:
-        storage.rd_frame_info_list = None
-        storage.rd_snapshot = Snapshot(None, boxes)
+        snapshot_storage.rd_frame_info_list = None
+        snapshot_storage.rd_snapshot = Snapshot(None, boxes)
 
 #
 # The following is equivalent to the RPython-level declaration:
@@ -270,8 +267,9 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(VirtualVisitor):
 
-    def __init__(self, storage, memo):
+    def __init__(self, storage, snapshot_storage, memo):
         self.storage = storage
+        self.snapshot_storage = snapshot_storage
         self.memo = memo
 
     def make_virtual_info(self, value, fieldnums):
@@ -357,13 +355,14 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
-        snapshot = storage.rd_snapshot
+        snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
         numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
-        storage.rd_snapshot = None
+        self.snapshot_storage.rd_snapshot = None
+        storage.rd_frame_info_list = self.snapshot_storage.rd_frame_info_list
 
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v

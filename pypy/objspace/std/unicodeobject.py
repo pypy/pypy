@@ -66,9 +66,12 @@ class W_UnicodeObject(W_Root):
         if identifier is not None:
             return identifier
         u = self._value
-        eh = unicodehelper.encode_error_handler(space)
-        identifier = unicode_encode_utf_8(u, len(u), None,
-                                          errorhandler=eh)
+        eh = unicodehelper.rpy_encode_error_handler()
+        try:
+            identifier = unicode_encode_utf_8(u, len(u), None,
+                                              errorhandler=eh)
+        except unicodehelper.RUnicodeEncodeError, ue:
+            raise wrap_encode_error(space, ue)
         self._utf8 = identifier
         return identifier
 
@@ -487,16 +490,19 @@ def encode_object(space, w_object, encoding, errors):
         w_encoder = space.sys.get_w_default_encoder()
     else:
         if errors is None or errors == 'strict':
-            if encoding == 'ascii':
-                u = space.unicode_w(w_object)
-                eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_ascii(
-                        u, len(u), None, errorhandler=eh))
-            if encoding == 'utf-8':
-                u = space.unicode_w(w_object)
-                eh = unicodehelper.encode_error_handler(space)
-                return space.wrapbytes(unicode_encode_utf_8(
-                        u, len(u), None, errorhandler=eh))
+            try:
+                if encoding == 'ascii':
+                    u = space.unicode_w(w_object)
+                    eh = unicodehelper.rpy_encode_error_handler()
+                    return space.wrapbytes(unicode_encode_ascii(
+                            u, len(u), None, errorhandler=eh))
+                if encoding == 'utf-8':
+                    u = space.unicode_w(w_object)
+                    eh = unicodehelper.rpy_encode_error_handler()
+                    return space.wrapbytes(unicode_encode_utf_8(
+                            u, len(u), None, errorhandler=eh))
+            except unicodehelper.RUnicodeEncodeError, ue:
+                raise wrap_encode_error(space, ue)
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
@@ -510,6 +516,16 @@ def encode_object(space, w_object, encoding, errors):
                     "encoder did not return a bytes object (type '%T')",
                     w_retval)
     return w_retval
+
+
+def wrap_encode_error(space, ue):
+    raise OperationError(space.w_UnicodeEncodeError,
+                         space.newtuple([
+        space.wrap(ue.encoding),
+        space.wrap(ue.object),
+        space.wrap(ue.start),
+        space.wrap(ue.end),
+        space.wrap(ue.reason)]))
 
 
 def decode_object(space, w_obj, encoding, errors):

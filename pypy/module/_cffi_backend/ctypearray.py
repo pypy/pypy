@@ -107,6 +107,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 return self.space.w_None
         return W_CTypePtrOrArray._fget(self, attrchar)
 
+    def typeoffsetof_index(self, index):
+        return self.ctptr.typeoffsetof_index(index)
+
 
 class W_CDataIter(W_Root):
     _immutable_fields_ = ['ctitem', 'cdata', '_stop']    # but not '_next'

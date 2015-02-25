@@ -15,7 +15,7 @@ from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.miscutils import ThreadLocals
+from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
@@ -383,7 +383,7 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        self.interned_strings = {}
+        self.interned_strings = make_weak_value_dictionary(self, unicode, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
@@ -722,7 +722,7 @@ class ObjSpace(object):
         return self.wrap(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
+        """Implements equality with the double check 'x is y or x == y'."""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
     def is_(self, w_one, w_two):
@@ -786,26 +786,35 @@ class ObjSpace(object):
         else:
             return self.w_False
 
-    def new_interned_w_str(self, w_s):
-        s = self.str_w(w_s)
+    def new_interned_w_str(self, w_u):
+        assert isinstance(w_u, W_Root)   # and is not None
+        u = self.unicode_w(w_u)
         if not we_are_translated():
-            assert type(s) is str
-        try:
-            return self.interned_strings[s]
-        except KeyError:
-            pass
-        self.interned_strings[s] = w_s
-        return w_s
+            assert type(u) is unicode
+        w_u1 = self.interned_strings.get(u)
+        if w_u1 is None:
+            w_u1 = w_u
+            self.interned_strings.set(u, w_u1)
+        return w_u1
 
     def new_interned_str(self, s):
+        """Assumes an identifier (utf-8 encoded str)"""
         if not we_are_translated():
             assert type(s) is str
-        try:
-            return self.interned_strings[s]
-        except KeyError:
-            pass
-        w_s = self.interned_strings[s] = self.wrap(s)
-        return w_s
+        u = s.decode('utf-8')
+        w_s1 = self.interned_strings.get(u)
+        if w_s1 is None:
+            w_s1 = self.wrap(u)
+            self.interned_strings.set(u, w_s1)
+        return w_s1
+
+    def is_interned_str(self, s):
+        """Assumes an identifier (utf-8 encoded str)"""
+        # interface for marshal_impl
+        if not we_are_translated():
+            assert type(s) is str
+        u = s.decode('utf-8')
+        return self.interned_strings.get(u) is not None
 
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
@@ -1022,6 +1031,9 @@ class ObjSpace(object):
 
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
+
+    def newlist_int(self, list_i):
+        return self.newlist([self.wrap(i) for i in list_i])
 
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size

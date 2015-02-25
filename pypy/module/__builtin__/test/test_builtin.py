@@ -660,9 +660,12 @@ def fn(): pass
         out = sys.stdout = io.StringIO()
         try:
             pr("Hello,", "person!")
+            pr("2nd line", file=None)
+            sys.stdout = None
+            pr("nowhere")
         finally:
             sys.stdout = save
-        assert out.getvalue() == "Hello, person!\n"
+        assert out.getvalue() == "Hello, person!\n2nd line\n"
         out = io.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
@@ -676,9 +679,7 @@ def fn(): pass
         pr(b"Hello,", b"person!", file=out)
         result = out.getvalue()
         assert isinstance(result, str)
-        print('XXXXXX', result)
         assert result == "b'Hello,' b'person!'\n"
-        pr("Hello", file=None) # This works.
         out = io.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"

@@ -445,6 +445,14 @@ def rtype_cast_opaque_ptr(hop):
     return hop.genop('cast_opaque_ptr', [v_input], # v_type implicit in r_result
                      resulttype = hop.r_result.lowleveltype)
 
+@typer_for(lltype.length_of_simple_gcarray_from_opaque)
+def rtype_length_of_simple_gcarray_from_opaque(hop):
+    assert isinstance(hop.args_r[0], rptr.PtrRepr)
+    v_opaque_ptr, = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('length_of_simple_gcarray_from_opaque', [v_opaque_ptr],
+                     resulttype = hop.r_result.lowleveltype)
+
 @typer_for(lltype.direct_fieldptr)
 def rtype_direct_fieldptr(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
@@ -724,15 +732,16 @@ def rtype_builtin_hasattr(hop):
     raise TyperError("hasattr is only suported on a constant")
 
 @typer_for(annmodel.SomeOrderedDict.knowntype)
+@typer_for(objectmodel.r_dict)
 @typer_for(objectmodel.r_ordereddict)
-def rtype_ordered_dict(hop):
-    from rpython.rtyper.lltypesystem.rordereddict import ll_newdict
-
+def rtype_dict_constructor(hop, i_force_non_null=None):
+    # 'i_force_non_null' is ignored here; if it has any effect, it
+    # has already been applied to 'hop.r_result'
     hop.exception_cannot_occur()
     r_dict = hop.r_result
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
-    if hasattr(r_dict, 'r_dict_eqfn'):
+    v_result = hop.gendirectcall(r_dict.ll_newdict, cDICT)
+    if r_dict.custom_eq_hash:
         v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
         v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
         if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
@@ -742,9 +751,6 @@ def rtype_ordered_dict(hop):
             cname = hop.inputconst(lltype.Void, 'fnkeyhash')
             hop.genop('setfield', [v_result, cname, v_hashfn])
     return v_result
-
-from rpython.rtyper.lltypesystem.rdict import rtype_r_dict
-typer_for(objectmodel.r_dict)(rtype_r_dict)
 
 # _________________________________________________________________
 # weakrefs

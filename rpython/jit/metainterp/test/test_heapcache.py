@@ -29,23 +29,30 @@ class FakeEffectinfo(object):
 
     OS_ARRAYCOPY = 0
 
-    def __init__(self, extraeffect, oopspecindex, write_descrs_arrays):
+    def __init__(self, extraeffect, oopspecindex, write_descrs_fields, write_descrs_arrays):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
+        self.write_descrs_fields = write_descrs_fields
         self.write_descrs_arrays = write_descrs_arrays
 
+    def has_random_effects(self):
+        return self.extraeffect == self.EF_RANDOM_EFFECTS
 
 class FakeCallDescr(object):
-    def __init__(self, extraeffect, oopspecindex=None, write_descrs_arrays=[]):
+    def __init__(self, extraeffect, oopspecindex=None, write_descrs_fields=[], write_descrs_arrays=[]):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
+        self.write_descrs_fields = write_descrs_fields
         self.write_descrs_arrays = write_descrs_arrays
 
     def get_extra_info(self):
         return FakeEffectinfo(
             self.extraeffect, self.oopspecindex,
-            write_descrs_arrays=self.write_descrs_arrays
+            write_descrs_fields=self.write_descrs_fields,
+            write_descrs_arrays=self.write_descrs_arrays,
         )
+
+arraycopydescr1 = FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1])
 
 
 class TestHeapCache(object):
@@ -369,13 +376,13 @@ class TestHeapCache(object):
         # Just need the destination box for this call
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box5, box2, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box5, box3, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -384,29 +391,40 @@ class TestHeapCache(object):
         assert h.getarrayitem(box4, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box3, box5, index1, index1, index2]
         )
         assert h.getarrayitem(box4, index1, descr1) is None
 
     def test_ll_arraycopy_differing_descrs(self):
         h = HeapCache()
-        h.setarrayitem(box1, index1, box2, descr1)
-        assert h.getarrayitem(box1, index1, descr1) is box2
+        h.setarrayitem(box1, index1, box2, descr2)
+        assert h.getarrayitem(box1, index1, descr2) is box2
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr2]),
+            arraycopydescr1,
             [None, box3, box2, index1, index1, index2]
         )
-        assert h.getarrayitem(box1, index1, descr1) is box2
+        assert h.getarrayitem(box1, index1, descr2) is box2
+
+    def test_ll_arraycopy_differing_descrs_nonconst_index(self):
+        h = HeapCache()
+        h.setarrayitem(box1, index1, box2, descr2)
+        assert h.getarrayitem(box1, index1, descr2) is box2
+        h.invalidate_caches(
+            rop.CALL,
+            arraycopydescr1,
+            [None, box3, box2, index1, index1, BoxInt()]
+        )
+        assert h.getarrayitem(box1, index1, descr2) is box2
 
     def test_ll_arraycopy_result_propogated(self):
         h = HeapCache()
         h.setarrayitem(box1, index1, box2, descr1)
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box1, box3, index1, index1, index2]
         )
         assert h.getarrayitem(box3, index1, descr1) is box2
@@ -417,7 +435,7 @@ class TestHeapCache(object):
         h.setarrayitem(box3, index1, box4, descr1)
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box2, box1, index1, index1, index2]
         )
 
@@ -427,14 +445,14 @@ class TestHeapCache(object):
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box2, box1, index1, index1, index2]
         )
         assert h.is_unescaped(box1)
         assert h.is_unescaped(box2)
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY, write_descrs_arrays=[descr1]),
+            arraycopydescr1,
             [None, box2, box1, index1, index1, BoxInt()]
         )
         assert not h.is_unescaped(box1)
@@ -594,9 +612,9 @@ class TestHeapCache(object):
         h.new(box1)
         assert h.is_unescaped(box1)
         assert h.is_likely_virtual(box1)
-        h.reset(reset_virtuals=False)
+        h.reset_keep_likely_virtuals()
         assert not h.is_unescaped(box1)
         assert h.is_likely_virtual(box1)
-        h._escape(box1)
+        h._escape_box(box1)
         assert not h.is_unescaped(box1)
         assert not h.is_likely_virtual(box1)

@@ -1877,7 +1877,7 @@ class TestAnnotateTestCase:
                 return None
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
-        assert s.knowntype == dict
+        assert s.knowntype == annmodel.SomeOrderedDict.knowntype
 
     def test_const_list_and_none(self):
         def g(l=None):
@@ -4325,6 +4325,13 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_none()
+
+    def test_nonnulify(self):
+        s = annmodel.SomeString(can_be_None=True).nonnulify()
+        assert s.can_be_None is True
+        assert s.no_nul is True
+        s = annmodel.SomeChar().nonnulify()
+        assert s.no_nul is True
 
 
 def g(n):

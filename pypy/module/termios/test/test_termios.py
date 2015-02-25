@@ -41,6 +41,10 @@ class TestTermios(object):
         child.expect('>>> ')
         child.sendline('import termios')
         child.expect('>>> ')
+        child.sendline('termios.tcgetattr(0)')
+        # output of the first time is ignored: it contains the compilation
+        # of more C stuff relating to errno
+        child.expect('>>> ')
         child.sendline('print("attr=", termios.tcgetattr(0))')
         child.expect('attr= (\[.*?\[.*?\]\])')
         lst = eval(child.match.group(1))
@@ -135,7 +139,7 @@ class AppTestTermios(object):
             val = getattr(termios, name)
             if name.isupper() and type(val) is int:
                 d[name] = val
-        assert d == self.orig_module_dict
+        assert sorted(d.items()) == sorted(self.orig_module_dict.items())
 
     def test_error(self):
         import termios, errno, os

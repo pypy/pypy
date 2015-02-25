@@ -64,8 +64,7 @@ class PackFormatIterator(FormatIterator):
             w_index = w_obj
         else:
             w_index = None
-            w_index_method = space.lookup(w_obj, "__index__")
-            if w_index_method is not None:
+            if space.lookup(w_obj, '__index__'):
                 try:
                     w_index = space.index(w_obj)
                 except OperationError, e:
@@ -90,7 +89,12 @@ class PackFormatIterator(FormatIterator):
 
     def accept_float_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.float_w(w_obj)
+        try:
+            return self.space.float_w(w_obj)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_TypeError):
+                raise StructError("required argument is not a float")
+            raise
 
 
 class UnpackFormatIterator(FormatIterator):

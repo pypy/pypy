@@ -188,7 +188,8 @@ StreamErrors = (OSError, StreamError)     # errors that can generally be raised
 
 
 if sys.platform == "win32":
-    from rpython.rlib.rwin32 import BOOL, HANDLE, get_osfhandle, GetLastError
+    from rpython.rlib.rwin32 import BOOL, HANDLE, get_osfhandle
+    from rpython.rlib.rwin32 import GetLastError_saved
     from rpython.translator.tool.cbuild import ExternalCompilationInfo
     from rpython.rtyper.lltypesystem import rffi
 
@@ -196,7 +197,8 @@ if sys.platform == "win32":
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
     SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL,
-                                   compilation_info=_eci)
+                                   compilation_info=_eci,
+                                   save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def _setfd_binary(fd):
         # Allow this to succeed on invalid fd's
@@ -211,7 +213,7 @@ if sys.platform == "win32":
             # Truncate.  Note that this may grow the file!
             handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise OSError(GetLastError(),
+                raise OSError(GetLastError_saved(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case
@@ -292,6 +294,10 @@ class Stream(object):
 
     def peek(self):
         return (0, '')
+
+    def count_buffered_bytes(self):
+        pos, buf = self.peek()
+        return len(buf) - pos
 
     def try_to_find_file_descriptor(self):
         return -1

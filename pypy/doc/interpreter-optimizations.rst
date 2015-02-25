@@ -99,25 +99,6 @@ A more advanced version of sharing dicts, called *map dicts,* is available
 with the :config:`objspace.std.withmapdict` option.
 
 
-List Optimizations
-~~~~~~~~~~~~~~~~~~
-
-Range-Lists
-+++++++++++
-
-Range-lists solve the same problem that the ``xrange`` builtin solves poorly:
-the problem that ``range`` allocates memory even if the resulting list is only
-ever used for iterating over it. Range lists are a different implementation for
-lists. They are created only as a result of a call to ``range``. As long as the
-resulting list is used without being mutated, the list stores only the start, stop
-and step of the range. Only when somebody mutates the list the actual list is
-created. This gives the memory and speed behaviour of ``xrange`` and the generality
-of use of ``range``, and makes ``xrange`` essentially useless.
-
-You can enable this feature with the :config:`objspace.std.withrangelist`
-option.
-
-
 User Class Optimizations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -165,7 +146,7 @@ this::
 We improved this by keeping method lookup separated from method call, unlike
 some other approaches, but using the value stack as a cache instead of building
 a temporary object.  We extended the bytecode compiler to (optionally) generate
-the following code for ``obj.meth(x)``::
+the following code for ``obj.meth(x, y)``::
 
     LOAD_GLOBAL     obj
     LOOKUP_METHOD   meth
@@ -181,7 +162,7 @@ Python function object and a reference to ``obj``.  This is only possible when
 the attribute actually refers to a function object from the class; when this is
 not the case, ``LOOKUP_METHOD`` still pushes two values, but one *(im_func)* is
 simply the regular result that ``LOAD_ATTR`` would have returned, and the other
-*(im_self)* is a None placeholder.
+*(im_self)* is an interpreter-level None placeholder.
 
 After pushing the arguments, the layout of the stack in the above
 example is as follows (the stack grows upwards):

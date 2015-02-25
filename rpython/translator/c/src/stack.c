@@ -1,6 +1,8 @@
 /* Stack operation */
+#include "common_header.h"
+#include "structdef.h"       /* for struct pypy_threadlocal_s */
 #include <src/stack.h>
-#include <src/thread.h>
+#include <src/threadlocal.h>
 #include <stdio.h>
 
 
@@ -9,7 +11,6 @@
 char *_LLstacktoobig_stack_end = NULL;
 long _LLstacktoobig_stack_length = MAX_STACK_SIZE;
 char _LLstacktoobig_report_error = 1;
-static RPyThreadStaticTLS end_tls_key;
 
 void LL_stack_set_length_fraction(double fraction)
 {
@@ -20,6 +21,8 @@ char LL_stack_too_big_slowpath(long current)
 {
 	long diff, max_stack_size;
 	char *baseptr, *curptr = (char*)current;
+	char *tl;
+	struct pypy_threadlocal_s *tl1;
 
 	/* The stack_end variable is updated to match the current value
 	   if it is still 0 or if we later find a 'curptr' position
@@ -27,15 +30,9 @@ char LL_stack_too_big_slowpath(long current)
 	   thread-local storage, but we try to minimize its overhead by
 	   keeping a local copy in _LLstacktoobig_stack_end. */
 
-	if (_LLstacktoobig_stack_end == NULL) {
-		/* not initialized */
-		/* XXX We assume that initialization is performed early,
-		   when there is still only one thread running.  This
-		   allows us to ignore race conditions here */
-		RPyThreadStaticTLS_Create(&end_tls_key);
-	}
-
-	baseptr = (char *) RPyThreadStaticTLS_Get(end_tls_key);
+	OP_THREADLOCALREF_ADDR(tl);
+	tl1 = (struct pypy_threadlocal_s *)tl;
+	baseptr = tl1->stack_end;
 	max_stack_size = _LLstacktoobig_stack_length;
 	if (baseptr == NULL) {
 		/* first time we see this thread */
@@ -58,7 +55,7 @@ char LL_stack_too_big_slowpath(long current)
 
 	/* update the stack base pointer to the current value */
 	baseptr = curptr;
-	RPyThreadStaticTLS_Set(end_tls_key, baseptr);
+	tl1->stack_end = baseptr;
 	_LLstacktoobig_stack_end = baseptr;
 	return 0;
 }

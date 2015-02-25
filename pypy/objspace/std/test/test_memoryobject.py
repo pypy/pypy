@@ -136,3 +136,8 @@ class AppTestMemoryView:
         assert m[0] == b'\x00\x00\x00\x00'
         m[0] = b'\x00\x00\x00\x01'
         assert m[0] == b'\x00\x00\x00\x01'
+
+    def test_pypy_raw_address_base(self):
+        raises(ValueError, memoryview(b"foobar")._pypy_raw_address)
+        e = raises(ValueError, memoryview(bytearray(b"foobar"))._pypy_raw_address)
+        assert 'BytearrayBuffer' in str(e.value)

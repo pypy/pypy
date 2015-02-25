@@ -175,6 +175,12 @@ class AppTestAppComplexTest:
     def test_floordiv(self):
         raises(TypeError, "3+0j // 0+0j")
 
+    def test_convert(self):
+        exc = raises(TypeError, complex.__int__, 3j)
+        assert str(exc.value) == "can't convert complex to int"
+        exc = raises(TypeError, complex.__float__, 3j)
+        assert str(exc.value) == "can't convert complex to float"
+
     def test_richcompare(self):
         import operator
         assert complex.__lt__(1+1j, None) is NotImplemented

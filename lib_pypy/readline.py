@@ -8,5 +8,9 @@ are only stubs at the moment.
 
 try:
     from pyrepl.readline import *
-except SyntaxError:
-    raise ImportError
+except ImportError:
+    import sys
+    if sys.platform == 'win32':
+        raise ImportError("the 'readline' module is not available on Windows"
+                          " (on either PyPy or CPython)")
+    raise
