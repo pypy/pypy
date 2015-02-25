@@ -682,6 +682,9 @@ class ResumeGuardValueDescr(ResumeGuardDescr):
 class ResumeGuardNotInvalidated(ResumeGuardDescr):
     guard_opnum = rop.GUARD_NOT_INVALIDATED
 
+    def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
+        return False
+
 class ResumeAtPositionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_FUTURE_CONDITION
 
@@ -749,18 +752,14 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import (force_from_resumedata,
-                                                   AlreadyForced)
+        from rpython.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
         # there is some chance that this is already forced. In this case
         # the virtualizable would have a token = NULL
-        try:
-            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                                 vinfo, ginfo)
-        except AlreadyForced:
-            return
+        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                             vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED

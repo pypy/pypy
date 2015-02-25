@@ -63,7 +63,7 @@ class AbstractLLCPU(AbstractCPU):
                                               ad.lendescr, FLAG_FLOAT)
         self.setup()
         self._debug_errno_container = lltype.malloc(
-            rffi.CArray(lltype.Signed), 5, flavor='raw', zero=True,
+            rffi.CArray(lltype.Signed), 7, flavor='raw', zero=True,
             track_allocation=False)
 
     def getarraydescr_for_frame(self, type):
