@@ -11,6 +11,7 @@ import gc
 import weakref
 import array
 import io
+from test.support import check_impl_detail
 
 
 try:
@@ -110,10 +111,11 @@ class AbstractMemoryTests:
         self.assertRaises(IndexError, setitem, -sys.maxsize, b"a")
         # Wrong index/slice types
         self.assertRaises(TypeError, setitem, 0.0, b"a")
-        self.assertRaises(TypeError, setitem, (0,), b"a")
-        self.assertRaises(TypeError, setitem, (slice(0,1,1), 0), b"a")
-        self.assertRaises(TypeError, setitem, (0, slice(0,1,1)), b"a")
-        self.assertRaises(TypeError, setitem, (0,), b"a")
+        if check_impl_detail():
+            self.assertRaises(TypeError, setitem, (0,), b"a")
+            self.assertRaises(TypeError, setitem, (slice(0,1,1), 0), b"a")
+            self.assertRaises(TypeError, setitem, (0, slice(0,1,1)), b"a")
+            self.assertRaises(TypeError, setitem, (0,), b"a")
         self.assertRaises(TypeError, setitem, "a", b"a")
         # Not implemented: multidimensional slices
         slices = (slice(0,1,1), slice(0,1,2))

@@ -5,6 +5,7 @@ import operator
 
 from rpython.rlib.buffer import Buffer, SubBuffer
 from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.rstruct.error import StructError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
@@ -98,11 +99,18 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "cannot modify read-only memory")
+        if space.isinstance_w(w_index, space.w_tuple):
+            raise oefmt(space.w_NotImplementedError, "")
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step == 0:  # index only
             # TODO: this probably isn't very fast
             fmtiter = PackFormatIterator(space, [w_obj], self.itemsize)
-            fmtiter.interpret(self.format)
+            try:
+                fmtiter.interpret(self.format)
+            except StructError as e:
+                raise oefmt(space.w_TypeError,
+                            "memoryview: invalid type for format '%s'",
+                            self.format)
             self.buf.setslice(start * self.itemsize, fmtiter.result.build())
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
