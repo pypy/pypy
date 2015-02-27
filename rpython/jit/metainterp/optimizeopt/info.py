@@ -48,7 +48,7 @@ class InstancePtrInfo(NonNullPtrInfo):
             return newop
         return op
 
-    def get_known_class(self):
+    def get_known_class(self, cpu):
         return self._known_class
     
 class StructPtrInfo(NonNullPtrInfo):
@@ -62,6 +62,15 @@ class ArrayPtrInfo(NonNullPtrInfo):
 class StrPtrInfo(NonNullPtrInfo):
     _attrs_ = ()
 
+
+class ConstPtrInfo(PtrInfo):
+    _attrs_ = ('_const',)
+    
+    def __init__(self, const):
+        self._const = const
+
+    def get_known_class(self, cpu):
+        return cpu.ts.cls_of_box(self._const)
     
 class XPtrOptInfo(AbstractInfo):
     _attrs_ = ('_tag', 'known_class', 'last_guard_pos', 'lenbound')

@@ -307,7 +307,7 @@ class Optimization(object):
         op = self.get_box_replacement(op)
         assert op.type == 'r'
         if isinstance(op, ConstPtr):
-            xxx
+            return info.ConstPtrInfo(op)
         fw = op.get_forwarded()
         if fw is not None:
             assert isinstance(fw, info.PtrInfo)
@@ -528,18 +528,9 @@ class Optimizer(Optimization):
     def clear_newoperations(self):
         self._newoperations = []
 
-    def make_equal_to(self, box, value):
-        assert isinstance(value, OptValue)
-        try:
-            cur_value = self.values[box]
-        except KeyError:
-            pass
-        else:
-            assert cur_value.getlevel() != LEVEL_CONSTANT
-            # replacing with a different box
-            cur_value.copy_from(value)
-            return
-        self.values[box] = value
+    def make_equal_to(self, op, oldop):
+        assert op.get_forwarded() is None
+        op.set_forwarded(oldop)
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         newop = op.copy_and_change(newopnum, args, descr)

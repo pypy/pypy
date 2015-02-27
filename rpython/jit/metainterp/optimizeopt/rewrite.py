@@ -350,7 +350,7 @@ class OptRewrite(Optimization):
         info = self.getptrinfo(op.getarg(0))
         assert isinstance(expectedclassbox, Const)
         if info is not None:
-            realclassbox = info.get_known_class()
+            realclassbox = info.get_known_class(self.optimizer.cpu)
             if realclassbox is not None:
                 if realclassbox.same_constant(expectedclassbox):
                     return
@@ -595,7 +595,7 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def optimize_SAME_AS_I(self, op):
-        self.make_equal_to(op, self.getvalue(op.getarg(0)))
+        self.make_equal_to(op, op.getarg(0))
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
 
