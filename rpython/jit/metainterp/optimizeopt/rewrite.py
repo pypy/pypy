@@ -7,7 +7,6 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1, INFO_NONNULL, INFO_NULL)
-from rpython.jit.metainterp.optimizeopt.info import PtrOptInfo
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
@@ -347,41 +346,43 @@ class OptRewrite(Optimization):
         value.make_constant_class(None, expectedclassbox)
 
     def optimize_GUARD_CLASS(self, op):
-        value = self.getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)
+        info = self.getptrinfo(op.getarg(0))
         assert isinstance(expectedclassbox, Const)
-        realclassbox = value.get_constant_class(self.optimizer.cpu)
-        if realclassbox is not None:
-            if realclassbox.same_constant(expectedclassbox):
-                return
-            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-            raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
-                              % r)
-        old_guard_op = value.get_last_guard(self.optimizer)
-        if old_guard_op and not isinstance(old_guard_op.getdescr(),
-                                           compile.ResumeAtPositionDescr):
-            # there already has been a guard_nonnull or guard_class or
-            # guard_nonnull_class on this value.
-            if old_guard_op.getopnum() == rop.GUARD_NONNULL:
-                # it was a guard_nonnull, which we replace with a
-                # guard_nonnull_class.
-                descr = compile.ResumeGuardNonnullClassDescr()
-                op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
-                            args = [old_guard_op.getarg(0), op.getarg(1)],
-                            descr=descr)
-                # Note: we give explicitly a new descr for 'op'; this is why the
-                # old descr must not be ResumeAtPositionDescr (checked above).
-                # Better-safe-than-sorry but it should never occur: we should
-                # not put in short preambles guard_nonnull and guard_class
-                # on the same box.
-                self.optimizer.replace_guard(op, value)
-                # not emitting the guard, so we have to pass None to
-                # make_constant_class, so last_guard_pos is not updated
-                self.emit_operation(op)
-                value.make_constant_class(None, expectedclassbox)
-                return
+        if info is not None:
+            realclassbox = info.get_known_class()
+            if realclassbox is not None:
+                if realclassbox.same_constant(expectedclassbox):
+                    return
+                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                raise InvalidLoop('A GUARD_CLASS (%s) was proven to always fail'
+                                  % r)
+            old_guard_op = info.get_last_guard(self.optimizer)
+            if old_guard_op and not isinstance(old_guard_op.getdescr(),
+                                               compile.ResumeAtPositionDescr):
+                xxx
+                # there already has been a guard_nonnull or guard_class or
+                # guard_nonnull_class on this value.
+                if old_guard_op.getopnum() == rop.GUARD_NONNULL:
+                    # it was a guard_nonnull, which we replace with a
+                    # guard_nonnull_class.
+                    descr = compile.ResumeGuardNonnullClassDescr()
+                    op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
+                                args = [old_guard_op.getarg(0), op.getarg(1)],
+                                descr=descr)
+                    # Note: we give explicitly a new descr for 'op'; this is why the
+                    # old descr must not be ResumeAtPositionDescr (checked above).
+                    # Better-safe-than-sorry but it should never occur: we should
+                    # not put in short preambles guard_nonnull and guard_class
+                    # on the same box.
+                    self.optimizer.replace_guard(op, value)
+                    # not emitting the guard, so we have to pass None to
+                    # make_constant_class, so last_guard_pos is not updated
+                    self.emit_operation(op)
+                    value.make_constant_class(None, expectedclassbox)
+                    return
+        self.make_constant_class(op.getarg(0), expectedclassbox)
         self.emit_operation(op)
-        value.make_constant_class(self.optimizer, expectedclassbox)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))

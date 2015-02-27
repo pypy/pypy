@@ -21,7 +21,49 @@ class AbstractInfo(AbstractValue):
     def force_box(self, op, optforce):
         return op
 
-class PtrOptInfo(AbstractInfo):
+    
+class PtrInfo(AbstractInfo):
+    _attrs_ = ()
+
+    
+class NonNullPtrInfo(PtrInfo):
+    _attrs_ = ()
+
+    
+class InstancePtrInfo(NonNullPtrInfo):
+    _attrs_ = ('_known_class', '_is_virtual', '_fields')
+
+    def __init__(self, known_class=None, is_virtual=False):
+        self._known_class = known_class
+        self._is_virtual = is_virtual
+
+    def force_box(self, op, optforce):
+        if self._is_virtual:
+            op.set_forwarded(None)
+            optforce.emit_operation(op)
+            newop = optforce.getlastop()
+            op.set_forwarded(newop)
+            newop.set_forwarded(self)
+            self._is_virtual = False
+            return newop
+        return op
+
+    def get_known_class(self):
+        return self._known_class
+    
+class StructPtrInfo(NonNullPtrInfo):
+    _attrs_ = ('is_virtual', '_fields')
+
+    
+class ArrayPtrInfo(NonNullPtrInfo):
+    _attrs_ = ('is_virtual', 'length', '_items')
+
+    
+class StrPtrInfo(NonNullPtrInfo):
+    _attrs_ = ()
+
+    
+class XPtrOptInfo(AbstractInfo):
     _attrs_ = ('_tag', 'known_class', 'last_guard_pos', 'lenbound')
     is_info_class = True
 

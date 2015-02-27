@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      IntUnbounded, ConstIntBound
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp
-from rpython.jit.metainterp.optimizeopt.info import PtrOptInfo
+from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 
@@ -293,6 +293,15 @@ class Optimization(object):
             return self.getintbound(op).getnullness()
         xxxx
 
+    def make_constant_class(self, op, class_const):
+        op = self.get_box_replacement(op)
+        opinfo = op.get_forwarded()
+        if opinfo is not None:
+            return opinfo
+        opinfo = info.InstancePtrInfo(class_const)
+        op.set_forwarded(opinfo)
+        return opinfo
+
     def getptrinfo(self, op):
         assert op.type == 'r'
         op = self.get_box_replacement(op)
@@ -301,11 +310,9 @@ class Optimization(object):
             xxx
         fw = op.get_forwarded()
         if fw is not None:
-            assert isinstance(fw, PtrOptInfo)
+            assert isinstance(fw, info.PtrInfo)
             return fw
-        ptrinfo = PtrOptInfo()
-        op.set_forwarded(ptrinfo)
-        return ptrinfo
+        return None
 
     def get_box_replacement(self, op):
         return self.optimizer.get_box_replacement(op)

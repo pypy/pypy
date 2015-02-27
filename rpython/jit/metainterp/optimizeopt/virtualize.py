@@ -13,7 +13,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-class AbstractVirtualInfo(info.PtrOptInfo):
+class AbstractVirtualInfo(info.PtrInfo):
     _attrs_ = ('_cached_vinfo',)
     _tag = info.LEVEL_NONNULL
     is_about_raw = False
@@ -22,14 +22,6 @@ class AbstractVirtualInfo(info.PtrOptInfo):
     def is_forced_virtual(self):
         xxx
         return self.box is not None
-
-    def force_box(self, op, optforce):
-        op.set_forwarded(None)
-        optforce.emit_operation(op)
-        newop = optforce.getlastop()
-        op.set_forwarded(newop)
-        optforce.getptrinfo(newop).make_constant_class(None, self.known_class)
-        return newop
     
     #def force_box(self, optforce):
     #    xxxx
@@ -531,9 +523,9 @@ class OptVirtualize(optimizer.Optimization):
     _last_guard_not_forced_2 = None
 
     def make_virtual(self, known_class, source_op, descr):
-        info = VirtualInfo(known_class, descr)
-        source_op.set_forwarded(info)
-        return info
+        opinfo = info.InstancePtrInfo(known_class, is_virtual=True)
+        source_op.set_forwarded(opinfo)
+        return opinfo
 
     def make_varray(self, arraydescr, size, source_op, clear=False):
         if arraydescr.is_array_of_structs():
