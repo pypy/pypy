@@ -317,14 +317,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         guard_value(p1, ConstPtr(myptr)) []
+        guard_value(p1, ConstPtr(myptr)) []
         jump(ConstPtr(myptr))
         """
         expected = """
-        []
-        jump()
+        [p1]
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
         """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Constant(myptr)', expected)
+        self.optimize_loop(ops, expected)
 
     def test_ooisnull_oononnull_1(self):
         ops = """

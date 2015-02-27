@@ -546,10 +546,11 @@ class Optimizer(Optimization):
         return newop
 
     def make_constant(self, box, constbox):
-        assert isinstance(constbox, ConstInt)
+        assert isinstance(constbox, Const)
         box = self.get_box_replacement(box)
         if not we_are_translated():    # safety-check
-            if box.get_forwarded() is not None:
+            if (box.get_forwarded() is not None and
+                isinstance(constbox, ConstInt)):
                 assert box.get_forwarded().contains(constbox.getint())
         if box.is_constant():
             return

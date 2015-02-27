@@ -63,7 +63,8 @@ class OptIntBounds(Optimization):
 
     def _optimize_guard_true_false_value(self, op):
         self.emit_operation(op)
-        self.propagate_bounds_backward(op.getarg(0))
+        if op.getarg(0).type == 'i':
+            self.propagate_bounds_backward(op.getarg(0))
 
     optimize_GUARD_TRUE = _optimize_guard_true_false_value
     optimize_GUARD_FALSE = _optimize_guard_true_false_value
