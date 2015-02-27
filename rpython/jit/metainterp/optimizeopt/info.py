@@ -70,6 +70,8 @@ class ConstPtrInfo(PtrInfo):
         self._const = const
 
     def get_known_class(self, cpu):
+        if not self._const.nonnull():
+            return None
         return cpu.ts.cls_of_box(self._const)
     
 class XPtrOptInfo(AbstractInfo):
