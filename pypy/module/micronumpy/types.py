@@ -3,8 +3,9 @@ import math
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
+from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import clibffi, jit, rfloat, rcomplex
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
     most_neg_value_of, LONG_BIT
 from rpython.rlib.rawstorage import (alloc_raw_storage,
@@ -14,7 +15,9 @@ from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, unpack_float,
                                        pack_float80, unpack_float80)
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 from rpython.rlib.rstruct.runpack import runpack
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref,\
+     cast_gcref_to_instance
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
@@ -112,6 +115,7 @@ class BaseType(object):
     _immutable_fields_ = ['native']
 
     def __init__(self, native=True):
+        assert native is True or native is False 
         self.native = native
 
     def __repr__(self):
@@ -1622,6 +1626,80 @@ elif boxes.long_double_size in (12, 16):
         T = rffi.LONGDOUBLE
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
+
+_all_objs_for_tests = [] # for tests
+
+class ObjectType(BaseType):
+    T = lltype.Signed
+    BoxType = boxes.W_ObjectBox
+
+    def get_element_size(self):
+        return rffi.sizeof(lltype.Signed)
+
+    def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, boxes.W_ObjectBox):
+            return w_item
+        return boxes.W_ObjectBox(w_item)
+
+    def store(self, arr, i, offset, box):
+        self._write(arr.storage, i, offset, self.unbox(box))
+
+    def read(self, arr, i, offset, dtype=None):
+        return self.box(self._read(arr.storage, i, offset))
+
+    def _write(self, storage, i, offset, w_obj):
+        if we_are_translated():
+            value = rffi.cast(lltype.Signed, cast_instance_to_gcref(w_obj))
+        else:
+            value = len(_all_objs_for_tests)
+            _all_objs_for_tests.append(w_obj)
+        raw_storage_setitem_unaligned(storage, i + offset, value)
+
+    def _read(self, storage, i, offset):
+        res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
+        if we_are_translated():
+            gcref = rffi.cast(llmemory.GCREF, res)
+            w_obj = cast_gcref_to_instance(W_Root, gcref)
+        else:
+            w_obj = _all_objs_for_tests[res]
+        return w_obj
+
+    def fill(self, storage, width, box, start, stop, offset):
+        value = self.unbox(box)
+        for i in xrange(start, stop, width):
+            self._write(storage, i, offset, value)
+
+    def unbox(self, box):
+        assert isinstance(box, self.BoxType)
+        return box.w_obj
+
+    @specialize.argtype(1)
+    def box(self, w_obj):
+        assert isinstance(w_obj, W_Root)
+        return self.BoxType(w_obj)
+
+    def str_format(self, box):
+        return 'Object as string'
+        #return space.str_w(space.repr(self.unbox(box)))
+
+    def to_builtin_type(self, space, box):
+        assert isinstance(box, self.BoxType)
+        return box.w_obj
+
+    @staticmethod
+    def for_computation(v):
+        return v
+
+    @simple_binary_op
+    def add(self, v1, v2):
+        return v1
+        #return self.space.add(v1, v2)
+
+    @raw_binary_op
+    def eq(self, v1, v2):
+        return True
+        #return self.space.eq_w(v1, v2)
+
 
 class FlexibleType(BaseType):
     def get_element_size(self):

@@ -431,7 +431,9 @@ class W_Ufunc2(W_Ufunc):
         w_rhs = numpify(space, w_rhs)
         w_ldtype = _get_dtype(space, w_lhs)
         w_rdtype = _get_dtype(space, w_rhs)
-        if w_ldtype.is_str() and w_rdtype.is_str() and \
+        if w_ldtype.is_object() or w_rdtype.is_object():
+            pass
+        elif w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.comparison_func:
             pass
         elif (w_ldtype.is_str() or w_rdtype.is_str()) and \
@@ -945,6 +947,10 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return dt1
     if dt1 is None:
         return dt2
+
+    if dt1.num == NPY.OBJECT or dt2.num == NPY.OBJECT:
+        return get_dtype_cache(space).w_objectdtype
+
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
@@ -1059,6 +1065,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     uint64_dtype = get_dtype_cache(space).w_uint64dtype
     complex_dtype = get_dtype_cache(space).w_complex128dtype
     float_dtype = get_dtype_cache(space).w_float64dtype
+    object_dtype = get_dtype_cache(space).w_objectdtype
     if isinstance(w_obj, boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         return find_binop_result_dtype(space, dtype, current_guess)
@@ -1092,9 +1099,10 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 return variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
-    raise oefmt(space.w_NotImplementedError,
-                'unable to create dtype from objects, "%T" instance not '
-                'supported', w_obj)
+    return object_dtype
+    #raise oefmt(space.w_NotImplementedError,
+    #            'unable to create dtype from objects, "%T" instance not '
+    #            'supported', w_obj)
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, nin, comparison_func,

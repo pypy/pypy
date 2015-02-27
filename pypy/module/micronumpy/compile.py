@@ -67,6 +67,7 @@ class FakeSpace(object):
     w_unicode = W_TypeObject("unicode")
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
+    w_object = W_TypeObject("object")
 
     def __init__(self):
         """NOT_RPYTHON"""

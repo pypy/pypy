@@ -472,11 +472,8 @@ class AppTestDtypes(BaseAppTestDtypes):
         class O(object):
             pass
         for o in [object, O]:
-            if '__pypy__' not in sys.builtin_module_names:
-                assert np.dtype(o).str == '|O8'
-            else:
-                exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
+            print np.dtype(o).byteorder
+            assert np.dtype(o).str == '|O8'
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -1354,9 +1351,21 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         import sys
         class Polynomial(object):
             pass
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(NotImplementedError, array, Polynomial())
-            assert exc.value.message.find('unable to create dtype from objects') >= 0
-        else:
-            a = array(Polynomial())
-            assert a.shape == ()
+        a = array(Polynomial())
+        assert a.shape == ()
+
+    def test_uninitialized_object_array_is_filled_by_None(self):
+        import numpy as np
+
+        a = np.ndarray([5], dtype="O")
+
+        assert a[0] == None
+
+    def test_object_arrays_add(self):
+        import numpy as np
+
+        a = np.array(["foo"], dtype=object)
+        b = np.array(["bar"], dtype=object)
+
+        res = a + b
+        assert res[0] == "foobar"

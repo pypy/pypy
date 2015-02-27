@@ -3150,11 +3150,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[35] == 200
         b[[slice(25, 30)]] = range(5)
         assert all(a[:5] == range(5))
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            raises(TypeError, 'b[[[slice(25, 125)]]]')
-        else:
-            raises(NotImplementedError, 'b[[[slice(25, 125)]]]')
+        raises(IndexError, 'b[[[slice(25, 125)]]]')
 
     def test_cumsum(self):
         from numpy import arange
