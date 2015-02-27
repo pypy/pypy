@@ -388,19 +388,19 @@ class AppTestImport(BaseImportTest):
         def imp():
             from pkg import relative_f
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named pkg.imp"
+        assert exc.value.args[0] == "No module named 'pkg.imp'"
 
     def test_no_relative_import_bug(self):
         def imp():
             from pkg import relative_g
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named pkg.imp"
+        assert exc.value.args[0] == "No module named 'pkg.imp'"
 
     def test_import_msg(self):
         def imp():
             import pkg.i_am_not_here.neither_am_i
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named pkg.i_am_not_here"
+        assert exc.value.args[0] == "No module named 'pkg.i_am_not_here'"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
