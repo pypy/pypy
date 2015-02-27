@@ -178,7 +178,11 @@ class TestAsmMemoryManager:
         assert p[3] == 'y'
         assert p[4] == 'Z'
         assert p[5] == 'z'
-        assert allblocks == [(rawstart, rawstart + 6)]
+        # 'allblocks' should be one block of length 6 + 15
+        # (15 = alignment - 1) containing the range(rawstart, rawstart + 6)
+        [(blockstart, blockend)] = allblocks
+        assert blockend == blockstart + 6 + (mc.ALIGN_MATERIALIZE - 1)
+        assert blockstart <= rawstart < rawstart + 6 <= blockend
         assert puts == [(rawstart + 2, ['a', 'b', 'c', 'd']),
                         (rawstart + 4, ['e', 'f', 'g'])]
 

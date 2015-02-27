@@ -496,6 +496,12 @@ def make_timsort_class(getitem=None, setitem=None, length=None,
         # 1. len[-3] > len[-2] + len[-1]
         # 2. len[-2] > len[-1]
         #
+        # Note these invariants will not hold for the entire pending array even
+        # after this function completes. [1] This does not affect the
+        # correctness of the overall algorithm.
+        #
+        # [1] http://envisage-project.eu/proving-android-java-and-python-sorting-algorithm-is-broken-and-how-to-fix-it/
+        #
         # See listsort.txt for more info.
 
         def merge_collapse(self):

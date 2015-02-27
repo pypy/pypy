@@ -696,6 +696,9 @@ class ResumeGuardValueDescr(ResumeGuardDescr):
 class ResumeGuardNotInvalidated(ResumeGuardDescr):
     guard_opnum = rop.GUARD_NOT_INVALIDATED
 
+    def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
+        return False
+
 class ResumeAtPositionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_FUTURE_CONDITION
 
