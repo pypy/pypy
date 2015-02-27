@@ -25,9 +25,18 @@ class AbstractInfo(AbstractValue):
 class PtrInfo(AbstractInfo):
     _attrs_ = ()
 
+    def is_nonnull(self):
+        return False
+
+    def is_null(self):
+        return False
+
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ()
+
+    def is_nonnull(self):
+        return True
 
     
 class InstancePtrInfo(NonNullPtrInfo):

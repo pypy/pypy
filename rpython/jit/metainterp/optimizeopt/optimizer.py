@@ -332,6 +332,9 @@ class Optimization(object):
     def make_equal_to(self, box, value):
         return self.optimizer.make_equal_to(box, value)
 
+    def make_nonnull(self, op):
+        return self.optimizer.make_nonnull(op)
+
     def get_constant_box(self, box):
         return self.optimizer.get_constant_box(box)
 
@@ -555,6 +558,14 @@ class Optimizer(Optimization):
     def make_constant_int(self, box, intvalue):
         self.make_constant(box, ConstInt(intvalue))
 
+    def make_nonnull(self, op):
+        op = self.get_box_replacement(op)
+        opinfo = op.get_forwarded()
+        if opinfo is not None:
+            assert opinfo.is_nonnull()
+            return
+        op.set_forwarded(info.NonNullPtrInfo())
+
     def new_ptr_box(self):
         xxx
         return self.cpu.ts.BoxRef()
@@ -641,24 +652,6 @@ class Optimizer(Optimization):
             self.exception_might_have_happened = True
         self._last_emitted_op = op
         self._newoperations.append(op)
-
-    def get_op_replacement(self, op):
-        # XXX this is wrong
-        xxx
-        changed = False
-        for i, arg in enumerate(op.getarglist()):
-            try:
-                v = self.values[arg]
-            except KeyError:
-                pass
-            else:
-                box = v.get_key_box()
-                if box is not arg:
-                    if not changed:
-                        changed = True
-                        op = op.copy_and_change(op.getopnum())
-                    op.setarg(i, box)
-        return op
 
     def replace_guard_op(self, old_op_pos, new_op):
         old_op = self._newoperations[old_op_pos]

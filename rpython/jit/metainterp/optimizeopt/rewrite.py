@@ -129,9 +129,9 @@ class OptRewrite(Optimization):
 
         # If one side of the op is 0 the result is the other side.
         if arg1.is_constant() and arg1.getint() == 0:
-            self.make_equal_to(op, v2)
+            self.make_equal_to(op, arg2)
         elif arg2.is_constant() and arg2.getint() == 0:
-            self.make_equal_to(op, v1)
+            self.make_equal_to(op, arg1)
         else:
             self.emit_operation(op)
             self.optimizer.pure_reverse(op)
@@ -274,15 +274,15 @@ class OptRewrite(Optimization):
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
     def optimize_GUARD_NONNULL(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_nonnull():
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo.is_nonnull():
             return
-        elif value.is_null():
+        elif opinfo.is_null():
             r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
             raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always fail'
                               % r)
         self.emit_operation(op)
-        value.make_nonnull(self.optimizer)
+        self.make_nonnull(op.getarg(0))
 
     def optimize_GUARD_VALUE(self, op):
         ## value = self.getvalue(op.getarg(0))
