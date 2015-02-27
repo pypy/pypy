@@ -136,7 +136,7 @@ def descr2vtable(cpu, descr):
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
 
-def gc_fielddescrs(gccache, STRUCT, res=None):
+def fielddescrs_from_struct(gccache, STRUCT, only_gc=False, res=None):
     from rpython.jit.backend.llsupport import descr
 
     if res is None:
@@ -147,7 +147,10 @@ def gc_fielddescrs(gccache, STRUCT, res=None):
         if FIELD is lltype.Void:
             continue
         elif isinstance(FIELD, lltype.Struct):
-            gc_fielddescrs(gccache, FIELD, res)
-        elif isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+            fielddescrs_from_struct(gccache, FIELD, only_gc, res)
+        elif (not only_gc) or (isinstance(FIELD, lltype.Ptr) and FIELD._needsgc()):
             res.append(descr.get_field_descr(gccache, STRUCT, name))
     return res
+
+def gc_fielddescrs(gccache, STRUCT):
+    return fielddescrs_from_struct(gccache, STRUCT, True)

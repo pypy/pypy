@@ -13,31 +13,25 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-class AbstractVirtualValue:  #XXX (optimizer.PtrOptInfo):
-    _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
-    box = None
+class AbstractVirtualInfo(optimizer.PtrOptInfo):
+    _attrs_ = ('_cached_vinfo',)
     _tag = optimizer.LEVEL_NONNULL
     is_about_raw = False
     _cached_vinfo = None
 
-    def __init__(self, source_op):
-        self.source_op = source_op
-
     def is_forced_virtual(self):
+        xxx
         return self.box is not None
 
-    def get_key_box(self):
-        if self.box is None:
-            return self.source_op
-        return self.box
-
     def force_box(self, optforce):
+        xxxx
         if self.box is None:
             optforce.forget_numberings(self.source_op)
             self._really_force(optforce)
         return self.box
 
     def force_at_end_of_preamble(self, already_forced, optforce):
+        xxxx
         value = already_forced.get(self, None)
         if value:
             return value
@@ -70,11 +64,11 @@ def get_fielddescrlist_cache(cpu):
     return cpu._optimizeopt_fielddescrlist_cache
 get_fielddescrlist_cache._annspecialcase_ = "specialize:memo"
 
-class AbstractVirtualStructValue(AbstractVirtualValue):
-    _attrs_ = ('_fields', 'cpu', '_cached_sorted_fields')
+class AbstractVirtualStructInfo(AbstractVirtualInfo):
+    _attrs_ = ('_fields', '_cached_sorted_fields')
 
-    def __init__(self, cpu, source_op):
-        AbstractVirtualValue.__init__(self, source_op)
+    def __init__(self, cpu):
+        AbstractVirtualInfo.__init__(self)
         self.cpu = cpu
         self._fields = {}
         self._cached_sorted_fields = None
@@ -195,11 +189,11 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             fieldvalue = self._fields[ofs]
             fieldvalue.visitor_walk_recursive(visitor)
 
-class VirtualValue(AbstractVirtualStructValue):
+class VirtualInfo(AbstractVirtualStructInfo):
     _tag = optimizer.LEVEL_KNOWNCLASS
 
-    def __init__(self, cpu, known_class, source_op):
-        AbstractVirtualStructValue.__init__(self, cpu, source_op)
+    def __init__(self, known_class):
+        AbstractVirtualStructInfo.__init__(self)
         assert isinstance(known_class, Const)
         self.known_class = known_class
 
@@ -218,7 +212,7 @@ class VirtualValue(AbstractVirtualStructValue):
         field_names = [field.name for field in self._fields]
         return "<VirtualValue cls=%s fields=%s>" % (cls_name, field_names)
 
-class VStructValue(AbstractVirtualStructValue):
+class VStructInfo(AbstractVirtualStructInfo):
 
     def __init__(self, cpu, structdescr, source_op):
         AbstractVirtualStructValue.__init__(self, cpu, source_op)
@@ -232,7 +226,7 @@ class VStructValue(AbstractVirtualStructValue):
     def _get_descr(self):
         return self.structdescr
 
-class AbstractVArrayValue(AbstractVirtualValue):
+class AbstractVArrayInfo(AbstractVirtualInfo):
     """
     Base class for VArrayValue (for normal GC arrays) and VRawBufferValue (for
     malloc()ed memory)
@@ -263,7 +257,7 @@ class AbstractVArrayValue(AbstractVirtualValue):
                 itemvalue.visitor_walk_recursive(visitor)
 
 
-class VArrayValue(AbstractVArrayValue):
+class VArrayInfo(AbstractVArrayInfo):
 
     def __init__(self, arraydescr, constvalue, size, source_op,
                  clear=False):
@@ -352,7 +346,7 @@ class VArrayValue(AbstractVArrayValue):
         return visitor.visit_varray(self.arraydescr, self.clear)
 
 
-class VArrayStructValue(AbstractVirtualValue):
+class VArrayStructInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr, size, source_op):
         AbstractVirtualValue.__init__(self, source_op)
         self.arraydescr = arraydescr
@@ -421,7 +415,7 @@ class VArrayStructValue(AbstractVirtualValue):
         return visitor.visit_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
-class VRawBufferValue(AbstractVArrayValue):
+class VRawBufferInfo(AbstractVArrayInfo):
     is_about_raw = True
 
     def __init__(self, cpu, logops, size, source_op):
@@ -487,7 +481,7 @@ class VRawBufferValue(AbstractVArrayValue):
                                         self.buffer.descrs[:])
 
 
-class VRawSliceValue(AbstractVirtualValue):
+class VRawSliceInfo(AbstractVirtualInfo):
     is_about_raw = True
 
     def __init__(self, rawbuffer_value, offset, source_op):
@@ -529,6 +523,7 @@ class OptVirtualize(optimizer.Optimization):
     _last_guard_not_forced_2 = None
 
     def make_virtual(self, known_class, source_op):
+        xxx
         vvalue = VirtualValue(self.optimizer.cpu, known_class, source_op)
         self.make_equal_to(source_op, vvalue)
         return vvalue

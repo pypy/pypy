@@ -87,7 +87,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 #                                 CONST_0, offsetbox, lengthbox, mode)
 
 
-class VAbstractStringValue(virtualize.AbstractVirtualValue):
+class VAbstractStringInfo(virtualize.AbstractVirtualInfo):
     _attrs_ = ('mode',)
 
     def __init__(self, source_op, mode):
@@ -122,7 +122,7 @@ class VAbstractStringValue(virtualize.AbstractVirtualValue):
                                       offsetbox, mode)
 
 
-class VStringPlainValue(VAbstractStringValue):
+class VStringPlainInfo(VAbstractStringInfo):
     """A string built with newstr(const)."""
     _lengthbox = None     # cache only
 
@@ -216,7 +216,7 @@ class VStringPlainValue(VAbstractStringValue):
         return visitor.visit_vstrplain(self.mode is mode_unicode)
 
 
-class VStringConcatValue(VAbstractStringValue):
+class VStringConcatInfo(VAbstractStringInfo):
     """The concatenation of two other strings."""
     _attrs_ = ('left', 'right', 'lengthbox')
 
@@ -269,7 +269,7 @@ class VStringConcatValue(VAbstractStringValue):
         return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 
-class VStringSliceValue(VAbstractStringValue):
+class VStringSliceInfo(VAbstractStringInfo):
     """A slice."""
     _attrs_ = ('vstr', 'vstart', 'vlength')
 
