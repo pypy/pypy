@@ -1115,7 +1115,7 @@ class AppTestFfi:
         s = S(autofree=True)
         b = memoryview(s)
         assert len(b) == 40
-        b[4] = b'X'
+        b[4] = ord(b'X')
         b[:3] = b'ABC'
         assert b[:6] == b'ABC\x00X\x00'
 

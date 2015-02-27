@@ -198,6 +198,10 @@ class W_ArrayInstance(W_DataInstance):
         for i in range(len(value)):
             ll_buffer[start + i] = value[i]
 
+    def buffer_w_ex(self, space, flags):
+        return self.buffer_w(space, flags), self.shape.itemcode, self.shape.size
+
+
 W_ArrayInstance.typedef = TypeDef(
     'ArrayInstance',
     __repr__    = interp2app(W_ArrayInstance.descr_repr),
