@@ -439,3 +439,14 @@ class AppTestOpen:
             f.seek(1, 0)
             f.read(buffer_size * 2)
             assert f.tell() == 1 + buffer_size * 2
+
+    def test_open_exclusive(self):
+        # XXX: should raise FileExistsError
+        FileExistsError = OSError
+
+        import _io
+        filename = self.tmpfile + '_x'
+        raises(ValueError, _io.open, filename, 'xw')
+        with _io.open(filename, 'x') as f:
+            assert f.mode == 'x'
+        raises(FileExistsError, _io.open, filename, 'x')

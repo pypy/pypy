@@ -222,6 +222,17 @@ class AppTestFileIO:
             if os.path.exists(self.tmpfile):
                 os.unlink(self.tmpfile)
 
+    def test_open_exclusive(self):
+        # XXX: should raise FileExistsError
+        FileExistsError = OSError
+
+        import _io
+        filename = self.tmpfile + '_x'
+        raises(ValueError, _io.FileIO, filename, 'xw')
+        with _io.FileIO(filename, 'x') as f:
+            assert f.mode == 'xb'
+        raises(FileExistsError, _io.FileIO, filename, 'x')
+
 
 def test_flush_at_exit():
     from pypy import conftest

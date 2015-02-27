@@ -30,7 +30,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             space.isinstance_w(w_file, space.w_int)):
         raise oefmt(space.w_TypeError, "invalid file: %R", w_file)
 
-    reading = writing = appending = updating = text = binary = universal = False
+    reading = writing = creating = appending = updating = text = binary = universal = False
 
     uniq_mode = {}
     for flag in mode:
@@ -42,6 +42,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             reading = True
         elif flag == "w":
             writing = True
+        elif flag == "x":
+            creating = True
         elif flag == "a":
             appending = True
         elif flag == "+":
@@ -61,6 +63,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawmode += "r"
     if writing:
         rawmode += "w"
+    if creating:
+        rawmode += "x"
     if appending:
         rawmode += "a"
     if updating:
@@ -74,9 +78,9 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         raise OperationError(space.w_ValueError,
             space.wrap("can't have text and binary mode at once")
         )
-    if reading + writing + appending > 1:
+    if reading + writing + creating + appending > 1:
         raise OperationError(space.w_ValueError,
-            space.wrap("must have exactly one of read/write/append mode")
+            space.wrap("must have exactly one of read/write/create/append mode")
         )
     if binary and encoding is not None:
         raise OperationError(space.w_ValueError,
@@ -123,7 +127,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     if updating:
         buffer_cls = W_BufferedRandom
-    elif writing or appending:
+    elif writing or creating or appending:
         buffer_cls = W_BufferedWriter
     elif reading:
         buffer_cls = W_BufferedReader
