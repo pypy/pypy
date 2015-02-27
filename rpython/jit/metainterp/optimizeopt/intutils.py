@@ -257,6 +257,9 @@ class IntBound(AbstractInfo):
         return (self.bounded() and self.known_ge(ConstIntBound(0)) and
                 self.known_le(ConstIntBound(1)))
 
+    def make_bool(self):
+        self.intersect(IntBound(0, 1))
+
     def getnullness(self):
         from rpython.jit.metainterp.optimizeopt import optimizer
 

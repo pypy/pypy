@@ -272,11 +272,13 @@ class OptIntBounds(Optimization):
         r.getintbound().intersect(resbound)
 
     def optimize_INT_LT(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.getintbound().known_lt(v2.getintbound()):
+        arg1 = self.get_box_replacement(op.getarg(0))
+        arg2 = self.get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b2 = self.getintbound(arg2)
+        if b1.known_lt(b2):
             self.make_constant_int(op, 1)
-        elif v1.getintbound().known_ge(v2.getintbound()) or v1.box is v2.box:
+        elif b1.known_ge(b2) or arg1 is arg2:
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
@@ -302,11 +304,13 @@ class OptIntBounds(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_GE(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.getintbound().known_ge(v2.getintbound()) or v1.box is v2.box:
+        arg1 = self.get_box_replacement(op.getarg(0))
+        arg2 = self.get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b2 = self.getintbound(arg2)
+        if b1.known_ge(b2) or arg1 is arg2:
             self.make_constant_int(op, 1)
-        elif v1.getintbound().known_lt(v2.getintbound()):
+        elif b1.known_lt(b2):
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
@@ -424,12 +428,12 @@ class OptIntBounds(Optimization):
         v1.getintbound().make_ge(IntLowerBound(0))
 
     def make_int_lt(self, box1, box2):
-        v1 = self.getvalue(box1)
-        v2 = self.getvalue(box2)
-        if v1.getintbound().make_lt(v2.getintbound()):
-            self.propagate_bounds_backward(box1, v1)
-        if v2.getintbound().make_gt(v1.getintbound()):
-            self.propagate_bounds_backward(box2, v2)
+        b1 = self.getintbound(box1)
+        b2 = self.getintbound(box2)
+        if b1.make_lt(b2):
+            self.propagate_bounds_backward(box1)
+        if b2.make_gt(b1):
+            self.propagate_bounds_backward(box2)
 
     def make_int_le(self, box1, box2):
         v1 = self.getvalue(box1)
@@ -446,11 +450,12 @@ class OptIntBounds(Optimization):
         self.make_int_le(box2, box1)
 
     def propagate_bounds_INT_LT(self, op):
-        r = self.getvalue(op)
+        r = self.get_box_replacement(op)
         if r.is_constant():
-            if r.box.same_constant(CONST_1):
+            if r.getint() == 1:
                 self.make_int_lt(op.getarg(0), op.getarg(1))
             else:
+                assert r.getint() == 0
                 self.make_int_ge(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_GT(self, op):
@@ -470,11 +475,12 @@ class OptIntBounds(Optimization):
                 self.make_int_gt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_GE(self, op):
-        r = self.getvalue(op)
+        r = self.get_box_replacement(op)
         if r.is_constant():
-            if r.box.same_constant(CONST_1):
+            if r.getint() == 1:
                 self.make_int_ge(op.getarg(0), op.getarg(1))
             else:
+                assert r.getint() == 0
                 self.make_int_lt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_EQ(self, op):

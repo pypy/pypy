@@ -535,7 +535,10 @@ class Optimizer(Optimization):
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
-            assert op.get_forwarded() is None  #XXX
+            op = self.get_box_replacement(op)
+            opinfo = op.get_forwarded()
+            if opinfo is not None:
+                newop.set_forwarded(opinfo)
             op.set_forwarded(newop)
         return newop
 
