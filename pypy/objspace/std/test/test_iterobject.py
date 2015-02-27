@@ -91,8 +91,8 @@ class AppTest_IterObject(object):
         raises(TypeError, len, iter(iterable))
 
     def test_no_len_on_UserList_iter_reversed(self):
-        import sys, _abcoll
-        sys.modules['collections'] = _abcoll
+        import sys, collections.abc
+        sys.modules['collections'] = collections.abc
         class UserList(object):
             def __init__(self, i):
                 self.i = i
