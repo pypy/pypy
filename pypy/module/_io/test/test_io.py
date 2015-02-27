@@ -445,7 +445,7 @@ class AppTestOpen:
         FileExistsError = OSError
 
         import _io
-        filename = self.tmpfile + '_x'
+        filename = self.tmpfile + '_x2'
         raises(ValueError, _io.open, filename, 'xw')
         with _io.open(filename, 'x') as f:
             assert f.mode == 'x'

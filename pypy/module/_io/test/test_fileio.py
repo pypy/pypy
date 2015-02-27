@@ -227,7 +227,7 @@ class AppTestFileIO:
         FileExistsError = OSError
 
         import _io
-        filename = self.tmpfile + '_x'
+        filename = self.tmpfile + '_x1'
         raises(ValueError, _io.FileIO, filename, 'xw')
         with _io.FileIO(filename, 'x') as f:
             assert f.mode == 'xb'
