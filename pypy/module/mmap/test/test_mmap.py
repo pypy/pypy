@@ -535,7 +535,7 @@ class AppTestMMap:
         b = memoryview(m)
         assert len(b) == 6
         assert b.readonly is False
-        assert b[3] == b"b"
+        assert b[3] == ord(b"b")
         assert b[:] == b"foobar"
         del b  # For CPython: "exported pointers exist"
         m.close()
