@@ -15,7 +15,7 @@ import weakref
 
 from itertools import product
 from test import support
-from test.support import TESTFN, findfile, import_fresh_module, gc_collect
+from test.support import TESTFN, findfile, import_fresh_module, gc_collect, impl_detail
 
 # pyET is the pure-Python implementation.
 #
@@ -1318,6 +1318,7 @@ class BugsTest(unittest.TestCase):
         self.assertEqual(t.find('.//paragraph').text,
             'A new cultivar of Begonia plant named \u2018BCT9801BEG\u2019.')
 
+    @impl_detail
     def test_bug_xmltoolkit63(self):
         # Check reference leak.
         def xmltoolkit63():
@@ -1522,6 +1523,7 @@ class BasicElementTest(ElementTestCase, unittest.TestCase):
         wref = weakref.ref(e, wref_cb)
         self.assertEqual(wref().tag, 'e')
         del e
+        gc_collect()
         self.assertEqual(flag, True)
         self.assertEqual(wref(), None)
 
