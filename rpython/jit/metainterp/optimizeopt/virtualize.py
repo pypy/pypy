@@ -3,7 +3,7 @@ from rpython.jit.metainterp.executor import execute
 from rpython.jit.codewriter.heaptracker import vtable2descr
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
 from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
-from rpython.jit.metainterp.optimizeopt import optimizer
+from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
                                                      descrlist_dict, sort_descrs)
@@ -13,9 +13,9 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-class AbstractVirtualInfo(optimizer.PtrOptInfo):
+class AbstractVirtualInfo(info.PtrOptInfo):
     _attrs_ = ('_cached_vinfo',)
-    _tag = optimizer.LEVEL_NONNULL
+    _tag = info.LEVEL_NONNULL
     is_about_raw = False
     _cached_vinfo = None
 
@@ -23,12 +23,20 @@ class AbstractVirtualInfo(optimizer.PtrOptInfo):
         xxx
         return self.box is not None
 
-    def force_box(self, optforce):
-        xxxx
-        if self.box is None:
-            optforce.forget_numberings(self.source_op)
-            self._really_force(optforce)
-        return self.box
+    def force_box(self, op, optforce):
+        op.set_forwarded(None)
+        optforce.emit_operation(op)
+        newop = optforce.getlastop()
+        op.set_forwarded(newop)
+        optforce.getptrinfo(newop).make_constant_class(None, self.known_class)
+        return newop
+    
+    #def force_box(self, optforce):
+    #    xxxx
+    #    if self.box is None:
+    #        optforce.forget_numberings(self.source_op)
+    #        self._really_force(optforce)
+    #    return self.box
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         xxxx
@@ -65,13 +73,11 @@ def get_fielddescrlist_cache(cpu):
 get_fielddescrlist_cache._annspecialcase_ = "specialize:memo"
 
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
-    _attrs_ = ('_fields', '_cached_sorted_fields')
+    _attrs_ = ('_fields',)
 
-    def __init__(self, cpu):
+    def __init__(self):
         AbstractVirtualInfo.__init__(self)
-        self.cpu = cpu
-        self._fields = {}
-        self._cached_sorted_fields = None
+        #self._fields = {}
 
     def getfield(self, ofs, default):
         return self._fields.get(ofs, default)
@@ -190,12 +196,13 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
             fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualInfo(AbstractVirtualStructInfo):
-    _tag = optimizer.LEVEL_KNOWNCLASS
+    _tag = info.LEVEL_KNOWNCLASS
 
-    def __init__(self, known_class):
+    def __init__(self, known_class, descr):
         AbstractVirtualStructInfo.__init__(self)
         assert isinstance(known_class, Const)
         self.known_class = known_class
+        self.descr = descr
 
     @specialize.argtype(1)
     def _visitor_dispatch_virtual_type(self, visitor):
@@ -215,6 +222,7 @@ class VirtualInfo(AbstractVirtualStructInfo):
 class VStructInfo(AbstractVirtualStructInfo):
 
     def __init__(self, cpu, structdescr, source_op):
+        xxx
         AbstractVirtualStructValue.__init__(self, cpu, source_op)
         self.structdescr = structdescr
 
@@ -522,11 +530,10 @@ class OptVirtualize(optimizer.Optimization):
 
     _last_guard_not_forced_2 = None
 
-    def make_virtual(self, known_class, source_op):
-        xxx
-        vvalue = VirtualValue(self.optimizer.cpu, known_class, source_op)
-        self.make_equal_to(source_op, vvalue)
-        return vvalue
+    def make_virtual(self, known_class, source_op, descr):
+        info = VirtualInfo(known_class, descr)
+        source_op.set_forwarded(info)
+        return info
 
     def make_varray(self, arraydescr, size, source_op, clear=False):
         if arraydescr.is_array_of_structs():
@@ -703,7 +710,7 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
-        self.make_virtual(op.getarg(0), op)
+        self.make_virtual(op.getarg(0), op, op.getdescr())
 
     def optimize_NEW(self, op):
         self.make_vstruct(op.getdescr(), op)

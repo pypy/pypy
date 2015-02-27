@@ -4,8 +4,9 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.jitexc import JitException
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimization,\
-     MODE_ARRAY, LEVEL_KNOWNCLASS, REMOVED
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
+from rpython.jit.metainterp.optimizeopt.info import MODE_ARRAY,\
+     LEVEL_KNOWNCLASS
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimize import InvalidLoop

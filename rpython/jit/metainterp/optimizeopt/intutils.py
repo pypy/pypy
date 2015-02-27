@@ -1,15 +1,16 @@
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractValue
+from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.optimizeopt.info import AbstractInfo
 from rpython.jit.metainterp.history import ConstInt
+
 
 MAXINT = maxint
 MININT = -maxint - 1
 
 
-class IntBound(AbstractValue):
+class IntBound(AbstractInfo):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
-    is_info_class = True
 
     def __init__(self, lower, upper):
         self.has_upper = True

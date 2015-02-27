@@ -1,13 +1,14 @@
 import sys
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.intutils import (IntBound, IntLowerBound,
-    IntUpperBound)
+from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
+    IntLowerBound, IntUpperBound)
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
-    CONST_0, MODE_ARRAY, MODE_STR, MODE_UNICODE)
+    CONST_0)
+from rpython.jit.metainterp.optimizeopt.info import MODE_ARRAY, MODE_STR,\
+     MODE_UNICODE
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
-from rpython.jit.backend.llsupport import symbolic
 
 
 def get_integer_min(is_unsigned, byte_size):
