@@ -63,6 +63,7 @@ class SyntaxTracebackCases(unittest.TestCase):
         self.assertEqual(len(err), 3)
         self.assertEqual(err[1].strip(), "bad syntax")
 
+    @cpython_only
     def test_bad_indentation(self):
         err = self.get_exception_format(self.syntax_error_bad_indentation,
                                         IndentationError)
