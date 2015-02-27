@@ -37,6 +37,11 @@ class hash_info(metaclass=structseqtype):
     inf = structseqfield(2)
     nan = structseqfield(3)
     imag = structseqfield(4)
+
+class thread_info(metaclass=structseqtype):
+    name = structseqfield(0)
+    lock = structseqfield(1)
+    version = structseqfield(2)
 """)
 
 
@@ -80,3 +85,16 @@ def get_hash_info(space):
 
 def get_float_repr_style(space):
     return space.wrap("short")
+
+def get_thread_info(space):
+    # TODO: implement this instead of returning None (which means unknown) for
+    # every field
+    if not space.config.objspace.usemodules.thread:
+        return None
+    info_w = [
+        space.wrap(space.w_None),
+        space.wrap(space.w_None),
+        space.wrap(space.w_None),
+    ]
+    w_thread_info = app.wget(space, "thread_info")
+    return space.call_function(w_thread_info, space.newtuple(info_w))
