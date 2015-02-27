@@ -823,3 +823,12 @@ class AppTestMMap:
                 assert str(e) == "cannot mmap an empty file"
             except BaseException as e:
                 assert False, "unexpected exception: " + str(e)
+
+    def test_read_all(self):
+        from mmap import mmap
+        f = open(self.tmpname + "f", "wb+")
+        f.write(b"foobar")
+        f.flush()
+
+        m = mmap(f.fileno(), 6)
+        assert m.read(None) == b"foobar"
