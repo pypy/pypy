@@ -10,27 +10,6 @@ __thread uintptr_t pypy_stm_nursery_low_fill_mark;
 __thread uintptr_t pypy_stm_nursery_low_fill_mark_saved;
 
 
-/* C8: not implemented properly yet: */
-char _stm_write_slowpath_card_extra(object_t *obj)
-{
-    /* the PyPy JIT calls this function directly if it finds that an
-       array doesn't have the GCFLAG_CARDS_SET */
-    stm_write(obj);
-    return 0;
-}
-
-long _stm_write_slowpath_card_extra_base(void)
-{
-    /* for the PyPy JIT: _stm_write_slowpath_card_extra_base[obj >> 4]
-       is the byte that must be set to CARD_MARKED.  The logic below
-       does the same, but more explicitly. */
-    /* result should only appear in JIT-paths that are never executed
-       because the above func returns false */
-    return 42;
-}
-/* C8: not implemented properly yet ^^^^^^^^^^^^^^^^^^ */
-
-
 
 extern Signed pypy_stmcb_size_rounded_up(void*);
 extern void pypy_stmcb_get_card_base_itemsize(void*, uintptr_t[]);

@@ -42,10 +42,6 @@ long _pypy_stm_count(void);
 
 /* C8: not implemented properly yet: */
 extern void stmcb_commit_soon(void);
-#define _STM_CARD_SIZE                 32     /* must be >= 32 */
-#define _STM_CARD_MARKED 100
-char _stm_write_slowpath_card_extra(object_t *obj);
-long _stm_write_slowpath_card_extra_base(void);
 typedef struct {
     stm_thread_local_t *tl;
     char *segment_base;    /* base to interpret the 'object' below */
