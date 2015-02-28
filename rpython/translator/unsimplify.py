@@ -135,10 +135,10 @@ def call_initial_function(translator, initial_func, annhelper=None):
         annhelper.finish()
 
     entry_point = translator.entry_point_graph
-    args = [v.copy() for v in entry_point.getargs()]
+    args = [v.copy_as_var() for v in entry_point.getargs()]
     extrablock = Block(args)
-    v_none = varoftype(lltype.Void)
-    newop = SpaceOperation('direct_call', [c_initial_func], v_none)
+    newop = SpaceOperation('direct_call', [c_initial_func],
+                           concretetype=lltype.Void)
     extrablock.operations = [newop]
     extrablock.closeblock(Link(args, entry_point.startblock))
     entry_point.startblock = extrablock
@@ -158,10 +158,10 @@ def call_final_function(translator, final_func, annhelper=None):
         annhelper.finish()
 
     entry_point = translator.entry_point_graph
-    v = entry_point.getreturnvar().copy()
+    v = entry_point.getreturnvar().copy_as_var()
     extrablock = Block([v])
-    v_none = varoftype(lltype.Void)
-    newop = SpaceOperation('direct_call', [c_final_func], v_none)
+    newop = SpaceOperation('direct_call', [c_final_func],
+                           concretetype=lltype.Void)
     extrablock.operations = [newop]
     extrablock.closeblock(Link([v], entry_point.returnblock))
     for block in entry_point.iterblocks():
