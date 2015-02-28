@@ -1648,6 +1648,7 @@ class ObjectType(BaseType):
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
 
+    @jit.dont_look_inside
     def _write(self, storage, i, offset, w_obj):
         if we_are_translated():
             value = rffi.cast(lltype.Signed, cast_instance_to_gcref(w_obj))
@@ -1656,6 +1657,7 @@ class ObjectType(BaseType):
             _all_objs_for_tests.append(w_obj)
         raw_storage_setitem_unaligned(storage, i + offset, value)
 
+    @jit.dont_look_inside
     def _read(self, storage, i, offset):
         res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
         if we_are_translated():
