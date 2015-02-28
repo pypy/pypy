@@ -659,7 +659,7 @@ class GroupType(Type):
                     .format(self.typestr, groupname, i))
         struct_type = StructType()
         struct_type.setup('group_' + obj.name, fields, False)
-        database.f.write('{} = global {}\n'.format(
+        database.f.write('{} = constant {}\n'.format(
                 groupname, struct_type.repr_type_and_value(group)))
 
 
@@ -1216,9 +1216,13 @@ class FunctionWriter(object):
 
     def _get_element(self, result, var, *fields):
         if result.type is not LLVMVoid:
+            if var.type.lltype.TO._hints.get('immutable'):
+                metadata= ', !invariant.load !0'
+            else:
+                metadata=''
             t = self._tmp(PtrType.tmp(result.type))
             self._get_element_ptr(var, fields, t)
-            self.w('{result.V} = load {t.TV}'.format(**locals()))
+            self.w('{result.V} = load {t.TV}{metadata}'.format(**locals()))
     op_getfield = op_bare_getfield = _get_element
     op_getinteriorfield = op_bare_getinteriorfield = _get_element
     op_getarrayitem = op_bare_getarrayitem = _get_element
@@ -1835,6 +1839,7 @@ class GenLLVM(object):
                 '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
                               type=get_repr(self.ovf_err[0]),
                               inst=get_repr(self.ovf_err[1])))
+        f.write('!0 = metadata !{ }\n')
 
     def gen_source(self):
         global database
