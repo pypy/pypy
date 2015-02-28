@@ -721,6 +721,7 @@ class Optimizer(Optimization):
         if clear:
             self.clear_newoperations()
         for op in self.loop.operations:
+            self._really_emitted_operation = None
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
@@ -773,8 +774,11 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(guard_op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        self._last_emitted_op = orig_op
+        self._really_emitted_operation = op
         self._newoperations.append(op)
+
+    def getlastop(self):
+        return self._really_emitted_operation
 
     def get_op_replacement(self, op):
         changed = False

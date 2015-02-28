@@ -1,12 +1,54 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
-    args_dict)
+from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+
+
+class RecentPureOps(object):
+    REMEMBER_LIMIT = 16
+
+    def __init__(self):
+        self.lst = [None] * self.REMEMBER_LIMIT
+        self.next_index = 0
+
+    def add(self, op):
+        next_index = self.next_index
+        self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
+        self.lst[next_index] = op
+
+    def lookup1(self, box0):
+        for i in range(self.REMEMBER_LIMIT):
+            op = self.lst[i]
+            if op is None:
+                break
+            if op.getarg(0).same_box(box0):
+                return op
+        return None
+
+    def lookup2(self, box0, box1):
+        for i in range(self.REMEMBER_LIMIT):
+            op = self.lst[i]
+            if op is None:
+                break
+            if op.getarg(0).same_box(box0) and op.getarg(1).same_box(box1):
+                return op
+        return None
+
+    def lookup(self, optimizer, op):
+        numargs = op.numargs()
+        if numargs == 1:
+            return self.lookup1(optimizer.get_box_replacement(op.getarg(0)))
+        elif numargs == 2:
+            return self.lookup2(optimizer.get_box_replacement(op.getarg(0)),
+                                optimizer.get_box_replacement(op.getarg(1)))
+        else:
+            assert False
+
 
 class OptPure(Optimization):
     def __init__(self):
         self.postponed_op = None
-        self.pure_operations = args_dict()
+        self._pure_operations = [None] * (rop._ALWAYS_PURE_LAST -
+                                          rop._ALWAYS_PURE_FIRST)
         self.call_pure_positions = []
 
     def propagate_forward(self, op):
@@ -39,20 +81,31 @@ class OptPure(Optimization):
                 return
 
             # did we do the exact same operation already?
-            args = self.optimizer.make_args_key(op)
-            oldvalue = self.pure_operations.get(args, None)
-            if oldvalue is not None:
-                self.optimizer.make_equal_to(op.result, oldvalue, True)
+            recentops = self.getrecentops(op.getopnum())
+            oldop = recentops.lookup(self.optimizer, op)
+            if oldop is not None:
+                self.optimizer.make_equal_to(op.result, oldop.result, True)
                 return
 
         # otherwise, the operation remains
         self.emit_operation(op)
         if op.returns_bool_result():
             self.optimizer.bool_boxes[self.getvalue(op.result)] = None
+        if canfold:
+            realop = self.optimizer.getlastop()
+            if realop is not None:
+                recentops = self.getrecentops(realop.getopnum())
+                recentops.add(realop)
         if nextop:
             self.emit_operation(nextop)
-        if args is not None:
-            self.pure_operations[args] = self.getvalue(op.result)
+
+    def getrecentops(self, opnum):
+        opnum = opnum - rop._ALWAYS_PURE_FIRST
+        assert 0 <= opnum < len(self._pure_operations)
+        recentops = self._pure_operations[opnum]
+        if recentops is None:
+            self._pure_operations[opnum] = recentops = RecentPureOps()
+        return recentops
 
     def optimize_CALL_PURE(self, op):
         # Step 1: check if all arguments are constant
