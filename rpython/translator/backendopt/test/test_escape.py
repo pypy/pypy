@@ -24,7 +24,7 @@ def test_simple():
         a.x = 1
         return a.x
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     state = adi.getstate(avar)
     crep, = state.creation_points
     assert not crep.escapes
@@ -41,7 +41,7 @@ def test_branch():
         else:
             return t.x - t.y
     t, adi, graph = build_adi(fn2, [int, int])
-    tvar = graph.startblock.operations[0].result
+    tvar = graph.startblock.operations[0]
     state = adi.getstate(tvar)
     crep, = state.creation_points
     assert not crep.escapes
@@ -58,7 +58,7 @@ def test_loop():
             i += 1
         return a.x
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     state = adi.getstate(avar)
     crep, = state.creation_points
     assert not crep.escapes
@@ -76,7 +76,7 @@ def test_global():
         a.next = None
         globala.next = a
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     state = adi.getstate(avar)
     assert len(state.creation_points) == 1
     crep, = state.creation_points
@@ -91,7 +91,7 @@ def test_classattrs():
         b = B()
         return b.attr
     t, adi, graph = build_adi(fn5, [])
-    bvar = graph.startblock.operations[0].result
+    bvar = graph.startblock.operations[0]
     state = adi.getstate(bvar)
     crep, = state.creation_points
     assert not crep.escapes
@@ -134,7 +134,7 @@ def test_call():
     bstate = adi.getstate(bvar)
     bcrep, = bstate.creation_points
     assert not bcrep.escapes
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     astate = adi.getstate(avar)
     acrep, = astate.creation_points
     assert not acrep.escapes
@@ -153,7 +153,7 @@ def test_dependencies():
         # g(a)
         return globala.l[0]
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     astate = adi.getstate(avar)
     appendgraph = graph.startblock.operations[3].args[0].value._obj.graph
     appendarg0 = appendgraph.startblock.inputargs[0]
@@ -180,8 +180,8 @@ def test_substruct():
         return g(a0, b0).x
     t, adi, graph = build_adi(f, [])
     g_graph = graphof(t, g)
-    a0var = graph.startblock.operations[0].result
-    b0var = graph.startblock.operations[3].result
+    a0var = graph.startblock.operations[0]
+    b0var = graph.startblock.operations[3]
     a0state = adi.getstate(a0var)
     b0state = adi.getstate(b0var)
     a0crep, = a0state.creation_points
@@ -204,9 +204,9 @@ def test_multiple_calls():
         a4 = h(a1, a2)
         a5 = g(a3, a4)
     t, adi, graph = build_adi(f, [])
-    a1var = graph.startblock.operations[0].result
-    a2var = graph.startblock.operations[3].result
-    a3var = graph.startblock.operations[6].result
+    a1var = graph.startblock.operations[0]
+    a2var = graph.startblock.operations[3]
+    a3var = graph.startblock.operations[6]
     a1state = adi.getstate(a1var)
     a2state = adi.getstate(a2var)
     a3state = adi.getstate(a3var)
@@ -245,8 +245,8 @@ def test_indirect_call():
         else:
             return 42
     t, adi, graph = build_adi(f, [int])
-    a1var = graph.startblock.operations[0].result
-    a2var = graph.startblock.operations[3].result
+    a1var = graph.startblock.operations[0]
+    a2var = graph.startblock.operations[3]
     a1state = adi.getstate(a1var)
     a2state = adi.getstate(a2var)
     a1crep, = a1state.creation_points
@@ -275,7 +275,7 @@ def test_getarray():
         l = [None]
         l[0] = a
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     state = adi.getstate(avar)
     crep, = state.creation_points
     assert crep.escapes
@@ -291,7 +291,7 @@ def test_flow_blocksonce():
         b.x = 1
         return b.x + 2
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.exits[0].target.exits[1].target.operations[0].result
+    avar = graph.startblock.exits[0].target.exits[1].target.operations[0]
     state = adi.getstate(avar)
     assert not state.does_escape()
 
@@ -316,7 +316,7 @@ def test_getarraysubstruct():
         return d[i] + d[j]
     # does not crash, for now
     t, adi, graph = build_adi(createdict, [int, int])
-    dvar = graph.startblock.operations[0].result
+    dvar = graph.startblock.operations[0]
     dstate = adi.getstate(dvar)
     assert not dstate.does_escape()
 
@@ -325,7 +325,7 @@ def test_raise_escapes():
         a = ValueError()
         raise a
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     state = adi.getstate(avar)
     assert state.does_escape()
 
@@ -336,7 +336,7 @@ def test_return():
         a = A()
         return a
     t, adi, graph = build_adi(f, [])
-    avar = graph.startblock.operations[0].result
+    avar = graph.startblock.operations[0]
     state = adi.getstate(avar)
     assert not state.does_escape()
     assert state.does_return()

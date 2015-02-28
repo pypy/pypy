@@ -163,10 +163,10 @@ class AbstractDataFlowInterpreter(object):
         if opimpl is not None:
             res = opimpl(op, *args)
             if res is not NotImplemented:
-                self.setstate(op.result, res)
+                self.setstate(op, res)
                 return
 
-        if isonheap(op.result) or filter(None, args):
+        if isonheap(op) or filter(None, args):
             for arg in args:
                 if arg is not None:
                     self.escapes(arg)
@@ -217,14 +217,14 @@ class AbstractDataFlowInterpreter(object):
         flags = op.args[1].value
         if flags != {'flavor': 'gc'}:
             return NotImplemented
-        return VarState(self.get_creationpoint(op.result, "malloc", op))
+        return VarState(self.get_creationpoint(op, "malloc", op))
 
     def op_malloc_varsize(self, op, typestate, flagsstate, lengthstate):
         assert flagsstate is None
         flags = op.args[1].value
         if flags != {'flavor': 'gc'}:
             return NotImplemented
-        return VarState(self.get_creationpoint(op.result, "malloc_varsize", op))
+        return VarState(self.get_creationpoint(op, "malloc_varsize", op))
 
     def op_cast_pointer(self, op, state):
         return state
@@ -243,13 +243,13 @@ class AbstractDataFlowInterpreter(object):
         return None
 
     def op_getarrayitem(self, op, objstate, indexstate):
-        if isonheap(op.result):
-            return VarState(self.get_creationpoint(op.result, "getarrayitem", op))
+        if isonheap(op):
+            return VarState(self.get_creationpoint(op, "getarrayitem", op))
 
     def op_getfield(self, op, objstate, fieldname):
-        if isonheap(op.result):
+        if isonheap(op):
             # assume that getfield creates a new value
-            return VarState(self.get_creationpoint(op.result, "getfield", op))
+            return VarState(self.get_creationpoint(op, "getfield", op))
 
     def op_getarraysize(self, op, arraystate):
         pass
@@ -272,9 +272,9 @@ class AbstractDataFlowInterpreter(object):
                 continue
             if funcarg is not None:
                 self.register_state_dependency(localarg, funcarg)
-        if isonheap(op.result):
+        if isonheap(op):
             # assume that a call creates a new value
-            return VarState(self.get_creationpoint(op.result, "direct_call", op))
+            return VarState(self.get_creationpoint(op, "direct_call", op))
 
     def op_indirect_call(self, op, function, *args):
         graphs = op.args[-1].value
@@ -293,9 +293,9 @@ class AbstractDataFlowInterpreter(object):
                         assert funcarg is None
                         continue
                     self.register_state_dependency(localarg, funcarg)
-        if isonheap(op.result):
+        if isonheap(op):
             # assume that a call creates a new value
-            return VarState(self.get_creationpoint(op.result, "indirect_call", op))
+            return VarState(self.get_creationpoint(op, "indirect_call", op))
 
     def op_ptr_iszero(self, op, ptrstate):
         return None
