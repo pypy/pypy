@@ -7,7 +7,6 @@
 #define GC_MIN                 (NB_NURSERY_PAGES * 4096 * 8)
 #define GC_MAJOR_COLLECT       1.82
 
-
 static struct list_s *testing_prebuilt_objs;
 static char *uninitialized_page_start;   /* within segment 0 */
 static char *uninitialized_page_stop;

@@ -84,11 +84,23 @@ static void fork_abort_thread(long i)
     stm_thread_local_t *tl = pr->pub.running_thread;
     dprintf(("forksupport_child: abort in seg%ld\n", i));
     assert(tl->associated_segment_num == i);
-    assert(pr->transaction_state == TS_REGULAR);
+    assert(pr->transaction_state != TS_INEVITABLE);
     set_gs_register(get_segment_base(i));
     assert(STM_SEGMENT->segment_num == i);
 
     s_mutex_lock();
+    if (pr->transaction_state == TS_NONE) {
+        /* just committed, TS_NONE but still has running_thread */
+
+        /* do _finish_transaction() */
+        STM_PSEGMENT->safe_point = SP_NO_TRANSACTION;
+        list_clear(STM_PSEGMENT->objects_pointing_to_nursery);
+        list_clear(STM_PSEGMENT->large_overflow_objects);
+
+        s_mutex_unlock();
+        return;
+    }
+
 #ifndef NDEBUG
     pr->running_pthread = pthread_self();
 #endif

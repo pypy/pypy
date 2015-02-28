@@ -42,6 +42,11 @@ bool _stm_was_written(object_t *obj)
     return (obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) == 0;
 }
 
+bool _stm_was_written_card(object_t *obj)
+{
+    return obj->stm_flags & _STM_GCFLAG_CARDS_SET;
+}
+
 long _stm_count_cl_entries()
 {
     struct stm_commit_log_entry_s *cl = &commit_log_root;
@@ -80,6 +85,13 @@ long _stm_count_objects_pointing_to_nursery(void)
     return list_count(STM_PSEGMENT->objects_pointing_to_nursery);
 }
 
+long _stm_count_old_objects_with_cards_set(void)
+{
+    if (STM_PSEGMENT->old_objects_with_cards_set == NULL)
+        return -1;
+    return list_count(STM_PSEGMENT->old_objects_with_cards_set);
+}
+
 object_t *_stm_enum_modified_old_objects(long index)
 {
     return (object_t *)list_item(
@@ -91,6 +103,27 @@ object_t *_stm_enum_objects_pointing_to_nursery(long index)
     return (object_t *)list_item(
         STM_PSEGMENT->objects_pointing_to_nursery, index);
 }
+
+object_t *_stm_enum_old_objects_with_cards_set(long index)
+{
+    return (object_t *)list_item(
+        STM_PSEGMENT->old_objects_with_cards_set, index);
+}
+
+
+uint8_t _stm_get_card_value(object_t *obj, long idx)
+{
+    struct stm_read_marker_s *cards = get_read_marker(STM_SEGMENT->segment_base,
+                                                      (uintptr_t)obj);
+    return cards[get_index_to_card_index(idx)].rm;
+}
+
+uint8_t _stm_get_transaction_read_version()
+{
+    return STM_SEGMENT->transaction_read_version;
+}
+
+
 
 static struct stm_commit_log_entry_s *_last_cl_entry;
 static long _last_cl_entry_index;

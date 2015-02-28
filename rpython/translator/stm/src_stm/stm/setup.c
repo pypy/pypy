@@ -100,10 +100,11 @@ void stm_setup(void)
         pr->pub.segment_num = i;
         pr->pub.segment_base = segment_base;
         pr->modified_old_objects = list_create();
-        pr->new_objects = list_create();
+        pr->large_overflow_objects = list_create();
         pr->young_weakrefs = list_create();
         pr->old_weakrefs = list_create();
         pr->objects_pointing_to_nursery = list_create();
+        pr->old_objects_with_cards_set = list_create();
         pr->young_outside_nursery = tree_create();
         pr->nursery_objects_shadows = tree_create();
         pr->callbacks_on_commit_and_abort[0] = tree_create();
@@ -112,6 +113,8 @@ void stm_setup(void)
         pr->old_objects_with_light_finalizers = list_create();
 
         pr->last_commit_log_entry = &commit_log_root;
+        pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
+        highest_overflow_number = pr->overflow_number;
         pr->pub.transaction_read_version = 0xff;
     }
 
@@ -147,9 +150,10 @@ void stm_teardown(void)
         struct stm_priv_segment_info_s *pr = get_priv_segment(i);
         assert(list_is_empty(pr->objects_pointing_to_nursery));
         list_free(pr->objects_pointing_to_nursery);
+        list_free(pr->old_objects_with_cards_set);
         list_free(pr->modified_old_objects);
-        assert(list_is_empty(pr->new_objects));
-        list_free(pr->new_objects);
+        assert(list_is_empty(pr->large_overflow_objects));
+        list_free(pr->large_overflow_objects);
         list_free(pr->young_weakrefs);
         list_free(pr->old_weakrefs);
         tree_free(pr->young_outside_nursery);

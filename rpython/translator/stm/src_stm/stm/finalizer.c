@@ -98,14 +98,14 @@ static void abort_finalizers(struct stm_priv_segment_info_s *pseg)
         list_clear(lst);
     }
 
-    /* also deals with newly created objects: they are at the tail of
+    /* also deals with overflow objects: they are at the tail of
        old_objects_with_light_finalizers (this list is kept in order
        and we cannot add any already-committed object) */
     lst = pseg->old_objects_with_light_finalizers;
     count = list_count(lst);
     while (count > 0) {
         object_t *obj = (object_t *)list_item(lst, --count);
-        if (!(obj->stm_flags & GCFLAG_WB_EXECUTED))
+        if (!IS_OVERFLOW_OBJ(pseg, obj))
             break;
         lst->count = count;
         if (must_fix_gs) {
@@ -264,11 +264,14 @@ static inline void _append_to_finalizer_tmpstack(object_t **pobj)
         LIST_APPEND(_finalizer_tmpstack, obj);
 }
 
-static inline struct list_s *finalizer_trace(char *base, object_t *obj,
-                                             struct list_s *lst)
+static inline struct list_s *finalizer_trace(
+    struct stm_priv_segment_info_s *pseg, object_t *obj, struct list_s *lst)
 {
-    if (!is_new_object(obj))
+    char *base;
+    if (!is_overflow_obj_safe(pseg, obj))
         base = stm_object_pages;
+    else
+        base = pseg->pub.segment_base;
 
     struct object_s *realobj = (struct object_s *)REAL_ADDRESS(base, obj);
     _finalizer_tmpstack = lst;
@@ -277,7 +280,8 @@ static inline struct list_s *finalizer_trace(char *base, object_t *obj,
 }
 
 
-static void _recursively_bump_finalization_state_from_2_to_3(char *base, object_t *obj)
+static void _recursively_bump_finalization_state_from_2_to_3(
+    struct stm_priv_segment_info_s *pseg, object_t *obj)
 {
     assert(_finalization_state(obj) == 2);
     struct list_s *tmpstack = _finalizer_emptystack;
@@ -289,7 +293,7 @@ static void _recursively_bump_finalization_state_from_2_to_3(char *base, object_
             realobj->stm_flags &= ~GCFLAG_FINALIZATION_ORDERING;
 
             /* trace */
-            tmpstack = finalizer_trace(base, obj, tmpstack);
+            tmpstack = finalizer_trace(pseg, obj, tmpstack);
         }
 
         if (list_is_empty(tmpstack))
@@ -300,14 +304,16 @@ static void _recursively_bump_finalization_state_from_2_to_3(char *base, object_
     _finalizer_emptystack = tmpstack;
 }
 
-static void _recursively_bump_finalization_state_from_1_to_2(char *base, object_t *obj)
+static void _recursively_bump_finalization_state_from_1_to_2(
+    struct stm_priv_segment_info_s *pseg, object_t *obj)
 {
     assert(_finalization_state(obj) == 1);
     /* The call will add GCFLAG_VISITED recursively, thus bump state 1->2 */
-    mark_visit_possibly_new_object(base, obj);
+    mark_visit_possibly_new_object(obj, pseg);
 }
 
-static struct list_s *mark_finalize_step1(char *base, struct finalizers_s *f)
+static struct list_s *mark_finalize_step1(
+    struct stm_priv_segment_info_s *pseg, struct finalizers_s *f)
 {
     if (f == NULL)
         return NULL;
@@ -336,21 +342,22 @@ static struct list_s *mark_finalize_step1(char *base, struct finalizers_s *f)
             int state = _finalization_state(y);
             if (state <= 0) {
                 _bump_finalization_state_from_0_to_1(y);
-                pending = finalizer_trace(base, y, pending);
+                pending = finalizer_trace(pseg, y, pending);
             }
             else if (state == 2) {
-                _recursively_bump_finalization_state_from_2_to_3(base, y);
+                _recursively_bump_finalization_state_from_2_to_3(pseg, y);
             }
         }
         _finalizer_pending = pending;
         assert(_finalization_state(x) == 1);
-        _recursively_bump_finalization_state_from_1_to_2(base, x);
+        _recursively_bump_finalization_state_from_1_to_2(pseg, x);
     }
     return marked;
 }
 
-static void mark_finalize_step2(char *base, struct finalizers_s *f,
-                                struct list_s *marked)
+static void mark_finalize_step2(
+    struct stm_priv_segment_info_s *pseg, struct finalizers_s *f,
+    struct list_s *marked)
 {
     if (f == NULL)
         return;
@@ -367,7 +374,7 @@ static void mark_finalize_step2(char *base, struct finalizers_s *f,
             if (run_finalizers == NULL)
                 run_finalizers = list_create();
             LIST_APPEND(run_finalizers, x);
-            _recursively_bump_finalization_state_from_2_to_3(base, x);
+            _recursively_bump_finalization_state_from_2_to_3(pseg, x);
         }
         else {
             struct list_s *lst = f->objects_with_finalizers;
@@ -403,29 +410,28 @@ static void deal_with_objects_with_finalizers(void)
     long j;
     for (j = 1; j < NB_SEGMENTS; j++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(j);
-        marked_seg[j] = mark_finalize_step1(pseg->pub.segment_base,
-                                            pseg->finalizers);
+        marked_seg[j] = mark_finalize_step1(pseg, pseg->finalizers);
     }
-    marked_seg[0] = mark_finalize_step1(stm_object_pages, &g_finalizers);
+    marked_seg[0] = mark_finalize_step1(get_priv_segment(0), &g_finalizers);
 
     LIST_FREE(_finalizer_pending);
 
     for (j = 1; j < NB_SEGMENTS; j++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(j);
-        mark_finalize_step2(pseg->pub.segment_base, pseg->finalizers,
-                            marked_seg[j]);
+        mark_finalize_step2(pseg, pseg->finalizers, marked_seg[j]);
     }
-    mark_finalize_step2(stm_object_pages, &g_finalizers, marked_seg[0]);
+    mark_finalize_step2(get_priv_segment(0), &g_finalizers, marked_seg[0]);
 
     LIST_FREE(_finalizer_emptystack);
 }
 
-static void mark_visit_from_finalizer1(char *base, struct finalizers_s *f)
+static void mark_visit_from_finalizer1(
+    struct stm_priv_segment_info_s *pseg, struct finalizers_s *f)
 {
     if (f != NULL && f->run_finalizers != NULL) {
         LIST_FOREACH_R(f->run_finalizers, object_t * /*item*/,
                        ({
-                           mark_visit_possibly_new_object(base, item);
+                           mark_visit_possibly_new_object(item, pseg);
                        }));
     }
 }
@@ -435,9 +441,9 @@ static void mark_visit_from_finalizer_pending(void)
     long j;
     for (j = 1; j < NB_SEGMENTS; j++) {
         struct stm_priv_segment_info_s *pseg = get_priv_segment(j);
-        mark_visit_from_finalizer1(pseg->pub.segment_base, pseg->finalizers);
+        mark_visit_from_finalizer1(pseg, pseg->finalizers);
     }
-    mark_visit_from_finalizer1(stm_object_pages, &g_finalizers);
+    mark_visit_from_finalizer1(get_priv_segment(0), &g_finalizers);
 }
 
 static void _execute_finalizers(struct finalizers_s *f)
