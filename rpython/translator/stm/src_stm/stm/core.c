@@ -978,6 +978,9 @@ void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
     struct stm_read_marker_s *cards = get_read_marker(STM_SEGMENT->segment_base,
                                                       (uintptr_t)obj);
     uintptr_t card_index = get_index_to_card_index(index);
+    if (cards[card_index].rm == CARD_MARKED)
+        return;
+
     if (!IS_OVERFLOW_OBJ(STM_PSEGMENT, obj)
         && !(cards[card_index].rm == CARD_MARKED
              || cards[card_index].rm == STM_SEGMENT->transaction_read_version)) {
