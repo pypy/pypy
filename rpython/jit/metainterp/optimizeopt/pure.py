@@ -15,31 +15,34 @@ class RecentPureOps(object):
         self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
         self.lst[next_index] = op
 
-    def lookup1(self, box0):
+    def lookup1(self, box0, descr):
         for i in range(self.REMEMBER_LIMIT):
             op = self.lst[i]
             if op is None:
                 break
-            if op.getarg(0).same_box(box0):
+            if op.getarg(0).same_box(box0) and op.getdescr() is descr:
                 return op
         return None
 
-    def lookup2(self, box0, box1):
+    def lookup2(self, box0, box1, descr):
         for i in range(self.REMEMBER_LIMIT):
             op = self.lst[i]
             if op is None:
                 break
-            if op.getarg(0).same_box(box0) and op.getarg(1).same_box(box1):
+            if (op.getarg(0).same_box(box0) and op.getarg(1).same_box(box1)
+                and op.getdescr() is descr):
                 return op
         return None
 
     def lookup(self, optimizer, op):
         numargs = op.numargs()
         if numargs == 1:
-            return self.lookup1(optimizer.get_box_replacement(op.getarg(0)))
+            return self.lookup1(optimizer.get_box_replacement(op.getarg(0)),
+                                op.getdescr())
         elif numargs == 2:
             return self.lookup2(optimizer.get_box_replacement(op.getarg(0)),
-                                optimizer.get_box_replacement(op.getarg(1)))
+                                optimizer.get_box_replacement(op.getarg(1)),
+                                op.getdescr())
         else:
             assert False
 
@@ -67,7 +70,6 @@ class OptPure(Optimization):
         else:
             nextop = None
 
-        args = None
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
@@ -150,17 +152,18 @@ class OptPure(Optimization):
 
     def pure(self, opnum, args, result):
         op = ResOperation(opnum, args, result)
-        key = self.optimizer.make_args_key(op)
-        if key not in self.pure_operations:
-            self.pure_operations[key] = self.getvalue(result)
+        recentops = self.getrecentops(opnum)
+        recentops.add(op)
 
     def has_pure_result(self, opnum, args, descr):
+        return False
         op = ResOperation(opnum, args, None, descr)
         key = self.optimizer.make_args_key(op)
         return self.pure_operations.get(key, None) is not None
 
-    def get_pure_result(self, key):
-        return self.pure_operations.get(key, None)
+    def get_pure_result(self, op):
+        recentops = self.getrecentops(op.getopnum())
+        return recentops.lookup(self.optimizer, op)
 
     def produce_potential_short_preamble_ops(self, sb):
         ops = sb.optimizer._newoperations

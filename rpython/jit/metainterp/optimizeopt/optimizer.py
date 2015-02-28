@@ -452,6 +452,9 @@ class Optimization(object):
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
 
+    def get_box_replacement(self, box):
+        return self.optimizer.get_box_replacement(box)
+
     def make_constant(self, box, constbox):
         return self.optimizer.make_constant(box, constbox)
 
@@ -844,16 +847,6 @@ class Optimizer(Optimization):
                 # a real GUARD_VALUE.  Make it use one counter per value.
                 descr.make_a_counter_per_value(op)
         return op
-
-    def make_args_key(self, op):
-        n = op.numargs()
-        args = [None] * (n + 2)
-        for i in range(n):
-            arg = self.get_box_replacement(op.getarg(i))
-            args[i] = arg
-        args[n] = ConstInt(op.getopnum())
-        args[n + 1] = op.getdescr()
-        return args
 
     def optimize_default(self, op):
         self.emit_operation(op)

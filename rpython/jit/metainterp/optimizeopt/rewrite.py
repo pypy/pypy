@@ -26,15 +26,15 @@ class OptRewrite(Optimization):
 
     def propagate_forward(self, op):
         if op.boolinverse != -1 or op.boolreflex != -1:
-            args = self.optimizer.make_args_key(op)
-            if self.find_rewritable_bool(op, args):
+            if self.find_rewritable_bool(op):
                 return
 
         dispatch_opt(self, op)
 
     def try_boolinvers(self, op, targs):
-        value = self.get_pure_result(targs)
-        if value is not None:
+        op = self.get_pure_result(targs)
+        if op is not None:
+            value = self.getvalue(op.result)
             if value.is_constant():
                 if value.box.same_constant(CONST_1):
                     self.make_constant(op.result, CONST_0)
@@ -46,30 +46,30 @@ class OptRewrite(Optimization):
         return False
 
 
-    def find_rewritable_bool(self, op, args):
+    def find_rewritable_bool(self, op):
         oldopnum = op.boolinverse
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
         if oldopnum != -1:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
-                                                              None))
-            if self.try_boolinvers(op, targs):
+            top = ResOperation(oldopnum, [arg0, arg1], None)
+            if self.try_boolinvers(op, top):
                 return True
 
         oldopnum = op.boolreflex # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
-            targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
-                                                              None))
-            value = self.get_pure_result(targs)
-            if value is not None:
-                self.optimizer.make_equal_to(op.result, value, True)
+            top = ResOperation(oldopnum, [arg0, arg1], None)
+            oldop = self.get_pure_result(top)
+            if oldop is not None:
+                self.optimizer.make_equal_to(op.result, self.getvalue(oldop),
+                                             True)
                 return True
 
         if op.boolreflex == -1:
             return False
         oldopnum = opclasses[op.boolreflex].boolinverse
         if oldopnum != -1:
-            targs = self.optimizer.make_args_key(
-                ResOperation(oldopnum, [args[1], args[0]], None))
-            if self.try_boolinvers(op, targs):
+            top = ResOperation(oldopnum, [arg1, arg0], None)
+            if self.try_boolinvers(op, top):
                 return True
 
         return False
