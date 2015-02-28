@@ -55,13 +55,13 @@ def test_SSI_to_SSA():
 def test_SSA_to_SSI():
     c = Variable('c')
     x = Variable('x')
-    y = Variable('y')
     b1 = Block([c])
     b2 = Block([x])
     b3 = Block([])
 
     graph = FunctionGraph('x', b1)
-    b2.operations.append(SpaceOperation('add', [x, c], y))
+    y = SpaceOperation('add', [x, c], 'y')
+    b2.operations.append(y)
     b2.exitswitch = y
 
     b1.closeblock(Link([Constant(0)], b2))
@@ -82,7 +82,7 @@ def test_SSA_to_SSI():
     assert len(b3.exits[0].args) == 2
 
     index = b3.inputargs.index(b3.exits[0].args[0])
-    assert b2.exits[1].args[index] is b2.operations[0].result
+    assert b2.exits[1].args[index] is b2.operations[0]
 
     index = b3.inputargs.index(b3.exits[0].args[1])
     assert b2.exits[1].args[index] is b2.inputargs[1]
@@ -91,12 +91,12 @@ def test_SSA_to_SSI():
 def test_SSA_to_SSI_2():
     x = Variable('x')
     y = Variable('y')
-    z = Variable('z')
     b1 = Block([x])
     b2 = Block([y])
     b3 = Block([])
 
-    b3.operations.append(SpaceOperation('hello', [y], z))
+    z = SpaceOperation('hello', [y], 'z')
+    b3.operations.append(z)
     b1.closeblock(Link([x], b2), Link([], b3))
     graph = FunctionGraph('x', b1)
     SSA_to_SSI(graph)

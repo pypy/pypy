@@ -110,7 +110,7 @@ def SSI_to_SSA(graph):
     # sanity-check that the same name is never used several times in a block
     variables_by_name = {}
     for block in graph.iterblocks():
-        vars = [op.result for op in block.operations]
+        vars = list(block.operations)
         for link in block.exits:
             vars += link.getextravars()
         assert len(dict.fromkeys([v.name for v in vars])) == len(vars), (
@@ -126,10 +126,7 @@ def SSI_to_SSA(graph):
 # ____________________________________________________________
 
 def variables_created_in(block):
-    result = set(block.inputargs)
-    for op in block.operations:
-        result.add(op.result)
-    return result
+    return set(block.inputargs) | set(block.operations)
 
 
 def SSA_to_SSI(graph, annotator=None):
@@ -187,7 +184,7 @@ def SSA_to_SSI(graph, annotator=None):
             except KeyError:
                 raise Exception("SSA_to_SSI failed: no way to give a value to"
                                 " %r in %r" % (v, block))
-            w = v.copy()
+            w = v.copy_as_var()
             variable_families.union(v, w)
             block.renamevariables({v: w})
             block.inputargs.append(w)
