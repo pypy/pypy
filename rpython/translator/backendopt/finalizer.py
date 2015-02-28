@@ -39,7 +39,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 # primitive type
                 return self.bottom_result()
         if op.opname == 'getfield':
-            TP = op.result.concretetype
+            TP = op.concretetype
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
                 # primitive type
                 return self.bottom_result()

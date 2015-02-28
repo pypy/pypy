@@ -43,22 +43,24 @@ def test_various_ops():
     S = lltype.GcStruct('S', ('x', lltype.Signed),
                         ('y', X),
                         ('z', Z))
-    v1 = varoftype(lltype.Bool)
-    v2 = varoftype(lltype.Signed)
     f = FinalizerAnalyzer(None)
-    r = f.analyze(SpaceOperation('cast_int_to_bool', [v2],
-                                                       v1))
+    r = f.analyze(SpaceOperation('cast_int_to_bool',
+                                 [varoftype(lltype.Signed)],
+                                 concretetype=lltype.Bool))
     assert not r
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Signed)
     v3 = varoftype(X)
     v4 = varoftype(Z)
-    assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('x'),
-                                                          v2], None))
-    assert     f.analyze(SpaceOperation('bare_setfield', [v1, Constant('y'),
-                                                          v3], None))
-    assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('z'),
-                                                          v4], None))
+    assert not f.analyze(SpaceOperation('bare_setfield',
+                                        [v1, Constant('x'), v2],
+                                        concretetype=lltype.Void))
+    assert     f.analyze(SpaceOperation('bare_setfield',
+                                        [v1, Constant('y'), v3],
+                                        concretetype=lltype.Void))
+    assert not f.analyze(SpaceOperation('bare_setfield',
+                                        [v1, Constant('z'), v4],
+                                        concretetype=lltype.Void))
 
     def test_malloc(self):
         S = lltype.GcStruct('S')
