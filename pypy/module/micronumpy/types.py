@@ -3,7 +3,7 @@ import math
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from rpython.rlib import clibffi, jit, rfloat, rcomplex
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
@@ -112,11 +112,12 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _immutable_fields_ = ['native']
+    _immutable_fields_ = ['native', 'space']
 
-    def __init__(self, native=True):
-        assert native is True or native is False 
+    def __init__(self, space, native=True):
+        assert isinstance(space, ObjSpace)
         self.native = native
+        self.space = space
 
     def __repr__(self):
         return self.__class__.__name__
@@ -307,7 +308,7 @@ class Primitive(object):
 
     @raw_unary_op
     def rint(self, v):
-        float64 = Float64()
+        float64 = Float64(self.space)
         return float64.rint(float64.box(v))
 
 class Bool(BaseType, Primitive):
@@ -400,7 +401,7 @@ class Bool(BaseType, Primitive):
     def round(self, v, decimals=0):
         if decimals != 0:
             return v
-        return Float64().box(self.unbox(v))
+        return Float64(self.space).box(self.unbox(v))
 
 class Integer(Primitive):
     _mixin_ = True
@@ -1675,7 +1676,15 @@ class ObjectType(BaseType):
 
     @specialize.argtype(1)
     def box(self, w_obj):
-        assert isinstance(w_obj, W_Root)
+        if isinstance(w_obj, W_Root):
+            pass
+        elif isinstance(w_obj, int):
+            w_obj = self.space.newint(w_obj)
+        elif isinstance(w_obj, lltype.Number):
+            w_obj = self.space.newint(w_obj)
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "cannot create object array/scalar from lltype")
         return self.BoxType(w_obj)
 
     def str_format(self, box):

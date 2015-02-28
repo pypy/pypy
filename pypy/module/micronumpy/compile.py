@@ -3,7 +3,7 @@ It should not be imported by the module itself
 """
 import re
 from pypy.interpreter import special
-from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
+from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
@@ -47,7 +47,7 @@ class W_TypeObject(W_Root):
     def lookup(self, name):
         return self.getdictvalue(self, name)
 
-class FakeSpace(object):
+class FakeSpace(ObjSpace):
     w_ValueError = W_TypeObject("ValueError")
     w_TypeError = W_TypeObject("TypeError")
     w_IndexError = W_TypeObject("IndexError")
