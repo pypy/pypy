@@ -88,6 +88,8 @@ class BaseAssembler(object):
         self._build_wb_slowpath(False)
         self._build_wb_slowpath(True)
         self._build_wb_slowpath(False, for_frame=True)
+        if gc_ll_descr.stm:
+            self._build_stm_wb_card_slowpath(False)
         # only one of those
         self.build_frame_realloc_slowpath()
         if self.cpu.supports_floats:
@@ -95,6 +97,8 @@ class BaseAssembler(object):
             self._build_failure_recovery(True, withfloats=True)
             self._build_wb_slowpath(False, withfloats=True)
             self._build_wb_slowpath(True, withfloats=True)
+            if gc_ll_descr.stm:
+                self._build_stm_wb_card_slowpath(True)
         self._build_propagate_exception_path()
 
         if gc_ll_descr.get_malloc_slowpath_addr() is not None:
@@ -390,4 +394,3 @@ def debug_bridge(descr_number, rawstart, codeendpos):
                 (r_uint(descr_number), r_uint(rawstart),
                     r_uint(rawstart + codeendpos)))
     debug_stop("jit-backend-addr")
-

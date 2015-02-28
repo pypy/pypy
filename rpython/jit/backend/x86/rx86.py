@@ -516,6 +516,7 @@ class AbstractX86CodeBuilder(object):
     CMP32_mi = insn(rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
     CMP16_mi = insn('\x66', rex_nw, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'h'))
     CMP8_ri = insn(rex_fw, '\x80', byte_register(1), '\xF8', immediate(2, 'b'))
+    CMP8_mi = insn(rex_nw, '\x80', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'b'))
 
     AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 

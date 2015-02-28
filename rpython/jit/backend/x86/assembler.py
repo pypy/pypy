@@ -54,6 +54,7 @@ class Assembler386(BaseAssembler):
         self.malloc_slowpath = 0
         self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
+        self.wb_card_slowpath = [0, 0]
         self.setup_failure_recovery()
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
@@ -362,6 +363,26 @@ class Assembler386(BaseAssembler):
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
+
+    def _build_stm_wb_card_slowpath(self, withfloats):
+        mc = codebuf.MachineCodeBlockWrapper()
+
+        self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
+
+        mc.MOV_rs(esi.value, WORD) #index
+        mc.MOV_rs(edi.value, 2*WORD) #obj
+
+        mc.PUSH(r11) # for alignment
+        func = rstm.adr_write_slowpath_card
+        mc.CALL(imm(func))
+        mc.POP(r11)
+
+        self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
+        mc.RET16_i(2 * WORD)
+
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.wb_card_slowpath[withfloats] = rawstart
+
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
@@ -2366,10 +2387,11 @@ class Assembler386(BaseAssembler):
         # Write only a CALL to the helper prepared in advance, passing it as
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
+        withfloats = self._regalloc is not None and bool(self._regalloc.xrm.reg_bindings)
         helper_num = card_marking
         if is_frame:
             helper_num = 4
-        elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
+        elif withfloats:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
@@ -2400,6 +2422,7 @@ class Assembler386(BaseAssembler):
             # So here, we can simply write again a 'JNS', which will be
             # taken if GCFLAG_CARDS_SET is still not set.
             if stm:
+                # here it's actually the result of _stm_write_slowpath_card_extra
                 mc.J_il8(rx86.Conditions['Z'], 0) # patched later
             else:
                 mc.J_il8(rx86.Conditions['NS'], 0) # patched later
@@ -2415,10 +2438,9 @@ class Assembler386(BaseAssembler):
             loc_index = arglocs[1]
 
             if stm:
-                # must write the value CARD_MARKED into the byte at:
-                #     write_locks_base + (object >> 4) + (index / CARD_SIZE)
+                # if CARD_MARKED, we are done
+                #     (object >> 4) + (index / CARD_SIZE) + 1
                 #
-                write_locks_base = rstm.adr__stm_write_slowpath_card_extra_base
                 if rstm.CARD_SIZE == 32:
                     card_bits = 5
                 elif rstm.CARD_SIZE == 64:
@@ -2428,12 +2450,12 @@ class Assembler386(BaseAssembler):
                 else:
                     raise AssertionError("CARD_SIZE should be 32/64/128")
                 #
-                # idea:  mov r11, write_locks_base<<4
-                #        add r11, loc_base    # the object
+                # idea:
+                #        mov r11, loc_base    # the object
                 #        and r11, ~15         # align
                 #        lea r11, [loc_index + r11<<(card_bits-4)]
                 #        shr r11, card_bits
-                #        mov [r11], card_marked
+                #        cmp [r11+1], card_marked
                 #
                 # this assumes that the value computed up to the
                 # "shr r11, card_bits" instruction does not overflow
@@ -2444,15 +2466,13 @@ class Assembler386(BaseAssembler):
                 # and 2**X, for X <= 56).
                 #
                 r11 = X86_64_SCRATCH_REG
-                initial_value = write_locks_base << 4
                 if isinstance(loc_index, RegLoc):
                     if isinstance(loc_base, RegLoc):
-                        mc.MOV_ri(r11.value, initial_value)
-                        mc.ADD_rr(r11.value, loc_base.value)
+                        mc.MOV_ri(r11.value, loc_base.value)
                         mc.AND_ri(r11.value, ~15)
                     else:
                         assert isinstance(loc_base, ImmedLoc)
-                        initial_value += loc_base.value & ~15
+                        initial_value = loc_base.value & ~15
                         mc.MOV_ri(r11.value, initial_value)
                     mc.LEA_ra(r11.value, (self.SEGMENT_NO,
                                           loc_index.value,
@@ -2462,7 +2482,7 @@ class Assembler386(BaseAssembler):
                     mc.SHR_ri(r11.value, card_bits)
                 else:
                     assert isinstance(loc_index, ImmedLoc)
-                    initial_value += (loc_index.value >> card_bits) << 4
+                    initial_value = (loc_index.value >> card_bits) << 4
                     if isinstance(loc_base, RegLoc):
                         mc.MOV_ri(r11.value, initial_value)
                         mc.ADD_rr(r11.value, loc_base.value)
@@ -2473,8 +2493,18 @@ class Assembler386(BaseAssembler):
                         initial_value >>= 4
                         mc.MOV_ri(r11.value, initial_value)
                 #
-                mc.MOV8_mi((self.SEGMENT_NO, r11.value, 0),
+                mc.CMP8_mi((self.SEGMENT_GC, r11.value, 1),
                            rstm.CARD_MARKED)
+                mc.J_il8(rx86.Conditions['E'], 0) # patched later
+                before_loc = mc.get_relative_pos()
+                # slowpath: call _stm_write_slowpath_card
+                mc.PUSH(loc_base)
+                mc.PUSH(loc_index)
+                mc.CALL(imm(self.wb_card_slowpath[withfloats]))
+
+                offset = mc.get_relative_pos() - before_loc
+                assert 0 < offset <= 127
+                mc.overwrite(before_loc-1, chr(offset))
 
             elif isinstance(loc_index, RegLoc):
                 if IS_X86_64 and isinstance(loc_base, RegLoc):
@@ -2811,7 +2841,7 @@ class Assembler386(BaseAssembler):
         # It is only supported if 'translate_support_code' is
         # true; otherwise, the execute_token() was done with a
         # dummy value for the stack location THREADLOCAL_OFS
-        # 
+        #
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)

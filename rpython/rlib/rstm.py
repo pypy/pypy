@@ -30,10 +30,15 @@ adr_segment_base = (
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
 adr_write_slowpath_card_extra = (
     CFlexSymbolic('((long)&_stm_write_slowpath_card_extra)'))
-adr__stm_write_slowpath_card_extra_base = (
-   CFlexSymbolic('(_stm_write_slowpath_card_extra_base()-0x4000000000000000L)'))
+adr_write_slowpath_card = (
+    CFlexSymbolic('((long)&_stm_write_slowpath_card)'))
+
 CARD_MARKED = CFlexSymbolic('_STM_CARD_MARKED')
 CARD_SIZE   = CFlexSymbolic('_STM_CARD_SIZE')
+
+GCFLAG_CARDS_SET = CFlexSymbolic('_STM_GCFLAG_CARDS_SET')
+GCFLAG_WRITE_BARRIER = CFlexSymbolic('_STM_GCFLAG_WRITE_BARRIER')
+FAST_ALLOC = CFlexSymbolic('_STM_FAST_ALLOC')
 
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
