@@ -137,6 +137,14 @@ class LogOperations(object):
             s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
             s = s.replace(',', '.') # we use comma for argument splitting
             return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
+        if op.getopnum() == rop.JIT_DEBUG:
+            args = op.getarglist()
+            s = args[0]._get_str()
+            s = s.replace(',', '.') # we use comma for argument splitting
+            s2 = ''
+            for box in args[1:]:
+                s2 += ', %d' % box.getint()
+            return "jit_debug('%s'%s)" % (s, s2)
         if ops_offset is None:
             offset = -1
         else:
@@ -170,13 +178,6 @@ class LogOperations(object):
             fail_args = ''
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
-    def _log_inputarg_setup_ops(self, op):
-        target_token = op.getdescr()
-        if isinstance(target_token, TargetToken):
-            if target_token.exported_state:
-                for op in target_token.exported_state.inputarg_setup_ops:
-                    debug_print('    ' + self.repr_of_resop(op))
-
     def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return
@@ -186,10 +187,10 @@ class LogOperations(object):
             args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
         for i in range(len(operations)):
-            op = operations[i]
+            #op = operations[i]
             debug_print(self.repr_of_resop(operations[i], ops_offset))
-            if op.getopnum() == rop.LABEL:
-                self._log_inputarg_setup_ops(op)
+            #if op.getopnum() == rop.LABEL:
+            #    self._log_inputarg_setup_ops(op)
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)

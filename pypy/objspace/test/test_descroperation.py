@@ -771,7 +771,3 @@ class AppTest_Descroperation:
         assert [2] + A1([3]) == [2, 3]
         assert type([2] + A1([3])) is list
         assert [2] + A2([3]) == 42
-
-
-class AppTestWithBuiltinShortcut(AppTest_Descroperation):
-    spaceconfig = {'objspace.std.builtinshortcut': True}

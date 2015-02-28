@@ -1,27 +1,36 @@
-
 =======================
 What's new in PyPy 2.5+
 =======================
 
-.. this is a revision shortly after release-2.4.x
-.. startrev: 7026746cbb1b
+.. this is a revision shortly after release-2.5.x
+.. startrev: 397b96217b85
 
-.. branch: win32-fixes5
-Fix c code generation for msvc so empty "{ }" are avoided in unions,
-Avoid re-opening files created with NamedTemporaryFile,
-Allocate by 4-byte chunks in rffi_platform,
-Skip testing objdump if it does not exist,
-and other small adjustments in own tests
 
-.. branch: rtyper-stuff
-Small internal refactorings in the rtyper.
+Non-blocking file reads sometimes raised EAGAIN even though they
+had buffered data waiting, fixed in b1c4fcb04a42
 
-.. branch: var-in-Some
-Store annotations on the Variable objects, rather than in a big dict.
-Introduce a new framework for double-dispatched annotation implementations.
 
-.. branch: ClassRepr
-Refactor ClassRepr and make normalizecalls independent of the rtyper.
+.. branch: vmprof
 
-.. branch: remove-remaining-smm
-Remove all remaining multimethods.
+.. branch: stackroot-speedup-2
+Avoid tracing all stack roots during repeated minor collections,
+by ignoring the part of the stack that didn't change
+
+.. branch: stdlib-2.7.9
+Update stdlib to version 2.7.9
+
+.. branch: fix-kqueue-error2
+Fix exception being raised by kqueue.control (CPython compatibility)
+
+.. branch: gitignore
+
+.. branch: framestate2
+Refactor rpython.flowspace.framestate.FrameState.
+
+.. branch: alt_errno
+Add an alternative location to save LastError, errno around ctypes,
+cffi external calls so things like pdb will not overwrite it
+
+.. branch: nonquadratic-heapcache
+Speed up the warmup times of the JIT by removing a quadratic algorithm in the
+heapcache.

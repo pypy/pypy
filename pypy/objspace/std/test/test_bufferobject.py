@@ -197,3 +197,9 @@ class AppTestBuffer:
         buf = buffer('hello world')
         raises(TypeError, "buf[MyInt(0)]")
         raises(TypeError, "buf[MyInt(0):MyInt(5)]")
+
+    def test_pypy_raw_address_base(self):
+        raises(ValueError, buffer("foobar")._pypy_raw_address)
+        raises(ValueError, buffer(u"foobar")._pypy_raw_address)
+        e = raises(ValueError, buffer(bytearray("foobar"))._pypy_raw_address)
+        assert 'BytearrayBuffer' in str(e.value)

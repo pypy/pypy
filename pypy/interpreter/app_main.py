@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# App-level version of py.py.
+# This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
 # Missing vs CPython: -d, -t, -v, -x, -3
@@ -157,10 +157,13 @@ def print_info(*args):
             current = group
     raise SystemExit
 
+def get_sys_executable():
+    return getattr(sys, 'executable', 'pypy')
+
 def print_help(*args):
     import os
     print 'usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
-        sys.executable,)
+        get_sys_executable(),)
     print USAGE1,
     if 'pypyjit' in sys.builtin_module_names:
         print "--jit options: advanced JIT options: try 'off' or 'help'"
@@ -171,7 +174,7 @@ def _print_jit_help():
     try:
         import pypyjit
     except ImportError:
-        print >> sys.stderr, "No jit support in %s" % (sys.executable,)
+        print >> sys.stderr, "No jit support in %s" % (get_sys_executable(),)
         return
     items = sorted(pypyjit.defaults.items())
     print 'Advanced JIT options: a comma-separated list of OPTION=VALUE:'
@@ -209,7 +212,7 @@ def set_jit_option(options, jitparam, *args):
         raise SystemExit
     if 'pypyjit' not in sys.builtin_module_names:
         print >> sys.stderr, ("Warning: No jit support in %s" %
-                              (sys.executable,))
+                              (get_sys_executable(),))
     else:
         import pypyjit
         pypyjit.set_param(jitparam)
@@ -219,8 +222,8 @@ class CommandLineError(Exception):
 
 def print_error(msg):
     print >> sys.stderr, msg
-    print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
-    print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
+    print >> sys.stderr, 'usage: %s [options]' % (get_sys_executable(),)
+    print >> sys.stderr, 'Try `%s -h` for more information.' % (get_sys_executable(),)
 
 def fdopen(fd, mode, bufsize=-1):
     try:
@@ -513,6 +516,10 @@ def run_command_line(interactive,
         set_unbuffered_io()
     elif not sys.stdout.isatty():
         set_fully_buffered_io()
+
+    if we_are_translated():
+        import __pypy__
+        __pypy__.save_module_content_for_future_reload(sys)
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule

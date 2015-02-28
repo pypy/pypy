@@ -1136,6 +1136,24 @@ class TestDiskFile:
         assert x.tell() == 0    # detected in this case.  not always.
         # the point of the test is that we don't crash in an assert.
 
+    def test_ignore_ioerror_in_readall_if_nonempty_result(self):
+        # this is the behavior of regular files in CPython 2.7, as
+        # well as of _io.FileIO at least in CPython 3.3.  This is
+        # *not* the behavior of _io.FileIO in CPython 3.4 or 3.5;
+        # see CPython's issue #21090.
+        try:
+            from os import openpty
+        except ImportError:
+            pytest.skip('no openpty on this platform')
+        read_fd, write_fd = openpty()
+        os.write(write_fd, 'Abc\n')
+        os.close(write_fd)
+        x = streamio.DiskFile(read_fd)
+        s = x.readall()
+        assert s == 'Abc\r\n'
+        pytest.raises(OSError, x.readall)
+        x.close()
+
 
 # Speed test
 

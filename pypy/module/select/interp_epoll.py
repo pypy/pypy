@@ -4,12 +4,13 @@ import errno
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError, exception_from_errno, oefmt
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
-from rpython.rlib.rposix import get_errno
+from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rarithmetic import intmask
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -53,19 +54,22 @@ EPOLL_CTL_MOD = cconfig["EPOLL_CTL_MOD"]
 EPOLL_CTL_DEL = cconfig["EPOLL_CTL_DEL"]
 
 epoll_create = rffi.llexternal(
-    "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci
+    "epoll_create", [rffi.INT], rffi.INT, compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 epoll_ctl = rffi.llexternal(
     "epoll_ctl",
     [rffi.INT, rffi.INT, rffi.INT, lltype.Ptr(epoll_event)],
     rffi.INT,
-    compilation_info=eci
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 epoll_wait = rffi.llexternal(
     "epoll_wait",
     [rffi.INT, rffi.CArrayPtr(epoll_event), rffi.INT, rffi.INT],
     rffi.INT,
     compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_ERRNO
 )
 
 
@@ -82,7 +86,7 @@ class W_Epoll(W_Root):
                         "sizehint must be greater than zero, got %d", sizehint)
         epfd = epoll_create(sizehint)
         if epfd < 0:
-            raise exception_from_errno(space, space.w_IOError)
+            raise exception_from_saved_errno(space, space.w_IOError)
 
         return space.wrap(W_Epoll(space, epfd))
 
@@ -114,10 +118,10 @@ class W_Epoll(W_Root):
             rffi.setintfield(ev.c_data, 'c_fd', fd)
 
             result = epoll_ctl(self.epfd, ctl, fd, ev)
-            if ignore_ebadf and get_errno() == errno.EBADF:
+            if ignore_ebadf and get_saved_errno() == errno.EBADF:
                 result = 0
             if result < 0:
-                raise exception_from_errno(space, space.w_IOError)
+                raise exception_from_saved_errno(space, space.w_IOError)
 
     def descr_get_closed(self, space):
         return space.wrap(self.get_closed())
@@ -160,7 +164,7 @@ class W_Epoll(W_Root):
         with lltype.scoped_alloc(rffi.CArray(epoll_event), maxevents) as evs:
             nfds = epoll_wait(self.epfd, evs, maxevents, int(timeout))
             if nfds < 0:
-                raise exception_from_errno(space, space.w_IOError)
+                raise exception_from_saved_errno(space, space.w_IOError)
 
             elist_w = [None] * nfds
             for i in xrange(nfds):

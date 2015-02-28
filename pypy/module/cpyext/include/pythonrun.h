@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-void Py_FatalError(const char *msg);
+PyAPI_FUNC(void) Py_FatalError(const char *msg);
 
 /* taken from Python-2.7.3/Include/pydebug.h */
 PyAPI_DATA(int) Py_DebugFlag;

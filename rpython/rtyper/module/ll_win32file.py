@@ -55,6 +55,15 @@ def make_win32_traits(traits):
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
 
+        FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
+            'FILE_WRITE_ATTRIBUTES')
+        OPEN_EXISTING = platform.ConstantInteger(
+            'OPEN_EXISTING')
+        FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
+            'FILE_FLAG_BACKUP_SEMANTICS')
+        VOLUME_NAME_DOS = platform.ConstantInteger('VOLUME_NAME_DOS')
+        VOLUME_NAME_NT = platform.ConstantInteger('VOLUME_NAME_NT')
+
         WIN32_FILE_ATTRIBUTE_DATA = platform.Struct(
             'WIN32_FILE_ATTRIBUTE_DATA',
             [('dwFileAttributes', rwin32.DWORD),
@@ -67,14 +76,15 @@ def make_win32_traits(traits):
         BY_HANDLE_FILE_INFORMATION = platform.Struct(
             'BY_HANDLE_FILE_INFORMATION',
             [('dwFileAttributes', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME),
+             ('dwVolumeSerialNumber', rwin32.DWORD),
              ('nFileSizeHigh', rwin32.DWORD),
              ('nFileSizeLow', rwin32.DWORD),
              ('nNumberOfLinks', rwin32.DWORD),
              ('nFileIndexHigh', rwin32.DWORD),
-             ('nFileIndexLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME)])
+             ('nFileIndexLow', rwin32.DWORD)])
 
     config = platform.configure(CConfig)
 
@@ -92,6 +102,8 @@ def make_win32_traits(traits):
                        INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
+                       VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION
                     '''.split():
@@ -101,10 +113,12 @@ def make_win32_traits(traits):
 
         FindFirstFile = external('FindFirstFile' + suffix,
                                  [traits.CCHARP, LPWIN32_FIND_DATA],
-                                 rwin32.HANDLE)
+                                 rwin32.HANDLE,
+                                 save_err=rffi.RFFI_SAVE_LASTERROR)
         FindNextFile = external('FindNextFile' + suffix,
                                 [rwin32.HANDLE, LPWIN32_FIND_DATA],
-                                rwin32.BOOL)
+                                rwin32.BOOL,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
         FindClose = external('FindClose',
                              [rwin32.HANDLE],
                              rwin32.BOOL)
@@ -112,28 +126,33 @@ def make_win32_traits(traits):
         GetFileAttributes = external(
             'GetFileAttributes' + suffix,
             [traits.CCHARP],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         SetFileAttributes = external(
             'SetFileAttributes' + suffix,
             [traits.CCHARP, rwin32.DWORD],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetFileAttributesEx = external(
             'GetFileAttributesEx' + suffix,
             [traits.CCHARP, GET_FILEEX_INFO_LEVELS,
              lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetFileInformationByHandle = external(
             'GetFileInformationByHandle',
             [rwin32.HANDLE, lltype.Ptr(BY_HANDLE_FILE_INFORMATION)],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetFileType = external(
             'GetFileType',
             [rwin32.HANDLE],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         LPSTRP = rffi.CArrayPtr(traits.CCHARP)
 
@@ -141,37 +160,52 @@ def make_win32_traits(traits):
             'GetFullPathName' + suffix,
             [traits.CCHARP, rwin32.DWORD,
              traits.CCHARP, LPSTRP],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetCurrentDirectory = external(
             'GetCurrentDirectory' + suffix,
             [rwin32.DWORD, traits.CCHARP],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         SetCurrentDirectory = external(
             'SetCurrentDirectory' + suffix,
             [traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         CreateDirectory = external(
             'CreateDirectory' + suffix,
             [traits.CCHARP, rffi.VOIDP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         SetEnvironmentVariable = external(
             'SetEnvironmentVariable' + suffix,
             [traits.CCHARP, traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
+
+        CreateFile = external(
+            'CreateFile' + apisuffix,
+            [traits.CCHARP, rwin32.DWORD, rwin32.DWORD,
+             rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
+             rwin32.HANDLE],
+            rwin32.HANDLE,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         DeleteFile = external(
             'DeleteFile' + suffix,
             [traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         MoveFile = external(
             'MoveFile' + suffix,
             [traits.CCHARP, traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
     return Win32Traits
 
@@ -207,7 +241,7 @@ def make_listdir_impl(traits):
             result = []
             hFindFile = win32traits.FindFirstFile(mask, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                error = rwin32.GetLastError()
+                error = rwin32.GetLastError_saved()
                 if error == win32traits.ERROR_FILE_NOT_FOUND:
                     return result
                 else:
@@ -221,7 +255,7 @@ def make_listdir_impl(traits):
                     break
             # FindNextFile sets error to ERROR_NO_MORE_FILES if
             # it got to the end of the directory
-            error = rwin32.GetLastError()
+            error = rwin32.GetLastError_saved()
             win32traits.FindClose(hFindFile)
             if error == win32traits.ERROR_NO_MORE_FILES:
                 return result
@@ -259,14 +293,14 @@ def make_chdir_impl(traits):
         the per-drive current directory, which are of the form =<drive>:
         """
         if not win32traits.SetCurrentDirectory(path):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
         MAX_PATH = rwin32.MAX_PATH
         assert MAX_PATH > 0
 
         with traits.scoped_alloc_buffer(MAX_PATH) as path:
             res = win32traits.GetCurrentDirectory(MAX_PATH + 1, path.raw)
             if not res:
-                raise rwin32.lastWindowsError()
+                raise rwin32.lastSavedWindowsError()
             res = rffi.cast(lltype.Signed, res)
             assert res > 0
             if res <= MAX_PATH + 1:
@@ -275,14 +309,14 @@ def make_chdir_impl(traits):
                 with traits.scoped_alloc_buffer(res) as path:
                     res = win32traits.GetCurrentDirectory(res, path.raw)
                     if not res:
-                        raise rwin32.lastWindowsError()
+                        raise rwin32.lastSavedWindowsError()
                     res = rffi.cast(lltype.Signed, res)
                     assert res > 0
                     new_path = path.str(res)
         if isUNC(new_path):
             return
         if not win32traits.SetEnvironmentVariable(magic_envvar(new_path), new_path):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
     return chdir_llimpl
 
@@ -297,13 +331,13 @@ def make_chmod_impl(traits):
     def chmod_llimpl(path, mode):
         attr = win32traits.GetFileAttributes(path)
         if attr == win32traits.INVALID_FILE_ATTRIBUTES:
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
         if mode & 0200: # _S_IWRITE
             attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
         else:
             attr |= win32traits.FILE_ATTRIBUTE_READONLY
         if not win32traits.SetFileAttributes(path, attr):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
     return chmod_llimpl
 
@@ -323,7 +357,7 @@ def make_getfullpathname_impl(traits):
                 path, rffi.cast(rwin32.DWORD, nBufferLength),
                 lpBuffer, lltype.nullptr(win32traits.LPSTRP.TO))
             if res == 0:
-                raise rwin32.lastWindowsError("_getfullpathname failed")
+                raise rwin32.lastSavedWindowsError("_getfullpathname failed")
             result = traits.charp2str(lpBuffer)
             return result
         finally:
@@ -336,32 +370,12 @@ def make_utime_impl(traits):
     win32traits = make_win32_traits(traits)
     from rpython.rtyper.module.ll_os_stat import time_t_to_FILE_TIME
 
-    class CConfig:
-        _compilation_info_ = ExternalCompilationInfo(
-            includes = ['windows.h'],
-            )
-
-        FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
-            'FILE_WRITE_ATTRIBUTES')
-        OPEN_EXISTING = platform.ConstantInteger(
-            'OPEN_EXISTING')
-        FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
-            'FILE_FLAG_BACKUP_SEMANTICS')
-    globals().update(platform.configure(CConfig))
-
-    CreateFile = rffi.llexternal(
-        'CreateFile' + win32traits.apisuffix,
-        [traits.CCHARP, rwin32.DWORD, rwin32.DWORD,
-         rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
-         rwin32.HANDLE],
-        rwin32.HANDLE,
-        calling_conv='win')
-
     GetSystemTime = rffi.llexternal(
         'GetSystemTime',
         [lltype.Ptr(rwin32.SYSTEMTIME)],
         lltype.Void,
-        calling_conv='win')
+        calling_conv='win',
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     SystemTimeToFileTime = rffi.llexternal(
         'SystemTimeToFileTime',
@@ -377,17 +391,18 @@ def make_utime_impl(traits):
          lltype.Ptr(rwin32.FILETIME),
          lltype.Ptr(rwin32.FILETIME)],
         rwin32.BOOL,
-        calling_conv = 'win')
+        calling_conv = 'win',
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     @specialize.argtype(1)
     def os_utime_llimpl(path, tp):
-        hFile = CreateFile(path,
-                           FILE_WRITE_ATTRIBUTES, 0,
-                           None, OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS,
+        hFile = win32traits.CreateFile(path,
+                           win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                           None, win32traits.OPEN_EXISTING,
+                           win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                            rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
         ctime = lltype.nullptr(rwin32.FILETIME)
         atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
         mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
@@ -398,7 +413,7 @@ def make_utime_impl(traits):
                     GetSystemTime(now)
                     if (not SystemTimeToFileTime(now, atime) or
                         not SystemTimeToFileTime(now, mtime)):
-                        raise rwin32.lastWindowsError()
+                        raise rwin32.lastSavedWindowsError()
                 finally:
                     lltype.free(now, flavor='raw')
             else:
@@ -406,7 +421,7 @@ def make_utime_impl(traits):
                 time_t_to_FILE_TIME(actime, atime)
                 time_t_to_FILE_TIME(modtime, mtime)
             if not SetFileTime(hFile, ctime, atime, mtime):
-                raise rwin32.lastWindowsError()
+                raise rwin32.lastSavedWindowsError()
         finally:
             rwin32.CloseHandle(hFile)
             lltype.free(atime, flavor='raw')

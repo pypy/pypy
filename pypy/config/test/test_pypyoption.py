@@ -64,7 +64,7 @@ def test_check_documentation():
     def check_file_exists(fn):
         assert configdocdir.join(fn).check()
 
-    from pypy.doc.config.confrest import all_optiondescrs
+    from pypy.doc.config.generate import all_optiondescrs
     configdocdir = thisdir.dirpath().dirpath().join("doc", "config")
     for descr in all_optiondescrs:
         prefix = descr._name

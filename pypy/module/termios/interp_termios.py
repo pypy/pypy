@@ -6,7 +6,6 @@ little use of termios module on RPython level by itself
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from rpython.rlib import rtermios
-import termios
 
 class Cache:
     def __init__(self, space):
@@ -52,9 +51,9 @@ def tcgetattr(space, w_fd):
     l_w = [space.wrap(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
     # last one need to be chosen carefully
     cc_w = [space.wrap(i) for i in cc]
-    if lflag & termios.ICANON:
-        cc_w[termios.VMIN] = space.wrap(ord(cc[termios.VMIN][0]))
-        cc_w[termios.VTIME] = space.wrap(ord(cc[termios.VTIME][0]))
+    if lflag & rtermios.ICANON:
+        cc_w[rtermios.VMIN] = space.wrap(ord(cc[rtermios.VMIN][0]))
+        cc_w[rtermios.VTIME] = space.wrap(ord(cc[rtermios.VTIME][0]))
     w_cc = space.newlist(cc_w)
     l_w.append(w_cc)
     return space.newlist(l_w)
@@ -63,14 +62,14 @@ def tcgetattr(space, w_fd):
 def tcsendbreak(space, w_fd, duration):
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        termios.tcsendbreak(fd, duration)
+        rtermios.tcsendbreak(fd, duration)
     except OSError, e:
         raise convert_error(space, e)
 
 def tcdrain(space, w_fd):
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        termios.tcdrain(fd)
+        rtermios.tcdrain(fd)
     except OSError, e:
         raise convert_error(space, e)
 
@@ -78,7 +77,7 @@ def tcdrain(space, w_fd):
 def tcflush(space, w_fd, queue):
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        termios.tcflush(fd, queue)
+        rtermios.tcflush(fd, queue)
     except OSError, e:
         raise convert_error(space, e)
 
@@ -86,6 +85,6 @@ def tcflush(space, w_fd, queue):
 def tcflow(space, w_fd, action):
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        termios.tcflow(fd, action)
+        rtermios.tcflow(fd, action)
     except OSError, e:
         raise convert_error(space, e)

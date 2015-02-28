@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
-from pypy.objspace.std.stdtypedef import StdTypeDef
+from pypy.interpreter.typedef import TypeDef
 
 
 class W_NoneObject(W_Root):
@@ -16,7 +16,7 @@ class W_NoneObject(W_Root):
 
 W_NoneObject.w_None = W_NoneObject()
 
-W_NoneObject.typedef = StdTypeDef("NoneType",
+W_NoneObject.typedef = TypeDef("NoneType",
     __nonzero__ = interp2app(W_NoneObject.descr_nonzero),
     __repr__ = interp2app(W_NoneObject.descr_repr),
 )

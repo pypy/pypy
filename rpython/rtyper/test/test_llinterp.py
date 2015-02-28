@@ -41,6 +41,7 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
     t.config.set(**extraconfigopts)
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes, main_entry_point=True)
+    a.validate()
     if viewbefore == 'auto':
         viewbefore = getattr(option, 'view', False)
     if viewbefore:

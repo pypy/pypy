@@ -30,7 +30,7 @@ in %r""" % (func,))
 
 def build_flow(func):
     """
-    Create the flow graph for the function.
+    Create the flow graph (in SSA form) for the function.
     """
     _assert_rpythonic(func)
     if (isgeneratorfunction(func) and
@@ -41,7 +41,6 @@ def build_flow(func):
     ctx = FlowContext(graph, code)
     ctx.build_flow()
     fixeggblocks(graph)
-    checkgraph(graph)
     if code.is_generator:
         tweak_generator_graph(graph)
     return graph

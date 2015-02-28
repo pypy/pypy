@@ -13,6 +13,11 @@ class MockArray(object):
         self.strides = strides
         self.start = start
 
+    def get_shape(self):
+        return self.shape
+
+    def get_strides(self):
+        return self.strides
 
 class TestIterDirect(object):
     def test_iterator_basic(self):
@@ -31,16 +36,14 @@ class TestIterDirect(object):
         s = i.next(s)
         assert s.offset == 3
         assert not i.done(s)
-        assert s.indices == [0,0]
-        s = i.update(s)
-        assert s.indices == [0,3]
+        assert s._indices == [0,0]
+        assert i.indices(s) == [0,3]
         #cause a dimension overflow
         s = i.next(s)
         s = i.next(s)
         assert s.offset == 5
-        assert s.indices == [0,3]
-        s = i.update(s)
-        assert s.indices == [1,0]
+        assert s._indices == [0,3]
+        assert i.indices(s) == [1,0]
 
         #Now what happens if the array is transposed? strides[-1] != 1
         # therefore layout is non-contiguous
@@ -56,12 +59,12 @@ class TestIterDirect(object):
         s = i.next(s)
         assert s.offset == 9
         assert not i.done(s)
-        assert s.indices == [0,3]
+        assert s._indices == [0,3]
         #cause a dimension overflow
         s = i.next(s)
         s = i.next(s)
         assert s.offset == 1
-        assert s.indices == [1,0]
+        assert s._indices == [1,0]
 
     def test_iterator_goto(self):
         shape = [3, 5]
@@ -74,9 +77,9 @@ class TestIterDirect(object):
         assert not i.contiguous
         s = i.reset()
         assert s.index == 0
-        assert s.indices == [0, 0]
+        assert s._indices == [0, 0]
         assert s.offset == a.start
         s = i.goto(11)
         assert s.index == 11
-        assert s.indices is None
+        assert s._indices is None
         assert s.offset == a.start + 5

@@ -1,7 +1,4 @@
-import py
 from pypy.objspace.std.complexobject import W_ComplexObject, _split_complex
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std import StdObjSpace
 
 EPS = 1e-9
 
@@ -80,7 +77,7 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
-    spaceconfig = {'usemodules': ['binascii', 'rctime', 'struct']}
+    spaceconfig = {'usemodules': ['binascii', 'time', 'struct']}
 
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
@@ -164,6 +161,12 @@ class AppTestAppComplexTest:
     def test_coerce(self):
         raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
 
+    def test_convert(self):
+        exc = raises(TypeError, complex.__int__, 3j)
+        assert str(exc.value) == "can't convert complex to int"
+        exc = raises(TypeError, complex.__float__, 3j)
+        assert str(exc.value) == "can't convert complex to float"
+
     def test_richcompare(self):
         assert complex.__lt__(1+1j, None) is NotImplemented
         assert complex.__eq__(1+1j, 2+2j) is False
@@ -179,6 +182,14 @@ class AppTestAppComplexTest:
         assert not large == (5+0j)
         assert (5+0j) != large
         assert large != (5+0j)
+
+    def test_richcompare_numbers(self):
+        for n in 8, 8L, 0.01:
+            assert complex.__eq__(n+0j, n)
+            assert not complex.__ne__(n+0j, n)
+            assert not complex.__eq__(complex(n, n), n)
+            assert complex.__ne__(complex(n, n), n)
+            raises(TypeError, complex.__lt__, n+0j, n)
 
     def test_richcompare_boundaries(self):
         z = 9007199254740992+0j

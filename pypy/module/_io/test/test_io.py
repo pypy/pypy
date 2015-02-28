@@ -352,3 +352,42 @@ class AppTestOpen:
                 assert mod == 'io'
             else:
                 assert mod == '_io'
+
+    def test_issue1902(self):
+        import _io
+        with _io.open(self.tmpfile, 'w+b', 4096) as f:
+            f.write(b'\xff' * 13569)
+            f.flush()
+            f.seek(0, 0)
+            f.read(1)
+            f.seek(-1, 1)
+            f.write(b'')
+
+    def test_issue1902_2(self):
+        import _io
+        with _io.open(self.tmpfile, 'w+b', 4096) as f:
+            f.write(b'\xff' * 13569)
+            f.flush()
+            f.seek(0, 0)
+
+            f.read(1)
+            f.seek(-1, 1)
+            f.write(b'\xff')
+            f.seek(1, 0)
+            f.read(4123)
+            f.seek(-4123, 1)
+
+    def test_issue1902_3(self):
+        import _io
+        buffer_size = 4096
+        with _io.open(self.tmpfile, 'w+b', buffer_size) as f:
+            f.write(b'\xff' * buffer_size * 3)
+            f.flush()
+            f.seek(0, 0)
+
+            f.read(1)
+            f.seek(-1, 1)
+            f.write(b'\xff')
+            f.seek(1, 0)
+            f.read(buffer_size * 2)
+            assert f.tell() == 1 + buffer_size * 2

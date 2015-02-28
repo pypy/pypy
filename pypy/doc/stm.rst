@@ -158,7 +158,6 @@ interpreter and other ones might have slightly different needs.
 
 User Guide
 ==========
-  
 
 Drop-in replacement
 -------------------
@@ -343,7 +342,7 @@ Python program which has got latent, imperfect parallelism.  Ideally, it
 only requires that the end programmer identifies where this parallelism
 is likely to be found, and communicates it to the system, using for
 example the ``transaction.add()`` scheme.
-    
+
 .. _`transaction.py`: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/lib_pypy/transaction.py
 .. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
@@ -377,7 +376,7 @@ API of __pypy__.thread
 The ``__pypy__.thread`` submodule is a built-in module of PyPy that
 contains a few internal built-in functions used by the
 ``transactional_memory`` module, plus the following:
-    
+
 * ``__pypy__.thread.atomic``: a context manager to run a block in
   fully atomic mode, without "releasing the GIL".  (May be eventually
   removed?)
@@ -544,6 +543,3 @@ See also
 See also
 https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/project-ideas.rst
 (section about STM).
-
-
-.. include:: _ref.txt

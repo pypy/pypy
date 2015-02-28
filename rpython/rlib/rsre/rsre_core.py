@@ -137,21 +137,24 @@ class AbstractMatchContext(object):
     def flatten_marks(self):
         # for testing
         if self.match_marks_flat is None:
-            self.match_marks_flat = [self.match_start, self.match_end]
-            mark = self.match_marks
-            if mark is not None:
-                self.match_lastindex = mark.gid
-            else:
-                self.match_lastindex = -1
-            while mark is not None:
-                index = mark.gid + 2
-                while index >= len(self.match_marks_flat):
-                    self.match_marks_flat.append(-1)
-                if self.match_marks_flat[index] == -1:
-                    self.match_marks_flat[index] = mark.position
-                mark = mark.prev
-            self.match_marks = None    # clear
+            self._compute_flattened_marks()
         return self.match_marks_flat
+
+    def _compute_flattened_marks(self):
+        self.match_marks_flat = [self.match_start, self.match_end]
+        mark = self.match_marks
+        if mark is not None:
+            self.match_lastindex = mark.gid
+        else:
+            self.match_lastindex = -1
+        while mark is not None:
+            index = mark.gid + 2
+            while index >= len(self.match_marks_flat):
+                self.match_marks_flat.append(-1)
+            if self.match_marks_flat[index] == -1:
+                self.match_marks_flat[index] = mark.position
+            mark = mark.prev
+        self.match_marks = None    # clear
 
     def span(self, groupnum=0):
         # compatibility

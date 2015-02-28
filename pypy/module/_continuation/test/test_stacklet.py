@@ -698,3 +698,12 @@ class AppTestStacklet(BaseAppTest):
         except ZeroDivisionError:
             got = c1.switch()
         assert got == (None, None, None)
+
+    def test_bug_issue1984(self):
+        from _continuation import continulet, error
+
+        c1 = continulet.__new__(continulet)
+        c2 = continulet(lambda g: None)
+
+        continulet.switch(c1, to=c2)
+        raises(error, continulet.switch, c1, to=c2)

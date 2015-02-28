@@ -116,7 +116,7 @@ void pypy_debug_forked(long original_offset)
 
 #ifndef _WIN32
 
-     long long pypy_read_timestamp(void)
+     RPY_EXTERN long long pypy_read_timestamp(void)
      {
 #  ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;

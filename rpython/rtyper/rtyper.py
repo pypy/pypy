@@ -59,7 +59,9 @@ class RPythonTyper(object):
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
+        self.isinstance_helpers = {}
         self.exceptiondata = ExceptionData(self)
+        self.custom_trace_funcs = []
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
@@ -369,9 +371,7 @@ class RPythonTyper(object):
                 assert 0 <= pos < len(newops) - 1
                 extraops = block.operations[pos+1:]
                 del block.operations[pos+1:]
-                extrablock = insert_empty_block(self.annotator,
-                                                noexclink,
-                                                newops = extraops)
+                extrablock = insert_empty_block(noexclink, newops=extraops)
 
         if extrablock is None:
             self.insert_link_conversions(block)
@@ -445,10 +445,9 @@ class RPythonTyper(object):
                     # cannot insert conversion operations around a single
                     # link, unless it is the only exit of this block.
                     # create a new block along the link...
-                    newblock = insert_empty_block(self.annotator,
-                                                  link,
+                    newblock = insert_empty_block(link,
                     # ...and store the conversions there.
-                                               newops=newops)
+                                                  newops=newops)
                     link = newblock.exits[0]
             for i, new_a1 in newlinkargs.items():
                 link.args[i] = new_a1
@@ -651,7 +650,7 @@ class RPythonTyper(object):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)

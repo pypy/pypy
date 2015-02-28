@@ -206,8 +206,6 @@ class Block(object):
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
     def renamevariables(self, mapping):
-        for a in mapping:
-            assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
         for i, op in enumerate(self.operations):
             if op in mapping:

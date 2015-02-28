@@ -1,11 +1,10 @@
-==================================
 Standard Interpreter Optimizations
 ==================================
 
-.. contents:: Contents
+.. contents::
 
 Introduction
-============
+------------
 
 One of the advantages -- indeed, one of the motivating goals -- of the PyPy
 standard interpreter (compared to CPython) is that of increased flexibility and
@@ -28,11 +27,12 @@ them. And they are fun too!
 
 .. describe other optimizations!
 
+
 Object Optimizations
-====================
+--------------------
 
 Integer Optimizations
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 Caching Small Integers
 ++++++++++++++++++++++
@@ -44,6 +44,7 @@ be retrieved from the cache.
 
 This option is disabled by default, you can enable this feature with the
 :config:`objspace.std.withprebuiltint` option.
+
 
 Integers as Tagged Pointers
 +++++++++++++++++++++++++++
@@ -57,8 +58,9 @@ time and memory.
 
 You can enable this feature with the :config:`objspace.std.withsmalllong` option.
 
+
 Dictionary Optimizations
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Multi-Dicts
 +++++++++++
@@ -74,6 +76,7 @@ for string-keyed dictionaries. In addition there are more specialized dictionary
 implementations for various purposes (see below).
 
 This is now the default implementation of dictionaries in the Python interpreter.
+
 
 Sharing Dicts
 +++++++++++++
@@ -97,7 +100,7 @@ with the :config:`objspace.std.withmapdict` option.
 
 
 List Optimizations
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Range-Lists
 +++++++++++
@@ -116,8 +119,7 @@ option.
 
 
 User Class Optimizations
-------------------------
-
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Method Caching
 ++++++++++++++
@@ -134,13 +136,14 @@ as long as the instance did not shadow any of its classes attributes.
 You can enable this feature with the :config:`objspace.std.withmethodcache`
 option.
 
+
 Interpreter Optimizations
-=========================
+-------------------------
 
 Special Bytecodes
------------------
+~~~~~~~~~~~~~~~~~
 
-.. _`lookup method call method`:
+.. _lookup method call method:
 
 LOOKUP_METHOD & CALL_METHOD
 +++++++++++++++++++++++++++
@@ -162,7 +165,7 @@ this::
 We improved this by keeping method lookup separated from method call, unlike
 some other approaches, but using the value stack as a cache instead of building
 a temporary object.  We extended the bytecode compiler to (optionally) generate
-the following code for ``obj.meth(x)``::
+the following code for ``obj.meth(x, y)``::
 
     LOAD_GLOBAL     obj
     LOOKUP_METHOD   meth
@@ -178,7 +181,7 @@ Python function object and a reference to ``obj``.  This is only possible when
 the attribute actually refers to a function object from the class; when this is
 not the case, ``LOOKUP_METHOD`` still pushes two values, but one *(im_func)* is
 simply the regular result that ``LOAD_ATTR`` would have returned, and the other
-*(im_self)* is a None placeholder.
+*(im_self)* is an interpreter-level None placeholder.
 
 After pushing the arguments, the layout of the stack in the above
 example is as follows (the stack grows upwards):
@@ -200,8 +203,9 @@ argument in the call to the *im_func* object from the stack.
 
 .. more here?
 
+
 Overall Effects
-===============
+---------------
 
 The impact these various optimizations have on performance unsurprisingly
 depends on the program being run.  Using the default multi-dict implementation that

@@ -27,6 +27,8 @@ class W_CTypeFunc(W_CTypePtrBase):
     _immutable_fields_ = ['fargs[*]', 'ellipsis', 'cif_descr']
     kind = "function"
 
+    cif_descr = lltype.nullptr(CIF_DESCRIPTION)
+
     def __init__(self, space, fargs, fresult, ellipsis):
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
         size = rffi.sizeof(rffi.VOIDP)
@@ -41,7 +43,17 @@ class W_CTypeFunc(W_CTypePtrBase):
             # at all.  The cif is computed on every call from the actual
             # types passed in.  For all other functions, the cif_descr
             # is computed here.
-            CifDescrBuilder(fargs, fresult).rawallocate(self)
+            builder = CifDescrBuilder(fargs, fresult)
+            try:
+                builder.rawallocate(self)
+            except OperationError, e:
+                if not e.match(space, space.w_NotImplementedError):
+                    raise
+                # else, eat the NotImplementedError.  We will get the
+                # exception if we see an actual call
+                if self.cif_descr:   # should not be True, but you never know
+                    lltype.free(self.cif_descr, flavor='raw')
+                    self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def new_ctypefunc_completing_argtypes(self, args_w):
         space = self.space
@@ -57,10 +69,12 @@ class W_CTypeFunc(W_CTypePtrBase):
                             "argument %d passed in the variadic part needs to "
                             "be a cdata object (got %T)", i + 1, w_obj)
             fvarargs[i] = ct
+        # xxx call instantiate() directly.  It's a bit of a hack.
         ctypefunc = instantiate(W_CTypeFunc)
         ctypefunc.space = space
         ctypefunc.fargs = fvarargs
         ctypefunc.ctitem = self.ctitem
+        #ctypefunc.cif_descr = NULL --- already provided as the default
         CifDescrBuilder(fvarargs, self.ctitem).rawallocate(ctypefunc)
         return ctypefunc
 
@@ -141,13 +155,9 @@ class W_CTypeFunc(W_CTypePtrBase):
                     # argtype is a pointer type, and w_obj a list/tuple/str
                     mustfree_max_plus_1 = i + 1
 
-            ec = cerrno.get_errno_container(space)
-            cerrno.restore_errno_from(ec)
             jit_libffi.jit_ffi_call(cif_descr,
                                     rffi.cast(rffi.VOIDP, funcaddr),
                                     buffer)
-            e = cerrno.get_real_errno()
-            cerrno.save_errno_into(ec, e)
 
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
             w_res = self.ctitem.copy_and_convert_to_object(resultdata)
@@ -177,8 +187,6 @@ def _get_abi(space, name):
 
 # ____________________________________________________________
 
-
-W_CTypeFunc.cif_descr = lltype.nullptr(CIF_DESCRIPTION)     # default value
 
 BIG_ENDIAN = sys.byteorder == 'big'
 USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
@@ -295,18 +303,18 @@ class CifDescrBuilder(object):
         nflat = 0
         for i, cf in enumerate(ctype.fields_list):
             if cf.is_bitfield():
-                raise OperationError(space.w_NotImplementedError,
-                    space.wrap("cannot pass as argument or return value "
-                               "a struct with bit fields"))
+                raise oefmt(space.w_NotImplementedError,
+                    "ctype '%s' not supported as argument or return value"
+                    " (it is a struct with bit fields)", ctype.name)
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
                 flat *= ct.length
                 ct = ct.ctitem
             if flat <= 0:
-                raise OperationError(space.w_NotImplementedError,
-                    space.wrap("cannot pass as argument or return value "
-                               "a struct with a zero-length array"))
+                raise oefmt(space.w_NotImplementedError,
+                    "ctype '%s' not supported as argument or return value"
+                    " (it is a struct with a zero-length array)", ctype.name)
             nflat += flat
 
         if USE_C_LIBFFI_MSVC and is_result_type:

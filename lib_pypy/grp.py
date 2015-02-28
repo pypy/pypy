@@ -66,11 +66,12 @@ def getgrgid(gid):
 
 @builtinify
 def getgrnam(name):
-    if not isinstance(name, str):
+    if not isinstance(name, basestring):
         raise TypeError("expected string")
+    name = str(name)
     res = libc.getgrnam(name)
     if not res:
-        raise KeyError(name)
+        raise KeyError("'getgrnam(): name not found: %s'" % name)
     return _group_from_gstruct(res)
 
 @builtinify

@@ -339,7 +339,7 @@ def PyObject_IsInstance(space, w_inst, w_cls):
     of the value of that attribute with cls will be used to determine the result
     of this function."""
     from pypy.module.__builtin__.abstractinst import abstract_isinstance_w
-    return abstract_isinstance_w(space, w_inst, w_cls)
+    return abstract_isinstance_w(space, w_inst, w_cls, allow_override=True)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyObject_IsSubclass(space, w_derived, w_cls):
@@ -350,7 +350,7 @@ def PyObject_IsSubclass(space, w_derived, w_cls):
     0. If either derived or cls is not an actual class object (or tuple),
     this function uses the generic algorithm described above."""
     from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
-    return abstract_issubclass_w(space, w_derived, w_cls)
+    return abstract_issubclass_w(space, w_derived, w_cls, allow_override=True)
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyObject_AsFileDescriptor(space, w_obj):
@@ -446,11 +446,8 @@ def PyObject_Print(space, w_obj, fp, flags):
 
     count = space.len_w(w_str)
     data = space.str_w(w_str)
-    buf = rffi.get_nonmovingbuffer(data)
-    try:
+    with rffi.scoped_nonmovingbuffer(data) as buf:
         fwrite(buf, 1, count, fp)
-    finally:
-        rffi.free_nonmovingbuffer(data, buf)
     return 0
 
 

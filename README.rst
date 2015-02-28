@@ -23,6 +23,7 @@ and send us feedback!
 
     the pypy-dev team <pypy-dev@python.org>
 
+
 Building
 ========
 
@@ -36,4 +37,4 @@ This ends up with ``pypy-c`` binary in the main pypy directory. We suggest
 to use virtualenv with the resulting pypy-c as the interpreter; you can
 find more details about various installation schemes here:
 
-http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+    http://doc.pypy.org/en/latest/install.html

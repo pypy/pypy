@@ -115,3 +115,8 @@ class SubBuffer(Buffer):
             return        # otherwise, adding self.offset might make 'start'
                           # out of bounds
         self.buffer.setslice(self.offset + start, string)
+
+    def get_raw_address(self):
+        from rpython.rtyper.lltypesystem import rffi
+        ptr = self.buffer.get_raw_address()
+        return rffi.ptradd(ptr, self.offset)

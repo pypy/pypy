@@ -37,14 +37,14 @@
 /************************************************************/
 
 /* prototypes (internal use only) */
-void pypy_debug_ensure_opened(void);
-void pypy_debug_start(const char *category);
-void pypy_debug_stop(const char *category);
-long pypy_debug_offset(void);
-void pypy_debug_forked(long original_offset);
+RPY_EXTERN void pypy_debug_ensure_opened(void);
+RPY_EXTERN void pypy_debug_start(const char *category);
+RPY_EXTERN void pypy_debug_stop(const char *category);
+RPY_EXTERN long pypy_debug_offset(void);
+RPY_EXTERN void pypy_debug_forked(long original_offset);
 
-extern long pypy_have_debug_prints;
-extern FILE *pypy_debug_file;
+RPY_EXTERN long pypy_have_debug_prints;
+RPY_EXPORTED FILE *pypy_debug_file;
 
 #define OP_LL_READ_TIMESTAMP(val) READ_TIMESTAMP(val)
 
@@ -59,7 +59,7 @@ extern FILE *pypy_debug_file;
 #    define READ_TIMESTAMP(val) QueryPerformanceCounter((LARGE_INTEGER*)&(val))
 #  else
 
-long long pypy_read_timestamp();
+RPY_EXTERN long long pypy_read_timestamp(void);
 
 #    define READ_TIMESTAMP(val)  (val) = pypy_read_timestamp()
 

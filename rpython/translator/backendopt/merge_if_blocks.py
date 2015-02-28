@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Constant, Variable, checkgraph, mkentrymap
+from rpython.flowspace.model import Constant, Variable, mkentrymap
 from rpython.translator.backendopt.support import log
 
 log = log.mergeifblocks
@@ -110,7 +110,6 @@ def merge_if_blocks_once(graph):
     else:
         return False
     merge_chain(chain, checkvars[0], varmap, graph)
-    checkgraph(graph)
     return True
 
 def merge_if_blocks(graph, verbose=True):

@@ -462,7 +462,7 @@ class ContainerNode(Node):
         parent, parentindex = parentlink(obj)
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
-            self.globalcontainer = True
+            self.globalcontainer = 2    # meh
         elif parent is None:
             self.name = db.namespace.uniquename('g_' + self.basename())
             self.globalcontainer = True
@@ -486,6 +486,9 @@ class ContainerNode(Node):
         T = self.getTYPE()
         return hasattr(T, "_hints") and T._hints.get('thread_local')
 
+    def is_exported(self):
+        return self.globalcontainer == 2    # meh
+
     def compilation_info(self):
         return getattr(self.obj, self.eci_name, None)
 
@@ -505,7 +508,8 @@ class ContainerNode(Node):
         type, name = self.get_declaration()
         yield '%s;' % (
             forward_cdecl(type, name, self.db.standalone,
-                          self.is_thread_local()))
+                          is_thread_local=self.is_thread_local(),
+                          is_exported=self.is_exported()))
 
     def implementation(self):
         if llgroup.member_of_group(self.obj):
@@ -828,10 +832,13 @@ class FuncNode(ContainerNode):
         return self.funcgens[0].allconstantvalues() #Assume identical for all funcgens
 
     def forward_declaration(self):
+        callable = getattr(self.obj, '_callable', None)
+        is_exported = getattr(callable, 'exported_symbol', False)
         for funcgen in self.funcgens:
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    funcgen.name(self.name), self.db.standalone))
+                    funcgen.name(self.name), self.db.standalone,
+                    is_exported=is_exported))
 
     def implementation(self):
         for funcgen in self.funcgens:
@@ -959,30 +966,12 @@ class ExtType_OpaqueNode(ContainerNode):
                 args.append('0')
         yield 'RPyOpaque_SETUP_%s(%s);' % (T.tag, ', '.join(args))
 
-class ThreadLocalRefOpaqueNode(ContainerNode):
-    nodekind = 'tlrefopaque'
-
-    def basename(self):
-        return self.obj._name
-
-    def enum_dependencies(self):
-        return []
-
-    def initializationexpr(self, decoration=''):
-        return ['0']
-
-    def startupcode(self):
-        p = self.getptrname()
-        yield 'RPyThreadStaticTLS_Create(%s);' % (p,)
-
 
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
-    if T.hints.get("threadlocalref", False):
-        return ThreadLocalRefOpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
 

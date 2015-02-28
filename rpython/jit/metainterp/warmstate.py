@@ -291,6 +291,11 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_loops = value
 
+    def set_param_max_unroll_recursion(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         cell.flags |= JC_DONT_TRACE_HERE
@@ -567,18 +572,25 @@ class WarmEnterState(object):
         jd = self.jitdriver_sd
         cpu = self.cpu
 
-        def can_inline_greenargs(*greenargs):
+        def can_inline_callable(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
             if can_never_inline(*greenargs):
                 return False
             cell = JitCell.get_jitcell(*greenargs)
             if cell is not None and (cell.flags & JC_DONT_TRACE_HERE) != 0:
                 return False
             return True
-        def can_inline_callable(greenkey):
-            greenargs = unwrap_greenkey(greenkey)
-            return can_inline_greenargs(*greenargs)
-        self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+
+        def dont_trace_here(greenkey):
+            # Set greenkey as somewhere that tracing should not occur into;
+            # notice that, as per the description of JC_DONT_TRACE_HERE earlier,
+            # if greenkey hasn't been traced separately, setting
+            # JC_DONT_TRACE_HERE will force tracing the next time the function
+            # is encountered.
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_DONT_TRACE_HERE
+        self.dont_trace_here = dont_trace_here
 
         if jd._should_unroll_one_iteration_ptr is None:
             def should_unroll_one_iteration(greenkey):

@@ -38,6 +38,7 @@ def pytest_configure(config):
             import os
             from rpython.translator.tool.cbuild import ExternalCompilationInfo
             from rpython.translator.platform import platform
+            from rpython.translator import cdir
 
             from rpython.rtyper.lltypesystem import rffi
 
@@ -48,7 +49,8 @@ def pytest_configure(config):
 
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
-                include_dirs=[incpath, tstpath],
+                include_dirs=[incpath, tstpath, cdir],
+                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED'],
                 use_cpp_linker=True,
             )
 

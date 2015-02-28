@@ -137,6 +137,17 @@ class TestLogger(object):
         assert loop.operations[0].getarg(2).getint() == 0
         assert oloop.operations[0].getarg(2)._get_str() == "dupa"
 
+    def test_jit_debug(self):
+        inp = '''
+        []
+        jit_debug('foobar', -1, 5)
+        '''
+        _, loop, oloop = self.reparse(inp)
+        assert loop.operations[0].getarg(0)._get_str() == "foobar"
+        assert loop.operations[0].getarg(1).getint() == -1
+        assert oloop.operations[0].getarg(0)._get_str() == "foobar"
+        assert oloop.operations[0].getarg(1).getint() == -1
+
     def test_floats(self):
         inp = '''
         [f0]
