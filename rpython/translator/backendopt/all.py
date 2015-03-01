@@ -170,8 +170,8 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
 
     # vaporize mallocs
     if config.mallocs:
-        log.malloc("starting malloc removal")
-        remove_mallocs(translator, graphs, type_system)
+        #log.malloc("starting malloc removal")
+        #remove_mallocs(translator, graphs, type_system)
 
         if config.print_statistics:
             print "after malloc removal:"
