@@ -4,7 +4,7 @@ import py
 from contextlib import contextmanager
 
 from rpython.flowspace.model import (
-    Constant, mkentrymap, c_last_exception, const)
+    Constant, mkentrymap, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
@@ -826,7 +826,7 @@ class TestFlowObjSpace(Base):
                 return None
         graph = self.codetest(myfunc)
         simplify_graph(graph)
-        assert graph.startblock.exitswitch == c_last_exception
+        assert graph.startblock.canraise
         assert graph.startblock.exits[0].target is graph.returnblock
         assert graph.startblock.exits[1].target is graph.returnblock
 
