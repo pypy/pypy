@@ -220,6 +220,12 @@ class BaseFrameworkTests(object):
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
 
+    def can_pin(self):
+        """Don't run the pinning tests with STM,
+        where the nursery objects cannot be pinned at all.
+        """
+        return self.gcrootfinder != 'stm'
+
 
 class CompileFrameworkTests(BaseFrameworkTests):
     # Test suite using (so far) the minimark GC.
@@ -921,7 +927,8 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, None
 
     def test_pinned_simple(self):
-        self.run('pinned_simple')
+        if self.can_pin():
+            self.run('pinned_simple')
 
     def define_pinned_unpin(cls):
         class H:
@@ -965,7 +972,8 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, after
 
     def test_pinned_unpin(self):
-        self.run('pinned_unpin')
+        if self.can_pin():
+            self.run('pinned_unpin')
 
     def define_multiple_pinned(cls):
         class H:
@@ -1012,4 +1020,5 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, None
 
     def test_multiple_pinned(self):
-        self.run('multiple_pinned')
+        if self.can_pin():
+            self.run('multiple_pinned')
