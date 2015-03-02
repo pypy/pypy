@@ -2382,7 +2382,7 @@ class Assembler386(BaseAssembler):
                 loc_index = arglocs[1]
                 if isinstance(loc_index, RegLoc):
                     if isinstance(loc_base, RegLoc):
-                        mc.MOV_ri(r11.value, loc_base.value)
+                        mc.MOV_rr(r11.value, loc_base.value)
                         mc.AND_ri(r11.value, ~15)
                     else:
                         assert isinstance(loc_base, ImmedLoc)
