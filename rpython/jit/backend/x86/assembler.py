@@ -2356,58 +2356,82 @@ class Assembler386(BaseAssembler):
         loc_index = None
         if card_marking:
             if stm:
-                # see stm_write_card() in stmgc.h
+                # see stm_write_card() in stmgc.h.
                 #
-                # implementation idea:
-                #        mov r11, loc_base    # the object
-                #        and r11, ~15         # align
-                #        lea r11, [loc_index + r11<<(card_bits-4)]
+                # If loc_base and loc_index are both registers:
+                #        lea r11, [loc_index + loc_base<<(card_bits-4)]
                 #        shr r11, card_bits
                 #        cmp [r11+1], card_marked
                 #
-                # This assumes that the value computed by the "lea" fits
-                # in 64 bits.  It clearly does, because (card_bits-4) is
-                # at most 3 and both loc_base and loc_index cannot come
-                # anywhere close to 2 ** 60.
+                # If loc_base is a register but loc_index an immediate:
+                #        mov r11, loc_base
+                #        shr r11, 4
+                #        cmp [r11+(loc_index>>card_bits)+1], card_marked
                 #
-                if rstm.CARD_SIZE == 32:
-                    card_bits = 5
-                elif rstm.CARD_SIZE == 64:
-                    card_bits = 6
-                elif rstm.CARD_SIZE == 128:
-                    card_bits = 7
-                else:
-                    raise AssertionError("CARD_SIZE should be 32/64/128")
+                # If the value above does not fit 32 bits, we do instead
+                #        mov r11, loc_index
+                #        (then the rest like the register-register case)
+                #
+                # If loc_base is an immediate but loc_index a register:
+                #        mov r11, loc_base<<(card_bits-4) + (1<<card_bits)
+                #        add r11, loc_index
+                #        shr r11, card_bits
+                #        cmp [r11], card_marked
+                #
+                # If both are immediates:
+                #        mov r11, (loc_base>>4)+(loc_index>>card_bits)+1
+                #        cmp [r11], card_marked
+                #
+                card_bits = rstm.CARD_BITS
+                assert 5 <= card_bits <= 7
                 r11 = X86_64_SCRATCH_REG
                 loc_index = arglocs[1]
-                if isinstance(loc_index, RegLoc):
-                    if isinstance(loc_base, RegLoc):
-                        mc.MOV_rr(r11.value, loc_base.value)
-                        mc.AND_ri(r11.value, ~15)
+                if isinstance(loc_base, RegLoc):
+                    if isinstance(loc_index, RegLoc):
+                        loc_index_reg = loc_index
+                        add_constant = 1
                     else:
-                        assert isinstance(loc_base, ImmedLoc)
-                        initial_value = loc_base.value & ~15
-                        mc.MOV_ri(r11.value, initial_value)
-                    mc.LEA_ra(r11.value, (self.SEGMENT_NO,
-                                          loc_index.value,
-                                          r11.value,
-                                          card_bits - 4,
-                                          0))
-                    mc.SHR_ri(r11.value, card_bits)
+                        assert isinstance(loc_index, ImmedLoc)
+                        add_constant = (loc_index.value >> card_bits) + 1
+                        if rx86.fits_in_32bits(add_constant):
+                            mc.MOV_rr(r11.value, loc_base.value)
+                            mc.SHR_ri(r11.value, 4)
+                            loc_index_reg = None
+                        else:
+                            mc.MOV_ri(r11.value, loc_index.value)
+                            loc_index_reg = r11
+                            add_constant = 1
+                    if loc_index_reg is not None:
+                        mc.LEA_ra(r11.value, (self.SEGMENT_NO,
+                                              loc_index_reg.value,
+                                              loc_base.value,
+                                              card_bits - 4,
+                                              0))
+                        mc.SHR_ri(r11.value, card_bits)
                 else:
-                    assert isinstance(loc_index, ImmedLoc)
-                    initial_value = (loc_index.value >> card_bits) << 4
-                    if isinstance(loc_base, RegLoc):
-                        mc.MOV_ri(r11.value, initial_value)
-                        mc.ADD_rr(r11.value, loc_base.value)
-                        mc.SHR_ri(r11.value, 4)
+                    # xxx we could try to know statically if loc_base
+                    # points to a large object or not, and produce a
+                    # non-card-marking version of the barrier if not
+                    assert isinstance(loc_base, ImmedLoc)
+                    load_value = loc_base.value << (card_bits - 4)
+                    load_value += (1 << card_bits)
+                    if isinstance(loc_index, RegLoc):
+                        add_constant = load_value >> card_bits
+                        if rx86.fits_in_32bits(add_constant):
+                            mc.MOV_rr(r11.value, loc_index.value)
+                        else:
+                            add_constant = 0
+                            mc.MOV_ri(r11.value, load_value)
+                            mc.ADD_rr(r11.value, loc_index.value)
+                        mc.SHR_ri(r11.value, card_bits)
                     else:
-                        assert isinstance(loc_base, ImmedLoc)
-                        initial_value += loc_base.value
-                        initial_value >>= 4
-                        mc.MOV_ri(r11.value, initial_value)
+                        assert isinstance(loc_index, ImmedLoc)
+                        load_value += loc_index.value
+                        load_value >>= card_bits
+                        mc.MOV_ri(r11.value, load_value)
+                        add_constant = 0
                 #
-                mc.CMP8_mi((self.SEGMENT_GC, r11.value, 1),
+                mc.CMP8_mi((self.SEGMENT_GC, r11.value, add_constant),
                            rstm.CARD_MARKED)
                 mc.J_il8(rx86.Conditions['E'], 0) # patched later
                 js_location = mc.get_relative_pos()

@@ -961,6 +961,9 @@ void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
        a direct way to know the length.  We know that it is smaller
        than the size in bytes. */
     assert(index < size);
+    /* this object was allocated with allocate_outside_nursery_large(),
+       which returns addresses aligned to 16 bytes */
+    assert((((uintptr_t)obj) & 15) == 0);
 #endif
 
     /* Write into the card's lock.  This is used by the next minor

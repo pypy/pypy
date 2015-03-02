@@ -52,10 +52,14 @@ static int lock_growth_large = 0;
 
 static stm_char *allocate_outside_nursery_large(uint64_t size)
 {
-    /* Allocate the object with largemalloc.c from the lower addresses. */
-    char *addr = _stm_large_malloc(size);
+    /* Allocate the object with largemalloc.c from the lower
+       addresses.  Round up the size to a multiple of 16, rather than
+       8, as a quick way to simplify the code in stm_write_card().
+    */
+    char *addr = _stm_large_malloc((size + 15) & ~15);
     if (addr == NULL)
         stm_fatalerror("not enough memory!");
+    assert((((uintptr_t)addr) & 15) == 0);    /* alignment check */
 
     if (LIKELY(addr + size <= uninitialized_page_start)) {
         dprintf(("allocate_outside_nursery_large(%lu): %p, page=%lu\n",

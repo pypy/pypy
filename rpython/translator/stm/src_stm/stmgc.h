@@ -79,7 +79,8 @@ typedef struct stm_thread_local_s {
 
 #define _STM_CARD_MARKED 1      /* should always be 1... */
 #define _STM_GCFLAG_CARDS_SET          0x8
-#define _STM_CARD_SIZE                 32     /* must be >= 32 */
+#define _STM_CARD_BITS                 5   /* must be 5/6/7 for the pypy jit */
+#define _STM_CARD_SIZE                 (1 << _STM_CARD_BITS)
 #define _STM_MIN_CARD_COUNT            17
 #define _STM_MIN_CARD_OBJ_SIZE         (_STM_CARD_SIZE * _STM_MIN_CARD_COUNT)
 
@@ -213,10 +214,22 @@ static inline void stm_write_card(object_t *obj, uintptr_t index)
            array doesn't actually use card marking, the following read
            is a bit nonsensical, but in a way that should never return
            CARD_MARKED by mistake.
+
+           The computation of the card marker is further optimized by
+           assuming that large objects are allocated to multiples of
+           16 (rather than just 8, as all objects are).  Under this
+           assumption the following code is equivalent to:
+
+               (obj >> 4) + (index / _STM_CARD_SIZE) + 1
+
+           The code below however takes only a couple of assembler
+           instructions.  It also assumes that the intermediate value
+           fits in a 64-bit value, which it clearly does (all values
+           are much smaller than 2 ** 60).
         */
-        stm_read_marker_t *card = (stm_read_marker_t *)(((uintptr_t)obj) >> 4);
-        card += (index / _STM_CARD_SIZE) + 1;  /* get_index_to_card_index() */
-        if (card->rm != _STM_CARD_MARKED) {
+        uintptr_t v = (((uintptr_t)obj) << (_STM_CARD_BITS - 4)) + index;
+        stm_read_marker_t *card1 = (stm_read_marker_t *)(v >> _STM_CARD_BITS);
+        if (card1[1].rm != _STM_CARD_MARKED) {
 
             /* slow path. */
             _stm_write_slowpath_card(obj, index);
