@@ -54,7 +54,6 @@ class Assembler386(BaseAssembler):
         self.malloc_slowpath = 0
         self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
-        self.wb_card_slowpath = [0, 0]
         self.setup_failure_recovery()
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
@@ -364,26 +363,6 @@ class Assembler386(BaseAssembler):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def _build_stm_wb_card_slowpath(self, withfloats):
-        mc = codebuf.MachineCodeBlockWrapper()
-
-        self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
-
-        mc.MOV_rs(esi.value, WORD) #index
-        mc.MOV_rs(edi.value, 2*WORD) #obj
-
-        mc.PUSH(r11) # for alignment
-        func = rstm.adr_write_slowpath_card
-        mc.CALL(imm(func))
-        mc.POP(r11)
-
-        self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
-        mc.RET16_i(2 * WORD)
-
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.wb_card_slowpath[withfloats] = rawstart
-
-
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         exc0, exc1 = None, None
@@ -415,12 +394,14 @@ class Assembler386(BaseAssembler):
                 # is to simply push it on the shadowstack, from its source
                 # location as two extra arguments on the machine stack
                 # (at this point containing:  [usual STM_FRAME_FIXED_SIZE]
+                #                             [index, only if 'withcards']
                 #                             [obj]
                 #                             [num]
                 #                             [ref]
                 #                             [retaddr])
                 # XXX this should also be done if 'for_frame' is true...
-                mc.MOV_rs(esi.value, STM_SHADOWSTACK_BASE_OFS + 4 * WORD)
+                extra = 4 + withcards
+                mc.MOV_rs(esi.value, STM_SHADOWSTACK_BASE_OFS + extra * WORD)
                 # esi = base address in the shadowstack + 1
                 # write the marker to [esi - 1] and [esi + 7]
                 mc.MOV_rs(edi.value, 2 * WORD)   # [num]
@@ -432,6 +413,9 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rs(edi.value, 1 * WORD)   # [ref]
                 mc.MOV_mr((self.SEGMENT_NO, esi.value, +7), edi.value)
                 mc.MOV_rs(edi.value, 3 * WORD)   # [obj]
+                if withcards:
+                    mc.MOV_rs(esi.value, 4 * WORD)   # [index]
+                    mc.SUB_ri(esp.value, WORD)       # re-align the stack
             elif IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
                 # arg, so we need to substract 2 words
@@ -463,13 +447,14 @@ class Assembler386(BaseAssembler):
         mc.CALL(imm(func))
         #
         if withcards:
-            # A final TEST8 before the RET, for the caller.  Careful to
-            # not follow this instruction with another one that changes
-            # the status of the CPU flags!
             if self.cpu.gc_ll_descr.stm:
-                mc.TEST8_rr(eax.value | rx86.BYTE_REG_FLAG,
-                            eax.value | rx86.BYTE_REG_FLAG)
+                # Nothing more to do in this case, except removing the
+                # stack alignment word pushed above
+                mc.ADD_ri(esp.value, WORD)
             else:
+                # A final TEST8 before the RET, for the caller.  Careful to
+                # not follow this instruction with another one that changes
+                # the status of the CPU flags!
                 if IS_X86_32:
                     mc.MOV_rs(eax.value, 3*WORD)
                 else:
@@ -485,7 +470,7 @@ class Assembler386(BaseAssembler):
                 mc.LEA_rs(esp.value, 2 * WORD)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
             if self.cpu.gc_ll_descr.stm:
-                mc.RET16_i(3 * WORD)
+                mc.RET16_i((3 + withcards) * WORD)
             else:
                 mc.RET16_i(WORD)
         else:
@@ -2368,78 +2353,22 @@ class Assembler386(BaseAssembler):
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        loc_index = None
         if card_marking:
             if stm:
-                loc2 = addr_add_const(self.SEGMENT_GC, loc_base,
-                                      descr.jit_wb_cards_set_byteofs)
-                mask2 = descr.jit_wb_cards_set_singlebyte
-                mc.TEST8(loc2, imm(mask2))
-                mc.J_il8(rx86.Conditions['NZ'], 0) # patched later
-                js_location = mc.get_relative_pos()
-            else:
-                # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
-                # been checked by the status flags of the previous TEST8
-                mc.J_il8(rx86.Conditions['S'], 0) # patched later
-                js_location = mc.get_relative_pos()
-        else:
-            js_location = 0
-
-        # Write only a CALL to the helper prepared in advance, passing it as
-        # argument the address of the structure we are writing into
-        # (the first argument to COND_CALL_GC_WB).
-        withfloats = self._regalloc is not None and bool(self._regalloc.xrm.reg_bindings)
-        helper_num = card_marking
-        if is_frame:
-            helper_num = 4
-        elif withfloats:
-            helper_num += 2
-        if self.wb_slowpath[helper_num] == 0:    # tests only
-            assert not we_are_translated()
-            self.cpu.gc_ll_descr.write_barrier_descr = descr
-            self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.xrm.reg_bindings))
-            assert self.wb_slowpath[helper_num] != 0
-        #
-        if not is_frame:
-            mc.PUSH(loc_base)
-            if stm:
-                # get the num and ref components of the stm_location, and
-                # push them to the stack.  It's 16 bytes, so alignment is
-                # still ok.  The one or three words pushed here are removed
-                # by the callee.
-                assert IS_X86_64
-                num, ref = self._regalloc.extract_raw_stm_location()
-                mc.PUSH(imm(num))
-                mc.PUSH(imm(ref))
-        if is_frame and align_stack:
-            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
-        mc.CALL(imm(self.wb_slowpath[helper_num]))
-        if is_frame and align_stack:
-            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
-
-        if card_marking:
-            # The helper ends again with a check of the flag in the object.
-            # So here, we can simply write again a 'JNS', which will be
-            # taken if GCFLAG_CARDS_SET is still not set.
-            if stm:
-                # here it's actually the result of _stm_write_slowpath_card_extra
-                mc.J_il8(rx86.Conditions['Z'], 0) # patched later
-            else:
-                mc.J_il8(rx86.Conditions['NS'], 0) # patched later
-            jns_location = mc.get_relative_pos()
-            #
-            # patch the JS above
-            offset = mc.get_relative_pos() - js_location
-            assert 0 < offset <= 127
-            mc.overwrite(js_location-1, chr(offset))
-            #
-            # case GCFLAG_CARDS_SET: emit a few instructions to do
-            # directly the card flag setting
-            loc_index = arglocs[1]
-
-            if stm:
-                # if CARD_MARKED, we are done
-                #     (object >> 4) + (index / CARD_SIZE) + 1
+                # see stm_write_card() in stmgc.h
+                #
+                # implementation idea:
+                #        mov r11, loc_base    # the object
+                #        and r11, ~15         # align
+                #        lea r11, [loc_index + r11<<(card_bits-4)]
+                #        shr r11, card_bits
+                #        cmp [r11+1], card_marked
+                #
+                # This assumes that the value computed by the "lea" fits
+                # in 64 bits.  It clearly does, because (card_bits-4) is
+                # at most 3 and both loc_base and loc_index cannot come
+                # anywhere close to 2 ** 60.
                 #
                 if rstm.CARD_SIZE == 32:
                     card_bits = 5
@@ -2449,23 +2378,8 @@ class Assembler386(BaseAssembler):
                     card_bits = 7
                 else:
                     raise AssertionError("CARD_SIZE should be 32/64/128")
-                #
-                # idea:
-                #        mov r11, loc_base    # the object
-                #        and r11, ~15         # align
-                #        lea r11, [loc_index + r11<<(card_bits-4)]
-                #        shr r11, card_bits
-                #        cmp [r11+1], card_marked
-                #
-                # this assumes that the value computed up to the
-                # "shr r11, card_bits" instruction does not overflow
-                # the (64-card_bits) bound.  For now we silently assumes
-                # that it is the case.  As far as I can tell, this is
-                # clearly true on any reasonable setting (which assume
-                # that the non-kernel addresses are numbers between 0
-                # and 2**X, for X <= 56).
-                #
                 r11 = X86_64_SCRATCH_REG
+                loc_index = arglocs[1]
                 if isinstance(loc_index, RegLoc):
                     if isinstance(loc_base, RegLoc):
                         mc.MOV_ri(r11.value, loc_base.value)
@@ -2496,17 +2410,76 @@ class Assembler386(BaseAssembler):
                 mc.CMP8_mi((self.SEGMENT_GC, r11.value, 1),
                            rstm.CARD_MARKED)
                 mc.J_il8(rx86.Conditions['E'], 0) # patched later
-                before_loc = mc.get_relative_pos()
-                # slowpath: call _stm_write_slowpath_card
+                js_location = mc.get_relative_pos()
+            else:
+                # GCFLAG_CARDS_SET is in this byte at 0x80, so this fact can
+                # been checked by the status flags of the previous TEST8
+                mc.J_il8(rx86.Conditions['S'], 0) # patched later
+                js_location = mc.get_relative_pos()
+        else:
+            js_location = 0
+
+        # Write only a CALL to the helper prepared in advance, passing it as
+        # argument the address of the structure we are writing into
+        # (the first argument to COND_CALL_GC_WB).
+        withfloats = self._regalloc is not None and bool(self._regalloc.xrm.reg_bindings)
+        helper_num = card_marking
+        if is_frame:
+            helper_num = 4
+        elif withfloats:
+            helper_num += 2
+        if self.wb_slowpath[helper_num] == 0:    # tests only
+            assert not we_are_translated()
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.xrm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+        #
+        if not is_frame:
+            if stm:
+                # get the num and ref components of the stm_location, and
+                # push them to the stack.  The three or four words pushed
+                # here are removed by the callee.
+                assert IS_X86_64
+                if card_marking:
+                    mc.PUSH(loc_index)
                 mc.PUSH(loc_base)
-                mc.PUSH(loc_index)
-                mc.CALL(imm(self.wb_card_slowpath[withfloats]))
+                num, ref = self._regalloc.extract_raw_stm_location()
+                mc.PUSH(imm(num))
+                mc.PUSH(imm(ref))
+            else:
+                # The word pushed here is removed by the callee.
+                mc.PUSH(loc_base)
+        #
+        if is_frame and align_stack:
+            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
+        mc.CALL(imm(self.wb_slowpath[helper_num]))
+        if is_frame and align_stack:
+            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
-                offset = mc.get_relative_pos() - before_loc
-                assert 0 < offset <= 127
-                mc.overwrite(before_loc-1, chr(offset))
+        if stm and card_marking:
+            # patch the JE above (at 'js_location')
+            offset = mc.get_relative_pos() - js_location
+            assert 0 < offset <= 127
+            mc.overwrite(js_location-1, chr(offset))
+        #
+        elif card_marking:
+            # The helper ends again with a check of the flag in the object.
+            # So here, we can simply write again a 'JNS', which will be
+            # taken if GCFLAG_CARDS_SET is still not set.
+            mc.J_il8(rx86.Conditions['NS'], 0) # patched later
+            jns_location = mc.get_relative_pos()
+            #
+            # patch the JS above
+            offset = mc.get_relative_pos() - js_location
+            assert 0 < offset <= 127
+            mc.overwrite(js_location-1, chr(offset))
+            #
+            # case GCFLAG_CARDS_SET: emit a few instructions to do
+            # directly the card flag setting
+            loc_index = arglocs[1]
 
-            elif isinstance(loc_index, RegLoc):
+            if isinstance(loc_index, RegLoc):
                 if IS_X86_64 and isinstance(loc_base, RegLoc):
                     # copy loc_index into r11
                     tmp1 = X86_64_SCRATCH_REG

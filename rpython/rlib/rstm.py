@@ -28,8 +28,6 @@ adr_transaction_read_version = (
 adr_segment_base = (
     CFlexSymbolic('((long)&STM_SEGMENT->segment_base)'))
 adr_write_slowpath = CFlexSymbolic('((long)&_stm_write_slowpath)')
-adr_write_slowpath_card_extra = (
-    CFlexSymbolic('((long)&_stm_write_slowpath_card_extra)'))
 adr_write_slowpath_card = (
     CFlexSymbolic('((long)&_stm_write_slowpath_card)'))
 

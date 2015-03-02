@@ -926,16 +926,6 @@ static void write_slowpath_common(object_t *obj, bool mark_card)
 }
 
 
-char _stm_write_slowpath_card_extra(object_t *obj)
-{
-    /* the PyPy JIT calls this function directly if it finds that an
-       array doesn't have the GCFLAG_CARDS_SET */
-    bool mark_card = obj_should_use_cards(STM_SEGMENT->segment_base, obj);
-    write_slowpath_common(obj, mark_card);
-    return mark_card;
-}
-
-
 void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
 {
     dprintf_test(("write_slowpath_card(%p, %lu)\n",
@@ -945,7 +935,8 @@ void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
        If the object is large enough, ask it to set up the object for
        card marking instead. */
     if (!(obj->stm_flags & GCFLAG_CARDS_SET)) {
-        char mark_card = _stm_write_slowpath_card_extra(obj);
+        bool mark_card = obj_should_use_cards(STM_SEGMENT->segment_base, obj);
+        write_slowpath_common(obj, mark_card);
         if (!mark_card)
             return;
     }
@@ -975,22 +966,19 @@ void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
     /* Write into the card's lock.  This is used by the next minor
        collection to know what parts of the big object may have changed.
        We already own the object here or it is an overflow obj. */
-    struct stm_read_marker_s *cards = get_read_marker(STM_SEGMENT->segment_base,
-                                                      (uintptr_t)obj);
-    uintptr_t card_index = get_index_to_card_index(index);
-    if (cards[card_index].rm == CARD_MARKED)
-        return;
+    stm_read_marker_t *card = (stm_read_marker_t *)(((uintptr_t)obj) >> 4);
+    card += get_index_to_card_index(index);
 
     if (!IS_OVERFLOW_OBJ(STM_PSEGMENT, obj)
-        && !(cards[card_index].rm == CARD_MARKED
-             || cards[card_index].rm == STM_SEGMENT->transaction_read_version)) {
+        && !(card->rm == CARD_MARKED
+             || card->rm == STM_SEGMENT->transaction_read_version)) {
         /* need to do the backup slice of the card */
         make_bk_slices(obj,
                        false,       /* first_call */
                        index,       /* index: only 1 card */
                        false);      /* do_missing_cards */
     }
-    cards[card_index].rm = CARD_MARKED;
+    card->rm = CARD_MARKED;
 
     dprintf(("mark %p index %lu, card:%lu with %d\n",
              obj, index, get_index_to_card_index(index), CARD_MARKED));

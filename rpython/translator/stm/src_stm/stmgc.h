@@ -85,7 +85,6 @@ typedef struct stm_thread_local_s {
 
 void _stm_write_slowpath(object_t *);
 void _stm_write_slowpath_card(object_t *, uintptr_t);
-char _stm_write_slowpath_card_extra(object_t *);
 object_t *_stm_allocate_slowpath(ssize_t);
 object_t *_stm_allocate_external(ssize_t);
 void _stm_become_inevitable(const char*);
@@ -202,8 +201,27 @@ static inline void stm_write(object_t *obj)
 __attribute__((always_inline))
 static inline void stm_write_card(object_t *obj, uintptr_t index)
 {
-    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0))
-        _stm_write_slowpath_card(obj, index);
+    /* if GCFLAG_WRITE_BARRIER is set, then don't do anything more. */
+    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0)) {
+
+        /* GCFLAG_WRITE_BARRIER is not set.  This might be because
+           it's the first time we see a given small array; or it might
+           be because it's a big array with card marking.  In the
+           latter case we will always reach this point, even if we
+           already marked the correct card.  Based on the idea that it
+           is actually the most common case, check it here.  If the
+           array doesn't actually use card marking, the following read
+           is a bit nonsensical, but in a way that should never return
+           CARD_MARKED by mistake.
+        */
+        stm_read_marker_t *card = (stm_read_marker_t *)(((uintptr_t)obj) >> 4);
+        card += (index / _STM_CARD_SIZE) + 1;  /* get_index_to_card_index() */
+        if (card->rm != _STM_CARD_MARKED) {
+
+            /* slow path. */
+            _stm_write_slowpath_card(obj, index);
+        }
+    }
 }
 
 

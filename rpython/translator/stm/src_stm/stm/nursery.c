@@ -274,6 +274,13 @@ static void _trace_card_object(object_t *obj)
 
             uintptr_t start = get_card_index_to_index(card_index);
             uintptr_t stop = get_card_index_to_index(card_index + 1);
+            if (card_index == last_card_index) {
+                assert(stop >= size);
+                stop = size;
+            }
+            else {
+                assert(stop < size);
+            }
 
             dprintf(("trace_cards on %p with start:%lu stop:%lu\n",
                      obj, start, stop));

@@ -6,6 +6,7 @@ from rpython.memory.gctransform.framework import (TYPE_ID,
      BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.memory.gc.stmgc import StmGC
+from rpython.rlib.debug import ll_assert
 from rpython.rtyper import rmodel, llannotation
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.translator.backendopt.support import var_needsgc
@@ -75,7 +76,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             if not gc.has_gcptr_in_varsize(typeid):
                 return    # there are cards, but they don't need tracing
             length = (obj + gc.varsize_offset_to_length(typeid)).signed[0]
-            stop = min(stop, length)
+            ll_assert(stop <= length, "trace_cards: stop > length")
             gc.trace_partial(obj, start, stop, invokecallback, visit_fn)
         pypy_stmcb_trace_cards.c_name = "pypy_stmcb_trace_cards"
         self.autoregister_ptrs.append(
@@ -190,7 +191,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def gct_get_write_barrier_from_array_failing_case(self, hop):
         op = hop.spaceop
         c_write_slowpath = rmodel.inputconst(
-            lltype.Signed, rstm.adr_write_slowpath_card_extra)
+            lltype.Signed, rstm.adr_write_slowpath_card)
         hop.genop("cast_int_to_ptr", [c_write_slowpath], resultvar=op.result)
 
     def gct_gc_can_move(self, hop):
