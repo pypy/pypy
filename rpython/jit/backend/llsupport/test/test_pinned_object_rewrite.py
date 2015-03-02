@@ -109,6 +109,7 @@ class TestFramework(RewriteTests):
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
+                stm = False
         gcdescr = get_description(config_)
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)
