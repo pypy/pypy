@@ -611,6 +611,7 @@ class TestSTMTranslated(CompiledSTMTests):
         assert 'ok!\n' in data
 
     def test_allocate_preexisting(self):
+        py.test.skip("kill me or re-add me")
         S = lltype.GcStruct('S', ('n', lltype.Signed))
 
         def main(argv):
