@@ -70,6 +70,7 @@ class OptPure(Optimization):
         else:
             nextop = None
 
+        save = False
         if canfold:
             for i in range(op.numargs()):
                 if self.get_constant_box(op.getarg(i)) is None:
@@ -84,20 +85,21 @@ class OptPure(Optimization):
 
             # did we do the exact same operation already?
             recentops = self.getrecentops(op.getopnum())
+            save = True
             oldop = recentops.lookup(self.optimizer, op)
             if oldop is not None:
-                self.optimizer.make_equal_to(op.result, oldop.result, True)
+                self.optimizer.make_equal_to(op.result,
+                                             self.getvalue(oldop.result), True)
                 return
 
         # otherwise, the operation remains
         self.emit_operation(op)
         if op.returns_bool_result():
             self.optimizer.bool_boxes[self.getvalue(op.result)] = None
-        if canfold:
-            realop = self.optimizer.getlastop()
-            if realop is not None:
-                recentops = self.getrecentops(realop.getopnum())
-                recentops.add(realop)
+        if save:
+            realop = self.optimizer.get_op_replacement(op)
+            recentops = self.getrecentops(realop.getopnum())
+            recentops.add(realop)
         if nextop:
             self.emit_operation(nextop)
 
