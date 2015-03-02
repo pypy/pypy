@@ -1123,6 +1123,9 @@ def setup_user_defined_type(w_self):
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
     create_all_slots(w_self, hasoldstylebase)
 
+    if '__qualname__' in w_self.dict_w:
+        w_self.qualname = w_self.space.unicode_w(w_self.dict_w['__qualname__'])
+
     ensure_common_attributes(w_self)
 
 def setup_builtin_type(w_self):
