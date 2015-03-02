@@ -34,7 +34,7 @@
 #define __thread_if_stm  /* nothing */
 #endif
 
-RPY_EXTERN __thread struct pypy_ExcData0 pypy_g_ExcData;
+RPY_EXTERN __thread_if_stm struct pypy_ExcData0 pypy_g_ExcData;
 #define pypy_have_debug_prints    pypy_g_ExcData.ed_have_debug_prints
 
 /* macros used by the generated code */
