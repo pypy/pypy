@@ -65,9 +65,24 @@ void pypy_debug_traceback_print(void)
 
 void pypy_debug_catch_fatal_exception(void)
 {
-  pypy_debug_traceback_print();
-  fprintf(stderr, "Fatal RPython error: %.*s\n",
-          (int)(RPyFetchExceptionType()->ov_name->rs_chars.length),
-          RPyFetchExceptionType()->ov_name->rs_chars.items);
-  abort();
+    const char *clsname;
+    pypy_debug_traceback_print();
+    fprintf(stderr, "Fatal RPython error: ");
+#ifdef RPY_STM
+    char bufname[128];
+    int i;
+    bufname[127] = 0;
+    for (i = 0; i < 127; i++) {
+        bufname[i] = RPyFetchExceptionType()->ov_name->rs_chars.items[i];
+        if (bufname[i] == 0)
+            break;
+    }
+    clsname = bufname;
+#else
+    clsname = RPyFetchExceptionType()->ov_name->rs_chars.items;
+#endif
+    fprintf(stderr, "%.*s\n",
+            (int)(RPyFetchExceptionType()->ov_name->rs_chars.length),
+            clsname);
+    abort();
 }
