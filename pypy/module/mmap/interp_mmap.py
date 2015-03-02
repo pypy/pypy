@@ -22,6 +22,10 @@ class W_MMap(W_Root):
         self.check_valid()
         return MMapBuffer(self.space, self.mmap, True)
 
+    def writebuf_w(self, space):
+        self.check_writeable()
+        return MMapBuffer(self.space, self.mmap, False)
+
     def close(self):
         self.mmap.close()
 

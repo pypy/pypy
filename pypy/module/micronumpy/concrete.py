@@ -331,7 +331,7 @@ class BaseConcreteArray(object):
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage, start=0):
         make_sure_not_resized(shape)
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
@@ -342,6 +342,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.storage = storage
+        self.start = start
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
@@ -350,7 +351,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,
                                                     self.order)
-        return SliceArray(0, strides, backstrides, new_shape, self,
+        return SliceArray(self.start, strides, backstrides, new_shape, self,
                           orig_array)
 
     def set_dtype(self, space, dtype):
@@ -384,9 +385,10 @@ class ConcreteArray(ConcreteArrayNotOwning):
 
 
 class ConcreteArrayWithBase(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage, orig_base):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage,
+                 orig_base, start=0):
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order,
-                                        strides, backstrides, storage)
+                                        strides, backstrides, storage, start)
         self.orig_base = orig_base
 
     def base(self):
