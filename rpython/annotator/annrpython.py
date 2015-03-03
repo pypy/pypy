@@ -6,8 +6,8 @@ from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
-from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
-                                      c_last_exception, checkgraph)
+from rpython.flowspace.model import (
+    Variable, Constant, FunctionGraph, checkgraph)
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.argument import simple_args
@@ -224,6 +224,10 @@ class RPythonAnnotator(object):
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
 
+    def validate(self):
+        """Check that the annotation results are valid"""
+        self.bookkeeper.check_no_flags_on_instances()
+
     def annotation(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
@@ -248,10 +252,6 @@ class RPythonAnnotator(object):
         if s_old is not None:
             assert s_value.contains(s_old)
         arg.annotation = s_value
-
-    def transfer_binding(self, v_target, v_source):
-        assert v_source.annotation is not None
-        v_target.annotation = v_source.annotation
 
     def warning(self, msg, pos=None):
         if pos is None:
@@ -407,8 +407,7 @@ class RPythonAnnotator(object):
                     self.bookkeeper.leave()
 
         except BlockedInference as e:
-            if (e.op is block.operations[-1] and
-                block.exitswitch == c_last_exception):
+            if e.op is block.raising_op:
                 # this is the case where the last operation of the block will
                 # always raise an exception which is immediately caught by
                 # an exception handler.  We then only follow the exceptional
@@ -450,8 +449,8 @@ class RPythonAnnotator(object):
 
         # filter out those exceptions which cannot
         # occour for this specific, typed operation.
-        if block.exitswitch == c_last_exception:
-            op = block.operations[-1]
+        if block.canraise:
+            op = block.raising_op
             can_only_throw = op.get_can_only_throw(self)
             if can_only_throw is not None:
                 candidates = can_only_throw
@@ -485,87 +484,84 @@ class RPythonAnnotator(object):
 
     def follow_link(self, graph, link, knowntypedata):
         in_except_block = False
-        last_exception_var = link.last_exception  # may be None for non-exception link
-        last_exc_value_var = link.last_exc_value  # may be None for non-exception link
+        v_last_exc_type = link.last_exception  # may be None for non-exception link
+        v_last_exc_value = link.last_exc_value  # may be None for non-exception link
 
-        if isinstance(link.exitcase, (types.ClassType, type)) \
-                and issubclass(link.exitcase, py.builtin.BaseException):
-            assert last_exception_var and last_exc_value_var
-            last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
-            last_exception_object = annmodel.SomeType()
-            if isinstance(last_exception_var, Constant):
-                last_exception_object.const = last_exception_var.value
-            last_exception_object.is_type_of = [last_exc_value_var]
+        if (isinstance(link.exitcase, (types.ClassType, type)) and
+                issubclass(link.exitcase, BaseException)):
+            assert v_last_exc_type and v_last_exc_value
+            s_last_exc_value = self.bookkeeper.valueoftype(link.exitcase)
+            s_last_exc_type = annmodel.SomeType()
+            if isinstance(v_last_exc_type, Constant):
+                s_last_exc_type.const = v_last_exc_type.value
+            s_last_exc_type.is_type_of = [v_last_exc_value]
 
-            if isinstance(last_exception_var, Variable):
-                self.setbinding(last_exception_var, last_exception_object)
-            if isinstance(last_exc_value_var, Variable):
-                self.setbinding(last_exc_value_var, last_exc_value_object)
+            if isinstance(v_last_exc_type, Variable):
+                self.setbinding(v_last_exc_type, s_last_exc_type)
+            if isinstance(v_last_exc_value, Variable):
+                self.setbinding(v_last_exc_value, s_last_exc_value)
 
-            last_exception_object = annmodel.SomeType()
-            if isinstance(last_exception_var, Constant):
-                last_exception_object.const = last_exception_var.value
-            #if link.exitcase is Exception:
-            #    last_exc_value_object = annmodel.SomeObject()
-            #else:
+            s_last_exc_type = annmodel.SomeType()
+            if isinstance(v_last_exc_type, Constant):
+                s_last_exc_type.const = v_last_exc_type.value
             last_exc_value_vars = []
             in_except_block = True
 
         ignore_link = False
-        cells = []
+        inputs_s = []
         renaming = {}
-        for a, v in zip(link.args, link.target.inputargs):
-            renaming.setdefault(a, []).append(v)
-        for a, v in zip(link.args, link.target.inputargs):
-            if a == last_exception_var:
+        for v_out, v_input in zip(link.args, link.target.inputargs):
+            renaming.setdefault(v_out, []).append(v_input)
+        for v_out, v_input in zip(link.args, link.target.inputargs):
+            if v_out == v_last_exc_type:
                 assert in_except_block
-                cells.append(last_exception_object)
-            elif a == last_exc_value_var:
+                inputs_s.append(s_last_exc_type)
+            elif v_out == v_last_exc_value:
                 assert in_except_block
-                cells.append(last_exc_value_object)
-                last_exc_value_vars.append(v)
+                inputs_s.append(s_last_exc_value)
+                last_exc_value_vars.append(v_input)
             else:
-                cell = self.binding(a)
-                if (link.exitcase, a) in knowntypedata:
-                    knownvarvalue = knowntypedata[(link.exitcase, a)]
-                    cell = pair(cell, knownvarvalue).improve()
+                s_out = self.annotation(v_out)
+                if (link.exitcase, v_out) in knowntypedata:
+                    knownvarvalue = knowntypedata[(link.exitcase, v_out)]
+                    s_out = pair(s_out, knownvarvalue).improve()
                     # ignore links that try to pass impossible values
-                    if cell == annmodel.s_ImpossibleValue:
+                    if s_out == annmodel.s_ImpossibleValue:
                         ignore_link = True
 
-                if hasattr(cell,'is_type_of'):
+                if hasattr(s_out,'is_type_of'):
                     renamed_is_type_of = []
-                    for v in cell.is_type_of:
-                        new_vs = renaming.get(v,[])
+                    for v in s_out.is_type_of:
+                        new_vs = renaming.get(v, [])
                         renamed_is_type_of += new_vs
-                    assert cell.knowntype is type
+                    assert s_out.knowntype is type
                     newcell = annmodel.SomeType()
-                    if cell.is_constant():
-                        newcell.const = cell.const
-                    cell = newcell
-                    cell.is_type_of = renamed_is_type_of
+                    if s_out.is_constant():
+                        newcell.const = s_out.const
+                    s_out = newcell
+                    s_out.is_type_of = renamed_is_type_of
 
-                if hasattr(cell, 'knowntypedata'):
+                if hasattr(s_out, 'knowntypedata'):
                     renamed_knowntypedata = {}
-                    for (value, v), s in cell.knowntypedata.items():
+                    for (value, v), s in s_out.knowntypedata.items():
                         new_vs = renaming.get(v, [])
                         for new_v in new_vs:
                             renamed_knowntypedata[value, new_v] = s
-                    assert isinstance(cell, annmodel.SomeBool)
+                    assert isinstance(s_out, annmodel.SomeBool)
                     newcell = annmodel.SomeBool()
-                    if cell.is_constant():
-                        newcell.const = cell.const
-                    cell = newcell
-                    cell.set_knowntypedata(renamed_knowntypedata)
+                    if s_out.is_constant():
+                        newcell.const = s_out.const
+                    s_out = newcell
+                    s_out.set_knowntypedata(renamed_knowntypedata)
 
-                cells.append(cell)
+                inputs_s.append(s_out)
         if ignore_link:
             return
 
         if in_except_block:
-            last_exception_object.is_type_of = last_exc_value_vars
+            s_last_exc_type.is_type_of = last_exc_value_vars
         self.links_followed[link] = True
-        self.addpendingblock(graph, link.target, cells)
+        self.addpendingblock(graph, link.target, inputs_s)
 
     #___ creating the annotations based on operations ______
 
@@ -579,7 +575,7 @@ class RPythonAnnotator(object):
         for arg in op.args:
             if isinstance(self.annotation(arg), annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, op, -1)
-        resultcell = op.consider(self, *op.args)
+        resultcell = op.consider(self)
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue
         elif resultcell == annmodel.s_ImpossibleValue:

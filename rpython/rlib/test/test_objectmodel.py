@@ -329,6 +329,33 @@ class TestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 42     # "did not crash"
 
+    def test_prepare_dict_update_2(self):
+        try:
+            from collections import OrderedDict
+        except ImportError:     # Python 2.6
+            py.test.skip("requires collections.OrderedDict")
+        def g(n):
+            d = OrderedDict()
+            prepare_dict_update(d, n)
+            return 42
+        res = self.interpret(g, [3])
+        assert res == 42     # "did not crash"
+
+    def test_reversed_dict(self):
+        d1 = {2:3, 4:5, 6:7}
+        def g():
+            n1 = 0
+            for key in d1:
+                n1 = n1 * 10 + key
+            n2 = 0
+            for key in reversed_dict(d1):
+                n2 = n2 * 10 + key
+            return n1 * 10000 + n2
+        got = str(g())
+        assert len(got) == 7 and got[3] == '0' and got[:3] == got[6:3:-1]
+        got = str(self.interpret(g, []))
+        assert len(got) == 7 and got[3] == '0' and got[:3] == got[6:3:-1]
+
     def test_compute_hash(self):
         class Foo(object):
             pass
@@ -438,6 +465,11 @@ def test_enforceargs_decorator():
     assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
 
+def test_always_inline():
+    @always_inline
+    def f(a, b, c):
+        return a, b, c
+    assert f._always_inline_ == True
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)

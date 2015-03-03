@@ -4,7 +4,9 @@ from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              debug_print, debug_start, debug_stop,
                              have_debug_prints, debug_offset, debug_flush,
                              check_nonneg, IntegerCanBeNegative,
-                             mark_dict_non_null)
+                             mark_dict_non_null,
+                             check_list_of_chars,
+                             NotAListOfChars)
 from rpython.rlib import debug
 from rpython.rtyper.test.test_llinterp import interpret, gengraph
 
@@ -70,6 +72,26 @@ def test_mark_dict_non_null():
 
     t, typer, graph = gengraph(f, [])
     assert sorted(graph.returnblock.inputargs[0].concretetype.TO.entries.TO.OF._flds.keys()) == ['key', 'value']
+
+
+def test_check_list_of_chars():
+    def f(x):
+        result = []
+        check_list_of_chars(result)
+        result = [chr(x), 'a']
+        check_list_of_chars(result)
+        result = [unichr(x)]
+        check_list_of_chars(result)
+        return result
+
+    interpret(f, [3])
+
+    def g(x):
+        result = ['a', 'b', 'c', '']
+        check_list_of_chars(result)
+        return x
+
+    py.test.raises(NotAListOfChars, "interpret(g, [3])")
 
 
 class DebugTests(object):

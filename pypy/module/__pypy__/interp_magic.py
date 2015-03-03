@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.listobject import W_ListObject
@@ -130,3 +131,7 @@ def add_memory_pressure(estimate):
 def locals_to_fast(space, w_frame):
     assert isinstance(w_frame, PyFrame)
     w_frame.locals2fast()
+
+@unwrap_spec(w_module=MixedModule)
+def save_module_content_for_future_reload(space, w_module):
+    w_module.save_module_content_for_future_reload()

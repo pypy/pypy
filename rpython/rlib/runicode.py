@@ -65,7 +65,7 @@ else:
 
 if MAXUNICODE > 0xFFFF:
     def code_to_unichr(code):
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
+        if is_narrow_host():
             # Host CPython is narrow build, generate surrogates
             return unichr_returns_surrogate(code)
         else:
@@ -84,6 +84,9 @@ def _STORECHAR(result, CH, byteorder):
     else:
         result.append(hi)
         result.append(lo)
+
+def is_narrow_host():
+    return not we_are_translated() and sys.maxunicode == 0xFFFF
 
 def default_unicode_error_decode(errors, encoding, msg, s,
                                  startingpos, endingpos):
@@ -336,8 +339,11 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                         ch2 = ord(s[pos])
                         # Check for low surrogate and combine the two to
                         # form a UCS4 value
-                        if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
+                        if ((allow_surrogates or MAXUNICODE < 65536
+                             or is_narrow_host()) and
+                            ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF):
                             ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                            assert ch3 >= 0
                             pos += 1
                             _encodeUCS4(result, ch3)
                             continue
@@ -1108,9 +1114,13 @@ def unicode_encode_charmap(s, size, errors, errorhandler=None,
 
         c = mapping.get(ch, '')
         if len(c) == 0:
+            # collect all unencodable chars. Important for narrow builds.
+            collend = pos + 1
+            while collend < size and mapping.get(s[collend], '') == '':
+                collend += 1
             ru, rs, pos = errorhandler(errors, "charmap",
                                        "character maps to <undefined>",
-                                       s, pos, pos + 1)
+                                       s, pos, collend)
             if rs is not None:
                 # py3k only
                 result.append(rs)
@@ -1348,8 +1358,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 
             # The following logic is enabled only if MAXUNICODE == 0xffff, or
             # for testing on top of a host Python where sys.maxunicode == 0xffff
-            if ((MAXUNICODE < 65536 or
-                    (not we_are_translated() and sys.maxunicode < 65536))
+            if ((MAXUNICODE < 65536 or is_narrow_host())
                 and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
                 # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
                 pos += 1
@@ -1592,7 +1601,8 @@ if sys.platform == 'win32':
                                            rwin32.LPCSTR, rffi.INT,
                                            rffi.CWCHARP, rffi.INT],
                                           rffi.INT,
-                                          calling_conv='win')
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
 
     WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
                                           [rffi.UINT, rwin32.DWORD,
@@ -1600,19 +1610,20 @@ if sys.platform == 'win32':
                                            rwin32.LPCSTR, rffi.INT,
                                            rwin32.LPCSTR, BOOLP],
                                           rffi.INT,
-                                          calling_conv='win')
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def is_dbcs_lead_byte(c):
         # XXX don't know how to test this
         return False
 
     def _decode_mbcs_error(s, errorhandler):
-        if rwin32.GetLastError() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
+        if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
             msg = ("No mapping for the Unicode character exists in the target "
                    "multi-byte code page.")
             errorhandler('strict', 'mbcs', msg, s, 0, 0)
         else:
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
     def str_decode_mbcs(s, size, errors, final=False, errorhandler=None,
                         force_ignore=True):
@@ -1679,7 +1690,7 @@ if sys.platform == 'win32':
                                                dataptr, size, None, 0,
                                                None, used_default_p)
                 if mbcssize == 0:
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
                 # If we used a default char, then we failed!
                 if (used_default_p and
                     rffi.cast(lltype.Bool, used_default_p[0])):
@@ -1691,7 +1702,7 @@ if sys.platform == 'win32':
                     if WideCharToMultiByte(CP_ACP, flags,
                                            dataptr, size, buf.raw, mbcssize,
                                            None, used_default_p) == 0:
-                        raise rwin32.lastWindowsError()
+                        raise rwin32.lastSavedWindowsError()
                     if (used_default_p and
                         rffi.cast(lltype.Bool, used_default_p[0])):
                         errorhandler('strict', 'mbcs', "invalid character",

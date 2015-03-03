@@ -58,7 +58,7 @@ def frame_realize(space, py_obj):
     w_globals = from_ref(space, py_frame.c_f_globals)
 
     frame = space.FrameClass(space, code, w_globals, outer_func=None)
-    frame.f_lineno = py_frame.c_f_lineno
+    frame.f_lineno = rffi.getintfield(py_frame, 'c_f_lineno')
     w_obj = space.wrap(frame)
     track_reference(space, py_obj, w_obj)
     return w_obj

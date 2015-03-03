@@ -1,4 +1,0 @@
-.. This file is generated automatically by makeref.py script,
-   which in turn is run manually.
-
-

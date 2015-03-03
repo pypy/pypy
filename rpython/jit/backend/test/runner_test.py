@@ -11,7 +11,8 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.typesystem import deref
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.llinterp import LLException
 from rpython.jit.codewriter import heaptracker, longlong
@@ -19,6 +20,7 @@ from rpython.rlib import longlong2float
 from rpython.rlib.rarithmetic import intmask, is_valid_int
 from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
 
 IS_32_BIT = sys.maxint < 2**32
@@ -45,6 +47,7 @@ class Runner(object):
 
     add_loop_instructions = ['overload for a specific cpu']
     bridge_loop_instructions = ['overload for a specific cpu']
+    bridge_loop_instructions_alternative = None   # or another possible answer
 
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
@@ -2296,7 +2299,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
         for i in range(5):
             called = []
-        
+
             FUNC = self.FuncType([lltype.Signed] * i, lltype.Void)
             func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
             calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -2511,7 +2514,7 @@ class LLtypeBackendTest(BaseBackendTest):
         tok = BoxInt()
         faildescr = BasicFailDescr(1)
         ops = [
-        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1], i2,
+        ResOperation(rop.CALL_RELEASE_GIL, [ConstInt(0), funcbox, i1], i2,
                      descr=calldescr),
         ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
         ResOperation(rop.FINISH, [i2], None, descr=BasicFinalDescr(0))
@@ -2569,7 +2572,8 @@ class LLtypeBackendTest(BaseBackendTest):
         tok = BoxInt()
         faildescr = BasicFailDescr(1)
         ops = [
-        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i0, i1, i2, i3], None,
+        ResOperation(rop.CALL_RELEASE_GIL,
+                     [ConstInt(0), funcbox, i0, i1, i2, i3], None,
                      descr=calldescr),
         ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
         ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
@@ -2624,7 +2628,8 @@ class LLtypeBackendTest(BaseBackendTest):
         for i in range(50):
             i3 = BoxInt()
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1, i2], i3,
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(0), funcbox, i1, i2], i3,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ]
@@ -2696,7 +2701,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert 0, kind
             #
             ops = [
-                ResOperation(rop.CALL_RELEASE_GIL, [funcbox], b3,
+                ResOperation(rop.CALL_RELEASE_GIL, [ConstInt(0), funcbox], b3,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ResOperation(rop.FINISH, [b3], None, descr=BasicFinalDescr(0))
@@ -2762,7 +2767,6 @@ class LLtypeBackendTest(BaseBackendTest):
         NB_TESTS = 100
         c_source = []
         all_tests = []
-        export_symbols = []
 
         def prepare_c_source():
             """Pick a random choice of argument types and length,
@@ -2795,12 +2799,10 @@ class LLtypeBackendTest(BaseBackendTest):
                                            var_name)
                 c_source.append('static %s;' % var_decl)
                 getter_name = '%s_get%d' % (fn_name, i)
-                export_symbols.append(getter_name)
-                c_source.append('void %s(%s) { *p = %s; }' % (
+                c_source.append('RPY_EXPORTED void %s(%s) { *p = %s; }' % (
                     getter_name,
                     primitive.cdecl(primitive.PrimitiveType[ARG], '*p'),
                     var_name))
-            export_symbols.append(fn_name)
             c_source.append('')
             c_source.append('static void real%s(%s)' % (
                 fn_name, ', '.join(fn_args)))
@@ -2808,7 +2810,7 @@ class LLtypeBackendTest(BaseBackendTest):
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
             c_source.append('}')
-            c_source.append('void *%s(void)' % fn_name)
+            c_source.append('RPY_EXPORTED void *%s(void)' % fn_name)
             c_source.append('{')
             c_source.append('    return (void *)&real%s;' % fn_name)
             c_source.append('}')
@@ -2818,8 +2820,7 @@ class LLtypeBackendTest(BaseBackendTest):
             prepare_c_source()
 
         eci = ExternalCompilationInfo(
-            separate_module_sources=['\n'.join(c_source)],
-            export_symbols=export_symbols)
+            separate_module_sources=['\n'.join(c_source)])
 
         for k in range(NB_TESTS):
             ARGTYPES, ffitypes, fn_name = all_tests[k]
@@ -2884,7 +2885,8 @@ class LLtypeBackendTest(BaseBackendTest):
             loadcodes = ''.join(loadcodes)
             print loadcodes
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL, insideboxes, None,
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(0)] + insideboxes, None,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
@@ -2919,6 +2921,342 @@ class LLtypeBackendTest(BaseBackendTest):
             assert got == expected, '\n'.join(
                 ['bad args, signature %r' % codes[1:]] + different_values)
 
+    def test_call_release_gil_save_errno(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        eci = ExternalCompilationInfo(
+            separate_module_sources=['''
+                #include <errno.h>
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
+                    errno = 42;
+                    return (a + 10*b + 100*c + 1000*d +
+                            10000*e + 100000*f + 1000000*g);
+                }
+                RPY_EXPORTED
+                long test_call_release_gil_save_errno(void) {
+                    return (long)&f1;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_save_errno'
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_ERR_NONE,
+                        rffi.RFFI_SAVE_ERRNO,
+                        rffi.RFFI_ERR_NONE | rffi.RFFI_ALT_ERRNO,
+                        rffi.RFFI_SAVE_ERRNO | rffi.RFFI_ALT_ERRNO,
+                        ]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_errno(self.cpu, 24)
+            llerrno.set_debug_saved_alterrno(self.cpu, 25)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            original_result = self.cpu.get_int_value(deadframe, 0)
+            result = llerrno.get_debug_saved_errno(self.cpu)
+            altresult = llerrno.get_debug_saved_alterrno(self.cpu)
+            print 'saveerr =', saveerr, ': got result =', result, \
+                  'altresult =', altresult
+            #
+            expected = {
+                rffi.RFFI_ERR_NONE: (24, 25),
+                rffi.RFFI_SAVE_ERRNO: (42, 25),
+                rffi.RFFI_ERR_NONE | rffi.RFFI_ALT_ERRNO: (24, 25),
+                rffi.RFFI_SAVE_ERRNO | rffi.RFFI_ALT_ERRNO: (24, 42),
+            }
+            # expected (24, 25) as originally set, with possibly one
+            # of the two changed to 42 by the assembler code
+            assert (result, altresult) == expected[saveerr]
+            assert original_result == 3456789
+
+    def test_call_release_gil_readsaved_errno(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[r'''
+                #include <stdio.h>
+                #include <errno.h>
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
+                    long r = errno;
+                    printf("read saved errno: %ld\n", r);
+                    r += 100 * (a + 10*b + 100*c + 1000*d +
+                                10000*e + 100000*f + 1000000*g);
+                    return r;
+                }
+                RPY_EXPORTED
+                long test_call_release_gil_readsaved_errno(void) {
+                    return (long)&f1;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_readsaved_errno'
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_READSAVED_ERRNO,
+                        rffi.RFFI_ZERO_ERRNO_BEFORE,
+                        rffi.RFFI_READSAVED_ERRNO   | rffi.RFFI_ALT_ERRNO,
+                        rffi.RFFI_ZERO_ERRNO_BEFORE | rffi.RFFI_ALT_ERRNO,
+                        ]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_errno(self.cpu, 24)
+            llerrno.set_debug_saved_alterrno(self.cpu, 25)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert llerrno.get_debug_saved_errno(self.cpu) == 24
+            assert llerrno.get_debug_saved_alterrno(self.cpu) == 25
+            #
+            if saveerr & rffi.RFFI_READSAVED_ERRNO:
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert result == 25 + 345678900
+                else:
+                    assert result == 24 + 345678900
+            else:
+                assert result == 0  + 345678900
+
+    def test_call_release_gil_save_lasterror(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        if sys.platform != 'win32':
+            py.test.skip("Windows test only")
+        eci = ExternalCompilationInfo(
+            separate_module_sources=['''
+                #include <windows.h>
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
+                    SetLastError(42);
+                    return (a + 10*b + 100*c + 1000*d +
+                            10000*e + 100000*f + 1000000*g);
+                }
+                RPY_EXPORTED
+                long test_call_release_gil_save_lasterror(void) {
+                    return (long)&f1;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_save_lasterror'
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_SAVE_ERRNO,  # but not _LASTERROR
+                        rffi.RFFI_SAVE_ERRNO | rffi.RFFI_ALT_ERRNO,
+                        rffi.RFFI_SAVE_LASTERROR,
+                        rffi.RFFI_SAVE_LASTERROR | rffi.RFFI_ALT_ERRNO,
+                        ]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            original_result = self.cpu.get_int_value(deadframe, 0)
+            result = llerrno.get_debug_saved_lasterror(self.cpu)
+            print 'saveerr =', saveerr, ': got result =', result
+            #
+            if saveerr == rffi.RFFI_SAVE_LASTERROR:
+                assert result == 42      # from the C code
+            else:
+                assert result == 24      # not touched
+            assert original_result == 3456789
+
+    def test_call_release_gil_readsaved_lasterror(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        if sys.platform != 'win32':
+            py.test.skip("Windows test only")
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[r'''
+                #include <windows.h>
+                static long f1(long a, long b, long c, long d,
+                               long e, long f, long g) {
+                    long r = GetLastError();
+                    printf("GetLastError() result: %ld\n", r);
+                    printf("%ld %ld %ld %ld %ld %ld %ld\n", a,b,c,d,e,f,g);
+                    r += 100 * (a + 10*b + 100*c + 1000*d +
+                                10000*e + 100000*f + 1000000*g);
+                    return r;
+                }
+                RPY_EXPORTED
+                long test_call_release_gil_readsaved_lasterror(void) {
+                    return (long)&f1;
+                }
+            '''])
+        fn_name = 'test_call_release_gil_readsaved_lasterror'
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_READSAVED_LASTERROR,
+                        rffi.RFFI_READSAVED_LASTERROR | rffi.RFFI_ALT_ERRNO,
+                       ]:
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert llerrno.get_debug_saved_lasterror(self.cpu) == 24
+            #
+            assert result == 24 + 345678900
+
+    def test_call_release_gil_err_all(self):
+        from rpython.translator.tool.cbuild import ExternalCompilationInfo
+        from rpython.rlib.libffi import types
+        from rpython.jit.backend.llsupport import llerrno
+        #
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("not on LLGraph")
+        if sys.platform != 'win32':
+            eci = ExternalCompilationInfo(
+                separate_module_sources=[r'''
+                    #include <errno.h>
+                    static long f1(long a, long b, long c, long d,
+                                   long e, long f, long g) {
+                        long r = errno;
+                        errno = 42;
+                        r += 100 * (a + 10*b + 100*c + 1000*d +
+                                    10000*e + 100000*f + 1000000*g);
+                        return r;
+                    }
+                    RPY_EXPORTED
+                    long test_call_release_gil_err_all(void) {
+                        return (long)&f1;
+                    }
+                '''])
+        else:
+            eci = ExternalCompilationInfo(
+                separate_module_sources=[r'''
+                    #include <windows.h>
+                    #include <errno.h>
+                    static long f1(long a, long b, long c, long d,
+                                   long e, long f, long g) {
+                        long r = errno + 10 * GetLastError();
+                        errno = 42;
+                        SetLastError(43);
+                        r += 100 * (a + 10*b + 100*c + 1000*d +
+                                    10000*e + 100000*f + 1000000*g);
+                        return r;
+                    }
+                    RPY_EXPORTED
+                    long test_call_release_gil_err_all(void) {
+                        return (long)&f1;
+                    }
+                '''])
+        fn_name = 'test_call_release_gil_err_all'
+        getter_ptr = rffi.llexternal(fn_name, [], lltype.Signed,
+                                     compilation_info=eci, _nowrapper=True)
+        func1_adr = getter_ptr()
+        calldescr = self.cpu._calldescr_dynamic_for_tests([types.slong]*7,
+                                                          types.slong)
+        #
+        for saveerr in [rffi.RFFI_ERR_ALL,
+                        rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO, 
+                       ]:
+            use_alt_errno = saveerr & rffi.RFFI_ALT_ERRNO
+            faildescr = BasicFailDescr(1)
+            inputargs = [BoxInt() for i in range(7)]
+            i1 = BoxInt()
+            ops = [
+                ResOperation(rop.CALL_RELEASE_GIL,
+                             [ConstInt(saveerr), ConstInt(func1_adr)]
+                                 + inputargs, i1,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+            ]
+            ops[-2].setfailargs([])
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, ops, looptoken)
+            #
+            if use_alt_errno:
+                llerrno.set_debug_saved_alterrno(self.cpu, 8)
+            else:
+                llerrno.set_debug_saved_errno(self.cpu, 8)
+            llerrno.set_debug_saved_lasterror(self.cpu, 9)
+            deadframe = self.cpu.execute_token(looptoken, 1, 2, 3, 4, 5, 6, 7)
+            result = self.cpu.get_int_value(deadframe, 0)
+            assert llerrno.get_debug_saved_errno(self.cpu) == 42
+            if sys.platform != 'win32':
+                assert result == 765432108
+            else:
+                assert llerrno.get_debug_saved_lasterror(self.cpu) == 43
+                assert result == 765432198
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu
@@ -3242,8 +3580,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not called
 
     def test_assembler_call_propagate_exc(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't fake exceptions well enough, give up")
 
@@ -3604,12 +3940,11 @@ class LLtypeBackendTest(BaseBackendTest):
             # value in eax or rax.
             eci = ExternalCompilationInfo(
                 separate_module_sources=["""
-                long fn_test_result_of_call(long x)
+                RPY_EXPORTED long fn_test_result_of_call(long x)
                 {
                     return x + 1;
                 }
-                """],
-                export_symbols=['fn_test_result_of_call'])
+                """])
             f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
                                 RESTYPE, compilation_info=eci, _nowrapper=True)
             value = intmask(0xFFEEDDCCBBAA9988)
@@ -3638,12 +3973,11 @@ class LLtypeBackendTest(BaseBackendTest):
             # value in eax or rax.
             eci = ExternalCompilationInfo(
                 separate_module_sources=["""
-                long fn_test_result_of_call(long x)
+                RPY_EXPORTED long fn_test_result_of_call(long x)
                 {
                     return x + 1;
                 }
-                """],
-                export_symbols=['fn_test_result_of_call'])
+                """])
             f = rffi.llexternal('fn_test_result_of_call', [lltype.Signed],
                                 RESTYPE, compilation_info=eci, _nowrapper=True)
             value = intmask(0xFFEEDDCCBBAA9988)
@@ -3672,12 +4006,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            long long fn_test_result_of_call(long long x)
+            RPY_EXPORTED long long fn_test_result_of_call(long long x)
             {
                 return x - 100000000000000;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
                             lltype.SignedLongLong,
                             compilation_info=eci, _nowrapper=True)
@@ -3700,12 +4033,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_longlong
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            long long fn_test_result_of_call(long long x)
+            RPY_EXPORTED long long fn_test_result_of_call(long long x)
             {
                 return x - 100000000000000;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SignedLongLong],
                             lltype.SignedLongLong,
                             compilation_info=eci, _nowrapper=True)
@@ -3729,12 +4061,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            float fn_test_result_of_call(float x)
+            RPY_EXPORTED float fn_test_result_of_call(float x)
             {
                 return x / 2.0f;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
                             lltype.SingleFloat,
                             compilation_info=eci, _nowrapper=True)
@@ -3759,12 +4090,11 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         eci = ExternalCompilationInfo(
             separate_module_sources=["""
-            float fn_test_result_of_call(float x)
+            RPY_EXPORTED float fn_test_result_of_call(float x)
             {
                 return x / 2.0f;
             }
-            """],
-            export_symbols=['fn_test_result_of_call'])
+            """])
         f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
                             lltype.SingleFloat,
                             compilation_info=eci, _nowrapper=True)
@@ -3784,7 +4114,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res.value == iexpected
 
     def test_free_loop_and_bridges(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("not a subclass of llmodel.AbstractLLCPU")
         if hasattr(self.cpu, 'setup_once'):
@@ -3899,8 +4228,31 @@ class LLtypeBackendTest(BaseBackendTest):
             deadframe = self.cpu.execute_token(looptoken, inp)
             assert outp == self.cpu.get_int_value(deadframe, 0)
 
+    def test_int_signext(self):
+        numbytes_cases = [1, 2] if IS_32_BIT else [1, 2, 4]
+        for spill in ["", "force_spill(i1)"]:
+          for numbytes in numbytes_cases:
+            print (spill, numbytes)
+            ops = """
+            [i0]
+            i1 = int_sub(i0, 0)     # force in register
+            %s
+            i2 = int_signext(i1, %d)
+            finish(i2, descr=descr)
+            """ % (spill, numbytes)
+            descr = BasicFinalDescr()
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            test_cases = [random.randrange(-sys.maxint-1, sys.maxint+1)
+                          for _ in range(100)]
+            for test_case in test_cases:
+                deadframe = self.cpu.execute_token(looptoken, test_case)
+                got = self.cpu.get_int_value(deadframe, 0)
+                expected = heaptracker.int_signext(test_case, numbytes)
+                assert got == expected
+
     def test_compile_asmlen(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
         from rpython.jit.backend.tool.viewcode import machine_code_dump, ObjdumpNotFound
@@ -3933,7 +4285,9 @@ class LLtypeBackendTest(BaseBackendTest):
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 
-        def checkops(mc, ops):
+        def checkops(mc, ops, alt_ops=None):
+            if len(mc) != len(ops) and alt_ops is not None:
+                ops = alt_ops
             assert len(mc) == len(ops)
             for i in range(len(mc)):
                 if ops[i] == '*':
@@ -3948,7 +4302,8 @@ class LLtypeBackendTest(BaseBackendTest):
             data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
             mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
             lines = [line for line in mc if line.count('\t') >= 2]
-            checkops(lines, self.bridge_loop_instructions)
+            checkops(lines, self.bridge_loop_instructions,
+                            self.bridge_loop_instructions_alternative)
         except ObjdumpNotFound:
             py.test.skip("requires (g)objdump")
 
@@ -4342,7 +4697,6 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         frame = self.cpu.execute_token(looptoken, 0, 0, 3)
         assert self.cpu.get_latest_descr(frame) is guarddescr
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
@@ -4449,8 +4803,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res.getint() == struct.unpack("I", struct.pack("f", 12.5))[0]
 
     def test_zero_ptr_field(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-        
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
@@ -4474,11 +4826,9 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not s.x
 
     def test_zero_ptr_field_2(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_ptr_field")
-        
+
         from rpython.jit.backend.llsupport import symbolic
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('p', llmemory.GCREF),
@@ -4499,11 +4849,9 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.y == -4398176
 
     def test_zero_array(self):
-        from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
-
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_array")
-        
+
         PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
         for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
             A = lltype.GcArray(OF)

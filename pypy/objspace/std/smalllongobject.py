@@ -13,7 +13,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.objspace.std.intobject import W_AbstractIntObject
 from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
-from pypy.objspace.std.model import COMMUTATIVE_OPS
+from pypy.objspace.std.util import COMMUTATIVE_OPS
 
 # XXX: breaks translation
 #LONGLONG_MIN = r_longlong(-1 << (LONGLONG_BIT - 1))
@@ -377,14 +377,6 @@ def _llong_mul_ovf(a, b):
     if 32.0 * absdiff <= absprod:
         return longprod
     raise OverflowError("integer multiplication")
-
-
-def delegate_SmallLong2Float(space, w_small):
-    return space.newfloat(float(w_small.longlong))
-
-
-def delegate_SmallLong2Complex(space, w_small):
-    return space.newcomplex(float(w_small.longlong), 0.0)
 
 
 def _int2small(space, w_int):

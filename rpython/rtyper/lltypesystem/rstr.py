@@ -1151,7 +1151,7 @@ class LLHelpers(AbstractLLHelpers):
 
         argsiter = iter(sourcevarsrepr)
 
-        from rpython.rtyper.lltypesystem.rclass import InstanceRepr
+        from rpython.rtyper.rclass import InstanceRepr
         for i, thing in enumerate(things):
             if isinstance(thing, tuple):
                 code = thing[0]

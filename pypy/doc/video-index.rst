@@ -1,14 +1,13 @@
-=========================
-PyPy video documentation 
-=========================
+PyPy video documentation
+========================
 
-Copyrights and Licensing 
-----------------------------
+Copyrights and Licensing
+------------------------
 
 The following videos are copyrighted by merlinux gmbh and available on
 YouTube.
 
-If you need another license, don't hesitate to contact us. 
+If you need another license, don't hesitate to contact us.
 
 
 Trailer: PyPy at the PyCon 2006
@@ -212,4 +211,3 @@ translation toolchain and the just-in-time compiler.
    <iframe width="420" height="315"
    src="http://www.youtube.com/embed/6dnUzVQaSlg?rel=0"
    frameborder="0" allowfullscreen></iframe>
-

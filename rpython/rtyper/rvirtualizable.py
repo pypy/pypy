@@ -1,7 +1,6 @@
 from rpython.rtyper.rmodel import inputconst, log
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.rclass import FieldListAccessor
-from rpython.rtyper.lltypesystem.rclass import InstanceRepr
+from rpython.rtyper.rclass import (FieldListAccessor, InstanceRepr)
 
 
 class VirtualizableInstanceRepr(InstanceRepr):

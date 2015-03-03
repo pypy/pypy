@@ -89,6 +89,16 @@ class RawMemTests(object):
                                        'finish': 1})
         self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
 
+    def test_scoped_alloc_buffer(self):
+        def f():
+            with rffi.scoped_alloc_buffer(42) as p:
+                p.raw[0] = 'X'
+                s = p.str(1)
+            return ord(s[0])
+
+        res = self.interp_operations(f, [])
+        assert res == ord('X')
+
 
 class TestRawMem(RawMemTests, LLJitMixin):
 

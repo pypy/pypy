@@ -11,7 +11,8 @@ from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
@@ -934,7 +935,7 @@ class LLFrame(object):
         del self.force_guard_op
         return res
 
-    def execute_call_release_gil(self, descr, func, *args):
+    def execute_call_release_gil(self, descr, saveerr, func, *args):
         if hasattr(descr, '_original_func_'):
             func = descr._original_func_     # see pyjitpl.py
             # we want to call the function that does the aroundstate

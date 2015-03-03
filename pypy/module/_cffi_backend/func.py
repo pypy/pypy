@@ -48,13 +48,28 @@ def alignof(space, w_ctype):
     align = w_ctype.alignof()
     return space.wrap(align)
 
-@unwrap_spec(w_ctype=ctypeobj.W_CType, fieldname="str_or_None")
-def typeoffsetof(space, w_ctype, fieldname):
-    ctype, offset = w_ctype.typeoffsetof(fieldname)
+@unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
+def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
+    try:
+        fieldname = space.str_w(w_field_or_index)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        try:
+            index = space.int_w(w_field_or_index)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise OperationError(space.w_TypeError,
+                    space.wrap("field name or array index expected"))
+        ctype, offset = w_ctype.typeoffsetof_index(index)
+    else:
+        ctype, offset = w_ctype.typeoffsetof_field(fieldname, following)
+    #
     return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
-def rawaddressof(space, w_ctype, w_cdata, offset=0):
+def rawaddressof(space, w_ctype, w_cdata, offset):
     return w_ctype.rawaddressof(w_cdata, offset)
 
 # ____________________________________________________________
@@ -76,3 +91,32 @@ def string(space, w_cdata, maxlen=-1):
 def _get_types(space):
     return space.newtuple([space.gettypefor(cdataobj.W_CData),
                            space.gettypefor(ctypeobj.W_CType)])
+
+# ____________________________________________________________
+
+@unwrap_spec(w_ctype=ctypeobj.W_CType)
+def from_buffer(space, w_ctype, w_x):
+    from pypy.module._cffi_backend import ctypearray, ctypeprim
+    #
+    if (not isinstance(w_ctype, ctypearray.W_CTypeArray) or
+        not isinstance(w_ctype.ctptr.ctitem, ctypeprim.W_CTypePrimitiveChar)):
+        raise oefmt(space.w_TypeError,
+                    "needs 'char[]', got '%s'", w_ctype.name)
+    #
+    # xxx do we really need to implement the same mess as in CPython 2.7
+    # w.r.t. buffers and memoryviews??
+    try:
+        buf = space.readbuf_w(w_x)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        buf = space.buffer_w(w_x, space.BUF_SIMPLE)
+    try:
+        _cdata = buf.get_raw_address()
+    except ValueError:
+        raise oefmt(space.w_TypeError,
+                    "from_buffer() got a '%T' object, which supports the "
+                    "buffer interface but cannot be rendered as a plain "
+                    "raw address on PyPy", w_x)
+    #
+    return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)

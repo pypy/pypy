@@ -41,11 +41,6 @@ eci = ExternalCompilationInfo(
     includes = includes,
     separate_module_files = [cdir / 'src' / 'signals.c'],
     include_dirs = [str(cdir)],
-    export_symbols = ['pypysig_poll', 'pypysig_default',
-                      'pypysig_ignore', 'pypysig_setflag',
-                      'pypysig_reinstall',
-                      'pypysig_set_wakeup_fd',
-                      'pypysig_getaddr_occurred'],
 )
 
 class CConfig:
@@ -94,10 +89,12 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     elidable_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
-c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
+c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 if sys.platform != 'win32':
     itimervalP = rffi.CArrayPtr(itimerval)
     c_setitimer = external('setitimer',
-                           [rffi.INT, itimervalP, itimervalP], rffi.INT)
+                           [rffi.INT, itimervalP, itimervalP], rffi.INT,
+                           save_err=rffi.RFFI_SAVE_ERRNO)
     c_getitimer = external('getitimer', [rffi.INT, itimervalP], rffi.INT)

@@ -17,7 +17,7 @@ import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
-from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
+from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
@@ -27,6 +27,8 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper.normalizecalls import perform_normalizations
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 
@@ -42,7 +44,8 @@ class RPythonTyper(object):
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
         self._dict_traits = {}
-        self.class_reprs = {}
+        self.rootclass_repr = RootClassRepr(self)
+        self.rootclass_repr.setup()
         self.instance_reprs = {}
         self.type_for_typeptr = {}
         self.pbc_reprs = {}
@@ -50,14 +53,15 @@ class RPythonTyper(object):
         self.wrapper_context = None # or add an extra arg to convertvar?
         self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
-        self.class_pbc_attributes = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
         self.typererrors = []
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
+        self.isinstance_helpers = {}
         self.exceptiondata = ExceptionData(self)
+        self.custom_trace_funcs = []
 
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
@@ -171,7 +175,7 @@ class RPythonTyper(object):
 
         # first make sure that all functions called in a group have exactly
         # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self)
+        perform_normalizations(self.annotator)
         self.exceptiondata.finish(self)
 
         # new blocks can be created as a result of specialize_block(), so
@@ -349,7 +353,7 @@ class RPythonTyper(object):
         if (pos is not None and pos != len(newops) - 1):
             # this is for the case where the llop that raises the exceptions
             # is not the last one in the list.
-            assert block.exitswitch == c_last_exception
+            assert block.canraise
             noexclink = block.exits[0]
             assert noexclink.exitcase is None
             if pos == "removed":
@@ -367,9 +371,7 @@ class RPythonTyper(object):
                 assert 0 <= pos < len(newops) - 1
                 extraops = block.operations[pos+1:]
                 del block.operations[pos+1:]
-                extrablock = insert_empty_block(self.annotator,
-                                                noexclink,
-                                                newops = extraops)
+                extrablock = insert_empty_block(noexclink, newops=extraops)
 
         if extrablock is None:
             self.insert_link_conversions(block)
@@ -386,7 +388,7 @@ class RPythonTyper(object):
             if isinstance(block.exitswitch, Variable):
                 r_case = self.bindingrepr(block.exitswitch)
             else:
-                assert block.exitswitch == c_last_exception
+                assert block.canraise
                 r_case = rclass.get_type_repr(self)
             link.llexitcase = r_case.convert_const(link.exitcase)
         else:
@@ -443,10 +445,9 @@ class RPythonTyper(object):
                     # cannot insert conversion operations around a single
                     # link, unless it is the only exit of this block.
                     # create a new block along the link...
-                    newblock = insert_empty_block(self.annotator,
-                                                  link,
+                    newblock = insert_empty_block(link,
                     # ...and store the conversions there.
-                                               newops=newops)
+                                                  newops=newops)
                     link = newblock.exits[0]
             for i, new_a1 in newlinkargs.items():
                 link.args[i] = new_a1
@@ -457,7 +458,7 @@ class RPythonTyper(object):
             for op in block.operations[:-1]:
                 yield HighLevelOp(self, op, [], llops)
             # look for exception links for the last operation
-            if block.exitswitch == c_last_exception:
+            if block.canraise:
                 exclinks = block.exits[1:]
             else:
                 exclinks = []
@@ -581,7 +582,6 @@ class RPythonTyper(object):
         return rtype_newtuple(hop)
 
     def translate_op_instantiate1(self, hop):
-        from rpython.rtyper.lltypesystem import rclass
         if not isinstance(hop.s_result, annmodel.SomeInstance):
             raise TyperError("instantiate1 got s_result=%r" % (hop.s_result,))
         classdef = hop.s_result.classdef
@@ -644,7 +644,7 @@ class RPythonTyper(object):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
@@ -944,7 +944,7 @@ class LowLevelOpList(list):
 from rpython.rtyper import rint, rbool, rfloat, rnone
 from rpython.rtyper import rrange
 from rpython.rtyper import rstr, rdict, rlist, rbytearray
-from rpython.rtyper import rclass, rbuiltin, rpbc
+from rpython.rtyper import rbuiltin, rpbc
 from rpython.rtyper import rptr
 from rpython.rtyper import rweakref
 from rpython.rtyper import raddress # memory addresses

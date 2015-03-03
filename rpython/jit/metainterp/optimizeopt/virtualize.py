@@ -11,12 +11,12 @@ from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
-
-class AbstractVirtualValue(optimizer.OptValue):
+class AbstractVirtualValue(optimizer.PtrOptValue):
     _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
-    level = optimizer.LEVEL_NONNULL
+    _tag = optimizer.LEVEL_NONNULL
     is_about_raw = False
     _cached_vinfo = None
 
@@ -198,7 +198,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualValue(AbstractVirtualStructValue):
-    level = optimizer.LEVEL_KNOWNCLASS
+    _tag = optimizer.LEVEL_KNOWNCLASS
 
     def __init__(self, cpu, known_class, keybox, source_op=None):
         AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)
@@ -433,6 +433,9 @@ class VRawBufferValue(AbstractVArrayValue):
         self.size = size
         self.buffer = RawBuffer(cpu, logops)
 
+    def getintbound(self):
+        return IntUnbounded()
+
     def getlength(self):
         return len(self.buffer.values)
 
@@ -443,9 +446,17 @@ class VRawBufferValue(AbstractVArrayValue):
         self.buffer.values[i] = newval
 
     def getitem_raw(self, offset, length, descr):
+        if not self.is_virtual():
+            raise InvalidRawOperation
+            # see 'test_virtual_raw_buffer_forced_but_slice_not_forced'
+            # for the test above: it's not enough to check is_virtual()
+            # on the original object, because it might be a VRawSliceValue
+            # instead.  If it is a virtual one, then we'll reach here anway.
         return self.buffer.read_value(offset, length, descr)
 
     def setitem_raw(self, offset, length, descr, value):
+        if not self.is_virtual():
+            raise InvalidRawOperation
         self.buffer.write_value(offset, length, descr, value)
 
     def _really_force(self, optforce):
@@ -483,6 +494,9 @@ class VRawSliceValue(AbstractVirtualValue):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.rawbuffer_value = rawbuffer_value
         self.offset = offset
+
+    def getintbound(self):
+        return IntUnbounded()
 
     def _really_force(self, optforce):
         op = self.source_op
@@ -806,12 +820,10 @@ class OptVirtualize(optimizer.Optimization):
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
+                    pass
                 else:
                     self.make_equal_to(op.result, itemvalue)
-                return
+                    return
         value.ensure_nonnull()
         self.emit_operation(op)
 
@@ -824,11 +836,9 @@ class OptVirtualize(optimizer.Optimization):
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
                     value.setitem_raw(offset, itemsize, descr, itemvalue)
+                    return
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
-                return
+                    pass
         value.ensure_nonnull()
         self.emit_operation(op)
 
@@ -848,12 +858,10 @@ class OptVirtualize(optimizer.Optimization):
                 try:
                     itemvalue = value.getitem_raw(offset, itemsize, descr)
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
+                    pass
                 else:
                     self.make_equal_to(op.result, itemvalue)
-                return
+                    return
         value.ensure_nonnull()
         self.emit_operation(op)
 
@@ -866,11 +874,9 @@ class OptVirtualize(optimizer.Optimization):
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
                     value.setitem_raw(offset, itemsize, descr, itemvalue)
+                    return
                 except InvalidRawOperation:
-                    box = value.force_box(self)
-                    op.setarg(0, box)
-                    self.emit_operation(op)
-                return
+                    pass
         value.ensure_nonnull()
         self.emit_operation(op)
 

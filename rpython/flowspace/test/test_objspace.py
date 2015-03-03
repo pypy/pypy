@@ -4,7 +4,7 @@ import py
 from contextlib import contextmanager
 
 from rpython.flowspace.model import (
-    Constant, mkentrymap, c_last_exception, const)
+    Constant, mkentrymap, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
@@ -635,6 +635,7 @@ class TestFlowObjSpace(Base):
 
     def test_highly_branching_example(self):
         x = self.codetest(self.highly_branching_example)
+        simplify_graph(x)
         # roughly 20 blocks + 30 links
         assert len(list(x.iterblocks())) + len(list(x.iterlinks())) < 60
 
@@ -825,7 +826,7 @@ class TestFlowObjSpace(Base):
                 return None
         graph = self.codetest(myfunc)
         simplify_graph(graph)
-        assert graph.startblock.exitswitch == c_last_exception
+        assert graph.startblock.canraise
         assert graph.startblock.exits[0].target is graph.returnblock
         assert graph.startblock.exits[1].target is graph.returnblock
 
@@ -1289,6 +1290,27 @@ class TestFlowObjSpace(Base):
         assert link.target is graph.returnblock
         assert isinstance(link.args[0], Constant)
         assert link.args[0].value == 5
+
+    def test_remove_dead_ops(self):
+        def f():
+            a = [1]
+            b = (a, a)
+            c = type(b)
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert graph.startblock.operations == []
+        [link] = graph.startblock.exits
+        assert link.target is graph.returnblock
+
+    def test_not_combine(self):
+        def f(n):
+            t = not n
+            if not n:
+                t += 1
+            return t
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'bool': 1, 'inplace_add': 1}
 
 
 DATA = {'x': 5,

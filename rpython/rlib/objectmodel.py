@@ -201,6 +201,11 @@ def enforceargs(*types_, **kwds):
         return result
     return decorator
 
+def always_inline(func):
+    """ mark the function as to-be-inlined by the RPython optimizations (not
+    the JIT!), no matter its size."""
+    func._always_inline_ = True
+    return func
 
 
 # ____________________________________________________________
@@ -631,6 +636,30 @@ class UnboxedValue(object):
 
 # ____________________________________________________________
 
+def likely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+def unlikely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+class Entry(ExtRegistryEntry):
+    _about_ = (likely, unlikely)
+
+    def compute_result_annotation(self, s_x):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Bool)
+        hop.exception_cannot_occur()
+        return hop.genop(self.instance.__name__, vlist,
+                         resulttype=lltype.Bool)
+
+# ____________________________________________________________
+
 
 class r_dict(object):
     """An RPython dict-like object.
@@ -747,6 +776,17 @@ def prepare_dict_update(dict, n_elements):
     if we_are_translated():
         dict._prepare_dict_update(n_elements)
         # ^^ call an extra method that doesn't exist before translation
+
+@specialize.call_location()
+def reversed_dict(d):
+    """Equivalent to reversed(ordered_dict), but works also for
+    regular dicts."""
+    # note that there is also __pypy__.reversed_dict(), which we could
+    # try to use here if we're not translated and running on top of pypy,
+    # but that seems a bit pointless
+    if not we_are_translated():
+        d = d.keys()
+    return reversed(d)
 
 
 # ____________________________________________________________

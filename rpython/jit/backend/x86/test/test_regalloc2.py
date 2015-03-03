@@ -5,7 +5,8 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.x86.arch import WORD
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, rffi, rclass, llmemory, rstr
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -319,7 +320,7 @@ def getexception(cpu, count):
         raise LLException(vtableptr, xptr)
 
     fptr, funcdescr = getllhelper(cpu, f, [lltype.Signed] * count, lltype.Void)
-    
+
     return heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtableptr)), fptr, funcdescr
 
 def getnoexception(cpu, count):

@@ -29,6 +29,9 @@ def resolve_common_type(commontype):
                 result = model.PointerType(resolve_common_type(result[:-2]))
         elif result in model.PrimitiveType.ALL_PRIMITIVE_TYPES:
             result = model.PrimitiveType(result)
+        elif result == 'set-unicode-needed':
+            raise api.FFIError("The Windows type %r is only available after "
+                               "you call ffi.set_unicode()" % (commontype,))
         else:
             if commontype == result:
                 raise api.FFIError("Unsupported type: %r.  Please file a bug "
@@ -86,8 +89,6 @@ def win_common_types(maxsize):
         "ULONGLONG": "unsigned long long",
         "WCHAR": "wchar_t",
         "SHORT": "short",
-        "TBYTE": "WCHAR",
-        "TCHAR": "WCHAR",
         "UCHAR": "unsigned char",
         "UINT": "unsigned int",
         "UINT8": "unsigned char",
@@ -157,14 +158,12 @@ def win_common_types(maxsize):
 
         "LPCVOID": model.const_voidp_type,
         "LPCWSTR": "const WCHAR *",
-        "LPCTSTR": "LPCWSTR",
         "LPDWORD": "DWORD *",
         "LPHANDLE": "HANDLE *",
         "LPINT": "int *",
         "LPLONG": "long *",
         "LPSTR": "CHAR *",
         "LPWSTR": "WCHAR *",
-        "LPTSTR": "LPWSTR",
         "LPVOID": model.voidp_type,
         "LPWORD": "WORD *",
         "LRESULT": "LONG_PTR",
@@ -173,7 +172,6 @@ def win_common_types(maxsize):
         "PBYTE": "BYTE *",
         "PCHAR": "CHAR *",
         "PCSTR": "const CHAR *",
-        "PCTSTR": "LPCWSTR",
         "PCWSTR": "const WCHAR *",
         "PDWORD": "DWORD *",
         "PDWORDLONG": "DWORDLONG *",
@@ -200,9 +198,6 @@ def win_common_types(maxsize):
         "PSIZE_T": "SIZE_T *",
         "PSSIZE_T": "SSIZE_T *",
         "PSTR": "CHAR *",
-        "PTBYTE": "TBYTE *",
-        "PTCHAR": "TCHAR *",
-        "PTSTR": "LPWSTR",
         "PUCHAR": "UCHAR *",
         "PUHALF_PTR": "UHALF_PTR *",
         "PUINT": "UINT *",
@@ -240,6 +235,15 @@ def win_common_types(maxsize):
         "USN": "LONGLONG",
         "VOID": model.void_type,
         "WPARAM": "UINT_PTR",
+
+        "TBYTE": "set-unicode-needed",
+        "TCHAR": "set-unicode-needed",
+        "LPCTSTR": "set-unicode-needed",
+        "PCTSTR": "set-unicode-needed",
+        "LPTSTR": "set-unicode-needed",
+        "PTSTR": "set-unicode-needed",
+        "PTBYTE": "set-unicode-needed",
+        "PTCHAR": "set-unicode-needed",
         })
     return result
 

@@ -7,7 +7,7 @@ from pypy.module.math.test import test_direct
 
 class AppTestMath:
     spaceconfig = {
-        "usemodules": ['math', 'struct', 'itertools', 'rctime', 'binascii'],
+        "usemodules": ['math', 'struct', 'itertools', 'time', 'binascii'],
     }
 
     def setup_class(cls):

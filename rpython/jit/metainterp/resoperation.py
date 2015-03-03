@@ -23,6 +23,8 @@ class AbstractResOp(object):
     pc = 0
     opnum = 0
     _cls_has_bool_result = False
+    boolreflex = -1
+    boolinverse = -1
 
     _attrs_ = ('result',)
 
@@ -89,8 +91,6 @@ class AbstractResOp(object):
     def clone(self):
         args = self.getarglist()
         descr = self.getdescr()
-        if descr is not None:
-            descr = descr.clone_if_mutable()
         op = ResOperation(self.getopnum(), args[:], self.result, descr)
         if not we_are_translated():
             op.name = self.name
@@ -215,6 +215,9 @@ class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
 
+    rd_snapshot = None
+    rd_frame_info_list = None
+
     def getfailargs(self):
         return self._fail_args
 
@@ -223,12 +226,18 @@ class GuardResOp(ResOpWithDescr):
 
     def copy_and_change(self, opnum, args=None, result=None, descr=None):
         newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
     def clone(self):
         newop = AbstractResOp.clone(self)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
 # ============
@@ -417,6 +426,7 @@ _oplist = [
     'INT_RSHIFT/2',
     'INT_LSHIFT/2',
     'UINT_RSHIFT/2',
+    'INT_SIGNEXT/2',
     'FLOAT_ADD/2',
     'FLOAT_SUB/2',
     'FLOAT_MUL/2',
@@ -623,7 +633,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
 setup(__name__ == '__main__')   # print out the table when run directly
 del _oplist
 
-opboolinvers = {
+_opboolinverse = {
     rop.INT_EQ: rop.INT_NE,
     rop.INT_NE: rop.INT_EQ,
     rop.INT_LT: rop.INT_GE,
@@ -647,7 +657,7 @@ opboolinvers = {
     rop.PTR_NE: rop.PTR_EQ,
 }
 
-opboolreflex = {
+_opboolreflex = {
     rop.INT_EQ: rop.INT_EQ,
     rop.INT_NE: rop.INT_NE,
     rop.INT_LT: rop.INT_GT,
@@ -671,6 +681,19 @@ opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
 }
 
+def setup2():
+    for cls in opclasses:
+        if cls is None:
+            continue
+        opnum = cls.opnum
+        if opnum in _opboolreflex:
+            cls.boolreflex = _opboolreflex[opnum]
+        if opnum in _opboolinverse:
+            cls.boolinverse = _opboolinverse[opnum]
+
+setup2()
+del _opboolinverse
+del _opboolreflex
 
 def get_deep_immutable_oplist(operations):
     """

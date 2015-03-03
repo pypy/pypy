@@ -808,6 +808,20 @@ def test_typedef():
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
 
+def test_cannot_inline_random_stuff_in_gcstruct():
+    S = GcStruct('S')
+    GcStruct('X', ('a', S))    # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', Signed), ('b', S))
+    GcStruct('X', ('a', Array(Signed)))   # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', Array(Signed)),
+                                             ('b', Signed))
+    Struct('X', ('a', Array(Signed, hints={'nolength': True})))   # works
+    py.test.raises(TypeError, GcStruct, 'X',
+                   ('a', Array(Signed, hints={'nolength': True})))
+    GcStruct('X', ('a', OpaqueType('foo')))   # works
+    py.test.raises(TypeError, GcStruct, 'X', ('a', GcOpaqueType('foo')))
+
+
 class TestTrackAllocation:
     def test_automatic_tracking(self):
         # calls to start_tracking_allocations/stop_tracking_allocations
@@ -827,10 +841,10 @@ class TestTrackAllocation:
     def test_str_from_buffer(self):
         """gc-managed memory does not need to be freed"""
         size = 50
-        raw_buf, gc_buf = rffi.alloc_buffer(size)
+        raw_buf, gc_buf, case_num = rffi.alloc_buffer(size)
         for i in range(size): raw_buf[i] = 'a'
-        rstr = rffi.str_from_buffer(raw_buf, gc_buf, size, size)
-        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
+        rstr = rffi.str_from_buffer(raw_buf, gc_buf, case_num, size, size)
+        rffi.keep_buffer_alive_until_here(raw_buf, gc_buf, case_num)
         assert not leakfinder.ALLOCATED
 
     def test_leak_traceback(self):

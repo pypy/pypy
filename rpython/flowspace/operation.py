@@ -96,10 +96,10 @@ class HLOperation(SpaceOperation):
     def constfold(self):
         return None
 
-    def consider(self, annotator, *args):
-        args_s = [annotator.annotation(arg) for arg in args]
+    def consider(self, annotator):
+        args_s = [annotator.annotation(arg) for arg in self.args]
         spec = type(self).get_specialization(*args_s)
-        return spec(annotator, *args)
+        return spec(annotator, *self.args)
 
     def get_can_only_throw(self, annotator):
         return None
@@ -447,7 +447,7 @@ class NewDict(HLOperation):
     opname = 'newdict'
     canraise = []
 
-    def consider(self, annotator, *args):
+    def consider(self, annotator):
         return annotator.bookkeeper.newdict()
 
 
@@ -456,16 +456,17 @@ class NewTuple(PureOperation):
     pyfunc = staticmethod(lambda *args: args)
     canraise = []
 
-    def consider(self, annotator, *args):
-        return SomeTuple(items=[annotator.annotation(arg) for arg in args])
+    def consider(self, annotator):
+        return SomeTuple(items=[annotator.annotation(arg) for arg in self.args])
 
 
 class NewList(HLOperation):
     opname = 'newlist'
     canraise = []
 
-    def consider(self, annotator, *args):
-        return annotator.bookkeeper.newlist(*[annotator.annotation(arg) for arg in args])
+    def consider(self, annotator):
+        return annotator.bookkeeper.newlist(
+                *[annotator.annotation(arg) for arg in self.args])
 
 
 class Pow(PureOperation):
@@ -516,7 +517,7 @@ class Next(SingleDispatchMixin, HLOperation):
                     ctx.replace_in_stack(it, next_unroller)
                     return const(v)
         w_item = ctx.do_op(self)
-        ctx.guessexception([StopIteration, RuntimeError], force=True)
+        ctx.recorder.guessexception(ctx, StopIteration, RuntimeError)
         return w_item
 
 class GetAttr(SingleDispatchMixin, HLOperation):
@@ -527,6 +528,10 @@ class GetAttr(SingleDispatchMixin, HLOperation):
     pyfunc = staticmethod(getattr)
 
     def constfold(self):
+        from rpython.flowspace.flowcontext import FlowingError
+        if len(self.args) == 3:
+            raise FlowingError(
+                "getattr() with three arguments not supported: %s" % (self,))
         w_obj, w_name = self.args
         # handling special things like sys
         if (w_obj in NOT_REALLY_CONST and
@@ -537,7 +542,6 @@ class GetAttr(SingleDispatchMixin, HLOperation):
             try:
                 result = getattr(obj, name)
             except Exception as e:
-                from rpython.flowspace.flowcontext import FlowingError
                 etype = e.__class__
                 msg = "getattr(%s, %s) always raises %s: %s" % (
                     obj, name, etype, e)

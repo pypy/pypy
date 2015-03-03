@@ -19,7 +19,7 @@ from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
-from rpython.rlib.objectmodel import r_dict, Symbolic
+from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
 
@@ -29,7 +29,7 @@ BUILTIN_ANALYZERS = {}
 def analyzer_for(func):
     def wrapped(ann_func):
         BUILTIN_ANALYZERS[func] = ann_func
-        return func
+        return ann_func
     return wrapped
 
 class Bookkeeper(object):
@@ -65,6 +65,7 @@ class Bookkeeper(object):
         self.external_class_cache = {}      # cache of ExternalType classes
 
         self.needs_generic_instantiate = {}
+        self.thread_local_fields = set()
 
         delayed_imports()
 
@@ -110,8 +111,8 @@ class Bookkeeper(object):
         finally:
             self.leave()
 
+    def check_no_flags_on_instances(self):
         # sanity check: no flags attached to heap stored instances
-
         seen = set()
 
         def check_no_flags(s_value_or_def):
@@ -259,21 +260,23 @@ class Bookkeeper(object):
                     result.listdef.generalize(self.immutablevalue(e))
                 result.const_box = key
                 return result
-        elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
-            if tp is SomeOrderedDict.knowntype:
-                cls = SomeOrderedDict
-            else:
-                cls = SomeDict
+        elif (tp is dict or tp is r_dict or
+              tp is SomeOrderedDict.knowntype or tp is r_ordereddict):
             key = Constant(x)
             try:
                 return self.immutable_cache[key]
             except KeyError:
+                if tp is SomeOrderedDict.knowntype or tp is r_ordereddict:
+                    cls = SomeOrderedDict
+                else:
+                    cls = SomeDict
+                is_r_dict = issubclass(tp, r_dict)
                 result = cls(DictDef(self,
                                         s_ImpossibleValue,
                                         s_ImpossibleValue,
-                                        is_r_dict = tp is r_dict))
+                                        is_r_dict = is_r_dict))
                 self.immutable_cache[key] = result
-                if tp is r_dict:
+                if is_r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
                     s_hashfn = self.immutablevalue(x.key_hash)
                     result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
@@ -558,10 +561,6 @@ class Bookkeeper(object):
         if pos is not None:
             assert self.annotator.binding(op.args[pos]) == s_type
         return op
-
-    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
-        self.annotator.ondegenerated(what, s_value, where=where,
-                                     called_from_graph=called_from_graph)
 
     def whereami(self):
         return self.annotator.whereami(self.position_key)

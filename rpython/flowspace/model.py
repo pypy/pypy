@@ -190,6 +190,15 @@ class Block(object):
             txt = "%s(%s)" % (txt, self.exitswitch)
         return txt
 
+    @property
+    def canraise(self):
+        return self.exitswitch is c_last_exception
+
+    @property
+    def raising_op(self):
+        if self.canraise:
+            return self.operations[-1]
+
     def getvariables(self):
         "Return all variables mentioned in this Block."
         result = self.inputargs[:]
@@ -206,8 +215,6 @@ class Block(object):
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
     def renamevariables(self, mapping):
-        for a in mapping:
-            assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
         for op in self.operations:
             op.args = [mapping.get(a, a) for a in op.args]
@@ -593,11 +600,11 @@ def checkgraph(graph):
                 assert len(block.exits) <= 1
                 if block.exits:
                     assert block.exits[0].exitcase is None
-            elif block.exitswitch == Constant(last_exception):
+            elif block.canraise:
                 assert len(block.operations) >= 1
                 # check if an exception catch is done on a reasonable
                 # operation
-                assert block.operations[-1].opname not in ("keepalive",
+                assert block.raising_op.opname not in ("keepalive",
                                                            "cast_pointer",
                                                            "same_as")
                 assert len(block.exits) >= 2

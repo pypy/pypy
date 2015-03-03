@@ -192,8 +192,6 @@ class BaseAssembler(object):
             positions[i] = rffi.cast(rffi.USHORT, position)
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        # we want the descr to keep alive
-        guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
@@ -225,7 +223,8 @@ class BaseAssembler(object):
                 raise AssertionError(kind)
 
         gcref = cast_instance_to_gcref(value)
-        rgc._make_sure_does_not_move(gcref)
+        if gcref:
+            rgc._make_sure_does_not_move(gcref)
         value = rffi.cast(lltype.Signed, gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #

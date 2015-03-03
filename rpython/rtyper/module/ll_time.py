@@ -47,6 +47,8 @@ class CConfig:
 
 if sys.platform.startswith('freebsd') or sys.platform.startswith('netbsd'):
     libraries = ['compat']
+elif sys.platform == 'linux2':
+    libraries = ['rt']
 else:
     libraries = []
 
@@ -58,7 +60,15 @@ class CConfigForFTime:
     TIMEB = platform.Struct(STRUCT_TIMEB, [('time', rffi.INT),
                                            ('millitm', rffi.INT)])
 
-constant_names = ['RUSAGE_SELF', 'EINTR']
+class CConfigForClockGetTime:
+    _compilation_info_ = ExternalCompilationInfo(
+        includes=['time.h'],
+        libraries=libraries
+    )
+    TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.LONG),
+                                                   ('tv_nsec', rffi.LONG)])
+
+constant_names = ['RUSAGE_SELF', 'EINTR', 'CLOCK_PROCESS_CPUTIME_ID']
 for const in constant_names:
     setattr(CConfig, const, platform.DefinedConstantInteger(const))
 defs_names = ['GETTIMEOFDAY_NO_TZ']
@@ -162,6 +172,21 @@ class RegisterTime(BaseLazyRegistering):
                 diff = a[0] - state.counter_start
                 lltype.free(a, flavor='raw')
                 return float(diff) / state.divisor
+        elif self.CLOCK_PROCESS_CPUTIME_ID is not None:
+            # Linux and other POSIX systems with clock_gettime()
+            self.configure(CConfigForClockGetTime)
+            TIMESPEC = self.TIMESPEC
+            CLOCK_PROCESS_CPUTIME_ID = self.CLOCK_PROCESS_CPUTIME_ID
+            c_clock_gettime = self.llexternal('clock_gettime',
+                [lltype.Signed, lltype.Ptr(TIMESPEC)],
+                rffi.INT, releasegil=False)
+            def time_clock_llimpl():
+                a = lltype.malloc(TIMESPEC, flavor='raw')
+                c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)
+                result = (float(rffi.getintfield(a, 'c_tv_sec')) +
+                          float(rffi.getintfield(a, 'c_tv_nsec')) * 0.000000001)
+                lltype.free(a, flavor='raw')
+                return result
         else:
             RUSAGE = self.RUSAGE
             RUSAGE_SELF = self.RUSAGE_SELF or 0
@@ -193,7 +218,8 @@ class RegisterTime(BaseLazyRegistering):
         else:
             c_select = self.llexternal('select', [rffi.INT, rffi.VOIDP,
                                                   rffi.VOIDP, rffi.VOIDP,
-                                                  self.TIMEVALP], rffi.INT)
+                                                  self.TIMEVALP], rffi.INT,
+                                       save_err=rffi.RFFI_SAVE_ERRNO)
             def time_sleep_llimpl(secs):
                 void = lltype.nullptr(rffi.VOIDP.TO)
                 t = lltype.malloc(self.TIMEVAL, flavor='raw')
@@ -203,9 +229,9 @@ class RegisterTime(BaseLazyRegistering):
                     rffi.setintfield(t, 'c_tv_usec', int(frac*1000000.0))
 
                     if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
-                        errno = rposix.get_errno()
+                        errno = rposix.get_saved_errno()
                         if errno != EINTR:
-                            raise OSError(rposix.get_errno(), "Select failed")
+                            raise OSError(errno, "Select failed")
                 finally:
                     lltype.free(t, flavor='raw')
 

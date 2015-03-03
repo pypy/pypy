@@ -1,18 +1,20 @@
 import py, random
 
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper import rclass
+from rpython.rtyper.rclass import (
+    OBJECT, OBJECT_VTABLE, FieldListAccessor, IR_QUASIIMMUTABLE)
 
 from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Const, TreeLoop, AbstractDescr,
-                                         JitCellToken, TargetToken)
+                                         JitCellToken, TargetToken,
+    BasicFinalDescr)
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.heaptracker import register_known_gctype, adr2int
-from rpython.jit.tool.oparser import parse, pure_parse
+from rpython.jit.tool.oparser import OpParser, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
@@ -222,6 +224,10 @@ class LLtypeMixin(object):
     complexarraydescr = cpu.arraydescrof(complexarray)
     complexrealdescr = cpu.interiorfielddescrof(complexarray, "real")
     compleximagdescr = cpu.interiorfielddescrof(complexarray, "imag")
+    complexarraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+            EffectInfo([], [complexarraydescr], [], [], [complexarraydescr], [],
+                       EffectInfo.EF_CANNOT_RAISE,
+                       oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     rawarraydescr = cpu.arraydescrof(lltype.Array(lltype.Signed,
                                                   hints={'nolength': True}))
@@ -343,41 +349,34 @@ class Storage(compile.ResumeGuardDescr):
     def store_final_boxes(self, op, boxes, metainterp_sd):
         op.setfailargs(boxes)
     def __eq__(self, other):
-        return type(self) is type(other)      # xxx obscure
-    def clone_if_mutable(self):
-        res = Storage(self.metainterp_sd, self.original_greenkey)
-        self.copy_all_attributes_into(res)
-        return res
+        return True # screw this
+        #return type(self) is type(other)      # xxx obscure
 
 def _sortboxes(boxes):
     _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
     return sorted(boxes, key=lambda box: _kind2count[box.type])
 
+final_descr = BasicFinalDescr()
+
 class BaseTest(object):
 
-    def parse(self, s, boxkinds=None, want_fail_descr=True):
-        if want_fail_descr:
-            invent_fail_descr = self.invent_fail_descr
-        else:
-            invent_fail_descr = lambda *args: None
-        return parse(s, self.cpu, self.namespace,
-                     type_system=self.type_system,
-                     boxkinds=boxkinds,
-                     invent_fail_descr=invent_fail_descr)
+    def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
+        self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
+                               boxkinds,
+                               None, False, postprocess)
+        return self.oparse.parse()
+
+    def postprocess(self, op):
+        if op.is_guard():
+            op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
+            op.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
         if res.operations[-1].getopnum() == rop.JUMP:
-            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None, descr=self.invent_fail_descr(None, -1, []))
+            guard = ResOperation(rop.GUARD_FUTURE_CONDITION, [], None)
+            guard.rd_snapshot = resume.Snapshot(None, [])
             res.operations.insert(-1, guard)
-
-    def invent_fail_descr(self, model, opnum, fail_args):
-        if fail_args is None:
-            return None
-        descr = Storage()
-        descr.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-        descr.rd_snapshot = resume.Snapshot(None, _sortboxes(fail_args))
-        return descr
 
     def assert_equal(self, optimized, expected, text_right=None):
         from rpython.jit.metainterp.optimizeopt.util import equaloplists
@@ -389,7 +388,8 @@ class BaseTest(object):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, loop, call_pure_results):
+    def _do_optimize_loop(self, loop, call_pure_results, start_state=None,
+                          export_state=False):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
@@ -404,7 +404,10 @@ class BaseTest(object):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        optimize_trace(metainterp_sd, loop, self.enable_opts)
+        return optimize_trace(metainterp_sd, None, loop,
+                              self.enable_opts,
+                              start_state=start_state,
+                              export_state=export_state)
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
         self.add_guard_future_condition(loop)
@@ -424,7 +427,8 @@ class BaseTest(object):
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, None, descr=token)]
-        self._do_optimize_loop(preamble, call_pure_results)
+        start_state = self._do_optimize_loop(preamble, call_pure_results,
+                                             export_state=True)
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
@@ -438,7 +442,8 @@ class BaseTest(object):
         assert loop.operations[0].getopnum() == rop.LABEL
         loop.inputargs = loop.operations[0].getarglist()
 
-        self._do_optimize_loop(loop, call_pure_results)
+        self._do_optimize_loop(loop, call_pure_results, start_state,
+                               export_state=False)
         extra_same_as = []
         while loop.operations[0].getopnum() != rop.LABEL:
             extra_same_as.append(loop.operations[0])

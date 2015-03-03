@@ -9,9 +9,9 @@ from rpython.jit.metainterp.logger import Logger
 from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
                                       cast_base_ptr_to_instance)
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
-from pypy.module.pypyjit.policy import pypy_hooks
+from pypy.module.pypyjit.hooks import pypy_hooks
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.jit import JitDebugInfo, AsmInfo, Counters

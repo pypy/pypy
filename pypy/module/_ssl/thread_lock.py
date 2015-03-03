@@ -24,12 +24,19 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 separate_module_source = """
 #include <openssl/crypto.h>
+#ifndef _WIN32
+# include <pthread.h>
+#endif
 
 static unsigned int _ssl_locks_count = 0;
 static struct RPyOpaque_ThreadLock *_ssl_locks;
 
 static unsigned long _ssl_thread_id_function(void) {
-    return RPyThreadGetIdent();
+#ifdef _WIN32
+    return (unsigned long)GetCurrentThreadId();
+#else
+    return (unsigned long)pthread_self();
+#endif
 }
 
 static void _ssl_thread_locking_function(int mode, int n, const char *file,
@@ -65,8 +72,7 @@ int _PyPy_SSL_SetupThreads(void)
 eci = rthread.eci.merge(ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
     post_include_bits=[
-        "int _PyPy_SSL_SetupThreads(void);"],
-    export_symbols=['_PyPy_SSL_SetupThreads'],
+        "RPY_EXTERN int _PyPy_SSL_SetupThreads(void);"],
     libraries = libraries,
 ))
 
