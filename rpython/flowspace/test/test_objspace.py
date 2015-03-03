@@ -204,6 +204,22 @@ class TestFlowObjSpace(Base):
     def test_break_continue(self):
         x = self.codetest(self.break_continue)
 
+    def test_break_from_handler(self):
+        def f(x):
+            while True:
+                try:
+                    x()
+                except TypeError:
+                    if x:
+                        raise
+                    break
+        assert f(0) is None
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        entrymap = mkentrymap(graph)
+        links = entrymap[graph.returnblock]
+        assert len(links) == 1
+
     #__________________________________________________________
     def unpack_tuple(lst):
         a, b, c = lst
@@ -244,6 +260,19 @@ class TestFlowObjSpace(Base):
 
     def test_finallys(self):
         x = self.codetest(self.finallys)
+
+    def test_branching_in_finally(self):
+        def f(x, y):
+            try:
+                return x
+            finally:
+                if x:
+                    x = 0
+                if y > 0:
+                    y -= 1
+                return y
+        self.codetest(f)
+
 
     #__________________________________________________________
     def const_pow():
@@ -941,6 +970,22 @@ class TestFlowObjSpace(Base):
             'getattr': 2,     # __enter__ and __exit__
             'simple_call': 4, # __enter__, g and 2 possible calls to __exit__
             }
+
+    def test_return_in_with(self):
+        def f(x):
+            with x:
+                return 1
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getattr': 2, 'simple_call': 2}
+
+    def test_break_in_with(self):
+        def f(n, x):
+            for i in range(n):
+                with x:
+                    break
+            return 1
+        self.codetest(f)
 
     def monkey_patch_code(self, code, stacksize, flags, codestring, names, varnames):
         c = code
