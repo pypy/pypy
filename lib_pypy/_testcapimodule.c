@@ -2444,8 +2444,6 @@ run_in_subinterp(PyObject *self, PyObject *args)
     return PyLong_FromLong(r);
 }
 
-#endif  /* PYPY_VERSION */
-
 static PyObject *
 test_pytime_object_to_time_t(PyObject *self, PyObject *args)
 {
@@ -2483,6 +2481,8 @@ test_pytime_object_to_timespec(PyObject *self, PyObject *args)
         return NULL;
     return Py_BuildValue("Nl", _PyLong_FromTime_t(sec), nsec);
 }
+
+#endif  /* PYPY_VERSION */
 
 #ifdef WITH_THREAD
 typedef struct {
@@ -2668,10 +2668,10 @@ static PyMethodDef TestMethods[] = {
     {"crash_no_current_thread", (PyCFunction)crash_no_current_thread, METH_NOARGS},
 #ifndef PYPY_VERSION
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
-#endif
     {"pytime_object_to_time_t", test_pytime_object_to_time_t,  METH_VARARGS},
     {"pytime_object_to_timeval", test_pytime_object_to_timeval,  METH_VARARGS},
     {"pytime_object_to_timespec", test_pytime_object_to_timespec,  METH_VARARGS},
+#endif
 #ifdef WITH_THREAD
     {"call_in_temporary_c_thread", call_in_temporary_c_thread, METH_O,
      PyDoc_STR("set_error_class(error_class) -> None")},
