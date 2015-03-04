@@ -532,7 +532,7 @@ class __extend__(W_NDimArray):
             self.get_dtype(), storage_bytes=sz, w_base=self)
 
     def descr_array_iface(self, space):
-        addr = self.implementation.get_storage_as_int(space)
+        addr = self.implementation.get_storage_as_int()
         # will explode if it can't
         w_d = space.newdict()
         space.setitem_str(w_d, 'data',
@@ -1165,7 +1165,8 @@ class __extend__(W_NDimArray):
                 builder.append(box.raw_str())
                 state = iter.next(state)
         else:
-            builder.append_charpsize(self.implementation.get_storage(),
+            with self.implementation as storage:
+                builder.append_charpsize(storage,
                                      self.implementation.get_storage_size())
 
         state = space.newtuple([

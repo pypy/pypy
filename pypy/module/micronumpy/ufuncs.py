@@ -1407,7 +1407,7 @@ class W_GenericUFuncCaller(W_Root):
                          space.wrap("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
                                     arg_i, i)))
                 raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int(space)))
+                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int()))
                 #This assumes we iterate over the whole array (it should be a view...)
                 raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
                 raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
@@ -1416,7 +1416,7 @@ class W_GenericUFuncCaller(W_Root):
                 arg_i = args_w[i]
                 assert isinstance(arg_i, W_NDimArray)
                 raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int(space)))
+                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int()))
         try:
             arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
             arg2 = rffi.cast(npy_intpp, self.dims)

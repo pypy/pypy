@@ -605,7 +605,7 @@ def tostring(space, arr):
     w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
     itemsize = arr.get_dtype().elsize
     res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
-                               w_res_str.implementation.get_storage_as_int(space))
+                               w_res_str.implementation.get_storage_as_int())
     while not iter.done(state):
         w_res_str.implementation.setitem(0, iter.getitem(state))
         for i in range(itemsize):

@@ -12,6 +12,7 @@ from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides)
+from rpython.rlib.objectmodel import keepalive_until_here
 
 
 class BaseConcreteArray(object):
@@ -312,12 +313,18 @@ class BaseConcreteArray(object):
         l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
         return space.newtuple(l_w)
 
-    def get_storage_as_int(self, space):
-        return rffi.cast(lltype.Signed, self.storage) + self.start
+    def get_storage_as_int(self):
+            return rffi.cast(lltype.Signed, self.storage) + self.start
 
-    def get_storage(self):
+    ##def get_storage(self):
+    ##    return self.storage
+    ## use a safer context manager
+    def __enter__(self):
         return self.storage
 
+    def __exit__(self, typ, value, traceback):
+        keepalive_until_here(self)
+        
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
