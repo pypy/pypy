@@ -272,8 +272,9 @@ def _cdata_to_ptrdiff_t(space, w_cdata):
     return rffi.cast(rffi.LONG, space.int_w(w_cdata))
 
 def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully slow
-    with space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False) as ptr:
-        return rffi.cast(rffi.VOIDP, ptr)
+    w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
+    ptr = w_cdata.unsafe_escaping_ptr()
+    return rffi.cast(rffi.VOIDP, ptr)
 
 def c_load_dictionary(name):
     return libffi.CDLL(name)
