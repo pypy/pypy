@@ -313,9 +313,6 @@ class BaseConcreteArray(object):
         l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
         return space.newtuple(l_w)
 
-    def get_storage_as_int(self):
-            return rffi.cast(lltype.Signed, self.storage) + self.start
-
     ##def get_storage(self):
     ##    return self.storage
     ## use a safer context manager

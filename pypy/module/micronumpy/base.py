@@ -129,6 +129,9 @@ class W_NDimArray(W_NumpyObject):
     def get_order(self):
         return self.implementation.order
 
+    def get_start(self):
+        return self.implementation.start
+
     def ndims(self):
         return len(self.get_shape())
     ndims._always_inline_ = True
