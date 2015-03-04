@@ -45,6 +45,8 @@ def elidable(func):
             else:
                 assert oldresult == result
             return result
+    if getattr(func, '_jit_unroll_safe_', False):
+        raise TypeError("it does not make sense for %s to be both elidable and unroll_safe" % func)
     func._elidable_function_ = True
     return func
 
@@ -83,6 +85,8 @@ def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
     (it becomes a call instead)
     """
+    if getattr(func, '_jit_unroll_safe_', False):
+        raise TypeError("it does not make sense for %s to be both dont_look_inside and unroll_safe" % func)
     func._jit_look_inside_ = False
     return func
 
@@ -97,6 +101,10 @@ def unroll_safe(func):
     """ JIT can safely unroll loops in this function and this will
     not lead to code explosion
     """
+    if getattr(func, '_elidable_function_', False):
+        raise TypeError("it does not make sense for %s to be both elidable and unroll_safe" % func)
+    if not getattr(func, '_jit_look_inside_', True):
+        raise TypeError("it does not make sense for %s to be both elidable and dont_look_inside" % func)
     func._jit_unroll_safe_ = True
     return func
 
