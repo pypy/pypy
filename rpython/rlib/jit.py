@@ -14,6 +14,8 @@ DEBUG_ELIDABLE_FUNCTIONS = False
 def elidable(func):
     """ Decorate a function as "trace-elidable". Usually this means simply that
     the function is constant-foldable, i.e. is pure and has no side-effects.
+    This also has the effect that the inside of the function will never be
+    traced.
 
     In some situations it is ok to use this decorator if the function *has*
     side effects, as long as these side-effects are idempotent. A typical
