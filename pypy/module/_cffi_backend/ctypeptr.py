@@ -3,7 +3,6 @@ Pointers.
 """
 
 from rpython.rlib import rposix
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.annlowlevel import llstr, llunicode
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -49,7 +48,7 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePtrOrArray)):
-            value = w_ob._cdata
+            value = w_ob.unsafe_escaping_ptr()
         else:
             value = misc.as_unsigned_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
@@ -108,34 +107,33 @@ class W_CTypePtrOrArray(W_CType):
     def string(self, cdataobj, maxlen):
         space = self.space
         if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
-            cdata = cdataobj._cdata
-            if not cdata:
-                raise oefmt(space.w_RuntimeError, "cannot use string() on %s",
-                            space.str_w(cdataobj.repr()))
-            #
-            from pypy.module._cffi_backend import ctypearray
-            length = maxlen
-            if length < 0 and isinstance(self, ctypearray.W_CTypeArray):
-                length = cdataobj.get_array_length()
-            #
-            # pointer to a primitive type of size 1: builds and returns a str
-            if self.ctitem.size == rffi.sizeof(lltype.Char):
-                if length < 0:
-                    s = rffi.charp2str(cdata)
-                else:
-                    s = rffi.charp2strn(cdata, length)
-                keepalive_until_here(cdataobj)
-                return space.wrap(s)
-            #
-            # pointer to a wchar_t: builds and returns a unicode
-            if self.is_unichar_ptr_or_array():
-                cdata = rffi.cast(rffi.CWCHARP, cdata)
-                if length < 0:
-                    u = rffi.wcharp2unicode(cdata)
-                else:
-                    u = rffi.wcharp2unicoden(cdata, length)
-                keepalive_until_here(cdataobj)
-                return space.wrap(u)
+            with cdataobj as ptr:
+                if not ptr:
+                    raise oefmt(space.w_RuntimeError,
+                                "cannot use string() on %s",
+                                space.str_w(cdataobj.repr()))
+                #
+                from pypy.module._cffi_backend import ctypearray
+                length = maxlen
+                if length < 0 and isinstance(self, ctypearray.W_CTypeArray):
+                    length = cdataobj.get_array_length()
+                #
+                # pointer to a primitive type of size 1: builds and returns a str
+                if self.ctitem.size == rffi.sizeof(lltype.Char):
+                    if length < 0:
+                        s = rffi.charp2str(ptr)
+                    else:
+                        s = rffi.charp2strn(ptr, length)
+                    return space.wrap(s)
+                #
+                # pointer to a wchar_t: builds and returns a unicode
+                if self.is_unichar_ptr_or_array():
+                    cdata = rffi.cast(rffi.CWCHARP, ptr)
+                    if length < 0:
+                        u = rffi.wcharp2unicode(cdata)
+                    else:
+                        u = rffi.wcharp2unicoden(cdata, length)
+                    return space.wrap(u)
         #
         return W_CType.string(self, cdataobj, maxlen)
 
@@ -162,7 +160,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             if not (self.can_cast_anything or other.can_cast_anything):
                 raise self._convert_error("compatible pointer", w_ob)
 
-        rffi.cast(rffi.CCHARPP, cdata)[0] = w_ob._cdata
+        rffi.cast(rffi.CCHARPP, cdata)[0] = w_ob.unsafe_escaping_ptr()
 
     def _alignof(self):
         from pypy.module._cffi_backend import newtype
@@ -206,8 +204,8 @@ class W_CTypePointer(W_CTypePtrBase):
                     lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
             #
             cdatastruct = cdataobj.W_CDataNewOwning(space, datasize, ctitem)
-            cdata = cdataobj.W_CDataPtrToStructOrUnion(space,
-                                                       cdatastruct._cdata,
+            ptr = cdatastruct.unsafe_escaping_ptr()
+            cdata = cdataobj.W_CDataPtrToStructOrUnion(space, ptr,
                                                        self, cdatastruct)
         else:
             if self.is_char_or_unichar_ptr_or_array():
@@ -215,8 +213,8 @@ class W_CTypePointer(W_CTypePtrBase):
             cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
         #
         if not space.is_w(w_init, space.w_None):
-            ctitem.convert_from_object(cdata._cdata, w_init)
-            keepalive_until_here(cdata)
+            with cdata as ptr:
+                ctitem.convert_from_object(ptr, w_init)
         return cdata
 
     def _check_subscript_index(self, w_cdata, i):
@@ -332,8 +330,9 @@ class W_CTypePointer(W_CTypePtrBase):
         ctype2 = cdata.ctype
         if (isinstance(ctype2, W_CTypeStructOrUnion) or
                 isinstance(ctype2, W_CTypePtrOrArray)):
-            ptrdata = rffi.ptradd(cdata._cdata, offset)
-            return cdataobj.W_CData(space, ptrdata, self)
+            ptr = cdata.unsafe_escaping_ptr()
+            ptr = rffi.ptradd(ptr, offset)
+            return cdataobj.W_CData(space, ptr, self)
         else:
             raise OperationError(space.w_TypeError,
                     space.wrap("expected a cdata struct/union/array/pointer"

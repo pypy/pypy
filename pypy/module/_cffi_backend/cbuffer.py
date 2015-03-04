@@ -81,4 +81,5 @@ def buffer(space, w_cdata, size=-1):
     if size < 0:
         raise oefmt(space.w_TypeError,
                     "don't know the size pointed to by '%s'", ctype.name)
-    return space.wrap(MiniBuffer(LLBuffer(w_cdata._cdata, size), w_cdata))
+    ptr = w_cdata.unsafe_escaping_ptr()    # w_cdata kept alive by MiniBuffer()
+    return space.wrap(MiniBuffer(LLBuffer(ptr, size), w_cdata))
