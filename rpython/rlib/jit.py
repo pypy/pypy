@@ -96,6 +96,8 @@ def look_inside(func):
     """ Make sure the JIT traces inside decorated function, even
     if the rest of the module is not visible to the JIT
     """
+    import warnings
+    warnings.warn("look_inside is deprecated", DeprecationWarning)
     func._jit_look_inside_ = True
     return func
 
