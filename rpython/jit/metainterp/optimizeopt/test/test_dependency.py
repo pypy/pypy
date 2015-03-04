@@ -13,9 +13,9 @@ from rpython.jit.metainterp import executor, compile, resume
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.rarithmetic import LONG_BIT
 
-class BaseTestDependecyGraph(BaseTest):
+class DepTestHelper(BaseTest):
 
-    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:vectorize"
+    enable_opts = "vectorize"
 
     def build_dependency(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
@@ -37,7 +37,7 @@ class BaseTestDependecyGraph(BaseTest):
                " %d depend on instr on index %d but it is not" \
                     % (from_instr_index, to_instr_index)
 
-class TestDependencyGraph(BaseTestDependecyGraph):
+class BaseTestDependencyGraph(DepTestHelper):
     def test_simple(self):
         ops = """
         []
@@ -50,5 +50,17 @@ class TestDependencyGraph(BaseTestDependecyGraph):
         self.assert_def_use(dep_graph, 1, 2)
         self.assert_def_use(dep_graph, 2, 3)
 
-class TestLLtype(TestDependencyGraph, LLtypeMixin):
+    def test_label_def(self):
+        ops = """
+        [i3]
+        i1 = int_add(i3,1)
+        guard_value(i1,0) []
+        jump(i1)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_def_use(dep_graph, 0, 1)
+        self.assert_def_use(dep_graph, 1, 2)
+        self.assert_def_use(dep_graph, 1, 3)
+
+class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass
