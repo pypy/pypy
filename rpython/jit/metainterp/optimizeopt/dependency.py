@@ -29,6 +29,9 @@ class DependencyGraph(object):
         """ This is basically building the definition-use chain and saving this
             information in a graph structure. This is the same as calculating
             the reaching definitions and the 'looking back' whenever it is used.
+
+            Write After Read, Write After Write dependencies are not possible,
+            the operations are in SSA form
         """
         defining_indices = {}
 
@@ -38,9 +41,12 @@ class DependencyGraph(object):
                 for arg in op.getarglist():
                     defining_indices[arg] = 0
 
+            # TODO what about a JUMP operation? it often has many parameters (10+) and uses
+            # nearly every definition in the trace (for loops). Maybe we can skip this operation
+
             if op.result is not None:
-                # overwrites redefinition. This is not a problem
-                # if the trace is in SSA form.
+                # the trace is always in SSA form, thus it is neither possible to have a WAR
+                # not a WAW dependency
                 defining_indices[op.result] = i
 
             for arg in op.getarglist():
