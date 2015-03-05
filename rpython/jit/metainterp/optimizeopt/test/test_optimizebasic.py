@@ -3739,7 +3739,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = int_sub(i0, 1)
         i3 = int_add(-1, i0)
         i4 = int_add(i0, -1)
-        i5 = int_sub(-1, i2)
+        i5 = int_sub(i2, -1)
         i6 = int_sub(i2, i0)
         jump(i0, i2, i3, i4, i5, i6)
         """

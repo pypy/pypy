@@ -906,7 +906,7 @@ class Optimizer(Optimization):
                 inv_arg1 = ConstInt(-i1)
                 optpure.pure(rop.INT_ADD, [arg0, inv_arg1], op.result)
                 optpure.pure(rop.INT_ADD, [inv_arg1, arg0], op.result)
-                optpure.pure(rop.INT_SUB, [inv_arg1, op.result], arg0)
+                optpure.pure(rop.INT_SUB, [op.result, inv_arg1], arg0)
                 optpure.pure(rop.INT_SUB, [op.result, arg0], inv_arg1)
         elif op.getopnum() == rop.FLOAT_MUL:
             optpure.pure(rop.FLOAT_MUL, [op.getarg(1), op.getarg(0)], op.result)
