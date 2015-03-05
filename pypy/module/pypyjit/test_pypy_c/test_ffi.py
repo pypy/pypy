@@ -341,7 +341,7 @@ class Test__ffi(BaseTestPyPyC):
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)
         raw_store(i119, 4, i160, descr=<ArrayS 2>)
-        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .+>)
+        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__ptr .+>)
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
         jump(..., descr=...)
         """)
