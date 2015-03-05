@@ -862,6 +862,7 @@ class Optimizer(Optimization):
         return resbox.constbox()
 
     def pure_reverse(self, op):
+        import sys
         if self.optpure is None:
             return
         optpure = self.optpure
@@ -875,10 +876,14 @@ class Optimizer(Optimization):
             if isinstance(arg0, ConstInt):
                 # invert the constant
                 i0 = arg0.getint()
+                if i0 == -sys.maxint - 1:
+                    return
                 inv_arg0 = ConstInt(-i0)
             elif isinstance(arg1, ConstInt):
                 # commutative
                 i0 = arg1.getint()
+                if i0 == -sys.maxint - 1:
+                    return
                 inv_arg0 = ConstInt(-i0)
                 arg1 = arg0
             else:
@@ -896,6 +901,8 @@ class Optimizer(Optimization):
             if isinstance(arg1, ConstInt):
                 # invert the constant
                 i1 = arg1.getint()
+                if i1 == -sys.maxint - 1:
+                    return
                 inv_arg1 = ConstInt(-i1)
                 optpure.pure(rop.INT_ADD, [arg0, inv_arg1], op.result)
                 optpure.pure(rop.INT_ADD, [inv_arg1, arg0], op.result)

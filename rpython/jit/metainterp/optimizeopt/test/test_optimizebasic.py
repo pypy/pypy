@@ -3704,6 +3704,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_add_sub_constants_inverse(self):
+        import sys
         ops = """
         [i0, i10, i11, i12, i13]
         i2 = int_add(1, i0)
@@ -3748,6 +3749,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i0, i2, i2, i2, i0, -1)
         """
         self.optimize_loop(ops, expected)
+        ops = """
+        [i0, i10, i11, i12]
+        i2 = int_add(%s, i0)
+        i3 = int_add(i2, %s)
+        i4 = int_sub(i0, %s)
+        jump(i0, i2, i3, i4)
+        """ % ((-sys.maxint - 1, ) * 3)
+        self.optimize_loop(ops, ops) # does not crash
 
     def test_framestackdepth_overhead(self):
         ops = """
