@@ -257,9 +257,6 @@ CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
 
-INFO_NULL = 0
-INFO_NONNULL = 1
-INFO_UNKNOWN = 2
 
 class Optimization(object):
     next_optimization = None
@@ -291,7 +288,12 @@ class Optimization(object):
     def getnullness(self, op):
         if op.type == 'i':
             return self.getintbound(op).getnullness()
-        xxxx
+        elif op.type == 'r':
+            ptrinfo = self.getptrinfo(op)
+            if ptrinfo is None:
+                return info.INFO_UNKNOWN
+            return ptrinfo.getnullness()
+        assert False
 
     def make_constant_class(self, op, class_const):
         op = self.get_box_replacement(op)

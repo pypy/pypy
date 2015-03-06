@@ -1,12 +1,13 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
-from rpython.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
-    BoxPtr, make_hashable_int, ConstFloat)
+from rpython.jit.metainterp.history import (Const, ConstInt, make_hashable_int,
+                                            ConstFloat)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
-    CONST_0, CONST_1, INFO_NONNULL, INFO_NULL)
+    CONST_0, CONST_1)
+from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
@@ -447,19 +448,20 @@ class OptRewrite(Optimization):
         self._optimize_nullness(op, op.getarg(0), False)
 
     def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
-        value0 = self.getvalue(op.getarg(0))
-        value1 = self.getvalue(op.getarg(1))
-        if value0.is_virtual():
+        info0 = self.getptrinfo(op.getarg(0))
+        info1 = self.getptrinfo(op.getarg(1))
+        if info0 and info0.is_virtual():
+            xxx
             if value1.is_virtual():
                 intres = (value0 is value1) ^ expect_isnot
                 self.make_constant_int(op, intres)
             else:
                 self.make_constant_int(op, expect_isnot)
-        elif value1.is_virtual():
+        elif info1 and info1.is_virtual():
             self.make_constant_int(op, expect_isnot)
-        elif value1.is_null():
+        elif info1 and info1.is_null():
             self._optimize_nullness(op, op.getarg(0), expect_isnot)
-        elif value0.is_null():
+        elif info0 and info0.is_null():
             self._optimize_nullness(op, op.getarg(1), expect_isnot)
         elif value0 is value1:
             self.make_constant_int(op, not expect_isnot)

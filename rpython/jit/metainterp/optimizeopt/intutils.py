@@ -1,7 +1,8 @@
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.optimizeopt.info import AbstractInfo
+from rpython.jit.metainterp.optimizeopt.info import AbstractInfo, INFO_NONNULL,\
+     INFO_UNKNOWN, INFO_NULL
 from rpython.jit.metainterp.history import ConstInt
 
 
@@ -261,15 +262,13 @@ class IntBound(AbstractInfo):
         self.intersect(IntBound(0, 1))
 
     def getnullness(self):
-        from rpython.jit.metainterp.optimizeopt import optimizer
-
         if self.known_gt(IntBound(0, 0)) or \
            self.known_lt(IntBound(0, 0)):
-            return optimizer.INFO_NONNULL
+            return INFO_NONNULL
         if self.known_ge(IntBound(0, 0)) and \
            self.known_le(IntBound(0, 0)):
-            return optimizer.INFO_NULL
-        return optimizer.INFO_UNKNOWN
+            return INFO_NULL
+        return INFO_UNKNOWN
 
 def IntUpperBound(upper):
     b = IntBound(lower=0, upper=upper)

@@ -15,6 +15,10 @@ MODE_ARRAY   = '\x00'
 MODE_STR     = '\x01'
 MODE_UNICODE = '\x02'
 
+INFO_NULL = 0
+INFO_NONNULL = 1
+INFO_UNKNOWN = 2
+
 class AbstractInfo(AbstractValue):
     is_info_class = True
 
@@ -30,6 +34,13 @@ class PtrInfo(AbstractInfo):
 
     def is_null(self):
         return False
+
+    def getnullness(self):
+        if self.is_null():
+            return INFO_NULL
+        elif self.is_nonnull():
+            return INFO_NONNULL
+        return INFO_UNKNOWN
 
     
 class NonNullPtrInfo(PtrInfo):
@@ -95,6 +106,9 @@ class ConstPtrInfo(PtrInfo):
 
     def is_nonnull(self):
         return bool(self._const.getref_base())
+
+    def is_virtual(self):
+        return False
 
     def get_known_class(self, cpu):
         if not self._const.nonnull():

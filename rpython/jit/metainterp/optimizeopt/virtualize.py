@@ -699,8 +699,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo is not None and opinfo.is_virtual():
             opinfo.setfield_virtual(op.getdescr(), op.getarg(1))
         else:
-            xxx
-            value.ensure_nonnull()
+            self.make_nonnull(op)
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
