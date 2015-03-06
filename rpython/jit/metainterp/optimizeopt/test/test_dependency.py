@@ -78,7 +78,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         raw_store(p0, i0, i3, descr=floatarraydescr)
         i4 = int_add(i0, 1)
         i5 = int_le(i4, 10)
-        guard_true(i5) [p0,p1,p2,i4]
+        guard_true(i5) []
         jump(p0,p1,p2,i4)
         """
         unfolded_ops = """
@@ -89,17 +89,17 @@ class BaseTestDependencyGraph(DepTestHelper):
         raw_store(p0, i0, i3, descr=floatarraydescr)
         i4 = int_add(i0, 1)
         i5 = int_le(i4, 10)
-        guard_true(i5) [p0,p1,p2,i4]
-        i10 = raw_load(p1, i4, descr=floatarraydescr)
-        i11 = raw_load(p2, i4, descr=floatarraydescr)
-        i12 = int_add(i10,i11)
-        raw_store(p0, i4, i12, descr=floatarraydescr)
-        i20 = int_add(i4, 1)
-        i21 = int_le(i20, 10)
-        guard_true(i21) [p0,p1,p2,i20]
-        jump(p0,p1,p2,i21)
+        guard_true(i5) []
+        i6 = raw_load(p1, i4, descr=floatarraydescr)
+        i7 = raw_load(p2, i4, descr=floatarraydescr)
+        i8 = int_add(i6,i7)
+        raw_store(p0, i4, i8, descr=floatarraydescr)
+        i9 = int_add(i4, 1)
+        i10 = int_le(i9, 10)
+        guard_true(i10) []
+        jump(p0,p1,p2,i9)
         """
-        self.assert_unfold_loop(self.parse_loop(ops),4, self.parse_loop(unfolded_ops))
+        self.assert_unfold_loop(self.parse_loop(ops),2, self.parse_loop(unfolded_ops))
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

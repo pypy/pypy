@@ -14,8 +14,8 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 
 def optimize_unfold(metainterp_sd, jitdriver_sd, loop, optimizations, start_state=None,
-                    export_state=True):
-    opt = OptUnfold(metainterp_sd, jitdriver_sd, loop, optimizations)
+                    export_state=True, unroll_factor=-1):
+    opt = OptUnfold(metainterp_sd, jitdriver_sd, loop, optimizations, unroll_factor)
     return opt.propagate_all_forward(start_state, export_state)
 
 
@@ -48,11 +48,8 @@ class OptUnfold(Optimization):
 
     inline_short_preamble = True
 
-    # for testing purpose only
-    # TODO: hide it from rpython
-    _force_unroll_factor = -1
-
-    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations, unroll_factor):
+        self.force_unroll_factor = unroll_factor
         self.optimizer = UnfoldOptimizer(metainterp_sd, jitdriver_sd,
                                              loop, optimizations)
         self.boxes_created_this_iteration = None
@@ -72,22 +69,22 @@ class OptUnfold(Optimization):
         prev = self.fix_snapshot(jump_args, snapshot.prev)
         return Snapshot(prev, new_snapshot_args)
 
-    def _rename_arguments_ssa(rename_map, label_args, jump_args):
-
+    def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
+        # fill the map with the renaming boxes. keys are boxes from the label
+        # values are the target boxes.
         for la,ja in zip(label_args, jump_args):
             if la != ja:
                 rename_map[la] = ja
 
-        return new_jump_args
-
     def propagate_all_forward(self, starting_state, export_state=True):
 
-        unroll_factor = 2
+        unroll_factor = self.force_unroll_factor
+        if unroll_factor == -1:
+            unroll_factor = 2 # TODO find a sensible factor. think about loop type?
 
         self.optimizer.exporting_state = export_state
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
-
 
         label_op = loop.operations[0]
         jump_op = loop.operations[-1]
@@ -101,13 +98,46 @@ class OptUnfold(Optimization):
 
         rename_map = {}
         for unroll_i in range(2, unroll_factor+1):
-            _rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
+            # for each unrolling factor the boxes are renamed.
+            self._rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
             iteration_ops = []
-            for op in operations: 
-                cop = op.clone()
-                iteration_ops.append(cop)
+            for op in operations:
+                copied_op = op.clone()
+
+                if copied_op.result is not None:
+                    # every result assigns a new box, thus creates an entry
+                    # to the rename map.
+                    new_assigned_box = copied_op.result.clonebox()
+                    rename_map[copied_op.result] = new_assigned_box
+                    copied_op.result = new_assigned_box
+
+                args = copied_op.getarglist()
+                for i, arg in enumerate(args):
+                    try:
+                        value = rename_map[arg]
+                        copied_op.setarg(i, value)
+                    except KeyError:
+                        pass
+
+                iteration_ops.append(copied_op)
+
+            # the jump arguments have been changed
+            # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
+            # must look like this: label(i(X+1)) ... jump(i(X+2))
+
+            args = jump_op.getarglist()
+            for i, arg in enumerate(args):
+                try:
+                    value = rename_map[arg]
+                    jump_op.setarg(i, value)
+                except KeyError:
+                    pass
+            # map will be rebuilt, the jump operation has been updated already
+            rename_map.clear()
+
             iterations.append(iteration_ops)
 
+        # unwrap the loop nesting.
         loop.operations.append(label_op)
         for iteration in iterations:
             for op in iteration:
