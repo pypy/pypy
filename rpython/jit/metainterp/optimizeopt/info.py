@@ -35,6 +35,9 @@ class PtrInfo(AbstractInfo):
     def is_null(self):
         return False
 
+    def is_virtual(self):
+        return False
+
     def getnullness(self):
         if self.is_null():
             return INFO_NULL

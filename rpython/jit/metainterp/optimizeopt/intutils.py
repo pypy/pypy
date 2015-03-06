@@ -46,6 +46,14 @@ class IntBound(AbstractInfo):
     def make_gt(self, other):
         return self.make_ge(other.add(1))
 
+    def is_constant(self):
+        return self.has_upper and self.has_lower and self.lower == self.upper
+
+    def equal(self, value):
+        if not self.is_constant():
+            return False
+        return self.lower == value
+
     def make_constant(self, value):
         XXXX # don't call me
         self.has_lower = True
