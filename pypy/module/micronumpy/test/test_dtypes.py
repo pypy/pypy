@@ -473,7 +473,12 @@ class AppTestDtypes(BaseAppTestDtypes):
             pass
         for o in [object, O]:
             print np.dtype(o).byteorder
-            assert np.dtype(o).str == '|O8'
+            if self.ptr_size == 4:
+                assert np.dtype(o).str == '|O4'
+            elif self.ptr_size == 8:
+                assert np.dtype(o).str == '|O8'
+            else:
+                assert False,'self._ptr_size unknown'
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -1350,9 +1355,11 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         from numpy import array
         import sys
         class Polynomial(object):
-            pass
+            def whatami(self):
+                return 'an object'
         a = array(Polynomial())
         assert a.shape == ()
+        assert a.sum().whatami() == 'an object'
 
     def test_uninitialized_object_array_is_filled_by_None(self):
         import numpy as np
@@ -1369,3 +1376,16 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
 
         res = a + b
         assert res[0] == "foobar"
+
+    def test_keep_object_alive(self):
+        import numpy as np
+        import gc
+        class O(object):
+            def whatami(self):
+                return 'an object'
+        fiveOs = [O()] * 5
+        a = np.array(fiveOs, dtype=object)
+        del fiveOs
+        gc.collect()
+        gc.collect()
+        assert a[2].whatami() == 'an object'
