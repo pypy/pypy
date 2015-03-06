@@ -78,6 +78,12 @@ class ConstPtrInfo(PtrInfo):
     def __init__(self, const):
         self._const = const
 
+    def is_null(self):
+        return not bool(self._const.getref_base())
+
+    def is_nonnull(self):
+        return bool(self._const.getref_base())
+
     def get_known_class(self, cpu):
         if not self._const.nonnull():
             return None

@@ -262,24 +262,26 @@ class OptRewrite(Optimization):
         #    self.optimizer.optheap.value_updated(value, self.getvalue(constbox))
 
     def optimize_GUARD_ISNULL(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_null():
-            return
-        elif value.is_nonnull():
-            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-            raise InvalidLoop('A GUARD_ISNULL (%s) was proven to always fail'
-                              % r)
+        info = self.getptrinfo(op.getarg(0))
+        if info is not None:
+            if info.is_null():
+                return
+            elif info.is_nonnull():
+                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                raise InvalidLoop('A GUARD_ISNULL (%s) was proven to always '
+                                  'fail' % r)
         self.emit_operation(op)
-        value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
+        self.make_constant(op.getarg(0), self.optimizer.cpu.ts.CONST_NULL)
 
     def optimize_GUARD_NONNULL(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
-        if opinfo.is_nonnull():
-            return
-        elif opinfo.is_null():
-            r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-            raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always fail'
-                              % r)
+        if opinfo is not None:
+            if opinfo.is_nonnull():
+                return
+            elif opinfo.is_null():
+                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
+                raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always '
+                                  'fail' % r)
         self.emit_operation(op)
         self.make_nonnull(op.getarg(0))
 
