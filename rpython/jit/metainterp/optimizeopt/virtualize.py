@@ -665,22 +665,24 @@ class OptVirtualize(optimizer.Optimization):
         return False
 
     def optimize_GETFIELD_GC_I(self, op):
-        value = self.getvalue(op.getarg(0))
+        opinfo = self.getptrinfo(op.getarg(0))
         # If this is an immutable field (as indicated by op.is_always_pure())
         # then it's safe to reuse the virtual's field, even if it has been
         # forced, because it should never be written to again.
-        if value.is_forced_virtual() and op.is_always_pure():
-            fieldvalue = value.getfield(op.getdescr(), None)
-            if fieldvalue is not None:
-                self.make_equal_to(op, fieldvalue)
-                return
-        if value.is_virtual():
-            assert isinstance(value, AbstractVirtualValue)
-            fieldvalue = value.getfield(op.getdescr(), None)
-            if fieldvalue is None:
+        if op.is_always_pure():
+            if value.is_forced_virtual() and op.is_always_pure():
+                fieldvalue = value.getfield(op.getdescr(), None)
+                if fieldvalue is not None:
+                    self.make_equal_to(op, fieldvalue)
+                    return
+        if opinfo and opinfo.is_virtual():
+            fieldop = opinfo.getfield_virtual(op.getdescr())
+            if fieldop is None:
+                xxx
                 fieldvalue = self.optimizer.new_const(op.getdescr())
-            self.make_equal_to(op, fieldvalue)
+            self.make_equal_to(op, fieldop)
         else:
+            yyyy
             value.ensure_nonnull()
             self.emit_operation(op)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
@@ -693,11 +695,11 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_I
 
     def optimize_SETFIELD_GC(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
-            fieldvalue = self.getvalue(op.getarg(1))
-            value.setfield(op.getdescr(), fieldvalue)
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo is not None and opinfo.is_virtual():
+            opinfo.setfield_virtual(op.getdescr(), op.getarg(1))
         else:
+            xxx
             value.ensure_nonnull()
             self.emit_operation(op)
 

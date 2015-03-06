@@ -41,6 +41,7 @@ class NonNullPtrInfo(PtrInfo):
     
 class InstancePtrInfo(NonNullPtrInfo):
     _attrs_ = ('_known_class', '_is_virtual', '_fields')
+    _fields = None
 
     def __init__(self, known_class=None, is_virtual=False):
         self._known_class = known_class
@@ -56,6 +57,17 @@ class InstancePtrInfo(NonNullPtrInfo):
             self._is_virtual = False
             return newop
         return op
+
+    def setfield_virtual(self, descr, op):
+        if self._fields is None:
+            self._fields = {}
+        self._fields[descr] = op
+
+    def getfield_virtual(self, descr):
+        return self._fields.get(descr, None)
+
+    def is_virtual(self):
+        return self._is_virtual
 
     def get_known_class(self, cpu):
         return self._known_class
