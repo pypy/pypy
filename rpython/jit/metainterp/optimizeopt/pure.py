@@ -53,6 +53,7 @@ class OptPure(Optimization):
         self._pure_operations = [None] * (rop._ALWAYS_PURE_LAST -
                                           rop._ALWAYS_PURE_FIRST)
         self.call_pure_positions = []
+        self.extra_call_pure = []
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -104,7 +105,10 @@ class OptPure(Optimization):
             self.emit_operation(nextop)
 
     def getrecentops(self, opnum):
-        opnum = opnum - rop._ALWAYS_PURE_FIRST
+        if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
+            opnum = opnum - rop._OVF_FIRST
+        else:
+            opnum = opnum - rop._ALWAYS_PURE_FIRST
         assert 0 <= opnum < len(self._pure_operations)
         recentops = self._pure_operations[opnum]
         if recentops is None:
@@ -122,22 +126,41 @@ class OptPure(Optimization):
 
         # Step 2: check if all arguments are the same as a previous
         # CALL_PURE.
-        args = self.optimizer.make_args_key(op)
-        oldvalue = self.pure_operations.get(args, None)
-        if oldvalue is not None:
-            # this removes a CALL_PURE that has the same (non-constant)
-            # arguments as a previous CALL_PURE.
-            self.make_equal_to(op.result, oldvalue)
-            self.last_emitted_operation = REMOVED
-            return
-        else:
-            self.pure_operations[args] = self.getvalue(op.result)
+        for pos in self.call_pure_positions:
+            old_op = self.optimizer._newoperations[pos]
+            if self.optimize_call_pure(op, old_op):
+                return
+        for old_op in self.extra_call_pure:
+            if self.optimize_call_pure(op, old_op):
+                return
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
-        self.call_pure_positions.append(len(self.optimizer._newoperations) - 1)
+        if self.optimizer.emitting_dissabled:
+            self.extra_call_pure.append(op) # XXX
+        else:
+            self.call_pure_positions.append(len(self.optimizer._newoperations)
+                                            - 1)
+
+    def optimize_call_pure(self, op, old_op):
+        if (op.numargs() != old_op.numargs() or
+            op.getdescr() is not old_op.getdescr()):
+            return False
+        for i, box in enumerate(old_op.getarglist()):
+            if not self.get_box_replacement(op.getarg(i)).same_box(box):
+                break
+        else:
+            # all identical
+            # this removes a CALL_PURE that has the same (non-constant)
+            # arguments as a previous CALL_PURE.
+            oldvalue = self.getvalue(old_op.result)
+            self.make_equal_to(op.result, oldvalue)
+            self.last_emitted_operation = REMOVED
+            return True
+        return False
+
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

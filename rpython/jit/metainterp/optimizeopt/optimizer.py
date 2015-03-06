@@ -1,7 +1,7 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt,\
-     REF, BoxPtr, ConstPtr, ConstFloat
+     REF, BoxPtr, ConstPtr, ConstFloat, Box
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded,\
                                                      IntLowerBound, MININT,\
                                                      MAXINT
@@ -528,6 +528,7 @@ class Optimization(object):
 class Optimizer(Optimization):
 
     exporting_state = False
+    emitting_dissabled = False
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
