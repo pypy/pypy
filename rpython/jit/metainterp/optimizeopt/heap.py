@@ -507,6 +507,8 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
+        self.emit_operation(op)
+        return
         opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
         if self.has_pure_result(opnum, [op.getarg(0)],
                                 op.getdescr()):
