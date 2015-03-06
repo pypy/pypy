@@ -594,6 +594,13 @@ def setup(debug_print=False):
         oparity.append(arity)
         opwithdescr.append(withdescr)
     assert len(opclasses) == len(oparity) == len(opwithdescr) == len(_oplist)
+    # for optimizeopt/pure.py's getrecentops()
+    assert (rop.INT_ADD_OVF - rop._OVF_FIRST ==
+            rop.INT_ADD - rop._ALWAYS_PURE_FIRST)
+    assert (rop.INT_SUB_OVF - rop._OVF_FIRST ==
+            rop.INT_SUB - rop._ALWAYS_PURE_FIRST)
+    assert (rop.INT_MUL_OVF - rop._OVF_FIRST ==
+            rop.INT_MUL - rop._ALWAYS_PURE_FIRST)
 
 def get_base_class(mixin, base):
     try:
