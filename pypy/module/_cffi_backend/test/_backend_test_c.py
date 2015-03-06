@@ -3249,4 +3249,4 @@ def test_from_buffer():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8.6+"
+    assert __version__ == "0.9.0"

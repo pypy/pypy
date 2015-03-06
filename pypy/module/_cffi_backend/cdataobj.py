@@ -14,21 +14,37 @@ from pypy.module._cffi_backend import misc
 
 
 class W_CData(W_Root):
-    _attrs_ = ['space', '_cdata', 'ctype', '_lifeline_']
-    _immutable_fields_ = ['_cdata', 'ctype']
-    _cdata = lltype.nullptr(rffi.CCHARP.TO)
+    _attrs_ = ['space', '_ptr', 'ctype', '_lifeline_']
+    _immutable_fields_ = ['_ptr', 'ctype']
+    _ptr = lltype.nullptr(rffi.CCHARP.TO)
 
-    def __init__(self, space, cdata, ctype):
+    def __init__(self, space, ptr, ctype):
         from pypy.module._cffi_backend import ctypeobj
-        assert lltype.typeOf(cdata) == rffi.CCHARP
+        assert lltype.typeOf(ptr) == rffi.CCHARP
         assert isinstance(ctype, ctypeobj.W_CType)
         self.space = space
-        self._cdata = cdata    # don't forget keepalive_until_here!
+        self._ptr = ptr    # don't access directly!  use "with cdata as ptr:"
         self.ctype = ctype
 
-    def _repr_extra(self):
-        extra = self.ctype.extra_repr(self._cdata)
+    def __enter__(self):
+        """Use 'with cdata as ptr:' to access the raw memory.  It will
+        stay alive at least until the end of the 'with' block.
+        """
+        return self._ptr
+
+    def __exit__(self, *args):
         keepalive_until_here(self)
+
+    def unsafe_escaping_ptr(self):
+        """Generally unsafe: escape the pointer to raw memory.
+        If 'self' is a subclass that frees the pointer in a destructor,
+        it may be freed under your feet at any time.
+        """
+        return self._ptr
+
+    def _repr_extra(self):
+        with self as ptr:
+            extra = self.ctype.extra_repr(ptr)
         return extra
 
     def _repr_extra_owning(self):
@@ -54,11 +70,13 @@ class W_CData(W_Root):
             self.ctype.name, extra1, extra2))
 
     def nonzero(self):
-        return self.space.wrap(bool(self._cdata))
+        with self as ptr:
+            nonzero = bool(ptr)
+        return self.space.wrap(nonzero)
 
     def int(self, space):
-        w_result = self.ctype.cast_to_int(self._cdata)
-        keepalive_until_here(self)
+        with self as ptr:
+            w_result = self.ctype.cast_to_int(ptr)
         return w_result
 
     def long(self, space):
@@ -69,8 +87,8 @@ class W_CData(W_Root):
         return w_result
 
     def float(self):
-        w_result = self.ctype.float(self._cdata)
-        keepalive_until_here(self)
+        with self as ptr:
+            w_result = self.ctype.float(ptr)
         return w_result
 
     def len(self):
@@ -88,20 +106,19 @@ class W_CData(W_Root):
         def _cmp(self, w_other):
             from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
             space = self.space
-            cdata1 = self._cdata
-            if isinstance(w_other, W_CData):
-                cdata2 = w_other._cdata
-            else:
+            if not isinstance(w_other, W_CData):
                 return space.w_NotImplemented
 
-            if requires_ordering:
-                if (isinstance(self.ctype, W_CTypePrimitive) or
-                    isinstance(w_other.ctype, W_CTypePrimitive)):
-                    raise OperationError(space.w_TypeError,
-                       space.wrap("cannot do comparison on a primitive cdata"))
-                cdata1 = rffi.cast(lltype.Unsigned, cdata1)
-                cdata2 = rffi.cast(lltype.Unsigned, cdata2)
-            return space.newbool(op(cdata1, cdata2))
+            with self as ptr1, w_other as ptr2:
+                if requires_ordering:
+                    if (isinstance(self.ctype, W_CTypePrimitive) or
+                        isinstance(w_other.ctype, W_CTypePrimitive)):
+                        raise OperationError(space.w_TypeError, space.wrap(
+                            "cannot do comparison on a primitive cdata"))
+                    ptr1 = rffi.cast(lltype.Unsigned, ptr1)
+                    ptr2 = rffi.cast(lltype.Unsigned, ptr2)
+                result = op(ptr1, ptr2)
+            return space.newbool(result)
         #
         return func_with_new_name(_cmp, name)
 
@@ -113,7 +130,8 @@ class W_CData(W_Root):
     ge = _make_comparison('ge')
 
     def hash(self):
-        h = rffi.cast(lltype.Signed, self._cdata)
+        ptr = self.unsafe_escaping_ptr()
+        h = rffi.cast(lltype.Signed, ptr)
         # To hash pointers in dictionaries.  Assumes that h shows some
         # alignment (to 4, 8, maybe 16 bytes), so we use the following
         # formula to avoid the trailing bits being always 0.
@@ -128,26 +146,27 @@ class W_CData(W_Root):
             i = space.getindex_w(w_index, space.w_IndexError)
             ctype = self.ctype._check_subscript_index(self, i)
             w_o = self._do_getitem(ctype, i)
-        keepalive_until_here(self)
         return w_o
 
     def _do_getitem(self, ctype, i):
         ctitem = ctype.ctitem
-        return ctitem.convert_to_object(
-            rffi.ptradd(self._cdata, i * ctitem.size))
+        with self as ptr:
+            return ctitem.convert_to_object(
+                rffi.ptradd(ptr, i * ctitem.size))
 
     def setitem(self, w_index, w_value):
         space = self.space
         if space.isinstance_w(w_index, space.w_slice):
-            self._do_setslice(w_index, w_value)
+            with self as ptr:
+                self._do_setslice(w_index, w_value, ptr)
         else:
             i = space.getindex_w(w_index, space.w_IndexError)
             ctype = self.ctype._check_subscript_index(self, i)
             ctitem = ctype.ctitem
-            ctitem.convert_from_object(
-                rffi.ptradd(self._cdata, i * ctitem.size),
-                w_value)
-        keepalive_until_here(self)
+            with self as ptr:
+                ctitem.convert_from_object(
+                    rffi.ptradd(ptr, i * ctitem.size),
+                    w_value)
 
     def _do_getslicearg(self, w_slice):
         from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
@@ -188,14 +207,15 @@ class W_CData(W_Root):
             ctarray = newtype.new_array_type(space, ctptr, space.w_None)
             ctptr.cache_array_type = ctarray
         #
-        p = rffi.ptradd(self._cdata, start * ctarray.ctitem.size)
-        return W_CDataSliced(space, p, ctarray, length)
+        ptr = self.unsafe_escaping_ptr()
+        ptr = rffi.ptradd(ptr, start * ctarray.ctitem.size)
+        return W_CDataSliced(space, ptr, ctarray, length)
 
-    def _do_setslice(self, w_slice, w_value):
+    def _do_setslice(self, w_slice, w_value, ptr):
         ctptr, start, length = self._do_getslicearg(w_slice)
         ctitem = ctptr.ctitem
         ctitemsize = ctitem.size
-        cdata = rffi.ptradd(self._cdata, start * ctitemsize)
+        target = rffi.ptradd(ptr, start * ctitemsize)
         #
         if isinstance(w_value, W_CData):
             from pypy.module._cffi_backend import ctypearray
@@ -204,9 +224,8 @@ class W_CData(W_Root):
                 ctv.ctitem is ctitem and
                 w_value.get_array_length() == length):
                 # fast path: copying from exactly the correct type
-                s = w_value._cdata
-                rffi.c_memcpy(cdata, s, ctitemsize * length)
-                keepalive_until_here(w_value)
+                with w_value as source:
+                    rffi.c_memcpy(target, source, ctitemsize * length)
                 return
         #
         # A fast path for <char[]>[0:N] = "somestring".
@@ -221,7 +240,7 @@ class W_CData(W_Root):
                 raise oefmt(space.w_ValueError,
                             "need a string of length %d, got %d",
                             length, len(value))
-            copy_string_to_raw(llstr(value), cdata, 0, length)
+            copy_string_to_raw(llstr(value), target, 0, length)
             return
         #
         w_iter = space.iter(w_value)
@@ -233,8 +252,8 @@ class W_CData(W_Root):
                     raise
                 raise oefmt(space.w_ValueError,
                             "need %d values to unpack, got %d", length, i)
-            ctitem.convert_from_object(cdata, w_item)
-            cdata = rffi.ptradd(cdata, ctitemsize)
+            ctitem.convert_from_object(target, w_item)
+            target = rffi.ptradd(target, ctitemsize)
         try:
             space.next(w_iter)
         except OperationError, e:
@@ -247,7 +266,8 @@ class W_CData(W_Root):
     def _add_or_sub(self, w_other, sign):
         space = self.space
         i = sign * space.getindex_w(w_other, space.w_OverflowError)
-        return self.ctype.add(self._cdata, i)
+        ptr = self.unsafe_escaping_ptr()
+        return self.ctype.add(ptr, i)
 
     def add(self, w_other):
         return self._add_or_sub(w_other, +1)
@@ -268,9 +288,11 @@ class W_CData(W_Root):
                             self.ctype.name, ct.name)
             #
             itemsize = ct.ctitem.size
-            if itemsize <= 0: itemsize = 1
-            diff = (rffi.cast(lltype.Signed, self._cdata) -
-                    rffi.cast(lltype.Signed, w_other._cdata)) // itemsize
+            if itemsize <= 0:
+                itemsize = 1
+            with self as ptr1, w_other as ptr2:
+                diff = (rffi.cast(lltype.Signed, ptr1) -
+                        rffi.cast(lltype.Signed, ptr2)) // itemsize
             return space.wrap(diff)
         #
         return self._add_or_sub(w_other, -1)
@@ -279,17 +301,19 @@ class W_CData(W_Root):
         return self.ctype.getcfield(self.space.str_w(w_attr))
 
     def getattr(self, w_attr):
-        w_res = self.getcfield(w_attr).read(self._cdata)
-        keepalive_until_here(self)
+        cfield = self.getcfield(w_attr)
+        with self as ptr:
+            w_res = cfield.read(ptr)
         return w_res
 
     def setattr(self, w_attr, w_value):
-        self.getcfield(w_attr).write(self._cdata, w_value)
-        keepalive_until_here(self)
+        cfield = self.getcfield(w_attr)
+        with self as ptr:
+            cfield.write(ptr, w_value)
 
     def call(self, args_w):
-        w_result = self.ctype.call(self._cdata, args_w)
-        keepalive_until_here(self)
+        with self as ptr:
+            w_result = self.ctype.call(ptr, args_w)
         return w_result
 
     def iter(self):
@@ -311,21 +335,21 @@ class W_CData(W_Root):
 
     @specialize.argtype(1)
     def write_raw_signed_data(self, source):
-        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
-        keepalive_until_here(self)
+        with self as ptr:
+            misc.write_raw_signed_data(ptr, source, self.ctype.size)
 
     @specialize.argtype(1)
     def write_raw_unsigned_data(self, source):
-        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
-        keepalive_until_here(self)
+        with self as ptr:
+            misc.write_raw_unsigned_data(ptr, source, self.ctype.size)
 
     def write_raw_float_data(self, source):
-        misc.write_raw_float_data(self._cdata, source, self.ctype.size)
-        keepalive_until_here(self)
+        with self as ptr:
+            misc.write_raw_float_data(ptr, source, self.ctype.size)
 
     def convert_to_object(self):
-        w_obj = self.ctype.convert_to_object(self._cdata)
-        keepalive_until_here(self)
+        with self as ptr:
+            w_obj = self.ctype.convert_to_object(ptr)
         return w_obj
 
     def get_array_length(self):
@@ -353,7 +377,7 @@ class W_CDataMem(W_CData):
 
     @rgc.must_be_light_finalizer
     def __del__(self):
-        lltype.free(self._cdata, flavor='raw')
+        lltype.free(self._ptr, flavor='raw')
 
 
 class W_CDataNewOwning(W_CDataMem):

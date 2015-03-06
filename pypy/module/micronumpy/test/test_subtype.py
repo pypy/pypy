@@ -2,7 +2,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestSupport(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii", "mmap"])
 
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
@@ -476,3 +476,120 @@ class AppTestSupport(BaseNumpyAppTest):
         a = self.SubType(array([[1, 2], [3, 4]]))
         b = array(a, subok=False)
         assert type(b) is ndarray
+    
+    def test_numpypy_mmap(self):
+        # issue #21 on pypy/numpy 
+        from numpy import array, ndarray, arange, dtype as dtypedescr
+        import mmap
+        import os.path
+        from tempfile import mkdtemp
+        import os.path as path
+        valid_filemodes = ["r", "c", "r+", "w+"]
+        writeable_filemodes = ["r+", "w+"]
+        mode_equivalents = {
+            "readonly":"r",
+            "copyonwrite":"c",
+            "readwrite":"r+",
+            "write":"w+"
+            }
+
+        class memmap(ndarray):
+            def __new__(subtype, filename, dtype='uint8', mode='r+', offset=0, shape=None, order='C'):
+                # Import here to minimize 'import numpy' overhead
+                try:
+                    mode = mode_equivalents[mode]
+                except KeyError:
+                    if mode not in valid_filemodes:
+                        raise ValueError("mode must be one of %s" %
+                                         (valid_filemodes + list(mode_equivalents.keys())))
+
+                if hasattr(filename, 'read'):
+                    fid = filename
+                    own_file = False
+                else:
+                    fid = open(filename, (mode == 'c' and 'r' or mode)+'b')
+                    own_file = True
+
+                if (mode == 'w+') and shape is None:
+                    raise ValueError("shape must be given")
+
+                fid.seek(0, 2)
+                flen = fid.tell()
+                descr = dtypedescr(dtype)
+                _dbytes = descr.itemsize
+
+                if shape is None:
+                    bytes = flen - offset
+                    if (bytes % _dbytes):
+                        fid.close()
+                        raise ValueError("Size of available data is not a "
+                                "multiple of the data-type size.")
+                    size = bytes // _dbytes
+                    shape = (size,)
+                else:
+                    if not isinstance(shape, tuple):
+                        shape = (shape,)
+                    size = 1
+                    for k in shape:
+                        size *= k
+
+                bytes = long(offset + size*_dbytes)
+
+                if mode == 'w+' or (mode == 'r+' and flen < bytes):
+                    fid.seek(bytes - 1, 0)
+                    fid.write('\0')
+                    fid.flush()
+
+                if mode == 'c':
+                    acc = mmap.ACCESS_COPY
+                elif mode == 'r':
+                    acc = mmap.ACCESS_READ
+                else:
+                    acc = mmap.ACCESS_WRITE
+
+                start = offset - offset % mmap.ALLOCATIONGRANULARITY
+                bytes -= start
+                offset -= start
+                mm = mmap.mmap(fid.fileno(), bytes, access=acc, offset=start)
+
+                self = ndarray.__new__(subtype, shape, dtype=descr, buffer=mm,
+                    offset=offset, order=order)
+                self._mmap = mm
+                self.offset = offset
+                self.mode = mode
+
+                if isinstance(filename, basestring):
+                    self.filename = os.path.abspath(filename)
+                # py3 returns int for TemporaryFile().name
+                elif (hasattr(filename, "name") and
+                      isinstance(filename.name, basestring)):
+                    self.filename = os.path.abspath(filename.name)
+                # same as memmap copies (e.g. memmap + 1)
+                else:
+                    self.filename = None
+
+                if own_file:
+                    fid.close()
+
+                return self
+
+            def flush(self):
+                if self.base is not None and hasattr(self.base, 'flush'):
+                    self.base.flush() 
+
+        def asarray(obj, itemsize=None, order=None):
+            return array(obj, itemsize, copy=False, order=order)
+
+        filename = path.join(mkdtemp(), 'newfile.dat')
+        data = arange(10*10*36).reshape(10, 10, 36)
+        fp = memmap(filename, dtype='float32', mode='w+', shape=data.shape)
+        vals = [   242,    507,    255,    505,    315,    316,    308,    506,
+          309,    255,    211,    505,    315,    316,    308,    506,
+          309,    255,    255,    711,    194,    232,    711,    711,
+          709,    710,    709,    710,    882,    897,    711,    245,
+          711,    711,    168,    245]
+        fp[:] = data
+        fp[5:6][:,4] = vals
+        a = asarray(fp[5:6][:,4])
+        assert (a == vals).all()
+

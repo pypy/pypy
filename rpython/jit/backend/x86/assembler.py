@@ -26,6 +26,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     imm0, imm1, FloatImmedLoc, RawEbpLoc, RawEspLoc)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.x86 import rx86, codebuf, callbuilder
+from rpython.jit.backend.x86.callbuilder import follow_jump
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.x86 import support
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -245,7 +246,7 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rr(esi.value, eax.value) # tid
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         self.set_extra_stack_depth(mc, 16)
-        mc.CALL(imm(addr))
+        mc.CALL(imm(follow_jump(addr)))
         mc.ADD_ri(esp.value, 16 - WORD)
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
@@ -312,7 +313,7 @@ class Assembler386(BaseAssembler):
             mc.PUSH_r(esp.value)
         #
         # esp is now aligned to a multiple of 16 again
-        mc.CALL(imm(slowpathaddr))
+        mc.CALL(imm(follow_jump(slowpathaddr)))
         #
         if IS_X86_32:
             mc.ADD_ri(esp.value, 3*WORD)    # alignment
@@ -819,7 +820,7 @@ class Assembler386(BaseAssembler):
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
         mc = codebuf.MachineCodeBlockWrapper()
-        mc.JMP(imm(target))
+        mc.JMP(imm(follow_jump(target)))
         if WORD == 4:         # keep in sync with prepare_loop()
             assert mc.get_relative_pos() == 5
         else:
@@ -2228,7 +2229,7 @@ class Assembler386(BaseAssembler):
             if self._regalloc.xrm.reg_bindings:
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        self.mc.CALL(imm(cond_call_adr))
+        self.mc.CALL(imm(follow_jump(cond_call_adr)))
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
         offset = self.mc.get_relative_pos() - jmp_adr
@@ -2246,7 +2247,7 @@ class Assembler386(BaseAssembler):
         jmp_adr = self.mc.get_relative_pos()
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, mov=True)
-        self.mc.CALL(imm(self.malloc_slowpath))
+        self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
@@ -2267,7 +2268,7 @@ class Assembler386(BaseAssembler):
         jmp_adr = self.mc.get_relative_pos()
         # save the gcmap
         self.push_gcmap(self.mc, gcmap, mov=True)
-        self.mc.CALL(imm(self.malloc_slowpath))
+        self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
@@ -2332,7 +2333,7 @@ class Assembler386(BaseAssembler):
                 assert kind == rewrite.FLAG_UNICODE
                 addr = self.malloc_slowpath_unicode
             self.mc.MOV(edi, lengthloc)
-        self.mc.CALL(imm(addr))
+        self.mc.CALL(imm(follow_jump(addr)))
         self.mc.JMP_l8(0)      # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
         #

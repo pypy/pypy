@@ -99,10 +99,12 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             for i in range(w_object.get_size()):
                 elems_w[i] = w_object.implementation.getitem(i * elsize)
         else:
-            sz = support.product(w_object.get_shape()) * dtype.elsize
-            return W_NDimArray.from_shape_and_storage(space,
-                w_object.get_shape(),w_object.implementation.storage,
-                dtype, storage_bytes=sz, w_base=w_object)
+            imp = w_object.implementation
+            with imp as storage:
+                sz = support.product(w_object.get_shape()) * dtype.elsize
+                return W_NDimArray.from_shape_and_storage(space,
+                    w_object.get_shape(), storage, dtype, storage_bytes=sz, 
+                    w_base=w_object, start=imp.start)
     else:
         # not an array
         shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
