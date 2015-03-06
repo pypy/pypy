@@ -779,7 +779,7 @@ _oplist = [
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
     '_OVF_FIRST', # ----- start of is_ovf operations -----
-    'INT_ADD_OVF/2/i',
+    'INT_ADD_OVF/2/i', # note that the orded has to match INT_ADD order
     'INT_SUB_OVF/2/i',
     'INT_MUL_OVF/2/i',
     '_OVF_LAST', # ----- end of is_ovf operations -----

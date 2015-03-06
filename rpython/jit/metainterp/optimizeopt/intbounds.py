@@ -211,15 +211,15 @@ class OptIntBounds(Optimization):
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
             elif opnum == rop.INT_ADD_OVF:
-                self.pure(rop.INT_ADD, args[:], result)
+                #self.pure(rop.INT_ADD, args[:], result)
                 self.pure(rop.INT_SUB, [result, args[1]], args[0])
                 self.pure(rop.INT_SUB, [result, args[0]], args[1])
             elif opnum == rop.INT_SUB_OVF:
-                self.pure(rop.INT_SUB, args[:], result)
+                #self.pure(rop.INT_SUB, args[:], result)
                 self.pure(rop.INT_ADD, [result, args[1]], args[0])
                 self.pure(rop.INT_SUB, [args[0], result], args[1])
-            elif opnum == rop.INT_MUL_OVF:
-                self.pure(rop.INT_MUL, args[:], result)
+            #elif opnum == rop.INT_MUL_OVF:
+            #    self.pure(rop.INT_MUL, args[:], result)
         self.emit_operation(op)
 
     def optimize_GUARD_OVERFLOW(self, op):

@@ -4759,6 +4759,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
+        py.test.skip("disabled for now")
         from rpython.jit.metainterp.optimizeopt.heap import BogusPureField
         ops = """
         [p3]

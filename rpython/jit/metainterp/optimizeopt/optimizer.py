@@ -323,6 +323,9 @@ class Optimization(object):
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
 
+    def get_box_replacement(self, box):
+        return self.optimizer.get_box_replacement(box)
+
     def make_constant(self, box, constbox):
         return self.optimizer.make_constant(box, constbox)
 
@@ -399,6 +402,7 @@ class Optimization(object):
 class Optimizer(Optimization):
 
     exporting_state = False
+    emitting_dissabled = False
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
@@ -609,7 +613,7 @@ class Optimizer(Optimization):
         if clear:
             self.clear_newoperations()
         for op in self.loop.operations:
-            self._last_emitted_op = None
+            self._really_emitted_operation = None
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
@@ -651,8 +655,11 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(guard_op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        self._last_emitted_op = op
+        self._really_emitted_operation = op
         self._newoperations.append(op)
+
+    def getlastop(self):
+        return self._really_emitted_operation
 
     def replace_guard_op(self, old_op_pos, new_op):
         old_op = self._newoperations[old_op_pos]
@@ -704,16 +711,6 @@ class Optimizer(Optimization):
                 # a real GUARD_VALUE.  Make it use one counter per value.
                 descr.make_a_counter_per_value(op)
         return op
-
-    def make_args_key(self, opnum, arglist, descr):
-        n = len(arglist)
-        args = [None] * (n + 2)
-        for i in range(n):
-            arg = self.get_box_replacement(arglist[i])
-            args[i] = arg
-        args[n] = ConstInt(opnum)
-        args[n + 1] = descr
-        return args
 
     def optimize_default(self, op):
         self.emit_operation(op)
