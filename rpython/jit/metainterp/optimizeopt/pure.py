@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 
 
@@ -158,8 +158,7 @@ class OptPure(Optimization):
             # all identical
             # this removes a CALL_PURE that has the same (non-constant)
             # arguments as a previous CALL_PURE.
-            oldvalue = self.getvalue(old_op.result)
-            self.make_equal_to(op.result, oldvalue)
+            self.make_equal_to(op, old_op)
             self.last_emitted_operation = REMOVED
             return True
         return False

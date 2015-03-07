@@ -829,7 +829,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_3(self):
         ops = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         i0 = getfield_gc_i(p1, descr=valuedescr)
         i1 = int_add(i0, 1)
@@ -894,7 +894,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_constant_isnull(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         setfield_gc(p0, NULL, descr=nextdescr)
         p2 = getfield_gc_r(p0, descr=nextdescr)
         i1 = ptr_eq(p2, NULL)
@@ -909,7 +909,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_virtual_constant_isnonnull(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         setfield_gc(p0, ConstPtr(myptr), descr=nextdescr)
         p2 = getfield_gc_r(p0, descr=nextdescr)
         i1 = ptr_eq(p2, NULL)

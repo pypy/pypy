@@ -408,9 +408,8 @@ class OptRewrite(Optimization):
         self.loop_invariant_producer[key] = op
         newop = self.replace_op_with(op,
                                      OpHelpers.call_for_descr(op.getdescr()))
-        resvalue = self.optimizer.getvalue(op)
         self.emit_operation(newop)
-        self.loop_invariant_results[key] = resvalue
+        self.loop_invariant_results[key] = op
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_N = optimize_CALL_LOOPINVARIANT_I
