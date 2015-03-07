@@ -323,9 +323,9 @@ def test_CheckCanHandle():
     def assert_handles(cls, good, bad):
         s = cls(0)
         for val in good:
-            assert s.check_can_handle(val)
+            assert s._check_can_handle(val)
         for val in bad:
-            assert not s.check_can_handle(val)
+            assert not s._check_can_handle(val)
     obj = W_Object()
     i = W_Integer(0)
     nil = w_nil
@@ -425,8 +425,8 @@ def test_optimized_strategy_switch(monkeypatch):
     def convert_storage_from_special(self, w_self, other):
         s.copied += 1
     
-    monkeypatch.setattr(AbstractStrategy, "convert_storage_from_NilStrategy", convert_storage_from_special)
-    monkeypatch.setattr(AbstractStrategy, "convert_storage_from", convert_storage_from_default)
+    monkeypatch.setattr(AbstractStrategy, "_convert_storage_from_NilStrategy", convert_storage_from_special)
+    monkeypatch.setattr(AbstractStrategy, "_convert_storage_from", convert_storage_from_default)
     try:
         factory.switch_strategy(l, IntegerOrNilStrategy)
     finally:

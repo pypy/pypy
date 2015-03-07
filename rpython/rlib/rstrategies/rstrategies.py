@@ -56,7 +56,7 @@ def strategy(generalize=None, singleton=True):
             def generalized_strategy_for(self, value):
                 # TODO - optimize this method
                 for strategy in generalize:
-                    if self.strategy_factory().strategy_singleton_instance(strategy).check_can_handle(value):
+                    if self.strategy_factory().strategy_singleton_instance(strategy)._check_can_handle(value):
                         return strategy
                 raise Exception("Could not find generalized strategy for %s coming from %s" % (value, self))
             strategy_class.generalized_strategy_for = generalized_strategy_for
@@ -109,7 +109,7 @@ class StrategyFactory(object):
             size = old_strategy.size(w_self)
             new_strategy = self.instantiate_strategy(new_strategy_type, w_self, size)
         self.set_strategy(w_self, new_strategy)
-        old_strategy.convert_storage_to(w_self, new_strategy)
+        old_strategy._convert_storage_to(w_self, new_strategy)
         new_strategy.strategy_switched(w_self)
         self.log(w_self, new_strategy, old_strategy, new_element)
         return new_strategy
@@ -127,7 +127,7 @@ class StrategyFactory(object):
         else:
             strategy = self.instantiate_strategy(strategy_type, w_self, size)
         self.set_strategy(w_self, strategy)
-        strategy.initialize_storage(w_self, size)
+        strategy._initialize_storage(w_self, size)
         element = None
         if elements:
             strategy.store_all(w_self, elements)
@@ -147,7 +147,7 @@ class StrategyFactory(object):
             if specialized_strategies <= 1:
                 break
             for i, strategy in enumerate(self.strategies):
-                if can_handle[i] and not self.strategy_singleton_instance(strategy).check_can_handle(obj):
+                if can_handle[i] and not self.strategy_singleton_instance(strategy)._check_can_handle(obj):
                     can_handle[i] = False
                     specialized_strategies -= 1
         for i, strategy_type in enumerate(self.strategies):
@@ -220,16 +220,16 @@ class StrategyFactory(object):
     def _patch_strategy_class(self, strategy_class, root_class):
         "NOT_RPYTHON"
         # Patch root class: Add default handler for visitor
-        def convert_storage_from_OTHER(self, w_self, previous_strategy):
-            self.convert_storage_from(w_self, previous_strategy)
-        funcname = "convert_storage_from_" + strategy_class.__name__
-        convert_storage_from_OTHER.func_name = funcname
-        setattr(root_class, funcname, convert_storage_from_OTHER)
+        def _convert_storage_from_OTHER(self, w_self, previous_strategy):
+            self._convert_storage_from(w_self, previous_strategy)
+        funcname = "_convert_storage_from_" + strategy_class.__name__
+        _convert_storage_from_OTHER.func_name = funcname
+        setattr(root_class, funcname, _convert_storage_from_OTHER)
         
         # Patch strategy class: Add polymorphic visitor function
-        def convert_storage_to(self, w_self, new_strategy):
+        def _convert_storage_to(self, w_self, new_strategy):
             getattr(new_strategy, funcname)(w_self, self)
-        strategy_class.convert_storage_to = convert_storage_to
+        strategy_class._convert_storage_to = _convert_storage_to
     
     def _collect_subclasses(self, cls):
         "NOT_RPYTHON"
@@ -320,37 +320,37 @@ class AbstractStrategy(object):
 
     # Internal methods
     
-    def initialize_storage(self, w_self, initial_size):
+    def _initialize_storage(self, w_self, initial_size):
         raise NotImplementedError("Abstract method")
     
-    def check_can_handle(self, value):
+    def _check_can_handle(self, value):
         raise NotImplementedError("Abstract method")
     
-    def convert_storage_to(self, w_self, new_strategy):
+    def _convert_storage_to(self, w_self, new_strategy):
         # This will be overwritten in _patch_strategy_class
-        new_strategy.convert_storage_from(w_self, self)
+        new_strategy._convert_storage_from(w_self, self)
     
     @jit.unroll_safe
-    def convert_storage_from(self, w_self, previous_strategy):
+    def _convert_storage_from(self, w_self, previous_strategy):
         # This is a very unefficient (but most generic) way to do this.
         # Subclasses should specialize.
         storage = previous_strategy.fetch_all(w_self)
-        self.initialize_storage(w_self, previous_strategy.size(w_self))
+        self._initialize_storage(w_self, previous_strategy.size(w_self))
         for i, field in enumerate(storage):
             self.store(w_self, i, field)
     
-    def generalize_for_value(self, w_self, value):
+    def _generalize_for_value(self, w_self, value):
         strategy_type = self.generalized_strategy_for(value)
         new_instance = self.strategy_factory().switch_strategy(w_self, strategy_type, new_element=value)
         return new_instance
         
-    def cannot_handle_store(self, w_self, index0, value):
-        new_instance = self.generalize_for_value(w_self, value)
+    def _cannot_handle_store(self, w_self, index0, value):
+        new_instance = self._generalize_for_value(w_self, value)
         new_instance.store(w_self, index0, value)
         
-    def cannot_handle_insert(self, w_self, index0, list_w):
+    def _cannot_handle_insert(self, w_self, index0, list_w):
         # TODO - optimize. Prevent multiple generalizations and slicing done by callers.
-        new_strategy = self.generalize_for_value(w_self, list_w[0])
+        new_strategy = self._generalize_for_value(w_self, list_w[0])
         new_strategy.insert(w_self, index0, list_w)
 
 # ============== Special Strategies with no storage array ==============
@@ -359,23 +359,24 @@ class EmptyStrategy(AbstractStrategy):
     # == Required:
     # See AbstractStrategy
     
-    def initialize_storage(self, w_self, initial_size):
+    def _initialize_storage(self, w_self, initial_size):
         assert initial_size == 0
         self.set_storage(w_self, None)
-    def convert_storage_from(self, w_self, previous_strategy):
+    def _convert_storage_from(self, w_self, previous_strategy):
         self.set_storage(w_self, None)
+    def _check_can_handle(self, value):
+        return False
+    
     def fetch(self, w_self, index0):
         raise IndexError
     def store(self, w_self, index0, value):
-        self.cannot_handle_insert(w_self, index0, [value])
+        self._cannot_handle_insert(w_self, index0, [value])
     def insert(self, w_self, index0, list_w):
-        self.cannot_handle_insert(w_self, index0, list_w)
+        self._cannot_handle_insert(w_self, index0, list_w)
     def delete(self, w_self, start, end):
         self.check_index_range(w_self, start, end)
     def size(self, w_self):
         return 0
-    def check_can_handle(self, value):
-        return False
 
 class SingleValueStrategyStorage(object):
     """Small container object for a size value."""
@@ -389,39 +390,38 @@ class SingleValueStrategy(AbstractStrategy):
     # check_index_*(...) - use mixin SafeIndexingMixin or UnsafeIndexingMixin
     # value(self) - the single value contained in this strategy. Should be constant.
     
-    def initialize_storage(self, w_self, initial_size):
+    def _initialize_storage(self, w_self, initial_size):
         storage_obj = SingleValueStrategyStorage(initial_size)
         self.set_storage(w_self, storage_obj)
-    def convert_storage_from(self, w_self, previous_strategy):
-        self.initialize_storage(w_self, previous_strategy.size(w_self))
+    def _convert_storage_from(self, w_self, previous_strategy):
+        self._initialize_storage(w_self, previous_strategy.size(w_self))
+    def _check_can_handle(self, value):
+        return value is self.value()
     
     def fetch(self, w_self, index0):
         self.check_index_fetch(w_self, index0)
         return self.value()
     def store(self, w_self, index0, value):
         self.check_index_store(w_self, index0)
-        if self.check_can_handle(value):
+        if self._check_can_handle(value):
             return
-        self.cannot_handle_store(w_self, index0, value)
-    
-    @jit.unroll_safe
-    def insert(self, w_self, index0, list_w):
-        storage_obj = self.get_storage(w_self)
-        for i in range(len(list_w)):
-            if self.check_can_handle(list_w[i]):
-                storage_obj.size += 1
-            else:
-                self.cannot_handle_insert(w_self, index0 + i, list_w[i:])
-                return
-    
+        self._cannot_handle_store(w_self, index0, value)
     def delete(self, w_self, start, end):
         self.check_index_range(w_self, start, end)
         self.get_storage(w_self).size -= (end - start)
     def size(self, w_self):
         return self.get_storage(w_self).size
-    def check_can_handle(self, value):
-        return value is self.value()
     
+    @jit.unroll_safe
+    def insert(self, w_self, index0, list_w):
+        storage_obj = self.get_storage(w_self)
+        for i in range(len(list_w)):
+            if self._check_can_handle(list_w[i]):
+                storage_obj.size += 1
+            else:
+                self._cannot_handle_insert(w_self, index0 + i, list_w[i:])
+                return
+
 # ============== Basic strategies with storage ==============
 
 class StrategyWithStorage(AbstractStrategy):
@@ -430,12 +430,12 @@ class StrategyWithStorage(AbstractStrategy):
     # check_index_*(...) - use mixin SafeIndexingMixin or UnsafeIndexingMixin
     # default_value(self) - The value to be initially contained in this strategy
     
-    def initialize_storage(self, w_self, initial_size):
+    def _initialize_storage(self, w_self, initial_size):
         default = self._unwrap(self.default_value())
         self.set_storage(w_self, [default] * initial_size)
     
     @jit.unroll_safe
-    def convert_storage_from(self, w_self, previous_strategy):
+    def _convert_storage_from(self, w_self, previous_strategy):
         size = previous_strategy.size(w_self)
         new_storage = [ self._unwrap(previous_strategy.fetch(w_self, i))
                         for i in range(size) ]
@@ -443,11 +443,11 @@ class StrategyWithStorage(AbstractStrategy):
     
     def store(self, w_self, index0, wrapped_value):
         self.check_index_store(w_self, index0)
-        if self.check_can_handle(wrapped_value):
+        if self._check_can_handle(wrapped_value):
             unwrapped = self._unwrap(wrapped_value)
             self.get_storage(w_self)[index0] = unwrapped
         else:
-            self.cannot_handle_store(w_self, index0, wrapped_value)
+            self._cannot_handle_store(w_self, index0, wrapped_value)
     
     def fetch(self, w_self, index0):
         self.check_index_fetch(w_self, index0)
@@ -468,10 +468,10 @@ class StrategyWithStorage(AbstractStrategy):
         if start > self.size(w_self):
             start = self.size(w_self)
         for i in range(len(list_w)):
-            if self.check_can_handle(list_w[i]):
+            if self._check_can_handle(list_w[i]):
                 self.get_storage(w_self).insert(start + i, self._unwrap(list_w[i]))
             else:
-                self.cannot_handle_insert(w_self, start + i, list_w[i:])
+                self._cannot_handle_insert(w_self, start + i, list_w[i:])
                 return
     
     def delete(self, w_self, start, end):
@@ -487,7 +487,7 @@ class GenericStrategy(StrategyWithStorage):
         return value
     def _unwrap(self, value):
         return value
-    def check_can_handle(self, wrapped_value):
+    def _check_can_handle(self, wrapped_value):
         return True
     
 class WeakGenericStrategy(StrategyWithStorage):
@@ -499,7 +499,7 @@ class WeakGenericStrategy(StrategyWithStorage):
     def _unwrap(self, value):
         assert value is not None
         return weakref.ref(value)
-    def check_can_handle(self, wrapped_value):
+    def _check_can_handle(self, wrapped_value):
         return True
     
 # ============== Mixins for index checking operations ==============
@@ -544,7 +544,7 @@ class SingleTypeStrategy(SpecializedStrategy):
     # See SpecializedStrategy
     # contained_type - The wrapped type that can be stored in this strategy
     
-    def check_can_handle(self, value):
+    def _check_can_handle(self, value):
         return isinstance(value, self.contained_type)
     
 class TaggingStrategy(SingleTypeStrategy):
@@ -554,7 +554,7 @@ class TaggingStrategy(SingleTypeStrategy):
     # wrapped_tagged_value(self) - The tagged object
     # unwrapped_tagged_value(self) - The unwrapped tag value representing the tagged object
     
-    def check_can_handle(self, value):
+    def _check_can_handle(self, value):
         return value is self.wrapped_tagged_value() or \
                 (isinstance(value, self.contained_type) and \
                 self.unwrap(value) != self.unwrapped_tagged_value())
