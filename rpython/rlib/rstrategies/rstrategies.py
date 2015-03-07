@@ -74,7 +74,7 @@ class StrategyFactory(object):
     
     def __init__(self, root_class, all_strategy_classes=None):
         if all_strategy_classes is None:
-            all_strategy_classes = self.collect_subclasses(root_class)
+            all_strategy_classes = self._collect_subclasses(root_class)
         self.strategies = []
         self.logger = logger.Logger()
         
@@ -82,15 +82,15 @@ class StrategyFactory(object):
         self.strategy_singleton_field = "__singleton_%i" % StrategyFactory.factory_instance_counter
         StrategyFactory.factory_instance_counter += 1
         
-        self.create_strategy_instances(root_class, all_strategy_classes)
+        self._create_strategy_instances(root_class, all_strategy_classes)
     
-    def create_strategy_instances(self, root_class, all_strategy_classes):
+    def _create_strategy_instances(self, root_class, all_strategy_classes):
         for strategy_class in all_strategy_classes:
             if strategy_class._is_strategy:
                 setattr(strategy_class, self.strategy_singleton_field, self.instantiate_strategy(strategy_class))
                 self.strategies.append(strategy_class)
-            self.patch_strategy_class(strategy_class, root_class)
-        self.order_strategies()
+            self._patch_strategy_class(strategy_class, root_class)
+        self._order_strategies()
     
     # =============================
     # API methods
@@ -217,7 +217,7 @@ class StrategyFactory(object):
     # Internal methods
     # =============================
     
-    def patch_strategy_class(self, strategy_class, root_class):
+    def _patch_strategy_class(self, strategy_class, root_class):
         "NOT_RPYTHON"
         # Patch root class: Add default handler for visitor
         def convert_storage_from_OTHER(self, w_self, previous_strategy):
@@ -231,15 +231,15 @@ class StrategyFactory(object):
             getattr(new_strategy, funcname)(w_self, self)
         strategy_class.convert_storage_to = convert_storage_to
     
-    def collect_subclasses(self, cls):
+    def _collect_subclasses(self, cls):
         "NOT_RPYTHON"
         subclasses = []
         for subcls in cls.__subclasses__():
             subclasses.append(subcls)
-            subclasses.extend(self.collect_subclasses(subcls))
+            subclasses.extend(self._collect_subclasses(subcls))
         return subclasses
     
-    def order_strategies(self):
+    def _order_strategies(self):
         "NOT_RPYTHON"
         def get_generalization_depth(strategy, visited=None):
             if visited is None:
@@ -327,7 +327,7 @@ class AbstractStrategy(object):
         raise NotImplementedError("Abstract method")
     
     def convert_storage_to(self, w_self, new_strategy):
-        # This will be overwritten in patch_strategy_class
+        # This will be overwritten in _patch_strategy_class
         new_strategy.convert_storage_from(w_self, self)
     
     @jit.unroll_safe
