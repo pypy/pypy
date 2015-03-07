@@ -719,7 +719,7 @@ _oplist = [
     'GETFIELD_RAW/1d/fi',
     '_MALLOC_FIRST',
     'NEW/0d/r',           #-> GcStruct, gcptrs inside are zeroed (not the rest)
-    'NEW_WITH_VTABLE/1/r',#-> GcStruct with vtable, gcptrs inside are zeroed
+    'NEW_WITH_VTABLE/1d/r',#-> GcStruct with vtable, gcptrs inside are zeroed
     'NEW_ARRAY/1d/r',     #-> GcArray, not zeroed. only for arrays of primitives
     'NEW_ARRAY_CLEAR/1d/r',#-> GcArray, fully zeroed
     'NEWSTR/1/r',         #-> STR, the hash field is zeroed

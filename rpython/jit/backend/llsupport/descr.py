@@ -36,10 +36,11 @@ class SizeDescr(AbstractDescr):
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def __init__(self, size, count_fields_if_immut=-1,
-                 gc_fielddescrs=None):
+                 gc_fielddescrs=None, all_fielddescrs=None):
         self.size = size
         self.count_fields_if_immut = count_fields_if_immut
         self.gc_fielddescrs = gc_fielddescrs
+        self.all_fielddescrs = all_fielddescrs
 
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
@@ -61,12 +62,13 @@ def get_size_descr(gccache, STRUCT):
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
         gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
+        all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
         if heaptracker.has_gcstruct_a_vtable(STRUCT):
             sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
-                                            gc_fielddescrs)
+                                            gc_fielddescrs, all_fielddescrs)
         else:
             sizedescr = SizeDescr(size, count_fields_if_immut,
-                                  gc_fielddescrs)
+                                  gc_fielddescrs, all_fielddescrs)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
