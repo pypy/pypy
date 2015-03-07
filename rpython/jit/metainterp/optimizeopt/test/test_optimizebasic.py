@@ -199,14 +199,14 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_remove_guard_class_2(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         escape_n(p0)
         guard_class(p0, ConstClass(node_vtable)) []
         jump(i0)
         """
         expected = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         escape_n(p0)
         jump(i0)
         """
@@ -426,7 +426,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_ooisnull_oononnull_via_virtual(self):
         ops = """
         [p0]
-        pv = new_with_vtable(ConstClass(node_vtable))
+        pv = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         setfield_gc(pv, p0, descr=valuedescr)
         guard_nonnull(p0) []
         p1 = getfield_gc_r(pv, descr=valuedescr)
@@ -575,7 +575,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i1, p2, p3]
         i3 = getfield_gc_i(p3, descr=valuedescr)
         escape_n(i3)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(ConstClass(node_vtable), descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """

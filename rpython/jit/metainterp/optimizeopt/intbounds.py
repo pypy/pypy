@@ -441,12 +441,12 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(box2)
 
     def make_int_le(self, box1, box2):
-        v1 = self.getvalue(box1)
-        v2 = self.getvalue(box2)
-        if v1.getintbound().make_le(v2.getintbound()):
-            self.propagate_bounds_backward(box1, v1)
-        if v2.getintbound().make_ge(v1.getintbound()):
-            self.propagate_bounds_backward(box2, v2)
+        b1 = self.getintbound(box1)
+        b2 = self.getintbound(box2)
+        if b1.make_le(b2):
+            self.propagate_bounds_backward(box1)
+        if b2.make_ge(b1):
+            self.propagate_bounds_backward(box2)
 
     def make_int_gt(self, box1, box2):
         self.make_int_lt(box2, box1)

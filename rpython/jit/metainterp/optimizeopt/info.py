@@ -1,5 +1,6 @@
 
-from rpython.jit.metainterp.resoperation import AbstractValue
+from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
+     rop
 
 """ The tag field on PtrOptInfo has a following meaning:
 
@@ -52,14 +53,9 @@ class NonNullPtrInfo(PtrInfo):
     def is_nonnull(self):
         return True
 
-    
-class InstancePtrInfo(NonNullPtrInfo):
-    _attrs_ = ('_known_class', '_is_virtual', '_fields')
-    _fields = None
 
-    def __init__(self, known_class=None, is_virtual=False):
-        self._known_class = known_class
-        self._is_virtual = is_virtual
+class AbstractStructPtrInfo(NonNullPtrInfo):
+    _attrs_ = ('_is_virtual', '_fields')
 
     def force_box(self, op, optforce):
         if self._is_virtual:
@@ -69,19 +65,37 @@ class InstancePtrInfo(NonNullPtrInfo):
             op.set_forwarded(newop)
             newop.set_forwarded(self)
             self._is_virtual = False
+            if self._fields is not None:
+                descr = op.getdescr()
+                for i, flddescr in enumerate(descr.all_fielddescrs):
+                    fld = self._fields[i]
+                    if fld is not None:
+                        subbox = optforce.force_box(fld)
+                        op = ResOperation(rop.SETFIELD_GC, [op, subbox],
+                                          descr=flddescr)
+                        optforce.emit_operation(op)
             return newop
         return op
 
+    def init_fields(self, descr):
+        self._fields = [None] * len(descr.all_fielddescrs)
+
     def setfield_virtual(self, descr, op):
-        if self._fields is None:
-            self._fields = {}
-        self._fields[descr] = op
+        self._fields[descr.index] = op
 
     def getfield_virtual(self, descr):
-        return self._fields.get(descr, None)
+        return self._fields[descr.index]
 
     def is_virtual(self):
         return self._is_virtual
+
+class InstancePtrInfo(AbstractStructPtrInfo):
+    _attrs_ = ('_known_class')
+    _fields = None
+
+    def __init__(self, known_class=None, is_virtual=False):
+        self._known_class = known_class
+        self._is_virtual = is_virtual
 
     def get_known_class(self, cpu):
         return self._known_class

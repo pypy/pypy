@@ -524,6 +524,7 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_virtual(self, known_class, source_op, descr):
         opinfo = info.InstancePtrInfo(known_class, is_virtual=True)
+        opinfo.init_fields(descr)
         source_op.set_forwarded(opinfo)
         return opinfo
 
@@ -682,8 +683,7 @@ class OptVirtualize(optimizer.Optimization):
                 fieldvalue = self.optimizer.new_const(op.getdescr())
             self.make_equal_to(op, fieldop)
         else:
-            yyyy
-            value.ensure_nonnull()
+            self.make_nonnull(op.getarg(0))
             self.emit_operation(op)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I

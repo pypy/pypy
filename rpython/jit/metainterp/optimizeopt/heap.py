@@ -478,6 +478,8 @@ class OptHeap(Optimization):
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
+        self.emit_operation(op)
+        return
         structvalue = self.getvalue(op.getarg(0))
         cf = self.field_cache(op.getdescr())
         fieldvalue = cf.getfield_from_cache(self, structvalue)

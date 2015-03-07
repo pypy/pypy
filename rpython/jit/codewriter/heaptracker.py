@@ -136,9 +136,12 @@ def descr2vtable(cpu, descr):
     vtable = llmemory.cast_ptr_to_adr(vtable)
     return adr2int(vtable)
 
-def fielddescrs_from_struct(gccache, STRUCT, only_gc=False, res=None):
+def all_fielddescrs(gccache, STRUCT, only_gc=False, res=None,
+                    get_field_descr=None):
     from rpython.jit.backend.llsupport import descr
 
+    if get_field_descr is None:
+        get_field_descr = descr.get_field_descr
     if res is None:
         res = []
     # order is not relevant, except for tests
@@ -146,11 +149,31 @@ def fielddescrs_from_struct(gccache, STRUCT, only_gc=False, res=None):
         FIELD = getattr(STRUCT, name)
         if FIELD is lltype.Void:
             continue
+        if name == 'typeptr':
+            continue # dealt otherwise
         elif isinstance(FIELD, lltype.Struct):
-            fielddescrs_from_struct(gccache, FIELD, only_gc, res)
+            all_fielddescrs(gccache, FIELD, only_gc, res, get_field_descr)
         elif (not only_gc) or (isinstance(FIELD, lltype.Ptr) and FIELD._needsgc()):
-            res.append(descr.get_field_descr(gccache, STRUCT, name))
+            res.append(get_field_descr(gccache, STRUCT, name))
     return res
 
 def gc_fielddescrs(gccache, STRUCT):
-    return fielddescrs_from_struct(gccache, STRUCT, True)
+    return all_fielddescrs(gccache, STRUCT, True)
+
+def get_fielddescr_index_in(STRUCT, fieldname, cur_index=0):
+    for name in STRUCT._names:
+        FIELD = getattr(STRUCT, name)
+        if FIELD is lltype.Void:
+            continue
+        if name == 'typeptr':
+            continue # dealt otherwise
+        elif isinstance(FIELD, lltype.Struct):
+            r = get_fielddescr_index_in(FIELD, fieldname, cur_index)
+            if r != -1:
+                return r
+            continue
+        elif name == fieldname:
+            return cur_index
+        cur_index += 1
+    return -1 # not found
+    
