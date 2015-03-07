@@ -71,9 +71,9 @@ class AbstractStructPtrInfo(NonNullPtrInfo):
                     fld = self._fields[i]
                     if fld is not None:
                         subbox = optforce.force_box(fld)
-                        op = ResOperation(rop.SETFIELD_GC, [op, subbox],
-                                          descr=flddescr)
-                        optforce.emit_operation(op)
+                        setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
+                                                  descr=flddescr)
+                        optforce.emit_operation(setfieldop)
             return newop
         return op
 
