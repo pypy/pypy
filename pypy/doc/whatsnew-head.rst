@@ -30,3 +30,10 @@ Refactor rpython.flowspace.framestate.FrameState.
 .. branch: alt_errno
 Add an alternative location to save LastError, errno around ctypes,
 cffi external calls so things like pdb will not overwrite it
+
+.. branch: nonquadratic-heapcache
+Speed up the warmup times of the JIT by removing a quadratic algorithm in the
+heapcache.
+
+.. branch: online-transforms-2
+Simplify flow graphs on the fly during annotation phase.

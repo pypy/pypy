@@ -9,7 +9,8 @@ from rpython.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
 from rpython.rlib import jit
 from rpython.rlib import clibffi
 from rpython.rlib.clibffi import FUNCFLAG_CDECL, FUNCFLAG_STDCALL, \
-        AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
+        AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT, \
+        adjust_return_size
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from rpython.rlib.rdynload import DLLHANDLE
 
@@ -369,8 +370,8 @@ class Func(AbstractFuncPtr):
         # XXX: check len(args)?
         ll_result = lltype.nullptr(rffi.CCHARP.TO)
         if self.restype != types.void:
-            ll_result = lltype.malloc(rffi.CCHARP.TO,
-                                      intmask(self.restype.c_size),
+            size = adjust_return_size(intmask(self.restype.c_size))
+            ll_result = lltype.malloc(rffi.CCHARP.TO, size,
                                       flavor='raw')
         ffires = c_ffi_call(self.ll_cif,
                             self.funcsym,

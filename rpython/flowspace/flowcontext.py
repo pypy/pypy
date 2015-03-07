@@ -7,7 +7,6 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
-from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -124,7 +123,6 @@ class BlockRecorder(Recorder):
 
     def guessexception(self, ctx, *cases):
         block = self.crnt_block
-        bvars = vars = vars2 = block.getvariables()
         links = []
         for case in [None] + list(cases):
             if case is not None:

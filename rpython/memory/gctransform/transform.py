@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.flowspace.model import SpaceOperation, Variable, Constant, \
-     c_last_exception, checkgraph
+from rpython.flowspace.model import (
+    SpaceOperation, Variable, Constant, checkgraph)
 from rpython.translator.unsimplify import insert_empty_block
 from rpython.translator.unsimplify import insert_empty_startblock
 from rpython.translator.unsimplify import starts_with_empty_block
@@ -180,7 +180,7 @@ class BaseGCTransformer(object):
             hop.dispatch()
 
         if len(block.exits) != 0: # i.e not the return block
-            assert block.exitswitch is not c_last_exception
+            assert not block.canraise
 
             deadinallexits = set(self.livevars)
             for link in block.exits:

@@ -373,7 +373,7 @@ class TestModuleMinimal:
         config = make_config(None)
         space = make_objspace(config)
         w_executable = space.wrap('executable')
-        assert space.str_w(space.getattr(space.sys, w_executable)) == 'py.py'
+        assert space.findattr(space.sys, w_executable) is None
         space.setattr(space.sys, w_executable, space.wrap('foobar'))
         assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
         space.startup()

@@ -180,13 +180,16 @@ class Primitive(object):
         raw_storage_setitem_unaligned(storage, i + offset, value)
 
     def read(self, arr, i, offset, dtype=None):
-        return self.box(self._read(arr.storage, i, offset))
+        with arr as storage:
+            return self.box(self._read(storage, i, offset))
 
     def read_bool(self, arr, i, offset):
-        return bool(self.for_computation(self._read(arr.storage, i, offset)))
+        with arr as storage:
+            return bool(self.for_computation(self._read(storage, i, offset)))
 
     def store(self, arr, i, offset, box):
-        self._write(arr.storage, i, offset, self.unbox(box))
+        with arr as storage:
+            self._write(storage, i, offset, self.unbox(box))
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
@@ -1080,8 +1083,9 @@ class ComplexFloating(object):
         return bool(real) or bool(imag)
 
     def read_bool(self, arr, i, offset):
-        v = self.for_computation(self._read(arr.storage, i, offset))
-        return bool(v[0]) or bool(v[1])
+        with arr as storage:
+            v = self.for_computation(self._read(storage, i, offset))
+            return bool(v[0]) or bool(v[1])
 
     def get_element_size(self):
         return 2 * rffi.sizeof(self.T)
@@ -1132,8 +1136,9 @@ class ComplexFloating(object):
         return real, imag
 
     def read(self, arr, i, offset, dtype=None):
-        real, imag = self._read(arr.storage, i, offset)
-        return self.box_complex(real, imag)
+        with arr as storage:
+            real, imag = self._read(storage, i, offset)
+            return self.box_complex(real, imag)
 
     def _write(self, storage, i, offset, value):
         real, imag = value
@@ -1144,7 +1149,8 @@ class ComplexFloating(object):
         raw_storage_setitem_unaligned(storage, i + offset + rffi.sizeof(self.T), imag)
 
     def store(self, arr, i, offset, box):
-        self._write(arr.storage, i, offset, self.unbox(box))
+        with arr as storage:
+            self._write(storage, i, offset, self.unbox(box))
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
@@ -1633,13 +1639,14 @@ class FlexibleType(BaseType):
         assert isinstance(item, boxes.W_FlexibleBox)
         i = item.ofs
         end = i + item.dtype.elsize
-        while i < end:
-            assert isinstance(item.arr.storage[i], str)
-            if item.arr.storage[i] == '\x00':
-                break
-            builder.append(item.arr.storage[i])
-            i += 1
-        return builder.build()
+        with item.arr as storage:
+            while i < end:
+                assert isinstance(storage[i], str)
+                if storage[i] == '\x00':
+                    break
+                builder.append(storage[i])
+                i += 1
+            return builder.build()
 
 def str_unary_op(func):
     specialize.argtype(1)(func)
@@ -1669,23 +1676,26 @@ class StringType(FlexibleType):
             w_item = space.wrap('')
         arg = space.str_w(space.str(w_item))
         arr = VoidBoxStorage(dtype.elsize, dtype)
-        j = min(len(arg), dtype.elsize)
-        for i in range(j):
-            arr.storage[i] = arg[i]
-        for j in range(j, dtype.elsize):
-            arr.storage[j] = '\x00'
-        return boxes.W_StringBox(arr,  0, arr.dtype)
+        with arr as storage:
+            j = min(len(arg), dtype.elsize)
+            for i in range(j):
+                storage[i] = arg[i]
+            for j in range(j, dtype.elsize):
+                storage[j] = '\x00'
+            return boxes.W_StringBox(arr,  0, arr.dtype)
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, boxes.W_StringBox)
         size = min(arr.dtype.elsize - offset, box.arr.size - box.ofs)
-        return self._store(arr.storage, i, offset, box, size)
+        with arr as storage:
+            return self._store(storage, i, offset, box, size)
 
     @jit.unroll_safe
     def _store(self, storage, i, offset, box, size):
         assert isinstance(box, boxes.W_StringBox)
-        for k in range(size):
-            storage[k + offset + i] = box.arr.storage[k + box.ofs]
+        with box.arr as box_storage:
+            for k in range(size):
+                storage[k + offset + i] = box_storage[k + box.ofs]
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
@@ -1802,8 +1812,9 @@ class VoidType(FlexibleType):
         assert i == 0
         assert isinstance(box, boxes.W_VoidBox)
         assert box.dtype is box.arr.dtype
-        for k in range(box.arr.dtype.elsize):
-            arr.storage[k + ofs] = box.arr.storage[k + box.ofs]
+        with arr as arr_storage, box.arr as box_storage:
+            for k in range(box.arr.dtype.elsize):
+                arr_storage[k + ofs] = box_storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray
@@ -1893,12 +1904,14 @@ class RecordType(FlexibleType):
 
     def store(self, arr, i, ofs, box):
         assert isinstance(box, boxes.W_VoidBox)
-        self._store(arr.storage, i, ofs, box, box.dtype.elsize)
+        with arr as storage:
+            self._store(storage, i, ofs, box, box.dtype.elsize)
 
     @jit.unroll_safe
     def _store(self, storage, i, ofs, box, size):
-        for k in range(size):
-            storage[k + i + ofs] = box.arr.storage[k + box.ofs]
+        with box.arr as box_storage:
+            for k in range(size):
+                storage[k + i + ofs] = box_storage[k + box.ofs]
 
     def fill(self, storage, width, box, start, stop, offset):
         assert isinstance(box, boxes.W_VoidBox)
@@ -1944,9 +1957,10 @@ class RecordType(FlexibleType):
         s1 = v1.dtype.elsize
         s2 = v2.dtype.elsize
         assert s1 == s2
-        for i in range(s1):
-            if v1.arr.storage[v1.ofs + i] != v2.arr.storage[v2.ofs + i]:
-                return False
+        with v1.arr as v1_storage, v2.arr as v2_storage:
+            for i in range(s1):
+                if v1_storage[v1.ofs + i] != v2_storage[v2.ofs + i]:
+                    return False
         return True
 
     def ne(self, v1, v2):
