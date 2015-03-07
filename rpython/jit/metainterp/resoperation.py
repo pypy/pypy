@@ -837,6 +837,13 @@ def setup(debug_print=False):
             if debug_print:
                 print '%30s = %d' % (name, i)
             i += 1
+    # for optimizeopt/pure.py's getrecentops()
+    assert (rop.INT_ADD_OVF - rop._OVF_FIRST ==
+            rop.INT_ADD - rop._ALWAYS_PURE_FIRST)
+    assert (rop.INT_SUB_OVF - rop._OVF_FIRST ==
+            rop.INT_SUB - rop._ALWAYS_PURE_FIRST)
+    assert (rop.INT_MUL_OVF - rop._OVF_FIRST ==
+            rop.INT_MUL - rop._ALWAYS_PURE_FIRST)
 
 def get_base_class(mixins, base):
     try:
