@@ -157,6 +157,25 @@ def all_fielddescrs(gccache, STRUCT, only_gc=False, res=None,
             res.append(get_field_descr(gccache, STRUCT, name))
     return res
 
+def all_interiorfielddescrs(gccache, ARRAY, get_field_descr=None):
+    from rpython.jit.backend.llsupport import descr
+
+    if get_field_descr is None:
+        get_field_descr = descr.get_field_descr
+    # order is not relevant, except for tests
+    STRUCT = ARRAY.OF
+    res = []
+    for name in STRUCT._names:
+        FIELD = getattr(STRUCT, name)
+        if FIELD is lltype.Void:
+            continue
+        if name == 'typeptr':
+            continue # dealt otherwise
+        elif isinstance(FIELD, lltype.Struct):
+            raise Exception("unexpected array(struct(struct))")
+        res.append(get_field_descr(gccache, ARRAY, name))
+    return res
+
 def gc_fielddescrs(gccache, STRUCT):
     return all_fielddescrs(gccache, STRUCT, True)
 

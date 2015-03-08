@@ -531,6 +531,9 @@ class OptVirtualize(optimizer.Optimization):
     def make_varray(self, arraydescr, size, source_op, clear=False):
         if arraydescr.is_array_of_structs():
             assert clear
+            opinfo = info.ArrayStructInfo(arraydescr, size, True)
+            source_op.set_forwarded(opinfo)
+            return opinfo
             vvalue = VArrayStructValue(arraydescr, size, source_op)
         else:
             constvalue = self.new_const_item(arraydescr)
@@ -697,7 +700,8 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_SETFIELD_GC(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         if opinfo is not None and opinfo.is_virtual():
-            opinfo.setfield_virtual(op.getdescr(), op.getarg(1))
+            opinfo.setfield_virtual(op.getdescr(),
+                                    self.get_box_replacement(op.getarg(1)))
         else:
             self.make_nonnull(op.getarg(0))
             self.emit_operation(op)
@@ -718,8 +722,7 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_NEW_ARRAY_CLEAR(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
-            self.make_varray(op.getdescr(), sizebox.getint(), op,
-                             clear=True)
+            self.make_varray(op.getdescr(), sizebox.getint(), op, clear=True)
         else:
             self.emit_operation(op)        
 
@@ -893,32 +896,33 @@ class OptVirtualize(optimizer.Optimization):
         self.emit_operation(op)
 
     def optimize_GETINTERIORFIELD_GC_I(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 descr = op.getdescr()
-                fieldvalue = value.getinteriorfield(
-                    indexbox.getint(), descr, None
-                )
-                if fieldvalue is None:
+                fld = opinfo.getinteriorfield_virtual(indexbox.getint(), descr)
+                if fld is None:
+                    xxx
                     fieldvalue = self.new_const(descr)
-                self.make_equal_to(op, fieldvalue)
+                self.make_equal_to(op, fld)
                 return
+        xxx
         value.ensure_nonnull()
         self.emit_operation(op)
     optimize_GETINTERIORFIELD_GC_R = optimize_GETINTERIORFIELD_GC_I
     optimize_GETINTERIORFIELD_GC_F = optimize_GETINTERIORFIELD_GC_I
 
     def optimize_SETINTERIORFIELD_GC(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                value.setinteriorfield(
-                    indexbox.getint(), op.getdescr(), self.getvalue(op.getarg(2))
-                )
+                opinfo.setinteriorfield_virtual(indexbox.getint(),
+                                                op.getdescr(),
+                                       self.get_box_replacement(op.getarg(2)))
                 return
+        xxx
         value.ensure_nonnull()
         self.emit_operation(op)
 

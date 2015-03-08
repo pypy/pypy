@@ -151,7 +151,7 @@ def _is_signed_kind(TYPE):
             rffi.cast(TYPE, -1) == -1)
 
 class ArrayDescr(AbstractDescr):
-    def __init__(self, A):
+    def __init__(self, A, runner):
         self.A = self.OUTERA = A
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
@@ -191,10 +191,12 @@ class ArrayDescr(AbstractDescr):
 
 
 class InteriorFieldDescr(AbstractDescr):
-    def __init__(self, A, fieldname):
+    def __init__(self, A, fieldname, runner):
         self.A = A
         self.fieldname = fieldname
         self.FIELD = getattr(A.OF, fieldname)
+        self.arraydescr = runner.arraydescrof(A)
+        self.fielddescr = runner.fielddescrof(A.OF, fieldname)
 
     def __repr__(self):
         return 'InteriorFieldDescr(%r, %r)' % (self.A, self.fieldname)
@@ -397,8 +399,12 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = ArrayDescr(A)
+            descr = ArrayDescr(A, self)
             self.descrs[key] = descr
+            if isinstance(A.OF, lltype.Struct):
+                descrs = heaptracker.all_interiorfielddescrs(self,
+                        A, get_field_descr=LLGraphCPU.interiorfielddescrof)
+                descr.all_interiorfielddescrs = descrs
             return descr
 
     def interiorfielddescrof(self, A, fieldname):
@@ -406,7 +412,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = InteriorFieldDescr(A, fieldname)
+            descr = InteriorFieldDescr(A, fieldname, self)
             self.descrs[key] = descr
             return descr
 

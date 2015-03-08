@@ -205,10 +205,11 @@ class OptRewrite(Optimization):
         # Constant fold f0 * 1.0 and turn f0 * -1.0 into a FLOAT_NEG, these
         # work in all cases, including NaN and inf
         for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
-            v1 = self.getvalue(lhs)
-            v2 = self.getvalue(rhs)
+            v1 = self.get_box_replacement(lhs)
+            v2 = self.get_box_replacement(rhs)
 
             if v1.is_constant():
+                xxxx
                 if v1.box.getfloatstorage() == 1.0:
                     self.make_equal_to(op, v2)
                     return

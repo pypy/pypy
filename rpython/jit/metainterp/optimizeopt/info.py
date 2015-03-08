@@ -53,9 +53,8 @@ class NonNullPtrInfo(PtrInfo):
     def is_nonnull(self):
         return True
 
-
-class AbstractStructPtrInfo(NonNullPtrInfo):
-    _attrs_ = ('_is_virtual', '_fields')
+class AbstractVirtualPtrInfo(NonNullPtrInfo):
+    _attrs_ = ('_is_virtual',)
 
     def force_box(self, op, optforce):
         if self._is_virtual:
@@ -65,17 +64,15 @@ class AbstractStructPtrInfo(NonNullPtrInfo):
             op.set_forwarded(newop)
             newop.set_forwarded(self)
             self._is_virtual = False
-            if self._fields is not None:
-                descr = op.getdescr()
-                for i, flddescr in enumerate(descr.all_fielddescrs):
-                    fld = self._fields[i]
-                    if fld is not None:
-                        subbox = optforce.force_box(fld)
-                        setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
-                                                  descr=flddescr)
-                        optforce.emit_operation(setfieldop)
+            self._force_elements(newop, optforce)
             return newop
         return op
+
+    def is_virtual(self):
+        return self._is_virtual
+
+class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
+    _attrs_ = ('_is_virtual', '_fields')
 
     def init_fields(self, descr):
         self._fields = [None] * len(descr.all_fielddescrs)
@@ -86,8 +83,17 @@ class AbstractStructPtrInfo(NonNullPtrInfo):
     def getfield_virtual(self, descr):
         return self._fields[descr.index]
 
-    def is_virtual(self):
-        return self._is_virtual
+    def _force_elements(self, op, optforce):
+        if self._fields is None:
+            return
+        descr = op.getdescr()
+        for i, flddescr in enumerate(descr.all_fielddescrs):
+            fld = self._fields[i]
+            if fld is not None:
+                subbox = optforce.force_box(fld)
+                setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
+                                          descr=flddescr)
+                optforce.emit_operation(setfieldop)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class')
@@ -100,13 +106,44 @@ class InstancePtrInfo(AbstractStructPtrInfo):
     def get_known_class(self, cpu):
         return self._known_class
     
-class StructPtrInfo(NonNullPtrInfo):
-    _attrs_ = ('is_virtual', '_fields')
-
+class StructPtrInfo(AbstractStructPtrInfo):
+    pass
     
-class ArrayPtrInfo(NonNullPtrInfo):
-    _attrs_ = ('is_virtual', 'length', '_items')
+class ArrayPtrInfo(AbstractVirtualPtrInfo):
+    _attrs_ = ('_is_virtual', 'length', '_items', '_descr')
 
+class ArrayStructInfo(ArrayPtrInfo):
+    def __init__(self, descr, size, is_virtual):
+        self.length = size
+        lgt = len(descr.all_interiorfielddescrs)
+        self._is_virtual = is_virtual
+        self._items = [None] * (size * lgt)
+
+    def _compute_index(self, index, fielddescr):
+        one_size = len(fielddescr.arraydescr.all_interiorfielddescrs)
+        return index * one_size + fielddescr.fielddescr.index
+        
+    def setinteriorfield_virtual(self, index, fielddescr, fld):
+        index = self._compute_index(index, fielddescr)
+        self._items[index] = fld
+
+    def getinteriorfield_virtual(self, index, fielddescr):
+        index = self._compute_index(index, fielddescr)
+        return self._items[index]
+
+    def _force_elements(self, op, optforce):
+        i = 0
+        fielddescrs = op.getdescr().all_interiorfielddescrs
+        for index in range(self.length):
+            for flddescr in fielddescrs:
+                fld = self._items[i]
+                if fld is not None:
+                    subbox = optforce.force_box(fld)
+                    setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
+                                              [op, subbox],
+                                              descr=flddescr)
+                    optforce.emit_operation(setfieldop)
+                i += 1
     
 class StrPtrInfo(NonNullPtrInfo):
     _attrs_ = ()
