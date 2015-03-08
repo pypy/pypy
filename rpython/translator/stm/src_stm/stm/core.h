@@ -84,9 +84,12 @@ struct stm_priv_segment_info_s {
        track the STM status: these are old objects that where written
        to and that will need to be recorded in the commit log.  The
        list contains three entries for every such object, in the same
-       format as 'struct stm_undo_s' below.
+       format as 'struct stm_undo_s' below.  It can also represent a
+       position marker, like 'struct stm_undo_s'.
     */
     struct list_s *modified_old_objects;
+    uintptr_t position_markers_last;     /* index of most recent pos marker */
+    uintptr_t position_markers_len_old;  /* length of list at last minor col */
 
     struct list_s *objects_pointing_to_nursery;
     struct list_s *old_objects_with_cards_set;
@@ -174,16 +177,25 @@ enum /* transaction_state */ {
 
 /* Commit Log things */
 struct stm_undo_s {
-    object_t *object;   /* the object that is modified */
-    char *backup;       /* some backup data (a slice of the original obj) */
-    uint64_t slice;     /* location and size of this slice (cannot cross
-                           pages).  The size is in the lower 2 bytes, and
-                           the offset in the remaining 6 bytes. */
+  union {
+    struct {
+        object_t *object;   /* the object that is modified */
+        char *backup;       /* some backup data (a slice of the original obj) */
+        uint64_t slice;     /* location and size of this slice (cannot cross
+                               pages).  The size is in the lower 2 bytes, and
+                               the offset in the remaining 6 bytes. */
+    };
+    struct {
+        intptr_t type;               /* TYPE_POSITION_MARKER */
+        uintptr_t marker_odd_number; /* the odd number part of the marker */
+        object_t *marker_object;     /* the object part of the marker */
+    };
+  };
 };
+#define TYPE_POSITION_MARKER    (-1)
 #define SLICE_OFFSET(slice)  ((slice) >> 16)
 #define SLICE_SIZE(slice)    ((int)((slice) & 0xFFFF))
 #define NEW_SLICE(offset, size) (((uint64_t)(offset)) << 16 | (size))
-
 
 
 /* The model is: we have a global chained list, from 'commit_log_root',

@@ -68,6 +68,7 @@ typedef struct stm_thread_local_s {
     /* the next fields are handled internally by the library */
     int associated_segment_num;
     int last_associated_segment_num;
+    int thread_local_counter;
     struct stm_thread_local_s *prev, *next;
     void *creating_pthread[2];
 } stm_thread_local_t;
@@ -340,6 +341,69 @@ void stm_validate(void);
    that resume is called.  The current transaction is turned inevitable. */
 void stm_stop_all_other_threads(void);
 void stm_resume_all_other_threads(void);
+
+
+/* Profiling events.  In the comments: content of the markers, if any */
+enum stm_event_e {
+    /* always STM_TRANSACTION_START followed later by one of COMMIT or ABORT */
+    STM_TRANSACTION_START,
+    STM_TRANSACTION_COMMIT,
+    STM_TRANSACTION_ABORT,
+
+    /* write-read contention: a "marker" is included in the PYPYSTM file
+       saying where the write was done.  Followed by STM_TRANSACTION_ABORT. */
+    STM_CONTENTION_WRITE_READ,
+
+    /* always one STM_WAIT_xxx followed later by STM_WAIT_DONE */
+    STM_WAIT_FREE_SEGMENT,
+    STM_WAIT_OTHER_INEVITABLE,
+    STM_WAIT_DONE,
+
+    /* start and end of GC cycles */
+    STM_GC_MINOR_START,
+    STM_GC_MINOR_DONE,
+    STM_GC_MAJOR_START,
+    STM_GC_MAJOR_DONE,
+
+    _STM_EVENT_N
+};
+
+#define STM_EVENT_NAMES                         \
+    "transaction start",                        \
+    "transaction commit",                       \
+    "transaction abort",                        \
+    "contention write read",                    \
+    "wait free segment",                        \
+    "wait other inevitable",                    \
+    "wait done",                                \
+    "gc minor start",                           \
+    "gc minor done",                            \
+    "gc major start",                           \
+    "gc major done"
+
+/* The markers pushed in the shadowstack are an odd number followed by a
+   regular object pointer. */
+typedef struct {
+    uintptr_t odd_number;
+    object_t *object;
+} stm_loc_marker_t;
+extern void (*stmcb_timing_event)(stm_thread_local_t *tl, /* the local thread */
+                                  enum stm_event_e event,
+                                  stm_loc_marker_t *marker);
+
+/* Calling this sets up a stmcb_timing_event callback that will produce
+   a binary file called 'profiling_file_name'.  Call it with
+   'fork_mode == 0' for only the main process, and with
+   'fork_mode == 1' to also write files called
+   'profiling_file_name.fork<PID>' after a fork().  Call it with NULL to
+   stop profiling.  Returns -1 in case of error (see errno then).
+   The optional 'expand_marker' function pointer is called to expand
+   the marker's odd_number and object into printable data, starting at
+   the given position and with the given maximum length. */
+typedef int (*stm_expand_marker_fn)(char *seg_base, stm_loc_marker_t *marker,
+                                    char *output, int output_size);
+int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
+                       stm_expand_marker_fn expand_marker);
 
 
 /* Convenience macros to push the markers into the shadowstack */

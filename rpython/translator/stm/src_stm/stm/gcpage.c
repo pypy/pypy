@@ -348,6 +348,8 @@ static void mark_visit_from_modified_objects(void)
         struct stm_undo_s *modified = (struct stm_undo_s *)lst->items;
         struct stm_undo_s *end = (struct stm_undo_s *)(lst->items + lst->count);
         for (; modified < end; modified++) {
+            if (modified->type == TYPE_POSITION_MARKER)
+                continue;
             object_t *obj = modified->object;
             struct object_s *dst = (struct object_s*)REAL_ADDRESS(base, obj);
 
@@ -384,6 +386,22 @@ static void mark_visit_from_modified_objects(void)
         list_clear(uniques);
     }
     LIST_FREE(uniques);
+}
+
+static void mark_visit_from_markers(void)
+{
+    long i;
+    for (i = 1; i < NB_SEGMENTS; i++) {
+        struct stm_priv_segment_info_s *pseg = get_priv_segment(i);
+        struct list_s *lst = get_priv_segment(i)->modified_old_objects;
+
+        struct stm_undo_s *modified = (struct stm_undo_s *)lst->items;
+        struct stm_undo_s *end = (struct stm_undo_s *)(lst->items + lst->count);
+        for (; modified < end; modified++) {
+            if (modified->type == TYPE_POSITION_MARKER)
+                mark_visit_possibly_new_object(modified->marker_object, pseg);
+        }
+    }
 }
 
 static void mark_visit_from_roots(void)
@@ -683,6 +701,7 @@ static void major_collection_now_at_safe_point(void)
     /* marking */
     LIST_CREATE(marked_objects_to_trace);
     mark_visit_from_modified_objects();
+    mark_visit_from_markers();
     mark_visit_from_roots();
     mark_visit_from_finalizer_pending();
 

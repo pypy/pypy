@@ -81,7 +81,8 @@ static char *_fetch_stritems(char *seg_base, long addr)
     return seg_base + addr + rpy_items_ofs;
 }
 
-static int _stm_expand_marker_for_pypy(stm_loc_marker_t *marker,
+static int _stm_expand_marker_for_pypy(char *segment_base,
+                                       stm_loc_marker_t *marker,
                                        char *outputbuf, int outputbufsize)
 {
     if (marker->object == NULL)
@@ -95,7 +96,6 @@ static int _stm_expand_marker_for_pypy(stm_loc_marker_t *marker,
     long fnlen = 1, nlen = 1, line = 0;
     char *fn = "?", *name = "?";
 
-    char *segment_base = marker->segment_base;
     long o = (long)marker->object;
 
     co_filename    = _fetch_long(segment_base, o + g_co_filename_ofs);

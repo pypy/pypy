@@ -42,14 +42,6 @@ long _pypy_stm_count(void);
 
 /* C8: not implemented properly yet: */
 extern void stmcb_commit_soon(void);
-typedef struct {
-    stm_thread_local_t *tl;
-    char *segment_base;    /* base to interpret the 'object' below */
-    uintptr_t odd_number;  /* marker odd number, or 0 if marker is missing */
-    object_t *object;      /* marker object, or NULL if marker is missing */
-} stm_loc_marker_t;
-static inline int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
-                       int expand_marker(stm_loc_marker_t *, char *, int)) {return 0;}
 /* C8: not implemented properly yet ^^^^^^^^^^^^^^^^^^ */
 
 

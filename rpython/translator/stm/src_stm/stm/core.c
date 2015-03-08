@@ -49,6 +49,8 @@ static void import_objects(
 
     DEBUG_EXPECT_SEGFAULT(false);
     for (; undo < end; undo++) {
+        if (undo->type == TYPE_POSITION_MARKER)
+            continue;
         object_t *obj = undo->object;
         stm_char *oslice = ((stm_char *)obj) + SLICE_OFFSET(undo->slice);
         uintptr_t current_page_num = ((uintptr_t)oslice) / 4096;
@@ -228,7 +230,7 @@ static void _signal_handler(int sig, siginfo_t *siginfo, void *context)
         addr >= stm_object_pages+TOTAL_MEMORY) {
         /* actual segfault, unrelated to stmgc */
         fprintf(stderr, "Segmentation fault: accessing %p\n", addr);
-        raise(SIGINT);
+        abort();
     }
 
     int segnum = get_segment_of_linear_address(addr);
@@ -236,7 +238,7 @@ static void _signal_handler(int sig, siginfo_t *siginfo, void *context)
     if (segnum != STM_SEGMENT->segment_num) {
         fprintf(stderr, "Segmentation fault: accessing %p (seg %d) from"
                 " seg %d\n", addr, segnum, STM_SEGMENT->segment_num);
-        raise(SIGINT);
+        abort();
     }
     dprintf(("-> segment: %d\n", segnum));
 
@@ -245,7 +247,7 @@ static void _signal_handler(int sig, siginfo_t *siginfo, void *context)
     if (pagenum < END_NURSERY_PAGE) {
         fprintf(stderr, "Segmentation fault: accessing %p (seg %d "
                         "page %lu)\n", addr, segnum, pagenum);
-        raise(SIGINT);
+        abort();
     }
 
     DEBUG_EXPECT_SEGFAULT(false);
@@ -269,6 +271,11 @@ void _dbg_print_commit_log()
         struct stm_undo_s *undo = cl->written;
         struct stm_undo_s *end = undo + cl->written_count;
         for (; undo < end; undo++) {
+            if (undo->type == TYPE_POSITION_MARKER) {
+                fprintf(stderr, "    marker %p %lu\n",
+                        undo->marker_object, undo->marker_odd_number);
+                continue;
+            }
             fprintf(stderr, "    obj %p, size %d, ofs %lu: ", undo->object,
                     SLICE_SIZE(undo->slice), SLICE_OFFSET(undo->slice));
             /* long i; */
@@ -362,6 +369,8 @@ static bool _stm_validate()
                     struct stm_undo_s *undo = cl->written;
                     struct stm_undo_s *end = cl->written + cl->written_count;
                     for (; undo < end; undo++) {
+                        if (undo->type == TYPE_POSITION_MARKER)
+                            continue;
                         if (_stm_was_read(undo->object)) {
                             /* first reset all modified objects from the backup
                                copies as soon as the first conflict is detected;
@@ -369,6 +378,7 @@ static bool _stm_validate()
                                the old (but unmodified) version to the newer version.
                             */
                             reset_modified_from_backup_copies(my_segnum);
+                            timing_write_read_contention(cl->written, undo);
                             needs_abort = true;
 
                             dprintf(("_stm_validate() failed for obj %p\n", undo->object));
@@ -599,6 +609,8 @@ static void make_bk_slices_for_range(
 {
     dprintf(("make_bk_slices_for_range(%p, %lu, %lu)\n",
              obj, start - (stm_char*)obj, end - start));
+    timing_record_write_position();
+
     char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
     uintptr_t first_page = ((uintptr_t)start) / 4096UL;
     uintptr_t end_page = ((uintptr_t)end) / 4096UL;
@@ -1021,6 +1033,8 @@ static void reset_wb_executed_flags(void)
     struct stm_undo_s *end = (struct stm_undo_s *)(list->items + list->count);
 
     for (; undo < end; undo++) {
+        if (undo->type == TYPE_POSITION_MARKER)
+            continue;
         object_t *obj = undo->object;
         obj->stm_flags &= ~GCFLAG_WB_EXECUTED;
     }
@@ -1034,6 +1048,8 @@ static void readd_wb_executed_flags(void)
     struct stm_undo_s *end = (struct stm_undo_s *)(list->items + list->count);
 
     for (; undo < end; undo++) {
+        if (undo->type == TYPE_POSITION_MARKER)
+            continue;
         object_t *obj = undo->object;
         obj->stm_flags |= GCFLAG_WB_EXECUTED;
     }
@@ -1051,6 +1067,7 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
 
     assert(STM_PSEGMENT->safe_point == SP_NO_TRANSACTION);
     assert(STM_PSEGMENT->transaction_state == TS_NONE);
+    timing_event(tl, STM_TRANSACTION_START);
     STM_PSEGMENT->transaction_state = TS_REGULAR;
     STM_PSEGMENT->safe_point = SP_RUNNING;
 #ifndef NDEBUG
@@ -1080,6 +1097,10 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[1]));
     assert(list_is_empty(STM_PSEGMENT->young_objects_with_light_finalizers));
     assert(STM_PSEGMENT->finalizers == NULL);
+#ifndef NDEBUG
+    /* this should not be used when objects_pointing_to_nursery == NULL */
+    STM_PSEGMENT->position_markers_len_old = 99999999999999999L;
+#endif
 
     check_nursery_at_transaction_start();
 
@@ -1125,7 +1146,7 @@ int stm_is_inevitable(void)
 
 /************************************************************/
 
-static void _finish_transaction()
+static void _finish_transaction(enum stm_event_e event)
 {
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
 
@@ -1136,6 +1157,7 @@ static void _finish_transaction()
     list_clear(STM_PSEGMENT->objects_pointing_to_nursery);
     list_clear(STM_PSEGMENT->old_objects_with_cards_set);
     list_clear(STM_PSEGMENT->large_overflow_objects);
+    timing_event(tl, event);
 
     release_thread_segment(tl);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
@@ -1147,6 +1169,8 @@ static void check_all_write_barrier_flags(char *segbase, struct list_s *list)
     struct stm_undo_s *undo = (struct stm_undo_s *)list->items;
     struct stm_undo_s *end = (struct stm_undo_s *)(list->items + list->count);
     for (; undo < end; undo++) {
+        if (undo->type == TYPE_POSITION_MARKER)
+            continue;
         object_t *obj = undo->object;
         struct object_s *dst = (struct object_s*)REAL_ADDRESS(segbase, obj);
         assert(dst->stm_flags & GCFLAG_WRITE_BARRIER);
@@ -1236,7 +1260,7 @@ void stm_commit_transaction(void)
 
     /* done */
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
-    _finish_transaction();
+    _finish_transaction(STM_TRANSACTION_COMMIT);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     s_mutex_unlock();
@@ -1260,6 +1284,8 @@ static void reset_modified_from_backup_copies(int segment_num)
     struct stm_undo_s *end = (struct stm_undo_s *)(list->items + list->count);
 
     for (; undo < end; undo++) {
+        if (undo->type == TYPE_POSITION_MARKER)
+            continue;
         object_t *obj = undo->object;
         char *dst = REAL_ADDRESS(pseg->pub.segment_base, obj);
 
@@ -1369,7 +1395,7 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
                                                    : NURSERY_END;
     }
 
-    _finish_transaction();
+    _finish_transaction(STM_TRANSACTION_ABORT);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     return tl;
