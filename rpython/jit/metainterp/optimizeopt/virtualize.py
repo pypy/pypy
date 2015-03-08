@@ -777,11 +777,11 @@ class OptVirtualize(optimizer.Optimization):
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
-            self.make_constant_int(op, value.getlength())
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
+            self.make_constant_int(op, opinfo.getlength())
         else:
-            value.ensure_nonnull()
+            self.make_nonnull(op.getarg(0))
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):

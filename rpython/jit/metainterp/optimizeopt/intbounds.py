@@ -352,26 +352,27 @@ class OptIntBounds(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_SIGNEXT(self, op):
-        value = self.getvalue(op.getarg(0))
+        b = self.getintbound(op.getarg(0))
         numbits = op.getarg(1).getint() * 8
         start = -(1 << (numbits - 1))
         stop = 1 << (numbits - 1)
         bounds = IntBound(start, stop - 1)
-        if bounds.contains_bound(value.getintbound()):
-            self.make_equal_to(op, value)
+        if bounds.contains_bound(b):
+            self.make_equal_to(op, op.getarg(0))
         else:
             self.emit_operation(op)
-            vres = self.getvalue(op)
-            vres.getintbound().intersect(bounds)
+            bres = self.getintbound(op)
+            bres.intersect(bounds)
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
-        array = self.getvalue(op.getarg(0))
-        result = self.getvalue(op)
-        array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
-        array.getlenbound().bound.intersect(result.getintbound())
-        assert isinstance(result, IntOptValue)
-        result.intbound = array.getlenbound().bound
+        # XXX
+        #array = self.getvalue(op.getarg(0))
+        #result = self.getvalue(op)
+        #array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
+        #array.getlenbound().bound.intersect(result.getintbound())
+        #assert isinstance(result, IntOptValue)
+        #result.intbound = array.getlenbound().bound
 
     def optimize_STRLEN(self, op):
         self.emit_operation(op)

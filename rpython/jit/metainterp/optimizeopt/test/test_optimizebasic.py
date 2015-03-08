@@ -963,8 +963,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [f0, f1]
         f2 = float_mul(f0, f1)
         p0 = new_array_clear(1, descr=complexarraydescr)
-        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
         i0 = escape_i(f2, p0)
         finish(i0)
         """

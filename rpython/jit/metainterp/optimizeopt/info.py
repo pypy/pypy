@@ -1,6 +1,7 @@
 
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop
+from rpython.jit.metainterp.history import ConstInt
 
 """ The tag field on PtrOptInfo has a following meaning:
 
@@ -112,6 +113,9 @@ class StructPtrInfo(AbstractStructPtrInfo):
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_is_virtual', 'length', '_items', '_descr')
 
+    def getlength(self):
+        return self.length
+
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, descr, size, is_virtual):
         self.length = size
@@ -140,7 +144,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                 if fld is not None:
                     subbox = optforce.force_box(fld)
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
-                                              [op, subbox],
+                                              [op, ConstInt(index), subbox],
                                               descr=flddescr)
                     optforce.emit_operation(setfieldop)
                 i += 1
