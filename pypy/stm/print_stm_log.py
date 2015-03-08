@@ -8,29 +8,22 @@ STM_TRANSACTION_START   = 0
 STM_TRANSACTION_COMMIT  = 1
 STM_TRANSACTION_ABORT   = 2
 
-# contention; see details at the start of contention.c
-STM_CONTENTION_WRITE_WRITE = 3   # markers: self loc / other written loc
-STM_CONTENTION_WRITE_READ  = 4   # markers: self written loc / other missing
-STM_CONTENTION_INEVITABLE  = 5   # markers: self loc / other inev loc
-
-# following a contention, we get from the same thread one of
-# STM_ABORTING_OTHER_CONTENTION, STM_TRANSACTION_ABORT (self-abort),
-# or STM_WAIT_CONTENTION (self-wait).
-STM_ABORTING_OTHER_CONTENTION = 6
+# write-read contention: a "marker" is included in the PYPYSTM file
+# saying where the write was done.  Followed by STM_TRANSACTION_ABORT.
+STM_CONTENTION_WRITE_READ  = 3
 
 # always one STM_WAIT_xxx followed later by STM_WAIT_DONE
-STM_WAIT_FREE_SEGMENT  = 7
-STM_WAIT_SYNC_PAUSE    = 8
-STM_WAIT_CONTENTION    = 9
-STM_WAIT_DONE          = 10
+STM_WAIT_FREE_SEGMENT      = 4
+STM_WAIT_OTHER_INEVITABLE  = 5
+STM_WAIT_DONE              = 6
 
 # start and end of GC cycles
-STM_GC_MINOR_START  = 11
-STM_GC_MINOR_DONE   = 12
-STM_GC_MAJOR_START  = 13
-STM_GC_MAJOR_DONE   = 14
+STM_GC_MINOR_START  = 7
+STM_GC_MINOR_DONE   = 8
+STM_GC_MAJOR_START  = 9
+STM_GC_MAJOR_DONE   = 10
 
-_STM_EVENT_N  = 15
+_STM_EVENT_N  = 11
 
 PAUSE_AFTER_ABORT   = 0.000001      # usleep(1) after every abort
 
@@ -44,24 +37,18 @@ for _key, _value in globals().items():
 
 
 class LogEntry(object):
-    def __init__(self, timestamp, threadnum, otherthreadnum,
-                 event, marker1, marker2, frac):
+    def __init__(self, timestamp, threadnum, event, marker, frac):
         self.timestamp = timestamp
         self.threadnum = threadnum
-        self.otherthreadnum = otherthreadnum
         self.event = event
-        self.marker1 = marker1
-        self.marker2 = marker2
+        self.marker = marker
         self.frac = frac
 
     def __str__(self):
-        s = '[%.3f][%s->%s]\t%s' % (
-            self.timestamp, self.threadnum, self.otherthreadnum,
-            event_name[self.event])
-        if self.marker1:
-            s += ':\n%s' % print_marker(self.marker1)
-        if self.marker2:
-            s += '\n%s' % print_marker(self.marker2)
+        s = '[%.3f][%s]\t%s' % (
+            self.timestamp, self.threadnum, event_name[self.event])
+        if self.marker:
+            s += ':\n%s' % print_marker(self.marker)
         return s
 
 
@@ -69,23 +56,22 @@ def parse_log(filename):
     f = open(filename, 'rb')
     try:
         header = f.read(16)
-        if header != "STMGC-C7-PROF01\n":
+        if header != "STMGC-C8-PROF01\n":
             raise ValueError("wrong format in file %r" % (filename,))
         f.seek(0, 2)
         frac = 1.0 / f.tell()
         f.seek(16, 0)
         result = []
         while True:
-            packet = f.read(19)
-            if len(packet) < 19: break
-            sec, nsec, threadnum, otherthreadnum, event, len1, len2 = \
-                  struct.unpack("IIIIBBB", packet)
+            packet = f.read(14)
+            if len(packet) < 14: break
+            sec, nsec, threadnum, event, markerlen = \
+                  struct.unpack("IIIBB", packet)
             if event >= _STM_EVENT_N:
                 raise ValueError("the file %r appears corrupted" % (filename,))
-            m1 = f.read(len1)
-            m2 = f.read(len2)
+            marker = f.read(markerlen)
             yield LogEntry(sec + 0.000000001 * nsec,
-                           threadnum, otherthreadnum, event, m1, m2,
+                           threadnum, event, marker,
                            f.tell() * frac)
     finally:
         f.close()
@@ -134,10 +120,9 @@ class ThreadState(object):
 
 
 class ConflictSummary(object):
-    def __init__(self, event, marker1, marker2):
+    def __init__(self, event, marker):
         self.event = event
-        self.marker1 = marker1
-        self.marker2 = marker2
+        self.marker = marker
         self.aborted_time = 0.0
         self.paused_time = 0.0
         self.num_events = 0
@@ -149,21 +134,15 @@ class ConflictSummary(object):
     def get_event_name(self):
         return event_name[self.event]
 
-    def get_marker1(self):
-        return print_marker(self.marker1)
-
-    def get_marker2(self):
-        return print_marker(self.marker2)
+    def get_marker(self):
+        return print_marker(self.marker)
 
     def __str__(self):
         s = '%.3fs lost in aborts, %.3fs paused (%dx %s)\n' % (
             self.aborted_time, self.paused_time, self.num_events,
             self.get_event_name())
-        s += print_marker(self.marker1)
-        if self.marker2:
-            s += '\n%s' % print_marker(self.marker2)
+        s += print_marker(self.marker)
         return s
-
 
 
 
@@ -207,10 +186,11 @@ def summarize_log_entries(logentries, stmlog):
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t.transaction_stop(entry)
-        elif entry.event in (STM_CONTENTION_WRITE_WRITE,
+        elif entry.event in (#STM_CONTENTION_WRITE_WRITE,
                              STM_CONTENTION_WRITE_READ,
-                             STM_CONTENTION_INEVITABLE):
-            summary = (entry.event, entry.marker1, entry.marker2)
+                             #STM_CONTENTION_INEVITABLE,
+                             ):
+            summary = (entry.event, entry.marker)
             c = conflicts.get(summary)
             if c is None:
                 c = conflicts[summary] = ConflictSummary(*summary)
@@ -219,16 +199,15 @@ def summarize_log_entries(logentries, stmlog):
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t._conflict = ("local", c, entry)
-        elif entry.event == STM_ABORTING_OTHER_CONTENTION:
-            t = threads.get(entry.threadnum)
-            if t is not None and t._conflict and t._conflict[0] == "local":
-                _, c, entry = t._conflict
-                t._conflict = None
-                t2 = threads.get(entry.otherthreadnum)
-                if t2 is not None and t2.in_transaction():
-                    t2._conflict = ("remote", c, entry)
-        elif entry.event in (STM_WAIT_SYNC_PAUSE, STM_WAIT_CONTENTION,
-                             STM_WAIT_FREE_SEGMENT):
+        ## elif entry.event == STM_ABORTING_OTHER_CONTENTION:
+        ##     t = threads.get(entry.threadnum)
+        ##     if t is not None and t._conflict and t._conflict[0] == "local":
+        ##         _, c, entry = t._conflict
+        ##         t._conflict = None
+        ##         t2 = threads.get(entry.otherthreadnum)
+        ##         if t2 is not None and t2.in_transaction():
+        ##             t2._conflict = ("remote", c, entry)
+        elif entry.event in (STM_WAIT_FREE_SEGMENT, STM_WAIT_OTHER_INEVITABLE):
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t.transaction_pause(entry)
