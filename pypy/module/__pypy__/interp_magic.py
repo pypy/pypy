@@ -141,4 +141,4 @@ def all_code_info(space):
     try:
         return space.wrap(ec.code_info_file.read())
     finally:
-        ec.code_info_file.seek(2, 0)
+        ec.code_info_file.seek(0, 2)
