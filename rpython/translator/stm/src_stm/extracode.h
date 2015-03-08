@@ -157,8 +157,7 @@ char *_pypy_stm_test_expand_marker(void)
 {
     /* only for tests: XXX fishing */
     stm_loc_marker_t marker;
-    marker.tl = &stm_thread_local;
-    marker.segment_base = STM_SEGMENT->segment_base;
+    char *segment_base = STM_SEGMENT->segment_base;
 
     struct stm_shadowentry_s *_ss = stm_thread_local.shadowstack - 2;
     while (!(((uintptr_t)(_ss->ss)) & 1)) {
@@ -169,7 +168,8 @@ char *_pypy_stm_test_expand_marker(void)
     marker.object = (_ss + 1)->ss;
 
     static char buffer[80];
-    int length = _stm_expand_marker_for_pypy(&marker, buffer, 80);
+    int length;
+    length = _stm_expand_marker_for_pypy(segment_base, &marker,buffer, 80);
     assert(length >= 0 && length < 80);
     buffer[length] = 0;
     return buffer;
