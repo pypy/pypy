@@ -22,3 +22,8 @@ def test_egginfo_version():
     eggfile = py.path.local(__file__).join('..', '..', '..', '..', '..',
                                            'lib_pypy', 'cffi.egg-info')
     assert line in eggfile.readlines()
+
+def test_app_version():
+    from pypy.module import _cffi_backend
+    from lib_pypy import cffi
+    assert _cffi_backend.VERSION == cffi.__version__
