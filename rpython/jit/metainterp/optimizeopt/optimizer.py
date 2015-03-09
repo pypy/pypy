@@ -567,49 +567,29 @@ class Optimizer(Optimization):
 
     def make_nonnull(self, op):
         op = self.get_box_replacement(op)
+        if op.is_constant():
+            return
         opinfo = op.get_forwarded()
         if opinfo is not None:
             assert opinfo.is_nonnull()
             return
         op.set_forwarded(info.NonNullPtrInfo())
 
-    def new_ptr_box(self):
-        xxx
-        return self.cpu.ts.BoxRef()
-
-    def new_box(self, fieldofs):
-        xxx
-        if fieldofs.is_pointer_field():
-            return self.new_ptr_box()
-        elif fieldofs.is_float_field():
-            return BoxFloat()
-        else:
-            return BoxInt()
-
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():
-            return self.cpu.ts.CVAL_NULLREF
+            return self.cpu.ts.CONST_NULL
         elif fieldofs.is_float_field():
-            return CVAL_ZERO_FLOAT
+            return CONST_ZERO_FLOAT
         else:
-            return CVAL_ZERO
-
-    def new_box_item(self, arraydescr):
-        xxx
-        if arraydescr.is_array_of_pointers():
-            return self.new_ptr_box()
-        elif arraydescr.is_array_of_floats():
-            return BoxFloat()
-        else:
-            return BoxInt()
+            return CONST_0
 
     def new_const_item(self, arraydescr):
         if arraydescr.is_array_of_pointers():
-            return self.cpu.ts.CVAL_NULLREF
+            return self.cpu.ts.CONST_NULL
         elif arraydescr.is_array_of_floats():
-            return CVAL_ZERO_FLOAT
+            return CONST_ZERO_FLOAT
         else:
-            return CVAL_ZERO
+            return CONST_0
 
     def propagate_all_forward(self, clear=True):
         if clear:

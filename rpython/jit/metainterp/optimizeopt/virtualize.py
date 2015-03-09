@@ -532,15 +532,11 @@ class OptVirtualize(optimizer.Optimization):
         if arraydescr.is_array_of_structs():
             assert clear
             opinfo = info.ArrayStructInfo(arraydescr, size, True)
-            source_op.set_forwarded(opinfo)
-            return opinfo
-            vvalue = VArrayStructValue(arraydescr, size, source_op)
         else:
-            constvalue = self.new_const_item(arraydescr)
-            vvalue = VArrayValue(arraydescr, constvalue, size, source_op,
-                                 clear=clear)
-        self.make_equal_to(source_op, vvalue)
-        return vvalue
+            const = self.new_const_item(arraydescr)
+            opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear, True)
+        source_op.set_forwarded(opinfo)
+        return opinfo
 
     def make_vstruct(self, structdescr, source_op):
         vvalue = VStructValue(self.optimizer.cpu, structdescr, source_op)
@@ -670,15 +666,17 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_GETFIELD_GC_I(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
+        # XXX dealt with by heapcache
         # If this is an immutable field (as indicated by op.is_always_pure())
         # then it's safe to reuse the virtual's field, even if it has been
         # forced, because it should never be written to again.
-        if op.is_always_pure():
-            if value.is_forced_virtual() and op.is_always_pure():
-                fieldvalue = value.getfield(op.getdescr(), None)
-                if fieldvalue is not None:
-                    self.make_equal_to(op, fieldvalue)
-                    return
+        #if op.is_always_pure():
+        #    
+        #    if value.is_forced_virtual() and op.is_always_pure():
+        #        fieldvalue = value.getfield(op.getdescr(), None)
+        #        if fieldvalue is not None:
+        #            self.make_equal_to(op, fieldvalue)
+        #            return
         if opinfo and opinfo.is_virtual():
             fieldop = opinfo.getfield_virtual(op.getdescr())
             if fieldop is None:
@@ -785,17 +783,17 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
-            assert isinstance(value, VArrayValue)
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                itemvalue = value.getitem(indexbox.getint())
-                if itemvalue is None:   # reading uninitialized array items?
+                item = opinfo.getitem_virtual(indexbox.getint())
+                if item is None:   # reading uninitialized array items?
+                    assert False, "can't read uninitialized items"
                     itemvalue = value.constvalue     # bah, just return 0
-                self.make_equal_to(op, itemvalue)
+                self.make_equal_to(op, item)
                 return
-        value.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
@@ -807,13 +805,14 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
+                opinfo.setitem_virtual(indexbox.getint(),
+                                       self.get_box_replacement(op.getarg(2)))
                 return
-        value.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
 
     def _unpack_arrayitem_raw_op(self, op, indexbox):
@@ -907,8 +906,7 @@ class OptVirtualize(optimizer.Optimization):
                     fieldvalue = self.new_const(descr)
                 self.make_equal_to(op, fld)
                 return
-        xxx
-        value.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
     optimize_GETINTERIORFIELD_GC_R = optimize_GETINTERIORFIELD_GC_I
     optimize_GETINTERIORFIELD_GC_F = optimize_GETINTERIORFIELD_GC_I

@@ -7,7 +7,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1)
-from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
+from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL,\
+     ArrayPtrInfo
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
@@ -502,22 +503,25 @@ class OptRewrite(Optimization):
         if length and length.getint() == 0:
             return True # 0-length arraycopy
 
-        source_value = self.getvalue(op.getarg(1))
-        dest_value = self.getvalue(op.getarg(2))
+        source_info = self.getptrinfo(op.getarg(1))
+        dest_info = self.getptrinfo(op.getarg(2))
         source_start_box = self.get_constant_box(op.getarg(3))
         dest_start_box = self.get_constant_box(op.getarg(4))
         extrainfo = op.getdescr().get_extra_info()
         if (source_start_box and dest_start_box
-            and length and (dest_value.is_virtual() or length.getint() <= 8) and
-            (source_value.is_virtual() or length.getint() <= 8) and
-            len(extrainfo.write_descrs_arrays) == 1):   # <-sanity check
-            from rpython.jit.metainterp.optimizeopt.virtualize import VArrayValue
+            and length and ((dest_info and dest_info.is_virtual()) or
+                            length.getint() <= 8) and
+            ((source_info and source_info.is_virtual()) or length.getint() <= 8)
+            and len(extrainfo.write_descrs_arrays) == 1):   # <-sanity check
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
-            # XXX fish fish fish
             arraydescr = extrainfo.write_descrs_arrays[0]
             if arraydescr.is_array_of_structs():
                 return False       # not supported right now
+            
+            xxx
+            from rpython.jit.metainterp.optimizeopt.virtualize import VArrayValue
+            # XXX fish fish fish
             for index in range(length.getint()):
                 if source_value.is_virtual():
                     assert isinstance(source_value, VArrayValue)

@@ -113,6 +113,20 @@ class StructPtrInfo(AbstractStructPtrInfo):
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_is_virtual', 'length', '_items', '_descr')
 
+    def __init__(self, descr, const, size, clear, is_virtual):
+        self._is_virtual = is_virtual
+        self.length = size
+        if clear:
+            self._items = [const] * size
+        else:
+            self._items = [None] * size
+
+    def setitem_virtual(self, index, item):
+        self._items[index] = item
+
+    def getitem_virtual(self, index):
+        return self._items[index]
+
     def getlength(self):
         return self.length
 

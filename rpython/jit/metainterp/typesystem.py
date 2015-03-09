@@ -38,7 +38,6 @@ class LLTypeHelper(TypeSystemHelper):
     loops_done_with_this_frame_ref = None # patched by compile.py
     NULLREF = history.ConstPtr.value
     CONST_NULL = history.ConstPtr(NULLREF)
-    CVAL_NULLREF = None # patched by optimizeopt.py
 
     def new_ConstRef(self, x):
         ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
