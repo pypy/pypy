@@ -19,5 +19,6 @@ static stm_char *allocate_outside_nursery_large(uint64_t size);
 
 static void major_collection_if_requested(void);
 static void major_collection_now_at_safe_point(void);
+static void major_collection_with_mutex(void);
 static bool largemalloc_keep_object_at(char *data);   /* for largemalloc.c */
 static bool smallmalloc_keep_object_at(char *data);   /* for smallmalloc.c */

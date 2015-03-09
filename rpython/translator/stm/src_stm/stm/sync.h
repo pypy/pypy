@@ -33,3 +33,5 @@ static void committed_globally_unique_transaction(void);
 
 static bool pause_signalled, globally_unique_transaction;
 static void enter_safe_point_if_requested(void);
+
+#define safe_point_requested()  (STM_SEGMENT->nursery_end != NURSERY_END)

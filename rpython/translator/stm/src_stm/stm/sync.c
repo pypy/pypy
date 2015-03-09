@@ -139,10 +139,13 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     }
     /* No segment available.  Wait until release_thread_segment()
        signals that one segment has been freed. */
+    timing_event(tl, STM_WAIT_FREE_SEGMENT);
     cond_wait(C_SEGMENT_FREE);
+    timing_event(tl, STM_WAIT_DONE);
 
     /* Return false to the caller, which will call us again */
     return false;
+
  got_num:
     OPT_ASSERT(num >= 0 && num < NB_SEGMENTS-1);
     sync_ctl.in_use1[num+1] = 1;
@@ -296,10 +299,12 @@ static void enter_safe_point_if_requested(void)
 #ifdef STM_TESTS
         abort_with_mutex();
 #endif
+        timing_event(STM_SEGMENT->running_thread, STM_WAIT_SYNC_PAUSE);
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_REQUEST_REMOVED;
         cond_wait(C_REQUEST_REMOVED);
         STM_PSEGMENT->safe_point = SP_RUNNING;
+        timing_event(STM_SEGMENT->running_thread, STM_WAIT_DONE);
     }
 }
 

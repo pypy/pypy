@@ -131,6 +131,19 @@ object_t *_stm_allocate_old(ssize_t size_rounded_up)
 /************************************************************/
 
 
+static void major_collection_with_mutex(void)
+{
+    timing_event(STM_SEGMENT->running_thread, STM_GC_MAJOR_START);
+
+    synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
+
+    if (is_major_collection_requested()) {   /* if *still* true */
+        major_collection_now_at_safe_point();
+    }
+
+    timing_event(STM_SEGMENT->running_thread, STM_GC_MAJOR_DONE);
+}
+
 static void major_collection_if_requested(void)
 {
     assert(!_has_mutex());
@@ -140,13 +153,7 @@ static void major_collection_if_requested(void)
     s_mutex_lock();
 
     if (is_major_collection_requested()) {   /* if still true */
-
-        synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
-
-        if (is_major_collection_requested()) {   /* if *still* true */
-            major_collection_now_at_safe_point();
-        }
-
+        major_collection_with_mutex();
     }
 
     s_mutex_unlock();
@@ -401,6 +408,9 @@ static void mark_visit_from_markers(void)
             if (modified->type == TYPE_POSITION_MARKER)
                 mark_visit_possibly_new_object(modified->marker_object, pseg);
         }
+
+        if (pseg->transaction_state == TS_INEVITABLE)
+            mark_visit_possibly_new_object(pseg->marker_inev.object, pseg);
     }
 }
 

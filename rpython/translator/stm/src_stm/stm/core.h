@@ -141,6 +141,9 @@ struct stm_priv_segment_info_s {
     pthread_t running_pthread;
 #endif
 
+    /* marker where this thread became inevitable */
+    stm_loc_marker_t marker_inev;
+
     /* light finalizers */
     struct list_s *young_objects_with_light_finalizers;
     struct list_s *old_objects_with_light_finalizers;

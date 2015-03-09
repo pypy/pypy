@@ -354,8 +354,15 @@ enum stm_event_e {
        saying where the write was done.  Followed by STM_TRANSACTION_ABORT. */
     STM_CONTENTION_WRITE_READ,
 
+    /* inevitable contention: the thread that waited is
+       STM_WAIT_OTHER_INEVITABLE (with a marker) and the thread that
+       it waited for is the next STM_TRANSACTION_COMMIT (with a marker
+       as well; both markers point to the place that made each
+       transaction inevitable). */
+
     /* always one STM_WAIT_xxx followed later by STM_WAIT_DONE */
     STM_WAIT_FREE_SEGMENT,
+    STM_WAIT_SYNC_PAUSE,
     STM_WAIT_OTHER_INEVITABLE,
     STM_WAIT_DONE,
 
