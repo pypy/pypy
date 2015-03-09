@@ -3,11 +3,11 @@ PyPy optimzier module
 
 After finding any trace in a user program, the generated interpreter records the instructions until it encounters a backwards jump. The allow operations found in a trace can be found in `rpython/metainterp/resoperation.py`. An example trace could look like this (syntax is the same as used in the test suit):
 
-   [p0,i0]
-   i1 = int_add(i0)
-   i2 = int_le(i1, 100)
-   guard_true(i2)
-   jump(p0, i1)
+    [p0,i0]
+    i1 = int_add(i0)
+    i2 = int_le(i1, 100)
+    guard_true(i2)
+    jump(p0, i1)
 
 The first operation is called a label, the last is the backwards jump. Before the jit backend transforms any trace into a machine code, it tries to transform the trace into an equivalent trace that executes faster. The method `optimize_trace` in `rpython/jit/metainterp/optimizeopt/__init__.py` is the main entry point.
 
