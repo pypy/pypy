@@ -99,7 +99,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         guard_true(i10) []
         jump(p0,p1,p2,i9)
         """
-        self.assert_unfold_loop(self.parse_loop(ops),2, self.parse_loop(unfolded_ops))
+        self.assert_unfold_loop(self.parse_loop(ops), 2, self.parse_loop(unfolded_ops))
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

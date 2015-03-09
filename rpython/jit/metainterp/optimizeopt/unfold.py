@@ -21,25 +21,7 @@ def optimize_unfold(metainterp_sd, jitdriver_sd, loop, optimizations, start_stat
 
 class UnfoldOptimizer(Optimizer):
     def setup(self):
-        self.importable_values = {}
-        self.emitting_dissabled = False
-        self.emitted_guards = 0
-
-    def ensure_imported(self, value):
-        if not self.emitting_dissabled and value in self.importable_values:
-            imp = self.importable_values[value]
-            del self.importable_values[value]
-            imp.import_value(value)
-
-    def emit_operation(self, op):
-        if op.returns_bool_result():
-            self.bool_boxes[self.getvalue(op.result)] = None
-        if self.emitting_dissabled:
-            return
-        if op.is_guard():
-            self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
-        self._emit_operation(op)
-
+        pass
 
 class OptUnfold(Optimization):
     """ In contrast to the loop unroll optimization this optimization
@@ -48,26 +30,11 @@ class OptUnfold(Optimization):
 
     inline_short_preamble = True
 
-    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations, unroll_factor):
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations,
+                 unroll_factor):
         self.force_unroll_factor = unroll_factor
         self.optimizer = UnfoldOptimizer(metainterp_sd, jitdriver_sd,
                                              loop, optimizations)
-        self.boxes_created_this_iteration = None
-
-    def get_virtual_state(self, args):
-        modifier = VirtualStateConstructor(self.optimizer)
-        return modifier.get_virtual_state(args)
-
-    def fix_snapshot(self, jump_args, snapshot):
-        if snapshot is None:
-            return None
-        snapshot_args = snapshot.boxes
-        new_snapshot_args = []
-        for a in snapshot_args:
-            a = self.getvalue(a).get_key_box()
-            new_snapshot_args.append(a)
-        prev = self.fix_snapshot(jump_args, snapshot.prev)
-        return Snapshot(prev, new_snapshot_args)
 
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
         # fill the map with the renaming boxes. keys are boxes from the label
@@ -92,7 +59,9 @@ class OptUnfold(Optimization):
         loop.operations = []
 
         iterations = [[op.clone() for op in operations]]
-        label_op_args = label_op.getarglist()
+        label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
+        values = [self.getvalue(box) for box in label_op.getarglist()]
+        values[0].make_nonnull(self.optimizer)
 
         jump_op_args = jump_op.getarglist()
 
@@ -143,6 +112,7 @@ class OptUnfold(Optimization):
             for op in iteration:
                 loop.operations.append(op)
         loop.operations.append(jump_op)
+
 
         #start_label = loop.operations[0]
         #if start_label.getopnum() == rop.LABEL:
@@ -227,6 +197,22 @@ class OptUnfold(Optimization):
         #loop.operations.append(stop_label)
         #return final_state
         return loop
+
+    def get_virtual_state(self, args):
+        modifier = VirtualStateConstructor(self.optimizer)
+        return modifier.get_virtual_state(args)
+
+    def fix_snapshot(self, jump_args, snapshot):
+        if snapshot is None:
+            return None
+        snapshot_args = snapshot.boxes
+        new_snapshot_args = []
+        for a in snapshot_args:
+            a = self.getvalue(a).get_key_box()
+            new_snapshot_args.append(a)
+        prev = self.fix_snapshot(jump_args, snapshot.prev)
+        return Snapshot(prev, new_snapshot_args)
+
 
     def jump_to_start_label(self, start_label, stop_label):
         if not start_label or not stop_label:
