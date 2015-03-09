@@ -14,16 +14,17 @@ STM_CONTENTION_WRITE_READ  = 3
 
 # always one STM_WAIT_xxx followed later by STM_WAIT_DONE
 STM_WAIT_FREE_SEGMENT      = 4
-STM_WAIT_OTHER_INEVITABLE  = 5
-STM_WAIT_DONE              = 6
+STM_WAIT_SYNC_PAUSE        = 5
+STM_WAIT_OTHER_INEVITABLE  = 6
+STM_WAIT_DONE              = 7
 
 # start and end of GC cycles
-STM_GC_MINOR_START  = 7
-STM_GC_MINOR_DONE   = 8
-STM_GC_MAJOR_START  = 9
-STM_GC_MAJOR_DONE   = 10
+STM_GC_MINOR_START  = 8
+STM_GC_MINOR_DONE   = 9
+STM_GC_MAJOR_START  = 10
+STM_GC_MAJOR_DONE   = 11
 
-_STM_EVENT_N  = 11
+_STM_EVENT_N  = 12
 
 PAUSE_AFTER_ABORT   = 0.000001      # usleep(1) after every abort
 
@@ -207,7 +208,9 @@ def summarize_log_entries(logentries, stmlog):
         ##         t2 = threads.get(entry.otherthreadnum)
         ##         if t2 is not None and t2.in_transaction():
         ##             t2._conflict = ("remote", c, entry)
-        elif entry.event in (STM_WAIT_FREE_SEGMENT, STM_WAIT_OTHER_INEVITABLE):
+        elif entry.event in (STM_WAIT_FREE_SEGMENT,
+                             STM_WAIT_SYNC_PAUSE,
+                             STM_WAIT_OTHER_INEVITABLE):
             t = threads.get(entry.threadnum)
             if t is not None and t.in_transaction():
                 t.transaction_pause(entry)
