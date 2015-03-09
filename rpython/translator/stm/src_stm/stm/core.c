@@ -320,6 +320,12 @@ static bool _stm_validate()
 
     bool needs_abort = false;
 
+    if (STM_PSEGMENT->transaction_state == TS_NONE) {
+        /* can be seen from major_do_validation_and_minor_collections();
+           don't try to detect pseudo-conflicts in this case */
+        needs_abort = true;
+    }
+
     while(1) {
         /* retry IF: */
         /* if at the time of "HERE" (s.b.) there happen to be

@@ -690,14 +690,13 @@ static void major_do_validation_and_minor_collections(void)
         assert(get_priv_segment(i)->last_commit_log_entry->next == NULL
                || get_priv_segment(i)->last_commit_log_entry->next == INEV_RUNNING);
         if (!ok) {
-            assert(i != 0);     /* sharing seg0 should never need an abort */
-
             if (STM_PSEGMENT->transaction_state == TS_NONE) {
                 /* we found a segment that has stale read-marker data and thus
                    is in conflict with committed objs. Since it is not running
                    currently, it's fine to ignore it. */
                 continue;
             }
+            assert(i != 0);     /* sharing seg0 should never need an abort */
 
             /* tell it to abort when continuing */
             STM_PSEGMENT->pub.nursery_end = NSE_SIGABORT;
@@ -709,7 +708,7 @@ static void major_do_validation_and_minor_collections(void)
         }
 
 
-        if (MINOR_NOTHING_TO_DO(STM_PSEGMENT))  /*TS_NONE segments have NOTHING_TO_DO*/
+        if (MINOR_NOTHING_TO_DO(STM_PSEGMENT))
             continue;
 
         assert(STM_PSEGMENT->transaction_state != TS_NONE);

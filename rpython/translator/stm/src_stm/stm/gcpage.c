@@ -633,7 +633,8 @@ static void clean_up_commit_log_entries()
         /* free bk copies of entries: */
         long count = cl->written_count;
         while (count-->0) {
-            free_bk(&cl->written[count]);
+            if (cl->written[count].type != TYPE_POSITION_MARKER)
+                free_bk(&cl->written[count]);
         }
 
         next = cl->next;
