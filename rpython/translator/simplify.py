@@ -132,9 +132,6 @@ def simplify_exceptions(graph):
     the block's single list of exits.
     """
     renaming = {}
-    def rename(v):
-        return renaming.get(v, v)
-
     for block in graph.iterblocks():
         if not (block.canraise
                 and block.exits[-1].exitcase is Exception):
@@ -151,10 +148,10 @@ def simplify_exceptions(graph):
         while len(query.exits) == 2:
             newrenaming = {}
             for lprev, ltarg in zip(exc.args, query.inputargs):
-                newrenaming[ltarg] = rename(lprev)
+                newrenaming[ltarg] = lprev.replace(renaming)
             op = query.operations[0]
             if not (op.opname in ("is_", "issubtype") and
-                    newrenaming.get(op.args[0]) == last_exception):
+                    op.args[0].replace(newrenaming) == last_exception):
                 break
             renaming.update(newrenaming)
             case = query.operations[0].args[-1].value
@@ -177,19 +174,16 @@ def simplify_exceptions(graph):
         # construct the block's new exits
         exits = []
         for case, oldlink in switches:
-            link = oldlink.copy(rename)
+            link = oldlink.replace(renaming)
             assert case is not None
             link.last_exception = last_exception
             link.last_exc_value = last_exc_value
             # make the above two variables unique
             renaming2 = {}
-            def rename2(v):
-                return renaming2.get(v, v)
             for v in link.getextravars():
                 renaming2[v] = Variable(v)
-            link = link.copy(rename2)
+            link = link.replace(renaming2)
             link.exitcase = case
-            link.prevblock = block
             exits.append(link)
         block.recloseblock(*(preserve + exits))
 
@@ -311,8 +305,6 @@ def join_blocks(graph):
             renaming = {}
             for vprev, vtarg in zip(link.args, link.target.inputargs):
                 renaming[vtarg] = vprev
-            def rename(v):
-                return renaming.get(v, v)
             def rename_op(op):
                 op = op.replace(renaming)
                 # special case...
@@ -326,9 +318,12 @@ def join_blocks(graph):
                 link.prevblock.operations.append(rename_op(op))
             exits = []
             for exit in link.target.exits:
-                newexit = exit.copy(rename)
+                newexit = exit.replace(renaming)
                 exits.append(newexit)
-            newexitswitch = rename(link.target.exitswitch)
+            if link.target.exitswitch:
+                newexitswitch = link.target.exitswitch.replace(renaming)
+            else:
+                newexitswitch = None
             link.prevblock.exitswitch = newexitswitch
             link.prevblock.recloseblock(*exits)
             if (isinstance(newexitswitch, Constant) and

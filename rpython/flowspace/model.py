@@ -140,6 +140,12 @@ class Link(object):
             newlink.llexitcase = self.llexitcase
         return newlink
 
+    def replace(self, mapping):
+        def rename(v):
+            if v is not None:
+                return v.replace(mapping)
+        return self.copy(rename)
+
     def settarget(self, targetblock):
         assert len(self.args) == len(targetblock.inputargs), (
             "output args mismatch")
