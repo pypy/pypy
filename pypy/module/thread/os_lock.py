@@ -89,7 +89,8 @@ but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
         except rthread.error:
-            raise wrap_thread_error(space, "release unlocked lock")
+            raise OperationError(space.w_RuntimeError, space.wrap(
+                "cannot release un-acquired lock"))
 
     def descr_lock_locked(self, space):
         """Return whether the lock is in the locked state."""

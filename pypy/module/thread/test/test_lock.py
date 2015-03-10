@@ -12,7 +12,7 @@ class AppTestLock(GenericTestThread):
         lock = _thread.allocate_lock()
         assert type(lock) is _thread.LockType
         assert lock.locked() is False
-        raises(_thread.error, lock.release)
+        raises(RuntimeError, lock.release)
         assert lock.locked() is False
         r = lock.acquire()
         assert r is True
@@ -21,7 +21,7 @@ class AppTestLock(GenericTestThread):
         assert lock.locked() is True
         lock.release()
         assert lock.locked() is False
-        raises(_thread.error, lock.release)
+        raises(RuntimeError, lock.release)
         assert lock.locked() is False
         feedback = []
         lock.acquire()
