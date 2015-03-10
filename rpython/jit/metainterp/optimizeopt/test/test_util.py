@@ -154,6 +154,7 @@ class LLtypeMixin(object):
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+    chararraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Char))
 
     # a GcStruct not inheriting from OBJECT
     S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('b', lltype.Ptr(NODE)))
@@ -360,6 +361,9 @@ final_descr = BasicFinalDescr()
 
 class BaseTest(object):
 
+    class DefaultFakeJitDriverStaticData(object):
+        vectorize = False
+
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
                                boxkinds,
@@ -403,8 +407,11 @@ class BaseTest(object):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
+        jitdriver_sd = BaseTest.DefaultFakeJitDriverStaticData()
+        if hasattr(self, 'jitdriver_sd'):
+            jitdriver_sd = self.jitdriver_sd
         #
-        return optimize_trace(metainterp_sd, None, loop,
+        return optimize_trace(metainterp_sd, jitdriver_sd, loop,
                               self.enable_opts,
                               start_state=start_state,
                               export_state=export_state)

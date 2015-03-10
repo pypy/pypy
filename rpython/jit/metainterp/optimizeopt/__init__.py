@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.optimizeopt.simplify import OptSimplify
 from rpython.jit.metainterp.optimizeopt.pure import OptPure
 from rpython.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
-from rpython.jit.metainterp.optimizeopt.unfold import optimize_unfold
+from rpython.jit.metainterp.optimizeopt.vectorize import optimize_vector
 from rpython.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -21,8 +21,7 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('earlyforce', OptEarlyForce),
             ('pure', OptPure),
             ('heap', OptHeap),
-            ('unroll', None),
-            ('unfold', None)]
+            ('unroll', None)]
 # no direct instantiation of unroll
 unroll_all_opts = unrolling_iterable(ALL_OPTS)
 
@@ -36,7 +35,6 @@ assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
 def build_opt_chain(metainterp_sd, enable_opts):
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
-    unfold = 'unfold' in enable_opts
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:
@@ -46,10 +44,9 @@ def build_opt_chain(metainterp_sd, enable_opts):
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
         or 'heap' not in enable_opts or 'unroll' not in enable_opts
         or 'pure' not in enable_opts):
-        if 'unfold' not in enable_opts: # TODO
-            optimizations.append(OptSimplify(unroll))
+        optimizations.append(OptSimplify(unroll))
 
-    return optimizations, unroll, unfold
+    return optimizations, unroll
 
 def optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
                    inline_short_preamble=True, start_state=None,
@@ -61,19 +58,14 @@ def optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
     try:
         loop.logops = metainterp_sd.logger_noopt.log_loop(loop.inputargs,
                                                           loop.operations)
-        optimizations, unroll, unfold = build_opt_chain(metainterp_sd, enable_opts)
-        if unfold:
-            return optimize_unfold(metainterp_sd,
-                                   jitdriver_sd,
-                                   loop,
-                                   optimizations,
-                                   start_state,
-                                   export_state)
+        optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
+        if jitdriver_sd.vectorize:
+            return optimize_vector(metainterp_sd, jitdriver_sd, loop,
+                                   optimizations, start_state, export_state)
         elif unroll:
             return optimize_unroll(metainterp_sd, jitdriver_sd, loop,
-                                   optimizations,
-                                   inline_short_preamble, start_state,
-                                   export_state)
+                                   optimizations, inline_short_preamble,
+                                   start_state, export_state)
         else:
             optimizer = Optimizer(metainterp_sd, jitdriver_sd, loop,
                                   optimizations)

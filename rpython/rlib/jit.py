@@ -448,7 +448,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 ENABLE_ALL_OPTS = (
-    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll:unfold')
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
@@ -463,7 +463,8 @@ PARAMETER_DOCS = {
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
-    'max_unroll_recursion': 'how many levels deep to unroll a recursive function'
+    'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
+    'vectorize': 'try to vectorize loops instead of unrolling them. This only works if the cpu model has the sse2 instruction set and the jit driver defines that there is possibility for unrolling',
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -478,6 +479,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'max_unroll_loops': 0,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
+              'vectorize': 0,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 

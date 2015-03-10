@@ -70,7 +70,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
-                    max_unroll_recursion=7, **kwds):
+                    max_unroll_recursion=7, vectorize=0, **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -93,6 +93,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
+        jd.warmstate.set_param_vectorize(vectorize)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
