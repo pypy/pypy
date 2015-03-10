@@ -12,19 +12,26 @@ STM_TRANSACTION_ABORT   = 2
 # saying where the write was done.  Followed by STM_TRANSACTION_ABORT.
 STM_CONTENTION_WRITE_READ  = 3
 
+# inevitable contention: all threads that try to become inevitable
+# have a STM_BECOME_INEVITABLE event with a position marker.  Then,
+# if it waits it gets a STM_WAIT_OTHER_INEVITABLE.  It is possible
+# that a thread gets STM_BECOME_INEVITABLE followed by
+# STM_TRANSACTION_ABORT if it fails to become inevitable.
+STM_BECOME_INEVITABLE      = 4
+
 # always one STM_WAIT_xxx followed later by STM_WAIT_DONE
-STM_WAIT_FREE_SEGMENT      = 4
-STM_WAIT_SYNC_PAUSE        = 5
-STM_WAIT_OTHER_INEVITABLE  = 6
-STM_WAIT_DONE              = 7
+STM_WAIT_FREE_SEGMENT      = 5
+STM_WAIT_SYNC_PAUSE        = 6
+STM_WAIT_OTHER_INEVITABLE  = 7
+STM_WAIT_DONE              = 8
 
 # start and end of GC cycles
-STM_GC_MINOR_START  = 8
-STM_GC_MINOR_DONE   = 9
-STM_GC_MAJOR_START  = 10
-STM_GC_MAJOR_DONE   = 11
+STM_GC_MINOR_START  = 9
+STM_GC_MINOR_DONE   = 10
+STM_GC_MAJOR_START  = 11
+STM_GC_MAJOR_DONE   = 12
 
-_STM_EVENT_N  = 12
+_STM_EVENT_N  = 13
 
 PAUSE_AFTER_ABORT   = 0.000001      # usleep(1) after every abort
 
@@ -81,43 +88,65 @@ def parse_log(filename):
 class ThreadState(object):
     def __init__(self, threadnum):
         self.threadnum = threadnum
-        self.cpu_time = 0.0
+        self.cpu_time_committed = 0.0
+        self.cpu_time_aborted = 0.0
+        self._prev = (0.0, "stop")
+        self.reset_counters()
+
+    def reset_counters(self):
+        self._transaction_cpu_time = 0.0
+        self._transaction_pause_time = 0.0
+        self._transaction_aborting = False
 
     def transaction_start(self, entry):
-        self._start = entry
-        self._conflict = None
-        self._pause = None
-        self._paused_time = 0.0
+        self.reset_counters()
+        self.progress(entry, "run")
 
-    def transaction_stop(self, entry):
-        transaction_time = entry.timestamp - self._start.timestamp
-        transaction_time -= self._paused_time
-        assert transaction_time >= 0.0
-        self.cpu_time += transaction_time
-        self._start = None
-        self._pause = None
-        if self._conflict and entry.event == STM_TRANSACTION_ABORT:
-            c = self._conflict[1]
-            c.aborted_time += transaction_time
-            c.paused_time += PAUSE_AFTER_ABORT
-            self._conflict = None
+    def progress(self, entry, new_state):
+        prev_time, prev_state = self._prev
+        add_time = entry.timestamp - prev_time
+        assert add_time >= 0.0
+        if prev_state == "run":
+            self._transaction_cpu_time += add_time
+        elif prev_state == "pause":
+            self._transaction_pause_time += add_time
+        self._prev = entry.timestamp, new_state
+
+    def transaction_commit(self, entry):
+        assert not self._transaction_aborting
+        self.progress(entry, "stop")
+        self.cpu_time_committed += self._transaction_cpu_time
+
+    def transaction_abort(self, entry):
+        self.progress(entry, "stop")
+        self.cpu_time_aborted += self._transaction_cpu_time
+
+    def become_inevitable(self, entry):
+        "XXX"
 
     def transaction_pause(self, entry):
-        self._pause = entry
+        self.progress(entry, "pause")
 
     def transaction_unpause(self, entry):
-        if self._pause is None:
-            return
-        pause_time = entry.timestamp - self._pause.timestamp
-        self._paused_time += pause_time
-        self._pause = None
-        if self._conflict and self._conflict[0] == "local":
-            c = self._conflict[1]
-            c.paused_time += pause_time
-            self._conflict = None
+        self.progress(entry, "run")
 
-    def in_transaction(self):
-        return self._start is not None
+    def contention_write_read(self, entry, out_conflicts):
+        # This thread is aborted because it has read an object, but
+        # another thread already committed a change to that object.
+        # The marker is pointing inside the other thread's write.
+        if self._transaction_aborting:
+            print >> sys.stderr, "note: double STM_CONTENTION_WRITE_READ"
+            return
+        self._transaction_aborting = True
+        summary = (entry.event, entry.marker)
+        c = out_conflicts.get(summary)
+        if c is None:
+            c = out_conflicts[summary] = ConflictSummary(*summary)
+        c.num_events += 1
+        c.timestamps.append(entry.timestamp)
+        self.progress(entry, "run")
+        c.aborted_time += self._transaction_cpu_time
+        c.paused_time += self._transaction_pause_time
 
 
 class ConflictSummary(object):
@@ -153,10 +182,12 @@ def print_marker(marker):
     s = '  %s' % marker
     match = r_marker.match(marker)
     if match:
-        line = linecache.getline(match.group(1), int(match.group(2)))
-        line = line.strip()
-        if line:
-            s += '\n    %s' % line
+        filename = match.group(1)
+        if not (filename.endswith('.pyc') or filename.endswith('.pyo')):
+            line = linecache.getline(filename, int(match.group(2)))
+            line = line.strip()
+            if line:
+                s += '\n    %s' % line
     return s
 
 def percent(fraction, total):
@@ -177,47 +208,26 @@ def summarize_log_entries(logentries, stmlog):
                 print >> sys.stderr, '%.0f%%' % (entry.frac * 100.0,),
         cnt += 1
         #
+        t = threads.get(entry.threadnum)
+        if t is None:
+            t = threads[entry.threadnum] = ThreadState(entry.threadnum)
+        #
         if entry.event == STM_TRANSACTION_START:
-            t = threads.get(entry.threadnum)
-            if t is None:
-                t = threads[entry.threadnum] = ThreadState(entry.threadnum)
             t.transaction_start(entry)
-        elif (entry.event == STM_TRANSACTION_COMMIT or
-              entry.event == STM_TRANSACTION_ABORT):
-            t = threads.get(entry.threadnum)
-            if t is not None and t.in_transaction():
-                t.transaction_stop(entry)
-        elif entry.event in (#STM_CONTENTION_WRITE_WRITE,
-                             STM_CONTENTION_WRITE_READ,
-                             #STM_CONTENTION_INEVITABLE,
-                             ):
-            summary = (entry.event, entry.marker)
-            c = conflicts.get(summary)
-            if c is None:
-                c = conflicts[summary] = ConflictSummary(*summary)
-            c.num_events += 1
-            c.timestamps.append(entry.timestamp)
-            t = threads.get(entry.threadnum)
-            if t is not None and t.in_transaction():
-                t._conflict = ("local", c, entry)
-        ## elif entry.event == STM_ABORTING_OTHER_CONTENTION:
-        ##     t = threads.get(entry.threadnum)
-        ##     if t is not None and t._conflict and t._conflict[0] == "local":
-        ##         _, c, entry = t._conflict
-        ##         t._conflict = None
-        ##         t2 = threads.get(entry.otherthreadnum)
-        ##         if t2 is not None and t2.in_transaction():
-        ##             t2._conflict = ("remote", c, entry)
+        elif entry.event == STM_TRANSACTION_COMMIT:
+            t.transaction_commit(entry)
+        elif entry.event == STM_TRANSACTION_ABORT:
+            t.transaction_abort(entry)
+        elif entry.event == STM_BECOME_INEVITABLE:
+            t.become_inevitable(entry)
+        elif entry.event == STM_CONTENTION_WRITE_READ:
+            t.contention_write_read(entry, conflicts)
         elif entry.event in (STM_WAIT_FREE_SEGMENT,
                              STM_WAIT_SYNC_PAUSE,
                              STM_WAIT_OTHER_INEVITABLE):
-            t = threads.get(entry.threadnum)
-            if t is not None and t.in_transaction():
-                t.transaction_pause(entry)
+            t.transaction_pause(entry)
         elif entry.event == STM_WAIT_DONE:
-            t = threads.get(entry.threadnum)
-            if t is not None and t.in_transaction():
-                t.transaction_unpause(entry)
+            t.transaction_unpause(entry)
     #
     if cnt == 0:
         raise Exception("empty file")
@@ -234,9 +244,15 @@ def dump_summary(stmlog):
     print
     print 'Total real time:             %.3fs' % (total_time,)
     #
-    total_cpu_time = stmlog.get_total_cpu_time()
-    print 'Total CPU time in STM mode:  %.3fs (%s)' % (
-        total_cpu_time, percent(total_cpu_time, total_time))
+    total_cpu_time_committed = stmlog.get_total_cpu_time_committed()
+    total_cpu_time_aborted = stmlog.get_total_cpu_time_aborted()
+    total_cpu_time_total = total_cpu_time_committed + total_cpu_time_aborted
+    print 'Total CPU time in STM mode:  %.3fs (%s) committed' % (
+        total_cpu_time_committed, percent(total_cpu_time_committed, total_time))
+    print '                             %.3fs (%s) aborted' % (
+        total_cpu_time_aborted,   percent(total_cpu_time_aborted,   total_time))
+    print '                             %.3fs (%s) total' % (
+        total_cpu_time_total,     percent(total_cpu_time_total,     total_time))
     print
     #
     values = stmlog.get_conflicts()
@@ -256,8 +272,11 @@ class StmLog(object):
     def __init__(self, filename):
         summarize_log_entries(parse_log(filename), self)
 
-    def get_total_cpu_time(self):
-        return sum([v.cpu_time for v in self.threads.values()])
+    def get_total_cpu_time_committed(self):
+        return sum([v.cpu_time_committed for v in self.threads.values()])
+
+    def get_total_cpu_time_aborted(self):
+        return sum([v.cpu_time_aborted for v in self.threads.values()])
 
     def get_conflicts(self):
         values = self.conflicts.values()
