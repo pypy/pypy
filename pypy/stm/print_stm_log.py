@@ -91,6 +91,7 @@ class ThreadState(object):
         self.cpu_time_committed = 0.0
         self.cpu_time_aborted = 0.0
         self.cpu_time_paused = 0.0
+        self.cpu_time_gc_minor = 0.0
         self._prev = (0.0, "stop")
         self.reset_counters()
 
@@ -99,6 +100,7 @@ class ThreadState(object):
         self._transaction_pause_time = 0.0
         self._transaction_aborting = False
         self._transaction_inev = None
+        self._in_minor_coll = None
 
     def transaction_start(self, entry):
         self.reset_counters()
@@ -167,8 +169,18 @@ class ThreadState(object):
 
     def wait_for_other_inev(self, wait_time, out_conflicts):
         c = self.get_conflict(self._transaction_inev[0], out_conflicts)
-        assert wait_time >= 0
+        assert wait_time >= 0.0
         c.paused_time += wait_time
+
+    def gc_minor_start(self, event):
+        self._in_minor_coll = event.timestamp
+
+    def gc_minor_done(self, event):
+        if self._in_minor_coll is not None:
+            gc_time = event.timestamp - self._in_minor_coll
+            assert gc_time >= 0.0
+            self.cpu_time_gc_minor += gc_time
+            self._in_minor_coll = None
 
 
 class ConflictSummary(object):
@@ -250,6 +262,10 @@ def summarize_log_entries(logentries, stmlog):
             t.transaction_pause(entry)
         elif entry.event == STM_WAIT_DONE:
             t.transaction_unpause(entry, conflicts)
+        elif entry.event == STM_GC_MINOR_START:
+            t.gc_minor_start(entry)
+        elif entry.event == STM_GC_MINOR_DONE:
+            t.gc_minor_done(entry)
     #
     if cnt == 0:
         raise Exception("empty file")
@@ -272,6 +288,7 @@ def dump_summary(stmlog):
     total_cpu_time_total = (total_cpu_time_committed +
                             total_cpu_time_aborted +
                             total_cpu_time_paused)
+    total_cpu_time_gc_minor = stmlog.get_total_cpu_time_gc_minor()
     print 'CPU time in STM mode:  %.3fs (%s) committed' % (
         total_cpu_time_committed, percent(total_cpu_time_committed, total_time))
     print '                       %.3fs (%s) aborted' % (
@@ -280,6 +297,8 @@ def dump_summary(stmlog):
         total_cpu_time_paused,    percent(total_cpu_time_paused,    total_time))
     print '                       %.3fs (%s) total' % (
         total_cpu_time_total,     percent(total_cpu_time_total,     total_time))
+    print '            including  %.3fs (%s) minor GC collections' % (
+        total_cpu_time_gc_minor,  percent(total_cpu_time_gc_minor,  total_time))
     print
     #
     values = stmlog.get_conflicts()
@@ -307,6 +326,9 @@ class StmLog(object):
 
     def get_total_cpu_time_paused(self):
         return sum([v.cpu_time_paused for v in self.threads.values()])
+
+    def get_total_cpu_time_gc_minor(self):
+        return sum([v.cpu_time_gc_minor for v in self.threads.values()])
 
     def get_conflicts(self):
         values = self.conflicts.values()
