@@ -296,7 +296,7 @@ def dump_summary(stmlog):
     start_time = stmlog.start_time
     total_time = stmlog.total_time
     print
-    print 'Total real time:       %.3fs' % (total_time,)
+    print 'Total real time:     %9.3fs' % (total_time,)
     #
     total_cpu_time_committed = stmlog.get_total_cpu_time_committed()
     total_cpu_time_aborted = stmlog.get_total_cpu_time_aborted()
@@ -306,17 +306,17 @@ def dump_summary(stmlog):
                             total_cpu_time_paused)
     total_cpu_time_gc_minor = stmlog.get_total_cpu_time_gc_minor()
     total_cpu_time_gc_major = stmlog.get_total_cpu_time_gc_major()
-    print 'CPU time in STM mode:  %.3fs (%s) committed' % (
+    print 'CPU time in STM mode:%9.3fs (%4s) committed' % (
         total_cpu_time_committed, percent(total_cpu_time_committed, total_time))
-    print '                       %.3fs (%s) aborted' % (
+    print '                     %9.3fs (%4s) aborted' % (
         total_cpu_time_aborted,   percent(total_cpu_time_aborted,   total_time))
-    print '                       %.3fs (%s) paused' % (
+    print '                     %9.3fs (%4s) paused' % (
         total_cpu_time_paused,    percent(total_cpu_time_paused,    total_time))
-    print '                       %.3fs (%s) total' % (
+    print '                     %9.3fs (%4s) TOTAL' % (
         total_cpu_time_total,     percent(total_cpu_time_total,     total_time))
-    print '            including  %.3fs (%s) minor GC collections' % (
+    print '           including %9.3fs (%4s) minor GC collections' % (
         total_cpu_time_gc_minor,  percent(total_cpu_time_gc_minor,  total_time))
-    print '                  and  %.3fs (%s) major GC collections' % (
+    print '                 and %9.3fs (%4s) major GC collections' % (
         total_cpu_time_gc_major,  percent(total_cpu_time_gc_major,  total_time))
     print
     #
