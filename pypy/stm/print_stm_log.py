@@ -92,7 +92,9 @@ class ThreadState(object):
         self.cpu_time_aborted = 0.0
         self.cpu_time_paused = 0.0
         self.cpu_time_gc_minor = 0.0
+        self.cpu_time_gc_major = 0.0
         self._prev = (0.0, "stop")
+        self._in_major_coll = None
         self.reset_counters()
 
     def reset_counters(self):
@@ -182,6 +184,16 @@ class ThreadState(object):
             self.cpu_time_gc_minor += gc_time
             self._in_minor_coll = None
 
+    def gc_major_start(self, event):
+        self._in_major_coll = event.timestamp
+
+    def gc_major_done(self, event):
+        if self._in_major_coll is not None:
+            gc_time = event.timestamp - self._in_major_coll
+            assert gc_time >= 0.0
+            self.cpu_time_gc_major += gc_time
+            self._in_major_coll = None
+
 
 class ConflictSummary(object):
     def __init__(self, event, marker):
@@ -266,6 +278,10 @@ def summarize_log_entries(logentries, stmlog):
             t.gc_minor_start(entry)
         elif entry.event == STM_GC_MINOR_DONE:
             t.gc_minor_done(entry)
+        elif entry.event == STM_GC_MAJOR_START:
+            t.gc_major_start(entry)
+        elif entry.event == STM_GC_MAJOR_DONE:
+            t.gc_major_done(entry)
     #
     if cnt == 0:
         raise Exception("empty file")
@@ -289,6 +305,7 @@ def dump_summary(stmlog):
                             total_cpu_time_aborted +
                             total_cpu_time_paused)
     total_cpu_time_gc_minor = stmlog.get_total_cpu_time_gc_minor()
+    total_cpu_time_gc_major = stmlog.get_total_cpu_time_gc_major()
     print 'CPU time in STM mode:  %.3fs (%s) committed' % (
         total_cpu_time_committed, percent(total_cpu_time_committed, total_time))
     print '                       %.3fs (%s) aborted' % (
@@ -299,6 +316,8 @@ def dump_summary(stmlog):
         total_cpu_time_total,     percent(total_cpu_time_total,     total_time))
     print '            including  %.3fs (%s) minor GC collections' % (
         total_cpu_time_gc_minor,  percent(total_cpu_time_gc_minor,  total_time))
+    print '                  and  %.3fs (%s) major GC collections' % (
+        total_cpu_time_gc_major,  percent(total_cpu_time_gc_major,  total_time))
     print
     #
     values = stmlog.get_conflicts()
@@ -329,6 +348,9 @@ class StmLog(object):
 
     def get_total_cpu_time_gc_minor(self):
         return sum([v.cpu_time_gc_minor for v in self.threads.values()])
+
+    def get_total_cpu_time_gc_major(self):
+        return sum([v.cpu_time_gc_major for v in self.threads.values()])
 
     def get_conflicts(self):
         values = self.conflicts.values()
