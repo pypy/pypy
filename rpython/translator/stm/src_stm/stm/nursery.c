@@ -425,13 +425,6 @@ static void collect_roots_from_markers(uintptr_t len_old)
         if (undo->type == TYPE_POSITION_MARKER)
             minor_trace_if_young(&undo->marker_object);
     }
-
-    if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
-        object_t **pmarker_inev_obj = (object_t **)
-            REAL_ADDRESS(STM_SEGMENT->segment_base,
-                         &STM_PSEGMENT->marker_inev.object);
-        minor_trace_if_young(pmarker_inev_obj);
-    }
 }
 
 static void collect_objs_still_young_but_with_finalizers(void)

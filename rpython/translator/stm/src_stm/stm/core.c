@@ -464,7 +464,7 @@ static struct stm_commit_log_entry_s *_create_commit_log_entry(void)
 
 static void wait_for_other_inevitable(struct stm_commit_log_entry_s *old)
 {
-    timing_wait_other_inevitable();
+    timing_event(STM_SEGMENT->running_thread, STM_WAIT_OTHER_INEVITABLE);
 
     while (old->next == INEV_RUNNING && !safe_point_requested()) {
         spin_loop();
@@ -1171,7 +1171,7 @@ int stm_is_inevitable(void)
 
 /************************************************************/
 
-static void _finish_transaction(enum stm_event_e event, bool was_inev)
+static void _finish_transaction(enum stm_event_e event)
 {
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
 
@@ -1182,10 +1182,7 @@ static void _finish_transaction(enum stm_event_e event, bool was_inev)
     list_clear(STM_PSEGMENT->objects_pointing_to_nursery);
     list_clear(STM_PSEGMENT->old_objects_with_cards_set);
     list_clear(STM_PSEGMENT->large_overflow_objects);
-    if (was_inev)
-        timing_commit_inev_position();
-    else
-        timing_event(tl, event);
+    timing_event(tl, event);
 
     release_thread_segment(tl);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
@@ -1285,7 +1282,7 @@ void stm_commit_transaction(void)
 
     /* done */
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
-    _finish_transaction(STM_TRANSACTION_COMMIT, was_inev);
+    _finish_transaction(STM_TRANSACTION_COMMIT);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     s_mutex_unlock();
@@ -1420,7 +1417,7 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
                                                    : NURSERY_END;
     }
 
-    _finish_transaction(STM_TRANSACTION_ABORT, false);
+    _finish_transaction(STM_TRANSACTION_ABORT);
     /* cannot access STM_SEGMENT or STM_PSEGMENT from here ! */
 
     return tl;
@@ -1459,10 +1456,10 @@ void _stm_become_inevitable(const char *msg)
     if (STM_PSEGMENT->transaction_state == TS_REGULAR) {
         dprintf(("become_inevitable: %s\n", msg));
         _stm_collectable_safe_point();
+        timing_become_inevitable();
 
         _validate_and_turn_inevitable();
         STM_PSEGMENT->transaction_state = TS_INEVITABLE;
-        timing_record_inev_position();
 
         stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
         invoke_and_clear_user_callbacks(0);   /* for commit */

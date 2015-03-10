@@ -89,32 +89,12 @@ static void timing_write_read_contention(struct stm_undo_s *start,
                        STM_CONTENTION_WRITE_READ, &marker);
 }
 
-static void _timing_record_inev_position(void)
+static void _timing_become_inevitable(void)
 {
     stm_loc_marker_t marker;
     marker_fetch(STM_SEGMENT->running_thread, &marker);
-    STM_PSEGMENT->marker_inev.odd_number = marker.odd_number;
-    STM_PSEGMENT->marker_inev.object = marker.object;
-}
-
-static void _timing_commit_inev_position(void)
-{
-    stm_loc_marker_t marker;
-    marker.odd_number = STM_PSEGMENT->marker_inev.odd_number;
-    marker.object = STM_PSEGMENT->marker_inev.object;
     stmcb_timing_event(STM_SEGMENT->running_thread,
-                       STM_TRANSACTION_COMMIT, &marker);
-}
-
-static void timing_wait_other_inevitable(void)
-{
-    if (stmcb_timing_event == NULL)
-        return;
-
-    stm_loc_marker_t marker;
-    marker_fetch(STM_SEGMENT->running_thread, &marker);
-    stmcb_timing_event(STM_SEGMENT->running_thread,
-                       STM_WAIT_OTHER_INEVITABLE, &marker);
+                       STM_BECOME_INEVITABLE, &marker);
 }
 
 

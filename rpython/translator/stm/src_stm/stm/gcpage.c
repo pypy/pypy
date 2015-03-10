@@ -408,9 +408,6 @@ static void mark_visit_from_markers(void)
             if (modified->type == TYPE_POSITION_MARKER)
                 mark_visit_possibly_new_object(modified->marker_object, pseg);
         }
-
-        if (pseg->transaction_state == TS_INEVITABLE)
-            mark_visit_possibly_new_object(pseg->marker_inev.object, pseg);
     }
 }
 
