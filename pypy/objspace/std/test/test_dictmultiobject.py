@@ -618,6 +618,10 @@ class AppTest_DictObject:
     def test_bytes_keys(self):
         assert isinstance(list({b'a': 1})[0], bytes)
 
+    def test_interned_keywords(self):
+        assert list(dict(abcdef=1))[0] is 'abcdef'
+
+
 class AppTest_DictMultiObject(AppTest_DictObject):
 
     def test_emptydict_unhashable(self):
