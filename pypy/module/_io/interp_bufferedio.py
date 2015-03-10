@@ -306,11 +306,23 @@ class BufferedMixin:
         with self.lock:
             if self._closed(space):
                 return
+        flush_exception = None
         try:
             space.call_method(self, "flush")
+        except OperationError as flush_exception:
+            pass
         finally:
             with self.lock:
-                space.call_method(self.w_raw, "close")
+                try:
+                    space.call_method(self.w_raw, "close")
+                except OperationError as e:
+                    if flush_exception:
+                        space.setattr(e.get_w_value(space),
+                                      space.wrap('__context__'),
+                                      flush_exception.get_w_value(space))
+                    raise
+            if flush_exception:
+                raise
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_raw, "_dealloc_warn", w_source)

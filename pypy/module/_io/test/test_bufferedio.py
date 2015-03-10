@@ -560,6 +560,7 @@ class AppTestBufferedWriter:
         b.flush = bad_flush
         err = raises(IOError, b.close)  # exception not swallowed
         assert err.value.args == ('close',)
+        assert err.value.__context__.args == ('flush',)
         assert not b.closed
 
 class AppTestBufferedRWPair:
