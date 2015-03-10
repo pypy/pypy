@@ -4011,8 +4011,8 @@ class ContextInputValidation(unittest.TestCase):
         self.assertRaises(KeyError, Context, traps=["Q"])
 
         # Type error in conversion
-        self.assertRaises(TypeError, Context, flags=(0,1))
-        self.assertRaises(TypeError, Context, traps=(1,0))
+        self.assertRaises(TypeError, Context, flags=0)
+        self.assertRaises(TypeError, Context, traps=1)
 
 class CContextInputValidation(ContextInputValidation):
     decimal = C
@@ -4150,7 +4150,7 @@ class CheckAttributes(unittest.TestCase):
         self.assertEqual(C.__version__, P.__version__)
         self.assertEqual(C.__libmpdec_version__, P.__libmpdec_version__)
 
-        x = dir(C)
+        x = [s for s in dir(C) if '__' in s or not s.startswith('_')]
         y = [s for s in dir(P) if '__' in s or not s.startswith('_')]
         self.assertEqual(set(x) - set(y), set())
 
@@ -4158,6 +4158,7 @@ class CheckAttributes(unittest.TestCase):
 
         x = [s for s in dir(C.Context()) if '__' in s or not s.startswith('_')]
         y = [s for s in dir(P.Context()) if '__' in s or not s.startswith('_')]
+        y.append('__slots__')
         self.assertEqual(set(x) - set(y), set())
 
     def test_decimal_attributes(self):
@@ -4793,15 +4794,17 @@ class CWhitebox(unittest.TestCase):
         self.assertRaises(OverflowError, Context, Emax=int_max+1)
         self.assertRaises(OverflowError, Context, Emin=-int_max-2)
         self.assertRaises(OverflowError, Context, clamp=int_max+1)
-        self.assertRaises(OverflowError, Context, capitals=int_max+1)
+        self.assertRaises((OverflowError, ValueError), Context, capitals=int_max+1)
 
         # OverflowError, general ValueError
         for attr in ('prec', 'Emin', 'Emax', 'capitals', 'clamp'):
-            self.assertRaises(OverflowError, setattr, c, attr, int_max+1)
-            self.assertRaises(OverflowError, setattr, c, attr, -int_max-2)
+            self.assertRaises((OverflowError, ValueError), setattr, c, attr,
+                              int_max+1)
+            self.assertRaises((OverflowError, ValueError), setattr, c, attr,
+                              -int_max-2)
             if sys.platform != 'win32':
-                self.assertRaises(ValueError, setattr, c, attr, int_max)
-                self.assertRaises(ValueError, setattr, c, attr, -int_max-1)
+                self.assertRaises((OverflowError, ValueError), setattr, c, attr, int_max)
+                self.assertRaises((OverflowError, ValueError), setattr, c, attr, -int_max-1)
 
         # OverflowError: _unsafe_setprec, _unsafe_setemin, _unsafe_setemax
         if C.MAX_PREC == 425000000:
@@ -4830,8 +4833,8 @@ class CWhitebox(unittest.TestCase):
             self.assertRaises(ValueError, setattr, c, attr, 2)
             self.assertRaises(TypeError, setattr, c, attr, [1,2,3])
             if HAVE_CONFIG_64:
-                self.assertRaises(ValueError, setattr, c, attr, 2**32)
-                self.assertRaises(ValueError, setattr, c, attr, 2**32+1)
+                self.assertRaises((ValueError, OverflowError), setattr, c, attr, 2**32)
+                self.assertRaises((ValueError, OverflowError), setattr, c, attr, 2**32+1)
 
         # Invalid local context
         self.assertRaises(TypeError, exec, 'with localcontext("xyz"): pass',
@@ -4845,6 +4848,8 @@ class CWhitebox(unittest.TestCase):
         self.assertRaises(TypeError, setcontext, "xyz")
         setcontext(saved_context)
 
+    # pypy does not keep interned strings
+    @cpython_only
     def test_rounding_strings_interned(self):
 
         self.assertIs(C.ROUND_UP, P.ROUND_UP)
@@ -5371,6 +5376,7 @@ class CWhitebox(unittest.TestCase):
             x = (1, (0, 1), "N")
             self.assertEqual(str(Decimal(x)), '-sNaN1')
 
+    @cpython_only
     def test_sizeof(self):
         Decimal = C.Decimal
         HAVE_CONFIG_64 = (C.MAX_PREC > 425000000)
