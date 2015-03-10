@@ -187,7 +187,7 @@ class ReprTests(unittest.TestCase):
             # cpython
             repr(dict.items) == "<method 'items' of 'dict' objects>",
             # pypy
-            repr(dict.items).startswith("<function items at 0x"),
+            repr(dict.items).startswith("<function dict.items at 0x"),
         )))
         # XXX member descriptors
         # XXX attribute descriptors
