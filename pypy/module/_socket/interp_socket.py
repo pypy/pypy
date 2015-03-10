@@ -106,7 +106,10 @@ def addr_from_object(family, space, w_address):
         flowinfo = make_unsigned_flowinfo(space, flowinfo)
         return rsocket.INET6Address(host, port, flowinfo, scope_id)
     if rsocket.HAS_AF_UNIX and family == rsocket.AF_UNIX:
-        return rsocket.UNIXAddress(space.str_w(w_address))
+        # Not using space.fsencode_w since Linux allows embedded NULs.
+        if space.isinstance_w(w_address, space, w_unicode):
+            w_address = self.fsencode(w_address)
+        return rsocket.UNIXAddress(space.bytes_w(w_address))
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
