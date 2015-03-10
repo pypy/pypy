@@ -1,6 +1,7 @@
 import sys
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
                                           PASS_ON_MY_FRAME, FRAME_FIXED_SIZE,
@@ -25,6 +26,14 @@ handle_lasterror = sys.platform == "win32"
 def align_stack_words(words):
     return (words + CALL_ALIGN - 1) & ~(CALL_ALIGN-1)
 
+def follow_jump(addr):
+    # If 'addr' is immediately starting with another JMP instruction,
+    # follow it now.  'addr' is an absolute address here
+    while rffi.cast(rffi.CCHARP, addr)[0] == '\xE9':    # JMP <4 bytes>
+        addr += 5
+        addr += intmask(rffi.cast(rffi.INTP, addr - 4)[0])
+    return addr
+
 
 class CallBuilderX86(AbstractCallBuilder):
 
@@ -42,8 +51,11 @@ class CallBuilderX86(AbstractCallBuilder):
                                      resloc, restype, ressize)
         # Avoid tons of issues with a non-immediate fnloc by sticking it
         # as an extra argument if needed
-        self.fnloc_is_immediate = isinstance(fnloc, ImmedLoc)
-        if not self.fnloc_is_immediate:
+        if isinstance(fnloc, ImmedLoc):
+            self.fnloc_is_immediate = True
+            self.fnloc = imm(follow_jump(fnloc.value))
+        else:
+            self.fnloc_is_immediate = False
             self.fnloc = None
             self.arglocs = arglocs + [fnloc]
         self.current_esp = 0     # 0 or (usually) negative, counted in bytes
@@ -167,6 +179,8 @@ class CallBuilderX86(AbstractCallBuilder):
                 self.tlofs_reg = r12
             self.mc.MOV_rs(self.tlofs_reg.value,
                            THREADLOCAL_OFS - self.current_esp)
+            if self.asm._is_asmgcc():
+                self.mc.AND_ri(self.tlofs_reg.value, ~1)
         return self.tlofs_reg
 
     def save_stack_position(self):
@@ -194,21 +208,27 @@ class CallBuilderX86(AbstractCallBuilder):
             SetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
-            rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
+            else:
+                lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()    # => esi, callee-saved
             self.save_stack_position()         # => edi, callee-saved
-            mc.PUSH_m((tlofsreg.value, rpy_lasterror))
-            mc.CALL(imm(SetLastError_addr))
+            mc.PUSH_m((tlofsreg.value, lasterror))
+            mc.CALL(imm(follow_jump(SetLastError_addr)))
             # restore the stack position without assuming a particular
             # calling convention of _SetLastError()
             self.mc.MOV(esp, self.saved_stack_position_reg)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
-            # Just before a call, read 'rpy_errno' and write it into the
+            # Just before a call, read '*_errno' and write it into the
             # real 'errno'.  Most registers are free here, including the
             # callee-saved ones, except 'ebx' and except the ones used to
             # pass the arguments on x86-64.
-            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
             if IS_X86_32:
@@ -232,11 +252,14 @@ class CallBuilderX86(AbstractCallBuilder):
 
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
-            # it inside our thread-local 'rpy_errno'.  Most registers are
+            # it inside our thread-local '*_errno'.  Most registers are
             # free here, including the callee-saved ones, except 'ebx'.
             # The tlofs register might have been loaded earlier and is
             # callee-saved, so it does not need to be reloaded.
-            rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()   # => esi or r12 (possibly reused)
             mc.MOV_rm(edi.value, (tlofsreg.value, p_errno))
@@ -254,13 +277,16 @@ class CallBuilderX86(AbstractCallBuilder):
             GetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
             assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
-            rpy_lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
+            else:
+                lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
             self.save_result_value(save_edx=True)   # save eax/edx/xmm0
             self.result_value_saved_early = True
-            mc.CALL(imm(GetLastError_addr))
+            mc.CALL(imm(follow_jump(GetLastError_addr)))
             #
             tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
-            mc.MOV32_mr((tlofsreg.value, rpy_lasterror), eax.value)
+            mc.MOV32_mr((tlofsreg.value, lasterror), eax.value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.x86 import rx86
@@ -312,8 +338,8 @@ class CallBuilderX86(AbstractCallBuilder):
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
             mc.J_il8(rx86.Conditions['NE'], 0)
             jne_location = mc.get_relative_pos()
-            # here, ecx is zero (so rpy_fastgil was in 'released' state
-            # before the XCHG, but the XCHG acquired it by writing 1)
+            # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
+            # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
@@ -338,7 +364,7 @@ class CallBuilderX86(AbstractCallBuilder):
                 mc.MOV_sr(4, old_value.value)
                 mc.MOV_sr(0, css_value.value)
             # on X86_64, they are already in the right registers
-        mc.CALL(imm(self.asm.reacqgil_addr))
+        mc.CALL(imm(follow_jump(self.asm.reacqgil_addr)))
         if not self.result_value_saved_early:
             self.restore_result_value(save_edx=False)
         #

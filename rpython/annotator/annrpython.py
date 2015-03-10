@@ -6,8 +6,8 @@ from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
-from rpython.flowspace.model import (Variable, Constant, FunctionGraph,
-                                      c_last_exception, checkgraph)
+from rpython.flowspace.model import (
+    Variable, Constant, FunctionGraph, checkgraph)
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.argument import simple_args
@@ -399,16 +399,25 @@ class RPythonAnnotator(object):
 
     def flowin(self, graph, block):
         try:
-            for i, op in enumerate(block.operations):
+            i = 0
+            while i < len(block.operations):
+                op = block.operations[i]
                 self.bookkeeper.enter((graph, block, i))
                 try:
+                    new_ops = op.transform(self)
+                    if new_ops is not None:
+                        block.operations[i:i+1] = new_ops
+                        if not new_ops:
+                            continue
+                        new_ops[-1].result = op.result
+                        op = new_ops[0]
                     self.consider_op(op)
                 finally:
                     self.bookkeeper.leave()
+                i += 1
 
         except BlockedInference as e:
-            if (e.op is block.operations[-1] and
-                block.exitswitch == c_last_exception):
+            if e.op is block.raising_op:
                 # this is the case where the last operation of the block will
                 # always raise an exception which is immediately caught by
                 # an exception handler.  We then only follow the exceptional
@@ -450,8 +459,8 @@ class RPythonAnnotator(object):
 
         # filter out those exceptions which cannot
         # occour for this specific, typed operation.
-        if block.exitswitch == c_last_exception:
-            op = block.operations[-1]
+        if block.canraise:
+            op = block.raising_op
             can_only_throw = op.get_can_only_throw(self)
             if can_only_throw is not None:
                 candidates = can_only_throw

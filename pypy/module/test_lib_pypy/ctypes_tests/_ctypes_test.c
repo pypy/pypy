@@ -272,7 +272,11 @@ integrate(double a, double b, double (*f)(double), long nstep)
 {
 	double x, sum=0.0, dx=(b-a)/(double)nstep;
 	for(x=a+0.5*dx; (b-x)*(x-a)>0.0; x+=dx)
+    {   
+        double y = f(x);
+        printf("f(x)=%.1f\n", y);
 		sum += f(x);
+    }
 	return sum/(double)nstep;
 }
 

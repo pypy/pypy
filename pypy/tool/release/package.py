@@ -50,68 +50,10 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 
-#
-# Some crazy nonsense (imho) about including automatically the license
-# of various libraries as they happen to be on this system.  This is
-# strange because most of these libraries are linked to dynamically,
-# and so at runtime might end up with a different version.  I (arigo)
-# killed this logic and wrote some general info (which I hope is more
-# sensible anyway) into our ../../../LICENSE file.
-#
-'''
-sep_template = "\nThis copy of PyPy includes a copy of %s, which is licensed under the following terms:\n\n"
-
-def generate_license(basedir, options):
-    base_file = str(basedir.join('LICENSE'))
-    with open(base_file) as fid:
-        txt = fid.read()
-    if sys.platform == 'win32':
-        # shutil.copyfileobj(open("crtlicense.txt"), out) # We do not ship
-        #   msvc runtime files, but otherwise we'd need this on Windows
-        searches = [("bzip2","bzip2-*", "LICENSE", ''),
-                    ("openssl", "openssl-*", "LICENSE", '')]
-    else:
-        searches = [("bzip2","libbz2-*dev", "copyright", '---------'),
-                    ("openssl", "openssl*", "copyright", 'LICENSE ISSUES')]
-    if not options.no_tk:
-        name = 'Tcl/Tk'
-        txt += "License for '%s'" %name
-        txt += '\n' + "="*(14 + len(name)) + '\n'
-        txt += sep_template % name
-        base_file = str(basedir.join('lib_pypy/_tkinter/license.terms'))
-        with open(base_file, 'r') as fid:
-            txt += fid.read()
-    for name, pat, fname, first_line in searches:
-        txt += "License for '" + name + "'"
-        txt += '\n' + "="*(14 + len(name)) + '\n'
-        txt += sep_template % name
-        dirs = glob.glob(options.license_base + "/" +pat)
-        if not dirs:
-            raise ValueError, "Could not find %s/%s" % (options.license_base, pat)
-        if len(dirs) > 1:
-            raise ValueError, "Multiple copies of %r: %r" % (pat, dirs)
-        dir = dirs[0]
-        with open(os.path.join(dir, fname)) as fid:
-            # Read up to the line dividing the packaging header from the actual copyright
-            for line in fid:
-                if first_line in line:
-                    break
-            txt += line
-            for line in fid:
-                txt += line
-            if len(line.strip())<1:
-                txt += '\n'
-    txt += third_party_header
-    # Do something for gdbm, which is GPL
-    txt += gdbm_bit
-    return txt
-'''
-
 def create_cffi_import_libraries(pypy_c, options):
-    modules = ['_sqlite3']
-    subprocess.check_call([str(pypy_c), '-c', 'import _sqlite3'])
+    modules = ['_sqlite3', 'audioop']
     if not sys.platform == 'win32':
-        modules += ['_curses', 'syslog', 'gdbm', '_sqlite3']
+        modules += ['_curses', 'syslog', 'gdbm',]
     if not options.no_tk:
         modules.append('_tkinter')
     for module in modules:
@@ -227,19 +169,12 @@ directory next to the dlls, as per build instructions."""
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
         shutil.copyfile(str(basedir.join('lib_pypy', file)),
                         str(pypydir.join('lib_pypy', file)))
-    if 0:  # disabled
-        license = generate_license(basedir, options)
-        with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
-            LICENSE.write(license)
-    else:
-        # Use original LICENCE file
-        #import traceback;traceback.print_exc()
-        base_file = str(basedir.join('LICENSE'))
-        with open(base_file) as fid:
-            license = fid.read()
-        with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
-            LICENSE.write(license)
-        #retval = -1
+    # Use original LICENCE file
+    base_file = str(basedir.join('LICENSE'))
+    with open(base_file) as fid:
+        license = fid.read()
+    with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
+        LICENSE.write(license)
     #
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
@@ -308,16 +243,8 @@ def package(*args):
         argparse = imp.load_source('argparse', 'lib-python/2.7/argparse.py')
     if sys.platform == 'win32':
         pypy_exe = 'pypy.exe'
-        for p in [os.path.join(basedir, r'..\..\..\local'), #buildbot
-                os.path.join(basedir, r'..\local')]: # pypy/doc/windows.rst
-            if os.path.exists(p): 
-                license_base = p
-                break
-        else:
-            license_base = 'unkown'
     else:
         pypy_exe = 'pypy'
-        license_base = '/usr/share/doc'
     parser = argparse.ArgumentParser()
     args = list(args)
     args[0] = str(args[0])
@@ -331,9 +258,6 @@ def package(*args):
         help='target executable name, defaults to "pypy"')
     parser.add_argument('--archive-name', dest='name', type=str, default='',
         help='pypy-VER-PLATFORM')
-    parser.add_argument('--license_base', type=str, default=license_base,
-        #help='where to start looking for third party upstream licensing info')
-        help='(ignored)')
     parser.add_argument('--builddir', type=str, default='',
         help='tmp dir for packaging')
     parser.add_argument('--targetdir', type=str, default='',

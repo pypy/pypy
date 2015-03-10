@@ -205,6 +205,7 @@ testmap = [
     RegrTest('test_email.py'),
     RegrTest('test_email_codecs.py'),
     RegrTest('test_email_renamed.py'),
+    RegrTest('test_ensurepip.py'),
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
     RegrTest('test_epoll.py'),

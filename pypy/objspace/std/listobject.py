@@ -1670,6 +1670,25 @@ class FloatListStrategy(ListStrategy):
     def getitems_float(self, w_list):
         return self.unerase(w_list.lstorage)
 
+    def _safe_find(self, w_list, obj, start, stop):
+        from rpython.rlib.rfloat import isnan
+        from rpython.rlib.longlong2float import float2longlong
+        #
+        l = self.unerase(w_list.lstorage)
+        stop = min(stop, len(l))
+        if not isnan(obj):
+            for i in range(start, stop):
+                val = l[i]
+                if val == obj:
+                    return i
+        else:
+            search = float2longlong(obj)
+            for i in range(start, stop):
+                val = l[i]
+                if float2longlong(val) == search:
+                    return i
+        raise ValueError
+
 
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)

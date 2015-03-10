@@ -34,8 +34,9 @@ def from_handle(space, w_cdata):
         raise oefmt(space.w_TypeError,
                     "expected a 'cdata' object with a 'void *' out of "
                     "new_handle(), got '%s'", ctype.name)
-    index = rffi.cast(lltype.Signed, w_cdata._cdata)
-    original_cdataobj = get(space).fetch_handle(index - 1)
+    with w_cdata as ptr:
+        index = rffi.cast(lltype.Signed, ptr)
+        original_cdataobj = get(space).fetch_handle(index - 1)
     #
     if isinstance(original_cdataobj, cdataobj.W_CDataHandle):
         return original_cdataobj.w_keepalive

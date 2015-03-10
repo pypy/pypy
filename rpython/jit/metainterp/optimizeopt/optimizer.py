@@ -3,7 +3,6 @@ from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt,\
      REF, BoxPtr, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded,\
-                                                     ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT,\
                                                      MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -59,6 +58,17 @@ class OptValue(object):
         if isinstance(box, Const):
             self.make_constant(box)
         # invariant: box is a Const if and only if level == LEVEL_CONSTANT
+
+    def __repr__(self):
+        level = {LEVEL_UNKNOWN: 'UNKNOWN',
+                 LEVEL_NONNULL: 'NONNULL',
+                 LEVEL_KNOWNCLASS: 'KNOWNCLASS',
+                 LEVEL_CONSTANT: 'CONSTANT'}.get(self.getlevel(),
+                                                 self.getlevel())
+        return '<%s %s %s>' % (
+            self.__class__.__name__,
+            level,
+            self.box)
 
     def getlevel(self):
         return self._tag & 0x3
@@ -304,7 +314,7 @@ class PtrOptValue(OptValue):
         level = self.getlevel()
         if level == LEVEL_KNOWNCLASS:
             return self.known_class
-        elif level == LEVEL_CONSTANT:
+        elif level == LEVEL_CONSTANT and not self.is_null():
             return cpu.ts.cls_of_box(self.box)
         else:
             return None
@@ -323,19 +333,17 @@ class PtrOptValue(OptValue):
 class IntOptValue(OptValue):
     _attrs_ = ('intbound',)
 
-    intbound = ImmutableIntUnbounded()
-
     def __init__(self, box, level=None, known_class=None, intbound=None):
         OptValue.__init__(self, box, level, None, None)
         if isinstance(box, Const):
+            value = box.getint()
+            self.intbound = IntBound(value, value)
             return
         if intbound:
             self.intbound = intbound
         else:
-            if isinstance(box, BoxInt):
-                self.intbound = IntBound(MININT, MAXINT)
-            else:
-                self.intbound = IntUnbounded()
+            assert isinstance(box, BoxInt)
+            self.intbound = IntBound(MININT, MAXINT)
 
     def copy_from(self, other_value):
         assert isinstance(other_value, IntOptValue)
@@ -854,17 +862,52 @@ class Optimizer(Optimization):
         return resbox.constbox()
 
     def pure_reverse(self, op):
+        import sys
         if self.optpure is None:
             return
         optpure = self.optpure
         if op.getopnum() == rop.INT_ADD:
-            optpure.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op.result)
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+            optpure.pure(rop.INT_ADD, [arg1, arg0], op.result)
             # Synthesize the reverse op for optimize_default to reuse
-            optpure.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
-            optpure.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+            optpure.pure(rop.INT_SUB, [op.result, arg1], arg0)
+            optpure.pure(rop.INT_SUB, [op.result, arg0], arg1)
+            if isinstance(arg0, ConstInt):
+                # invert the constant
+                i0 = arg0.getint()
+                if i0 == -sys.maxint - 1:
+                    return
+                inv_arg0 = ConstInt(-i0)
+            elif isinstance(arg1, ConstInt):
+                # commutative
+                i0 = arg1.getint()
+                if i0 == -sys.maxint - 1:
+                    return
+                inv_arg0 = ConstInt(-i0)
+                arg1 = arg0
+            else:
+                return
+            optpure.pure(rop.INT_SUB, [arg1, inv_arg0], op.result)
+            optpure.pure(rop.INT_SUB, [arg1, op.result], inv_arg0)
+            optpure.pure(rop.INT_ADD, [op.result, inv_arg0], arg1)
+            optpure.pure(rop.INT_ADD, [inv_arg0, op.result], arg1)
+
         elif op.getopnum() == rop.INT_SUB:
-            optpure.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
-            optpure.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+            optpure.pure(rop.INT_ADD, [op.result, arg1], arg0)
+            optpure.pure(rop.INT_SUB, [arg0, op.result], arg1)
+            if isinstance(arg1, ConstInt):
+                # invert the constant
+                i1 = arg1.getint()
+                if i1 == -sys.maxint - 1:
+                    return
+                inv_arg1 = ConstInt(-i1)
+                optpure.pure(rop.INT_ADD, [arg0, inv_arg1], op.result)
+                optpure.pure(rop.INT_ADD, [inv_arg1, arg0], op.result)
+                optpure.pure(rop.INT_SUB, [op.result, inv_arg1], arg0)
+                optpure.pure(rop.INT_SUB, [op.result, arg0], inv_arg1)
         elif op.getopnum() == rop.FLOAT_MUL:
             optpure.pure(rop.FLOAT_MUL, [op.getarg(1), op.getarg(0)], op.result)
         elif op.getopnum() == rop.FLOAT_NEG:

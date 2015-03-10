@@ -259,7 +259,8 @@ def call_capi(space, name, args):
         if not objectmodel.we_are_translated():
             leakfinder.remember_free(c_call.ctype.cif_descr._obj0)
         state.capi_calls[name] = c_call
-    return c_call.ctype.rcall(c_call._cdata, args)
+    with c_call as ptr:
+        return c_call.ctype.rcall(ptr, args)
 
 def _cdata_to_cobject(space, w_cdata):
     return rffi.cast(C_OBJECT, space.uint_w(w_cdata))
@@ -271,8 +272,9 @@ def _cdata_to_ptrdiff_t(space, w_cdata):
     return rffi.cast(rffi.LONG, space.int_w(w_cdata))
 
 def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully slow
-    return rffi.cast(rffi.VOIDP,
-        space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)._cdata)
+    w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
+    ptr = w_cdata.unsafe_escaping_ptr()
+    return rffi.cast(rffi.VOIDP, ptr)
 
 def c_load_dictionary(name):
     return libffi.CDLL(name)

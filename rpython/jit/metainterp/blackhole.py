@@ -3,6 +3,7 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
+from rpython.jit.metainterp.history import MissingValue
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
@@ -28,9 +29,6 @@ LONGLONG_TYPECODE = 'i' if longlong.is_64_bit else 'f'
 
 class LeaveFrame(jitexc.JitException):
     pass
-
-class MissingValue(object):
-    "NOT_RPYTHON"
 
 def signedord(c):
     value = ord(c)
@@ -1595,14 +1593,20 @@ class BlackholeInterpreter(object):
         self.setposition(miframe.jitcode, miframe.pc)
         for i in range(self.jitcode.num_regs_i()):
             box = miframe.registers_i[i]
+            if not we_are_translated() and isinstance(box, MissingValue):
+                continue
             if box is not None:
                 self.setarg_i(i, box.getint())
         for i in range(self.jitcode.num_regs_r()):
             box = miframe.registers_r[i]
+            if not we_are_translated() and isinstance(box, MissingValue):
+                continue
             if box is not None:
                 self.setarg_r(i, box.getref_base())
         for i in range(self.jitcode.num_regs_f()):
             box = miframe.registers_f[i]
+            if not we_are_translated() and isinstance(box, MissingValue):
+                continue
             if box is not None:
                 self.setarg_f(i, box.getfloatstorage())
 

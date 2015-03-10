@@ -512,7 +512,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [i]
         i1 = int_is_true(i)
         guard_false(i1) [i]
-        jump(i)
+        jump(0)
         """
         self.optimize_loop(ops, expected)
 
@@ -3703,6 +3703,61 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_add_sub_constants_inverse(self):
+        import sys
+        ops = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(1, i0)
+        i3 = int_add(-1, i2)
+        i4 = int_sub(i0, -1)
+        i5 = int_sub(i0, i2)
+        jump(i0, i2, i3, i4, i5)
+        """
+        expected = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(1, i0)
+        jump(i0, i2, i0, i2, -1)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(i0, 1)
+        i3 = int_add(-1, i2)
+        i4 = int_sub(i0, -1)
+        i5 = int_sub(i0, i2)
+        jump(i0, i2, i3, i4, i5)
+        """
+        expected = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(i0, 1)
+        jump(i0, i2, i0, i2, -1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0, i10, i11, i12, i13, i14]
+        i2 = int_sub(i0, 1)
+        i3 = int_add(-1, i0)
+        i4 = int_add(i0, -1)
+        i5 = int_sub(i2, -1)
+        i6 = int_sub(i2, i0)
+        jump(i0, i2, i3, i4, i5, i6)
+        """
+        expected = """
+        [i0, i10, i11, i12, i13, i14]
+        i2 = int_sub(i0, 1)
+        jump(i0, i2, i2, i2, i0, -1)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [i0, i10, i11, i12]
+        i2 = int_add(%s, i0)
+        i3 = int_add(i2, %s)
+        i4 = int_sub(i0, %s)
+        jump(i0, i2, i3, i4)
+        """ % ((-sys.maxint - 1, ) * 3)
+        self.optimize_loop(ops, ops) # does not crash
+
     def test_framestackdepth_overhead(self):
         ops = """
         [p0, i22]
@@ -4770,6 +4825,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i0 = strlen(p0)
         i1 = int_is_true(i0)
         guard_true(i1) []
+        jump(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_int_is_zero_bounds(self):
+        ops = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_is_zero(i0)
+        guard_false(i1) []
+        i2 = int_ge(0, i0)
+        guard_false(i2) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = strlen(p0)
+        i1 = int_is_zero(i0)
+        guard_false(i1) []
         jump(p0)
         """
         self.optimize_strunicode_loop(ops, expected)

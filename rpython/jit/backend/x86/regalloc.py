@@ -339,14 +339,21 @@ class RegAlloc(BaseRegalloc):
             self.possibly_free_var(arg)
 
     def flush_loop(self):
+        # Force the code to be aligned to a multiple of 16.  Also,
         # rare case: if the loop is too short, or if we are just after
-        # a GUARD_NOT_INVALIDATED, pad with NOPs.  Important!  This must
-        # be called to ensure that there are enough bytes produced,
-        # because GUARD_NOT_INVALIDATED or redirect_call_assembler()
-        # will maybe overwrite them.
+        # a GUARD_NOT_INVALIDATED, we need to make sure we insert enough
+        # NOPs.  This is important to ensure that there are enough bytes
+        # produced, because GUARD_NOT_INVALIDATED or
+        # redirect_call_assembler() will maybe overwrite them.  (In that
+        # rare case we don't worry too much about alignment.)
         mc = self.assembler.mc
-        while mc.get_relative_pos() < self.min_bytes_before_label:
-            mc.NOP()
+        current_pos = mc.get_relative_pos()
+        target_pos = (current_pos + 15) & ~15
+        target_pos = max(target_pos, self.min_bytes_before_label)
+        insert_nops = target_pos - current_pos
+        assert 0 <= insert_nops <= 15
+        for c in mc.MULTIBYTE_NOPs[insert_nops]:
+            mc.writechar(c)
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -421,15 +428,29 @@ class RegAlloc(BaseRegalloc):
 
     consider_guard_nonnull_class = consider_guard_class
 
-    def _consider_binop_part(self, op):
+    def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
-        argloc = self.loc(op.getarg(1))
+        y = op.getarg(1)
+        argloc = self.loc(y)
+        #
+        # For symmetrical operations, if 'y' is already in a register
+        # and won't be used after the current operation finishes,
+        # then swap the role of 'x' and 'y'
+        if (symm and isinstance(argloc, RegLoc) and
+                self.rm.longevity[y][1] == self.rm.position):
+            x, y = y, x
+            argloc = self.loc(y)
+        #
         args = op.getarglist()
         loc = self.rm.force_result_in_reg(op.result, x, args)
         return loc, argloc
 
     def _consider_binop(self, op):
         loc, argloc = self._consider_binop_part(op)
+        self.perform(op, [loc, argloc], loc)
+
+    def _consider_binop_symm(self, op):
+        loc, argloc = self._consider_binop_part(op, symm=True)
         self.perform(op, [loc, argloc], loc)
 
     def _consider_lea(self, op, loc):
@@ -444,7 +465,7 @@ class RegAlloc(BaseRegalloc):
             isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
             self._consider_lea(op, loc)
         else:
-            self._consider_binop(op)
+            self._consider_binop_symm(op)
 
     def consider_int_sub(self, op):
         loc = self.loc(op.getarg(0))
@@ -455,18 +476,22 @@ class RegAlloc(BaseRegalloc):
         else:
             self._consider_binop(op)
 
-    consider_int_mul = _consider_binop
-    consider_int_and = _consider_binop
-    consider_int_or  = _consider_binop
-    consider_int_xor = _consider_binop
+    consider_int_mul = _consider_binop_symm
+    consider_int_and = _consider_binop_symm
+    consider_int_or  = _consider_binop_symm
+    consider_int_xor = _consider_binop_symm
 
     def _consider_binop_with_guard(self, op, guard_op):
         loc, argloc = self._consider_binop_part(op)
         self.perform_with_guard(op, guard_op, [loc, argloc], loc)
 
-    consider_int_mul_ovf = _consider_binop_with_guard
+    def _consider_binop_with_guard_symm(self, op, guard_op):
+        loc, argloc = self._consider_binop_part(op, symm=True)
+        self.perform_with_guard(op, guard_op, [loc, argloc], loc)
+
+    consider_int_mul_ovf = _consider_binop_with_guard_symm
     consider_int_sub_ovf = _consider_binop_with_guard
-    consider_int_add_ovf = _consider_binop_with_guard
+    consider_int_add_ovf = _consider_binop_with_guard_symm
 
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op.result, op.getarg(0))
@@ -551,9 +576,9 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [loc0, loc1], loc0)
 
-    consider_float_add = _consider_float_op
+    consider_float_add = _consider_float_op      # xxx could be _symm
     consider_float_sub = _consider_float_op
-    consider_float_mul = _consider_float_op
+    consider_float_mul = _consider_float_op      # xxx could be _symm
     consider_float_truediv = _consider_float_op
 
     def _consider_float_cmp(self, op, guard_op):
@@ -632,6 +657,7 @@ class RegAlloc(BaseRegalloc):
         # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned.  Exception: if the second
         # argument is a constant, we can ask it to be aligned to 16 bytes.
+        # xxx some of these operations could be '_symm'.
         args = [op.getarg(1), op.getarg(2)]
         loc1 = self.load_xmm_aligned_16_bytes(args[1])
         loc0 = self.xrm.force_result_in_reg(op.result, args[0], args)

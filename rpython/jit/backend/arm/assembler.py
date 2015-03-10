@@ -4,7 +4,7 @@ import os
 
 from rpython.jit.backend.arm import conditions as c, registers as r
 from rpython.jit.backend.arm import shift
-from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
+from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD,
     JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
@@ -484,10 +484,6 @@ class AssemblerARM(ResOpAssembler):
         self.mc.BL(target)
         return startpos
 
-    def align(self):
-        while(self.mc.currpos() % FUNC_ALIGN != 0):
-            self.mc.writechar(chr(0))
-
     def gen_func_epilog(self, mc=None, cond=c.AL):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if mc is None:
@@ -557,7 +553,7 @@ class AssemblerARM(ResOpAssembler):
         debug_stop('jit-backend-ops')
 
     def _call_header(self):
-        self.align()
+        assert self.mc.currpos() == 0
         self.gen_func_prolog()
 
     def _call_header_with_stack_check(self):

@@ -8,7 +8,6 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 
 from rpython.rtyper.lltypesystem import rffi
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend import cdataobj
@@ -49,8 +48,8 @@ class W_CTypeArray(W_CTypePtrOrArray):
             cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
         #
         if not space.is_w(w_init, space.w_None):
-            self.convert_from_object(cdata._cdata, w_init)
-            keepalive_until_here(cdata)
+            with cdata as ptr:
+                self.convert_from_object(ptr, w_init)
         return cdata
 
     def _check_subscript_index(self, w_cdata, i):
@@ -119,8 +118,8 @@ class W_CDataIter(W_Root):
         self.ctitem = ctitem
         self.cdata = cdata
         length = cdata.get_array_length()
-        self._next = cdata._cdata
-        self._stop = rffi.ptradd(cdata._cdata, length * ctitem.size)
+        self._next = cdata.unsafe_escaping_ptr()
+        self._stop = rffi.ptradd(self._next, length * ctitem.size)
 
     def iter_w(self):
         return self.space.wrap(self)

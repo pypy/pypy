@@ -184,10 +184,12 @@ int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
     return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
 }
 
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
-	if (!LeaveNonRecursiveMutex(lock))
-		/* XXX complain? */;
+    if (LeaveNonRecursiveMutex(lock))
+        return 0;   /* success */
+    else
+        return -1;  /* failure: the lock was not previously acquired */
 }
 
 /************************************************************/

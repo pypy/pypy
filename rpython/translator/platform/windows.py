@@ -196,7 +196,7 @@ class MsvcPlatform(Platform):
         # So please be careful with the order of parameters! ;-)
         pdb_dir = oname.dirname
         if pdb_dir:
-                compile_args += ['/Fd%s\\' % (pdb_dir,)]
+                compile_args = compile_args + ['/Fd%s\\' % (pdb_dir,)]
         args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
@@ -271,6 +271,7 @@ class MsvcPlatform(Platform):
         linkflags = list(self.link_flags)
         if shared:
             linkflags = self._args_for_shared(linkflags)
+        linkflags += self._exportsymbols_link_flags()
         # Make sure different functions end up at different addresses!
         # This is required for the JIT.
         linkflags.append('/opt:noicf')
