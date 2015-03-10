@@ -90,6 +90,7 @@ class ThreadState(object):
         self.threadnum = threadnum
         self.cpu_time_committed = 0.0
         self.cpu_time_aborted = 0.0
+        self.cpu_time_paused = 0.0
         self._prev = (0.0, "stop")
         self.reset_counters()
 
@@ -97,38 +98,59 @@ class ThreadState(object):
         self._transaction_cpu_time = 0.0
         self._transaction_pause_time = 0.0
         self._transaction_aborting = False
+        self._transaction_inev = None
 
     def transaction_start(self, entry):
         self.reset_counters()
-        self.progress(entry, "run")
+        self.progress(entry.timestamp, "run")
 
-    def progress(self, entry, new_state):
+    def progress(self, now, new_state):
         prev_time, prev_state = self._prev
-        add_time = entry.timestamp - prev_time
+        add_time = now - prev_time
         assert add_time >= 0.0
         if prev_state == "run":
             self._transaction_cpu_time += add_time
         elif prev_state == "pause":
             self._transaction_pause_time += add_time
-        self._prev = entry.timestamp, new_state
+        self._prev = now, new_state
 
     def transaction_commit(self, entry):
         assert not self._transaction_aborting
-        self.progress(entry, "stop")
+        self.progress(entry.timestamp, "stop")
         self.cpu_time_committed += self._transaction_cpu_time
+        self.cpu_time_paused += self._transaction_pause_time
 
     def transaction_abort(self, entry):
-        self.progress(entry, "stop")
+        self.progress(entry.timestamp, "stop")
         self.cpu_time_aborted += self._transaction_cpu_time
+        self.cpu_time_paused += self._transaction_pause_time
 
     def become_inevitable(self, entry):
-        "XXX"
+        self.progress(entry.timestamp, "run")
+        if self._transaction_inev is None:
+            self._transaction_inev = [entry, None]
 
     def transaction_pause(self, entry):
-        self.progress(entry, "pause")
+        self.progress(entry.timestamp, "pause")
+        if (entry.event == STM_WAIT_OTHER_INEVITABLE and
+                self._transaction_inev is not None):
+            self._transaction_inev[1] = entry.timestamp
 
-    def transaction_unpause(self, entry):
-        self.progress(entry, "run")
+    def transaction_unpause(self, entry, out_conflicts):
+        self.progress(entry.timestamp, "run")
+        if self._transaction_inev and self._transaction_inev[1] is not None:
+            wait_time = entry.timestamp - self._transaction_inev[1]
+            self.wait_for_other_inev(wait_time, out_conflicts)
+            self._transaction_inev[1] = None
+
+    def get_conflict(self, entry, out_conflicts):
+        summary = (entry.event, entry.marker)
+        c = out_conflicts.get(summary)
+        if c is None:
+            c = out_conflicts[summary] = ConflictSummary(*summary)
+        c.num_events += 1
+        c.timestamps.append(entry.timestamp)
+        return c
 
     def contention_write_read(self, entry, out_conflicts):
         # This thread is aborted because it has read an object, but
@@ -138,15 +160,15 @@ class ThreadState(object):
             print >> sys.stderr, "note: double STM_CONTENTION_WRITE_READ"
             return
         self._transaction_aborting = True
-        summary = (entry.event, entry.marker)
-        c = out_conflicts.get(summary)
-        if c is None:
-            c = out_conflicts[summary] = ConflictSummary(*summary)
-        c.num_events += 1
-        c.timestamps.append(entry.timestamp)
-        self.progress(entry, "run")
+        c = self.get_conflict(entry, out_conflicts)
+        self.progress(entry.timestamp, "run")
         c.aborted_time += self._transaction_cpu_time
         c.paused_time += self._transaction_pause_time
+
+    def wait_for_other_inev(self, wait_time, out_conflicts):
+        c = self.get_conflict(self._transaction_inev[0], out_conflicts)
+        assert wait_time >= 0
+        c.paused_time += wait_time
 
 
 class ConflictSummary(object):
@@ -227,7 +249,7 @@ def summarize_log_entries(logentries, stmlog):
                              STM_WAIT_OTHER_INEVITABLE):
             t.transaction_pause(entry)
         elif entry.event == STM_WAIT_DONE:
-            t.transaction_unpause(entry)
+            t.transaction_unpause(entry, conflicts)
     #
     if cnt == 0:
         raise Exception("empty file")
@@ -242,16 +264,21 @@ def dump_summary(stmlog):
     start_time = stmlog.start_time
     total_time = stmlog.total_time
     print
-    print 'Total real time:             %.3fs' % (total_time,)
+    print 'Total real time:       %.3fs' % (total_time,)
     #
     total_cpu_time_committed = stmlog.get_total_cpu_time_committed()
     total_cpu_time_aborted = stmlog.get_total_cpu_time_aborted()
-    total_cpu_time_total = total_cpu_time_committed + total_cpu_time_aborted
-    print 'Total CPU time in STM mode:  %.3fs (%s) committed' % (
+    total_cpu_time_paused = stmlog.get_total_cpu_time_paused()
+    total_cpu_time_total = (total_cpu_time_committed +
+                            total_cpu_time_aborted +
+                            total_cpu_time_paused)
+    print 'CPU time in STM mode:  %.3fs (%s) committed' % (
         total_cpu_time_committed, percent(total_cpu_time_committed, total_time))
-    print '                             %.3fs (%s) aborted' % (
+    print '                       %.3fs (%s) aborted' % (
         total_cpu_time_aborted,   percent(total_cpu_time_aborted,   total_time))
-    print '                             %.3fs (%s) total' % (
+    print '                       %.3fs (%s) paused' % (
+        total_cpu_time_paused,    percent(total_cpu_time_paused,    total_time))
+    print '                       %.3fs (%s) total' % (
         total_cpu_time_total,     percent(total_cpu_time_total,     total_time))
     print
     #
@@ -277,6 +304,9 @@ class StmLog(object):
 
     def get_total_cpu_time_aborted(self):
         return sum([v.cpu_time_aborted for v in self.threads.values()])
+
+    def get_total_cpu_time_paused(self):
+        return sum([v.cpu_time_paused for v in self.threads.values()])
 
     def get_conflicts(self):
         values = self.conflicts.values()
