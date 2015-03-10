@@ -140,6 +140,7 @@ class AppTestRLock(GenericTestThread):
     def test_release_save(self):
         import _thread
         lock = _thread.RLock()
+        raises(RuntimeError, lock._release_save)
         lock.acquire()
         state = lock._release_save()
         lock._acquire_restore(state)

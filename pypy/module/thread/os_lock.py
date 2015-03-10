@@ -244,6 +244,9 @@ class W_RLock(W_Root):
 
     def release_save_w(self, space):
         """For internal use by `threading.Condition`."""
+        if self.rlock_count == 0:
+            raise OperationError(space.w_RuntimeError, space.wrap(
+                "cannot release un-acquired lock"))
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
         self.lock.release()
