@@ -54,7 +54,7 @@ def fix_permissions(dirname):
 
 
 def create_cffi_import_libraries(pypy_c, options):
-    modules = ['_sqlite3', 'lzma', 'audioop']
+    modules = ['_sqlite3', 'lzma', 'audioop', '_decimal']
     if not sys.platform == 'win32':
         modules += ['_curses', 'syslog', '_gdbm',]
     if not options.no_tk:
