@@ -117,3 +117,11 @@ def test_not_const():
     assert s_int != SomeInteger()
     assert not_const(s_int) == SomeInteger()
     assert not_const(s_None) == s_None
+
+
+def test_nonnulify():
+    s = SomeString(can_be_None=True).nonnulify()
+    assert s.can_be_None is True
+    assert s.no_nul is True
+    s = SomeChar().nonnulify()
+    assert s.no_nul is True
