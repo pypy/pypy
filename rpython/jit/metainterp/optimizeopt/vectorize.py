@@ -167,5 +167,9 @@ class Pack(object):
     pass
 
 class Pair(object):
-    pass
+    def __init__(self, left_op, right_op):
+        assert isinstance(left_op, rop.ResOperation)
+        assert isinstance(right_op, rop.ResOperation)
+        self.left_op = left_op
+        self.right_op = right_op
 
