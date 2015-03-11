@@ -750,7 +750,8 @@ class Decimal(object):
                     with _CatchStatus(context) as (ctx, status_ptr):
                         _mpdec.mpd_qmul(multiplied._mpd, vv, denom._mpd,
                                         ctx, status_ptr)
-                    multiplied._mpd.exp = exp
+                    multiplied._mpd.exp += exp  # XXX probably a bug
+                                                # in _decimal.c
                 finally:
                     _mpdec.mpd_del(vv)
 
