@@ -132,6 +132,19 @@ class OptVectorize(Optimization):
 
         self.vectorized = True
 
+    def vectorize_trace(self, loop):
+        """ Implementation of the algorithm introduced by Larsen. Refer to
+              '''Exploiting Superword Level Parallelism
+                 with Multimedia Instruction Sets'''
+            for more details.
+        """
+
+
+        # was not able to vectorize
+        return False
+
+
+
 class LoopVectorizeChecker(object):
 
     def __init__(self):
@@ -157,19 +170,35 @@ dispatch_opt = make_dispatcher_method(LoopVectorizeChecker, 'count_',
         default=LoopVectorizeChecker.default_count)
 LoopVectorizeChecker.inspect_operation = dispatch_opt
 
-"""
-Implementation of the algorithm introduced by Larsen. Refer to
-'Exploiting Superword Level Parallelism with Multimedia Instruction Sets'
-for more details.
-"""
 
 class Pack(object):
-    pass
+    """ A pack is a set of n statements that are:
+        * isomorphic
+        * independant
+        Statements are named operations in the code.
+    """
+    def __init__(self, ops):
+        self.operations = ops
 
-class Pair(object):
+class Pair(Pack):
+    """ A special Pack object with only two statements. """
     def __init__(self, left_op, right_op):
         assert isinstance(left_op, rop.ResOperation)
         assert isinstance(right_op, rop.ResOperation)
         self.left_op = left_op
         self.right_op = right_op
+        Pack.__init__(self, [left_op, right_op])
+
+
+class MemoryAccess(object):
+    def __init__(self, array, origin, offset):
+        self.array = array
+        self.origin = origin
+        self.offset = offset
+
+    def is_adjacent_to(self, mem_acc):
+        if self.array == mem_acc.array:
+            # TODO
+            return self.offset == mem_acc.offset
+
 
