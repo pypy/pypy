@@ -177,8 +177,8 @@ class W_CType(W_Root):
         raise oefmt(space.w_AttributeError,
                     "cdata '%s' has no attribute '%s'", self.name, attr)
 
-    def copy_and_convert_to_object(self, cdata):
-        return self.convert_to_object(cdata)
+    def copy_and_convert_to_object(self, source):
+        return self.convert_to_object(source)
 
     # __________ app-level attributes __________
     def dir(self):

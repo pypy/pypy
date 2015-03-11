@@ -102,3 +102,10 @@ class AppTestRandom:
                 self.x = x
         r = R(x=15)
         assert r.x == 15
+
+    def test_exact_result(self):
+        # this passes on CPython 2.7.9 on Linux 32 and Linux 64
+        import _random
+        rnd = _random.Random(-3**31)
+        x = rnd.random()
+        assert x == 0.8181851342382107
