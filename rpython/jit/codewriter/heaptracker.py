@@ -87,7 +87,7 @@ VTABLETYPE = rclass.CLASSTYPE
 
 def register_known_gctype(cpu, vtable, STRUCT):
     # register the correspondance 'vtable' <-> 'STRUCT' in the cpu
-    sizedescr = cpu.sizeof(STRUCT)
+    sizedescr = cpu.sizeof(STRUCT, has_gcstruct_a_vtable(STRUCT))
     assert sizedescr.as_vtable_size_descr() is sizedescr
     try:
         assert sizedescr._corresponding_vtable == vtable

@@ -8,18 +8,19 @@ from rpython.jit.metainterp.history import ConstInt
 lower two bits are LEVEL
 """
 
-LEVEL_UNKNOWN    = 0
-LEVEL_NONNULL    = 1
-LEVEL_KNOWNCLASS = 2     # might also mean KNOWNARRAYDESCR, for arrays
-LEVEL_CONSTANT   = 3
 
 MODE_ARRAY   = '\x00'
 MODE_STR     = '\x01'
 MODE_UNICODE = '\x02'
+MODE_INSTANCE = '\x03'
+MODE_STRUCT = '\x04'
 
 INFO_NULL = 0
 INFO_NONNULL = 1
 INFO_UNKNOWN = 2
+
+FLAG_VIRTUAL = 1
+FLAG_DIRTY = 2
 
 class AbstractInfo(AbstractValue):
     is_info_class = True
@@ -55,39 +56,54 @@ class NonNullPtrInfo(PtrInfo):
         return True
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
-    _attrs_ = ('_is_virtual',)
+    _attrs_ = ('flags',)
+
+    flags = 0
 
     def force_box(self, op, optforce):
-        if self._is_virtual:
+        if self.is_virtual():
             op.set_forwarded(None)
             optforce.emit_operation(op)
             newop = optforce.getlastop()
             op.set_forwarded(newop)
             newop.set_forwarded(self)
-            self._is_virtual = False
-            self._force_elements(newop, optforce)
+            self.flags &= ~FLAG_VIRTUAL # clean the virtual flag
+            if self._force_elements(newop, optforce):
+                self.flags |= FLAG_DIRTY
             return newop
         return op
 
     def is_virtual(self):
-        return self._is_virtual
+        return self.flags & FLAG_VIRTUAL
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('_is_virtual', '_fields')
+    _attrs_ = ('_fields',)
 
     def init_fields(self, descr):
         self._fields = [None] * len(descr.all_fielddescrs)
 
-    def setfield_virtual(self, descr, op):
+    def clear_cache(self):
+        assert self.flags & (FLAG_DIRTY | FLAG_VIRTUAL) == FLAG_DIRTY
+        self.flags = 0
+        self._fields = [None] * len(self._fields)
+
+    def setfield(self, descr, op, optheap=None):
+        if not self.is_virtual():
+            if self.flags & FLAG_DIRTY == 0:
+                self.flags |= FLAG_DIRTY
+                assert optheap is not None
+                # we should only call it with virtuals without optheap
+                optheap.register_dirty_field(descr, self)
         self._fields[descr.index] = op
 
-    def getfield_virtual(self, descr):
+    def getfield(self, descr):
         return self._fields[descr.index]
 
     def _force_elements(self, op, optforce):
         if self._fields is None:
-            return
+            return 0
         descr = op.getdescr()
+        count = 0
         for i, flddescr in enumerate(descr.all_fielddescrs):
             fld = self._fields[i]
             if fld is not None:
@@ -95,6 +111,10 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
                 optforce.emit_operation(setfieldop)
+                if optforce.optheap:
+                    optforce.optheap.register_dirty_field(flddescr, self)
+                count += 1
+        return count
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class')
@@ -102,24 +122,43 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def __init__(self, known_class=None, is_virtual=False):
         self._known_class = known_class
-        self._is_virtual = is_virtual
+        if is_virtual:
+            self.flags = FLAG_VIRTUAL
 
     def get_known_class(self, cpu):
         return self._known_class
     
 class StructPtrInfo(AbstractStructPtrInfo):
-    pass
+    def __init__(self, is_virtual=False):
+        if is_virtual:
+            self.flags = FLAG_VIRTUAL
     
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('_is_virtual', 'length', '_items', '_descr')
+    _attrs_ = ('length', '_items', '_descr')
 
     def __init__(self, descr, const, size, clear, is_virtual):
-        self._is_virtual = is_virtual
+        if is_virtual:
+            self.flags = FLAG_VIRTUAL
         self.length = size
         if clear:
             self._items = [const] * size
         else:
             self._items = [None] * size
+
+    def _force_elements(self, op, optforce):
+        arraydescr = op.getdescr()
+        count = 0
+        for i in range(self.length):
+            item = self._items[i]
+            if item is not None:
+                subbox = optforce.force_box(item)
+                setop = ResOperation(rop.SETARRAYITEM_GC,
+                                     [op, ConstInt(i), subbox],
+                                      descr=arraydescr)
+                optforce.emit_operation(setop)
+                # xxxx optforce.optheap
+                count += 1
+        return count
 
     def setitem_virtual(self, index, item):
         self._items[index] = item
@@ -134,7 +173,8 @@ class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, descr, size, is_virtual):
         self.length = size
         lgt = len(descr.all_interiorfielddescrs)
-        self._is_virtual = is_virtual
+        if is_virtual:
+            self.flags = FLAG_VIRTUAL
         self._items = [None] * (size * lgt)
 
     def _compute_index(self, index, fielddescr):
@@ -152,6 +192,7 @@ class ArrayStructInfo(ArrayPtrInfo):
     def _force_elements(self, op, optforce):
         i = 0
         fielddescrs = op.getdescr().all_interiorfielddescrs
+        count = 0
         for index in range(self.length):
             for flddescr in fielddescrs:
                 fld = self._items[i]
@@ -161,7 +202,10 @@ class ArrayStructInfo(ArrayPtrInfo):
                                               [op, ConstInt(index), subbox],
                                               descr=flddescr)
                     optforce.emit_operation(setfieldop)
+                    # XXX optforce.optheap
+                    count += 1
                 i += 1
+        return count
     
 class StrPtrInfo(NonNullPtrInfo):
     _attrs_ = ()

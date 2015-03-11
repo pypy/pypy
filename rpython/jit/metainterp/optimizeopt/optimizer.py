@@ -304,7 +304,7 @@ class Optimization(object):
         op.set_forwarded(opinfo)
         return opinfo
 
-    def getptrinfo(self, op):
+    def getptrinfo(self, op, create=False, is_object=False):
         assert op.type == 'r'
         op = self.get_box_replacement(op)
         assert op.type == 'r'
@@ -325,8 +325,8 @@ class Optimization(object):
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
 
-    def get_box_replacement(self, box):
-        return self.optimizer.get_box_replacement(box)
+    def ensure_ptr_info_arg0(self, op):
+        return self.optimizer.ensure_ptr_info_arg0(op)
 
     def make_constant(self, box, constbox):
         return self.optimizer.make_constant(box, constbox)
@@ -574,6 +574,35 @@ class Optimizer(Optimization):
             assert opinfo.is_nonnull()
             return
         op.set_forwarded(info.NonNullPtrInfo())
+
+    def ensure_ptr_info_arg0(self, op):
+        arg0 = self.get_box_replacement(op.getarg(0))
+        if arg0.is_constant():
+            return info.ConstPtrInfo(arg0)
+        opinfo = arg0.get_forwarded()
+        if isinstance(opinfo, info.AbstractVirtualPtrInfo):
+            return opinfo
+        assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
+        if op.is_getfield() or op.getopnum() == rop.SETFIELD_GC:
+            is_object = op.getdescr().parent_descr.is_object()
+            if is_object:
+                opinfo = info.InstancePtrInfo()
+            else:
+                xxx
+            opinfo.init_fields(op.getdescr().parent_descr)
+        else:
+            yyy
+        arg0.set_forwarded(opinfo)
+        return opinfo
+
+    def make_ptr_info(self, op, mode):
+        op = self.get_box_replacement(op)
+        if op.is_constant():
+            return info.ConstPtrInfo(op)
+        opinfo = op.get_forwarded()
+        if isinstance(opinfo, info.AbstractVirtualPtrInfo):
+            return opinfo
+        xxx
 
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():

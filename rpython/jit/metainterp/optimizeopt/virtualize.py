@@ -1,6 +1,6 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.executor import execute
-from rpython.jit.codewriter.heaptracker import vtable2descr
+from rpython.jit.codewriter.heaptracker import vtable2descr, descr2vtable
 from rpython.jit.metainterp.history import Const, ConstInt, BoxInt
 from rpython.jit.metainterp.history import CONST_NULL, BoxPtr
 from rpython.jit.metainterp.optimizeopt import info, optimizer
@@ -15,7 +15,6 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 
 class AbstractVirtualInfo(info.PtrInfo):
     _attrs_ = ('_cached_vinfo',)
-    _tag = info.LEVEL_NONNULL
     is_about_raw = False
     _cached_vinfo = None
 
@@ -188,7 +187,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
             fieldvalue.visitor_walk_recursive(visitor)
 
 class VirtualInfo(AbstractVirtualStructInfo):
-    _tag = info.LEVEL_KNOWNCLASS
 
     def __init__(self, known_class, descr):
         AbstractVirtualStructInfo.__init__(self)
@@ -539,9 +537,10 @@ class OptVirtualize(optimizer.Optimization):
         return opinfo
 
     def make_vstruct(self, structdescr, source_op):
-        vvalue = VStructValue(self.optimizer.cpu, structdescr, source_op)
-        self.make_equal_to(source_op, vvalue)
-        return vvalue
+        opinfo = info.StructPtrInfo(True)
+        opinfo.init_fields(structdescr)
+        source_op.set_forwarded(opinfo)
+        return opinfo
 
     def make_virtual_raw_memory(self, size, source_op):
         logops = self.optimizer.loop.logops
@@ -678,7 +677,7 @@ class OptVirtualize(optimizer.Optimization):
         #            self.make_equal_to(op, fieldvalue)
         #            return
         if opinfo and opinfo.is_virtual():
-            fieldop = opinfo.getfield_virtual(op.getdescr())
+            fieldop = opinfo.getfield(op.getdescr())
             if fieldop is None:
                 xxx
                 fieldvalue = self.optimizer.new_const(op.getdescr())
@@ -698,14 +697,15 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_SETFIELD_GC(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         if opinfo is not None and opinfo.is_virtual():
-            opinfo.setfield_virtual(op.getdescr(),
-                                    self.get_box_replacement(op.getarg(1)))
+            opinfo.setfield(op.getdescr(),
+                            self.get_box_replacement(op.getarg(1)))
         else:
             self.make_nonnull(op.getarg(0))
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
-        self.make_virtual(op.getarg(0), op, op.getdescr())
+        known_class = ConstInt(descr2vtable(self.optimizer.cpu, op.getdescr()))
+        self.make_virtual(known_class, op, op.getdescr())
 
     def optimize_NEW(self, op):
         self.make_vstruct(op.getdescr(), op)

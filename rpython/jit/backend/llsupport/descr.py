@@ -48,9 +48,15 @@ class SizeDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<SizeDescr %s>' % self.size
 
+    def is_object(self):
+        return False
+
 class SizeDescrWithVTable(SizeDescr):
     def as_vtable_size_descr(self):
         return self
+
+    def is_object(self):
+        return True
 
 BaseSizeDescr = SizeDescr
 

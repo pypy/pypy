@@ -109,8 +109,8 @@ class LLtypeMixin(object):
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
-    nodesize = cpu.sizeof(NODE)
-    nodesize2 = cpu.sizeof(NODE2)
+    nodesize = cpu.sizeof(NODE, True)
+    nodesize2 = cpu.sizeof(NODE2, True)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
     chardescr = cpu.fielddescrof(NODE, 'charval')
@@ -122,7 +122,7 @@ class LLtypeMixin(object):
     QUASI = lltype.GcStruct('QUASIIMMUT', ('inst_field', lltype.Signed),
                             ('mutate_field', rclass.OBJECTPTR),
                             hints={'immutable_fields': accessor})
-    quasisize = cpu.sizeof(QUASI)
+    quasisize = cpu.sizeof(QUASI, False)
     quasi = lltype.malloc(QUASI, immortal=True)
     quasi.inst_field = -4247
     quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
@@ -157,7 +157,7 @@ class LLtypeMixin(object):
 
     # a GcStruct not inheriting from OBJECT
     S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('b', lltype.Ptr(NODE)))
-    ssize = cpu.sizeof(S)
+    ssize = cpu.sizeof(S, False)
     adescr = cpu.fielddescrof(S, 'a')
     bdescr = cpu.fielddescrof(S, 'b')
     #sbox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S)))
@@ -166,7 +166,7 @@ class LLtypeMixin(object):
     T = lltype.GcStruct('TUPLE',
                         ('c', lltype.Signed),
                         ('d', lltype.Ptr(lltype.GcArray(lltype.Ptr(NODE)))))
-    tsize = cpu.sizeof(T)
+    tsize = cpu.sizeof(T, False)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
     arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE)))
@@ -176,7 +176,7 @@ class LLtypeMixin(object):
                         ('one', lltype.Ptr(lltype.GcArray(lltype.Ptr(NODE)))))
     u_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     u_vtable_adr = llmemory.cast_ptr_to_adr(u_vtable)
-    usize = cpu.sizeof(U)
+    usize = cpu.sizeof(U, True)
     onedescr = cpu.fielddescrof(U, 'one')
 
     FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)

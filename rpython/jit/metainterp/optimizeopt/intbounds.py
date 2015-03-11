@@ -71,21 +71,21 @@ class OptIntBounds(Optimization):
     optimize_GUARD_VALUE = _optimize_guard_true_false_value
 
     def optimize_INT_OR_or_XOR(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.box is v2.box:
+        v1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(v1)
+        v2 = self.get_box_replacement(op.getarg(1))
+        b2 = self.getintbound(v2)
+        if v1 is v2:
             if op.getopnum() == rop.INT_OR:
                 self.make_equal_to(op, v1)
             else:
                 self.make_constant_int(op, 0)
             return
         self.emit_operation(op)
-        bound1 = v1.getintbound()
-        bound2 = v2.getintbound()
-        if bound1.known_ge(IntBound(0, 0)) and \
-           bound2.known_ge(IntBound(0, 0)):
-            r = self.getvalue(op).getintbound()
-            mostsignificant = bound1.upper | bound2.upper
+        if b1.known_ge(IntBound(0, 0)) and \
+           b2.known_ge(IntBound(0, 0)):
+            r = self.getintbound(op)
+            mostsignificant = b1.upper | b2.upper
             r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
 
     optimize_INT_OR = optimize_INT_OR_or_XOR

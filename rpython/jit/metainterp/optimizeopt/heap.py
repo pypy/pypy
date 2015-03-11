@@ -5,8 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.optimizeopt.info import MODE_ARRAY,\
-     LEVEL_KNOWNCLASS
+from rpython.jit.metainterp.optimizeopt.info import MODE_ARRAY
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -30,6 +29,7 @@ class CachedField(object):
         #      value pending in the ResOperation is *not* visible in
         #      'cached_fields'.
         #
+        Xxxx
         self._cached_fields = {}
         self._cached_fields_getfield_op = {}
         self._lazy_setfield = None
@@ -186,8 +186,8 @@ class OptHeap(Optimization):
     """Cache repeated heap accesses"""
 
     def __init__(self):
-        # cached fields:  {descr: CachedField}
-        self.cached_fields = {}
+        # mapping descr -> infos to invalidate
+        self.infos_to_invalidate = {}
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
         # cached dict items: {dict descr: {(optval, index): box-or-const}}
@@ -202,15 +202,6 @@ class OptHeap(Optimization):
 
     def setup(self):
         self.optimizer.optheap = self
-
-    def value_updated(self, oldvalue, newvalue):
-        # XXXX very unhappy about that
-        for cf in self.cached_fields.itervalues():
-            cf.value_updated(oldvalue, newvalue, self.optimizer.exporting_state)
-        for submap in self.cached_arrayitems.itervalues():
-            for cf in submap.itervalues():
-                cf.value_updated(oldvalue, newvalue,
-                                 self.optimizer.exporting_state)
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
@@ -247,9 +238,22 @@ class OptHeap(Optimization):
             for index, d in submap.items():
                 d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
+    def invalidate_descr(self, descr, lst=None):
+        if lst is not None:
+            lst = self.infos_to_invalidate.get(descr, None)
+            if lst is None:
+                return
+        for info in lst:
+            info.clear_cache()
+        del lst[:]
+
+    def register_dirty_field(self, descr, info):
+        self.infos_to_invalidate.setdefault(descr, []).append(info)
+
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
-        self.cached_fields.clear()
+        for descr, info in self.infos_to_invalidate.iteritems():
+            self.invalidate_descr(descr, info)
         self.cached_arrayitems.clear()
         self.cached_dict_reads.clear()
 
@@ -478,7 +482,15 @@ class OptHeap(Optimization):
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
+        opinfo = self.ensure_ptr_info_arg0(op)
+        fld = opinfo.getfield(op.getdescr())
+        if fld is not None:
+            self.make_equal_to(op, fld)
+            return
         self.emit_operation(op)
+        opinfo.setfield(op.getdescr(), op, self)
+        return
+        xxx
         return
         structvalue = self.getvalue(op.getarg(0))
         cf = self.field_cache(op.getdescr())
@@ -522,6 +534,8 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
+        self.emit_operation(op)
+        return # XXX
         arrayvalue = self.getvalue(op.getarg(0))
         indexvalue = self.getvalue(op.getarg(1))
         cf = None
@@ -569,6 +583,8 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
+        self.emit_operation(op)
+        return
         opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
         if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
                                 op.getdescr()):
