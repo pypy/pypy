@@ -170,6 +170,9 @@ class ArrayDescr(AbstractDescr):
         return getkind(self.A.OF) == 'int' \
             and rffi.sizeof(self.A.OF) < symbolic.WORD
 
+    def get_item_size_in_bytes(self):
+        return rffi.sizeof(self.A.OF)
+
     def get_item_integer_min(self):
         if getkind(self.A.OF) != 'int':
             assert False

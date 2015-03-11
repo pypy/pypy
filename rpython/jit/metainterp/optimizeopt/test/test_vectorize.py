@@ -38,9 +38,9 @@ class DepTestHelper(BaseTest):
             loop.operations[-1].setdescr(token)
         return loop
 
-    def assert_vectorize(self, loop, unfolded_loop, call_pure_results=None):
-        optloop = self._do_optimize_loop(loop, call_pure_results, export_state=True)
-        self.assert_equal(optloop, unfolded_loop)
+    def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
+        self._do_optimize_loop(loop, call_pure_results, export_state=True)
+        self.assert_equal(loop, expected_loop)
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
                      unroll_factor = -1, call_pure_results=None):
@@ -50,8 +50,8 @@ class DepTestHelper(BaseTest):
         if unroll_factor == -1:
             opt._gather_trace_information(loop)
             unroll_factor = opt.get_estimated_unroll_factor()
-        opt_loop = opt.unroll_loop_iterations(loop, unroll_factor)
-        self.assert_equal(opt_loop, expected_loop)
+        opt.unroll_loop_iterations(loop, unroll_factor)
+        self.assert_equal(loop, expected_loop)
 
     def assert_def_use(self, graph, from_instr_index, to_instr_index):
         assert graph.instr_dependency(from_instr_index,

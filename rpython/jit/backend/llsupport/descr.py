@@ -208,6 +208,9 @@ class ArrayDescr(ArrayOrFieldDescr):
     def is_item_signed(self):
         return self.flag == FLAG_SIGNED
 
+    def get_item_size_in_bytes(self):
+        return self.itemsize
+
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
 

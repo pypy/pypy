@@ -16,7 +16,8 @@ from pypy.interpreter.argument import Arguments
 call2_driver = jit.JitDriver(
     name='numpy_call2',
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
-    reds='auto')
+    reds='auto',
+    vectorize=True)
 
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     # handle array_priority

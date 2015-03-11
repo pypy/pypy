@@ -65,3 +65,22 @@ Further references
 
 * Allocation Removal by Partial Evaluation in a Tracing JIT
   Link: - http://www.stups.uni-duesseldorf.de/mediawiki/images/b/b0/Pub-BoCuFiLePeRi2011.pdf
+
+
+Setting user parameters in the jit
+===
+
+It is described often in the documenation that PyPy is a Python program that runs and after a certain point starts to analyse the program (annotate, rtype) and finally generate a c code for a virtual machine to run python programs. Thus at runtime it is very often the case that the program does not provide an implementation of a function, but later insert implementation to call sites. An example for that would be the parameter passing to the jit backend.
+
+`pypy/app_main.py` parses the arguments and provides invokes `set_param` on the internal jit module (`pypy/module/interp_pypy.py`). Some steps iron out some problems on the user side and finally pass it to `rpython/rlib/jit.py`.
+Following the `set_param` calls will lead to an empty method call in `_set_param`. At first glance this is very confusing. There are two things happening while compiling that make create the actual implemenation.
+First an `ExtParam` class is consturcted deriving from `ExtRegistryEntry`. Second, the method is filled with an actual implementation in `rpython/jit/metainterpreter/warmspot.py`. The method `rewrite_set_param_and_get_stats` find methods that call 'jit_marker' (first parameter is 'set_param'). Those functions are rewritten and invoke a `set_param_XXX`. In the program I have not seen a direct invocation of jit_marker yet, but the ExtRegistryEntry (in combination with its meta class) supplies methods to control the annotator. In the case it generates an operation that calls 'jit_marker'. After that the rewrite method is able to find that invocation and exchange the dummy call site with a real python function that sets the parameter.
+
+Test vs Runtime environment
+===
+
+Optimizer module
+---
+
+* The test environment instanciates mostly fake objects for generated objects, or objects that are selected at translation time of pypy. Examples: cpu, jitdriver_sd, descriptors, ...
+For descriptors this was not that obvious to me: `rpython/jit/backend/llgraph/*.py` contains nearly all descriptors, but only for testing purpose. Find the real implementations in `rpython/jit/backend/llsupport/descr.py`.

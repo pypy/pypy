@@ -1,28 +1,19 @@
 import sys
 
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.backend.llgraph.runner import ArrayDescr
-from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
-from rpython.jit.metainterp.inliner import Inliner
-from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot
-from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
-def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations, start_state=None,
-                    export_state=True):
+def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
     opt = OptVectorize(metainterp_sd, jitdriver_sd, loop, optimizations)
-    opt_loop = opt.propagate_all_forward(start_state, export_state)
-    if opt.vectorized:
-        return opt_loop
-    # vectorization is not possible, propagate only normal optimizations
-    opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
-    opt.propagate_all_forward()
-    return loop
-
+    opt_loop = opt.propagate_all_forward()
+    if not opt.vectorized:
+        # vectorization is not possible, propagate only normal optimizations
+        def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
+        def_opt.propagate_all_forward()
 
 class VectorizeOptimizer(Optimizer):
     def setup(self):
@@ -30,8 +21,6 @@ class VectorizeOptimizer(Optimizer):
 
 class OptVectorize(Optimization):
     """ Try to unroll the loop and find instructions to group """
-
-    inline_short_preamble = True
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         self.optimizer = VectorizeOptimizer(metainterp_sd, jitdriver_sd,
@@ -49,7 +38,7 @@ class OptVectorize(Optimization):
     def unroll_loop_iterations(self, loop, unroll_factor):
         label_op = loop.operations[0]
         jump_op = loop.operations[-1]
-        operations = loop.operations[1:-1]
+        operations = [loop.operations[i] for i in range(1,len(loop.operations)-1)]
         loop.operations = []
 
         iterations = [[op.clone() for op in operations]]
@@ -107,10 +96,9 @@ class OptVectorize(Optimization):
                 loop.operations.append(op)
         loop.operations.append(jump_op)
 
-        return loop
-
     def _gather_trace_information(self, loop):
-        for op in loop.operations:
+        for i,op in enumerate(loop.operations):
+            self.loop_vectorizer_checker._op_index = i
             self.loop_vectorizer_checker.inspect_operation(op)
 
     def get_estimated_unroll_factor(self, force_reg_bytes = -1):
@@ -119,13 +107,12 @@ class OptVectorize(Optimization):
         byte_count = self.loop_vectorizer_checker.smallest_type_bytes
         simd_vec_reg_bytes = 16 # TODO get from cpu
         if force_reg_bytes > 0:
-            simd_vec_reg_bytes = force_simd_vec_reg_bytes
+            simd_vec_reg_bytes = force_reg_bytes
         unroll_factor = simd_vec_reg_bytes // byte_count
         return unroll_factor
 
-    def propagate_all_forward(self, starting_state, export_state=True):
+    def propagate_all_forward(self):
 
-        self.optimizer.exporting_state = export_state
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
@@ -143,28 +130,42 @@ class OptVectorize(Optimization):
 
         self.unroll_loop_iterations(loop, unroll_factor)
 
-
         self.vectorized = True
-
-        return loop
 
 class LoopVectorizeChecker(object):
 
     def __init__(self):
         self.smallest_type_bytes = 0
+        self._op_index = 0
+        self.mem_ref_indices = []
+
+    def add_memory_ref(self, i):
+        self.mem_ref_indices.append(i)
 
     def count_RAW_LOAD(self, op):
+        self.add_memory_ref(self._op_index)
         descr = op.getdescr()
-        assert isinstance(descr, ArrayDescr) # TODO prove this right
-        if not isinstance(descr.A.OF, lltype.Ptr):
-            byte_count = rffi.sizeof(descr.A.OF)
+        if not descr.is_array_of_pointers():
+            byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
                or byte_count < self.smallest_type_bytes:
                 self.smallest_type_bytes = byte_count
 
     def default_count(self, operation):
         pass
-
 dispatch_opt = make_dispatcher_method(LoopVectorizeChecker, 'count_',
         default=LoopVectorizeChecker.default_count)
 LoopVectorizeChecker.inspect_operation = dispatch_opt
+
+"""
+Implementation of the algorithm introduced by Larsen. Refer to
+'Exploiting Superword Level Parallelism with Multimedia Instruction Sets'
+for more details.
+"""
+
+class Pack(object):
+    pass
+
+class Pair(object):
+    pass
+

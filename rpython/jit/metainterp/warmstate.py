@@ -297,8 +297,7 @@ class WarmEnterState(object):
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
     def set_param_vectorize(self, value):
-        if self.warmrunnerdesc:
-            self.warmrunnerdesc.vectorize = bool(value)
+        self.vectorize = bool(value)
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
