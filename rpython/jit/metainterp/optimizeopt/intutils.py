@@ -49,22 +49,14 @@ class IntBound(AbstractInfo):
     def is_constant(self):
         return self.has_upper and self.has_lower and self.lower == self.upper
 
+    def getint(self):
+        assert self.is_constant()
+        return self.lower
+
     def equal(self, value):
         if not self.is_constant():
             return False
         return self.lower == value
-
-    def make_constant(self, value):
-        XXXX # don't call me
-        self.has_lower = True
-        self.has_upper = True
-        self.lower = value
-        self.upper = value
-
-    def make_unbounded(self):
-        XXX  # hum
-        self.has_lower = False
-        self.has_upper = False
 
     def bounded(self):
         return self.has_lower and self.has_upper

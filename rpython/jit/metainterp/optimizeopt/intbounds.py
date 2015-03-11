@@ -100,11 +100,11 @@ class OptIntBounds(Optimization):
         if b2.is_constant():
             val = b2.lower
             if val >= 0:
-                r.getintbound().intersect(IntBound(0, val))
+                r.intersect(IntBound(0, val))
         elif b1.is_constant():
-            val = b1.getint()
+            val = b1.lower
             if val >= 0:
-                r.getintbound().intersect(IntBound(0, val))
+                r.intersect(IntBound(0, val))
         elif b1.known_ge(IntBound(0, 0)) and b2.known_ge(IntBound(0, 0)):
             lesser = min(b1.upper, b2.upper)
             r.intersect(IntBound(0, next_pow2_m1(lesser)))
@@ -249,17 +249,19 @@ class OptIntBounds(Optimization):
         r.intersect(resbound)
 
     def optimize_INT_SUB_OVF(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.box is v2.box:
+        arg0 = self.get_box_replacement(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if arg0.same_box(arg1):
             self.make_constant_int(op, 0)
             return
-        resbound = v1.getintbound().sub_bound(v2.getintbound())
+        resbound = b0.sub_bound(b1)
         if resbound.bounded():
             op = self.replace_op_with(op, rop.INT_SUB)
         self.emit_operation(op) # emit the op
-        r = self.getvalue(op)
-        r.getintbound().intersect(resbound)
+        r = self.getintbound(op)
+        r.intersect(resbound)
 
     def optimize_INT_MUL_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -320,13 +322,15 @@ class OptIntBounds(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_EQ(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.getintbound().known_gt(v2.getintbound()):
+        arg0 = self.get_box_replacement(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        if b1.known_gt(b2):
             self.make_constant_int(op, 0)
-        elif v1.getintbound().known_lt(v2.getintbound()):
+        elif b1.known_lt(b2):
             self.make_constant_int(op, 0)
-        elif v1.box is v2.box:
+        elif arg0.same_box(arg1):
             self.make_constant_int(op, 1)
         else:
             self.emit_operation(op)
@@ -401,9 +405,9 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         descr = op.getdescr()
         if descr.is_integer_bounded():
-            v1 = self.getvalue(op)
-            v1.getintbound().make_ge(IntLowerBound(descr.get_integer_min()))
-            v1.getintbound().make_le(IntUpperBound(descr.get_integer_max()))
+            b1 = self.getintbound(op)
+            b1.make_ge(IntLowerBound(descr.get_integer_min()))
+            b1.make_le(IntUpperBound(descr.get_integer_max()))
 
     optimize_GETFIELD_RAW_F = optimize_GETFIELD_RAW_I
     optimize_GETFIELD_GC_I = optimize_GETFIELD_RAW_I
@@ -455,7 +459,7 @@ class OptIntBounds(Optimization):
         self.make_int_le(box2, box1)
 
     def propagate_bounds_INT_LT(self, op):
-        r = self.get_box_replacement(op)
+        r = self.getintbound(op)
         if r.is_constant():
             if r.getint() == 1:
                 self.make_int_lt(op.getarg(0), op.getarg(1))
@@ -464,7 +468,7 @@ class OptIntBounds(Optimization):
                 self.make_int_ge(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_GT(self, op):
-        r = self.get_box_replacement(op)
+        r = self.getintbound(op)
         if r.is_constant():
             if r.getint() == 1:
                 self.make_int_gt(op.getarg(0), op.getarg(1))
@@ -473,7 +477,7 @@ class OptIntBounds(Optimization):
                 self.make_int_le(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_LE(self, op):
-        r = self.get_box_replacement(op)
+        r = self.getintbound(op)
         if r.is_constant():
             if r.getint() == 1:
                 self.make_int_le(op.getarg(0), op.getarg(1))
@@ -482,7 +486,7 @@ class OptIntBounds(Optimization):
                 self.make_int_gt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_GE(self, op):
-        r = self.get_box_replacement(op)
+        r = self.getintbound(op)
         if r.is_constant():
             if r.getint() == 1:
                 self.make_int_ge(op.getarg(0), op.getarg(1))
@@ -491,29 +495,29 @@ class OptIntBounds(Optimization):
                 self.make_int_lt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_EQ(self, op):
-        r = self.getvalue(op)
+        r = self.getintbound(op)
         if r.is_constant():
-            if r.box.same_constant(CONST_1):
-                v1 = self.getvalue(op.getarg(0))
-                v2 = self.getvalue(op.getarg(1))
-                if v1.getintbound().intersect(v2.getintbound()):
-                    self.propagate_bounds_backward(op.getarg(0), v1)
-                if v2.getintbound().intersect(v1.getintbound()):
-                    self.propagate_bounds_backward(op.getarg(1), v2)
+            if r.equal(1):
+                b1 = self.getintbound(op.getarg(0))
+                b2 = self.getintbound(op.getarg(1))
+                if b1.intersect(b2):
+                    self.propagate_bounds_backward(op.getarg(0))
+                if b2.intersect(b1):
+                    self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_NE(self, op):
-        r = self.getvalue(op)
+        r = self.getintbound(op)
         if r.is_constant():
-            if r.box.same_constant(CONST_0):
-                v1 = self.getvalue(op.getarg(0))
-                v2 = self.getvalue(op.getarg(1))
-                if v1.getintbound().intersect(v2.getintbound()):
-                    self.propagate_bounds_backward(op.getarg(0), v1)
-                if v2.getintbound().intersect(v1.getintbound()):
-                    self.propagate_bounds_backward(op.getarg(1), v2)
+            if r.equal(0):
+                b1 = self.getintbound(op.getarg(0))
+                b2 = self.getintbound(op.getarg(1))
+                if b1.intersect(b2):
+                    self.propagate_bounds_backward(op.getarg(0))
+                if b2.intersect(b1):
+                    self.propagate_bounds_backward(op.getarg(1))
 
     def _propagate_int_is_true_or_zero(self, op, valnonzero, valzero):
-        r = self.get_box_replacement(op)
+        r = self.getintbound(op)
         if r.is_constant():
             if r.getint() == valnonzero:
                 b1 = self.getintbound(op.getarg(0))

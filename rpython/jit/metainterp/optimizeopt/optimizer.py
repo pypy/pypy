@@ -641,6 +641,13 @@ class Optimizer(Optimization):
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
         self._emit_operation(op)
+        op = self.get_box_replacement(op)
+        if op.type == 'i':
+            opinfo = op.get_forwarded()
+            if opinfo is not None:
+                assert isinstance(opinfo, IntBound)
+                if opinfo.is_constant():
+                    op.set_forwarded(ConstInt(opinfo.getint()))
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
