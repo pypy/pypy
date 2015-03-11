@@ -17,48 +17,13 @@ from rpython.rlib.rbisect import bisect_left, bisect_left_addr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-INT_LIST = rffi.CArray(lltype.Signed)
-
-CODEMAP = lltype.Struct(
-    'pypy_codemap_item',
-    ('addr', lltype.Signed),
-    ('machine_code_size', lltype.Signed),
-    ('bytecode_info_size', lltype.Signed),
-    ('bytecode_info', lltype.Ptr(INT_LIST)),
-    hints=dict(external=True, c_name='pypy_codemap_item'))
-CODEMAP_LIST = rffi.CArray(CODEMAP)
-
-CODEMAP_STORAGE = lltype.Struct(
-    'pypy_codemap_storage',
-    ('jit_addr_map_used', lltype.Signed),
-    ('jit_frame_depth_map_used', lltype.Signed),
-    ('jit_codemap_used', lltype.Signed),
-    ('jit_addr_map', lltype.Ptr(INT_LIST)),
-    ('jit_frame_depth_map', lltype.Ptr(INT_LIST)),
-    ('jit_codemap', lltype.Ptr(CODEMAP_LIST)),
-    hints=dict(external=True, c_name='pypy_codemap_storage'))
-
-CODEMAP_GCARRAY = lltype.GcArray(CODEMAP)
-
-_codemap = None
 
 eci = ExternalCompilationInfo(post_include_bits=["""
-RPY_EXTERN volatile int pypy_codemap_currently_invalid;
-RPY_EXTERN void pypy_codemap_invalid_set(int);
+RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr, long machine_code_size,
+                                     long *bytecode_info,
+                                     long bytecode_info_size);
+RPY_EXTERN void pypy_jit_codemap_del(uintptr_t addr);
 
-typedef struct pypy_codemap_item {
-   long addr, machine_code_size, bytecode_info_size;
-   long* bytecode_info;
-} pypy_codemap_item;
-
-typedef struct pypy_codemap_storage {
-   long jit_addr_map_used;
-   long jit_frame_depth_map_used;
-   long jit_codemap_used;
-   long* jit_addr_map;
-   long* jit_frame_depth_map;
-   pypy_codemap_item* jit_codemap;
-} pypy_codemap_storage;
 
 RPY_EXTERN pypy_codemap_storage *pypy_get_codemap_storage();
 RPY_EXTERN long pypy_jit_stack_depth_at_loc(long loc);
@@ -67,98 +32,9 @@ RPY_EXTERN long pypy_jit_start_addr(void);
 RPY_EXTERN long pypy_jit_end_addr(void);
 RPY_EXTERN long pypy_yield_codemap_at_addr(long, long, long*);
 
-"""], separate_module_sources=["""
-volatile int pypy_codemap_currently_invalid = 0;
-
-static pypy_codemap_storage pypy_cs_g;
-
-static long bisect_right(long *a, long x, long hi)
-{
-    long lo, mid;
-    lo = 0;
-    while (lo < hi) {
-        mid = (lo+hi) / 2;
-        if (x < a[mid]) { hi = mid; }
-        else { lo = mid+1; }
-    }
-    return lo;
-}
-
-static long bisect_right_addr(pypy_codemap_item *a, long x, long hi)
-{
-    long lo, mid;
-    lo = 0;
-    while (lo < hi) {
-        mid = (lo+hi) / 2;
-        if (x < a[mid].addr) { hi = mid; }
-        else { lo = mid+1; }
-    }
-    return lo;
-}
-
-long pypy_jit_stack_depth_at_loc(long loc)
-{
-    long pos;
-    pos = bisect_right(pypy_cs_g.jit_addr_map, loc,
-                       pypy_cs_g.jit_addr_map_used);
-    if (pos == 0)
-        return -1;
-    return pypy_cs_g.jit_frame_depth_map[pos - 1];
-}
-
-long pypy_find_codemap_at_addr(long addr)
-{
-    return bisect_right_addr(pypy_cs_g.jit_codemap, addr,
-                             pypy_cs_g.jit_codemap_used) - 1;
-}
-
-long pypy_jit_start_addr(void)
-{
-    return pypy_cs_g.jit_addr_map[0];
-}
-
-long pypy_jit_end_addr(void)
-{
-    return pypy_cs_g.jit_addr_map[pypy_cs_g.jit_addr_map_used - 1];
-}
-
-long pypy_yield_codemap_at_addr(long codemap_no, long addr,
-                                long* current_pos_addr)
-{
-    // will return consecutive unique_ids from codemap, starting from position
-    // `pos` until addr
-    pypy_codemap_item *codemap = &(pypy_cs_g.jit_codemap[codemap_no]);
-    long current_pos = *current_pos_addr;
-    long start_addr = codemap->addr;
-    long rel_addr = addr - start_addr;
-    long next_start, next_stop;
-
-    while (1) {
-        if (current_pos >= codemap->bytecode_info_size)
-            return 0;
-        next_start = codemap->bytecode_info[current_pos + 1];
-        if (next_start > rel_addr)
-            return 0;
-        next_stop = codemap->bytecode_info[current_pos + 2];
-        if (next_stop > rel_addr) {
-            *current_pos_addr = current_pos + 4;
-            return codemap->bytecode_info[current_pos];
-        }
-        // we need to skip potentially more than one
-        current_pos = codemap->bytecode_info[current_pos + 3];
-    }
-}
-
-pypy_codemap_storage *pypy_get_codemap_storage(void)
-{
-    return &pypy_cs_g;
-}
-
-void pypy_codemap_invalid_set(int value)
-{
-    pypy_codemap_currently_invalid = value;
-}
-"""])
+"""], separate_module_files=[
+    os.path.join(os.path.dirname(__file__), 'src', 'codemap.c')
+])
 
 def llexternal(name, args, res):
     return rffi.llexternal(name, args, res, compilation_info=eci,
@@ -190,15 +66,11 @@ def copy_item(source, dest, si, di, baseline=0):
         dest[di] = source[si] + baseline
 
 class ListStorageMixin(object):
-    # XXX this code has wrong complexity, we should come up with a better
-    #     data structure ideally
     _mixin_ = True
-    jit_addr_map_allocated = 0
-    jit_codemap_allocated = 0
-    jit_frame_depth_map_allocated = 0
 
     @specialize.arg(1)
     def extend_with(self, name, to_insert, pos, baseline=0):
+        xxxx
         # first check if we need to reallocate
         g = pypy_get_codemap_storage()
         used = getattr(g, name + '_used')
@@ -328,22 +200,13 @@ class CodemapStorage(ListStorageMixin):
                              start)
         pypy_codemap_invalid_set(0)
 
-    def register_codemap(self, codemap):
-        start = codemap[0]
-        g = pypy_get_codemap_storage()
-        pos = bisect_left_addr(g.jit_codemap, start, g.jit_codemap_used)
-        items = lltype.malloc(INT_LIST, len(codemap[2]), flavor='raw',
+    def register_codemap(self, (start, size, l)):
+        items = lltype.malloc(INT_LIST, len(l), flavor='raw',
                               track_allocation=False)
-        for i in range(len(codemap[2])):
-            items[i] = codemap[2][i]
-        s = lltype.malloc(CODEMAP_GCARRAY, 1)
-        s[0].addr = codemap[0]
-        s[0].machine_code_size = codemap[1]
-        s[0].bytecode_info = items
-        s[0].bytecode_info_size = len(codemap[2])
-        pypy_codemap_invalid_set(1)
-        self.extend_with('jit_codemap', s, pos)
-        pypy_codemap_invalid_set(0)
+        for i in range(len(l)):
+            items[i] = l[i]
+        if pypy_jit_codemap_add(start, size, items, len(l)) < 0:
+            lltype.free(items, flavor='raw', track_allocation=False)
 
     def finish_once(self):
         self.free()
