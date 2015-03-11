@@ -700,7 +700,8 @@ def make_array(mytype):
 
         @rgc.must_be_light_finalizer
         def __del__(self):
-            lltype.free(self.buffer, flavor='raw')
+            if self.buffer:
+                lltype.free(self.buffer, flavor='raw')
 
         def setlen(self, size, zero=False, overallocate=True):
             if size > 0:
