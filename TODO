@@ -1,8 +1,18 @@
 ------------------------------------------------------------
 
+better heuristic of when to break transactions? e.g., we should
+rarely break if there are not threads running in parallel.
+
+------------------------------------------------------------
+
 maybe statically optimize away some stm_become_inevitable(), there
 are some loops that call it repeatedly (may be not relevant
-for performance) 
+for performance)
+
+------------------------------------------------------------
+
+clang doesn't optimize multiple stm_write() in a row (unlike GCC).
+Optimize them manually...
 
 ------------------------------------------------------------
 
@@ -30,19 +40,6 @@ perfectly explain the slow-down.
 
 ------------------------------------------------------------
 
-clang doesn't optimize multiple stm_write() in a row (unlike GCC).
-Optimize them manually...
-
-------------------------------------------------------------
-
-stm_read() should also be optimized (moved out of loops). E.g.
-quick_sort.py suffers a 30% slowdown because it uses deque.locate()
-extensively. This method happens to have a *very* tight loop 
-where the read barrier has a big negative effect and could 
-actually be moved out.
-
-------------------------------------------------------------
-
 __pypy__.thread.getsegmentlimit():
 
 XXX This limit is so far a compile time option (STM_NB_SEGMENTS in
@@ -52,13 +49,8 @@ change the limit (or at least lower it) with setsegmentlimit().
 
 ------------------------------------------------------------
 
-JIT: add an artificial malloc if the loop is so small as to contain
-any!
-
-------------------------------------------------------------
-
 weakrefs stay alive longer than expected::
-    
+
     y = some object that was already alive for a while
     x = ref(y)
     del y
@@ -122,15 +114,11 @@ entirely memset)
 hg diff -r b0339cb53372^2 -r dd8e2f69fe96^2 : these trunk changes are
 missing in the stmgc-c7 branch of PyPy.  In particular, reduce the diff
 between stmgc-c7 and default (kill rstm.ThreadLocalRef, etc)
-    
+
 ------------------------------------------------------------
 
 there are in PyPy-STM crashes related to markers (with the JIT?).
 Also, some markers logic is missing with the JIT.
-
-------------------------------------------------------------
-
-GC: call __del__()
 
 ------------------------------------------------------------
 
