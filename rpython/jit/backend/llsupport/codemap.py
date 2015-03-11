@@ -72,7 +72,7 @@ volatile int pypy_codemap_currently_invalid = 0;
 
 static pypy_codemap_storage pypy_cs_g;
 
-long bisect_right(long *a, long x, long hi)
+static long bisect_right(long *a, long x, long hi)
 {
     long lo, mid;
     lo = 0;
@@ -84,7 +84,7 @@ long bisect_right(long *a, long x, long hi)
     return lo;
 }
 
-long bisect_right_addr(pypy_codemap_item *a, long x, long hi)
+static long bisect_right_addr(pypy_codemap_item *a, long x, long hi)
 {
     long lo, mid;
     lo = 0;
@@ -101,7 +101,7 @@ long pypy_jit_stack_depth_at_loc(long loc)
     long pos;
     pos = bisect_right(pypy_cs_g.jit_addr_map, loc,
                        pypy_cs_g.jit_addr_map_used);
-    if (pos == 0 || pos == pypy_cs_g.jit_addr_map_used)
+    if (pos == 0)
         return -1;
     return pypy_cs_g.jit_frame_depth_map[pos - 1];
 }
