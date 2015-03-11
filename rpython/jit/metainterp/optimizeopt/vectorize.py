@@ -33,7 +33,7 @@ class OptVectorize(Optimization):
         # values are the target boxes.
 
         # it is assumed that #label_args == #jump_args
-        for i in len(label_args):
+        for i in range(len(label_args)):
             la = label_args[i]
             ja = jump_args[i]
             if la != ja:
