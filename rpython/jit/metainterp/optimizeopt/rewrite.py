@@ -75,33 +75,33 @@ class OptRewrite(Optimization):
         return False
 
     def optimize_INT_AND(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.is_null() or v2.is_null():
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        if b1.equal(0) or b2.equal(0):
             self.make_constant_int(op, 0)
             return
-        elif v2.is_constant():
-            val = v2.box.getint()
-            if val == -1 or v1.getintbound().lower >= 0 \
-                and v1.getintbound().upper <= val & ~(val + 1):
-                self.make_equal_to(op, v1)
+        elif b2.is_constant():
+            val = b2.lower
+            if val == -1 or b1.lower >= 0 \
+                and b1.upper <= val & ~(val + 1):
+                self.make_equal_to(op, op.getarg(0))
                 return
-        elif v1.is_constant():
-            val = v1.box.getint()
-            if val == -1 or v2.getintbound().lower >= 0 \
-                and v2.getintbound().upper <= val & ~(val + 1):
-                self.make_equal_to(op, v2)
+        elif b1.is_constant():
+            val = b1.lower
+            if val == -1 or b2.lower >= 0 \
+                and b2.upper <= val & ~(val + 1):
+                self.make_equal_to(op, op.getarg(1))
                 return
 
         self.emit_operation(op)
 
     def optimize_INT_OR(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        if v1.is_null():
-            self.make_equal_to(op, v2)
-        elif v2.is_null():
-            self.make_equal_to(op, v1)
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        if b1.equal(0):
+            self.make_equal_to(op, op.getarg(1))
+        elif b2.equal(0):
+            self.make_equal_to(op, op.getarg(0))
         else:
             self.emit_operation(op)
 
@@ -189,13 +189,13 @@ class OptRewrite(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_XOR(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
 
-        if v1.is_constant() and v1.box.getint() == 0:
-            self.make_equal_to(op, v2)
-        elif v2.is_constant() and v2.box.getint() == 0:
-            self.make_equal_to(op, v1)
+        if b1.equal(0):
+            self.make_equal_to(op, op.getarg(1))
+        elif b2.equal(0):
+            self.make_equal_to(op, op.getarg(0))
         else:
             self.emit_operation(op)
 

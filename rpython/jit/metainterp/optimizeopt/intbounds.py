@@ -92,23 +92,22 @@ class OptIntBounds(Optimization):
     optimize_INT_XOR = optimize_INT_OR_or_XOR
 
     def optimize_INT_AND(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
         self.emit_operation(op)
 
-        r = self.getvalue(op)
-        if v2.is_constant():
-            val = v2.box.getint()
+        r = self.getintbound(op)
+        if b2.is_constant():
+            val = b2.lower
             if val >= 0:
                 r.getintbound().intersect(IntBound(0, val))
-        elif v1.is_constant():
-            val = v1.box.getint()
+        elif b1.is_constant():
+            val = b1.getint()
             if val >= 0:
                 r.getintbound().intersect(IntBound(0, val))
-        elif v1.getintbound().known_ge(IntBound(0, 0)) and \
-          v2.getintbound().known_ge(IntBound(0, 0)):
-            lesser = min(v1.getintbound().upper, v2.getintbound().upper)
-            r.getintbound().intersect(IntBound(0, next_pow2_m1(lesser)))
+        elif b1.known_ge(IntBound(0, 0)) and b2.known_ge(IntBound(0, 0)):
+            lesser = min(b1.upper, b2.upper)
+            r.intersect(IntBound(0, next_pow2_m1(lesser)))
 
     def optimize_INT_SUB(self, op):
         self.emit_operation(op)
@@ -419,7 +418,7 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         descr = op.getdescr()
         if descr and descr.is_item_integer_bounded():
-            intbound = self.getvalue(op).getintbound()
+            intbound = self.getintbound(op)
             intbound.make_ge(IntLowerBound(descr.get_item_integer_min()))
             intbound.make_le(IntUpperBound(descr.get_item_integer_max()))
 
