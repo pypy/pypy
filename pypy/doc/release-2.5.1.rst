@@ -74,7 +74,7 @@ Highlights
 * errno and LastError are saved around cffi calls so things like pdb will not
   overwrite it
 
-* We continue to asymtotically approach a score of 7 times faster than cpython
+* We continue to asymptotically approach a score of 7 times faster than cpython
   on our benchmark suite, we now rank 6.98 on latest runs
 
 * Issues reported with our previous release were resolved_ after reports from users on
@@ -85,9 +85,12 @@ Highlights
 .. _`RPython documentation`: http://rpython.readthedocs.org
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.1.html
 
-Please try it out and let us know what you think. We especially welcome
-success stories, we know you are using PyPy, please tell us about it!
+Please try it out and let us know what you think. We welcome
+success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!
 
 Cheers
 
 The PyPy Team
+
+.. _`experiments`: http://morepypy.blogspot.com/2015/02/experiments-in-pyrlang-with-rpython.html
+.. _`benchmarks`: https://mithrandi.net/blog/2015/03/axiom-benchmark-results-on-pypy-2-5-0
