@@ -31,7 +31,11 @@ class OptVectorize(Optimization):
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
         # fill the map with the renaming boxes. keys are boxes from the label
         # values are the target boxes.
-        for la,ja in zip(label_args, jump_args):
+
+        # it is assumed that #label_args == #jump_args
+        for i in len(label_args):
+            la = label_args[i]
+            ja = jump_args[i]
             if la != ja:
                 rename_map[la] = ja
 
