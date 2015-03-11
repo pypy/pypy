@@ -19,18 +19,15 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 eci = ExternalCompilationInfo(post_include_bits=["""
-RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr, long machine_code_size,
+RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
+                                     unsigned int machine_code_size,
                                      long *bytecode_info,
-                                     long bytecode_info_size);
+                                     unsigned int bytecode_info_size);
 RPY_EXTERN void pypy_jit_codemap_del(uintptr_t addr);
 
-
-RPY_EXTERN pypy_codemap_storage *pypy_get_codemap_storage();
-RPY_EXTERN long pypy_jit_stack_depth_at_loc(long loc);
-RPY_EXTERN long pypy_find_codemap_at_addr(long addr);
-RPY_EXTERN long pypy_jit_start_addr(void);
-RPY_EXTERN long pypy_jit_end_addr(void);
-RPY_EXTERN long pypy_yield_codemap_at_addr(long, long, long*);
+RPY_EXTERN long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
+                                      unsigned int stackdepth);
+RPY_EXTERN void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size);
 
 """], separate_module_files=[
     os.path.join(os.path.dirname(__file__), 'src', 'codemap.c')

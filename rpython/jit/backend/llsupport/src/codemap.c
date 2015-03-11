@@ -16,17 +16,17 @@ void pypy_codemap_invalid_set(int value)
 /************************************************************/
 
 typedef struct {
-    long machine_code_size;
+    unsigned int machine_code_size;
+    unsigned int bytecode_info_size;
     long *bytecode_info;
-    long bytecode_info_size;
 } codemap_data_t;
 
 static skipnode_t jit_codemap_head;
 
 /*** interface used from codemap.py ***/
 
-long pypy_jit_codemap_add(uintptr_t addr, long machine_code_size,
-                          long *bytecode_info, long bytecode_info_size)
+long pypy_jit_codemap_add(uintptr_t addr, unsigned int machine_code_size,
+                          long *bytecode_info, unsigned int bytecode_info_size)
 {
     skipnode_t *new = skiplist_malloc(sizeof(codemap_data_t));
     codemap_data_t *data;
@@ -47,7 +47,9 @@ long pypy_jit_codemap_add(uintptr_t addr, long machine_code_size,
 
 void pypy_jit_codemap_del(uintptr_t addr)
 {
+    pypy_codemap_invalid_set(1);
     skiplist_remove(&jit_codemap_head, addr);
+    pypy_codemap_invalid_set(0);
 }
 
 /*** interface used from pypy/module/_vmprof ***/
@@ -58,7 +60,7 @@ void *pypy_find_codemap_at_addr(long addr)
     codemap_data_t *data;
     uintptr_t rel_addr;
 
-    if (codemap->key == NULL)
+    if (codemap == &jit_codemap_head)
         return NULL;
 
     rel_addr = (uintptr_t)addr - codemap->key;
@@ -97,37 +99,71 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 }
 
 /************************************************************/
+/***  depthmap storage                                    ***/
+/************************************************************/
 
+typedef struct {
+    unsigned int block_size;
+    unsigned int stack_depth;
+} depthmap_data_t;
 
+static skipnode_t jit_depthmap_head;
+
+/*** interface used from codemap.py ***/
+
+long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
+                           unsigned int stackdepth)
+{
+    skipnode_t *new = skiplist_malloc(sizeof(depthmap_data_t));
+    depthmap_data_t *data;
+    if (new == NULL)
+        return -1;   /* too bad */
+
+    new->key = addr;
+    data = (depthmap_data_t *)new->data;
+    data->block_size = size;
+    data->stack_depth = stackdepth;
+
+    pypy_codemap_invalid_set(1);
+    skiplist_insert(&jit_depthmap_head, new);
+    pypy_codemap_invalid_set(0);
+    return 0;
+}
+
+void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
+{
+    uintptr_t search_key = addr + size - 1;
+    if (size == 0)
+        return;
+
+    pypy_codemap_invalid_set(1);
+    while (1) {
+        /* search for all nodes belonging to the range, and remove them */
+        skipnode_t *node = skiplist_search(&jit_depthmap_head, search_key);
+        if (node->addr < addr)
+            break;   /* exhausted */
+        skiplist_remove(&jit_depthmap_head, node->addr);
+    }
+    pypy_codemap_invalid_set(0);
+}
+
+/*** interface used from pypy/module/_vmprof ***/
 
 long pypy_jit_stack_depth_at_loc(long loc)
 {
-    long pos;
-    pos = bisect_right(pypy_cs_g.jit_addr_map, loc,
-                       pypy_cs_g.jit_addr_map_used);
-    if (pos == 0)
+    skiplist_t *depthmap = skiplist_search(&jit_depthmap_head, (uintptr_t)loc);
+    depthmap_data_t *data;
+    uintptr_t rel_addr;
+
+    if (depthmap == &jit_depthmap_head)
         return -1;
-    return pypy_cs_g.jit_frame_depth_map[pos - 1];
+
+    rel_addr = (uintptr_t)loc - depthmap->key;
+    data = (codemap_data_t *)depthmap->data;
+    if (rel_addr >= data->block_size)
+        return -1;
+
+    return data->stack_depth;
 }
 
-long pypy_find_codemap_at_addr(long addr)
-{
-    return bisect_right_addr(pypy_cs_g.jit_codemap, addr,
-                             pypy_cs_g.jit_codemap_used) - 1;
-}
-
-long pypy_jit_start_addr(void)
-{
-    return pypy_cs_g.jit_addr_map[0];
-}
-
-long pypy_jit_end_addr(void)
-{
-    return pypy_cs_g.jit_addr_map[pypy_cs_g.jit_addr_map_used - 1];
-}
-
-
-pypy_codemap_storage *pypy_get_codemap_storage(void)
-{
-    return &pypy_cs_g;
-}
+/************************************************************/
