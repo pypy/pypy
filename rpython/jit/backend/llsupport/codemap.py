@@ -103,7 +103,7 @@ class CodemapStorage(object):
             pos = rawstart + frame_positions[i]
             length = rawstop - pos
             if length > 0:
-                print "ADD:", pos, length, frame_assignments[i]
+                #print "ADD:", pos, length, frame_assignments[i]
                 pypy_jit_depthmap_add(pos, length, frame_assignments[i])
             rawstop = pos
 
