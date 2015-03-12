@@ -671,10 +671,38 @@ Conditions = {
 def invert_condition(cond_num):
     return cond_num ^ 1
 
+
 class X86_32_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 4
 
     PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
+
+    # multibyte nops, from 0 to 15 bytes
+    MULTIBYTE_NOPs = [
+        '',
+        '\x90',                          # nop
+        '\x66\x90',                      # xchg ax, ax
+        '\x8d\x76\x00',                  # lea    0x0(%esi),%esi
+        '\x8d\x74\x26\x00',              # lea    0x0(%esi,%eiz,1),%esi
+        '\x90\x8d\x74\x26\x00',          # nop; lea 0x0(%esi,%eiz,1),%esi
+        '\x8d\xb6\x00\x00\x00\x00',      # lea    0x0(%esi),%esi
+        '\x8d\xb4\x26\x00\x00\x00\x00',  # lea    0x0(%esi,%eiz,1),%esi
+        ('\x90'                          # nop
+         '\x8d\xb4\x26\x00\x00\x00\x00'),#   lea    0x0(%esi,%eiz,1),%esi
+        ('\x89\xf6'                      # mov    %esi,%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\x76\x00'                  # lea    0x0(%esi),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\x74\x26\x00'              # lea    0x0(%esi,%eiz,1),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\xb6\x00\x00\x00\x00'      # lea    0x0(%esi),%esi
+         '\x8d\xbf\x00\x00\x00\x00'),    #   lea    0x0(%edi),%edi
+        ('\x8d\xb6\x00\x00\x00\x00'      # lea    0x0(%esi),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\xb4\x26\x00\x00\x00\x00'  # lea    0x0(%esi,%eiz,1),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\xeb\x0d' + '\x90' * 13)]      # jmp +x0d; a bunch of nops
+
 
 class X86_64_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 8
@@ -705,6 +733,24 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
             self.MOV_ri32(reg, immed)
         else:
             self.MOV_ri64(reg, immed)
+
+    # multibyte nops, from 0 to 15 bytes
+    MULTIBYTE_NOPs = ([
+        '',
+        '\x90',                          # nop
+        '\x66\x90',                      # xchg ax, ax
+        '\x0f\x1f\x00',                  # nopl   (%rax)
+        '\x0f\x1f\x40\x00',              # nopl   0x0(%rax)
+        '\x0f\x1f\x44\x00\x00',          # nopl   0x0(%rax,%rax,1)
+        '\x66\x0f\x1f\x44\x00\x00',      # nopw   0x0(%rax,%rax,1)
+        '\x0f\x1f\x80\x00\x00\x00\x00',  # nopl   0x0(%rax)
+        ('\x0f\x1f\x84\x00\x00\x00\x00'  # nopl   0x0(%rax,%rax,1)
+         '\x00'),
+        ('\x66\x0f\x1f\x84\x00\x00\x00'  # nopw   0x0(%rax,%rax,1)
+         '\x00\x00')] +
+        ['\x66' * _i + '\x2e\x0f\x1f'    # nopw   %cs:0x0(%rax,%rax,1)
+         '\x84\x00\x00\x00\x00\x00' for _i in range(1, 7)])
+
 
 def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype='GPR'):
     def add_insn(code, *modrm):

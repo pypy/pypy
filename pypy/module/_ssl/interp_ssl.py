@@ -1,6 +1,8 @@
 from rpython.rlib import rpoll, rsocket, rthread, rweakref
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
+from pypy.module._socket import interp_socket
+from rpython.rlib._rsocket_rffi import MAX_FD_SIZE
 from rpython.rlib.rposix import get_saved_errno
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rlib.objectmodel import specialize, compute_unique_id
@@ -12,7 +14,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._ssl.ssl_data import (
     LIBRARY_CODES_TO_NAMES, ERROR_CODES_TO_NAMES)
-from pypy.module._socket import interp_socket
 
 
 # user defined constants
@@ -79,7 +80,8 @@ constants["OP_NO_TLSv1"] = SSL_OP_NO_TLSv1
 constants["OP_CIPHER_SERVER_PREFERENCE"] = SSL_OP_CIPHER_SERVER_PREFERENCE
 constants["OP_SINGLE_DH_USE"] = SSL_OP_SINGLE_DH_USE
 constants["OP_SINGLE_ECDH_USE"] = SSL_OP_SINGLE_ECDH_USE
-constants["OP_NO_COMPRESSION"] = SSL_OP_NO_COMPRESSION
+if SSL_OP_NO_COMPRESSION is not None:
+    constants["OP_NO_COMPRESSION"] = SSL_OP_NO_COMPRESSION
 
 constants["OPENSSL_VERSION_NUMBER"] = OPENSSL_VERSION_NUMBER
 ver = OPENSSL_VERSION_NUMBER
@@ -886,9 +888,13 @@ def _get_aia_uri(space, certificate, nid):
         libssl_AUTHORITY_INFO_ACCESS_free(info)
 
 def _get_crl_dp(space, certificate):
-    # Calls x509v3_cache_extensions and sets up crldp
-    libssl_X509_check_ca(certificate)
-    dps = certificate[0].c_crldp
+    if OPENSSL_VERSION_NUMBER >= 0x10001000:
+        # Calls x509v3_cache_extensions and sets up crldp
+        libssl_X509_check_ca(certificate)
+        dps = certificate[0].c_crldp
+    else:
+        dps = rffi.cast(stack_st_DIST_POINT, libssl_X509_get_ext_d2i(
+            certificate, NID_crl_distribution_points, None, None))
     if not dps:
         return None
 

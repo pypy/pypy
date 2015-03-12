@@ -202,7 +202,7 @@ class Test__ffi(BaseTestPyPyC):
         assert loop.match_by_id('cfficall', """
             p96 = force_token()
             setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
-            f97 = call_release_gil(27, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """, ignore_ops=['guard_not_invalidated'])
@@ -341,7 +341,7 @@ class Test__ffi(BaseTestPyPyC):
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)
         raw_store(i119, 4, i160, descr=<ArrayS 2>)
-        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .+>)
+        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__ptr .+>)
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
         jump(..., descr=...)
         """)

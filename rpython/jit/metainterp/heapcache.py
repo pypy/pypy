@@ -1,61 +1,111 @@
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.resoperation import rop
 
+class HeapCacheValue(object):
+    def __init__(self, box):
+        self.box = box
+        self.likely_virtual = False
+        self.reset_keep_likely_virtual()
+
+    def reset_keep_likely_virtual(self):
+        self.known_class = False
+        # did we see the allocation during tracing?
+        self.seen_allocation = False
+        self.is_unescaped = False
+        self.nonstandard_virtualizable = False
+        self.length = None
+        self.dependencies = None
+
+    def __repr__(self):
+        return 'HeapCacheValue(%s)' % (self.box, )
+
+
+class CacheEntry(object):
+    def __init__(self):
+        # both are {from_value: to_value} dicts
+        # the first is for boxes where we did not see the allocation, the
+        # second for anything else. the reason that distinction makes sense is
+        # because if we saw the allocation, we know it cannot alias with
+        # anything else where we saw the allocation.
+        self.cache_anything = {}
+        self.cache_seen_allocation = {}
+
+    def _clear_cache_on_write(self, seen_allocation_of_target):
+        if not seen_allocation_of_target:
+            self.cache_seen_allocation.clear()
+        self.cache_anything.clear()
+
+    def _getdict(self, value):
+        if value.seen_allocation:
+            return self.cache_seen_allocation
+        else:
+            return self.cache_anything
+
+    def do_write_with_aliasing(self, value, fieldvalue):
+        self._clear_cache_on_write(value.seen_allocation)
+        self._getdict(value)[value] = fieldvalue
+
+    def read(self, value):
+        return self._getdict(value).get(value, None)
+
+    def read_now_known(self, value, fieldvalue):
+        self._getdict(value)[value] = fieldvalue
+
+    def invalidate_unescaped(self):
+        self._invalidate_unescaped(self.cache_anything)
+        self._invalidate_unescaped(self.cache_seen_allocation)
+
+    def _invalidate_unescaped(self, d):
+        for value in d.keys():
+            if not value.is_unescaped:
+                del d[value]
 
 class HeapCache(object):
     def __init__(self):
         self.reset()
 
-    def reset(self, reset_virtuals=True, trace_branch=True):
-        # contains boxes where the class is already known
-        self.known_class_boxes = {}
+    def reset(self):
+        # maps boxes to values
+        self.values = {}
         # store the boxes that contain newly allocated objects, this maps the
         # boxes to a bool, the bool indicates whether or not the object has
         # escaped the trace or not (True means the box never escaped, False
         # means it did escape), its presences in the mapping shows that it was
         # allocated inside the trace
-        if trace_branch:
-            self.new_boxes = {}
-        else:
-            for box in self.new_boxes:
-                self.new_boxes[box] = False
-        if reset_virtuals:
-            self.likely_virtuals = {}      # only for jit.isvirtual()
+        #if trace_branch:
+            #self.new_boxes = {}
+        #    pass
+        #else:
+            #for box in self.new_boxes:
+            #    self.new_boxes[box] = False
+        #    pass
+        #if reset_virtuals:
+        #    self.likely_virtuals = {}      # only for jit.isvirtual()
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
-        self.dependencies = {}
-        # contains frame boxes that are not virtualizables
-        if trace_branch:
-            self.nonstandard_virtualizables = {}
+        #self.dependencies = {}
 
         # heap cache
-        # maps descrs to {from_box, to_box} dicts
+        # maps descrs to CacheEntry
         self.heap_cache = {}
         # heap array cache
-        # maps descrs to {index: {from_box: to_box}} dicts
+        # maps descrs to {index: {from_value: to_value}} dicts
         self.heap_array_cache = {}
-        # cache the length of arrays
-        self.length_cache = {}
 
-        # replace_box is called surprisingly often, therefore it's not efficient
-        # to go over all the dicts and fix them.
-        # instead, these two dicts are kept, and a replace_box adds an entry to
-        # each of them.
-        # every time one of the dicts heap_cache, heap_array_cache, length_cache
-        # is accessed, suitable indirections need to be performed
+    def reset_keep_likely_virtuals(self):
+        for value in self.values.itervalues():
+            value.reset_keep_likely_virtual()
+        self.heap_cache = {}
+        self.heap_array_cache = {}
 
-        # this looks all very subtle, but in practice the patterns of
-        # replacements should not be that complex. Usually a box is replaced by
-        # a const, once. Also, if something goes wrong, the effect is that less
-        # caching than possible is done, which is not a huge problem.
-        self.input_indirections = {}
-        self.output_indirections = {}
+    def getvalue(self, box):
+        value = self.values.get(box, None)
+        if not value:
+            value = self.values[box] = HeapCacheValue(box)
+        return value
 
-    def _input_indirection(self, box):
-        return self.input_indirections.get(box, box)
-
-    def _output_indirection(self, box):
-        return self.output_indirections.get(box, box)
+    def getvalues(self, boxes):
+        return [self.getvalue(box) for box in boxes]
 
     def invalidate_caches(self, opnum, descr, argboxes):
         self.mark_escaped(opnum, descr, argboxes)
@@ -64,18 +114,22 @@ class HeapCache(object):
     def mark_escaped(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
-            box, valuebox = argboxes
-            if self.is_unescaped(box) and self.is_unescaped(valuebox):
-                self.dependencies.setdefault(box, []).append(valuebox)
+            value, fieldvalue = self.getvalues(argboxes)
+            if value.is_unescaped and fieldvalue.is_unescaped:
+                if value.dependencies is None:
+                    value.dependencies = []
+                value.dependencies.append(fieldvalue)
             else:
-                self._escape(valuebox)
+                self._escape(fieldvalue)
         elif opnum == rop.SETARRAYITEM_GC:
             assert len(argboxes) == 3
-            box, indexbox, valuebox = argboxes
-            if self.is_unescaped(box) and self.is_unescaped(valuebox):
-                self.dependencies.setdefault(box, []).append(valuebox)
+            value, indexvalue, fieldvalue = self.getvalues(argboxes)
+            if value.is_unescaped and fieldvalue.is_unescaped:
+                if value.dependencies is None:
+                    value.dependencies = []
+                value.dependencies.append(fieldvalue)
             else:
-                self._escape(valuebox)
+                self._escape(fieldvalue)
         elif (opnum == rop.CALL and
               descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
               isinstance(argboxes[3], ConstInt) and
@@ -84,6 +138,7 @@ class HeapCache(object):
               len(descr.get_extra_info().write_descrs_arrays) == 1):
             # ARRAYCOPY with constant starts and constant length doesn't escape
             # its argument
+            # XXX really?
             pass
         # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
         # arguments
@@ -95,25 +150,20 @@ class HeapCache(object):
               opnum != rop.INSTANCE_PTR_EQ and
               opnum != rop.INSTANCE_PTR_NE):
             for box in argboxes:
-                self._escape(box)
+                self._escape_box(box)
 
-    def _escape(self, box):
-        try:
-            unescaped = self.new_boxes[box]
-        except KeyError:
-            pass
-        else:
-            if unescaped:
-                self.new_boxes[box] = False
-        try:
-            del self.likely_virtuals[box]
-        except KeyError:
-            pass
-        try:
-            deps = self.dependencies.pop(box)
-        except KeyError:
-            pass
-        else:
+    def _escape_box(self, box):
+        value = self.values.get(box, None)
+        if not value:
+            return
+        self._escape(value)
+
+    def _escape(self, value):
+        value.is_unescaped = False
+        value.likely_virtual = False
+        deps = value.dependencies
+        value.dependencies = None
+        if deps is not None:
             for dep in deps:
                 self._escape(dep)
 
@@ -146,181 +196,194 @@ class HeapCache(object):
             # A special case for ll_arraycopy, because it is so common, and its
             # effects are so well defined.
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
-                if (
-                    isinstance(argboxes[3], ConstInt) and
-                    isinstance(argboxes[4], ConstInt) and
-                    isinstance(argboxes[5], ConstInt) and
-                    len(effectinfo.write_descrs_arrays) == 1
-                ):
-                    descr = effectinfo.write_descrs_arrays[0]
-                    cache = self.heap_array_cache.get(descr, None)
-                    srcstart = argboxes[3].getint()
-                    dststart = argboxes[4].getint()
-                    length = argboxes[5].getint()
-                    for i in xrange(length):
-                        value = self.getarrayitem(
-                            argboxes[1],
-                            ConstInt(srcstart + i),
-                            descr,
-                        )
-                        if value is not None:
-                            self.setarrayitem(
-                                argboxes[2],
-                                ConstInt(dststart + i),
-                                value,
-                                descr,
-                            )
-                        elif cache is not None:
-                            try:
-                                idx_cache = cache[dststart + i]
-                            except KeyError:
-                                pass
-                            else:
-                                if argboxes[2] in self.new_boxes:
-                                    for frombox in idx_cache.keys():
-                                        if not self.is_unescaped(frombox):
-                                            del idx_cache[frombox]
-                                else:
-                                    idx_cache.clear()
-                    return
-                elif (
-                    argboxes[2] in self.new_boxes and
-                    len(effectinfo.write_descrs_arrays) == 1
-                ):
-                    # Fish the descr out of the effectinfo
-                    cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
-                    if cache is not None:
-                        for idx, cache in cache.iteritems():
-                            for frombox in cache.keys():
-                                if not self.is_unescaped(frombox):
-                                    del cache[frombox]
-                    return
+                self._clear_caches_arraycopy(opnum, descr, argboxes, effectinfo)
+                return
             else:
-                # Only invalidate things that are either escaped or arguments
-                for descr, boxes in self.heap_cache.iteritems():
-                    for box in boxes.keys():
-                        if not self.is_unescaped(box) or box in argboxes:
-                            del boxes[box]
+                # Only invalidate things that are escaped
+                # XXX can do better, only do it for the descrs in the effectinfo
+                for descr, cache in self.heap_cache.iteritems():
+                    cache.invalidate_unescaped()
                 for descr, indices in self.heap_array_cache.iteritems():
-                    for boxes in indices.itervalues():
-                        for box in boxes.keys():
-                            if not self.is_unescaped(box) or box in argboxes:
-                                del boxes[box]
+                    for cache in indices.itervalues():
+                        cache.invalidate_unescaped()
                 return
 
         # XXX not completely sure, but I *think* it is needed to reset() the
         # state at least in the 'CALL_*' operations that release the GIL.  We
         # tried to do only the kind of resetting done by the two loops just
         # above, but hit an assertion in "pypy test_multiprocessing.py".
-        self.reset(reset_virtuals=False, trace_branch=False)
+        self.reset_keep_likely_virtuals()
+
+    def _clear_caches_arraycopy(self, opnum, desrc, argboxes, effectinfo):
+        seen_allocation_of_target = self.getvalue(argboxes[2]).seen_allocation
+        if (
+            isinstance(argboxes[3], ConstInt) and
+            isinstance(argboxes[4], ConstInt) and
+            isinstance(argboxes[5], ConstInt) and
+            len(effectinfo.write_descrs_arrays) == 1
+        ):
+            descr = effectinfo.write_descrs_arrays[0]
+            cache = self.heap_array_cache.get(descr, None)
+            srcstart = argboxes[3].getint()
+            dststart = argboxes[4].getint()
+            length = argboxes[5].getint()
+            for i in xrange(length):
+                value = self.getarrayitem(
+                    argboxes[1],
+                    ConstInt(srcstart + i),
+                    descr,
+                )
+                if value is not None:
+                    self.setarrayitem(
+                        argboxes[2],
+                        ConstInt(dststart + i),
+                        value,
+                        descr,
+                    )
+                elif cache is not None:
+                    try:
+                        idx_cache = cache[dststart + i]
+                    except KeyError:
+                        pass
+                    else:
+                        idx_cache._clear_cache_on_write(seen_allocation_of_target)
+            return
+        elif (
+            len(effectinfo.write_descrs_arrays) == 1
+        ):
+            # Fish the descr out of the effectinfo
+            cache = self.heap_array_cache.get(effectinfo.write_descrs_arrays[0], None)
+            if cache is not None:
+                for idx, cache in cache.iteritems():
+                    cache._clear_cache_on_write(seen_allocation_of_target)
+            return
+        self.reset_keep_likely_virtuals()
 
     def is_class_known(self, box):
-        return box in self.known_class_boxes
+        value = self.values.get(box, None)
+        if value:
+            return value.known_class
+        return False
 
     def class_now_known(self, box):
-        self.known_class_boxes[box] = None
+        self.getvalue(box).known_class = True
 
     def is_nonstandard_virtualizable(self, box):
-        return box in self.nonstandard_virtualizables
+        value = self.values.get(box, None)
+        if value:
+            return value.nonstandard_virtualizable
+        return False
 
     def nonstandard_virtualizables_now_known(self, box):
-        self.nonstandard_virtualizables[box] = None
+        self.getvalue(box).nonstandard_virtualizable = True
 
     def is_unescaped(self, box):
-        return self.new_boxes.get(box, False)
+        value = self.values.get(box, None)
+        if value:
+            return value.is_unescaped
+        return False
 
     def is_likely_virtual(self, box):
-        return box in self.likely_virtuals
+        value = self.values.get(box, None)
+        if value:
+            return value.likely_virtual
+        return False
 
     def new(self, box):
-        self.new_boxes[box] = True
-        self.likely_virtuals[box] = None
+        value = self.getvalue(box)
+        value.is_unescaped = True
+        value.likely_virtual = True
+        value.seen_allocation = True
 
     def new_array(self, box, lengthbox):
         self.new(box)
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
-        box = self._input_indirection(box)
-        d = self.heap_cache.get(descr, None)
-        if d:
-            tobox = d.get(box, None)
-            return self._output_indirection(tobox)
+        value = self.values.get(box, None)
+        if value:
+            cache = self.heap_cache.get(descr, None)
+            if cache:
+                tovalue = cache.read(value)
+                if tovalue:
+                    return tovalue.box
         return None
 
     def getfield_now_known(self, box, descr, fieldbox):
-        box = self._input_indirection(box)
-        fieldbox = self._input_indirection(fieldbox)
-        self.heap_cache.setdefault(descr, {})[box] = fieldbox
+        value = self.getvalue(box)
+        fieldvalue = self.getvalue(fieldbox)
+        cache = self.heap_cache.get(descr, None)
+        if cache is None:
+            cache = self.heap_cache[descr] = CacheEntry()
+        cache.read_now_known(value, fieldvalue)
 
     def setfield(self, box, fieldbox, descr):
-        d = self.heap_cache.get(descr, None)
-        new_d = self._do_write_with_aliasing(d, box, fieldbox)
-        self.heap_cache[descr] = new_d
-
-    def _do_write_with_aliasing(self, d, box, fieldbox):
-        box = self._input_indirection(box)
-        fieldbox = self._input_indirection(fieldbox)
-        # slightly subtle logic here
-        # a write to an arbitrary box, all other boxes can alias this one
-        if not d or box not in self.new_boxes:
-            # therefore we throw away the cache
-            return {box: fieldbox}
-        # the object we are writing to is freshly allocated
-        # only remove some boxes from the cache
-        new_d = {}
-        for frombox, tobox in d.iteritems():
-            # the other box is *also* freshly allocated
-            # therefore frombox and box *must* contain different objects
-            # thus we can keep it in the cache
-            if frombox in self.new_boxes:
-                new_d[frombox] = tobox
-        new_d[box] = fieldbox
-        return new_d
+        cache = self.heap_cache.get(descr, None)
+        if cache is None:
+            cache = self.heap_cache[descr] = CacheEntry()
+        value = self.getvalue(box)
+        fieldvalue = self.getvalue(fieldbox)
+        cache.do_write_with_aliasing(value, fieldvalue)
 
     def getarrayitem(self, box, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
-            return
-        box = self._input_indirection(box)
+            return None
+        value = self.values.get(box, None)
+        if value is None:
+            return None
         index = indexbox.getint()
         cache = self.heap_array_cache.get(descr, None)
         if cache:
             indexcache = cache.get(index, None)
             if indexcache is not None:
-                return self._output_indirection(indexcache.get(box, None))
+                resvalue = indexcache.read(value)
+                if resvalue:
+                    return resvalue.box
+        return None
 
-    def getarrayitem_now_known(self, box, indexbox, valuebox, descr):
+    def _get_or_make_array_cache_entry(self, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
-            return
-        box = self._input_indirection(box)
-        valuebox = self._input_indirection(valuebox)
+            return None
         index = indexbox.getint()
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)
-        if indexcache is not None:
-            indexcache[box] = valuebox
-        else:
-            cache[index] = {box: valuebox}
+        if indexcache is None:
+            cache[index] = indexcache = CacheEntry()
+        return indexcache
 
-    def setarrayitem(self, box, indexbox, valuebox, descr):
+
+    def getarrayitem_now_known(self, box, indexbox, fieldbox, descr):
+        value = self.getvalue(box)
+        fieldvalue = self.getvalue(fieldbox)
+        indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
+        if indexcache:
+            indexcache.read_now_known(value, fieldvalue)
+
+    def setarrayitem(self, box, indexbox, fieldbox, descr):
         if not isinstance(indexbox, ConstInt):
             cache = self.heap_array_cache.get(descr, None)
             if cache is not None:
                 cache.clear()
             return
-        index = indexbox.getint()
-        cache = self.heap_array_cache.setdefault(descr, {})
-        indexcache = cache.get(index, None)
-        cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
+        value = self.getvalue(box)
+        fieldvalue = self.getvalue(fieldbox)
+        indexcache = self._get_or_make_array_cache_entry(indexbox, descr)
+        if indexcache:
+            indexcache.do_write_with_aliasing(value, fieldvalue)
 
     def arraylen(self, box):
-        box = self._input_indirection(box)
-        return self._output_indirection(self.length_cache.get(box, None))
+        value = self.values.get(box, None)
+        if value and value.length:
+            return value.length.box
+        return None
 
     def arraylen_now_known(self, box, lengthbox):
-        box = self._input_indirection(box)
-        self.length_cache[box] = self._input_indirection(lengthbox)
+        value = self.getvalue(box)
+        value.length = self.getvalue(lengthbox)
 
     def replace_box(self, oldbox, newbox):
-        self.input_indirections[self._output_indirection(newbox)] = self._input_indirection(oldbox)
-        self.output_indirections[self._input_indirection(oldbox)] = self._output_indirection(newbox)
+        value = self.values.get(oldbox, None)
+        if value is None:
+            return
+        value.box = newbox
+        self.values[newbox] = value

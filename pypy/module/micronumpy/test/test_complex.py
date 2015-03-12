@@ -382,6 +382,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert np.conjugate(1+2j) == 1-2j
 
         eye2 = np.array([[1, 0], [0, 1]])
+        assert (eye2.conjugate() == eye2).all()
         x = eye2 + 1j * eye2
         for a, b in zip(np.conjugate(x), np.array([[ 1.-1.j,  0.-0.j], [ 0.-0.j,  1.-1.j]])):
             assert a[0] == b[0]

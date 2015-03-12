@@ -5,7 +5,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib._rsocket_rffi import MAX_FD_SIZE, SAVE_ERR
+from rpython.rlib._rsocket_rffi import SAVE_ERR
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
@@ -56,9 +56,9 @@ ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
 ASN1_OBJECT = rffi.COpaquePtr('ASN1_OBJECT')
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
-stack_st_X509_OBJECT = rffi.COpaquePtr('struct stack_st_X509_OBJECT')
+stack_st_X509_OBJECT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
 DIST_POINT = rffi.COpaquePtr('DIST_POINT')
-stack_st_DIST_POINT = rffi.COpaquePtr('struct stack_st_DIST_POINT')
+stack_st_DIST_POINT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
 DH = rffi.COpaquePtr('DH')
 EC_KEY = rffi.COpaquePtr('EC_KEY')
 AUTHORITY_INFO_ACCESS = rffi.COpaquePtr('AUTHORITY_INFO_ACCESS')
@@ -68,16 +68,19 @@ class CConfigBootstrap:
     _compilation_info_ = eci
     OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
-if rffi_platform.configure(CConfigBootstrap)["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
+    OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
+        "OPENSSL_VERSION_NUMBER")
+
+cconfig = rffi_platform.configure(CConfigBootstrap)
+if cconfig["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
     ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 else:
     ASN1_ITEM_EXP = ASN1_ITEM
+OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
 
 class CConfig:
     _compilation_info_ = eci
 
-    OPENSSL_VERSION_NUMBER = rffi_platform.ConstantInteger(
-        "OPENSSL_VERSION_NUMBER")
     SSLEAY_VERSION = rffi_platform.DefinedConstantString(
         "SSLEAY_VERSION", "SSLeay_version(SSLEAY_VERSION)")
     OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
@@ -96,7 +99,7 @@ class CConfig:
         "SSL_OP_SINGLE_DH_USE")
     SSL_OP_SINGLE_ECDH_USE = rffi_platform.ConstantInteger(
         "SSL_OP_SINGLE_ECDH_USE")
-    SSL_OP_NO_COMPRESSION = rffi_platform.ConstantInteger(
+    SSL_OP_NO_COMPRESSION = rffi_platform.DefinedConstantInteger(
         "SSL_OP_NO_COMPRESSION")
     SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
         "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
@@ -147,6 +150,7 @@ class CConfig:
     NID_ad_ca_issuers = rffi_platform.ConstantInteger("NID_ad_ca_issuers")
     NID_info_access = rffi_platform.ConstantInteger("NID_info_access")
     NID_X9_62_prime256v1 = rffi_platform.ConstantInteger("NID_X9_62_prime256v1")
+    NID_crl_distribution_points = rffi_platform.ConstantInteger("NID_crl_distribution_points")
     GEN_DIRNAME = rffi_platform.ConstantInteger("GEN_DIRNAME")
     GEN_EMAIL = rffi_platform.ConstantInteger("GEN_EMAIL")
     GEN_DNS = rffi_platform.ConstantInteger("GEN_DNS")
@@ -162,9 +166,10 @@ class CConfig:
     OBJ_NAME_TYPE_MD_METH = rffi_platform.ConstantInteger(
         "OBJ_NAME_TYPE_MD_METH")
 
-    X509_st = rffi_platform.Struct(
-        'struct x509_st',
-        [('crldp', stack_st_DIST_POINT)])
+    if OPENSSL_VERSION_NUMBER >= 0x10001000:
+        X509_st = rffi_platform.Struct(
+            'struct x509_st',
+            [('crldp', stack_st_DIST_POINT)])
 
     # Some structures, with only the fields used in the _ssl module
     X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
@@ -226,7 +231,10 @@ SSL_CTX = rffi.COpaquePtr('SSL_CTX')
 SSL_CIPHER = rffi.COpaquePtr('SSL_CIPHER')
 SSL = rffi.COpaquePtr('SSL')
 BIO = rffi.COpaquePtr('BIO')
-X509 = rffi.CArrayPtr(X509_st)
+if OPENSSL_VERSION_NUMBER >= 0x10001000:
+    X509 = rffi.CArrayPtr(X509_st)
+else:
+    X509 = rffi.COpaquePtr('X509')
 X509_NAME_ENTRY = rffi.CArrayPtr(X509_name_entry_st)
 X509_EXTENSION = rffi.CArrayPtr(X509_extension_st)
 X509_STORE = rffi.CArrayPtr(x509_store_st)
@@ -459,7 +467,7 @@ ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
 ssl_external('BIO_new_file', [rffi.CCHARP, rffi.CCHARP], BIO,
-             save_err=SAVE_ERR)
+             save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 ssl_external('BIO_new_mem_buf', [rffi.VOIDP, rffi.INT], BIO)
 ssl_external('BIO_free', [BIO], rffi.INT)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)

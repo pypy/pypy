@@ -14,6 +14,8 @@ DEBUG_ELIDABLE_FUNCTIONS = False
 def elidable(func):
     """ Decorate a function as "trace-elidable". Usually this means simply that
     the function is constant-foldable, i.e. is pure and has no side-effects.
+    This also has the effect that the inside of the function will never be
+    traced.
 
     In some situations it is ok to use this decorator if the function *has*
     side effects, as long as these side-effects are idempotent. A typical
@@ -45,6 +47,8 @@ def elidable(func):
             else:
                 assert oldresult == result
             return result
+    if getattr(func, '_jit_unroll_safe_', False):
+        raise TypeError("it does not make sense for %s to be both elidable and unroll_safe" % func)
     func._elidable_function_ = True
     return func
 
@@ -83,6 +87,8 @@ def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
     (it becomes a call instead)
     """
+    if getattr(func, '_jit_unroll_safe_', False):
+        raise TypeError("it does not make sense for %s to be both dont_look_inside and unroll_safe" % func)
     func._jit_look_inside_ = False
     return func
 
@@ -90,6 +96,8 @@ def look_inside(func):
     """ Make sure the JIT traces inside decorated function, even
     if the rest of the module is not visible to the JIT
     """
+    import warnings
+    warnings.warn("look_inside is deprecated", DeprecationWarning)
     func._jit_look_inside_ = True
     return func
 
@@ -97,6 +105,10 @@ def unroll_safe(func):
     """ JIT can safely unroll loops in this function and this will
     not lead to code explosion
     """
+    if getattr(func, '_elidable_function_', False):
+        raise TypeError("it does not make sense for %s to be both elidable and unroll_safe" % func)
+    if not getattr(func, '_jit_look_inside_', True):
+        raise TypeError("it does not make sense for %s to be both elidable and dont_look_inside" % func)
     func._jit_unroll_safe_ = True
     return func
 

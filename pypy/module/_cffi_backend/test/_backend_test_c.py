@@ -2716,6 +2716,14 @@ def test_FILE_object():
     assert data == b"Xhello\n"
     posix.close(fdr)
 
+def test_errno_saved():
+    set_errno(42)
+    # a random function that will reset errno to 0 (at least on non-windows)
+    import os; os.stat('.')
+    #
+    res = get_errno()
+    assert res == 42
+
 def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
@@ -3241,4 +3249,4 @@ def test_from_buffer():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8.6+"
+    assert __version__ == "0.9.1"

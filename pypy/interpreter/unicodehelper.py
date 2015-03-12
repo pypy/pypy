@@ -25,8 +25,8 @@ class RUnicodeEncodeError(Exception):
         self.reason = reason
 
 @specialize.memo()
-def encode_error_handler(space):
-    # Fast version of the "strict" errors handler.
+def rpy_encode_error_handler():
+    # A RPython version of the "strict" error handler.
     def raise_unicode_exception_encode(errors, encoding, msg, u,
                                        startingpos, endingpos):
         raise RUnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
@@ -62,7 +62,10 @@ def decode_utf8(space, string):
     return result
 
 def encode_utf8(space, uni):
+    # Note that this function never raises UnicodeEncodeError,
+    # since surrogate pairs are allowed.
+    # This is not the case with Python3.
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
-        errorhandler=encode_error_handler(space),
+        errorhandler=rpy_encode_error_handler(),
         allow_surrogates=True)

@@ -168,7 +168,6 @@ glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 if cConfig.has_gettimeofday:
     c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
 TM_P = lltype.Ptr(tm)
-c_clock = external('clock', [rffi.TIME_TP], clock_t)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,

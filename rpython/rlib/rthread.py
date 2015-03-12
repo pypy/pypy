@@ -58,17 +58,20 @@ c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
                                         releasegil=True)    # release the GIL
-c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
-                                  releasegil=True)    # release the GIL
+c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP],
+                                  lltype.Signed,
+                                  _nowrapper=True)   # *don't* release the GIL
 
 # another set of functions, this time in versions that don't cause the
-# GIL to be released.  To use to handle the GIL lock itself.
+# GIL to be released.  Used to be there to handle the GIL lock itself,
+# but that was changed (see rgil.py).  Now here for performance only.
 c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
                                          [TLOCKP, rffi.INT], rffi.INT,
                                          _nowrapper=True)
-c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
-                                         [TLOCKP], lltype.Void,
-                                         _nowrapper=True)
+c_thread_acquirelock_timed_NOAUTO = llexternal('RPyThreadAcquireLockTimed',
+                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
+                                         rffi.INT, _nowrapper=True)
+c_thread_releaselock_NOAUTO = c_thread_releaselock
 
 
 def allocate_lock():
@@ -131,9 +134,16 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
-        res = c_thread_acquirelock(self._lock, int(flag))
-        res = rffi.cast(lltype.Signed, res)
-        return bool(res)
+        if flag:
+            c_thread_acquirelock(self._lock, 1)
+            return True
+        else:
+            res = c_thread_acquirelock_timed_NOAUTO(
+                self._lock,
+                rffi.cast(rffi.LONGLONG, 0),
+                rffi.cast(rffi.INT, 0))
+            res = rffi.cast(lltype.Signed, res)
+            return bool(res)
 
     def acquire_timed(self, timeout):
         """Timeout is in microseconds.  Returns 0 in case of failure,
@@ -143,12 +153,8 @@ class Lock(object):
         return res
 
     def release(self):
-        # Sanity check: the lock must be locked
-        if self.acquire(False):
-            c_thread_releaselock(self._lock)
-            raise error("bad lock")
-        else:
-            c_thread_releaselock(self._lock)
+        if c_thread_releaselock(self._lock) != 0:
+            raise error("the lock was not previously acquired")
 
     def __del__(self):
         if free_ll_lock is None:  # happens when tests are shutting down
@@ -370,9 +376,11 @@ tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
 tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
                                    loop_invariant=True)
 tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
+tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")
 if sys.platform == "win32":
     from rpython.rlib import rwin32
     tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
+    tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")
 
 def _threadlocalref_seeme(field):
     "NOT_RPYTHON"

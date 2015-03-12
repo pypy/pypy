@@ -5,9 +5,8 @@ transformation is based on annotations; it runs after the annotator
 completed.
 """
 
-from rpython.flowspace.model import SpaceOperation
-from rpython.flowspace.model import Variable, Constant, Link
-from rpython.flowspace.model import c_last_exception, checkgraph
+from rpython.flowspace.model import (
+    SpaceOperation, Variable, Constant, Link, checkgraph)
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
 
@@ -155,7 +154,7 @@ def transform_dead_code(self, block_subset):
                 if not block.exits:
                     # oups! cannot reach the end of this block
                     cutoff_alwaysraising_block(self, block)
-                elif block.exitswitch == c_last_exception:
+                elif block.canraise:
                     # exceptional exit
                     if block.exits[0].exitcase is not None:
                         # killed the non-exceptional path!
@@ -271,4 +270,3 @@ def transform_graph(ann, extra_passes=None, block_subset=None):
     transform_dead_op_vars(ann, block_subset)
     if ann.translator:
         checkgraphs(ann, block_subset)
-
