@@ -315,7 +315,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                     GCClass.malloc_varsize.im_func,
                     [s_gc, s_typeid16]
                     + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
-        
+
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
@@ -934,8 +934,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
             v_a = op.result
             v_clear_size = hop.genop('int_sub', [v_size, c_after_header],
                                      resulttype=lltype.Signed)
-            self.emit_raw_memclear(hop.llops, v_clear_size, None,
-                                   c_after_header, v_a)
+            if not self.translator.config.translation.stm:
+                self.emit_raw_memclear(hop.llops, v_clear_size, None,
+                                       c_after_header, v_a)
+            else:
+                self.emit_stm_memclearinit(hop.llops, v_clear_size, None,
+                                           c_after_header, v_a)
+
 
     def gct_do_malloc_varsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
@@ -967,11 +972,19 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 llmemory.sizeof(self.HDR))
             v_clear_size = hop.genop('int_sub', [c_length_ofs, c_after_header],
                                      resulttype=lltype.Signed)
-            self.emit_raw_memclear(hop.llops, v_clear_size, None,
-                                   c_after_header, v_a)
-            # Clear the variable-size part
-            self.emit_raw_memclear(hop.llops, v_num_elem, c_itemsize,
-                                   c_basesize, v_a)
+
+            if not self.translator.config.translation.stm:
+                self.emit_raw_memclear(hop.llops, v_clear_size, None,
+                                       c_after_header, v_a)
+                # Clear the variable-size part
+                self.emit_raw_memclear(hop.llops, v_num_elem, c_itemsize,
+                                       c_basesize, v_a)
+            else:
+                self.emit_stm_memclearinit(hop.llops, v_clear_size, None,
+                                           c_after_header, v_a)
+                self.emit_stm_memclearinit(hop.llops, v_num_elem, c_itemsize,
+                                           c_basesize, v_a)
+
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop
@@ -1399,7 +1412,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                 [v] + previous_steps + [c_name, c_null])
                     else:
                         llops.genop('bare_setfield', [v, c_name, c_null])
-         
+
             return
         elif isinstance(TYPE, lltype.Array):
             ITEM = TYPE.OF
@@ -1407,16 +1420,20 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 v_size = llops.genop('getarraysize', [v],
                                      resulttype=lltype.Signed)
                 c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(ITEM))
-                v_a = llops.genop('cast_ptr_to_adr', [v],
-                                  resulttype=llmemory.Address)
                 c_fixedofs = rmodel.inputconst(lltype.Signed,
                                               llmemory.itemoffsetof(TYPE))
-                self.emit_raw_memclear(llops, v_size, c_size, c_fixedofs, v_a)
+                if not self.translator.config.translation.stm:
+                    v_a = llops.genop('cast_ptr_to_adr', [v],
+                                      resulttype=llmemory.Address)
+                    self.emit_raw_memclear(llops, v_size, c_size, c_fixedofs, v_a)
+                else:
+                    self.emit_stm_memclearinit(llops, v_size, c_size, c_fixedofs, v)
             return
         else:
             raise TypeError(TYPE)
 
     def emit_raw_memclear(self, llops, v_size, c_size, c_fixedofs, v_a):
+        assert not self.translator.config.translation.stm
         if c_size is None:
             v_totalsize = v_size
         else:
@@ -1425,6 +1442,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         v_adr = llops.genop('adr_add', [v_a, c_fixedofs],
                             resulttype=llmemory.Address)
         llops.genop('raw_memclear', [v_adr, v_totalsize])
+
+    def emit_stm_memclearinit(self, llops, v_size, c_size, c_fixedofs, v_a):
+        assert self.translator.config.translation.stm
+        if c_size is None:
+            v_totalsize = v_size
+        else:
+            v_totalsize = llops.genop('int_mul', [v_size, c_size],
+                                      resulttype=lltype.Signed)
+        llops.genop('stm_memclearinit', [v_a, c_fixedofs, v_totalsize])
+
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

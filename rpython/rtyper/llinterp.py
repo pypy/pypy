@@ -1005,6 +1005,7 @@ class LLFrame(object):
     op_stm_increment_atomic = _stm_not_implemented
     op_stm_decrement_atomic = _stm_not_implemented
     op_stm_collect = _stm_not_implemented
+    op_stm_memclearinit = _stm_not_implemented
 
     def op_stm_should_break_transaction(self, keep):
         return False

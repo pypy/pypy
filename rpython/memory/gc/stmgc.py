@@ -25,7 +25,7 @@ class StmGC(MovingGCBase):
     needs_write_barrier = "stm"
     prebuilt_gc_objects_are_static_roots = False
     ignore_immutable_static_roots = False
-    malloc_zero_filled = True
+    malloc_zero_filled = False
     object_minimal_size = 16
     #gcflag_extra = GCFLAG_EXTRA
 
@@ -70,7 +70,7 @@ class StmGC(MovingGCBase):
         hdr._obj.typeid16 = typeid16
         hdr._obj.prebuilt_hash = prebuilt_hash
 
-    def malloc_fixedsize_clear(self, typeid16, size,
+    def malloc_fixedsize(self, typeid16, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
@@ -84,7 +84,7 @@ class StmGC(MovingGCBase):
             return llop.stm_allocate_finalizer(llmemory.GCREF, size, typeid16)
         return llop.stm_allocate_tid(llmemory.GCREF, size, typeid16)
 
-    def malloc_varsize_clear(self, typeid16, length, size, itemsize,
+    def malloc_varsize(self, typeid16, length, size, itemsize,
                              offset_to_length):
         # XXX be careful here about overflows
         totalsize = size + itemsize * length

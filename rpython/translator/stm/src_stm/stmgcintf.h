@@ -24,6 +24,8 @@ void pypy_stm_setup_prebuilt(void);        /* generated into stm_prebuilt.c */
 void pypy_stm_register_thread_local(void); /* generated into stm_prebuilt.c */
 void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
 
+void pypy_stm_memclearinit(object_t *obj, size_t offset, size_t size);
+
 void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter);
 void _pypy_stm_inev_state(void);
 long _pypy_stm_start_transaction(void);

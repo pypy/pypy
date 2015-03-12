@@ -294,6 +294,13 @@ def stm_really_force_cast_ptr(funcgen, op):
     typename = cdecl(funcgen.lltypename(op.result), '')
     return '%s = (%s)(uintptr_t)%s;' % (result, typename, arg)
 
+def stm_memclearinit(funcgen, op):
+    gcref = funcgen.expr(op.args[0])
+    offset = funcgen.expr(op.args[1])
+    size = funcgen.expr(op.args[2])
+    return 'pypy_stm_memclearinit((object_t*)%s, (size_t)%s, (size_t)%s);' % (
+        gcref, offset, size)
+
 def stm_hashtable_create(funcgen, op):
     _STM_HASHTABLE_ENTRY = op.args[0].concretetype.TO
     type_id = funcgen.db.gctransformer.get_type_id(_STM_HASHTABLE_ENTRY)

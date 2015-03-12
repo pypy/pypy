@@ -446,6 +446,9 @@ LL_OPERATIONS = {
     'stm_stop_all_other_threads':         LLOp(canmallocgc=True),
     'stm_resume_all_other_threads':       LLOp(),
 
+    # stm_memclearinit(gcref, offset, size) clears the memory in this address space
+    'stm_memclearinit': LLOp(),
+
     'stm_hint_commit_soon':   LLOp(canrun=True),
 
     'stm_increment_atomic':   LLOp(),

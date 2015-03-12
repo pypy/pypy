@@ -50,6 +50,12 @@ void pypy_stm_unregister_thread_local(void)
 }
 
 
+void pypy_stm_memclearinit(object_t *obj, size_t offset, size_t size)
+{
+    char *realobj = STM_SEGMENT->segment_base + (uintptr_t)obj;
+    memset(realobj + offset, 0, size);
+}
+
 /************************************************************/
 /*** HACK: hard-coded logic to expand the marker into     ***/
 /*** a string, suitable for running in PyPy               ***/
