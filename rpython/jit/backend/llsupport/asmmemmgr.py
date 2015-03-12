@@ -314,7 +314,8 @@ class BlockBuilderMixin(object):
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
                 gcrootmap.register_asm_addr(rawstart + pos, mark)
-        cpu.codemap.register_frame_depth_map(rawstart, self.frame_positions,
+        cpu.codemap.register_frame_depth_map(rawstart, rawstart + size,
+                                             self.frame_positions,
                                              self.frame_assignments)
         self.frame_positions = None
         self.frame_assignments = None
