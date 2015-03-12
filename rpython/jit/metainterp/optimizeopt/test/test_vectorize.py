@@ -42,15 +42,23 @@ class DepTestHelper(BaseTest):
         self._do_optimize_loop(loop, call_pure_results, export_state=True)
         self.assert_equal(loop, expected_loop)
 
-    def assert_unroll_loop_equals(self, loop, expected_loop, \
-                     unroll_factor = -1, call_pure_results=None):
+    def vec_optimizer(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = OptVectorize(metainterp_sd, jitdriver_sd, loop, [])
+        return opt
+
+    def vec_optimizer_unrolled(self, loop, unroll_factor = -1):
+        opt = self.vec_optimizer(loop)
+        opt._gather_trace_information(loop)
         if unroll_factor == -1:
-            opt._gather_trace_information(loop)
             unroll_factor = opt.get_estimated_unroll_factor()
         opt.unroll_loop_iterations(loop, unroll_factor)
+        return opt
+
+    def assert_unroll_loop_equals(self, loop, expected_loop, \
+                     unroll_factor = -1):
+        vec_optimizer = self.vec_optimizer(loop, unroll_factor)
         self.assert_equal(loop, expected_loop)
 
     def assert_def_use(self, graph, from_instr_index, to_instr_index):
@@ -171,49 +179,36 @@ class BaseTestDependencyGraph(DepTestHelper):
         """
         self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(opt_ops), 2)
 
+    def test_estimate_unroll_factor_smallest_byte_zero(self):
+        ops = """
+        [p0,i0]
+        raw_load(p0,i0,descr=arraydescr2)
+        jump(p0,i0)
+        """
+        vopt = self.vec_optimizer(self.parse_loop(ops))
+        assert 0 == vopt.vec_info.smallest_type_bytes
+        assert 0 == vopt.get_estimated_unroll_factor()
+
+    def test_array_operation_indices_not_unrolled(self):
+        ops = """
+        [p0,i0]
+        raw_load(p0,i0,descr=arraydescr2)
+        jump(p0,i0)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops))
+        assert 1 in vopt.vec_info.array_ops
+        assert len(vopt.vec_info.array_ops) == 1
+
+    def test_array_operation_indices_unrolled_1(self):
+        ops = """
+        [p0,i0]
+        raw_load(p0,i0,descr=chararraydescr)
+        jump(p0,i0)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        assert 1 in vopt.vec_info.array_ops
+        assert 2 in vopt.vec_info.array_ops
+        assert len(vopt.vec_info.array_ops) == 2
+
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass
-
-#class BaseTestVectorize(BaseTest):
-#
-#    # vector instructions are not produced by the interpreter
-#    # the optimization vectorize produces them
-#    # load from from aligned memory example:
-#    # vec = vec_aligned_raw_load(dst, index, sizeinbytes, descr)
-#    # 'VEC_ALIGNED_RAW_LOAD/3d',
-#    # store to aligned memory. example:
-#    # vec_aligned_raw_store(dst, index, vector, sizeinbytes, descr)
-#    # 'VEC_ALIGNED_RAW_STORE/4d',
-#    # a list of operations on vectors
-#    # add a vector: vec_int_add(v1, v2, 16)
-#    # 'VEC_INT_ADD/3',
-#
-#class TestVectorize(BaseTestVectorize):
-#
-#    def test_simple(self):
-#        ops = """
-#        [ia,ib,ic,i0]
-#        ibi = raw_load(ib, i0, descr=arraydescr)
-#        ici = raw_load(ic, i0, descr=arraydescr)
-#        iai = int_add(ibi, ici)
-#        raw_store(ia, i0, iai, descr=arraydescr)
-#        i1 = int_add(i0,1)
-#        ie = int_ge(i1,8)
-#        guard_false(ie) [ia,ib,ic,i1]
-#        jump(ia,ib,ic,i1)
-#        """
-#        expected = """
-#        [ia,ib,ic,i0]
-#        ibv = vec_raw_load(ib, i0, 16, descr=arraydescr)
-#        icv = vec_raw_load(ic, i0, 16, descr=arraydescr)
-#        iav = vec_int_add(ibi, ici, 16)
-#        vec_raw_store(ia, i0, iai, 16, descr=arraydescr)
-#        i1 = int_add(i0,4)
-#        ie = int_ge(i1,8)
-#        guard_false(ie) [ia,ib,ic,i1]
-#        jump(ia,ib,ic,i1)
-#        """
-#        self.optimize_loop(ops, expected)
-#
-#class TestLLtype(TestVectorize, LLtypeMixin):
-#    pass

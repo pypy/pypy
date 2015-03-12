@@ -25,7 +25,8 @@ class OptVectorize(Optimization):
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         self.optimizer = VectorizeOptimizer(metainterp_sd, jitdriver_sd,
                                              loop, optimizations)
-        self.loop_vectorizer_checker = LoopVectorizeChecker()
+        self.vec_info = LoopVectorizeInfo()
+        self.memory_refs = []
         self.vectorized = False
 
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
@@ -42,10 +43,12 @@ class OptVectorize(Optimization):
     def unroll_loop_iterations(self, loop, unroll_factor):
         label_op = loop.operations[0]
         jump_op = loop.operations[-1]
-        operations = [loop.operations[i] for i in range(1,len(loop.operations)-1)]
+        operations = [loop.operations[i].clone() for i in range(1,len(loop.operations)-1)]
         loop.operations = []
 
-        iterations = [[op.clone() for op in operations]]
+        op_index = len(operations) + 1
+
+        iterations = [operations]
         label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
         values = [self.getvalue(box) for box in label_op.getarglist()]
         #values[0].make_nonnull(self.optimizer)
@@ -75,7 +78,10 @@ class OptVectorize(Optimization):
                     except KeyError:
                         pass
 
+                self._op_index = op_index
                 iteration_ops.append(copied_op)
+                self.vec_info.inspect_operation(copied_op)
+                op_index += 1
 
             # the jump arguments have been changed
             # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
@@ -102,13 +108,15 @@ class OptVectorize(Optimization):
 
     def _gather_trace_information(self, loop):
         for i,op in enumerate(loop.operations):
-            self.loop_vectorizer_checker._op_index = i
-            self.loop_vectorizer_checker.inspect_operation(op)
+            self.vec_info._op_index = i
+            self.vec_info.inspect_operation(op)
 
     def get_estimated_unroll_factor(self, force_reg_bytes = -1):
         """ force_reg_bytes used for testing """
         # this optimization is not opaque, and needs info about the CPU
-        byte_count = self.loop_vectorizer_checker.smallest_type_bytes
+        byte_count = self.vec_info.smallest_type_bytes
+        if byte_count == 0:
+            return 0
         simd_vec_reg_bytes = 16 # TODO get from cpu
         if force_reg_bytes > 0:
             simd_vec_reg_bytes = force_reg_bytes
@@ -122,10 +130,7 @@ class OptVectorize(Optimization):
 
         self._gather_trace_information(loop)
 
-        for op in loop.operations:
-            self.loop_vectorizer_checker.inspect_operation(op)
-
-        byte_count = self.loop_vectorizer_checker.smallest_type_bytes
+        byte_count = self.vec_info.smallest_type_bytes
         if byte_count == 0:
             # stop, there is no chance to vectorize this trace
             return loop
@@ -143,37 +148,37 @@ class OptVectorize(Optimization):
             for more details.
         """
 
+        for i,operation in enumerate(loop.operations):
+
+            if operation.getopnum() == rop.RAW_LOAD:
+                # TODO while the loop is unrolled, build memory accesses
+                pass
+
 
         # was not able to vectorize
         return False
 
-
-
-class LoopVectorizeChecker(object):
+class LoopVectorizeInfo(object):
 
     def __init__(self):
         self.smallest_type_bytes = 0
         self._op_index = 0
-        self.mem_ref_indices = []
+        self.array_ops = []
 
-    def add_memory_ref(self, i):
-        self.mem_ref_indices.append(i)
-
-    def count_RAW_LOAD(self, op):
-        self.add_memory_ref(self._op_index)
+    def operation_RAW_LOAD(self, op):
         descr = op.getdescr()
+        self.array_ops.append(self._op_index)
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
                or byte_count < self.smallest_type_bytes:
                 self.smallest_type_bytes = byte_count
 
-    def default_count(self, operation):
+    def default_operation(self, operation):
         pass
-dispatch_opt = make_dispatcher_method(LoopVectorizeChecker, 'count_',
-        default=LoopVectorizeChecker.default_count)
-LoopVectorizeChecker.inspect_operation = dispatch_opt
-
+dispatch_opt = make_dispatcher_method(LoopVectorizeInfo, 'operation_',
+        default=LoopVectorizeInfo.default_operation)
+LoopVectorizeInfo.inspect_operation = dispatch_opt
 
 class Pack(object):
     """ A pack is a set of n statements that are:
@@ -194,11 +199,11 @@ class Pair(Pack):
         Pack.__init__(self, [left_op, right_op])
 
 
-class MemoryAccess(object):
-    def __init__(self, array, origin, offset):
+class MemoryRef(object):
+    def __init__(self, array, origin):
         self.array = array
         self.origin = origin
-        self.offset = offset
+        self.offset = None
 
     def is_adjacent_to(self, mem_acc):
         if self.array == mem_acc.array:
