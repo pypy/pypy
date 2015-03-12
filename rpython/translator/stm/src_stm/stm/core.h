@@ -278,6 +278,8 @@ static void abort_with_mutex(void) __attribute__((noreturn));
 static stm_thread_local_t *abort_with_mutex_no_longjmp(void);
 static void abort_data_structures_from_segment_num(int segment_num);
 
+static void touch_all_pages_of_obj(object_t *obj, size_t obj_size);
+
 static void synchronize_object_enqueue(object_t *obj);
 static void synchronize_objects_flush(void);
 

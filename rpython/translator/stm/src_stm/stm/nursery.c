@@ -451,11 +451,8 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 #undef STM_PSEGMENT
 #undef STM_SEGMENT
     dprintf(("throw_away_nursery\n"));
-    /* reset the nursery by zeroing it */
-    size_t nursery_used;
-    char *realnursery;
 
-    realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
+    size_t nursery_used;
     nursery_used = pseg->pub.nursery_current - (stm_char *)_stm_nursery_start;
     if (nursery_used > NB_NURSERY_PAGES * 4096) {
         /* possible in rare cases when the program artificially advances
@@ -463,11 +460,18 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
         nursery_used = NB_NURSERY_PAGES * 4096;
     }
     OPT_ASSERT((nursery_used & 7) == 0);
+
+
+#if _STM_NURSERY_ZEROED
+    /* reset the nursery by zeroing it */
+    char *realnursery;
+    realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
     memset(realnursery, 0, nursery_used);
 
     /* assert that the rest of the nursery still contains only zeroes */
     assert_memset_zero(realnursery + nursery_used,
                        (NURSERY_END - _stm_nursery_start) - nursery_used);
+#endif
 
     pseg->pub.nursery_current = (stm_char *)_stm_nursery_start;
 
@@ -601,6 +605,9 @@ object_t *_stm_allocate_slowpath(ssize_t size_rounded_up)
     stm_char *end = p + size_rounded_up;
     if ((uintptr_t)end <= NURSERY_END) {
         STM_SEGMENT->nursery_current = end;
+#if !_STM_NURSERY_ZEROED
+        ((object_t *)p)->stm_flags = 0;
+#endif
         return (object_t *)p;
     }
 
@@ -626,7 +633,14 @@ object_t *_stm_allocate_external(ssize_t size_rounded_up)
 
     tree_insert(STM_PSEGMENT->young_outside_nursery, (uintptr_t)o, 0);
 
+#if _STM_NURSERY_ZEROED
     memset(REAL_ADDRESS(STM_SEGMENT->segment_base, o), 0, size_rounded_up);
+#else
+    o->stm_flags = 0;
+    /* make all pages of 'o' accessible as synchronize_obj_flush() in minor
+       collections assumes all young objs are fully accessible. */
+    touch_all_pages_of_obj(o, size_rounded_up);
+#endif
     return o;
 }
 
@@ -646,6 +660,7 @@ void _stm_set_nursery_free_count(uint64_t free_count)
 }
 #endif
 
+__attribute__((unused))
 static void assert_memset_zero(void *s, size_t n)
 {
 #ifndef NDEBUG
@@ -662,9 +677,12 @@ static void assert_memset_zero(void *s, size_t n)
 static void check_nursery_at_transaction_start(void)
 {
     assert((uintptr_t)STM_SEGMENT->nursery_current == _stm_nursery_start);
+
+#if _STM_NURSERY_ZEROED
     assert_memset_zero(REAL_ADDRESS(STM_SEGMENT->segment_base,
                                     STM_SEGMENT->nursery_current),
                        NURSERY_END - _stm_nursery_start);
+#endif
 }
 
 

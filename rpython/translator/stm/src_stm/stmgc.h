@@ -73,6 +73,10 @@ typedef struct stm_thread_local_s {
     void *creating_pthread[2];
 } stm_thread_local_t;
 
+#ifndef _STM_NURSERY_ZEROED
+#define _STM_NURSERY_ZEROED               0
+#endif
+
 #define _STM_GCFLAG_WRITE_BARRIER      0x01
 #define _STM_FAST_ALLOC           (66*1024)
 #define _STM_NSE_SIGNAL_ABORT             1
@@ -254,6 +258,9 @@ static inline object_t *stm_allocate(ssize_t size_rounded_up)
     if (UNLIKELY((uintptr_t)end > STM_SEGMENT->nursery_end))
         return _stm_allocate_slowpath(size_rounded_up);
 
+#if !_STM_NURSERY_ZEROED
+    ((object_t *)p)->stm_flags = 0;
+#endif
     return (object_t *)p;
 }
 
