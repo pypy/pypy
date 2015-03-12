@@ -262,7 +262,7 @@ def _ll_hashtable_trace(gc, obj, callback, arg):
     from rpython.memory.gctransform.stmframework import get_visit_function
     visit_fn = get_visit_function(callback, arg)
     addr = obj + llmemory.offsetof(_HASHTABLE_OBJ, 'll_raw_hashtable')
-    llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
+    llop.stm_hashtable_tracefn(lltype.Void, obj, addr.address[0], visit_fn)
 lambda_hashtable_trace = lambda: _ll_hashtable_trace
 
 def _ll_hashtable_finalizer(h):
