@@ -131,6 +131,7 @@ static skipnode_t jit_depthmap_head;
 
 /*** interface used from codemap.py ***/
 
+RPY_EXTERN
 long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
                            unsigned int stackdepth)
 {
@@ -150,10 +151,9 @@ long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
     return 0;
 }
 
+RPY_EXTERN
 void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
 {
-    abort();
-#if 0
     uintptr_t search_key = addr + size - 1;
     if (size == 0)
         return;
@@ -162,16 +162,17 @@ void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
     while (1) {
         /* search for all nodes belonging to the range, and remove them */
         skipnode_t *node = skiplist_search(&jit_depthmap_head, search_key);
-        if (node->addr < addr)
+        if (node->key < addr)
             break;   /* exhausted */
-        skiplist_remove(&jit_depthmap_head, node->addr);
+        skiplist_remove(&jit_depthmap_head, node->key);
+        free(node);
     }
     pypy_codemap_invalid_set(0);
-#endif
 }
 
 /*** interface used from pypy/module/_vmprof ***/
 
+RPY_EXTERN
 long pypy_jit_stack_depth_at_loc(long loc)
 {
     skipnode_t *depthmap = skiplist_search(&jit_depthmap_head, (uintptr_t)loc);

@@ -55,6 +55,13 @@ pypy_jit_codemap_del = llexternal('pypy_jit_codemap_del',
 pypy_jit_codemap_firstkey = llexternal('pypy_jit_codemap_firstkey',
                                        [], lltype.Signed)
 
+pypy_jit_depthmap_add = llexternal('pypy_jit_depthmap_add',
+                                   [lltype.Signed, lltype.Signed,
+                                    lltype.Signed], lltype.Signed)
+pypy_jit_depthmap_clear = llexternal('pypy_jit_depthmap_clear',
+                                     [lltype.Signed, lltype.Signed],
+                                     lltype.Void)
+
 stack_depth_at_loc = llexternal('pypy_jit_stack_depth_at_loc',
                                 [lltype.Signed], lltype.Signed)
 find_codemap_at_addr = llexternal('pypy_find_codemap_at_addr',
@@ -63,14 +70,6 @@ yield_bytecode_at_addr = llexternal('pypy_yield_codemap_at_addr',
                                     [lltype.Signed, lltype.Signed,
                                      rffi.CArrayPtr(lltype.Signed)],
                                      lltype.Signed)
-
-@specialize.ll()
-def copy_item(source, dest, si, di, baseline=0):
-    TP = lltype.typeOf(dest)
-    if isinstance(TP.TO.OF, lltype.Struct):
-        rgc.copy_struct_item(source, dest, si, di)
-    else:
-        dest[di] = source[si] + baseline
 
 
 class CodemapStorage(object):
@@ -93,45 +92,20 @@ class CodemapStorage(object):
         items = pypy_jit_codemap_del(start)
         if items:
             lltype.free(items, flavor='raw', track_allocation=False)
-        ## # fix up jit_addr_map
-        ## g = pypy_get_codemap_storage()
-        ## jit_adr_start = bisect_left(g.jit_addr_map, start,
-        ##                             g.jit_addr_map_used)
-        ## jit_adr_stop = bisect_left(g.jit_addr_map, stop,
-        ##                            g.jit_addr_map_used)
-        ## pypy_codemap_invalid_set(1)
-        ## self.remove('jit_addr_map', jit_adr_start, jit_adr_stop)
-        ## self.remove('jit_frame_depth_map', jit_adr_start, jit_adr_stop)
-        ## # fix up codemap
-        ## # (there should only be zero or one codemap entry in that range,
-        ## # but still we use a range to distinguish between zero and one)
-        ## codemap_adr_start = bisect_left_addr(g.jit_codemap, start,
-        ##                                      g.jit_codemap_used)
-        ## codemap_adr_stop = bisect_left_addr(g.jit_codemap, stop,
-        ##                                     g.jit_codemap_used)
-        ## self.remove('jit_codemap', codemap_adr_start, codemap_adr_stop)
-        ## pypy_codemap_invalid_set(0)
+        pypy_jit_depthmap_clear(start, stop - start)
 
-    def register_frame_depth_map(self, rawstart, frame_positions,
+    def register_frame_depth_map(self, rawstart, rawstop, frame_positions,
                                  frame_assignments):
         if not frame_positions:
             return
-        pypy_codemap_invalid_set(1)
-        g = pypy_get_codemap_storage()
-        if (not g.jit_addr_map_used or
-            rawstart > g.jit_addr_map[g.jit_addr_map_used - 1]):
-            start = g.jit_addr_map_used
-            self.extend_with('jit_addr_map', frame_positions,
-                             g.jit_addr_map_used, rawstart)
-            self.extend_with('jit_frame_depth_map', frame_assignments,
-                             g.jit_frame_depth_map_used)
-        else:
-            start = bisect_left(g.jit_addr_map, rawstart,
-                                g.jit_addr_map_used)
-            self.extend_with('jit_addr_map', frame_positions, start, rawstart)
-            self.extend_with('jit_frame_depth_map', frame_assignments,
-                             start)
-        pypy_codemap_invalid_set(0)
+        assert len(frame_positions) == len(frame_assignments)
+        for i in range(len(frame_positions)-1, -1, -1):
+            pos = rawstart + frame_positions[i]
+            length = rawstop - pos
+            if length > 0:
+                print "ADD:", pos, length, frame_assignments[i]
+                pypy_jit_depthmap_add(pos, length, frame_assignments[i])
+            rawstop = pos
 
     def register_codemap(self, (start, size, l)):
         items = lltype.malloc(INT_LIST_PTR.TO, len(l), flavor='raw',
