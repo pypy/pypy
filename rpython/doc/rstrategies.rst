@@ -98,18 +98,18 @@ An example ``AbstractStrategy`` class, which also stores an additional ``space``
 
 ::
 
-class AbstractStrategy(AbstractStrategy):
-    _attrs_ = ['space']
-    _immutable_fields_ = ['space']
-    __metaclass__ = rstrat.StrategyMetaclass
-    import_from_mixin(rstrat.AbstractStrategy)
-    import_from_mixin(rstrategies.SafeIndexingMixin)
-    
-    def __init__(self, space):
-        self.space = space
-    
-    def strategy_factory(self):
-        return self.space.strategy_factory
+    class AbstractStrategy(AbstractStrategy):
+        _attrs_ = ['space']
+        _immutable_fields_ = ['space']
+        __metaclass__ = rstrat.StrategyMetaclass
+        import_from_mixin(rstrat.AbstractStrategy)
+        import_from_mixin(rstrategies.SafeIndexingMixin)
+        
+        def __init__(self, space):
+            self.space = space
+        
+        def strategy_factory(self):
+            return self.space.strategy_factory
 
 
 Strategy classes
@@ -144,14 +144,14 @@ An example strategy class for optimized ``int`` storage could look like this:
 
 ::
 
-@rstrat.strategy(generalize=[GenericStrategy])
-class IntegerOrNilStrategy(AbstractStrategy):
-    import_from_mixin(rstrat.TaggingStrategy)
-    contained_type = model.W_Integer
-    def wrap(self, val): return self.space.wrap_int(val)
-    def unwrap(self, w_val): return self.space.unwrap_int(w_val)
-    def wrapped_tagged_value(self): return self.space.w_nil
-    def unwrapped_tagged_value(self): return constants.MAXINT
+    @rstrat.strategy(generalize=[GenericStrategy])
+    class IntegerOrNilStrategy(AbstractStrategy):
+        import_from_mixin(rstrat.TaggingStrategy)
+        contained_type = model.W_Integer
+        def wrap(self, val): return self.space.wrap_int(val)
+        def unwrap(self, w_val): return self.space.unwrap_int(w_val)
+        def wrapped_tagged_value(self): return self.space.w_nil
+        def unwrapped_tagged_value(self): return constants.MAXINT
 
 Strategy Factory
 ----------------
@@ -188,22 +188,22 @@ An example strategy factory for the ``AbstractStrategy`` class above could look 
 
 ::
 
-class StrategyFactory(rstrategies.StrategyFactory):
-    _attrs_ = ['space']
-    _immutable_fields_ = ['space']
-    
-    def __init__(self, space):
-        self.space = space
-        rstrat.StrategyFactory.__init__(self, AbstractStrategy)
-    
-    def instantiate_strategy(self, strategy_type):
-        return strategy_type(self.space)
-    
-    def strategy_type_for(self, list_w, weak=False):
-        """
-        Helper method for handling weak objects specially
-        """
-        if weak:
-            return WeakListStrategy
+    class StrategyFactory(rstrategies.StrategyFactory):
+        _attrs_ = ['space']
+        _immutable_fields_ = ['space']
+        
+        def __init__(self, space):
+            self.space = space
+            rstrat.StrategyFactory.__init__(self, AbstractStrategy)
+        
+        def instantiate_strategy(self, strategy_type):
+            return strategy_type(self.space)
+        
+        def strategy_type_for(self, list_w, weak=False):
+            """
+            Helper method for handling weak objects specially
+            """
+            if weak:
+                return WeakListStrategy
         return rstrategies.StrategyFactory.strategy_type_for(self, list_w)
     
