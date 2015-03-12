@@ -54,10 +54,11 @@ class TestStm(RewriteTests):
         self.gc_ll_descr.write_barrier_descr.has_write_barrier_from_array = (
             lambda cpu: True)
         self.gc_ll_descr.minimal_size_in_nursery = 16
+        self.gc_ll_descr.malloc_zero_filled = False
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(104)
+                descr = SizeDescrWithVTable(104, gc_fielddescrs=[])
                 descr.tid = 9315
                 return descr
 
@@ -73,7 +74,7 @@ class TestStm(RewriteTests):
         for name, value in self.gc_ll_descr.__dict__.items():
             if name.endswith('descr') and name[1] == '2' and len(name) == 8:
                 namespace[name] = value     # "X2Ydescr"
-        self.gc_ll_descr.malloc_zero_filled = True
+        self.gc_ll_descr.malloc_zero_filled = False
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
                                    **namespace)
 
@@ -226,6 +227,7 @@ class TestStm(RewriteTests):
             setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
             cond_call_gc_wb(p3, descr=wbdescr)
             setfield_gc(p3, p1, descr=tzdescr)
+            zero_ptr_field(p2, %(tdescr.gc_fielddescrs[0].offset)s)
             jump(p2)
         """)
 
@@ -243,6 +245,7 @@ class TestStm(RewriteTests):
             p3 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p3, %(tdescr.tid)d, descr=tiddescr)
             p4 = getfield_gc(p1, descr=tzdescr)
+            zero_ptr_field(p3, %(tdescr.gc_fielddescrs[0].offset)s)
             jump(p2)
         """)
 
@@ -271,6 +274,7 @@ class TestStm(RewriteTests):
             p2 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
             p1 = getfield_gc(p2, descr=tzdescr)
+            zero_ptr_field(p2, %(tdescr.gc_fielddescrs[0].offset)s)
             jump(p1)
         """)
 
@@ -605,6 +609,7 @@ class TestStm(RewriteTests):
             [i2, i3]
             p1 = call_malloc_nursery_varsize(1, 1, i3, descr=strdescr)
             setfield_gc(p1, i3, descr=strlendescr)
+            setfield_gc(p1, 0, descr=strhashdescr)
             cond_call_gc_wb(p1, descr=wbdescr)
             strsetitem(p1, i2, i3)
             unicodesetitem(p1, i2, i3)
@@ -688,6 +693,7 @@ class TestStm(RewriteTests):
             [p1, i1, i2, i3]
             p2 = call_malloc_nursery_varsize(1, 1, i3, descr=strdescr)
             setfield_gc(p2, i3, descr=strlendescr)
+            setfield_gc(p2, 0, descr=strhashdescr)
             cond_call_gc_wb(p2, descr=wbdescr)
             copystrcontent(p1, p2, i1, i2, i3)
             jump()
@@ -892,9 +898,12 @@ class TestStm(RewriteTests):
                                %(sdescr.size + tdescr.size + sdescr.size)d)
             setfield_gc(p0, 1234, descr=tiddescr)
             p1 = int_add(p0, %(sdescr.size)d)
+            setfield_gc(p1, 0, descr=stmflagsdescr)
             setfield_gc(p1, 5678, descr=tiddescr)
             p2 = int_add(p1, %(tdescr.size)d)
+            setfield_gc(p2, 0, descr=stmflagsdescr)
             setfield_gc(p2, 1234, descr=tiddescr)
+            zero_ptr_field(p1, %(tdescr.gc_fielddescrs[0].offset)s)
             jump()
         """)
 
@@ -1005,7 +1014,7 @@ class TestStm(RewriteTests):
         [i0]
         p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
         setfield_gc(p0, i0, descr=strlendescr)
-
+        setfield_gc(p0, 0, descr=strhashdescr)
         jump(i0)
         """)
 
@@ -1123,18 +1132,22 @@ class TestStm(RewriteTests):
                         unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
             setfield_gc(p0, %(strdescr.tid)d, descr=tiddescr)
             setfield_gc(p0, 14, descr=strlendescr)
+            setfield_gc(p0, 0, descr=strhashdescr)
 
             p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
+            setfield_gc(p1, 0, descr=unicodehashdescr)
 
             p2 = call_malloc_nursery_varsize(2, 4, i2, \
                                 descr=unicodedescr)
             setfield_gc(p2, i2, descr=unicodelendescr)
+            setfield_gc(p2, 0, descr=unicodehashdescr)
 
             p3 = call_malloc_nursery_varsize(1, 1, i2, \
                                 descr=strdescr)
             setfield_gc(p3, i2, descr=strlendescr)
+            setfield_gc(p3, 0, descr=strhashdescr)
 
             jump()
         """)
@@ -1142,7 +1155,7 @@ class TestStm(RewriteTests):
     def test_label_makes_size_unknown(self):
         self.check_rewrite("""
             [i2, p3]
-            p1 = new_array(5, descr=cdescr)
+            p1 = new_array_clear(5, descr=cdescr)
             label(p1, i2, p3)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
         """, """
@@ -1151,6 +1164,7 @@ class TestStm(RewriteTests):
                                 %(cdescr.basesize + 5 * cdescr.itemsize)d)
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 5, descr=clendescr)
+            zero_array(p1, 0, 5, descr=cdescr)
             label(p1, i2, p3)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
@@ -1303,6 +1317,7 @@ class TestStm(RewriteTests):
         p2 = call_malloc_nursery(%(tdescr.size)d)
         setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
         i1 = stm_should_break_transaction()
+        zero_ptr_field(p2, %(tdescr.gc_fielddescrs[0].offset)s)
         jump(i1)
         """)
 
@@ -1331,6 +1346,7 @@ class TestStm(RewriteTests):
         []
         p2 = call_malloc_nursery(%(tdescr.size)d)
         setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+        zero_ptr_field(p2, %(tdescr.gc_fielddescrs[0].offset)s)
         label()
         i1 = stm_should_break_transaction()
         $DUMMYALLOC
@@ -1350,4 +1366,18 @@ class TestStm(RewriteTests):
         $DUMMYALLOC
         guard_not_forced_2() []
         finish()
+        """)
+
+    def test_zero_before_maymalloc(self):
+        self.check_rewrite("""
+        []
+        p2 = new(descr=tdescr)
+        escape()
+        """, """
+        []
+        p2 = call_malloc_nursery(%(tdescr.size)d)
+        setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
+        zero_ptr_field(p2, %(tdescr.gc_fielddescrs[0].offset)s)
+        $INEV
+        escape()
         """)
