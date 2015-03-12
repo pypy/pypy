@@ -72,11 +72,10 @@ class Factory(rs.StrategyFactory):
     
     def __init__(self, root_class):
         self.decorate_strategies({
-            EmptyStrategy: [GenericStrategy],
+            EmptyStrategy: [NilStrategy, IntegerStrategy, IntegerOrNilStrategy, GenericStrategy],
             NilStrategy: [IntegerOrNilStrategy, GenericStrategy],
             GenericStrategy: [],
-            WeakGenericStrategy: [],
-                IntegerStrategy: [IntegerOrNilStrategy, GenericStrategy],
+            IntegerStrategy: [IntegerOrNilStrategy, GenericStrategy],
             IntegerOrNilStrategy: [GenericStrategy],
         })
         rs.StrategyFactory.__init__(self, root_class)
@@ -94,6 +93,7 @@ class Factory(rs.StrategyFactory):
 
 class EmptyStrategy(AbstractStrategy):
     import_from_mixin(rs.EmptyStrategy)
+    # TODO - implement and test transition from Generic back to Empty
 
 class NilStrategy(AbstractStrategy):
     import_from_mixin(rs.SingleValueStrategy)
@@ -129,10 +129,15 @@ class NonSingletonStrategy(GenericStrategy):
     def __init__(self, factory, w_list=None, size=0):
         super(NonSingletonStrategy, self).__init__(factory, w_list, size)
         self.w_list = w_list
-        self.size = size
+        self.the_size = size
 
 class NonStrategy(NonSingletonStrategy):
     pass
+
+@rs.strategy(generalize=[])
+class InefficientStrategy(GenericStrategy):
+    def _convert_storage_from(self, w_self, previous_strategy):
+        return AbstractStrategy._convert_storage_from(self, w_self, previous_strategy)
 
 factory = Factory(AbstractStrategy)
 
@@ -207,6 +212,8 @@ def test_init_Empty():
     assert s.size(l) == 0
     py.test.raises(IndexError, s.fetch, l, 0)
     py.test.raises(IndexError, s.fetch, l, 10)
+    py.test.raises(IndexError, s.delete, l, 0, 1)
+    py.test.raises(AssertionError, W_List, EmptyStrategy, 2) # Only size 0 possible.
     
 def test_init_Nil():
     do_test_initialization(NilStrategy)
@@ -265,13 +272,17 @@ def test_store_IntegerOrNil():
 def do_test_insert(cls, values):
     l = W_List(cls, 0)
     assert len(values) >= 6
-    values1 = values[0:2]
+    values0 = values[0:1]
+    values1 = values[1:2]
     values2 = values[2:4]
     values3 = values[4:6]
-    l.insert(0, values1+values3)
-    check_contents(l, values1+values3)
+    l.insert(3, values0) # Will still be inserted at the very beginning
+    check_contents(l, values0)
+    l.insert(1, values1+values3)
+    check_contents(l, values0+values1+values3)
     l.insert(2, values2)
     check_contents(l, values)
+    return l
 
 def test_insert_Nil():
     do_test_insert(NilStrategy, [w_nil]*6)
@@ -291,9 +302,11 @@ def test_insert_IntegerOrNil():
     
 # === Test Delete
 
-def do_test_delete(cls, values):
+def do_test_delete(cls, values, indexing_unsafe=False):
     assert len(values) >= 6
     l = W_List(cls, len(values), values)
+    if not indexing_unsafe:
+        py.test.raises(IndexError, l.delete, 2, 1)
     l.delete(2, 4)
     del values[2: 4]
     check_contents(l, values)
@@ -305,7 +318,7 @@ def test_delete_Nil():
     do_test_delete(NilStrategy, [w_nil]*6)
 
 def test_delete_Generic():
-    do_test_delete(GenericStrategy, [W_Object() for _ in range(6)])
+    do_test_delete(GenericStrategy, [W_Object() for _ in range(6)], indexing_unsafe=True)
     
 def test_delete_WeakGeneric():
     do_test_delete(WeakGenericStrategy, [W_Object() for _ in range(6)])
@@ -356,6 +369,13 @@ def test_IntegerOrNil_to_Generic():
 def test_Integer_to_IntegerOrNil():
     do_test_transition(IntegerStrategy, w_nil, IntegerOrNilStrategy)
 
+def test_Generic_to_AllNil():
+    w = W_List(GenericStrategy, 5)
+    old = w.strategy
+    factory.switch_strategy(w, NilStrategy)
+    assert isinstance(w.strategy, NilStrategy)
+    assert factory.switching_log == [(None, old), (old, w.strategy)]
+
 def test_Integer_Generic():
     do_test_transition(IntegerStrategy, W_Object(), GenericStrategy)
 
@@ -363,7 +383,51 @@ def test_TaggingValue_not_storable():
     tag = IntegerOrNilStrategy(10).unwrapped_tagged_value() # sys.maxint
     do_test_transition(IntegerOrNilStrategy, W_Integer(tag), GenericStrategy)
 
-# TODO - Test transition from varsize back to Empty
+def test_insert_StrategySwitch_IntOrNil():
+    o = W_Object()
+    l = do_test_insert(IntegerOrNilStrategy, [W_Integer(1), w_nil, o, o, w_nil, W_Integer(3)])
+    assert isinstance(l.strategy, GenericStrategy)
+
+def test_insert_StrategySwitch_AllNil():
+    o = W_Object()
+    l = do_test_insert(NilStrategy, [w_nil, w_nil, o, o, w_nil, w_nil])
+    assert isinstance(l.strategy, GenericStrategy)
+    
+def test_transition_to_nonSingleton():
+    l = W_List(NilStrategy, 5)
+    factory.switch_strategy(l, NonSingletonStrategy)
+    strategy1 = l.strategy
+    assert isinstance(strategy1, NonSingletonStrategy)
+    factory.switch_strategy(l, NonSingletonStrategy)
+    assert strategy1 != l.strategy
+
+def test_generic_convert_storage():
+    l = W_List(NilStrategy, 5)
+    # This triggers AbstractStrategy._convert_storage_from
+    factory.switch_strategy(l, InefficientStrategy)
+    assert isinstance(l.strategy, InefficientStrategy)
+    assert l.fetch_all() == [w_nil] * 5
+
+def test_Empty_store():
+    l = W_List(EmptyStrategy, 0)
+    o = W_Object()
+    py.test.raises(IndexError, l.store, 0, o)
+    py.test.raises(IndexError, l.store, 1, o)
+
+def test_Empty_insert():
+    def do_insert(obj, expected_strategy, default_element=w_nil):
+        l = W_List(EmptyStrategy, 0)
+        l.insert(0, [obj])
+        assert l.size() == 1
+        assert isinstance(l.strategy, expected_strategy)
+        assert l.fetch_all() == [obj]
+        # Also test insert with too-high index
+        l = W_List(EmptyStrategy, 0)
+        l.insert(5, [obj])
+        assert l.fetch_all() == [obj]
+    do_insert(W_Object(), GenericStrategy)
+    do_insert(w_nil, NilStrategy)
+    do_insert(W_Integer(1), IntegerStrategy)
 
 # === Test helper methods
 
@@ -432,3 +496,57 @@ def test_optimized_strategy_switch(monkeypatch):
     finally:
         monkeypatch.undo()
     assert s.copied == 1, "Optimized switching routine not called exactly one time."
+
+def test_strategy_type_for(monkeypatch):
+    assert factory.strategy_type_for([w_nil, w_nil]) == NilStrategy
+    assert factory.strategy_type_for([W_Integer(2), W_Integer(1)]) == IntegerStrategy
+    assert factory.strategy_type_for([w_nil, W_Integer(2), w_nil]) == IntegerOrNilStrategy
+    assert factory.strategy_type_for([w_nil, W_Integer(2), W_Object()]) == GenericStrategy
+    assert factory.strategy_type_for([W_Integer(2), w_nil, W_Object()]) == GenericStrategy
+    assert factory.strategy_type_for([W_Object(), W_Integer(2), w_nil]) == GenericStrategy
+    assert factory.strategy_type_for([]) == EmptyStrategy
+    monkeypatch.setattr(GenericStrategy, '_check_can_handle', lambda self, o: False)
+    try:
+        py.test.raises(Exception, factory.strategy_type_for, [W_Object(), W_Object()])
+    finally:
+        monkeypatch.undo()
+
+# === Logger tests
+
+def test_logger(monkeypatch):
+    strings = []
+    def string_collector(str): strings.append(str)
+    factory.logger.activate()
+    monkeypatch.setattr(factory.logger, 'do_print', string_collector)
+    try:
+        W_List(EmptyStrategy, 0)
+        l = W_List(IntegerStrategy, 3)
+        l.store(1, w_nil)
+    finally:
+        monkeypatch.undo()
+        factory.logger.active = False
+    assert strings == [
+        'Created (EmptyStrategy) size 0 objects 1',
+        'Created (IntegerStrategy) size 3 objects 1',
+        'Switched (IntegerStrategy -> IntegerOrNilStrategy) size 3 objects 1 elements: W_Object']
+
+def test_aggregating_logger(monkeypatch):
+    strings = []
+    def string_collector(str): strings.append(str)
+    factory.logger.activate(aggregate = True)
+    monkeypatch.setattr(factory.logger, 'do_print', string_collector)
+    try:
+        W_List(EmptyStrategy, 0)
+        l = W_List(IntegerStrategy, 3)
+        l.store(1, w_nil)
+        factory.logger.print_aggregated_log()
+    finally:
+        monkeypatch.undo()
+        factory.logger.active = False
+    # Order of aggregated log entries is random.
+    strings.sort()
+    assert strings == [
+        'Created (EmptyStrategy) size 0 objects 1',
+        'Created (IntegerStrategy) size 3 objects 1',
+        'Switched (IntegerStrategy -> IntegerOrNilStrategy) size 3 objects 1 elements: W_Object']
+    

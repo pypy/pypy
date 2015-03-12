@@ -51,4 +51,8 @@ class Logger(object):
         classname_string = " of %s" % typename if typename else ""
         element_string = (" elements: " + " ".join(element_typenames)) if element_typenames else ""
         format = (cause, old_strategy_string, new_strategy, classname_string, slots, objects, element_string)
-        print "%s (%s%s)%s size %d objects %d%s" % format
+        self.do_print("%s (%s%s)%s size %d objects %d%s" % format)
+    
+    def do_print(self, str):
+        # Hook to increase testability
+        print str
