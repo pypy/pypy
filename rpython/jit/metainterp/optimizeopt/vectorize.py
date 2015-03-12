@@ -7,11 +7,17 @@ from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.jit.metainterp.jitexc import JitException
+
+class NotAVectorizeableLoop(JitException):
+    def __str__(self):
+        return 'NotAVectorizeableLoop()'
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
     opt = OptVectorize(metainterp_sd, jitdriver_sd, loop, optimizations)
-    opt_loop = opt.propagate_all_forward()
-    if not opt.vectorized:
+    try:
+        opt.propagate_all_forward()
+    except NotAVectorizeableLoop:
         # vectorization is not possible, propagate only normal optimizations
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
@@ -28,7 +34,6 @@ class OptVectorize(Optimization):
                                              loop, optimizations)
         self.vec_info = LoopVectorizeInfo()
         self.memory_refs = []
-        self.vectorized = False
         self.dependency_graph = None
 
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
@@ -135,15 +140,13 @@ class OptVectorize(Optimization):
         byte_count = self.vec_info.smallest_type_bytes
         if byte_count == 0:
             # stop, there is no chance to vectorize this trace
-            return loop
+            raise NotAVectorizeableLoop()
 
         unroll_factor = self.get_estimated_unroll_factor()
 
         self.unroll_loop_iterations(loop, unroll_factor)
 
         self.build_dependencies()
-
-        self.vectorized = True
 
     def build_dependency_graph(self):
         self.dependency_graph = DependencyGraph(self.optimizer,
@@ -154,9 +157,40 @@ class OptVectorize(Optimization):
         operations. Since it is in SSA form there is no array index. Indices
         are flattend. If there are two array accesses in the unrolled loop
         i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1 """
-        considered_vars = []
+        loop = self.optimizer.loop
+        operations = loop.operations
+        integral_mod = IntegralMod(self.optimizer)
         for opidx,memref in self.vec_info.memory_refs.items():
-            considered_vars.append(memref.origin)
+            print("trying ref", memref, "op idx", opidx)
+            while True:
+                op = operations[opidx]
+                if op.getopnum() == rop.LABEL:
+                    break
+
+                print("checking op at idx", opidx)
+                for dep in self.dependency_graph.instr_dependencies(opidx):
+                    # this is a use, thus if dep is not a defintion
+                    # it points back to the definition
+                    print(memref.origin, " == ", dep.defined_arg)
+                    if memref.origin == dep.defined_arg and not dep.is_definition:
+                        # if is_definition is false the params is swapped
+                        # idx_to attributes points to definer
+                        def_op = operations[dep.idx_to]
+                        opidx = dep.idx_to
+                        break
+                else:
+                    # this is an error in the dependency graph
+                    raise RuntimeError("a variable usage does not have a " +
+                             " definition. Cannot continue!")
+
+                print("reset")
+                integral_mod.reset()
+                print("inspect ", def_op)
+                integral_mod.inspect_operation(def_op)
+                if integral_mod.is_const_mod:
+                    integral_mod.update_memory_ref(memref)
+                else:
+                    break
 
     def vectorize_trace(self, loop):
         """ Implementation of the algorithm introduced by Larsen. Refer to
@@ -175,6 +209,51 @@ class OptVectorize(Optimization):
         # was not able to vectorize
         return False
 
+class IntegralMod(object):
+
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
+        self.reset()
+
+    def reset(self):
+        self.is_const_mod = False
+        self.factor_c = 1
+        self.factor_d = 0
+        self.used_box = None
+
+    def operation_INT_ADD(self, op):
+        print("int_add")
+        box_a0 = op.getarg(0)
+        box_a1 = op.getarg(1)
+        a0 = self.optimizer.getvalue(box_a0)
+        a1 = self.optimizer.getvalue(box_a1)
+        if a0.is_constant() and a1.is_constant():
+            # this means that the overall array offset is not
+            # added to a variable, but is constant
+            self.is_const_mod = True
+            self.factor_d += box_a1.getint() + box_a0.getint()
+            self.used_box = None
+        elif a0.is_constant():
+            self.is_const_mod = True
+            self.factor_d += box_a0.getint()
+            self.used_box = box_a1
+        elif a1.is_constant():
+            self.is_const_mod = True
+            self.factor_d += box_a1.getint()
+            self.used_box = box_a0
+
+    def update_memory_ref(self, memref):
+        memref.factor_d = self.factor_d
+        memref.factor_c = self.factor_c
+        memref.origin = self.used_box
+        print("update", memref.factor_d, memref.factor_c, memref.origin)
+
+    def default_operation(self, operation):
+        pass
+integral_dispatch_opt = make_dispatcher_method(IntegralMod, 'operation_',
+        default=IntegralMod.default_operation)
+IntegralMod.inspect_operation = integral_dispatch_opt
+
 class LoopVectorizeInfo(object):
 
     def __init__(self):
@@ -183,13 +262,10 @@ class LoopVectorizeInfo(object):
         self.memory_refs = {}
         self.label_op = None
 
-    def operation_LABEL(self, op):
-        self.label = op
-
     def operation_RAW_LOAD(self, op):
         descr = op.getdescr()
         self.memory_refs[self._op_index] = \
-                MemoryRef(op.getarg(0), op.getarg(1))
+                MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
@@ -222,16 +298,22 @@ class Pair(Pack):
 
 
 class MemoryRef(object):
-    def __init__(self, array, origin):
+    def __init__(self, array, origin, descr):
         self.array = array
         self.origin = origin
-        self.offset = None
+        self.descr = descr
+        self.factor_c = 1
+        self.factor_d = 0
 
-    def is_adjacent_to(self, mem_acc):
+    def is_adjacent_to(self, other):
         """ this is a symmetric relation """
+        if self.array == other.array \
+            and self.origin == other.origin:
+            my_off = (self.factor_c * self.factor_d) 
+            other_off = (other.factor_c * other.factor_d)
+            diff = my_off - other_off
+            return diff == 1 or diff == -1
         return False
-        if self.array == mem_acc.array:
-            # TODO
-            return self.offset == mem_acc.offset
 
-
+    def __repr__(self):
+        return 'MemoryRef(%s,%s,%s)' % (self.origin, self.factor_c, self.factor_d)

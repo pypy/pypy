@@ -2,16 +2,14 @@
 from rpython.jit.metainterp.resoperation import rop
 
 class Dependency(object):
-    def __init__(self, ifrom, ito, is_definition):
-        self.ifrom = ifrom 
-        self.ito = ito
+    def __init__(self, idx_from, idx_to, arg, is_definition):
+        self.defined_arg = arg
+        self.idx_from = idx_from 
+        self.idx_to = idx_to
         self.is_definition = is_definition
 
     def __repr__(self):
-        return 'dep(%d,%d)' % (self.ifrom, self.ito)
-
-class CrossIterationDependency(Dependency):
-    pass
+        return 'dep(%d -> %d, defines? %d)' % (self.idx_from, self.idx_to, self.is_definition)
 
 class DependencyGraph(object):
     """ A graph that represents one of the following dependencies:
@@ -57,20 +55,23 @@ class DependencyGraph(object):
             for arg in op.getarglist():
                 if arg in defining_indices:
                     idx = defining_indices[arg]
-                    self._put_edge(idx, i)
+                    self._put_edge(idx, i, arg)
 
-    def _put_edge(self, idx_from, idx_to):
-        self.adjacent_list[idx_from].append(Dependency(idx_from, idx_to, True))
-        self.adjacent_list[idx_to].append(Dependency(idx_to, idx_from, False))
+    def _put_edge(self, idx_from, idx_to, arg):
+        self.adjacent_list[idx_from].append(Dependency(idx_from, idx_to, arg, True))
+        self.adjacent_list[idx_to].append(Dependency(idx_to, idx_from, arg, False))
+
+    def instr_dependencies(self, idx):
+        edges = self.adjacent_list[idx]
+        return edges
 
     def instr_dependency(self, from_instr_idx, to_instr_idx):
         """ Does there exist a dependency from the instruction to another?
             Returns None if there is no dependency or the Dependency object in
             any other case.
         """
-        edges = self.adjacent_list[from_instr_idx]
-        for edge in edges:
-            if edge.ito == to_instr_idx:
+        for edge in self.instr_dependencies(from_instr_idx):
+            if edge.idx_to == to_instr_idx:
                 return edge
         return None 
 

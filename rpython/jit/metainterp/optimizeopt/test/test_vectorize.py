@@ -83,6 +83,14 @@ class DepTestHelper(BaseTest):
                    " %d depends on instr on index %d but it is not" \
                         % (from_instr_index, to_instr_index)
 
+    def assert_memory_ref_adjacent(self, m1, m2):
+        assert m1.is_adjacent_to(m2)
+        assert m2.is_adjacent_to(m1)
+
+    def assert_memory_ref_not_adjacent(self, m1, m2):
+        assert not m1.is_adjacent_to(m2)
+        assert not m2.is_adjacent_to(m1)
+
 class BaseTestDependencyGraph(DepTestHelper):
     def test_dependency_1(self):
         ops = """
@@ -259,7 +267,14 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p0,i1)
         """
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        print()
+        for i,op in enumerate(vopt.optimizer.loop.operations):
+            print(i,op)
         vopt.build_dependency_graph()
+        self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
+        self.assert_def_use(vopt.dependency_graph, [(0,1),(2,3),(4,5)])
+        self.assert_no_edge(vopt.dependency_graph, [(0,4),(0,0)])
+
         vopt.find_adjacent_memory_refs()
         assert 1 in vopt.vec_info.memory_refs
         assert 3 in vopt.vec_info.memory_refs
@@ -270,12 +285,44 @@ class BaseTestDependencyGraph(DepTestHelper):
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
 
-        self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
-        self.assert_def_use(vopt.dependency_graph, [(0,1),(2,3),(4,5)])
-        self.assert_no_edge(vopt.dependency_graph, [(0,4),(0,0)])
-
         assert mref1.is_adjacent_to(mref3)
         assert mref3.is_adjacent_to(mref1)
+
+    def test_array_memory_ref_not_adjacent_1(self):
+        ops = """
+        [p0,i0,i4]
+        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i1 = int_add(i0,1)
+        i5 = raw_load(p0,i4,descr=chararraydescr)
+        i6 = int_add(i4,1)
+        jump(p0,i1,i6)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        vopt.build_dependency_graph()
+        self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
+        self.assert_def_use(vopt.dependency_graph, [(0,1),(0,2),(0,3),(0,4),(2,5)])
+        self.assert_no_edge(vopt.dependency_graph, [(1,3),(2,4)])
+
+        vopt.find_adjacent_memory_refs()
+
+        for i in [1,3,5,7]:
+            assert i in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 4
+
+        mref1 = vopt.vec_info.memory_refs[1]
+        mref3 = vopt.vec_info.memory_refs[3]
+        mref5 = vopt.vec_info.memory_refs[5]
+        mref7 = vopt.vec_info.memory_refs[7]
+        assert isinstance(mref1, MemoryRef)
+        assert isinstance(mref3, MemoryRef)
+        assert isinstance(mref5, MemoryRef)
+        assert isinstance(mref7, MemoryRef)
+
+        self.assert_memory_ref_adjacent(mref1, mref5)
+        self.assert_memory_ref_not_adjacent(mref1, mref3)
+        self.assert_memory_ref_not_adjacent(mref1, mref7)
+        self.assert_memory_ref_adjacent(mref3, mref7)
+
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass
