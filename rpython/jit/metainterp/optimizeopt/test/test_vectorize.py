@@ -91,6 +91,11 @@ class DepTestHelper(BaseTest):
         assert not m1.is_adjacent_to(m2)
         assert not m2.is_adjacent_to(m1)
 
+    def debug_print_operations(self, loop):
+        print('--- loop instr numbered ---')
+        for i,op in enumerate(loop.operations):
+            print(i,op)
+
 class BaseTestDependencyGraph(DepTestHelper):
     def test_dependency_1(self):
         ops = """
@@ -267,9 +272,6 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p0,i1)
         """
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
-        print()
-        for i,op in enumerate(vopt.optimizer.loop.operations):
-            print(i,op)
         vopt.build_dependency_graph()
         self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
         self.assert_def_use(vopt.dependency_graph, [(0,1),(2,3),(4,5)])
@@ -287,6 +289,121 @@ class BaseTestDependencyGraph(DepTestHelper):
 
         assert mref1.is_adjacent_to(mref3)
         assert mref3.is_adjacent_to(mref1)
+
+    def test_array_memory_ref_1(self):
+        ops = """
+        [p0,i0]
+        i3 = raw_load(p0,i0,descr=chararraydescr)
+        jump(p0,i0)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[1]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 1
+        assert mref1.factor_d == 0
+
+    def test_array_memory_ref_2(self):
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0,1)
+        i3 = raw_load(p0,i1,descr=chararraydescr)
+        jump(p0,i1)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[2]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 1
+        assert mref1.factor_d == 1
+
+    def test_array_memory_ref_sub_index(self):
+        ops = """
+        [p0,i0]
+        i1 = int_sub(i0,1)
+        i3 = raw_load(p0,i1,descr=chararraydescr)
+        jump(p0,i1)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[2]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 1
+        assert mref1.factor_d == -1
+
+    def test_array_memory_ref_add_mul_index(self):
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0,1)
+        i2 = int_mul(i1,3)
+        i3 = raw_load(p0,i2,descr=chararraydescr)
+        jump(p0,i1)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[3]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 3
+        assert mref1.factor_d == 3
+
+    def test_array_memory_ref_add_mul_index_interleaved(self):
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0,1)
+        i2 = int_mul(i1,3)
+        i3 = int_add(i2,5)
+        i4 = int_mul(i3,6)
+        i5 = raw_load(p0,i4,descr=chararraydescr)
+        jump(p0,i4)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[5]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 18
+        assert mref1.factor_d == 48
+
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0,1)
+        i2 = int_mul(i1,3)
+        i3 = int_add(i2,5)
+        i4 = int_mul(i3,6)
+        i5 = int_add(i4,30)
+        i6 = int_mul(i5,57)
+        i7 = raw_load(p0,i6,descr=chararraydescr)
+        jump(p0,i6)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[7]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 1026
+        assert mref1.factor_d == 57*(30) + 57*6*(5) + 57*6*3*(1)
+
+    def test_array_memory_ref_sub_mul_index_interleaved(self):
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0,1)
+        i2 = int_mul(i1,3)
+        i3 = int_sub(i2,3)
+        i4 = int_mul(i3,2)
+        i5 = raw_load(p0,i4,descr=chararraydescr)
+        jump(p0,i4)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        mref1 = vopt.vec_info.memory_refs[5]
+        assert isinstance(mref1, MemoryRef)
+        assert mref1.factor_c == 6
+        assert mref1.factor_d == 0
 
     def test_array_memory_ref_not_adjacent_1(self):
         ops = """

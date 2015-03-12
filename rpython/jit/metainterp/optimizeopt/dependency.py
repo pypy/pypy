@@ -1,4 +1,3 @@
-
 from rpython.jit.metainterp.resoperation import rop
 
 class Dependency(object):

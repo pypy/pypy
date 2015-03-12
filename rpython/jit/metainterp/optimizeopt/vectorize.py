@@ -161,17 +161,12 @@ class OptVectorize(Optimization):
         operations = loop.operations
         integral_mod = IntegralMod(self.optimizer)
         for opidx,memref in self.vec_info.memory_refs.items():
-            print("trying ref", memref, "op idx", opidx)
+            integral_mod.reset()
             while True:
-                op = operations[opidx]
-                if op.getopnum() == rop.LABEL:
-                    break
 
-                print("checking op at idx", opidx)
                 for dep in self.dependency_graph.instr_dependencies(opidx):
                     # this is a use, thus if dep is not a defintion
                     # it points back to the definition
-                    print(memref.origin, " == ", dep.defined_arg)
                     if memref.origin == dep.defined_arg and not dep.is_definition:
                         # if is_definition is false the params is swapped
                         # idx_to attributes points to definer
@@ -183,9 +178,10 @@ class OptVectorize(Optimization):
                     raise RuntimeError("a variable usage does not have a " +
                              " definition. Cannot continue!")
 
-                print("reset")
-                integral_mod.reset()
-                print("inspect ", def_op)
+                op = operations[opidx]
+                if op.getopnum() == rop.LABEL:
+                    break
+
                 integral_mod.inspect_operation(def_op)
                 if integral_mod.is_const_mod:
                     integral_mod.update_memory_ref(memref)
@@ -221,8 +217,23 @@ class IntegralMod(object):
         self.factor_d = 0
         self.used_box = None
 
+    def operation_INT_SUB(self, op):
+        box_a0 = op.getarg(0)
+        box_a1 = op.getarg(1)
+        a0 = self.optimizer.getvalue(box_a0)
+        a1 = self.optimizer.getvalue(box_a1)
+        if a0.is_constant() and a1.is_constant():
+            raise NotImplementedError()
+        elif a0.is_constant():
+            self.is_const_mod = True
+            self.factor_d -= box_a0.getint() * self.factor_c
+            self.used_box = box_a1
+        elif a1.is_constant():
+            self.is_const_mod = True
+            self.factor_d -= box_a1.getint() * self.factor_c
+            self.used_box = box_a0
+
     def operation_INT_ADD(self, op):
-        print("int_add")
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
         a0 = self.optimizer.getvalue(box_a0)
@@ -230,23 +241,44 @@ class IntegralMod(object):
         if a0.is_constant() and a1.is_constant():
             # this means that the overall array offset is not
             # added to a variable, but is constant
-            self.is_const_mod = True
-            self.factor_d += box_a1.getint() + box_a0.getint()
-            self.used_box = None
+            raise NotImplementedError()
         elif a0.is_constant():
             self.is_const_mod = True
-            self.factor_d += box_a0.getint()
+            self.factor_d += box_a0.getint() * self.factor_c
             self.used_box = box_a1
         elif a1.is_constant():
             self.is_const_mod = True
-            self.factor_d += box_a1.getint()
+            print('add', box_a1.getint(), self.factor_c)
+            self.factor_d += box_a1.getint() * self.factor_c
+            self.used_box = box_a0
+
+    def operation_INT_MUL(self, op):
+        """ Whenever a multiplication occurs this only alters the
+        factor_c. When later a plus occurs, factor_c multiplies the added
+        operand. """
+        box_a0 = op.getarg(0)
+        box_a1 = op.getarg(1)
+        a0 = self.optimizer.getvalue(box_a0)
+        a1 = self.optimizer.getvalue(box_a1)
+        if a0.is_constant() and a1.is_constant():
+            # this means that the overall array offset is not
+            # added to a variable, but is constant
+            raise NotImplementedError()
+        elif a0.is_constant():
+            self.is_const_mod = True
+            self.factor_c *= box_a0.getint()
+            self.used_box = box_a1
+        elif a1.is_constant():
+            self.is_const_mod = True
+            self.factor_c *= box_a1.getint()
             self.used_box = box_a0
 
     def update_memory_ref(self, memref):
+        #print("updating memory ref pre: ", memref)
         memref.factor_d = self.factor_d
         memref.factor_c = self.factor_c
         memref.origin = self.used_box
-        print("update", memref.factor_d, memref.factor_c, memref.origin)
+        #print("updating memory ref post: ", memref)
 
     def default_operation(self, operation):
         pass
