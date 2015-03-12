@@ -1461,6 +1461,8 @@ class RegAlloc(BaseRegalloc):
                 dstaddr_loc, startindex_loc, itemsize_loc,
                 base_loc, imm(baseofs))
             self.assembler.mc.LEA(dstaddr_loc, dst_addr)
+            # for stm: convert the address from %gs-based to linear
+            self.assembler.convert_addresses_to_linear(dstaddr_loc)
             #
             if constbytes >= 0:
                 length_loc = imm(constbytes)
