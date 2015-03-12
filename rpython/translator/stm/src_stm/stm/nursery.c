@@ -422,6 +422,7 @@ static void collect_roots_from_markers(uintptr_t len_old)
     struct stm_undo_s *end = (struct stm_undo_s *)(list->items + list->count);
 
     for (; undo < end; undo++) {
+        /* this logic also works if type2 == TYPE_MODIFIED_HASHTABLE */
         if (undo->type == TYPE_POSITION_MARKER)
             minor_trace_if_young(&undo->marker_object);
     }

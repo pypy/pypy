@@ -42,7 +42,8 @@ static void marker_fetch_obj_write(struct stm_undo_s *start,
     */
     while (contention != start) {
         --contention;
-        if (contention->type == TYPE_POSITION_MARKER) {
+        if (contention->type == TYPE_POSITION_MARKER &&
+            contention->type2 != TYPE_MODIFIED_HASHTABLE) {
             out_marker->odd_number = contention->marker_odd_number;
             out_marker->object = contention->marker_object;
             return;
@@ -68,6 +69,9 @@ static void _timing_record_write_position(void)
             undo->marker_object == marker.object)
             return;    /* already up-to-date */
     }
+
+    /* -2 is not odd */
+    assert(marker.odd_number != (uintptr_t)TYPE_MODIFIED_HASHTABLE);
 
     STM_PSEGMENT->position_markers_last = list_count(list);
     STM_PSEGMENT->modified_old_objects = list_append3(

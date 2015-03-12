@@ -31,10 +31,7 @@ stm_thread_local_t *_stm_thread(void)
 
 bool _stm_was_read(object_t *obj)
 {
-    uint8_t rm = ((struct stm_read_marker_s *)
-                  (STM_SEGMENT->segment_base + (((uintptr_t)obj) >> 4)))->rm;
-    assert(rm <= STM_SEGMENT->transaction_read_version);
-    return rm == STM_SEGMENT->transaction_read_version;
+    return was_read_remote(STM_SEGMENT->segment_base, obj);
 }
 
 bool _stm_was_written(object_t *obj)

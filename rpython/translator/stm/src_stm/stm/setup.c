@@ -250,8 +250,6 @@ void stm_register_thread_local(stm_thread_local_t *tl)
     set_gs_register(get_segment_base(num + 1));
     s_mutex_unlock();
 
-    DEBUG_EXPECT_SEGFAULT(true);
-
     if (num == 0) {
         dprintf(("STM_GC_NURSERY: %d\n", STM_GC_NURSERY));
         dprintf(("NB_PAGES: %d\n", NB_PAGES));

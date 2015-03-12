@@ -127,6 +127,58 @@ object_t *_stm_allocate_old(ssize_t size_rounded_up)
     return o;
 }
 
+static void _fill_preexisting_slice(long segnum, char *dest,
+                                    const char *src, uintptr_t size)
+{
+    uintptr_t np = dest - get_segment_base(segnum);
+    if (get_page_status_in(segnum, np / 4096) != PAGE_NO_ACCESS)
+        memcpy(dest, src, size);
+}
+
+object_t *stm_allocate_preexisting(ssize_t size_rounded_up,
+                                   const char *initial_data)
+{
+    stm_char *np = allocate_outside_nursery_large(size_rounded_up);
+    uintptr_t nobj = (uintptr_t)np;
+    dprintf(("allocate_preexisting: %p\n", (object_t *)nobj));
+
+    char *nobj_seg0 = stm_object_pages + nobj;
+    memcpy(nobj_seg0, initial_data, size_rounded_up);
+    ((struct object_s *)nobj_seg0)->stm_flags = GCFLAG_WRITE_BARRIER;
+
+    acquire_privatization_lock(STM_SEGMENT->segment_num);
+    DEBUG_EXPECT_SEGFAULT(false);
+
+    long j;
+    for (j = 1; j < NB_SEGMENTS; j++) {
+        const char *src = nobj_seg0;
+        char *dest = get_segment_base(j) + nobj;
+        char *end = dest + size_rounded_up;
+
+        while (((uintptr_t)dest) / 4096 != ((uintptr_t)end - 1) / 4096) {
+            uintptr_t count = 4096 - (((uintptr_t)dest) & 4095);
+            _fill_preexisting_slice(j, dest, src, count);
+            src += count;
+            dest += count;
+        }
+        _fill_preexisting_slice(j, dest, src, end - dest);
+
+#ifdef STM_TESTS
+        /* can't really enable this check outside tests, because there is
+           a change that the transaction_state changes in parallel */
+        if (get_priv_segment(j)->transaction_state != TS_NONE) {
+            assert(!was_read_remote(get_segment_base(j), (object_t *)nobj));
+        }
+#endif
+    }
+
+    DEBUG_EXPECT_SEGFAULT(true);
+    release_privatization_lock(STM_SEGMENT->segment_num);
+
+    write_fence();     /* make sure 'nobj' is fully initialized from
+                          all threads here */
+    return (object_t *)nobj;
+}
 
 /************************************************************/
 
@@ -245,6 +297,8 @@ static inline void mark_record_trace(object_t **pobj)
     LIST_APPEND(marked_objects_to_trace, obj);
 }
 
+
+#define TRACE_FOR_MAJOR_COLLECTION  (&mark_record_trace)
 
 static void mark_and_trace(
     object_t *obj,
@@ -405,7 +459,8 @@ static void mark_visit_from_markers(void)
         struct stm_undo_s *modified = (struct stm_undo_s *)lst->items;
         struct stm_undo_s *end = (struct stm_undo_s *)(lst->items + lst->count);
         for (; modified < end; modified++) {
-            if (modified->type == TYPE_POSITION_MARKER)
+            if (modified->type == TYPE_POSITION_MARKER &&
+                    modified->type2 != TYPE_MODIFIED_HASHTABLE)
                 mark_visit_possibly_new_object(modified->marker_object, pseg);
         }
     }
@@ -537,6 +592,31 @@ static void clean_up_segment_lists(void)
                     _reset_object_cards(pseg, obj, CARD_CLEAR, false, true);
                 list_set_item(lst, n, list_pop_item(lst));
             }
+        }
+
+        /* Remove from 'modified_old_objects' all old hashtables that die */
+        {
+            lst = pseg->modified_old_objects;
+            uintptr_t j, k = 0, limit = list_count(lst);
+            for (j = 0; j < limit; j += 3) {
+                uintptr_t e0 = list_item(lst, j + 0);
+                uintptr_t e1 = list_item(lst, j + 1);
+                uintptr_t e2 = list_item(lst, j + 2);
+                if (e0 == TYPE_POSITION_MARKER &&
+                    e1 == TYPE_MODIFIED_HASHTABLE &&
+                    !mark_visited_test((object_t *)e2)) {
+                    /* hashtable object dies */
+                }
+                else {
+                    if (j != k) {
+                        list_set_item(lst, k + 0, e0);
+                        list_set_item(lst, k + 1, e1);
+                        list_set_item(lst, k + 2, e2);
+                    }
+                    k += 3;
+                }
+            }
+            lst->count = k;
         }
     }
 #pragma pop_macro("STM_SEGMENT")

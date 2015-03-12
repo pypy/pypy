@@ -273,8 +273,14 @@ void _dbg_print_commit_log()
         struct stm_undo_s *end = undo + cl->written_count;
         for (; undo < end; undo++) {
             if (undo->type == TYPE_POSITION_MARKER) {
-                fprintf(stderr, "    marker %p %lu\n",
-                        undo->marker_object, undo->marker_odd_number);
+                if (undo->type2 == TYPE_MODIFIED_HASHTABLE) {
+                    fprintf(stderr, "    hashtable %p\n",
+                            undo->modif_hashtable);
+                }
+                else {
+                    fprintf(stderr, "    marker %p %lu\n",
+                            undo->marker_object, undo->marker_odd_number);
+                }
                 continue;
             }
             fprintf(stderr, "    obj %p, size %d, ofs %lu: ", undo->object,
@@ -376,21 +382,40 @@ static bool _stm_validate()
                     struct stm_undo_s *undo = cl->written;
                     struct stm_undo_s *end = cl->written + cl->written_count;
                     for (; undo < end; undo++) {
-                        if (undo->type == TYPE_POSITION_MARKER)
-                            continue;
-                        if (_stm_was_read(undo->object)) {
-                            /* first reset all modified objects from the backup
-                               copies as soon as the first conflict is detected;
-                               then we will proceed below to update our segment from
-                               the old (but unmodified) version to the newer version.
-                            */
-                            reset_modified_from_backup_copies(my_segnum);
-                            timing_write_read_contention(cl->written, undo);
-                            needs_abort = true;
+                        object_t *obj;
 
-                            dprintf(("_stm_validate() failed for obj %p\n", undo->object));
-                            break;
+                        if (undo->type != TYPE_POSITION_MARKER) {
+                            /* common case: 'undo->object' was written to
+                               in this past commit, so we must check that
+                               it was not read by us. */
+                            obj = undo->object;
                         }
+                        else if (undo->type2 != TYPE_MODIFIED_HASHTABLE)
+                            continue;
+                        else {
+                            /* the previous stm_undo_s is about a written
+                               'entry' object, which belongs to the hashtable
+                               given now.  Check that we haven't read the
+                               hashtable (via stm_hashtable_list()). */
+                            obj = undo->modif_hashtable;
+                        }
+
+                        if (LIKELY(!_stm_was_read(obj)))
+                            continue;
+
+                        /* conflict! */
+                        dprintf(("_stm_validate() failed for obj %p\n", obj));
+
+                        /* first reset all modified objects from the backup
+                           copies as soon as the first conflict is detected;
+                           then we will proceed below to update our segment
+                           from the old (but unmodified) version to the newer
+                           version.
+                        */
+                        reset_modified_from_backup_copies(my_segnum);
+                        timing_write_read_contention(cl->written, undo);
+                        needs_abort = true;
+                        break;
                     }
                 }
 

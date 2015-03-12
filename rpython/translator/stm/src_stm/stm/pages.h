@@ -62,7 +62,11 @@ static inline char *get_virtual_address(long segnum, object_t *obj)
 
 static inline bool get_page_status_in(long segnum, uintptr_t pagenum)
 {
-    /* reading page status requires "read"-lock: */
+    /* reading page status requires "read"-lock, which is defined as
+       "any segment has the privatization_lock".  This is enough to
+       prevent the "write"-lock from being acquired by somebody else
+       (defined as "_all_ segments have the privatization_lock").
+    */
     assert(STM_PSEGMENT->privatization_lock);
 
     OPT_ASSERT(segnum < 8 * sizeof(struct page_shared_s));
