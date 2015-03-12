@@ -250,7 +250,7 @@ class StrategyFactory(object):
                 visited.add(strategy)
                 depth = 0
                 for generalization in strategy._generalizations:
-                    other_depth = get_generalization_depth(generalization, visited)
+                    other_depth = get_generalization_depth(generalization, set(visited))
                     depth = max(depth, other_depth)
                 return depth + 1
             else:
@@ -370,7 +370,7 @@ class EmptyStrategy(AbstractStrategy):
     def fetch(self, w_self, index0):
         raise IndexError
     def store(self, w_self, index0, value):
-        self._cannot_handle_insert(w_self, index0, [value])
+        self._cannot_handle_store(w_self, index0, [value])
     def insert(self, w_self, index0, list_w):
         self._cannot_handle_insert(w_self, index0, list_w)
     def delete(self, w_self, start, end):
@@ -465,6 +465,8 @@ class StrategyWithStorage(AbstractStrategy):
     
     @jit.unroll_safe
     def insert(self, w_self, start, list_w):
+        # This is following Python's behaviour - insert automatically
+        # happens at the beginning of an array, even if index is larger
         if start > self.size(w_self):
             start = self.size(w_self)
         for i in range(len(list_w)):
