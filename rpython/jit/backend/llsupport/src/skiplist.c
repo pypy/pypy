@@ -72,7 +72,7 @@ static void skiplist_insert(skipnode_t *head, skipnode_t *new)
     }
 }
 
-static void skiplist_remove(skipnode_t *head, uintptr_t exact_key)
+static skipnode_t *skiplist_remove(skipnode_t *head, uintptr_t exact_key)
 {
     uintptr_t level = SKIPLIST_HEIGHT - 1;
     while (1) {
@@ -81,15 +81,23 @@ static void skiplist_remove(skipnode_t *head, uintptr_t exact_key)
             if (next->key == exact_key) {
                 head->next[level] = next->next[level];
                 if (level == 0)
-                    return;    /* successfully removed */
+                    return next;    /* successfully removed */
                 level -= 1;
             }
             else
                 head = next;
         }
         else {
-            assert(level > 0);   /* else, 'exact_key' not found! */
+            if (level == 0)
+                return NULL;    /* 'exact_key' not found! */
             level -= 1;
         }
     }
+}
+
+static uintptr_t skiplist_firstkey(skipnode_t *head)
+{
+    if (head->next[0] == NULL)
+        return 0;
+    return head->next[0]->key;
 }

@@ -9,6 +9,7 @@
 
 """
 
+import os
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.entrypoint import jit_entrypoint
@@ -16,6 +17,10 @@ from rpython.rlib.rbisect import bisect_right, bisect_right_addr
 from rpython.rlib.rbisect import bisect_left, bisect_left_addr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import cdir
+
+
+INT_LIST_PTR = rffi.CArrayPtr(lltype.Signed)
 
 
 eci = ExternalCompilationInfo(post_include_bits=["""
@@ -23,7 +28,11 @@ RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
                                      unsigned int machine_code_size,
                                      long *bytecode_info,
                                      unsigned int bytecode_info_size);
-RPY_EXTERN void pypy_jit_codemap_del(uintptr_t addr);
+RPY_EXTERN long *pypy_jit_codemap_del(uintptr_t addr);
+RPY_EXTERN uintptr_t pypy_jit_codemap_firstkey(void);
+RPY_EXTERN void *pypy_find_codemap_at_addr(long addr);
+RPY_EXTERN long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
+                                           long *current_pos_addr);
 
 RPY_EXTERN long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
                                       unsigned int stackdepth);
@@ -31,16 +40,21 @@ RPY_EXTERN void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size);
 
 """], separate_module_files=[
     os.path.join(os.path.dirname(__file__), 'src', 'codemap.c')
-])
+], include_dirs=[cdir])
 
 def llexternal(name, args, res):
     return rffi.llexternal(name, args, res, compilation_info=eci,
                            releasegil=False)
 
-ll_pypy_codemap_invalid_set = llexternal('pypy_codemap_invalid_set',
-                                         [rffi.INT], lltype.Void)
-pypy_get_codemap_storage = llexternal('pypy_get_codemap_storage',
-                                      [], lltype.Ptr(CODEMAP_STORAGE))
+pypy_jit_codemap_add = llexternal('pypy_jit_codemap_add',
+                                  [lltype.Signed, lltype.Signed,
+                                   INT_LIST_PTR, lltype.Signed],
+                                  lltype.Signed)
+pypy_jit_codemap_del = llexternal('pypy_jit_codemap_del',
+                                  [lltype.Signed], INT_LIST_PTR)
+pypy_jit_codemap_firstkey = llexternal('pypy_jit_codemap_firstkey',
+                                       [], lltype.Signed)
+
 stack_depth_at_loc = llexternal('pypy_jit_stack_depth_at_loc',
                                 [lltype.Signed], lltype.Signed)
 find_codemap_at_addr = llexternal('pypy_find_codemap_at_addr',
@@ -50,10 +64,6 @@ yield_bytecode_at_addr = llexternal('pypy_yield_codemap_at_addr',
                                      rffi.CArrayPtr(lltype.Signed)],
                                      lltype.Signed)
 
-def pypy_codemap_invalid_set(val):
-    #if we_are_translated():
-    ll_pypy_codemap_invalid_set(val)
-
 @specialize.ll()
 def copy_item(source, dest, si, di, baseline=0):
     TP = lltype.typeOf(dest)
@@ -62,99 +72,22 @@ def copy_item(source, dest, si, di, baseline=0):
     else:
         dest[di] = source[si] + baseline
 
-class ListStorageMixin(object):
-    _mixin_ = True
 
-    @specialize.arg(1)
-    def extend_with(self, name, to_insert, pos, baseline=0):
-        xxxx
-        # first check if we need to reallocate
-        g = pypy_get_codemap_storage()
-        used = getattr(g, name + '_used')
-        allocated = getattr(self, name + '_allocated')
-        lst = getattr(g, name)
-        if used + len(to_insert) > allocated or pos != used:
-            old_lst = lst
-            if used + len(to_insert) > allocated:
-                new_size = max(4 * allocated,
-                               (allocated + len(to_insert)) * 2)
-            else:
-                new_size = allocated
-            lst = lltype.malloc(lltype.typeOf(lst).TO, new_size,
-                                flavor='raw',
-                                track_allocation=False)
-            setattr(self, name + '_allocated', new_size)
-            for i in range(0, pos):
-                copy_item(old_lst, lst, i, i)
-            j = 0
-            for i in range(pos, pos + len(to_insert)):
-                copy_item(to_insert, lst, j, i, baseline)
-                j += 1
-            j = pos
-            for i in range(pos + len(to_insert), len(to_insert) + used):
-                copy_item(old_lst, lst, j, i)
-                j += 1
-            self.free_lst(name, old_lst)
-        else:
-            for i in range(len(to_insert)):
-                copy_item(to_insert, lst, i, i + pos, baseline)
-        setattr(g, name, lst)
-        setattr(g, name + '_used', len(to_insert) + used)
-
-    @specialize.arg(1)
-    def remove(self, name, start, end):
-        g = pypy_get_codemap_storage()
-        lst = getattr(g, name)
-        used = getattr(g, name + '_used')
-        j = end
-        for i in range(start, used - (end - start)):
-            info = lltype.nullptr(INT_LIST)
-            if name == 'jit_codemap':
-                if i < end:
-                    info = lst[i].bytecode_info
-            copy_item(lst, lst, j, i)
-            if name == 'jit_codemap':
-                if info:
-                    lltype.free(info, flavor='raw', track_allocation=False)
-            j += 1
-        setattr(g, name + '_used', used - (end - start))
-
-    def free(self):
-        g = pypy_get_codemap_storage()
-        # if setup has not been called
-        if g.jit_addr_map_used:
-            lltype.free(g.jit_addr_map, flavor='raw', track_allocation=False)
-            g.jit_addr_map_used = 0
-            g.jit_addr_map = lltype.nullptr(INT_LIST)
-        i = 0
-        while i < g.jit_codemap_used:
-            lltype.free(g.jit_codemap[i].bytecode_info, flavor='raw',
-                        track_allocation=False)
-            i += 1
-        if g.jit_codemap_used:
-            lltype.free(g.jit_codemap, flavor='raw',
-                        track_allocation=False)
-            g.jit_codemap_used = 0
-            g.jit_codemap = lltype.nullptr(CODEMAP_LIST)
-        if g.jit_frame_depth_map_used:
-            lltype.free(g.jit_frame_depth_map, flavor='raw',
-                        track_allocation=False)
-            g.jit_frame_depth_map_used = 0
-            g.jit_frame_depth_map = lltype.nullptr(INT_LIST)
-
-    @specialize.arg(1)
-    def free_lst(self, name, lst):
-        if lst:
-            lltype.free(lst, flavor='raw', track_allocation=False)
-
-class CodemapStorage(ListStorageMixin):
+class CodemapStorage(object):
     """ An immortal wrapper around underlaying jit codemap data
     """
     def setup(self):
-        g = pypy_get_codemap_storage()
-        if g.jit_addr_map_used != 0:
-             # someone failed to call free(), in tests only anyway
+        if not we_are_translated():
+             # in case someone failed to call free(), in tests only anyway
              self.free()
+
+    def free(self):
+        while True:
+            key = pypy_jit_codemap_firstkey()
+            if not key:
+                break
+            items = pypy_jit_codemap_del(key)
+            lltype.free(items, flavor='raw', track_allocation=False)
 
     def free_asm_block(self, start, stop):
         # fix up jit_addr_map
@@ -198,7 +131,7 @@ class CodemapStorage(ListStorageMixin):
         pypy_codemap_invalid_set(0)
 
     def register_codemap(self, (start, size, l)):
-        items = lltype.malloc(INT_LIST, len(l), flavor='raw',
+        items = lltype.malloc(INT_LIST_PTR.TO, len(l), flavor='raw',
                               track_allocation=False)
         for i in range(len(l)):
             items[i] = l[i]
@@ -209,14 +142,14 @@ class CodemapStorage(ListStorageMixin):
         self.free()
 
 def unpack_traceback(addr):
-    codemap_pos = find_codemap_at_addr(addr)
-    if codemap_pos == -1:
+    codemap_raw = find_codemap_at_addr(addr)
+    if not codemap_raw:
         return [] # no codemap for that position
     storage = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
     storage[0] = 0
     res = []
     while True:
-        item = yield_bytecode_at_addr(codemap_pos, addr, storage)
+        item = yield_bytecode_at_addr(codemap_raw, addr, storage)
         if item == 0:
             break
         res.append(item)

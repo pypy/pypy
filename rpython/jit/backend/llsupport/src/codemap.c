@@ -1,3 +1,4 @@
+#include "src/precommondefs.h"
 #include "skiplist.c"
 
 volatile int pypy_codemap_currently_invalid = 0;
@@ -25,6 +26,7 @@ static skipnode_t jit_codemap_head;
 
 /*** interface used from codemap.py ***/
 
+RPY_EXTERN
 long pypy_jit_codemap_add(uintptr_t addr, unsigned int machine_code_size,
                           long *bytecode_info, unsigned int bytecode_info_size)
 {
@@ -45,18 +47,35 @@ long pypy_jit_codemap_add(uintptr_t addr, unsigned int machine_code_size,
     return 0;
 }
 
-void pypy_jit_codemap_del(uintptr_t addr)
+RPY_EXTERN
+long *pypy_jit_codemap_del(uintptr_t addr)
 {
+    long *result;
+    skipnode_t *node;
+
     pypy_codemap_invalid_set(1);
-    skiplist_remove(&jit_codemap_head, addr);
+    node = skiplist_remove(&jit_codemap_head, addr);
     pypy_codemap_invalid_set(0);
+
+    if (node == NULL)
+        return NULL;
+    result = ((codemap_data_t *)node->data)->bytecode_info;
+    free(node);
+    return result;
+}
+
+RPY_EXTERN
+uintptr_t pypy_jit_codemap_firstkey(void)
+{
+    return skiplist_firstkey(&jit_codemap_head);
 }
 
 /*** interface used from pypy/module/_vmprof ***/
 
+RPY_EXTERN
 void *pypy_find_codemap_at_addr(long addr)
 {
-    skiplist_t *codemap = skiplist_search(&jit_codemap_head, addr);
+    skipnode_t *codemap = skiplist_search(&jit_codemap_head, addr);
     codemap_data_t *data;
     uintptr_t rel_addr;
 
@@ -71,12 +90,13 @@ void *pypy_find_codemap_at_addr(long addr)
     return (void *)codemap;
 }
 
+RPY_EXTERN
 long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                 long *current_pos_addr)
 {
     // will return consecutive unique_ids from codemap, starting from position
     // `pos` until addr
-    skiplist_t *codemap = (skiplist_t *)codemap_raw;
+    skipnode_t *codemap = (skipnode_t *)codemap_raw;
     long current_pos = *current_pos_addr;
     long rel_addr = addr - codemap->key;
     long next_start, next_stop;
@@ -132,6 +152,8 @@ long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
 
 void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
 {
+    abort();
+#if 0
     uintptr_t search_key = addr + size - 1;
     if (size == 0)
         return;
@@ -145,13 +167,14 @@ void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
         skiplist_remove(&jit_depthmap_head, node->addr);
     }
     pypy_codemap_invalid_set(0);
+#endif
 }
 
 /*** interface used from pypy/module/_vmprof ***/
 
 long pypy_jit_stack_depth_at_loc(long loc)
 {
-    skiplist_t *depthmap = skiplist_search(&jit_depthmap_head, (uintptr_t)loc);
+    skipnode_t *depthmap = skiplist_search(&jit_depthmap_head, (uintptr_t)loc);
     depthmap_data_t *data;
     uintptr_t rel_addr;
 

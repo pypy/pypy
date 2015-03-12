@@ -13,7 +13,8 @@ typedef struct {
 skipnode_t *skiplist_malloc(uintptr_t datasize);
 skipnode_t *skiplist_search(skipnode_t *head, uintptr_t searchkey);
 void skiplist_insert(skipnode_t *head, skipnode_t *new);
-void skiplist_remove(skipnode_t *head, uintptr_t exact_key);
+skipnode_t *skiplist_remove(skipnode_t *head, uintptr_t exact_key);
+uintptr_t skiplist_firstkey(skipnode_t *head);
 """)
 
 filename = os.path.join(os.path.dirname(__file__), '..', 'src', 'skiplist.c')
@@ -68,11 +69,14 @@ def test_insert_search_remove():
         next = following[node.key]
         following[prev] = next
         preceeding[next] = prev
-        lib.skiplist_remove(my_head, node.key)
+        res = lib.skiplist_remove(my_head, node.key)
+        assert res == node
         if prev == 0:
             assert lib.skiplist_search(my_head, node.key) == my_head
         else:
             assert lib.skiplist_search(my_head, node.key) == nodes[prev]
+        res = lib.skiplist_remove(my_head, node.key)
+        assert res == ffi.NULL
     #
     for i in range(100000):
         random_key = random.randrange(2, 10**9)

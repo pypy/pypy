@@ -1,10 +1,28 @@
 
 from rpython.jit.backend.llsupport.codemap import stack_depth_at_loc
-from rpython.jit.backend.llsupport.codemap import CodemapStorage,\
-     ListStorageMixin, CodemapBuilder, unpack_traceback,\
-     pypy_get_codemap_storage
+from rpython.jit.backend.llsupport.codemap import CodemapStorage, \
+     CodemapBuilder, unpack_traceback, find_codemap_at_addr
 
-g = pypy_get_codemap_storage()
+def test_register_codemap():
+    codemap = CodemapStorage()
+    codemap.setup()
+    codemap.register_codemap((100, 20, [13, 14, 15]))
+    codemap.register_codemap((300, 30, [16, 17, 18]))
+    codemap.register_codemap((200, 100, [19, 20, 21, 22, 23]))
+    #
+    raw100 = find_codemap_at_addr(100)
+    assert find_codemap_at_addr(119) == raw100
+    assert not find_codemap_at_addr(120)
+    #
+    raw200 = find_codemap_at_addr(200)
+    assert raw200 != raw100
+    assert find_codemap_at_addr(299) == raw200
+    #
+    raw300 = find_codemap_at_addr(329)
+    assert raw300 != raw100 and raw300 != raw200
+    assert find_codemap_at_addr(300) == raw300
+    #
+    codemap.free()
 
 def test_list_storage_mixin():
     class X(ListStorageMixin):
