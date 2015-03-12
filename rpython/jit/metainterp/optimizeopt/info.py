@@ -20,7 +20,6 @@ INFO_NONNULL = 1
 INFO_UNKNOWN = 2
 
 FLAG_VIRTUAL = 1
-FLAG_DIRTY = 2
 
 class AbstractInfo(AbstractValue):
     is_info_class = True
@@ -68,8 +67,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             op.set_forwarded(newop)
             newop.set_forwarded(self)
             self.flags &= ~FLAG_VIRTUAL # clean the virtual flag
-            if self._force_elements(newop, optforce):
-                self.flags |= FLAG_DIRTY
+            self._force_elements(newop, optforce)
             return newop
         return op
 
@@ -83,14 +81,13 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self._fields = [None] * len(descr.all_fielddescrs)
 
     def clear_cache(self):
-        assert self.flags & (FLAG_DIRTY | FLAG_VIRTUAL) == FLAG_DIRTY
+        assert self.flags & FLAG_VIRTUAL == 0
         self.flags = 0
         self._fields = [None] * len(self._fields)
 
     def setfield(self, descr, op, optheap=None):
         if not self.is_virtual():
-            if self.flags & FLAG_DIRTY == 0:
-                self.flags |= FLAG_DIRTY
+            if self._fields[descr.index] is not None:
                 assert optheap is not None
                 # we should only call it with virtuals without optheap
                 optheap.register_dirty_field(descr, self)
@@ -111,8 +108,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
                 optforce.emit_operation(setfieldop)
-                if optforce.optheap:
-                    optforce.optheap.register_dirty_field(flddescr, self)
+                optforce.optheap.register_dirty_field(flddescr, self)
                 count += 1
         return count
 
