@@ -6,7 +6,7 @@ long pypy_jit_stack_depth_at_loc(long x)
 
 void *pypy_find_codemap_at_addr(long x)
 {
-	return NULL;
+	return (void *)0;
 }
 
 long pypy_yield_codemap_at_addr(void *x, long y, long *a)
