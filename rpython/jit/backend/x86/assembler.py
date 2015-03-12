@@ -2738,6 +2738,10 @@ class Assembler386(BaseAssembler):
             assert IS_X86_64
             self.mc.MOV32(mem(self.SEGMENT_GC, eax, rstm.tid_offset),
                           imm(arraydescr.tid))
+            # also zero stm_flags:
+            self.mc.MOV32(mem(self.SEGMENT_GC, eax, rstm.stmflags_offset),
+                          imm(0))
+
         else:
             self.mc.MOV(mem(self.SEGMENT_GC, eax, 0), imm(arraydescr.tid))
         # while we're at it, this line is not needed if we've done the CALL

@@ -13,7 +13,9 @@ class CFlexSymbolic(CDefinedIntSymbolic):
 
 
 TID = rffi.UINT
+STMFLAGS = rffi.UINT
 tid_offset = CFlexSymbolic('offsetof(struct rpyobj_s, tid)')
+stmflags_offset = CFlexSymbolic('offsetof(struct rpyobj_s, lib)')
 stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
 adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')

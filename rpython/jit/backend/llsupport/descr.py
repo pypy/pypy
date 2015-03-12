@@ -173,8 +173,10 @@ def get_field_descr(gccache, STRUCT, fieldname):
 
 def build_stm_tid_field_descr():
     from rpython.rlib import rstm
-    return FieldDescr('tid', rstm.tid_offset, rffi.sizeof(rstm.TID),
-                      get_type_flag(rstm.TID), False, True)
+    return (FieldDescr('stmflags', rstm.stmflags_offset, rffi.sizeof(rstm.STMFLAGS),
+                       get_type_flag(rstm.STMFLAGS), False, True),
+            FieldDescr('tid', rstm.tid_offset, rffi.sizeof(rstm.TID),
+                       get_type_flag(rstm.TID), False, True))
 
 def get_type_flag(TYPE):
     if isinstance(TYPE, lltype.Ptr):

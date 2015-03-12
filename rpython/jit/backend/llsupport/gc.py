@@ -487,6 +487,8 @@ class GcLLDescr_framework(GcLLDescription):
     def _initialize_for_tests(self):
         self.layoutbuilder = None
         self.fielddescr_tid = AbstractDescr()
+        if self.stm:
+            self.fielddescr_stmflags = AbstractDescr()
         self.max_size_of_young_obj = 1000
         self.GCClass = None
         self.gcheaderbuilder = None
@@ -531,7 +533,7 @@ class GcLLDescr_framework(GcLLDescription):
             self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR,
                                                   'tid')
         else:
-            self.fielddescr_tid = build_stm_tid_field_descr()
+            self.fielddescr_stmflags, self.fielddescr_tid = build_stm_tid_field_descr()
         frame_tid = self.layoutbuilder.get_type_id(jitframe.JITFRAME)
         self.translator._jit2gc['frame_tid'] = frame_tid
 

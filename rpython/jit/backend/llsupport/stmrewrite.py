@@ -134,6 +134,17 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def must_apply_write_barrier(self, val, v=None):
         return val not in self.write_barrier_applied
 
+    def gen_initialize_tid(self, v_newgcobj, tid):
+        # Also emit a setfield that zeroes the stm_flags field.
+        # This is necessary since we merge some allocations together and
+        # stmgc assumes flags to be cleared.
+        assert self.gc_ll_descr.fielddescr_stmflags is not None
+
+        op = ResOperation(rop.SETFIELD_GC,
+                          [v_newgcobj, ConstInt(0)], None,
+                          descr=self.gc_ll_descr.fielddescr_stmflags)
+        self.newop(op)
+        return GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
 
     @specialize.arg(1)
     def _do_stm_call(self, funcname, args, result):

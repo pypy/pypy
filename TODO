@@ -1,7 +1,12 @@
 ------------------------------------------------------------
 
+fuse the two 32bit setfield_gc for stmflags & tid in the jit
+
+------------------------------------------------------------
+
 better heuristic of when to break transactions? e.g., we should
 rarely break if there are not threads running in parallel.
+But we need to break sometimes in order to run finalizers...
 
 ------------------------------------------------------------
 
