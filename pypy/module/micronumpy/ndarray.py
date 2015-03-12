@@ -1462,6 +1462,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
     conj = interp2app(W_NDimArray.descr_conj),
+    conjugate = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     sort  = interp2app(W_NDimArray.descr_sort),

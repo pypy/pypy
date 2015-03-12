@@ -4326,12 +4326,81 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_none()
 
-    def test_nonnulify(self):
-        s = annmodel.SomeString(can_be_None=True).nonnulify()
-        assert s.can_be_None is True
-        assert s.no_nul is True
-        s = annmodel.SomeChar().nonnulify()
-        assert s.no_nul is True
+    def test_property_getter(self):
+        class O1(object):
+            def __init__(self, x):
+                self._x = x
+            @property
+            def x(self):
+                return self._x
+        def f(n):
+            o = O1(n)
+            return o.x + getattr(o, 'x')
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+        op = list(graphof(a, f).iterblocks())[0].operations
+        i = 0
+        c = 0
+        while i < len(op):
+            if op[i].opname == 'getattr':
+                c += 1
+                assert op[i].args[1].value == 'x__getter__'
+                i += 1
+                assert i < len(op) and op[i].opname == 'simple_call' and \
+                            op[i].args[0] == op[i - 1].result
+            i += 1
+        assert c == 2
+
+    def test_property_setter(self):
+        class O2(object):
+            def __init__(self):
+                self._x = 0
+            def set_x(self, v):
+                self._x = v
+            x = property(fset=set_x)
+        def f(n):
+            o = O2()
+            o.x = n
+            setattr(o, 'x', n)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        op = list(graphof(a, f).iterblocks())[0].operations
+        i = 0
+        c = 0
+        while i < len(op):
+            if op[i].opname == 'getattr':
+                c += 1
+                assert op[i].args[1].value == 'x__setter__'
+                i += 1
+                assert i < len(op) and op[i].opname == 'simple_call' and \
+                            op[i].args[0] == op[i - 1].result and len(op[i].args) == 2
+            i += 1
+        assert c == 2
+
+    def test_property_unionerr(self):
+        class O1(object):
+            def __init__(self, x):
+                self._x = x
+            @property
+            def x(self):
+                return self._x
+        class O2(O1):
+            def set_x(self, v):
+                self._x = v
+            x = property(fset=set_x)
+        def f1(n):
+            o = O2(n)
+            return o.x
+        def f2(n):
+            o = O2(n)
+            o.x = 20
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f1, [int])
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f2, [int])
 
 
 def g(n):

@@ -12,7 +12,7 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -301,6 +301,8 @@ class Bookkeeper(object):
                 s1 = self.immutablevalue(x1)
                 assert isinstance(s1, SomeInstance)
                 result = SomeWeakRef(s1.classdef)
+        elif tp is property:
+            return SomeProperty(x)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))

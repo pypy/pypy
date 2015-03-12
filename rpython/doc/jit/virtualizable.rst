@@ -44,8 +44,14 @@ There are various rules about using virtualizables, especially using
 virtualizable arrays that can be very confusing. Those will usually end
 up with a compile-time error (as opposed to strange behavior). The rules are:
 
+* A virtualizable array must be a fixed-size list.  After it is
+  initialized (e.g. in ``Frame.__init__``) you cannot resize it at all.
+  You cannot assign a different list to the field, or even pass around the
+  list.  You can only access ``frame.array[index]`` directly.
+
 * Each array access must be with a known positive index that cannot raise
-  an ``IndexError``. Using ``no = jit.hint(no, promote=True)`` might be useful
+  an ``IndexError``.
+  Using ``index = jit.hint(index, promote=True)`` might be useful
   to get a constant-number access. This is only safe if the index is actually
   constant or changing rarely within the context of the user's code.
 

@@ -143,13 +143,16 @@ class Transformer(object):
             return
         for v in list:
             if v in self.vable_array_vars:
+                vars = self.vable_array_vars[v]
+                (v_base, arrayfielddescr, arraydescr) = vars
                 raise AssertionError(
                     "A virtualizable array is passed around; it should\n"
                     "only be used immediately after being read.  Note\n"
                     "that a possible cause is indexing with an index not\n"
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
-                    "Occurred in: %r" % self.graph)
+                    "This is about: %r\n"
+                    "Occurred in: %r" % (arrayfielddescr, self.graph))
             # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
