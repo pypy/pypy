@@ -8,7 +8,7 @@ import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
-from rpython.jit.metainterp.optimizeopt.vectorize import OptVectorize
+from rpython.jit.metainterp.optimizeopt.vectorize import OptVectorize, MemoryRef
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
@@ -58,18 +58,33 @@ class DepTestHelper(BaseTest):
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
                      unroll_factor = -1):
-        vec_optimizer = self.vec_optimizer(loop, unroll_factor)
+        vec_optimizer = self.vec_optimizer_unrolled(loop, unroll_factor)
         self.assert_equal(loop, expected_loop)
 
-    def assert_def_use(self, graph, from_instr_index, to_instr_index):
-        assert graph.instr_dependency(from_instr_index,
-                                      to_instr_index) is not None, \
-               " it is expected that instruction at index" + \
-               " %d depend on instr on index %d but it is not" \
-                    % (from_instr_index, to_instr_index)
+    def assert_no_edge(self, graph, f, t = -1):
+        if type(f) == list:
+            for _f,_t in f:
+                self.assert_no_edge(graph, _f, _t)
+        else:
+            assert graph.instr_dependency(f, t) is None, \
+                   " it is expected that instruction at index" + \
+                   " %d DOES NOT depend on instr on index %d but it does" \
+                        % (f, t)
+
+    def assert_def_use(self, graph, from_instr_index, to_instr_index = -1):
+
+        if type(from_instr_index) == list:
+            for f,t in from_instr_index:
+                self.assert_def_use(graph, f, t)
+        else:
+            assert graph.instr_dependency(from_instr_index,
+                                          to_instr_index) is not None, \
+                   " it is expected that instruction at index" + \
+                   " %d depends on instr on index %d but it is not" \
+                        % (from_instr_index, to_instr_index)
 
 class BaseTestDependencyGraph(DepTestHelper):
-    def test_simple(self):
+    def test_dependency_1(self):
         ops = """
         []
         i1 = int_add(1,1)
@@ -78,8 +93,13 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump()
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_def_use(dep_graph, 1, 2)
-        self.assert_def_use(dep_graph, 2, 3)
+        self.assert_no_edge(dep_graph, [(i,i) for i in range(5)])
+        self.assert_def_use(dep_graph, [(1,2),(2,3)])
+        self.assert_no_edge(dep_graph, [(0,1), (1,3),
+                                        (0,2), (0,3),
+                                        (0,4), (1,3),
+                                        (2,4), (3,4)
+                                       ])
 
     def test_label_def_use_jump_use_def(self):
         ops = """
@@ -89,6 +109,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i1)
         """
         dep_graph = self.build_dependency(ops)
+        self.assert_no_edge(dep_graph, [(i,i) for i in range(4)])
         self.assert_def_use(dep_graph, 0, 1)
         self.assert_def_use(dep_graph, 1, 2)
         self.assert_def_use(dep_graph, 1, 3)
@@ -196,8 +217,8 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p0,i0)
         """
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops))
-        assert 1 in vopt.vec_info.array_ops
-        assert len(vopt.vec_info.array_ops) == 1
+        assert 1 in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 1
 
     def test_array_operation_indices_unrolled_1(self):
         ops = """
@@ -206,9 +227,55 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p0,i0)
         """
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
-        assert 1 in vopt.vec_info.array_ops
-        assert 2 in vopt.vec_info.array_ops
-        assert len(vopt.vec_info.array_ops) == 2
+        assert 1 in vopt.vec_info.memory_refs
+        assert 2 in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 2
+
+    def test_array_operation_indices_unrolled_2(self):
+        ops = """
+        [p0,i0,i1]
+        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i4 = raw_load(p0,i1,descr=chararraydescr)
+        jump(p0,i3,i4)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        assert 1 in vopt.vec_info.memory_refs
+        assert 2 in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 2
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        for i in [1,2,3,4]:
+            assert i in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 4
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),4)
+        for i in [1,2,3,4,5,6,7,8]:
+            assert i in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 8
+
+    def test_array_memory_ref_adjacent_1(self):
+        ops = """
+        [p0,i0]
+        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i1 = int_add(i0,1)
+        jump(p0,i1)
+        """
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        vopt.build_dependency_graph()
+        vopt.find_adjacent_memory_refs()
+        assert 1 in vopt.vec_info.memory_refs
+        assert 3 in vopt.vec_info.memory_refs
+        assert len(vopt.vec_info.memory_refs) == 2
+
+        mref1 = vopt.vec_info.memory_refs[1]
+        mref3 = vopt.vec_info.memory_refs[3]
+        assert isinstance(mref1, MemoryRef)
+        assert isinstance(mref3, MemoryRef)
+
+        self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
+        self.assert_def_use(vopt.dependency_graph, [(0,1),(2,3),(4,5)])
+        self.assert_no_edge(vopt.dependency_graph, [(0,4),(0,0)])
+
+        assert mref1.is_adjacent_to(mref3)
+        assert mref3.is_adjacent_to(mref1)
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

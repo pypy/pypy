@@ -3,6 +3,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -28,6 +29,7 @@ class OptVectorize(Optimization):
         self.vec_info = LoopVectorizeInfo()
         self.memory_refs = []
         self.vectorized = False
+        self.dependency_graph = None
 
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
         # fill the map with the renaming boxes. keys are boxes from the label
@@ -78,10 +80,10 @@ class OptVectorize(Optimization):
                     except KeyError:
                         pass
 
-                self._op_index = op_index
+                self.vec_info._op_index = op_index
                 iteration_ops.append(copied_op)
-                self.vec_info.inspect_operation(copied_op)
                 op_index += 1
+                self.vec_info.inspect_operation(copied_op)
 
             # the jump arguments have been changed
             # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
@@ -139,7 +141,22 @@ class OptVectorize(Optimization):
 
         self.unroll_loop_iterations(loop, unroll_factor)
 
+        self.build_dependencies()
+
         self.vectorized = True
+
+    def build_dependency_graph(self):
+        self.dependency_graph = DependencyGraph(self.optimizer,
+                                                self.optimizer.loop)
+
+    def find_adjacent_memory_refs(self):
+        """ the pre pass already builds a hash of memory references and the
+        operations. Since it is in SSA form there is no array index. Indices
+        are flattend. If there are two array accesses in the unrolled loop
+        i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1 """
+        considered_vars = []
+        for opidx,memref in self.vec_info.memory_refs.items():
+            considered_vars.append(memref.origin)
 
     def vectorize_trace(self, loop):
         """ Implementation of the algorithm introduced by Larsen. Refer to
@@ -163,11 +180,16 @@ class LoopVectorizeInfo(object):
     def __init__(self):
         self.smallest_type_bytes = 0
         self._op_index = 0
-        self.array_ops = []
+        self.memory_refs = {}
+        self.label_op = None
+
+    def operation_LABEL(self, op):
+        self.label = op
 
     def operation_RAW_LOAD(self, op):
         descr = op.getdescr()
-        self.array_ops.append(self._op_index)
+        self.memory_refs[self._op_index] = \
+                MemoryRef(op.getarg(0), op.getarg(1))
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
@@ -206,6 +228,8 @@ class MemoryRef(object):
         self.offset = None
 
     def is_adjacent_to(self, mem_acc):
+        """ this is a symmetric relation """
+        return False
         if self.array == mem_acc.array:
             # TODO
             return self.offset == mem_acc.offset

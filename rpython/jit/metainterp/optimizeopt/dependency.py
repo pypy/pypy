@@ -2,9 +2,13 @@
 from rpython.jit.metainterp.resoperation import rop
 
 class Dependency(object):
-    def __init__(self, index, is_definition):
-        self.index = index
+    def __init__(self, ifrom, ito, is_definition):
+        self.ifrom = ifrom 
+        self.ito = ito
         self.is_definition = is_definition
+
+    def __repr__(self):
+        return 'dep(%d,%d)' % (self.ifrom, self.ito)
 
 class CrossIterationDependency(Dependency):
     pass
@@ -21,7 +25,7 @@ class DependencyGraph(object):
         self.loop = loop
         self.operations = loop.operations
         self.optimizer = optimizer
-        self.adjacent_list = [ [] ] * len(self.operations)
+        self.adjacent_list = [ [] for i in range(len(self.operations)) ]
 
         self.build_dependencies(loop.operations)
 
@@ -40,6 +44,7 @@ class DependencyGraph(object):
             if op.getopnum() == rop.LABEL:
                 for arg in op.getarglist():
                     defining_indices[arg] = 0
+                continue # prevent adding edge to the label itself
 
             # TODO what about a JUMP operation? it often has many parameters (10+) and uses
             # nearly every definition in the trace (for loops). Maybe we can skip this operation
@@ -55,8 +60,8 @@ class DependencyGraph(object):
                     self._put_edge(idx, i)
 
     def _put_edge(self, idx_from, idx_to):
-        self.adjacent_list[idx_from].append(Dependency(idx_to, True))
-        self.adjacent_list[idx_to].append(Dependency(idx_from, False))
+        self.adjacent_list[idx_from].append(Dependency(idx_from, idx_to, True))
+        self.adjacent_list[idx_to].append(Dependency(idx_to, idx_from, False))
 
     def instr_dependency(self, from_instr_idx, to_instr_idx):
         """ Does there exist a dependency from the instruction to another?
@@ -65,7 +70,7 @@ class DependencyGraph(object):
         """
         edges = self.adjacent_list[from_instr_idx]
         for edge in edges:
-            if edge.index == to_instr_idx:
+            if edge.ito == to_instr_idx:
                 return edge
         return None 
 
