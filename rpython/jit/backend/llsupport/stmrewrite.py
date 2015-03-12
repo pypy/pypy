@@ -141,7 +141,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert self.gc_ll_descr.fielddescr_stmflags is not None
 
         op = ResOperation(rop.SETFIELD_GC,
-                          [v_newgcobj, ConstInt(0)], None,
+                          [v_newgcobj, self.c_zero], None,
                           descr=self.gc_ll_descr.fielddescr_stmflags)
         self.newop(op)
         return GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)

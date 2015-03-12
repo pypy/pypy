@@ -328,6 +328,24 @@ class GcRewriterAssembler(object):
             self.newop(op0)
             self.gen_malloc_nursery_varsize_frame(length_box, frame)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
+            # we need to explicitely zero all the gc fields, because
+            # of the unusal malloc pattern
+            extra_ops = [
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
+                             None, descr=descrs.jf_extra_stack_depth),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
+                             None, descr=descrs.jf_savedata),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
+                             None, descr=descrs.jf_force_descr),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
+                             None, descr=descrs.jf_descr),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
+                             None, descr=descrs.jf_guard_exc),
+                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
+                             None, descr=descrs.jf_forward),
+            ]
+            for extra_op in extra_ops:
+                self.newop(extra_op)
             self.gen_initialize_len(frame, length_box,
                                     descrs.arraydescr.lendescr)
 

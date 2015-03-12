@@ -786,6 +786,14 @@ class TestStm(RewriteTests):
         p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=stmflagsdescr)
         setfield_gc(p1, 0, descr=tiddescr)
+
+        setfield_gc(p1, 0, descr=jf_extra_stack_depth)
+        setfield_gc(p1, NULL, descr=jf_savedata)
+        setfield_gc(p1, NULL, descr=jf_force_descr)
+        setfield_gc(p1, NULL, descr=jf_descr)
+        setfield_gc(p1, NULL, descr=jf_guard_exc)
+        setfield_gc(p1, NULL, descr=jf_forward)
+
         setfield_gc(p1, i1, descr=framelendescr)
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
@@ -817,6 +825,12 @@ class TestStm(RewriteTests):
         p5 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p5, 0, descr=stmflagsdescr)
         setfield_gc(p5, 0, descr=tiddescr)
+        setfield_gc(p5, 0, descr=jf_extra_stack_depth)
+        setfield_gc(p5, NULL, descr=jf_savedata)
+        setfield_gc(p5, NULL, descr=jf_force_descr)
+        setfield_gc(p5, NULL, descr=jf_descr)
+        setfield_gc(p5, NULL, descr=jf_guard_exc)
+        setfield_gc(p5, NULL, descr=jf_forward)
         setfield_gc(p5, i1, descr=framelendescr)
         setfield_gc(p5, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p5, 0, i0, descr=signedframedescr)
@@ -1303,6 +1317,12 @@ class TestStm(RewriteTests):
         p1 = call_malloc_nursery_varsize_frame(i1) {54}
         setfield_gc(p1, 0, descr=stmflagsdescr)
         setfield_gc(p1, 0, descr=tiddescr) {54}
+        setfield_gc(p1, 0, descr=jf_extra_stack_depth)
+        setfield_gc(p1, NULL, descr=jf_savedata)
+        setfield_gc(p1, NULL, descr=jf_force_descr)
+        setfield_gc(p1, NULL, descr=jf_descr)
+        setfield_gc(p1, NULL, descr=jf_guard_exc)
+        setfield_gc(p1, NULL, descr=jf_forward)
         setfield_gc(p1, i1, descr=framelendescr) {54}
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info) {54}
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr) {54}
