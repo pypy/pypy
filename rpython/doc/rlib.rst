@@ -128,6 +128,14 @@ so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
 
+rstrategies
+-----------
+
+The :source:`rpython/rlib/rstrategies` module contains a library to implement storage strategies in
+RPython VMs. The library is language-independent and extensible.
+More details and examples can be found in the :doc:`rstrategies documentation <rstrategies>`.
+
+
 streamio
 --------
 
