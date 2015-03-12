@@ -90,24 +90,27 @@ class CodemapStorage(object):
             lltype.free(items, flavor='raw', track_allocation=False)
 
     def free_asm_block(self, start, stop):
-        # fix up jit_addr_map
-        g = pypy_get_codemap_storage()
-        jit_adr_start = bisect_left(g.jit_addr_map, start,
-                                    g.jit_addr_map_used)
-        jit_adr_stop = bisect_left(g.jit_addr_map, stop,
-                                   g.jit_addr_map_used)
-        pypy_codemap_invalid_set(1)
-        self.remove('jit_addr_map', jit_adr_start, jit_adr_stop)
-        self.remove('jit_frame_depth_map', jit_adr_start, jit_adr_stop)
-        # fix up codemap
-        # (there should only be zero or one codemap entry in that range,
-        # but still we use a range to distinguish between zero and one)
-        codemap_adr_start = bisect_left_addr(g.jit_codemap, start,
-                                             g.jit_codemap_used)
-        codemap_adr_stop = bisect_left_addr(g.jit_codemap, stop,
-                                            g.jit_codemap_used)
-        self.remove('jit_codemap', codemap_adr_start, codemap_adr_stop)
-        pypy_codemap_invalid_set(0)
+        items = pypy_jit_codemap_del(start)
+        if items:
+            lltype.free(items, flavor='raw', track_allocation=False)
+        ## # fix up jit_addr_map
+        ## g = pypy_get_codemap_storage()
+        ## jit_adr_start = bisect_left(g.jit_addr_map, start,
+        ##                             g.jit_addr_map_used)
+        ## jit_adr_stop = bisect_left(g.jit_addr_map, stop,
+        ##                            g.jit_addr_map_used)
+        ## pypy_codemap_invalid_set(1)
+        ## self.remove('jit_addr_map', jit_adr_start, jit_adr_stop)
+        ## self.remove('jit_frame_depth_map', jit_adr_start, jit_adr_stop)
+        ## # fix up codemap
+        ## # (there should only be zero or one codemap entry in that range,
+        ## # but still we use a range to distinguish between zero and one)
+        ## codemap_adr_start = bisect_left_addr(g.jit_codemap, start,
+        ##                                      g.jit_codemap_used)
+        ## codemap_adr_stop = bisect_left_addr(g.jit_codemap, stop,
+        ##                                     g.jit_codemap_used)
+        ## self.remove('jit_codemap', codemap_adr_start, codemap_adr_stop)
+        ## pypy_codemap_invalid_set(0)
 
     def register_frame_depth_map(self, rawstart, frame_positions,
                                  frame_assignments):
