@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-
+#define HAS_SKIPLIST
 #define SKIPLIST_HEIGHT   8
 
 typedef struct skipnode_s {

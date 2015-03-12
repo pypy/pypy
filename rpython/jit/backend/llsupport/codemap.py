@@ -23,7 +23,10 @@ from rpython.translator import cdir
 INT_LIST_PTR = rffi.CArrayPtr(lltype.Signed)
 
 
+srcdir = os.path.join(os.path.dirname(__file__), 'src')
+
 eci = ExternalCompilationInfo(post_include_bits=["""
+#include <stdint.h>
 RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
                                      unsigned int machine_code_size,
                                      long *bytecode_info,
@@ -38,8 +41,9 @@ RPY_EXTERN long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
                                       unsigned int stackdepth);
 RPY_EXTERN void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size);
 
-"""], separate_module_files=[
-    os.path.join(os.path.dirname(__file__), 'src', 'codemap.c')
+"""], separate_module_sources=[
+    open(os.path.join(srcdir, 'skiplist.c'), 'r').read() +
+    open(os.path.join(srcdir, 'codemap.c'), 'r').read()
 ], include_dirs=[cdir])
 
 def llexternal(name, args, res):

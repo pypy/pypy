@@ -1,5 +1,8 @@
 #include "src/precommondefs.h"
-#include "skiplist.c"
+
+#ifndef HAS_SKIPLIST
+# error "skiplist.c needs to be included before"
+#endif
 
 volatile int pypy_codemap_currently_invalid = 0;
 
