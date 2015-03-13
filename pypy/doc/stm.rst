@@ -45,11 +45,10 @@ more in parallel should ideally run faster than in a regular PyPy
   it as a drop-in replacement and multithreaded programs will run on
   multiple cores.
 
-* ``pypy-stm`` does not impose any special API to the user, but it
-  provides a new pure Python module called `transactional_memory`_ with
-  features to inspect the state or debug conflicts_ that prevent
-  parallelization.  This module can also be imported on top of a non-STM
-  PyPy or CPython.
+* ``pypy-stm`` provides (but does not impose) a special API to the
+  user in the pure Python module `transaction`_.  This module is based
+  on the lower-level module `pypystm`_, but also provides some
+  compatibily with non-STM PyPy's or CPython's.
 
 * Building on top of the way the GIL is removed, we will talk
   about `Atomic sections, Transactions, etc.: a better way to write
@@ -63,9 +62,10 @@ Getting Started
 
 Development is done in the branch `stmgc-c7`_.  If you are only
 interested in trying it out, you can download a Ubuntu binary here__
-(``pypy-stm-2.3*.tar.bz2``, Ubuntu 12.04-14.04).  The current version
+(``pypy-stm-2.*.tar.bz2``, for Ubuntu 12.04-14.04).  The current version
 supports four "segments", which means that it will run up to four
-threads in parallel.
+threads in parallel.  (Development recently switched to `stmgc-c8`_,
+but that is not ready for trying out yet.)
 
 To build a version from sources, you first need to compile a custom
 version of clang(!); we recommend downloading `llvm and clang like
@@ -78,6 +78,7 @@ the branch `stmgc-c7`_ of PyPy and run::
    rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
 
 .. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
+.. _`stmgc-c8`: https://bitbucket.org/pypy/pypy/src/stmgc-c8/
 .. __: https://bitbucket.org/pypy/pypy/downloads/
 .. __: http://clang.llvm.org/get_started.html
 .. __: https://bitbucket.org/pypy/stmgc/src/default/c7/llvmfix/
@@ -85,11 +86,11 @@ the branch `stmgc-c7`_ of PyPy and run::
 
 .. _caveats:
 
-Current status
---------------
+Current status (stmgc-c7)
+-------------------------
 
-* So far, small examples work fine, but there are still a few bugs.
-  We're busy fixing them as we find them; feel free to `report bugs`_.
+* It seems to work fine, without crashing any more.  Please `report
+  any crash`_ you find (or other bugs).
 
 * It runs with an overhead as low as 20% on examples like "richards".
   There are also other examples with higher overheads --currently up to
@@ -97,8 +98,9 @@ Current status
   One suspect is our partial GC implementation, see below.
 
 * Currently limited to 1.5 GB of RAM (this is just a parameter in
-  `core.h`__).  Memory overflows are not correctly handled; they cause
-  segfaults.
+  `core.h`__ -- theoretically.  In practice, increase it too much and
+  clang crashes again).  Memory overflows are not correctly handled;
+  they cause segfaults.
 
 * The JIT warm-up time improved recently but is still bad.  In order to
   produce machine code, the JIT needs to enter a special single-threaded
@@ -114,11 +116,9 @@ Current status
   numbers of small objects that don't immediately die (surely a common
   situation) suffer from these missing optimizations.
 
-* The GC has no support for destructors: the ``__del__`` method is never
-  called (including on file objects, which won't be closed for you).
-  This is of course temporary.  Also, weakrefs might appear to work a
-  bit strangely for now (staying alive even though ``gc.collect()``, or
-  even dying but then un-dying for a short time before dying again).
+* Weakrefs might appear to work a bit strangely for now, sometimes
+  staying alive throught ``gc.collect()``, or even dying but then
+  un-dying for a short time before dying again.
 
 * The STM system is based on very efficient read/write barriers, which
   are mostly done (their placement could be improved a bit in
@@ -130,7 +130,7 @@ Current status
 
 * Very long-running processes (on the order of days) will eventually
   crash on an assertion error because of a non-implemented overflow of
-  an internal 29-bit number.
+  an internal 28-bit counter.
 
 .. _`report bugs`: https://bugs.pypy.org/
 .. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
@@ -175,29 +175,89 @@ work as expected.
 
 This works by internally considering the points where a standard PyPy or
 CPython would release the GIL, and replacing them with the boundaries of
-"transaction".  Like their database equivalent, multiple transactions
+"transactions".  Like their database equivalent, multiple transactions
 can execute in parallel, but will commit in some serial order.  They
 appear to behave as if they were completely run in this serialization
 order.
 
 
+A better way to write parallel programs
+---------------------------------------
+
+In CPU-hungry programs, we can often easily identify outermost loops
+over some data structure, or other repetitive algorithm, where each
+"block" consists of processing a non-trivial amount of data, and where
+the blocks "have a good chance" to be independent from each other.  We
+don't need to prove that they are actually independent: it is enough
+if they are *often independent* --- or, more precisely, if we *think
+they should be* often independent.
+
+One typical example would look like this, where the function ``func()``
+typically invokes a large amount of code::
+
+    for key, value in bigdict.items():
+        func(key, value)
+
+Then you simply replace the loop with::
+
+    from transaction import TransactionQueue
+
+    tr = TransactionQueue()
+    for key, value in bigdict.items():
+        tr.add(func, key, value)
+    tr.run()
+
+This code's behavior is equivalent.  Internally, the
+``TransactionQueue`` object will start N threads and try to run the
+``func(key, value)`` calls on all threads in parallel.  But note the
+difference with a regular thread-pooling library, as found in many
+lower-level languages than Python: the function calls are not randomly
+interleaved with each other just because they run in parallel.  The
+behavior did not change because we are using ``TransactionQueue``.
+All the calls still *appear* to execute in some serial order.
+
+Now the performance should ideally be improved: if the function calls
+turn out to be actually independent (most of the time), then it will
+be.  But if the function calls are not, then the total performance
+will crawl back to the previous case, with additionally some small
+penalty for the overhead.
+
+This case occurs typically when you see the total CPU usage remaining
+low (closer to 1 than N cores).  Note first that it is expected that
+the CPU usage should not go much higher than 1 in the JIT warm-up
+phase.  You must run a program for several seconds, or for larger
+programs at least one minute, to give the JIT a chance to warm up
+correctly.  But if CPU usage remains low even though all code is
+executing in a ``TransactionQueue.run()``, then the ``PYPYSTM``
+environment variable can be used to track what is going on.
+
+Run your program with ``PYPYSTM=stmlog`` to produce a log file called
+``stmlog``.  Afterwards, use the ``pypy/stm/print_stm_log.py`` utility
+to inspect the content of this log file.  It produces output like
+this::
+
+    documentation in progress!
+
+
+
 Atomic sections
 ---------------
 
-PyPy supports *atomic sections,* which are blocks of code which you want
-to execute without "releasing the GIL".  *This is experimental and may
-be removed in the future.*  In STM terms, this means blocks of code that
-are executed while guaranteeing that the transaction is not interrupted
-in the middle.
+PyPy supports *atomic sections,* which are blocks of code which you
+want to execute without "releasing the GIL".  In STM terms, this means
+blocks of code that are executed while guaranteeing that the
+transaction is not interrupted in the middle.  *This is experimental
+and may be removed in the future* if `lock elision`_ is ever
+implemented.
 
 Here is a usage example::
 
-    with __pypy__.thread.atomic:
+    with transaction.atomic:
         assert len(lst1) == 10
         x = lst1.pop(0)
         lst1.append(x)
 
-In this (bad) example, we are sure that the item popped off one end of
+In this example, we are sure that the item popped off one end of
 the list is appened again at the other end atomically.  It means that
 another thread can run ``len(lst1)`` or ``x in lst1`` without any
 particular synchronization, and always see the same results,
@@ -225,21 +285,22 @@ Note that if you want to experiment with ``atomic``, you may have to add
 manually a transaction break just before the atomic block.  This is
 because the boundaries of the block are not guaranteed to be the
 boundaries of the transaction: the latter is at least as big as the
-block, but maybe bigger.  Therefore, if you run a big atomic block, it
+block, but may be bigger.  Therefore, if you run a big atomic block, it
 is a good idea to break the transaction just before.  This can be done
-e.g. by the hack of calling ``time.sleep(0)``.  (This may be fixed at
+by calling ``transaction.hint_commit_soon()``.  (This may be fixed at
 some point.)
 
-There are also issues with the interaction of locks and atomic blocks.
-This can be seen if you write to files (which have locks), including
-with a ``print`` to standard output.  If one thread tries to acquire a
-lock while running in an atomic block, and another thread has got the
-same lock, then the former may fail with a ``thread.error``.  The reason
-is that "waiting" for some condition to become true --while running in
-an atomic block-- does not really make sense.  For now you can work
-around it by making sure that, say, all your prints are either in an
-``atomic`` block or none of them are.  (This kind of issue is
-theoretically hard to solve.)
+There are also issues with the interaction of regular locks and atomic
+blocks.  This can be seen if you write to files (which have locks),
+including with a ``print`` to standard output.  If one thread tries to
+acquire a lock while running in an atomic block, and another thread
+has got the same lock at that point, then the former may fail with a
+``thread.error``.  The reason is that "waiting" for some condition to
+become true --while running in an atomic block-- does not really make
+sense.  For now you can work around it by making sure that, say, all
+your prints are either in an ``atomic`` block or none of them are.
+(This kind of issue is theoretically hard to solve and may be the
+reason for atomic block support to eventually be removed.)
 
 
 Locks
