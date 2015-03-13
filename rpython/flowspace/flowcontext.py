@@ -124,7 +124,7 @@ class BlockRecorder(Recorder):
     def guessexception(self, ctx, *cases):
         block = self.crnt_block
         links = []
-        for case in [None] + list(cases):
+        for case in [None, Exception]:
             if case is not None:
                 if case is Exception:
                     last_exc = Variable('last_exception')
@@ -398,6 +398,8 @@ class FlowContext(object):
             block = self.pendingblocks.popleft()
             if not block.dead:
                 self.record_block(block)
+        from rpython.translator.simplify import specialize_exceptions
+        specialize_exceptions(graph)
 
     def record_block(self, block):
         self.setstate(block.framestate)

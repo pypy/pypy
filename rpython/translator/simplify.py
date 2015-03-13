@@ -9,13 +9,13 @@ from collections import defaultdict
 
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import (
-        Variable, Constant, checkgraph, mkentrymap)
+    Variable, Constant, checkgraph, mkentrymap, const, Link)
 from rpython.flowspace.operation import OverflowingOperation, op
 from rpython.rlib import rarithmetic
 from rpython.translator import unsimplify
 from rpython.rtyper.lltypesystem import lloperation, lltype
 from rpython.translator.backendopt.ssa import (
-        SSA_to_SSI, DataFlowFamilyBuilder)
+    SSA_to_SSI, DataFlowFamilyBuilder)
 
 def get_graph(arg, translator):
     if isinstance(arg, Variable):
@@ -326,6 +326,62 @@ def join_blocks(graph):
             if link.target not in seen:
                 stack.extend(link.target.exits)
                 seen[link.target] = True
+
+def specialize_exceptions(graph):
+    for block in list(graph.iterblocks()):
+        if block.canraise:
+            op = block.raising_op
+            if op.canraise != [Exception]:
+                normal_exit, exc_exit = block.exits
+                exits = []
+                for case in op.canraise:
+                    if case is Exception:
+                        exits.append(exc_exit)
+                    else:
+                        v_exctype = const(case)
+                        v_excvalue = Variable('last_exc_value')
+                        subs = {
+                            exc_exit.last_exception: v_exctype,
+                            exc_exit.last_exc_value: v_excvalue}
+                        link = exc_exit
+                        computed_target = None
+                        seen = set()
+                        while True:
+                            curr_target = link.target
+                            assert link not in seen
+                            seen.add(link)
+                            for v_src, v_target in zip(link.args, curr_target.inputargs):
+                                subs[v_target] = v_src.replace(subs)
+                            for op in curr_target.operations:
+                                new_op = op.replace(subs)
+                                v_const = new_op.constfold()
+                                if v_const is None:
+                                    computed_target = link.target
+                                    break
+                                subs[op.result] = v_const
+                            if computed_target:
+                                break
+                            if not curr_target.exits:
+                                computed_target = curr_target
+                                break
+                            elif len(curr_target.exits) == 1 or curr_target.canraise:
+                                link = curr_target.exits[0]
+                            else:
+                                v_case = curr_target.exitswitch.replace(subs)
+                                if isinstance(v_case, Constant):
+                                    for exit in curr_target.exits:
+                                        if exit.exitcase == v_case.value:
+                                            link = exit
+                                            break
+                                    else:
+                                        assert False
+                        vars = [v.replace(subs) for v in computed_target.inputargs]
+                        new_link = Link(vars, computed_target, case)
+                        new_link.extravars(v_exctype, v_excvalue)
+                        exits.append(new_link)
+                exits = [normal_exit] + exits
+                block.recloseblock(*exits)
+
 
 def remove_assertion_errors(graph):
     """Remove branches that go directly to raising an AssertionError,
