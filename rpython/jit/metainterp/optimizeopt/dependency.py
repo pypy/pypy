@@ -18,13 +18,13 @@ class DependencyGraph(object):
         Representation is an adjacent list. The number of edges between the
         vertices is expected to be small.
     """
-    def __init__(self, optimizer, loop):
-        self.loop = loop
-        self.operations = loop.operations
+    def __init__(self, optimizer):
+        self.loop = optimizer.loop
+        self.operations = self.loop.operations
         self.optimizer = optimizer
         self.adjacent_list = [ [] for i in range(len(self.operations)) ]
 
-        self.build_dependencies(loop.operations)
+        self.build_dependencies(self.operations)
 
     def build_dependencies(self, operations):
         """ This is basically building the definition-use chain and saving this

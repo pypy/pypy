@@ -14,27 +14,29 @@ class NotAVectorizeableLoop(JitException):
         return 'NotAVectorizeableLoop()'
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
-    opt = OptVectorize(metainterp_sd, jitdriver_sd, loop, optimizations)
+    opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     try:
         opt.propagate_all_forward()
+        # TODO
+        def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
+        def_opt.propagate_all_forward()
     except NotAVectorizeableLoop:
         # vectorization is not possible, propagate only normal optimizations
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
 
-class VectorizeOptimizer(Optimizer):
-    def setup(self):
-        pass
-
-class OptVectorize(Optimization):
+class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
-        self.optimizer = VectorizeOptimizer(metainterp_sd, jitdriver_sd,
-                                             loop, optimizations)
+        Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, optimizations)
         self.vec_info = LoopVectorizeInfo()
         self.memory_refs = []
         self.dependency_graph = None
+
+    def emit_unrolled_operation(self, op):
+        self._last_emitted_op = op
+        self._newoperations.append(op)
 
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
         # fill the map with the renaming boxes. keys are boxes from the label
@@ -58,15 +60,14 @@ class OptVectorize(Optimization):
         iterations = [operations]
         label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
         values = [self.getvalue(box) for box in label_op.getarglist()]
-        #values[0].make_nonnull(self.optimizer)
 
         jump_op_args = jump_op.getarglist()
 
         rename_map = {}
+        self.emit_unrolled_operation(label_op)
         for unroll_i in range(2, unroll_factor+1):
             # for each unrolling factor the boxes are renamed.
             self._rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
-            iteration_ops = []
             for op in operations:
                 copied_op = op.clone()
 
@@ -86,7 +87,7 @@ class OptVectorize(Optimization):
                         pass
 
                 self.vec_info._op_index = op_index
-                iteration_ops.append(copied_op)
+                self.emit_unrolled_operation(copied_op)
                 op_index += 1
                 self.vec_info.inspect_operation(copied_op)
 
@@ -104,14 +105,7 @@ class OptVectorize(Optimization):
             # map will be rebuilt, the jump operation has been updated already
             rename_map.clear()
 
-            iterations.append(iteration_ops)
-
-        # unwrap the loop nesting.
-        loop.operations.append(label_op)
-        for iteration in iterations:
-            for op in iteration:
-                loop.operations.append(op)
-        loop.operations.append(jump_op)
+        self.emit_unrolled_operation(jump_op)
 
     def _gather_trace_information(self, loop):
         for i,op in enumerate(loop.operations):
@@ -132,10 +126,9 @@ class OptVectorize(Optimization):
 
     def propagate_all_forward(self):
 
-        loop = self.optimizer.loop
-        self.optimizer.clear_newoperations()
+        self.clear_newoperations()
 
-        self._gather_trace_information(loop)
+        self._gather_trace_information(self.loop)
 
         byte_count = self.vec_info.smallest_type_bytes
         if byte_count == 0:
@@ -144,22 +137,25 @@ class OptVectorize(Optimization):
 
         unroll_factor = self.get_estimated_unroll_factor()
 
-        self.unroll_loop_iterations(loop, unroll_factor)
+        self.unroll_loop_iterations(self.loop, unroll_factor)
 
-        self.build_dependencies()
+        self.loop.operations = self.get_newoperations();
+        self.clear_newoperations();
+
+        self.build_dependency_graph()
+        self.find_adjacent_memory_refs()
 
     def build_dependency_graph(self):
-        self.dependency_graph = DependencyGraph(self.optimizer,
-                                                self.optimizer.loop)
+        self.dependency_graph = DependencyGraph(self)
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
         operations. Since it is in SSA form there is no array index. Indices
         are flattend. If there are two array accesses in the unrolled loop
         i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1 """
-        loop = self.optimizer.loop
+        loop = self.loop
         operations = loop.operations
-        integral_mod = IntegralMod(self.optimizer)
+        integral_mod = IntegralMod(self)
         for opidx,memref in self.vec_info.memory_refs.items():
             integral_mod.reset()
             while True:
