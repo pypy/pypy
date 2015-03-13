@@ -27,7 +27,10 @@ def create_venv(name):
                 if e.errno in (errno.ENOTDIR, errno.EINVAL):
                     shutil.copy(src, dst)
                 else:
-                    print 'got errno',e.errno,'not',errno.ENOTDIR
+                    print('got errno')
+                    print(e.errno)
+                    print('not')
+                    print(errno.ENOTDIR)
                     raise
 
     site_packages = None
