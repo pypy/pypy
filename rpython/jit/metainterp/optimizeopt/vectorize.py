@@ -1,5 +1,5 @@
 import sys
-
+import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -206,6 +206,10 @@ class OptVectorize(Optimization):
         return False
 
 class IntegralMod(object):
+    """ Calculates integral modifications on an integer object.
+    The operations must be provided in backwards direction and of one
+    variable only. Call reset() to reuse this object for other variables.
+    """
 
     def __init__(self, optimizer):
         self.optimizer = optimizer
@@ -213,8 +217,9 @@ class IntegralMod(object):
 
     def reset(self):
         self.is_const_mod = False
-        self.factor_c = 1
-        self.factor_d = 0
+        self.coefficient_mul = 1
+        self.coefficient_div = 1
+        self.constant = 0
         self.used_box = None
 
     def operation_INT_SUB(self, op):
@@ -222,61 +227,86 @@ class IntegralMod(object):
         box_a1 = op.getarg(1)
         a0 = self.optimizer.getvalue(box_a0)
         a1 = self.optimizer.getvalue(box_a1)
+        self.is_const_mod = True
         if a0.is_constant() and a1.is_constant():
             raise NotImplementedError()
         elif a0.is_constant():
-            self.is_const_mod = True
-            self.factor_d -= box_a0.getint() * self.factor_c
+            self.constant -= box_a0.getint() * self.coefficient_mul
             self.used_box = box_a1
         elif a1.is_constant():
-            self.is_const_mod = True
-            self.factor_d -= box_a1.getint() * self.factor_c
+            self.constant -= box_a1.getint() * self.coefficient_mul
             self.used_box = box_a0
+        else:
+            self.is_const_mod = False
 
-    def operation_INT_ADD(self, op):
+    def _update_additive(self, i):
+        return (i * self.coefficient_mul) / self.coefficient_div
+    
+    additive_func_source = """
+    def operation_{name}(self, op):
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
         a0 = self.optimizer.getvalue(box_a0)
         a1 = self.optimizer.getvalue(box_a1)
+        self.is_const_mod = True
         if a0.is_constant() and a1.is_constant():
-            # this means that the overall array offset is not
-            # added to a variable, but is constant
-            raise NotImplementedError()
+            self.used_box = None
+            self.constant += self._update_additive(box_a0.getint() {op} \
+                                                      box_a1.getint())
         elif a0.is_constant():
-            self.is_const_mod = True
-            self.factor_d += box_a0.getint() * self.factor_c
+            self.constant {op}= self._update_additive(box_a0.getint())
             self.used_box = box_a1
         elif a1.is_constant():
-            self.is_const_mod = True
-            print('add', box_a1.getint(), self.factor_c)
-            self.factor_d += box_a1.getint() * self.factor_c
+            self.constant {op}= self._update_additive(box_a1.getint())
             self.used_box = box_a0
+        else:
+            self.is_const_mod = False
+    """
+    exec py.code.Source(additive_func_source.format(name='INT_ADD', 
+                                                    op='+')).compile()
+    exec py.code.Source(additive_func_source.format(name='INT_SUB', 
+                                                    op='-')).compile()
+    del additive_func_source
 
-    def operation_INT_MUL(self, op):
-        """ Whenever a multiplication occurs this only alters the
-        factor_c. When later a plus occurs, factor_c multiplies the added
-        operand. """
+    multiplicative_func_source = """
+    def operation_{name}(self, op):
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
         a0 = self.optimizer.getvalue(box_a0)
         a1 = self.optimizer.getvalue(box_a1)
+        self.is_const_mod = True
         if a0.is_constant() and a1.is_constant():
-            # this means that the overall array offset is not
-            # added to a variable, but is constant
-            raise NotImplementedError()
+            # here these factor becomes a constant, thus it is
+            # handled like any other additive operation
+            self.used_box = None
+            self.constant += self._update_additive(box_a0.getint() {cop} \
+                                                      box_a1.getint())
         elif a0.is_constant():
-            self.is_const_mod = True
-            self.factor_c *= box_a0.getint()
+            self.coefficient_{tgt} {op}= box_a0.getint()
             self.used_box = box_a1
         elif a1.is_constant():
-            self.is_const_mod = True
-            self.factor_c *= box_a1.getint()
+            self.coefficient_{tgt} {op}= box_a1.getint()
             self.used_box = box_a0
+        else:
+            self.is_const_mod = False
+    """
+    exec py.code.Source(multiplicative_func_source.format(name='INT_MUL', 
+                                                 op='*', tgt='mul',
+                                                 cop='*')).compile()
+    exec py.code.Source(multiplicative_func_source.format(name='INT_FLOORDIV',
+                                                 op='*', tgt='div',
+                                                 cop='/')).compile()
+    exec py.code.Source(multiplicative_func_source.format(name='UINT_FLOORDIV',
+                                                 op='*', tgt='div',
+                                                 cop='/')).compile()
+    del multiplicative_func_source
+    
 
     def update_memory_ref(self, memref):
         #print("updating memory ref pre: ", memref)
-        memref.factor_d = self.factor_d
-        memref.factor_c = self.factor_c
+        memref.constant = self.constant
+        memref.coefficient_mul = self.coefficient_mul
+        memref.coefficient_div = self.coefficient_div
         memref.origin = self.used_box
         #print("updating memory ref post: ", memref)
 
@@ -334,18 +364,43 @@ class MemoryRef(object):
         self.array = array
         self.origin = origin
         self.descr = descr
-        self.factor_c = 1
-        self.factor_d = 0
+        self.coefficient_mul = 1
+        self.coefficient_div = 1
+        self.constant = 0
 
     def is_adjacent_to(self, other):
         """ this is a symmetric relation """
-        if self.array == other.array \
-            and self.origin == other.origin:
-            my_off = (self.factor_c * self.factor_d) 
-            other_off = (other.factor_c * other.factor_d)
-            diff = my_off - other_off
-            return diff == 1 or diff == -1
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 1 or off == -1
         return False
 
+    def is_adjacent_after(self, other):
+        """ the asymetric relation to is_adjacent_to """
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 1
+        return False
+
+    def __eq__(self, other):
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 0
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+    def calc_difference(self, other):
+        if self.array == other.array \
+            and self.origin == other.origin:
+            mycoeff = self.coefficient_mul // self.coefficient_div
+            othercoeff = other.coefficient_mul // other.coefficient_div
+            diff = other.constant - self.constant
+            return mycoeff == othercoeff, diff
+        return False, 0
+
     def __repr__(self):
-        return 'MemoryRef(%s,%s,%s)' % (self.origin, self.factor_c, self.factor_d)
+        return 'MemoryRef(%s*(%s/%s)+%s)' % (self.origin, self.coefficient_mul,
+                                            self.coefficient_div, self.constant)

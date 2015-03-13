@@ -61,6 +61,7 @@ class FakeMetaInterp:
     class jitdriver_sd:
         warmstate = FakeState()
         virtualizable_info = None
+        vectorize = False
 
 def test_compile_loop():
     cpu = FakeCPU()

@@ -393,7 +393,6 @@ class WarmRunnerDesc(object):
         graph.func._jit_unroll_safe_ = True
         jd.jitdriver = block.operations[pos].args[1].value
         jd.vectorize = jd.jitdriver.vectorize
-        del jd.jitdriver.vectorize
         jd.portal_runner_ptr = "<not set so far>"
         jd.result_type = history.getkind(jd.portal_graph.getreturnvar()
                                          .concretetype)[0]
