@@ -185,9 +185,9 @@ def transform_xxxitem(graph):
             last_op = block.raising_op
             if last_op.opname == 'getitem':
                 postfx = []
-                for exit in block.exits:
-                    if exit.exitcase is IndexError:
-                        postfx.append('idx')
+                if any(issubclass(IndexError, exit.exitcase)
+                        for exit in block.exits if exit.exitcase):
+                    postfx.append('idx')
                 if postfx:
                     Op = getattr(op, '_'.join(['getitem'] + postfx))
                     newop = Op(*last_op.args)
@@ -332,55 +332,32 @@ def specialize_exceptions(graph):
         if block.canraise:
             op = block.raising_op
             if op.canraise != [Exception]:
-                normal_exit, exc_exit = block.exits
+                exc_exits = block.exits[1:]
                 exits = []
+                has_generic_case = False
                 for case in op.canraise:
                     if case is Exception:
-                        exits.append(exc_exit)
+                        has_generic_case = True
+                        continue
+                    for exit in exc_exits:
+                        if issubclass(case, exit.exitcase):
+                            v_exctype = const(case)
+                            v_excvalue = Variable('last_exc_value')
+                            subs = {
+                                exit.last_exception: v_exctype,
+                                exit.last_exc_value: v_excvalue}
+                            new_link = exit.replace(subs)
+                            new_link.exitcase = case
+                            exits.append(new_link)
+                            break
                     else:
-                        v_exctype = const(case)
-                        v_excvalue = Variable('last_exc_value')
-                        subs = {
-                            exc_exit.last_exception: v_exctype,
-                            exc_exit.last_exc_value: v_excvalue}
-                        link = exc_exit
-                        computed_target = None
-                        seen = set()
-                        while True:
-                            curr_target = link.target
-                            assert link not in seen
-                            seen.add(link)
-                            for v_src, v_target in zip(link.args, curr_target.inputargs):
-                                subs[v_target] = v_src.replace(subs)
-                            for op in curr_target.operations:
-                                new_op = op.replace(subs)
-                                v_const = new_op.constfold()
-                                if v_const is None:
-                                    computed_target = link.target
-                                    break
-                                subs[op.result] = v_const
-                            if computed_target:
-                                break
-                            if not curr_target.exits:
-                                computed_target = curr_target
-                                break
-                            elif len(curr_target.exits) == 1 or curr_target.canraise:
-                                link = curr_target.exits[0]
-                            else:
-                                v_case = curr_target.exitswitch.replace(subs)
-                                if isinstance(v_case, Constant):
-                                    for exit in curr_target.exits:
-                                        if exit.exitcase == v_case.value:
-                                            link = exit
-                                            break
-                                    else:
-                                        assert False
-                        vars = [v.replace(subs) for v in computed_target.inputargs]
-                        new_link = Link(vars, computed_target, case)
-                        new_link.extravars(v_exctype, v_excvalue)
-                        exits.append(new_link)
-                exits = [normal_exit] + exits
+                        # ignore the uncaught implicit exception
+                        continue
+                exits = [block.exits[0]] + exits
+                if has_generic_case:
+                    exits += exc_exits
                 block.recloseblock(*exits)
+
 
 
 def remove_assertion_errors(graph):
@@ -1120,13 +1097,13 @@ all_passes = [
     constfold_exitswitch,
     remove_trivial_links,
     SSA_to_SSI,
-    specialize_exceptions,
-    remove_assertion_errors,
     coalesce_bool,
     transform_ovfcheck,
     simplify_exceptions,
-    transform_xxxitem,
+    remove_assertion_errors,
+    specialize_exceptions,
     remove_dead_exceptions,
+    transform_xxxitem,
     ]
 
 def simplify_graph(graph, passes=True): # can take a list of passes to apply, True meaning all
