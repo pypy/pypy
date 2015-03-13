@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import sys, os
+import itertools
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
@@ -18,7 +20,7 @@ class Fraction:
     def __str__(self):
         return repr(self)
 
-class Unicodechar:
+class UnicodeChar:
     def __init__(self, data=None):
         if data is None:
             return
@@ -74,37 +76,74 @@ class Unicodechar:
             self.title = int(data[14], 16)
 
     def copy(self):
-        uc = Unicodechar()
+        uc = UnicodeChar()
         uc.__dict__.update(self.__dict__)
         return uc
 
-def get_compat_decomposition(table, code):
-    if not table[code].decomposition:
-        return [code]
-    if not table[code].compat_decomp:
-        result = []
-        for decomp in table[code].decomposition:
-            result.extend(get_compat_decomposition(table, decomp))
-        table[code].compat_decomp = result
-    return table[code].compat_decomp
+class UnicodeData(object):
+    def __init__(self):
+        self.table = [None] * (MAXUNICODE + 1)
 
-def get_canonical_decomposition(table, code):
-    if not table[code].decomposition or table[code].isCompatibility:
-        return [code]
-    if not table[code].canonical_decomp:
-        result = []
-        for decomp in table[code].decomposition:
-            result.extend(get_canonical_decomposition(table, decomp))
-        table[code].canonical_decomp = result
-    return table[code].canonical_decomp
+    def add_char(self, code, char):
+        assert self.table[code] is None, (
+            'Multiply defined character %04X' % code)
+        if isinstance(char, list):
+            char = UnicodeChar(char)
+        self.table[code] = char
+        return char
 
-def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
-                     unihan_file=None, linebreak_file=None,
-                     derived_core_properties_file=None):
+    def all_codes(self):
+        return range(len(self.table))
+
+    def enum_chars(self):
+        for code in range(len(self.table)):
+            yield code, self.table[code]
+
+    def get_char(self, code):
+        return self.table[code]
+
+    def clone_char(self, code):
+        clone = self.table[code] = self.table[code].copy()
+        return clone
+
+    def set_excluded(self, code):
+        self.table[code].excluded = True
+
+    def set_linebreak(self, code):
+        self.table[code].linebreak = True
+
+    def set_east_asian_width(self, code, width):
+        self.table[code].east_asian_width = width
+
+    def add_property(self, code, p):
+        self.table[code].properties += (p,)
+
+    def get_compat_decomposition(self, code):
+        if not self.table[code].decomposition:
+            return [code]
+        if not self.table[code].compat_decomp:
+            result = []
+            for decomp in self.table[code].decomposition:
+                result.extend(self.get_compat_decomposition(decomp))
+            self.table[code].compat_decomp = result
+        return self.table[code].compat_decomp
+
+    def get_canonical_decomposition(self, code):
+        if (not self.table[code].decomposition or
+            self.table[code].isCompatibility):
+            return [code]
+        if not self.table[code].canonical_decomp:
+            result = []
+            for decomp in self.table[code].decomposition:
+                result.extend(self.get_canonical_decomposition(decomp))
+            self.table[code].canonical_decomp = result
+        return self.table[code].canonical_decomp
+
+def read_unicodedata(files):
     rangeFirst = {}
     rangeLast = {}
-    table = [None] * (MAXUNICODE + 1)
-    for line in unicodedata_file:
+    table = UnicodeData()
+    for line in files['data']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -119,26 +158,23 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
             rangeLast[name]  = code
             continue
         code = int(data[0], 16)
-        u = Unicodechar(data)
-        assert table[code] is None, 'Multiply defined character %04X' % code
-        table[code] = u
+        table.add_char(code, data)
 
     # Collect ranges
     ranges = {}
     for name, (start, data) in rangeFirst.iteritems():
         end = rangeLast[name]
-        unichar = Unicodechar(['0000', None] + data[2:])
-        ranges[(start, end)] = unichar
+        ranges[(start, end)] = ['0000', None] + data[2:]
 
     # Read exclusions
-    for line in exclusions_file:
+    for line in files['exclusions']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
-        table[int(line, 16)].excluded = True
+        table.set_excluded(int(line, 16))
 
     # Read line breaks
-    for line in linebreak_file:
+    for line in files['linebreak']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -150,16 +186,15 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         else:
             first, last = [int(c, 16) for c in data[0].split('..')]
         for char in range(first, last+1):
-            table[char].linebreak = True
+            table.set_linebreak(char)
 
     # Expand ranges
-    for (first, last), char in ranges.iteritems():
+    for (first, last), data in ranges.iteritems():
         for code in range(first, last + 1):
-            assert table[code] is None, 'Multiply defined character %04X' % code
-            table[code] = char
+            table.add_char(code, data)
 
     # Read east asian width
-    for line in east_asian_width_file:
+    for line in files['east_asian_width']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -167,16 +202,16 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         if '..' in code:
             first, last = map(lambda x:int(x,16), code.split('..'))
             for code in range(first, last + 1):
-                uc = table[code]
-                if uc is None:
-                    uc = table[code] = Unicodechar(['0000', None,
-                                                    'Cn'] + [''] * 12)
+                uc = table.get_char(code)
+                if not uc:
+                    uc = table.add_char(code, ['0000', None,
+                                               'Cn'] + [''] * 12)
                 uc.east_asian_width = width
         else:
-            table[int(code, 16)].east_asian_width = width
+            table.set_east_asian_width(int(code, 16), width)
 
     # Read Derived Core Properties:
-    for line in derived_core_properties_file:
+    for line in files['derived_core_properties']:
         line = line.split('#', 1)[0].strip()
         if not line:
             continue
@@ -190,27 +225,25 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
         else:
             chars = [int(r, 16)]
         for char in chars:
-            if not table[char]:
+            if not table.get_char(char):
                 # Some properties (e.g. Default_Ignorable_Code_Point)
                 # apply to unassigned code points; ignore them
                 continue
-            table[char].properties += (p,)
+            table.add_property(char, p)
 
-    defaultChar = Unicodechar(['0000', None, 'Cn'] + [''] * 12)
-    for code in range(len(table)):
-        if table[code] is None:
-            table[code] = defaultChar
+    defaultChar = UnicodeChar(['0000', None, 'Cn'] + [''] * 12)
+    for code, char in table.enum_chars():
+        if not char:
+            table.add_char(code, defaultChar)
 
-    extra_numeric = read_unihan(unihan_file)
+    extra_numeric = read_unihan(files['unihan'])
     for code, value in extra_numeric.iteritems():
-        uc = table[code].copy()
-        uc.numeric = value
-        table[code] = uc
+        table.clone_char(code).numeric = value
 
     # Compute full decompositions.
-    for code in range(len(table)):
-        get_canonical_decomposition(table, code)
-        get_compat_decomposition(table, code)
+    for code, char in table.enum_chars():
+        table.get_canonical_decomposition(code)
+        table.get_compat_decomposition(code)
 
     return table
 
@@ -288,8 +321,8 @@ def writeDbRecord(outfile, table):
 
     # Create the records
     db_records = {}
-    for code in range(len(table)):
-        char = table[code]
+    for code in table.all_codes():
+        char = table.get_char(code)
         flags = 0
         if char.category == "Zs" or char.bidirectional in ("WS", "B", "S"):
             flags |= IS_SPACE
@@ -328,9 +361,11 @@ def writeDbRecord(outfile, table):
     print >> outfile, '_db_pgtbl = ('
     pages = []
     line = []
-    for i in range(0, len(table), pgsize):
+    groups = [iter(table.enum_chars())] * pgsize
+    for group in itertools.izip_longest(*groups):
         result = []
-        for char in table[i:i + pgsize]:
+        for code, char in group:
+            if not char: continue
             result.append(chr(db_records.index(char.db_record)))
         categorytbl = ''.join(result)
         try:
@@ -380,7 +415,9 @@ def write_character_names(outfile, table, base_mod):
 
     import triegenerator
 
-    names = dict((table[code].name,code) for code in range(len(table)) if table[code].name)
+    names = dict((table.get_char(code).name, code)
+                 for code in table.all_codes()
+                 if table.get_char(code).name)
     sorted_names_codes = sorted(names.iteritems())
 
     if base_mod is None:
@@ -563,13 +600,13 @@ def name(code):
     decimal = {}
     digit = {}
     numeric = {}
-    for code in range(len(table)):
-        if table[code].decimal is not None:
-            decimal[code] = table[code].decimal
-        if table[code].digit is not None:
-            digit[code] = table[code].digit
-        if table[code].numeric is not None:
-            numeric[code] = table[code].numeric
+    for code, char in table.enum_chars():
+        if char.decimal is not None:
+            decimal[code] = char.decimal
+        if char.digit is not None:
+            digit[code] = char.digit
+        if char.numeric is not None:
+            numeric[code] = char.numeric
 
     writeDict(outfile, '_decimal', decimal, base_mod)
     writeDict(outfile, '_digit', digit, base_mod)
@@ -606,13 +643,13 @@ def numeric(code):
     toupper = {}
     tolower = {}
     totitle = {}
-    for code in range(len(table)):
-        if table[code].upper:
-            toupper[code] = table[code].upper
-        if table[code].lower:
-            tolower[code] = table[code].lower
-        if table[code].title:
-            totitle[code] = table[code].title
+    for code, char in table.enum_chars():
+        if char.upper:
+            toupper[code] = char.upper
+        if char.lower:
+            tolower[code] = char.lower
+        if char.title:
+            totitle[code] = char.title
     writeDict(outfile, '_toupper', toupper, base_mod)
     writeDict(outfile, '_tolower', tolower, base_mod)
     writeDict(outfile, '_totitle', totitle, base_mod)
@@ -646,9 +683,9 @@ def totitle(code):
 '''
     # Decomposition
     decomposition = {}
-    for code in range(len(table)):
-        if table[code].raw_decomposition:
-            decomposition[code] = table[code].raw_decomposition
+    for code, char in table.enum_chars():
+        if char.raw_decomposition:
+            decomposition[code] = char.raw_decomposition
     writeDict(outfile, '_raw_decomposition', decomposition, base_mod)
     print >> outfile, '''
 def decomposition(code):
@@ -662,13 +699,12 @@ def decomposition(code):
 '''
     # Collect the composition pairs.
     compositions = []
-    for code in range(len(table)):
-        unichar = table[code]
+    for code, unichar in table.enum_chars():
         if (not unichar.decomposition or
             unichar.isCompatibility or
             unichar.excluded or
             len(unichar.decomposition) != 2 or
-            table[unichar.decomposition[0]].combining):
+            table.get_char(unichar.decomposition[0]).combining):
             continue
         left, right = unichar.decomposition
         compositions.append((left, right, code))
@@ -680,15 +716,15 @@ def decomposition(code):
     print >> outfile
 
     decomposition = {}
-    for code in range(len(table)):
-        if table[code].canonical_decomp:
-            decomposition[code] = table[code].canonical_decomp
+    for code, char in table.enum_chars():
+        if char.canonical_decomp:
+            decomposition[code] = char.canonical_decomp
     writeDict(outfile, '_canon_decomposition', decomposition, base_mod)
 
     decomposition = {}
-    for code in range(len(table)):
-        if table[code].compat_decomp:
-            decomposition[code] = table[code].compat_decomp
+    for code, char in table.enum_chars():
+        if char.compat_decomp:
+            decomposition[code] = char.compat_decomp
     writeDict(outfile, '_compat_decomposition', decomposition, base_mod)
     print >> outfile, '''
 def canon_decomposition(code):
@@ -726,16 +762,23 @@ def main():
 
     if options.output:
         outfile = open(options.output + '.py', "w")
-    infile = open('UnicodeData-%s.txt' % options.unidata_version)
-    exclusions = open('CompositionExclusions-%s.txt' % options.unidata_version)
-    east_asian_width = open('EastAsianWidth-%s.txt' % options.unidata_version)
-    unihan = open('UnihanNumeric-%s.txt' % options.unidata_version)
-    linebreak = open('LineBreak-%s.txt' % options.unidata_version)
-    derived_core_properties = open('DerivedCoreProperties-%s.txt' %
-                                   options.unidata_version)
 
-    table = read_unicodedata(infile, exclusions, east_asian_width, unihan,
-                             linebreak, derived_core_properties)
+    filenames = dict(
+        data='UnicodeData-%(version)s.txt',
+        exclusions='CompositionExclusions-%(version)s.txt',
+        east_asian_width='EastAsianWidth-%(version)s.txt',
+        unihan='UnihanNumeric-%(version)s.txt',
+        linebreak='LineBreak-%(version)s.txt',
+        derived_core_properties='DerivedCoreProperties-%(version)s.txt',
+        name_aliases='NameAliases-%(version)s.txt',
+        named_sequences = 'NamedSequences-%(version)s.txt',
+    )
+    filenames = dict((name, filename % dict(version=options.unidata_version))
+                     for (name, filename) in filenames.items())
+    files = dict((name, open(filename))
+                 for (name, filename) in filenames.items())
+
+    table = read_unicodedata(files)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
