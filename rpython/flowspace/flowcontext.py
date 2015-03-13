@@ -74,9 +74,6 @@ class EggBlock(Block):
             curr = prev
         return recorder
 
-    def extravars(self, last_exception=None, last_exc_value=None):
-        self.last_exception = last_exception
-
 def fixeggblocks(graph):
     for block in graph.iterblocks():
         if isinstance(block, SpamBlock):
@@ -124,28 +121,21 @@ class BlockRecorder(Recorder):
     def guessexception(self, ctx, *cases):
         block = self.crnt_block
         links = []
-        for case in [None, Exception]:
-            if case is not None:
-                if case is Exception:
-                    last_exc = Variable('last_exception')
-                else:
-                    last_exc = Constant(case)
-                last_exc_value = Variable('last_exc_value')
-                vars = [last_exc, last_exc_value]
-                vars2 = [Variable(), Variable()]
-            else:
-                vars = []
-                vars2 = []
-            egg = EggBlock(vars2, block, case)
-            ctx.pendingblocks.append(egg)
-            link = Link(vars, egg, case)
-            if case is not None:
-                link.extravars(last_exception=last_exc, last_exc_value=last_exc_value)
-                egg.extravars(last_exception=last_exc)
-            links.append(link)
-
+        normal_block = EggBlock([], block, None)
+        ctx.pendingblocks.append(normal_block)
+        normal_exit = Link([], normal_block, exitcase=None)
+        #
+        last_exc = Variable('last_exception')
+        last_exc_value = Variable('last_exc_value')
+        vars = [last_exc, last_exc_value]
+        vars2 = [Variable(), Variable()]
+        exc_block = EggBlock(vars2, block, Exception)
+        ctx.pendingblocks.append(exc_block)
+        exc_exit = Link(vars, exc_block, exitcase=Exception)
+        exc_exit.extravars(last_exception=last_exc, last_exc_value=last_exc_value)
+        #
         block.exitswitch = c_last_exception
-        block.closeblock(*links)
+        block.closeblock(normal_exit, exc_exit)
         raise StopFlowing
 
 
@@ -180,9 +170,6 @@ class Replayer(Recorder):
         if outcome is not None:
             egg = self.nextreplayer.crnt_block
             w_exc_cls, w_exc_value = egg.inputargs[-2:]
-            if isinstance(egg.last_exception, Constant):
-                w_exc_cls = egg.last_exception
-                assert not isinstance(w_exc_cls.value, list)
             raise RaiseImplicit(FSException(w_exc_cls, w_exc_value))
 
 # ____________________________________________________________
