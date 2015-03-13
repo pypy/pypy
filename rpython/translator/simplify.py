@@ -1116,11 +1116,12 @@ class ListComprehensionDetector(object):
 all_passes = [
     transform_dead_op_vars,
     eliminate_empty_blocks,
-    remove_assertion_errors,
     remove_identical_vars_SSA,
     constfold_exitswitch,
     remove_trivial_links,
     SSA_to_SSI,
+    specialize_exceptions,
+    remove_assertion_errors,
     coalesce_bool,
     transform_ovfcheck,
     simplify_exceptions,
@@ -1132,6 +1133,7 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
     """inplace-apply all the existing optimisations to the graph."""
     if passes is True:
         passes = all_passes
+    #import pdb; pdb.set_trace()
     for pass_ in passes:
         pass_(graph)
     checkgraph(graph)

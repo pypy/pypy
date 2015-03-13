@@ -385,8 +385,6 @@ class FlowContext(object):
             block = self.pendingblocks.popleft()
             if not block.dead:
                 self.record_block(block)
-        from rpython.translator.simplify import specialize_exceptions
-        specialize_exceptions(graph)
 
     def record_block(self, block):
         self.setstate(block.framestate)

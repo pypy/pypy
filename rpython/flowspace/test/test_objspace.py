@@ -1033,6 +1033,7 @@ class TestFlowObjSpace(Base):
             f2 = types.FunctionType(new_c, locals(), 'f')
 
             graph = self.codetest(f2)
+            simplify_graph(graph)
             all_ops = self.all_operations(graph)
             assert all_ops == {'newlist': 1, 'getattr': 1, 'simple_call': 1,
                                'iter': 1, 'next': 1}
@@ -1239,6 +1240,7 @@ class TestFlowObjSpace(Base):
         def f(iterable):
             return [5 for x in iterable]
         graph = self.codetest(f)
+        simplify_graph(graph)
         assert self.all_operations(graph) == {'getattr': 1,
                                               'iter': 1, 'newlist': 1,
                                               'next': 1, 'simple_call': 1}
