@@ -123,7 +123,9 @@ def stm_allocate_nonmovable(funcgen, op):
     result      = funcgen.expr(op.result)
     # XXX NULL returns?
     return ('%s = (rpygcchar_t *)_stm_allocate_external(%s >= 16 ? %s : 16); ' %
-                (result, arg_size, arg_size) +
+            (result, arg_size, arg_size) +
+            'pypy_stm_memclearinit((object_t*)%s, 0, %s >= 16 ? %s : 16);' %
+            (result, arg_size, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
 def stm_set_into_obj(funcgen, op):
