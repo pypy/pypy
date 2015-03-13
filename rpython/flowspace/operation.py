@@ -555,7 +555,7 @@ class Next(SingleDispatchMixin, HLOperation):
     opname = 'next'
     arity = 1
     can_overflow = False
-    canraise = []
+    canraise = [StopIteration, RuntimeError]
     pyfunc = staticmethod(next)
 
     def eval(self, ctx):
@@ -571,9 +571,7 @@ class Next(SingleDispatchMixin, HLOperation):
                 else:
                     ctx.replace_in_stack(it, next_unroller)
                     return const(v)
-        w_item = ctx.do_op(self)
-        ctx.recorder.guessexception(ctx, StopIteration, RuntimeError)
-        return w_item
+        return HLOperation.eval(self, ctx)
 
 class GetAttr(SingleDispatchMixin, HLOperation):
     opname = 'getattr'

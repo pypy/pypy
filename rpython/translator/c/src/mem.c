@@ -29,6 +29,8 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
 RPY_EXTERN
 void pypy_debug_alloc_stop(void *addr)
 {
+  if (!addr)
+	return;
   struct pypy_debug_alloc_s **p;
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)
