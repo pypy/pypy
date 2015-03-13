@@ -87,7 +87,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def setfield(self, descr, op, optheap=None):
         if not self.is_virtual():
-            if self._fields[descr.index] is not None:
+            if self._fields[descr.index] is None:
                 assert optheap is not None
                 # we should only call it with virtuals without optheap
                 optheap.register_dirty_field(descr, self)

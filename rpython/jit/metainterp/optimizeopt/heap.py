@@ -241,7 +241,7 @@ class OptHeap(Optimization):
                 d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
     def invalidate_descr(self, descr, lst=None):
-        if lst is not None:
+        if lst is None:
             lst = self.infos_to_invalidate.get(descr, None)
             if lst is None:
                 return
@@ -523,15 +523,20 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
+        #opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
+        #if self.has_pure_result(opnum, [op.getarg(0)],
+        #                        op.getdescr()):
+        #    os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
+        #             (op.getdescr().repr_of_descr()))
+        #    raise BogusPureField
+        #
+        opinfo = self.ensure_ptr_info_arg0(op)
+        self.invalidate_descr(op.getdescr())
+        opinfo.setfield(op.getdescr(), self.get_box_replacement(op.getarg(1)),
+                        self)
+        # clear all the caches for this descr
         self.emit_operation(op)
         return
-        opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
-        if self.has_pure_result(opnum, [op.getarg(0)],
-                                op.getdescr()):
-            os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
-                     (op.getdescr().repr_of_descr()))
-            raise BogusPureField
-        #
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
 
