@@ -381,6 +381,9 @@ class ConcreteArray(ConcreteArrayNotOwning):
         if storage == lltype.nullptr(RAW_STORAGE):
             storage = dtype.itemtype.malloc(support.product(shape) *
                                             dtype.elsize, zero=zero)
+            if dtype.num == NPY.OBJECT:
+                # Register a customtrace function for this storage
+                pass
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
 
