@@ -202,6 +202,8 @@ class OptHeap(Optimization):
 
     def setup(self):
         self.optimizer.optheap = self
+        # mapping const value -> info corresponding to it's heap cache
+        self.const_infos = self.optimizer.cpu.ts.new_ref_dict()
 
     def force_at_end_of_preamble(self):
         self.cached_dict_reads.clear()
@@ -483,7 +485,7 @@ class OptHeap(Optimization):
 
     def optimize_GETFIELD_GC_I(self, op):
         opinfo = self.ensure_ptr_info_arg0(op)
-        fld = opinfo.getfield(op.getdescr())
+        fld = opinfo.getfield(op.getdescr(), self)
         if fld is not None:
             self.make_equal_to(op, fld)
             return

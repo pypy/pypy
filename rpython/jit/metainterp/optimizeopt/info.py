@@ -93,7 +93,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 optheap.register_dirty_field(descr, self)
         self._fields[descr.index] = op
 
-    def getfield(self, descr):
+    def getfield(self, descr, optheap=None):
         return self._fields[descr.index]
 
     def _force_elements(self, op, optforce):
@@ -212,6 +212,23 @@ class ConstPtrInfo(PtrInfo):
     
     def __init__(self, const):
         self._const = const
+
+    def _get_info(self, descr, optheap):
+        ref = self._const.getref_base()
+        info = optheap.const_infos.get(ref, None)
+        if info is None:
+            info = StructPtrInfo()
+            info.init_fields(descr.parent_descr)
+            optheap.const_infos[ref] = info
+        return info
+
+    def getfield(self, descr, optheap=None):
+        info = self._get_info(descr, optheap)
+        return info.getfield(descr)
+
+    def setfield(self, descr, op, optheap):
+        info = self._get_info(descr, optheap)
+        info.setfield(descr, op, optheap)
 
     def is_null(self):
         return not bool(self._const.getref_base())

@@ -588,21 +588,12 @@ class Optimizer(Optimization):
             if is_object:
                 opinfo = info.InstancePtrInfo()
             else:
-                xxx
+                opinfo = info.StructPtrInfo()
             opinfo.init_fields(op.getdescr().parent_descr)
         else:
             yyy
         arg0.set_forwarded(opinfo)
         return opinfo
-
-    def make_ptr_info(self, op, mode):
-        op = self.get_box_replacement(op)
-        if op.is_constant():
-            return info.ConstPtrInfo(op)
-        opinfo = op.get_forwarded()
-        if isinstance(opinfo, info.AbstractVirtualPtrInfo):
-            return opinfo
-        xxx
 
     def new_const(self, fieldofs):
         if fieldofs.is_pointer_field():

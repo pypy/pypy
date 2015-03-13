@@ -221,8 +221,7 @@ class ResumeDataLoopMemo(object):
                 tagged = liveboxes[box]
             else:
                 if box.type == 'r':
-                    xxx
-                    info = optimizer.getinfo(box, create=False)
+                    info = optimizer.getptrinfo(box)
                     is_virtual = (info is not None and info.is_virtual())
                 else:
                     is_virtual = False
