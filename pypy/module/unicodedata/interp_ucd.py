@@ -76,6 +76,7 @@ else:
 class UCD(W_Root):
     def __init__(self, unicodedb):
         self._lookup = unicodedb.lookup
+        self._lookup_named_sequence = unicodedb.lookup_named_sequence
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
         self._digit = unicodedb.digit
@@ -108,6 +109,13 @@ class UCD(W_Root):
         except KeyError:
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
+
+        # The code may be a named sequence
+        sequence = self._lookup_named_sequence(code)
+        if sequence is not None:
+            # named sequences only contain UCS2 codes, no surrogates &co.
+            return space.wrap(sequence)
+
         return space.wrap(code_to_unichr(code))
 
     def name(self, space, w_unichr, w_default=None):

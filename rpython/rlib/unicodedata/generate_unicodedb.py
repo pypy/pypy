@@ -9,6 +9,11 @@ MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
 MANDATORY_LINE_BREAKS = ["BK", "CR", "LF", "NL"] # line break categories
 
+# Private Use Areas -- in planes 1, 15, 16
+PUA_1 = range(0xE000, 0xF900)
+PUA_15 = range(0xF0000, 0xFFFFE)
+PUA_16 = range(0x100000, 0x10FFFE)
+
 class Fraction:
     def __init__(self, numerator, denominator):
         self.numerator = numerator
@@ -81,8 +86,13 @@ class UnicodeChar:
         return uc
 
 class UnicodeData(object):
+    # we use this range of PUA_15 to store name aliases and named sequences
+    NAME_ALIASES_START = 0xF0000
+    NAMED_SEQUENCES_START = 0xF0100
+
     def __init__(self):
         self.table = [None] * (MAXUNICODE + 1)
+        self.named_sequences = []
 
     def add_char(self, code, char):
         assert self.table[code] is None, (
@@ -138,6 +148,13 @@ class UnicodeData(object):
                 result.extend(self.get_canonical_decomposition(decomp))
             self.table[code].canonical_decomp = result
         return self.table[code].canonical_decomp
+
+    def add_named_sequence(self, name, chars):
+        pua_index = self.NAMED_SEQUENCES_START + len(self.named_sequences)
+        self.named_sequences.append((name, chars))
+        # also store these in the PUA 1
+        self.table[pua_index].name = name
+
 
 def read_unicodedata(files):
     rangeFirst = {}
@@ -244,6 +261,15 @@ def read_unicodedata(files):
     for code, char in table.enum_chars():
         table.get_canonical_decomposition(code)
         table.get_compat_decomposition(code)
+
+    # Named sequences
+    for line in files['named_sequences']:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        name, chars = line.split(';')
+        chars = tuple(int(char, 16) for char in chars.split())
+        table.add_named_sequence(name, chars)
 
     return table
 
@@ -743,7 +769,24 @@ def compat_decomposition(code):
             return base_mod._compat_decomposition.get(code, [])
         else:
             return []
+
 '''
+
+    # named sequences
+    print >> outfile, '_named_sequences = ['
+    for name, chars in table.named_sequences:
+        print >> outfile, "%r," % (u''.join(unichr(c) for c in chars))
+    print >> outfile, ']'
+    print >> outfile, '''
+
+def lookup_named_sequence(code):
+    if 0 <= code - %(start)s < len(_named_sequences):
+        return _named_sequences[code - %(start)s]
+    else:
+        return None
+''' % dict(start=table.NAMED_SEQUENCES_START)
+    
+        
 
 def main():
     import sys

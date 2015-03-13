@@ -106,3 +106,16 @@ class AppTestUnicodeData:
     def test_bidirectional(self):
         import unicodedata
         raises(TypeError, unicodedata.bidirectional, 'xx')
+
+    def test_named_sequences(self):
+        import unicodedata
+        sequences = [
+            ('LATIN SMALL LETTER R WITH TILDE', '\u0072\u0303'),
+            ('TAMIL SYLLABLE SAI', '\u0BB8\u0BC8'),
+            ('TAMIL SYLLABLE MOO', '\u0BAE\u0BCB'),
+            ('TAMIL SYLLABLE NNOO', '\u0BA3\u0BCB'),
+            ('TAMIL CONSONANT KSS', '\u0B95\u0BCD\u0BB7\u0BCD'),
+        ]
+        for seqname, codepoints in sequences:
+            assert unicodedata.lookup(seqname) == codepoints
+
