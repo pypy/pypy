@@ -353,10 +353,11 @@ def specialize_exceptions(graph):
                     else:
                         # ignore the uncaught implicit exception
                         continue
-                exits = [block.exits[0]] + exits
                 if has_generic_case:
                     exits += exc_exits
-                block.recloseblock(*exits)
+                if not exits:
+                    block.exitswitch = None
+                block.recloseblock(block.exits[0], *exits)
 
 
 
@@ -1104,6 +1105,7 @@ all_passes = [
     specialize_exceptions,
     remove_dead_exceptions,
     transform_xxxitem,
+    join_blocks,
     ]
 
 def simplify_graph(graph, passes=True): # can take a list of passes to apply, True meaning all

@@ -335,13 +335,6 @@ class FlowContext(object):
         self.stack = state.stack[:]
         self.last_exception = state.last_exception
         self.blockstack = state.blocklist[:]
-        self._normalize_raise_signals()
-
-    def _normalize_raise_signals(self):
-        st = self.stack
-        for i in range(len(st)):
-            if isinstance(st[i], RaiseImplicit):
-                st[i] = Raise(st[i].w_exc)
 
     def guessbool(self, w_condition):
         if isinstance(w_condition, Constant):
@@ -677,7 +670,7 @@ class FlowContext(object):
             return
         elif isinstance(w_top, FlowSignal):
             # case of a finally: block
-            raise w_top
+            raise w_top.as_explicit()
         else:
             # case of an except: block.  We popped the exception type
             self.popvalue()        #     Now we pop the exception value
@@ -1162,6 +1155,9 @@ class FlowSignal(Exception):
     def __eq__(self, other):
         return type(other) is type(self) and other.args == self.args
 
+    def as_explicit(self):
+        return self
+
 
 class Return(FlowSignal):
     """Signals a 'return' statement.
@@ -1222,6 +1218,9 @@ class RaiseImplicit(Raise):
         link = Link([w_type, w_value], ctx.graph.exceptblock)
         ctx.recorder.crnt_block.closeblock(link)
         raise StopFlowing
+
+    def as_explicit(self):
+        return Raise(self.w_exc)
 
 
 class Break(FlowSignal):

@@ -335,11 +335,8 @@ class TestFlowObjSpace(Base):
         x = self.codetest(self.implicitException_os_stat)
         simplify_graph(x)
         self.show(x)
-        assert len(x.startblock.exits) == 3
-        d = {}
-        for link in x.startblock.exits:
-            d[link.exitcase] = True
-        assert d == {None: True, OSError: True, Exception: True}
+        exc_cases = [exit.exitcase for exit in x.startblock.exits]
+        assert exc_cases == [None, OSError]
 
     #__________________________________________________________
     def reraiseAnythingDicCase(dic):
@@ -503,14 +500,8 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(self.multiple_catch_simple_call)
         simplify_graph(graph)
         assert self.all_operations(graph) == {'simple_call': 1}
-        entrymap = mkentrymap(graph)
-        links = entrymap[graph.returnblock]
-        assert len(links) == 3
-        assert (dict.fromkeys([link.exitcase for link in links]) ==
-                dict.fromkeys([None, IndexError, OSError]))
-        links = entrymap[graph.exceptblock]
-        assert len(links) == 1
-        assert links[0].exitcase is Exception
+        exc_cases = [exit.exitcase for exit in graph.startblock.exits]
+        assert exc_cases == [None, IndexError, OSError]
 
     #__________________________________________________________
     def dellocal():
