@@ -676,6 +676,23 @@ class TestRffiInternals:
 
         assert interpret(f, [], backendopt=True) == 43
 
+    def test_str2chararray(self):
+        eci = ExternalCompilationInfo(includes=['string.h'])
+        strlen = llexternal('strlen', [CCHARP], SIZE_T,
+                            compilation_info=eci)
+        def f():
+            raw = str2charp("XxxZy")
+            str2chararray("abcdef", raw, 4)
+            assert raw[0] == 'a'
+            assert raw[1] == 'b'
+            assert raw[2] == 'c'
+            assert raw[3] == 'd'
+            assert raw[4] == 'y'
+            lltype.free(raw, flavor='raw')
+            return 0
+
+        assert interpret(f, []) == 0
+
     def test_around_extcall(self):
         if sys.platform == "win32":
             py.test.skip('No pipes on windows')
