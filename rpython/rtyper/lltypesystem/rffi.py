@@ -796,8 +796,10 @@ def make_string_mappings(strtype):
 
     # str -> already-existing char[maxsize]
     def str2chararray(s, array, maxsize):
+        length = min(len(s), maxsize)
         ll_s = llstrtype(s)
-        copy_string_to_raw(ll_s, array, 0, min(len(s), maxsize))
+        copy_string_to_raw(ll_s, array, 0, length)
+        return length
     str2chararray._annenforceargs_ = [strtype, None, int]
 
     # char* -> str

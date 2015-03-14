@@ -199,7 +199,7 @@ WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
 SIO_RCVALL SIO_KEEPALIVE_VALS
 
-SIOCGIFNAME
+SIOCGIFNAME SIOCGIFINDEX
 '''.split()
 
 for name in constant_names:
@@ -328,7 +328,8 @@ if _POSIX:
 
     if _HAS_AF_PACKET:
         CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
-                              [('sll_ifindex', rffi.INT),
+                              [('sll_family', rffi.INT),
+                               ('sll_ifindex', rffi.INT),
                                ('sll_protocol', rffi.INT),
                                ('sll_pkttype', rffi.INT),
                                ('sll_hatype', rffi.INT),

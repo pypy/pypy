@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import py
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
@@ -613,6 +613,28 @@ class AppTestSocket:
             s.close()
         finally:
             os.chdir(oldcwd)
+
+
+class AppTestPacket:
+    def setup_class(cls):
+        if not hasattr(os, 'getuid') or os.getuid() != 0:
+            py.test.skip("AF_PACKET needs to be root for testing")
+        w_ok = space.appexec([], "(): import _socket; " +
+                                 "return hasattr(_socket, 'AF_PACKET')")
+        if not space.is_true(w_ok):
+            py.test.skip("no AF_PACKET on this platform")
+        cls.space = space
+
+    def test_convert_between_tuple_and_sockaddr_ll(self):
+        import _socket
+        s = _socket.socket(_socket.AF_PACKET, _socket.SOCK_RAW)
+        assert s.getsockname() == ('', 0, 0, 0, '')
+        s.bind(('lo', 123))
+        a, b, c, d, e = s.getsockname()
+        assert (a, b, c) == ('lo', 123, 0)
+        assert isinstance(d, int)
+        assert isinstance(e, str)
+        assert 0 <= len(e) <= 8
 
 
 class AppTestSocketTCP:

@@ -682,16 +682,16 @@ class TestRffiInternals:
                             compilation_info=eci)
         def f():
             raw = str2charp("XxxZy")
-            str2chararray("abcdef", raw, 4)
+            n = str2chararray("abcdef", raw, 4)
             assert raw[0] == 'a'
             assert raw[1] == 'b'
             assert raw[2] == 'c'
             assert raw[3] == 'd'
             assert raw[4] == 'y'
             lltype.free(raw, flavor='raw')
-            return 0
+            return n
 
-        assert interpret(f, []) == 0
+        assert interpret(f, []) == 4
 
     def test_around_extcall(self):
         if sys.platform == "win32":
