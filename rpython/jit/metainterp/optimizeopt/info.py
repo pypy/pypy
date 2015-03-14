@@ -62,7 +62,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
     def force_box(self, op, optforce):
         if self.is_virtual():
             op.set_forwarded(None)
-            optforce.emit_operation(op)
+            optforce._emit_operation(op)
             newop = optforce.getlastop()
             op.set_forwarded(newop)
             newop.set_forwarded(self)
@@ -86,11 +86,6 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self._fields = [None] * len(self._fields)
 
     def setfield(self, descr, op, optheap=None):
-        if not self.is_virtual():
-            if self._fields[descr.index] is None:
-                assert optheap is not None
-                # we should only call it with virtuals without optheap
-                optheap.register_dirty_field(descr, self)
         self._fields[descr.index] = op
 
     def getfield(self, descr, optheap=None):
@@ -107,7 +102,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 subbox = optforce.force_box(fld)
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
-                optforce.emit_operation(setfieldop)
+                optforce._emit_operation(setfieldop)
                 optforce.optheap.register_dirty_field(flddescr, self)
                 count += 1
         return count
@@ -151,7 +146,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 setop = ResOperation(rop.SETARRAYITEM_GC,
                                      [op, ConstInt(i), subbox],
                                       descr=arraydescr)
-                optforce.emit_operation(setop)
+                optforce._emit_operation(setop)
                 # xxxx optforce.optheap
                 count += 1
         return count
@@ -197,7 +192,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
                                               descr=flddescr)
-                    optforce.emit_operation(setfieldop)
+                    optforce._emit_operation(setfieldop)
                     # XXX optforce.optheap
                     count += 1
                 i += 1
@@ -226,7 +221,7 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_info(descr, optheap)
         return info.getfield(descr)
 
-    def setfield(self, descr, op, optheap):
+    def setfield(self, descr, op, optheap=None):
         info = self._get_info(descr, optheap)
         info.setfield(descr, op, optheap)
 
