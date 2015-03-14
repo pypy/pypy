@@ -203,8 +203,6 @@ def transform_xxxitem(graph):
                 for exit in block.exits:
                     if exit.exitcase is IndexError:
                         postfx.append('idx')
-                    elif exit.exitcase is KeyError:
-                        postfx.append('key')
                 if postfx:
                     Op = getattr(op, '_'.join(['getitem'] + postfx))
                     newop = Op(*last_op.args)

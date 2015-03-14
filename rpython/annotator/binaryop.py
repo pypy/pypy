@@ -132,13 +132,11 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         impl = pair(s_c1, s_o2).getitem
         return read_can_only_throw(impl, s_c1, s_o2)
 
-    def getitem_idx_key((s_c1, s_o2)):
+    def getitem_idx((s_c1, s_o2)):
         impl = pair(s_c1, s_o2).getitem
         return impl()
-    getitem_idx_key.can_only_throw = _getitem_can_only_throw
+    getitem_idx.can_only_throw = _getitem_can_only_throw
 
-    getitem_idx = getitem_idx_key
-    getitem_key = getitem_idx_key
 
 
 class __extend__(pairtype(SomeType, SomeType),
@@ -565,13 +563,9 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return lst1.listdef.read_item()
     getitem.can_only_throw = []
 
-    getitem_key = getitem
-
     def getitem_idx((lst1, int2)):
         return lst1.listdef.read_item()
     getitem_idx.can_only_throw = [IndexError]
-
-    getitem_idx_key = getitem_idx
 
     def setitem((lst1, int2), s_value):
         lst1.listdef.mutate()
@@ -588,13 +582,9 @@ class __extend__(pairtype(SomeString, SomeInteger)):
         return SomeChar(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
-    getitem_key = getitem
-
     def getitem_idx((str1, int2)):
         return SomeChar(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
-
-    getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
         return SomeString(no_nul=str1.no_nul)
@@ -604,13 +594,9 @@ class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
         return SomeUnicodeCodePoint()
     getitem.can_only_throw = []
 
-    getitem_key = getitem
-
     def getitem_idx((str1, int2)):
         return SomeUnicodeCodePoint()
     getitem_idx.can_only_throw = [IndexError]
-
-    getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
         return SomeUnicodeString()

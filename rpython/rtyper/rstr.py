@@ -580,12 +580,8 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
             hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, v_str, v_index)
 
-    rtype_getitem_key = rtype_getitem
-
     def rtype_getitem_idx((r_str, r_int), hop):
         return pair(r_str, r_int).rtype_getitem(hop, checkidx=True)
-
-    rtype_getitem_idx_key = rtype_getitem_idx
 
     def rtype_mul((r_str, r_int), hop):
         str_repr = r_str.repr
