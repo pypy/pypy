@@ -858,7 +858,7 @@ class TestFlowObjSpace(Base):
                 raise
         graph = self.codetest(f)
         simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem_idx': 1}
+        assert self.all_operations(graph) == {'getitem': 1}
 
         g = lambda: None
         def f(c, x):
@@ -868,7 +868,7 @@ class TestFlowObjSpace(Base):
                 g()
         graph = self.codetest(f)
         simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem_idx': 1,
+        assert self.all_operations(graph) == {'getitem': 1,
                                               'simple_call': 2}
 
         def f(c, x):
@@ -878,58 +878,12 @@ class TestFlowObjSpace(Base):
                 raise
         graph = self.codetest(f)
         simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem_idx': 1}
+        assert self.all_operations(graph) == {'getitem': 1}
 
         def f(c, x):
             try:
                 return c[x]
             except KeyError:
-                raise
-        graph = self.codetest(f)
-        simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem': 1}
-
-        def f(c, x):
-            try:
-                return c[x]
-            except ValueError:
-                raise
-        graph = self.codetest(f)
-        simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem': 1}
-
-        def f(c, x):
-            try:
-                return c[x]
-            except Exception:
-                return -1
-        graph = self.codetest(f)
-        simplify_graph(graph)
-        self.show(graph)
-        assert self.all_operations(graph) == {'getitem_idx': 1}
-
-        def f(c, x):
-            try:
-                return c[x]
-            except IndexError:
-                return -1
-        graph = self.codetest(f)
-        simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem_idx': 1}
-
-        def f(c, x):
-            try:
-                return c[x]
-            except KeyError:
-                return -1
-        graph = self.codetest(f)
-        simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem': 1}
-
-        def f(c, x):
-            try:
-                return c[x]
-            except ValueError:
                 return -1
         graph = self.codetest(f)
         simplify_graph(graph)
