@@ -1,5 +1,5 @@
 ==============================
-PyPy 2.5.1 - XXXXXXXXXXXXXXXXX
+PyPy 2.5.1 - Hakea Hookeriana
 ==============================
 
 We're pleased to announce PyPy 2.5.1, following on the heels of 2.5.0
