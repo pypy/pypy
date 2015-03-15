@@ -561,7 +561,7 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 
     def getitem((lst1, int2)):
         return lst1.listdef.read_item()
-    getitem.can_only_throw = []
+    getitem.can_only_throw = [IndexError]
 
     def getitem_idx((lst1, int2)):
         return lst1.listdef.read_item()
@@ -580,7 +580,7 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
         return SomeChar(no_nul=str1.no_nul)
-    getitem.can_only_throw = []
+    getitem.can_only_throw = [IndexError]
 
     def getitem_idx((str1, int2)):
         return SomeChar(no_nul=str1.no_nul)
@@ -592,7 +592,7 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):
         return SomeUnicodeCodePoint()
-    getitem.can_only_throw = []
+    getitem.can_only_throw = [IndexError]
 
     def getitem_idx((str1, int2)):
         return SomeUnicodeCodePoint()

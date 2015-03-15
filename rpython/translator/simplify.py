@@ -178,22 +178,6 @@ def simplify_exceptions(graph):
             exits.append(link)
         block.recloseblock(*(preserve + exits))
 
-def transform_xxxitem(graph):
-    # xxx setitem too
-    for block in graph.iterblocks():
-        if block.canraise:
-            last_op = block.raising_op
-            if last_op.opname == 'getitem':
-                postfx = []
-                if any(issubclass(IndexError, exit.exitcase)
-                        for exit in block.exits if exit.exitcase):
-                    postfx.append('idx')
-                if postfx:
-                    Op = getattr(op, '_'.join(['getitem'] + postfx))
-                    newop = Op(*last_op.args)
-                    newop.result = last_op.result
-                    block.operations[-1] = newop
-
 
 def remove_dead_exceptions(graph):
     """Exceptions can be removed if they are unreachable"""
@@ -1104,7 +1088,6 @@ all_passes = [
     remove_assertion_errors,
     specialize_exceptions,
     remove_dead_exceptions,
-    transform_xxxitem,
     join_blocks,
     ]
 
