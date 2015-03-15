@@ -6,7 +6,7 @@ a drop-in replacement for the 'socket' module.
 """
 
 # XXX this does not support yet the least common AF_xxx address families
-# supported by CPython.
+# supported by CPython.  See http://bugs.pypy.org/issue1942
 
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
