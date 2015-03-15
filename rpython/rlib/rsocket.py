@@ -5,15 +5,8 @@ Note that the interface has to be slightly different - this is not
 a drop-in replacement for the 'socket' module.
 """
 
-# Known missing features:
-#
-#   - address families other than AF_INET, AF_INET6, AF_UNIX, AF_PACKET
-#   - AF_PACKET is only supported on Linux
-#   - methods makefile(),
-#   - SSL
-#
-# It's unclear if makefile() and SSL support belong here or only as
-# app-level code for PyPy.
+# XXX this does not support yet the least common AF_xxx address families
+# supported by CPython.
 
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
