@@ -216,27 +216,50 @@ interleaved with each other just because they run in parallel.  The
 behavior did not change because we are using ``TransactionQueue``.
 All the calls still *appear* to execute in some serial order.
 
-Now the performance should ideally be improved: if the function calls
-turn out to be actually independent (most of the time), then it will
-be.  But if the function calls are not, then the total performance
-will crawl back to the previous case, with additionally some small
-penalty for the overhead.
+However, the performance typically does not increase out of the box.
+In fact, it is likely to be worse at first.  Typically, this is
+indicated by the total CPU usage, which remains low (closer to 1 than
+N cores).  First note that it is expected that the CPU usage should
+not go much higher than 1 in the JIT warm-up phase: you must run a
+program for several seconds, or for larger programs at least one
+minute, to give the JIT a chance to warm up enough.  But if CPU usage
+remains low even afterwards, then the ``PYPYSTM`` environment variable
+can be used to track what is going on.
 
-This case occurs typically when you see the total CPU usage remaining
-low (closer to 1 than N cores).  Note first that it is expected that
-the CPU usage should not go much higher than 1 in the JIT warm-up
-phase.  You must run a program for several seconds, or for larger
-programs at least one minute, to give the JIT a chance to warm up
-correctly.  But if CPU usage remains low even though all code is
-executing in a ``TransactionQueue.run()``, then the ``PYPYSTM``
-environment variable can be used to track what is going on.
+Run your program with ``PYPYSTM=logfile`` to produce a log file called
+``logfile``.  Afterwards, use the ``pypy/stm/print_stm_log.py``
+utility to inspect the content of this log file.  It produces output
+like this (sorted by amount of time lost, largest first)::
 
-Run your program with ``PYPYSTM=stmlog`` to produce a log file called
-``stmlog``.  Afterwards, use the ``pypy/stm/print_stm_log.py`` utility
-to inspect the content of this log file.  It produces output like
-this::
+    10.5s lost in aborts, 1.25s paused (12412x STM_CONTENTION_WRITE_WRITE)
+    File "foo.py", line 10, in f
+      someobj.stuff = 5
+    File "bar.py", line 20, in g
+      someobj.other = 10
 
-    documentation in progress!
+This means that 10.5 seconds were lost running transactions that were
+aborted (which caused another 1.25 seconds of lost time by pausing),
+because of the reason shown in the two independent single-entry
+tracebacks: one thread ran the line ``someobj.stuff = 5``, whereas
+another thread concurrently ran the line ``someobj.other = 10`` on the
+same object.  Two writes to the same object cause a conflict, which
+aborts one of the two transactions.  In the example above this
+occurred 12412 times.
+
+The two other conflict causes are ``STM_CONTENTION_INEVITABLE``, which
+means that two transactions both tried to do an external operation,
+like printing or reading from a socket or accessing an external array
+of raw data; and ``STM_CONTENTION_WRITE_READ``, which means that one
+transaction wrote to an object but the other one merely read it, not
+wrote to it (in that case only the writing transaction is reported;
+the location for the reads is not recorded because doing so is not
+possible without a very large performance impact).
+
+Note that Python is a complicated language; there are a number of less
+common cases that may cause conflict (of any type) where we might not
+expect it at priori.  In many of these cases it could be fixed; please
+report any case that you don't understand.  One known example so far
+is creating weakrefs to objects: the new weakref is xxx
 
 
 
