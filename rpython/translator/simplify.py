@@ -616,7 +616,7 @@ def remove_identical_vars_SSA(graph):
         assert len(links) == len(new_args)
         for link, args in zip(links, new_args):
             link.args = args
-    for block in graph.iterblocks():
+    for block in entrymap:
         block.renamevariables(renaming)
 
 def remove_identical_vars(graph):
