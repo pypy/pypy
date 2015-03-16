@@ -246,34 +246,85 @@ same object.  Two writes to the same object cause a conflict, which
 aborts one of the two transactions.  In the example above this
 occurred 12412 times.
 
-The two other conflict causes are ``STM_CONTENTION_INEVITABLE``, which
-means that two transactions both tried to do an external operation,
-like printing or reading from a socket or accessing an external array
-of raw data; and ``STM_CONTENTION_WRITE_READ``, which means that one
-transaction wrote to an object but the other one merely read it, not
-wrote to it (in that case only the writing transaction is reported;
-the location for the reads is not recorded because doing so is not
-possible without a very large performance impact).
+The two other conflict sources are ``STM_CONTENTION_INEVITABLE``,
+which means that two transactions both tried to do an external
+operation, like printing or reading from a socket or accessing an
+external array of raw data; and ``STM_CONTENTION_WRITE_READ``, which
+means that one transaction wrote to an object but the other one merely
+read it, not wrote to it (in that case only the writing transaction is
+reported; the location for the reads is not recorded because doing so
+is not possible without a very large performance impact).
+
+Common causes of conflicts:
+
+* First of all, any I/O or raw manipulation of memory turns the
+  transaction inevitable ("must not abort").  There can be only one
+  inevitable transaction running at any time.  A common case is if
+  each transaction starts with sending data to a log file.  You should
+  refactor this case so that it occurs either near the end of the
+  transaction (which can then mostly run in non-inevitable mode), or
+  even delegate it to a separate thread.
+
+* Writing to a list or a dictionary conflicts with any read from the
+  same list or dictionary, even one done with a different key.  For
+  dictionaries and sets, you can try the types ``transaction.stmdict``
+  and ``transaction.stmset``, which behave mostly like ``dict`` and
+  ``set`` but allow concurrent access to different keys.  (What is
+  missing from them so far is lazy iteration: for example,
+  ``stmdict.iterkeys()`` is implemented as ``iter(stmdict.keys())``;
+  and, unlike PyPy's dictionaries and sets, the STM versions are not
+  ordered.)  There are also experimental ``stmiddict`` and
+  ``stmidset`` classes using the identity of the key.
+
+* ``time.time()`` and ``time.clock()`` turn the transaction inevitable
+  in order to guarantee that a call that appears to be later will
+  really return a higher number.  If getting slightly unordered
+  results is fine, use ``transaction.time()`` or
+  ``transaction.clock()``.
+
+* ``transaction.threadlocalproperty`` can be used as class-level::
+
+      class Foo(object):     # must be a new-style class!
+          x = transaction.threadlocalproperty()
+          y = transaction.threadlocalproperty(dict)
+
+  This declares that instances of ``Foo`` have two attributes ``x``
+  and ``y`` that are thread-local: reading or writing them from
+  concurrently-running transactions will return independent results.
+  (Any other attributes of ``Foo`` instances will be globally visible
+  from all threads, as usual.)  The optional argument to
+  ``threadlocalproperty()`` is the default value factory: in case no
+  value was assigned in the current thread yet, the factory is called
+  and its result becomes the value in that thread (like
+  ``collections.defaultdict``).  If no default value factory is
+  specified, uninitialized reads raise ``AttributeError``.  Note that
+  with ``TransactionQueue`` you get a pool of a fixed number of
+  threads, each running the transactions one after the other; such
+  thread-local properties will have the value last stored in them in
+  the same thread,, which may come from a random previous transaction.
+  ``threadlocalproperty`` is still useful to avoid conflicts from
+  cache-like data structures.
 
 Note that Python is a complicated language; there are a number of less
 common cases that may cause conflict (of any type) where we might not
 expect it at priori.  In many of these cases it could be fixed; please
-report any case that you don't understand.  One known example so far
-is creating weakrefs to objects: the new weakref is xxx
-
+report any case that you don't understand.  (For example, so far,
+creating a weakref to an object requires attaching an auxiliary
+internal object to that object, and so it can cause write-write
+conflicts.)
 
 
 Atomic sections
 ---------------
 
-PyPy supports *atomic sections,* which are blocks of code which you
-want to execute without "releasing the GIL".  In STM terms, this means
-blocks of code that are executed while guaranteeing that the
-transaction is not interrupted in the middle.  *This is experimental
-and may be removed in the future* if `lock elision`_ is ever
-implemented.
+The ``TransactionQueue`` class described above is based on *atomic
+sections,* which are blocks of code which you want to execute without
+"releasing the GIL".  In STM terms, this means blocks of code that are
+executed while guaranteeing that the transaction is not interrupted in
+the middle.  *This is experimental and may be removed in the future*
+if `lock elision`_ is ever implemented.
 
-Here is a usage example::
+Here is a direct usage example::
 
     with transaction.atomic:
         assert len(lst1) == 10
