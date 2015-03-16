@@ -15,11 +15,6 @@ from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
 class VectorizeTest(object):
     enable_opts = ''
 
-    automatic_promotion_result = {
-        'int_add' : 6, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1,
-        'guard_value' : 3
-    }
-
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,

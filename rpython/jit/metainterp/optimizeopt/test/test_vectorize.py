@@ -1,4 +1,5 @@
 import py
+
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
@@ -8,7 +9,7 @@ import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
-from rpython.jit.metainterp.optimizeopt.vectorize import OptVectorize, MemoryRef
+from rpython.jit.metainterp.optimizeopt.vectorize import VectorizingOptimizer, MemoryRef
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
@@ -27,7 +28,7 @@ class DepTestHelper(BaseTest):
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
-        return DependencyGraph(None, loop)
+        return DependencyGraph(loop)
 
     def parse_loop(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
@@ -45,7 +46,7 @@ class DepTestHelper(BaseTest):
     def vec_optimizer(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = OptVectorize(metainterp_sd, jitdriver_sd, loop, [])
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, [])
         return opt
 
     def vec_optimizer_unrolled(self, loop, unroll_factor = -1):
@@ -54,6 +55,7 @@ class DepTestHelper(BaseTest):
         if unroll_factor == -1:
             unroll_factor = opt.get_estimated_unroll_factor()
         opt.unroll_loop_iterations(loop, unroll_factor)
+        opt.loop.operations = opt.get_newoperations()
         return opt
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
@@ -509,11 +511,11 @@ class BaseTestDependencyGraph(DepTestHelper):
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref == mref2
 
-    def test_array_memory_ref_diff_calc_but_equal(self):
+    def test_array_memory_ref_diff_not_equal(self):
         ops = """
         [p0,i0]
         i1 = int_add(i0,4)
-        i2 = int_floor(i1,2)
+        i2 = int_floordiv(i1,2)
         i3 = raw_load(p0,i2,descr=chararraydescr)
         i4 = int_add(i0,2)
         i5 = int_mul(i4,2)
@@ -528,7 +530,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         mref2 = vopt.vec_info.memory_refs[7]
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
-        assert mref == mref2
+        assert mref != mref2
 
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):

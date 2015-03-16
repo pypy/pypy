@@ -52,19 +52,24 @@ class VectorizingOptimizer(Optimizer):
     def unroll_loop_iterations(self, loop, unroll_factor):
         label_op = loop.operations[0]
         jump_op = loop.operations[-1]
-        operations = [loop.operations[i].clone() for i in range(1,len(loop.operations)-1)]
-        loop.operations = []
 
-        op_index = len(operations) + 1
-
-        iterations = [operations]
+        # TODO use the new optimizer structure (branch of fijal currently)
         label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
         values = [self.getvalue(box) for box in label_op.getarglist()]
+
+        operations = []
+        self.emit_unrolled_operation(label_op)
+
+        for i in range(1,len(loop.operations)-1):
+            op = loop.operations[i].clone()
+            operations.append(op)
+            self.emit_unrolled_operation(op)
+
+        op_index = len(operations) + 1
 
         jump_op_args = jump_op.getarglist()
 
         rename_map = {}
-        self.emit_unrolled_operation(label_op)
         for unroll_i in range(2, unroll_factor+1):
             # for each unrolling factor the boxes are renamed.
             self._rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
@@ -146,7 +151,7 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
 
     def build_dependency_graph(self):
-        self.dependency_graph = DependencyGraph(self)
+        self.dependency_graph = DependencyGraph(self.loop)
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
