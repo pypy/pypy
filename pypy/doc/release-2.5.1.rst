@@ -1,8 +1,8 @@
-==============================
-PyPy 2.5.1 - Hakea Hookeriana
-==============================
+================================
+PyPy 2.5.1 - Pineapple Bromeliad
+================================
 
-We're pleased to announce PyPy 2.5.1, following on the heels of 2.5.0
+We're pleased to announce PyPy 2.5.1, Pineapple `Bromeliad`_ following on the heels of 2.5.0
 
 You can download the PyPy 2.5.1 release here:
 
@@ -24,6 +24,7 @@ so we can finish those projects! The three sub-projects are:
 * `NumPy`_ which requires installation of our fork of upstream numpy,
   available `on bitbucket`_
 
+.. _`Bromeliad`: http://xkcd.com/1498
 .. _`Py3k`: http://pypy.org/py3donate.html
 .. _`STM`: http://pypy.org/tmdonate2.html
 .. _`NumPy`: http://pypy.org/numpydonate.html
