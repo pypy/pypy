@@ -1,7 +1,7 @@
 .. _trace_optimizer:
 
-Trace Optimizier
-================
+Trace Optimizer
+===============
 
 Traces of user programs are not directly translated into machine code.
 The optimizer module implements several different semantic preserving
@@ -14,10 +14,10 @@ When you try to make sense of this module, this page might get you started.
 Before some optimizations are explained in more detail, it is essential to
 understand how traces look like.
 The optimizer comes with a test suit. It contains many trace
-examples and you might want to take a look at it 
+examples and you might want to take a look at it
 (in `rpython/jit/metainterp/optimizeopt/test/*.py`).
 The allowed operations can be found in `rpython/jit/metainterp/resoperation.py`.
-Here is an example of a trace:: 
+Here is an example of a trace::
 
     [p0,i0,i1]
     label(p0, i0, i1)
