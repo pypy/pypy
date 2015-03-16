@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -17,7 +17,7 @@ from rpython.rlib.objectmodel import keepalive_until_here
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
-                          'strides[*]', 'backstrides[*]', 'order']
+                          'strides[*]', 'backstrides[*]', 'order', 'gcstruct']
     start = 0
     parent = None
     flags = 0
@@ -347,6 +347,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
         self.start = start
+        self.gcstruct = None
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
@@ -374,20 +375,32 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def base(self):
         return None
 
+OBJECTSTORE = lltype.GcStruct('ObjectStore',
+                              ('storage', llmemory.Address),
+                              rtti=True)
+def customtrace(gc, obj, callback, arg):
+    xxxx
+lambda_customtrace = lambda: customtrace
+
 
 class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
+
+        gcstruct = None
         if storage == lltype.nullptr(RAW_STORAGE):
             storage = dtype.itemtype.malloc(support.product(shape) *
                                             dtype.elsize, zero=zero)
             if dtype.num == NPY.OBJECT:
-                # Register a customtrace function for this storage
-                pass
+                rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
+                gcstruct = lltype.malloc(OBJECTSTORE)
+                gcstruct.storage = storage        
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
+        self.gcstruct = gcstruct
 
     def __del__(self):
+        rgc.
         free_raw_storage(self.storage, track_allocation=False)
 
 

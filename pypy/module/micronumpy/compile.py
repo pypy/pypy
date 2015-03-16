@@ -511,6 +511,8 @@ class DtypeClass(Node):
             dtype = get_dtype_cache(interp.space).w_int64dtype
         elif self.v == 'float':
             dtype = get_dtype_cache(interp.space).w_float64dtype
+        elif self.v == 'object':
+            dtype = get_dtype_cache(interp.space).w_objectdtype
         else:
             raise BadToken('unknown v to dtype "%s"' % self.v)
         return dtype
