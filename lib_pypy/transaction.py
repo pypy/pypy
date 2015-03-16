@@ -37,24 +37,20 @@ except ImportError:
     signals_enabled = _SignalsEnabled()
 
 try:
-    from pypystm import hint_commit_soon
+    from pypystm import hint_commit_soon, getsegmentlimit
+    from pypystm import hashtable, stmset, stmdict
+    from pypystm import local, time, clock
 except ImportError:
     # Not a STM-enabled PyPy.
     def hint_commit_soon():
         return None
-
-try:
-    from pypystm import getsegmentlimit
-except ImportError:
-    # Not a STM-enabled PyPy.
     def getsegmentlimit():
         return 1
-
-try:
-    from pypystm import hashtable
-except ImportError:
-    # Not a STM-enabled PyPy.
     hashtable = dict
+    stmset = set
+    stmdict = dict
+    local = thread._local
+    from time import time, clock
 
 class stmidset(object):
     def __init__(self):
