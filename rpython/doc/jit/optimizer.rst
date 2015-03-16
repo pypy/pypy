@@ -1,13 +1,14 @@
 .. _trace_optimizer:
 
-Trace Optimzier
-===============
+Trace Optimizier
+================
 
 Traces of user programs are not directly translated into machine code.
 The optimizer module implements several different semantic preserving
 transformations that either allow operations to be swept from the trace
 or convert them to operations that need less time or space.
 
+The optimizer is in `rpython/jit/metainterp/optimizeopt/`.
 When you try to make sense of this module, this page might get you started.
 
 Before some optimizations are explained in more detail, it is essential to
@@ -23,7 +24,7 @@ Here is an example of a trace::
     i2 = getarray_item_raw(p0, i0, descr=<Array Signed>)
     i3 = int_add(i1,i2)
     i4 = int_add(i0,1)
-    i5 = int_le(i4, 100) # less equal
+    i5 = int_le(i4, 100) # lower-or-equal
     guard_true(i5)
     jump(p0, i4, i3)
 
@@ -38,22 +39,24 @@ to compare the Python code that constructed the trace::
         i += 1
         # jumps back to the while header
 
-There are better ways to the sum from ``[0..100]``, but it gives a better intuition on how
+There are better ways to compute the sum from ``[0..100]``, but it gives a better intuition on how
 traces are constructed than ``sum(range(101))``.
-Note that the trace syntax is the one used in the test suit. It is also very
-similar a printed trace at runtime. The first operation is called ``input``, the
-second a ``label``, the last is the backwards ``jump``.
+Note that the trace syntax is the one used in the test suite. It is also very
+similar to traces printed at runtime by PYPYLOG_. The first line gives the input variables, the
+second line is a ``label`` operation, the last one is the backwards ``jump`` operation.
 
-These instruction mention earlier are special:
+.. _PYPYLOG: logging.html
 
-* ``input`` defines the input parameter type and name to enter the trace.
+These instructions mentioned earlier are special:
+
+* the input defines the input parameter type and name to enter the trace.
 * ``label`` is the instruction a ``jump`` can target. Label instructions have
   a ``JitCellToken`` associated that uniquely identifies the label. Any jump
   has a target token of a label.
 
 The token is saved in a so called `descriptor` of the instruction. It is
 not written explicitly because it is not done in the tests either. But
-the test suit creates a dummy token for each trace and adds it as descriptor
+the test suite creates a dummy token for each trace and adds it as descriptor
 to ``label`` and ``jump``. Of course the optimizer does the same at runtime,
 but using real values.
 The sample trace includes a descriptor in ``getarrayitem_raw``. Here it
@@ -62,7 +65,7 @@ annotates the type of the array. It is a signed integer array.
 High level overview
 -------------------
 
-Before the JIT backend transforms any trace into a machine code, it tries to
+Before the JIT backend transforms any trace into machine code, it tries to
 transform the trace into an equivalent trace that executes faster. The method
 `optimize_trace` in `rpython/jit/metainterp/optimizeopt/__init__.py` is the
 main entry point.
@@ -72,12 +75,12 @@ sequence is as follows::
 
     intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll
 
-Each of the colon separated name has a class attached. It is later
-instantiated as a subclass of `Optimization`. The `Optimizer` class 
+Each of the colon-separated name has a class attached, inheriting from
+the `Optimization` class.  The `Optimizer` class itself also
 derives from the `Optimization` class and implements the control logic for
 the optimization. Most of the optimizations only require a single forward pass.
-The trace is 'propagated' in to each optimization using the method
-`propagate_forward`. Instruction by instruction then flows from the
+The trace is 'propagated' into each optimization using the method
+`propagate_forward`. Instruction by instruction, it flows from the
 first optimization to the last optimization. The method `emit_operation`
 is called for every operation that is passed to the next optimizer.
 
@@ -120,25 +123,23 @@ in this example).
 Rewrite optimization
 --------------------
 
-The second optimization is called 'rewrite' an is commonly also known as
+The second optimization is called 'rewrite' and is commonly also known as
 strength reduction. A simple example would be that an integer multiplied
 by 2 is equivalent to the bits shifted to the left once
 (e.g. ``x * 2 == x << 1``). Not only strength reduction is done in this
 optimization but also boolean or arithmetic simplifications. Other examples
 would be: ``x & 0 == 0``, ``x - 0 == x``
 
-Whenever such an operation is encountered (e.g. ``x & 0``), no operation is
-emitted. Instead the variable of x is made equal to 0
+Whenever such an operation is encountered (e.g. ``y = x & 0``), no operation is
+emitted. Instead the variable y is made equal to 0
 (= ``make_equal_to(op.result, 0)``). The variables found in a trace are
 instances of Box classes that can be found in
 `rpython/jit/metainterp/history.py`. `OptValue` wraps those variables again
 and maps the boxes to the optimization values in the optimizer. When a
-value is made equal, the box in the opt. value. This renders a new value
-to any further access.
-As a result the optimizer must provide the means to access the ``Box``
-instances. The instance method `make_args_key` returns the boxed value.
+value is made equal, the two variable's boxes are made to point to the same
+`OptValue` instance.
 
-**NOTE: that OptValue is likely to to be replaced in near future.**
+**NOTE: this OptValue organization is currently being refactored in a branch.**
 
 Pure optimization
 -----------------
@@ -146,14 +147,19 @@ Pure optimization
 Is interwoven into the basic optimizer. It saves operations, results,
 arguments to be known to have pure semantics.
 
-Pure is free of side effects and it is referentially transparent
-(the operation can be replaced with its value without changing the program
-semantics). The operations marked as ALWAYS_PURE in `resoperation.py` is a
-subset of the SIDEEFFECT free operations. Operations such as new, new array,
-getfield_(raw/gc) are marked SIDEEFFECT free but not as ALWAYS_PURE.
+"Pure" here means the same as the ``jit.elidable`` decorator:
+free of "observable" side effects and referentially transparent
+(the operation can be replaced with its result without changing the program
+semantics). The operations marked as ALWAYS_PURE in `resoperation.py` are a
+subset of the NOSIDEEFFECT operations. Operations such as new, new array,
+getfield_(raw/gc) are marked as NOSIDEEFFECT but not as ALWAYS_PURE.
 
-This can be seen as memoization technique. Once an operation proved to
-be 'pure' it is saved and should not be recomputed later.
+Pure operations are optimized in two different ways.  If their arguments
+are constants, the operation is removed and the result is turned into a
+constant.  If not, we can still use a memoization technique: if, later,
+we see the same operation on the same arguments again, we don't need to
+recompute its result, but can simply reuse the previous operation's
+result.
 
 Unroll optimization
 -------------------
@@ -169,15 +175,15 @@ traces (by inserting parameters into the jump and label of the peeled trace)
 and uses information to iron out allocations, propagate constants and
 do any other optimization currently present in the 'optimizeopt' module.
 
-It is prepended all optimizations and thus extends the Optimizer class
+It is prepended to all optimizations and thus extends the Optimizer class
 and unrolls the loop once before it proceeds.
 
 
-What is missing?
-----------------
+What is missing from this document
+----------------------------------
 
 * Guards are not explained
-* Several optimizations
+* Several optimizations are not explained
 
 
 Further references
@@ -188,6 +194,3 @@ Further references
 
 .. __: http://www.stups.uni-duesseldorf.de/mediawiki/images/b/b0/Pub-BoCuFiLePeRi2011.pdf
 .. __: http://www2.maths.lth.se/matematiklth/vision/publdb/reports/pdf/ardo-bolz-etal-dls-12.pdf
-
-
-
