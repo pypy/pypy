@@ -30,13 +30,22 @@ class VectorizingOptimizer(Optimizer):
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, optimizations)
-        self.vec_info = LoopVectorizeInfo()
+        self.vec_info = LoopVectorizeInfo(self)
         self.memory_refs = []
         self.dependency_graph = None
+        self.first_debug_merge_point = False
+        self.last_debug_merge_point = None
 
     def emit_unrolled_operation(self, op):
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            self.last_debug_merge_point = op
+            if not self.first_debug_merge_point:
+                self.first_debug_merge_point = True
+            else:
+                return False
         self._last_emitted_op = op
         self._newoperations.append(op)
+        return True
 
     def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
         # fill the map with the renaming boxes. keys are boxes from the label
@@ -50,27 +59,29 @@ class VectorizingOptimizer(Optimizer):
                 rename_map[la] = ja
 
     def unroll_loop_iterations(self, loop, unroll_factor):
+        op_count = len(loop.operations)
+
         label_op = loop.operations[0]
-        jump_op = loop.operations[-1]
+        jump_op = loop.operations[op_count-1]
+
+        self.vec_info.track_memory_refs = True
+
+        self.emit_unrolled_operation(label_op)
 
         # TODO use the new optimizer structure (branch of fijal currently)
         label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
         values = [self.getvalue(box) for box in label_op.getarglist()]
 
         operations = []
-        self.emit_unrolled_operation(label_op)
-
-        for i in range(1,len(loop.operations)-1):
+        for i in range(1,op_count-1):
             op = loop.operations[i].clone()
             operations.append(op)
             self.emit_unrolled_operation(op)
-
-        op_index = len(operations) + 1
-
+            self.vec_info.inspect_operation(op)
         jump_op_args = jump_op.getarglist()
 
         rename_map = {}
-        for unroll_i in range(2, unroll_factor+1):
+        for i in range(2, unroll_factor+1):
             # for each unrolling factor the boxes are renamed.
             self._rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
             for op in operations:
@@ -91,9 +102,7 @@ class VectorizingOptimizer(Optimizer):
                     except KeyError:
                         pass
 
-                self.vec_info._op_index = op_index
                 self.emit_unrolled_operation(copied_op)
-                op_index += 1
                 self.vec_info.inspect_operation(copied_op)
 
             # the jump arguments have been changed
@@ -110,11 +119,14 @@ class VectorizingOptimizer(Optimizer):
             # map will be rebuilt, the jump operation has been updated already
             rename_map.clear()
 
+        if self.last_debug_merge_point is not None:
+            self._last_emitted_op = self.last_debug_merge_point
+            self._newoperations.append(self.last_debug_merge_point)
         self.emit_unrolled_operation(jump_op)
 
-    def _gather_trace_information(self, loop):
+    def _gather_trace_information(self, loop, track_memref = False):
+        self.vec_info.track_memory_refs = track_memref
         for i,op in enumerate(loop.operations):
-            self.vec_info._op_index = i
             self.vec_info.inspect_operation(op)
 
     def get_estimated_unroll_factor(self, force_reg_bytes = -1):
@@ -317,18 +329,21 @@ integral_dispatch_opt = make_dispatcher_method(IntegralMod, 'operation_',
         default=IntegralMod.default_operation)
 IntegralMod.inspect_operation = integral_dispatch_opt
 
+
 class LoopVectorizeInfo(object):
 
-    def __init__(self):
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
         self.smallest_type_bytes = 0
-        self._op_index = 0
         self.memory_refs = {}
-        self.label_op = None
+        self.track_memory_refs = False
 
     def operation_RAW_LOAD(self, op):
         descr = op.getdescr()
-        self.memory_refs[self._op_index] = \
-                MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
+        if self.track_memory_refs:
+            idx = len(self.optimizer._newoperations)-1
+            self.memory_refs[idx] = \
+                    MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \

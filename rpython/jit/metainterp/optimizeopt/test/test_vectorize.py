@@ -532,6 +532,17 @@ class BaseTestDependencyGraph(DepTestHelper):
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref != mref2
 
+    def test_do_not_unroll_debug_merge_point(self):
+        ops = """
+        []
+        debug_merge_point(0, 0, 'loc 1')
+        debug_merge_point(0, 0, 'loc 1')
+        jump()
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.vec_optimizer_unrolled(loop,2)
+        self.assert_equal(loop, self.parse_loop(ops))
+
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass
