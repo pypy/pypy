@@ -294,9 +294,9 @@ def XXXreport_abort_info(info):
 
 
 class threadlocalproperty(object):
-    def __init__(self, *default):
-        self.tl_default = default
-        self.tl_name = intern(str(id(self)))
+    def __init__(self, default_factory=None):
+        self.tl_default_factory = default_factory
+        self.tl_name = intern('tlprop.%d' % id(self))
 
     def tl_get(self, obj):
         try:
@@ -308,7 +308,14 @@ class threadlocalproperty(object):
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
-        return getattr(self.tl_get(obj), self.tl_name, *self.tl_default)
+        try:
+            return getattr(self.tl_get(obj), self.tl_name)
+        except AttributeError:
+            if self.tl_default_factory is None:
+                raise
+            result = self.tl_default_factory()
+            setattr(self.tl_get(obj), self.tl_name, result)
+            return result
 
     def __set__(self, obj, value):
         setattr(self.tl_get(obj), self.tl_name, value)
