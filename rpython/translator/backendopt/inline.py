@@ -1,7 +1,7 @@
 import sys
 
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
-    SpaceOperation, c_last_exception, FunctionGraph, mkentrymap)
+    SpaceOperation, FunctionGraph, mkentrymap)
 from rpython.rtyper.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
 from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
@@ -112,7 +112,7 @@ def does_raise_directly(graph, raise_analyzer):
     for block in graph.iterblocks():
         if block is graph.exceptblock:
             return True      # the except block is reachable
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             consider_ops_to = -1
         else:
             consider_ops_to = len(block.operations)
@@ -132,7 +132,7 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
         else:
             return True # conservatively
     for block in from_graph.iterblocks():
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             consider_ops_to = -1
         else:
             consider_ops_to = len(block.operations)
@@ -196,8 +196,7 @@ class BaseInliner(object):
         self.op = block.operations[index_operation]
         self.graph_to_inline = self.get_graph_from_op(self.op)
         self.exception_guarded = False
-        if (block.exitswitch == c_last_exception and
-            index_operation == len(block.operations) - 1):
+        if self.op is block.raising_op:
             self.exception_guarded = True
             if self.inline_guarded_calls:
                 if (not self.inline_guarded_calls_no_matter_what and
@@ -396,7 +395,7 @@ class BaseInliner(object):
         copiedexceptblock.recloseblock(Link(linkargs, blocks[0]))
 
     def do_inline(self, block, index_operation):
-        splitlink = split_block(None, block, index_operation)
+        splitlink = split_block(block, index_operation)
         afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after

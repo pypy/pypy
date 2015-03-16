@@ -3,7 +3,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.translator.unsimplify import insert_empty_block, split_block
 from rpython.translator.backendopt import canraise, inline
 from rpython.flowspace.model import Block, Constant, Variable, Link, \
-    c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
+    SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
 from rpython.rtyper.rclass import ll_inst_type
@@ -243,7 +243,7 @@ class ExceptionTransformer(object):
         elif block is graph.returnblock:
             return need_exc_matching, n_gen_exc_checks
         last_operation = len(block.operations) - 1
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             need_exc_matching = True
             last_operation -= 1
         elif (len(block.exits) == 1 and
@@ -259,7 +259,7 @@ class ExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            splitlink = split_block(None, block, i+1)
+            splitlink = split_block(block, i+1)
             afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
@@ -267,7 +267,7 @@ class ExceptionTransformer(object):
             self.gen_exc_check(block, graph.returnblock, afterblock)
             n_gen_exc_checks += 1
         if need_exc_matching:
-            assert lastblock.exitswitch == c_last_exception
+            assert lastblock.canraise
             if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
                 lastblock.exitswitch = None
                 lastblock.recloseblock(lastblock.exits[0])
@@ -432,7 +432,7 @@ class ExceptionTransformer(object):
 
         if insert_zeroing_op:
             if normalafterblock is None:
-                normalafterblock = insert_empty_block(None, l0)
+                normalafterblock = insert_empty_block(l0)
             v_result = spaceop.result
             if v_result in l0.args:
                 result_i = l0.args.index(v_result)

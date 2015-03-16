@@ -266,3 +266,9 @@ def test_pop_j():
     s = CodeBuilder64()
     s.POP_j((SEGMENT_GS, -440))
     assert s.getvalue() == '\x65\x8f\x04\x25\x48\xfe\xff\xff'
+
+def test_multibyte_nops():
+    for cls in [X86_64_CodeBuilder, X86_32_CodeBuilder]:
+        assert len(cls.MULTIBYTE_NOPs) == 16
+        for i in range(16):
+            assert len(cls.MULTIBYTE_NOPs[i]) == i

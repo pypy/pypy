@@ -334,8 +334,12 @@ class __extend__(W_NDimArray):
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
-            arr.implementation = arr.implementation.reshape(self, new_shape)
-            assert arr.implementation
+            new_implementation = arr.implementation.reshape(self, new_shape)
+            if new_implementation is None:
+                raise oefmt(space.w_ValueError,
+                            'could not reshape array of size %d to shape %s',
+                            arr.get_size(), str(new_shape))
+            arr.implementation = new_implementation
         else:
             arr.implementation.shape = new_shape
         return arr
@@ -528,20 +532,25 @@ class __extend__(W_NDimArray):
             self.get_dtype(), storage_bytes=sz, w_base=self)
 
     def descr_array_iface(self, space):
-        addr = self.implementation.get_storage_as_int(space)
-        # will explode if it can't
-        w_d = space.newdict()
-        space.setitem_str(w_d, 'data',
-                          space.newtuple([space.wrap(addr), space.w_False]))
-        space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
-        space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
-        if self.implementation.order == 'C':
-            # Array is contiguous, no strides in the interface.
-            strides = space.w_None
-        else:
-            strides = self.descr_get_strides(space)
-        space.setitem_str(w_d, 'strides', strides)
-        return w_d
+        '''
+        Note: arr.__array__.data[0] is a pointer so arr must be kept alive
+              while it is in use
+        '''
+        with self.implementation as storage:
+            addr = support.get_storage_as_int(storage, self.get_start())
+            # will explode if it can't
+            w_d = space.newdict()
+            space.setitem_str(w_d, 'data',
+                              space.newtuple([space.wrap(addr), space.w_False]))
+            space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
+            space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
+            if self.implementation.order == 'C':
+                # Array is contiguous, no strides in the interface.
+                strides = space.w_None
+            else:
+                strides = self.descr_get_strides(space)
+            space.setitem_str(w_d, 'strides', strides)
+            return w_d
 
     w_pypy_data = None
 
@@ -1161,7 +1170,8 @@ class __extend__(W_NDimArray):
                 builder.append(box.raw_str())
                 state = iter.next(state)
         else:
-            builder.append_charpsize(self.implementation.get_storage(),
+            with self.implementation as storage:
+                builder.append_charpsize(storage,
                                      self.implementation.get_storage_size())
 
         state = space.newtuple([
@@ -1452,6 +1462,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
     conj = interp2app(W_NDimArray.descr_conj),
+    conjugate = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     sort  = interp2app(W_NDimArray.descr_sort),

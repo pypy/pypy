@@ -129,8 +129,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "src/asm.h"
-#define PyMem_Malloc malloc
-#define PyMem_Free free
 /* End PYPY hacks */
 
 
@@ -140,8 +138,8 @@
 
 #include <float.h>
 
-#define MALLOC PyMem_Malloc
-#define FREE PyMem_Free
+#define MALLOC malloc
+#define FREE free
 
 /* This code should also work for ARM mixed-endian format on little-endian
    machines, where doubles have byte order 45670123 (in increasing address

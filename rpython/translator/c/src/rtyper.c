@@ -15,7 +15,7 @@
 #define __thread_if_stm  /* nothing */
 #endif
 
-__thread_if_stm struct _RPyString_dump_t {
+static __thread_if_stm struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
 	char data[1];
 } *_RPyString_dump = NULL;

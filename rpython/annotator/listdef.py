@@ -158,6 +158,10 @@ class ListDef(object):
         s_other_value = other.read_item()
         self.generalize(s_other_value)
         other.generalize(s_self_value)
+        if self.listitem.range_step is not None:
+            self.generalize_range_step(other.listitem.range_step)
+        if other.listitem.range_step is not None:
+            other.generalize_range_step(self.listitem.range_step)
 
     def offspring(self, *others):
         s_self_value = self.read_item()

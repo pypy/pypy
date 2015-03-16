@@ -36,7 +36,8 @@ The API is:
    "PyPy home directory".  The arguments are:
 
    * ``home``: NULL terminated path to an executable inside the pypy directory
-     (can be a .so name, can be made up)
+     (can be a .so name, can be made up).  Used to look up the standard
+     library, and is also set as ``sys.executable``.
 
    * ``verbose``: if non-zero, it will print error messages to stderr
 

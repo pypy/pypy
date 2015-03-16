@@ -277,10 +277,17 @@ class ASTBuilder(object):
         globs = None
         locs = None
         to_execute = self.handle_expr(exec_node.children[1])
-        if child_count >= 4:
+        if child_count < 4:
+            if isinstance(to_execute, ast.Tuple) and \
+                    (len(to_execute.elts) == 2 or len(to_execute.elts) == 3):
+                globs = to_execute.elts[1]
+                if len(to_execute.elts) == 3:
+                    locs = to_execute.elts[2]
+                to_execute = to_execute.elts[0]
+        elif child_count >= 4:
             globs = self.handle_expr(exec_node.children[3])
-        if child_count == 6:
-            locs = self.handle_expr(exec_node.children[5])
+            if child_count == 6:
+                locs = self.handle_expr(exec_node.children[5])
         return ast.Exec(to_execute, globs, locs, exec_node.lineno,
                         exec_node.column)
 

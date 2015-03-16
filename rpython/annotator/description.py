@@ -482,6 +482,19 @@ class ClassDesc(Desc):
                 self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
+        if isinstance(value, property):
+            # special case for property object
+            if value.fget is not None:
+                newname = name + '__getter__'
+                func = func_with_new_name(value.fget, newname)
+                self.add_source_attribute(newname, func, mixin)
+            if value.fset is not None:
+                newname = name + '__setter__'
+                func = func_with_new_name(value.fset, newname)
+                self.add_source_attribute(newname, func, mixin)
+            self.classdict[name] = Constant(value)
+            return
+
         if isinstance(value, types.FunctionType):
             # for debugging
             if not hasattr(value, 'class_'):

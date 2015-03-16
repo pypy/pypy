@@ -8,7 +8,7 @@ from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_exception
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -110,7 +110,7 @@ class Transformer(object):
                 else:
                     raise TypeError(repr(op1))
         #
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             if len(newoperations) == count_before_last_operation:
                 self._killed_exception_raising_operation(block)
         block.operations = newoperations
@@ -143,13 +143,16 @@ class Transformer(object):
             return
         for v in list:
             if v in self.vable_array_vars:
+                vars = self.vable_array_vars[v]
+                (v_base, arrayfielddescr, arraydescr) = vars
                 raise AssertionError(
                     "A virtualizable array is passed around; it should\n"
                     "only be used immediately after being read.  Note\n"
                     "that a possible cause is indexing with an index not\n"
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
-                    "Occurred in: %r" % self.graph)
+                    "This is about: %r\n"
+                    "Occurred in: %r" % (arrayfielddescr, self.graph))
             # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
@@ -175,7 +178,7 @@ class Transformer(object):
 
     def follow_constant_exit(self, block):
         v = block.exitswitch
-        if isinstance(v, Constant) and v != c_last_exception:
+        if isinstance(v, Constant) and not block.canraise:
             llvalue = v.value
             for link in block.exits:
                 if link.llexitcase == llvalue:
@@ -192,7 +195,7 @@ class Transformer(object):
         if len(block.exits) != 2:
             return False
         v = block.exitswitch
-        if (v == c_last_exception or isinstance(v, tuple)
+        if (block.canraise or isinstance(v, tuple)
             or v.concretetype != lltype.Bool):
             return False
         for op in block.operations[::-1]:

@@ -206,7 +206,12 @@ class W_File(W_AbstractStream):
                     # a special-case only for read() (similar to CPython, which
                     # also loses partial data with other methods): if we get
                     # EAGAIN after already some data was received, return it.
+                    # Note that we can get EAGAIN while there is buffered data
+                    # waiting; read that too.
                     if is_wouldblock_error(e):
+                        m = stream.count_buffered_bytes()
+                        if m > 0:
+                            result.append(stream.read(min(n, m)))
                         got = result.build()
                         if len(got) > 0:
                             return got

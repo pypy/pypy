@@ -270,11 +270,14 @@ if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
 
 if sys.platform.startswith('freebsd'):
+    import os
+    import os.path
+    _localbase = os.environ.get('LOCALBASE', '/usr/local')
     _lib = _ffi.verify("""
     #include <sqlite3.h>
     """, libraries=['sqlite3'],
-         include_dirs=['/usr/local/include'],
-         library_dirs=['/usr/local/lib']
+         include_dirs=[os.path.join(_localbase, 'include')],
+         library_dirs=[os.path.join(_localbase, 'lib')]
     )
 else:
     _lib = _ffi.verify("""
@@ -1202,6 +1205,8 @@ class Statement(object):
 
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
+        if '\0' in sql:
+            raise ValueError("the query contains a null character")
 
         first_word = sql.lstrip().split(" ")[0].upper()
         if first_word == "":

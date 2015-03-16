@@ -2852,6 +2852,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c.flat = ['defgh', 'ijklmnop']
         assert (c.flatten() == ['def', 'ijk']*5).all()
 
+    def test_flatiter_subtype(self):
+        from numpy import array
+        x = array([[1, 2], [3, 4]]).T
+        y = array(x.flat)
+        assert (x == [[1, 3], [2, 4]]).all()
+
+
     def test_slice_copy(self):
         from numpy import zeros
         a = zeros((10, 10))

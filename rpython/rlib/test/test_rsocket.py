@@ -574,6 +574,7 @@ def test_getaddrinfo_pydotorg_threadsafe():
 
 def test_translate_netdb_lock():
     def f():
+        rsocket_startup()
         gethostbyaddr("localhost")
         return 0
     fc = compile(f, [])
@@ -581,6 +582,7 @@ def test_translate_netdb_lock():
 
 def test_translate_netdb_lock_thread():
     def f():
+        rsocket_startup()
         gethostbyaddr("localhost")
         return 0
     fc = compile(f, [], thread=True)

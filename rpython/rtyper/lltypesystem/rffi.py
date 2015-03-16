@@ -70,7 +70,7 @@ RFFI_SAVE_WSALASTERROR   = 32    # win32: save WSAGetLastError() after the call
 RFFI_FULL_LASTERROR      = RFFI_SAVE_LASTERROR | RFFI_READSAVED_LASTERROR
 RFFI_ERR_NONE            = 0
 RFFI_ERR_ALL             = RFFI_FULL_ERRNO | RFFI_FULL_LASTERROR
-
+RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',

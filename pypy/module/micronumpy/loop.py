@@ -604,14 +604,15 @@ def tostring(space, arr):
     iter, state = arr.create_iter()
     w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
     itemsize = arr.get_dtype().elsize
-    res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
-                               w_res_str.implementation.get_storage_as_int(space))
-    while not iter.done(state):
-        w_res_str.implementation.setitem(0, iter.getitem(state))
-        for i in range(itemsize):
-            builder.append(res_str_casted[i])
-        state = iter.next(state)
-    return builder.build()
+    with w_res_str.implementation as storage:
+        res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
+                               support.get_storage_as_int(storage))
+        while not iter.done(state):
+            w_res_str.implementation.setitem(0, iter.getitem(state))
+            for i in range(itemsize):
+                builder.append(res_str_casted[i])
+            state = iter.next(state)
+        return builder.build()
 
 getitem_int_driver = jit.JitDriver(name = 'numpy_getitem_int',
                                    greens = ['shapelen', 'indexlen',
