@@ -63,7 +63,6 @@ RPython internals
    translation
    rtyper
    garbage_collection
-   jit/optimizer
 
 
 Indices and tables
