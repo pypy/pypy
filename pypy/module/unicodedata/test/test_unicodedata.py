@@ -107,6 +107,27 @@ class AppTestUnicodeData:
         import unicodedata
         raises(TypeError, unicodedata.bidirectional, 'xx')
 
+    def test_aliases(self):
+        import unicodedata
+        aliases = [
+            ('LATIN CAPITAL LETTER GHA', 0x01A2),
+            ('LATIN SMALL LETTER GHA', 0x01A3),
+            ('KANNADA LETTER LLLA', 0x0CDE),
+            ('LAO LETTER FO FON', 0x0E9D),
+            ('LAO LETTER FO FAY', 0x0E9F),
+            ('LAO LETTER RO', 0x0EA3),
+            ('LAO LETTER LO', 0x0EA5),
+            ('TIBETAN MARK BKA- SHOG GI MGO RGYAN', 0x0FD0),
+            ('YI SYLLABLE ITERATION MARK', 0xA015),
+            ('PRESENTATION FORM FOR VERTICAL RIGHT WHITE LENTICULAR BRACKET', 0xFE18),
+            ('BYZANTINE MUSICAL SYMBOL FTHORA SKLIRON CHROMA VASIS', 0x1D0C5)
+        ]
+        for alias, codepoint in aliases:
+            name = unicodedata.name(chr(codepoint))
+            assert name != alias
+            assert unicodedata.lookup(alias) == unicodedata.lookup(name)
+            raises(KeyError, unicodedata.ucd_3_2_0.lookup, alias)
+
     def test_named_sequences(self):
         import unicodedata
         sequences = [

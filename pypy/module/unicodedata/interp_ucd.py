@@ -75,7 +75,7 @@ else:
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
-        self._lookup = unicodedb.lookup
+        self._lookup = unicodedb.lookup_with_alias
         self._lookup_named_sequence = unicodedb.lookup_named_sequence
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal

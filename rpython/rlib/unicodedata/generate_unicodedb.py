@@ -88,10 +88,11 @@ class UnicodeChar:
 class UnicodeData(object):
     # we use this range of PUA_15 to store name aliases and named sequences
     NAME_ALIASES_START = 0xF0000
-    NAMED_SEQUENCES_START = 0xF0100
+    NAMED_SEQUENCES_START = 0xF0200
 
     def __init__(self):
         self.table = [None] * (MAXUNICODE + 1)
+        self.aliases = []
         self.named_sequences = []
 
     def add_char(self, code, char):
@@ -148,6 +149,12 @@ class UnicodeData(object):
                 result.extend(self.get_canonical_decomposition(decomp))
             self.table[code].canonical_decomp = result
         return self.table[code].canonical_decomp
+
+    def add_alias(self, name, char):
+        pua_index = self.NAME_ALIASES_START + len(self.aliases)
+        self.aliases.append((name, char))
+        # also store the name in the PUA 1
+        self.table[pua_index].name = name
 
     def add_named_sequence(self, name, chars):
         pua_index = self.NAMED_SEQUENCES_START + len(self.named_sequences)
@@ -261,6 +268,16 @@ def read_unicodedata(files):
     for code, char in table.enum_chars():
         table.get_canonical_decomposition(code)
         table.get_compat_decomposition(code)
+
+    # Name aliases
+    for line in files['name_aliases']:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        items = line.split(';')
+        char = int(items[0], 16)
+        name = items[1]
+        table.add_alias(name, char)
 
     # Named sequences
     for line in files['named_sequences']:
@@ -786,7 +803,21 @@ def lookup_named_sequence(code):
         return None
 ''' % dict(start=table.NAMED_SEQUENCES_START)
     
-        
+    # aliases
+    print >> outfile, '_name_aliases = ['
+    for name, char in table.aliases:
+        print >> outfile, "%s," % (char,)
+    print >> outfile, ']'
+    print >> outfile, '''
+
+def lookup_with_alias(name):
+    code = lookup(name)
+    if 0 <= code - %(start)s < len(_name_aliases):
+        return _name_aliases[code - %(start)s]
+    else:
+        return code
+''' % dict(start=table.NAME_ALIASES_START)
+
 
 def main():
     import sys
