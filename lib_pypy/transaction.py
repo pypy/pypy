@@ -49,7 +49,6 @@ except ImportError:
     hashtable = dict
     stmset = set
     stmdict = dict
-    local = thread._local
     from time import time, clock
 
 class stmidset(object):
