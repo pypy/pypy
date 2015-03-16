@@ -192,6 +192,39 @@ def test_stmiddict():
     assert d.setdefault(key2) is None
     assert d[key2] is None
 
+def test_stmdict():
+    d = transaction.stmdict()
+    d["abc"] = "def"
+    assert list(d.iterkeys()) == ["abc"]
+
+def test_stmset():
+    d = transaction.stmset()
+    d.add("abc")
+    assert list(d) == ["abc"]
+
+def test_time_clock():
+    assert isinstance(transaction.time(), float)
+    assert isinstance(transaction.clock(), float)
+
+def test_threadlocalproperty():
+    class Foo(object):
+        x = transaction.threadlocalproperty()
+        y = transaction.threadlocalproperty(dict)
+    foo = Foo()
+    py.test.raises(AttributeError, "foo.x")
+    d = foo.y
+    assert d == {}
+    assert d is foo.y
+    foo.y['bar'] = 'baz'
+    foo.x = 42
+    foo.y = 43
+    assert foo.x == 42
+    assert foo.y == 43
+    del foo.x
+    del foo.y
+    py.test.raises(AttributeError, "foo.x")
+    assert foo.y == {}
+
 
 def run_tests():
     for name in sorted(globals().keys()):
