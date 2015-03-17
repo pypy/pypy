@@ -19,7 +19,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 class FakeJitDriverStaticData(object):
     vectorize=True
 
-class DepTestHelper(BaseTest):
+class VecTestHelper(BaseTest):
 
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unfold"
 
@@ -98,36 +98,7 @@ class DepTestHelper(BaseTest):
         for i,op in enumerate(loop.operations):
             print(i,op)
 
-class BaseTestDependencyGraph(DepTestHelper):
-    def test_dependency_1(self):
-        ops = """
-        []
-        i1 = int_add(1,1)
-        i2 = int_add(i1,1)
-        guard_value(i2,3) []
-        jump()
-        """
-        dep_graph = self.build_dependency(ops)
-        self.assert_no_edge(dep_graph, [(i,i) for i in range(5)])
-        self.assert_def_use(dep_graph, [(1,2),(2,3)])
-        self.assert_no_edge(dep_graph, [(0,1), (1,3),
-                                        (0,2), (0,3),
-                                        (0,4), (1,3),
-                                        (2,4), (3,4)
-                                       ])
-
-    def test_label_def_use_jump_use_def(self):
-        ops = """
-        [i3]
-        i1 = int_add(i3,1)
-        guard_value(i1,0) []
-        jump(i1)
-        """
-        dep_graph = self.build_dependency(ops)
-        self.assert_no_edge(dep_graph, [(i,i) for i in range(4)])
-        self.assert_def_use(dep_graph, 0, 1)
-        self.assert_def_use(dep_graph, 1, 2)
-        self.assert_def_use(dep_graph, 1, 3)
+class BaseTestVectorize(VecTestHelper):
 
     def test_vectorize_skip_impossible_1(self):
         """ this trace does not contain a raw load / raw store from an array """
@@ -544,5 +515,5 @@ class BaseTestDependencyGraph(DepTestHelper):
         self.assert_equal(loop, self.parse_loop(ops))
 
 
-class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
+class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass
