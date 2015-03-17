@@ -591,29 +591,32 @@ def _lookup_cjk(cjk_code):
         if not ('0' <= c <= '9' or 'A' <= c <= 'F'):
             raise KeyError
     code = int(cjk_code, 16)
-    if %s:
+    if %(cjk_interval)s:
         return code
     raise KeyError
 
-def lookup(name):
+def lookup(name, with_named_sequence=False):
     if name[:len(_cjk_prefix)] == _cjk_prefix:
         return _lookup_cjk(name[len(_cjk_prefix):])
     if name[:len(_hangul_prefix)] == _hangul_prefix:
         return _lookup_hangul(name[len(_hangul_prefix):])
 
     if not base_mod:
-        return trie_lookup(name)
+        code = trie_lookup(name)
     else:
         try:
-            return _code_by_name[name]
+            code = _code_by_name[name]
         except KeyError:
             if name not in _code_by_name_corrected:
-                return base_mod.trie_lookup(name)
+                code = base_mod.trie_lookup(name)
             else:
                 raise
+    if not with_named_sequence and %(named_sequence_interval)s:
+        raise KeyError
+    return code
 
 def name(code):
-    if %s:
+    if %(cjk_interval)s:
         return "CJK UNIFIED IDEOGRAPH-" + hex(code)[2:].upper()
     if 0xAC00 <= code <= 0xD7A3:
         # vl_code, t_code = divmod(code - 0xAC00, len(_hangul_T))
@@ -624,6 +627,8 @@ def name(code):
         v_code = vl_code %% len(_hangul_V)
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
+    if %(pua_interval)s:
+        raise KeyError
 
     if not base_mod:
         return lookup_charcode(code)
@@ -635,7 +640,9 @@ def name(code):
                 return base_mod.lookup_charcode(code)
             else:
                 raise
-''' % (cjk_interval, cjk_interval)
+''' % dict(cjk_interval=cjk_interval,
+           pua_interval="0xF0000 <= code < 0xF0400",
+           named_sequence_interval="0xF0200 <= code < 0xF0400")
 
     # Categories
     writeDbRecord(outfile, table)
@@ -810,8 +817,8 @@ def lookup_named_sequence(code):
     print >> outfile, ']'
     print >> outfile, '''
 
-def lookup_with_alias(name):
-    code = lookup(name)
+def lookup_with_alias(name, with_named_sequence=False):
+    code = lookup(name, with_named_sequence=with_named_sequence)
     if 0 <= code - %(start)s < len(_name_aliases):
         return _name_aliases[code - %(start)s]
     else:

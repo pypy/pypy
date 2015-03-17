@@ -16788,22 +16788,25 @@ def _lookup_cjk(cjk_code):
         return code
     raise KeyError
 
-def lookup(name):
+def lookup(name, with_named_sequence=False):
     if name[:len(_cjk_prefix)] == _cjk_prefix:
         return _lookup_cjk(name[len(_cjk_prefix):])
     if name[:len(_hangul_prefix)] == _hangul_prefix:
         return _lookup_hangul(name[len(_hangul_prefix):])
 
     if not base_mod:
-        return trie_lookup(name)
+        code = trie_lookup(name)
     else:
         try:
-            return _code_by_name[name]
+            code = _code_by_name[name]
         except KeyError:
             if name not in _code_by_name_corrected:
-                return base_mod.trie_lookup(name)
+                code = base_mod.trie_lookup(name)
             else:
                 raise
+    if not with_named_sequence and 0xF0200 <= code < 0xF0400:
+        raise KeyError
+    return code
 
 def name(code):
     if (0x3400 <= code <= 0x4DB5 or 0x4E00 <= code <= 0x9FA5 or 0x20000 <= code <= 0x2A6D6):
@@ -16817,6 +16820,8 @@ def name(code):
         v_code = vl_code % len(_hangul_V)
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
+    if 0xF0000 <= code < 0xF0400:
+        raise KeyError
 
     if not base_mod:
         return lookup_charcode(code)
@@ -21288,8 +21293,8 @@ _name_aliases = [
 ]
 
 
-def lookup_with_alias(name):
-    code = lookup(name)
+def lookup_with_alias(name, with_named_sequence=False):
+    code = lookup(name, with_named_sequence=with_named_sequence)
     if 0 <= code - 983040 < len(_name_aliases):
         return _name_aliases[code - 983040]
     else:

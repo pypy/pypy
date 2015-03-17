@@ -139,4 +139,11 @@ class AppTestUnicodeData:
         ]
         for seqname, codepoints in sequences:
             assert unicodedata.lookup(seqname) == codepoints
+            raises(SyntaxError, eval, r'"\N{%s}"' % seqname)
 
+    def test_names_in_pua_range(self):
+        # We are storing named seq in the PUA 15, but their names shouldn't leak
+        import unicodedata
+        for cp in range(0xf0000, 0xf0300, 7):
+            exc = raises(ValueError, unicodedata.name, chr(cp))
+            assert str(exc.value) == 'no such name'

@@ -105,7 +105,7 @@ class UCD(W_Root):
     @unwrap_spec(name=str)
     def lookup(self, space, name):
         try:
-            code = self._lookup(name.upper())
+            code = self._lookup(name.upper(), with_named_sequence=True)
         except KeyError:
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
