@@ -421,7 +421,6 @@ add_operator('hash', 1, dispatch=1, pyfunc=hash)
 add_operator('setattr', 3, dispatch=1, pyfunc=setattr)
 add_operator('delattr', 2, dispatch=1, pyfunc=delattr)
 add_operator('getitem', 2, dispatch=2, pure=True)
-add_operator('getitem_idx', 2, dispatch=2, pure=True)
 add_operator('setitem', 3, dispatch=2)
 add_operator('delitem', 2, dispatch=2)
 add_operator('getslice', 3, dispatch=1, pyfunc=do_getslice, pure=True)
@@ -683,7 +682,6 @@ op_appendices = {
 # allows the annotator to be more precise, see test_reraiseAnything/KeyError in
 # the annotator tests
 op.getitem.canraise = [IndexError, KeyError, Exception]
-op.getitem_idx.canraise = [IndexError, KeyError, Exception]
 op.setitem.canraise = [IndexError, KeyError, Exception]
 op.delitem.canraise = [IndexError, KeyError, Exception]
 op.contains.canraise = [Exception]    # from an r_dict

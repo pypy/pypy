@@ -135,23 +135,6 @@ def transform_list_contains(self, block_subset):
                     s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
 
-def transform_getitem(ann, blocks):
-    for block in blocks:
-        if block.canraise:
-            last_op = block.raising_op
-            if last_op.opname == 'getitem':
-                postfx = []
-                if any(issubclass(IndexError, exit.exitcase)
-                        for exit in block.exits if exit.exitcase):
-                    postfx.append('idx')
-                if postfx:
-                    Op = getattr(op, '_'.join(['getitem'] + postfx))
-                    newop = Op(*last_op.args)
-                    newop.result = last_op.result
-                    block.operations[-1] = newop
-
-
-
 def transform_dead_op_vars(self, block_subset):
     # we redo the same simplification from simplify.py,
     # to kill dead (never-followed) links,
@@ -266,7 +249,6 @@ default_extra_passes = [
     transform_extend_with_str_slice,
     transform_extend_with_char_count,
     transform_list_contains,
-    transform_getitem,
     ]
 
 def transform_graph(ann, extra_passes=None, block_subset=None):

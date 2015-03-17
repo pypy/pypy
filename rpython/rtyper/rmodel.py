@@ -283,12 +283,6 @@ class __extend__(pairtype(Repr, Repr)):
             return inputconst(Bool, hop.s_result.const)
         return hop.rtyper.type_system.generic_is(robj1, robj2, hop)
 
-    # default implementation for checked getitems
-
-    def rtype_getitem_idx((r_c1, r_o1), hop):
-        return pair(r_c1, r_o1).rtype_getitem(hop)
-
-
 # ____________________________________________________________
 
 

@@ -246,9 +246,9 @@ class __extend__(pairtype(AbstractBaseListRepr, Repr)):
 
 class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
 
-    def rtype_getitem((r_lst, r_int), hop, checkidx=False):
+    def rtype_getitem((r_lst, r_int), hop):
         v_lst, v_index = hop.inputargs(r_lst, Signed)
-        if checkidx:
+        if hop.has_implicit_exception(IndexError):
             hop.exception_is_here()
             spec = dum_checkidx
         else:
@@ -267,9 +267,6 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         c_basegetitem = hop.inputconst(Void, basegetitem)
         v_res = hop.gendirectcall(llfn, c_func_marker, c_basegetitem, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
-
-    def rtype_getitem_idx((r_lst, r_int), hop):
-        return pair(r_lst, r_int).rtype_getitem(hop, checkidx=True)
 
     def rtype_setitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):

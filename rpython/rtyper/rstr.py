@@ -561,27 +561,22 @@ class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
 
 
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
-    def rtype_getitem((r_str, r_int), hop, checkidx=False):
+    def rtype_getitem((r_str, r_int), hop):
         string_repr = r_str.repr
         v_str, v_index = hop.inputargs(string_repr, Signed)
-        if checkidx:
+        if hop.has_implicit_exception(IndexError):
             if hop.args_s[1].nonneg:
                 llfn = r_str.ll.ll_stritem_nonneg_checked
             else:
                 llfn = r_str.ll.ll_stritem_checked
+            hop.exception_is_here()
         else:
             if hop.args_s[1].nonneg:
                 llfn = r_str.ll.ll_stritem_nonneg
             else:
                 llfn = r_str.ll.ll_stritem
-        if checkidx:
-            hop.exception_is_here()
-        else:
             hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, v_str, v_index)
-
-    def rtype_getitem_idx((r_str, r_int), hop):
-        return pair(r_str, r_int).rtype_getitem(hop, checkidx=True)
 
     def rtype_mul((r_str, r_int), hop):
         str_repr = r_str.repr
