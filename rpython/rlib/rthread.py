@@ -61,6 +61,9 @@ c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP],
                                   lltype.Signed,
                                   _nowrapper=True)   # *don't* release the GIL
+c_thread_releaselock_GIL = llexternal('RPyThreadReleaseLock', [TLOCKP],
+                                      lltype.Signed,
+                                      releasegil=True)
 
 # another set of functions, this time in versions that don't cause the
 # GIL to be released.  Used to be there to handle the GIL lock itself,
@@ -158,7 +161,11 @@ class Lock(object):
         return res
 
     def release(self):
-        if c_thread_releaselock(self._lock) != 0:
+        if rgc.stm_is_enabled():
+            func = c_thread_releaselock_GIL   # XXX temporary workaround!
+        else:
+            func = c_thread_releaselock
+        if func(self._lock) != 0:
             raise error("the lock was not previously acquired")
 
     def __del__(self):
