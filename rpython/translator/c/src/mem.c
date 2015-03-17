@@ -86,7 +86,7 @@ int try_pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
   if (!addr)
-	return;
+	return 1;
   spinlock_acquire(pypy_debug_alloc_lock);
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)
