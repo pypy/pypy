@@ -136,7 +136,9 @@ class PyCode(eval.Code):
             filename = filename[:-1]
         basename = os.path.basename(filename)
         lastdirname = os.path.basename(os.path.dirname(filename))
-        self.co_filename = '<builtin>/%s/%s' % (lastdirname, basename)
+        if lastdirname:
+            basename = '%s/%s' % (lastdirname, basename)
+        self.co_filename = '<builtin>/%s' % (basename,)
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
