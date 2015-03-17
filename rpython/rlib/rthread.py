@@ -60,7 +60,7 @@ c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         releasegil=True)    # release the GIL
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP],
                                   lltype.Signed,
-                                  _nowrapper=True)   # *don't* release the GIL
+                                  releasegil=False)   # *don't* release the GIL
 
 # another set of functions, this time in versions that don't cause the
 # GIL to be released.  Used to be there to handle the GIL lock itself,
