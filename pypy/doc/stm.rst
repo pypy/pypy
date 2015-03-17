@@ -130,7 +130,11 @@ Current status (stmgc-c7)
 
 * Weakrefs might appear to work a bit strangely for now, sometimes
   staying alive throught ``gc.collect()``, or even dying but then
-  un-dying for a short time before dying again.
+  un-dying for a short time before dying again.  A similar problem can
+  show up occasionally elsewhere with accesses to some external
+  resources, where the (apparent) serialized order doesn't match the
+  underlying (multithreading) order.  These are bugs (partially fixed
+  already in ``stmgc-c8``).
 
 * The STM system is based on very efficient read/write barriers, which
   are mostly done (their placement could be improved a bit in
