@@ -167,7 +167,8 @@ class BasePosix(Platform):
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
-            ('RPATH_FLAGS', self.rpath_flags),
+            ('RPATH_FLAGS', self.rpath_flags + ['-Wl,-rpath-link=\'%s\'' % ldir
+                                                for ldir in rel_libdirs]),
             ]
         for args in definitions:
             m.definition(*args)
