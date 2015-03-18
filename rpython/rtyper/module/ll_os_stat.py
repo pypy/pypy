@@ -131,6 +131,7 @@ class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
         assert 0 <= index < N_INDEXABLE_FIELDS, "os.stat()[index] out of range"
         name, TYPE = STAT_FIELDS[index]
         return lltype_to_annotation(TYPE)
+    getitem.can_only_throw = []
 
 
 class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
@@ -138,6 +139,7 @@ class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
         assert s_int.is_constant()
         name, TYPE = STATVFS_FIELDS[s_int.const]
         return lltype_to_annotation(TYPE)
+    getitem.can_only_throw = []
 
 
 s_StatResult = SomeStatResult()
