@@ -57,7 +57,7 @@ class BaseListRepr(AbstractBaseListRepr):
         elif variant == ("reversed",):
             return ReversedListIteratorRepr(self)
         else:
-            raise NotImplementedError(variant)
+            raise TyperError("unsupported %r iterator over a list" % (variant,))
 
     def get_itemarray_lowleveltype(self):
         ITEM = self.item_repr.lowleveltype
