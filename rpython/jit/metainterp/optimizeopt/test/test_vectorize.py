@@ -53,7 +53,7 @@ class VecTestHelper(BaseTest):
         opt = self.vec_optimizer(loop)
         opt._gather_trace_information(loop)
         if unroll_factor == -1:
-            unroll_factor = opt.get_estimated_unroll_factor()
+            unroll_factor = opt.get_unroll_count()
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
         return opt
@@ -184,7 +184,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i10) []
         jump(p0,p1,p2,i9)
         """
-        self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(opt_ops), 2)
+        self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(opt_ops), 1)
 
     def test_estimate_unroll_factor_smallest_byte_zero(self):
         ops = """
@@ -194,7 +194,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vec_optimizer(self.parse_loop(ops))
         assert 0 == vopt.vec_info.smallest_type_bytes
-        assert 0 == vopt.get_estimated_unroll_factor()
+        assert 0 == vopt.get_unroll_count()
 
     def test_array_operation_indices_not_unrolled(self):
         ops = """
@@ -212,7 +212,7 @@ class BaseTestVectorize(VecTestHelper):
         raw_load(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         assert 1 in vopt.vec_info.memory_refs
         assert 2 in vopt.vec_info.memory_refs
         assert len(vopt.vec_info.memory_refs) == 2
@@ -224,15 +224,15 @@ class BaseTestVectorize(VecTestHelper):
         i4 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i3,i4)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         assert 1 in vopt.vec_info.memory_refs
         assert 2 in vopt.vec_info.memory_refs
         assert len(vopt.vec_info.memory_refs) == 2
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         for i in [1,2,3,4]:
             assert i in vopt.vec_info.memory_refs
         assert len(vopt.vec_info.memory_refs) == 4
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),4)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),3)
         for i in [1,2,3,4,5,6,7,8]:
             assert i in vopt.vec_info.memory_refs
         assert len(vopt.vec_info.memory_refs) == 8
@@ -244,7 +244,7 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0,1)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         vopt.build_dependency_graph()
         self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
         self.assert_def_use(vopt.dependency_graph, [(0,1),(2,3),(4,5)])
@@ -269,7 +269,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[1]
@@ -284,7 +284,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[2]
@@ -299,7 +299,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[2]
@@ -315,7 +315,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i2,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[3]
@@ -333,7 +333,7 @@ class BaseTestVectorize(VecTestHelper):
         i5 = raw_load(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[5]
@@ -352,7 +352,7 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load(p0,i6,descr=chararraydescr)
         jump(p0,i6)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[7]
@@ -371,7 +371,7 @@ class BaseTestVectorize(VecTestHelper):
         i5 = raw_load(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref1 = vopt.vec_info.memory_refs[5]
@@ -389,7 +389,7 @@ class BaseTestVectorize(VecTestHelper):
         i6 = int_add(i4,1)
         jump(p0,i1,i6)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),2)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         vopt.build_dependency_graph()
         self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
         self.assert_def_use(vopt.dependency_graph, [(0,1),(0,2),(0,3),(0,4),(2,5)])
@@ -424,7 +424,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref = vopt.vec_info.memory_refs[3]
@@ -436,7 +436,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref = vopt.vec_info.memory_refs[3]
@@ -452,7 +452,7 @@ class BaseTestVectorize(VecTestHelper):
         i6 = raw_load(p0,i5,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref = vopt.vec_info.memory_refs[3]
@@ -473,7 +473,7 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref = vopt.vec_info.memory_refs[3]
@@ -494,7 +494,7 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
         vopt.build_dependency_graph()
         vopt.find_adjacent_memory_refs()
         mref = vopt.vec_info.memory_refs[3]
@@ -511,7 +511,7 @@ class BaseTestVectorize(VecTestHelper):
         jump()
         """
         loop = self.parse_loop(ops)
-        vopt = self.vec_optimizer_unrolled(loop,2)
+        vopt = self.vec_optimizer_unrolled(loop,1)
         self.assert_equal(loop, self.parse_loop(ops))
 
 

@@ -23,23 +23,25 @@ class VectorizeTest(object):
 
     def test_simple_raw_load(self):
         myjitdriver = JitDriver(greens = [],
-                                reds = ['i', 'res', 'va'],
+                                reds = ['i', 'res', 'va','c'],
                                 vectorize=True)
-        def f():
-            res = r_uint(0)
-            va = alloc_raw_storage(32, zero=True)
-            for i in range(32):
-                raw_storage_setitem(va, i, rffi.cast(rffi.UCHAR,i))
+        def f(c):
+            res = 0
+            va = alloc_raw_storage(c*rffi.sizeof(rffi.SIGNED), zero=True)
+            for i in range(c):
+                raw_storage_setitem(va, i*rffi.sizeof(rffi.SIGNED),
+                                    rffi.cast(rffi.SIGNED,i))
             i = 0
-            while i < 32:
-                myjitdriver.can_enter_jit(i=i, res=res,  va=va)
-                myjitdriver.jit_merge_point(i=i, res=res, va=va)
-                res += raw_storage_getitem(rffi.UCHAR,va,i)
+            while i < c:
+                myjitdriver.can_enter_jit(i=i, res=res,  va=va, c=c)
+                myjitdriver.jit_merge_point(i=i, res=res, va=va, c=c)
+                res += raw_storage_getitem(rffi.SIGNED,va,i*rffi.sizeof(rffi.SIGNED))
                 i += 1
             free_raw_storage(va)
             return res
-        res = self.meta_interp(f, [])
-        assert res == sum(range(32))
+        i = 32
+        res = self.meta_interp(f, [i])
+        assert res == sum(range(i))
         self.check_trace_count(1)
 
 class TestLLtype(VectorizeTest, LLJitMixin):

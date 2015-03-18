@@ -59,6 +59,9 @@ class VectorizingOptimizer(Optimizer):
                 rename_map[la] = ja
 
     def unroll_loop_iterations(self, loop, unroll_factor):
+        """ Unroll the loop X times. Unroll_factor of 0 = no unrolling,
+        1 once, ...
+        """
         op_count = len(loop.operations)
 
         label_op = loop.operations[0]
@@ -81,7 +84,7 @@ class VectorizingOptimizer(Optimizer):
         jump_op_args = jump_op.getarglist()
 
         rename_map = {}
-        for i in range(2, unroll_factor+1):
+        for i in range(0, unroll_factor):
             # for each unrolling factor the boxes are renamed.
             self._rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
             for op in operations:
@@ -101,6 +104,19 @@ class VectorizingOptimizer(Optimizer):
                         copied_op.setarg(i, value)
                     except KeyError:
                         pass
+
+
+                #if copied_op.is_guard():
+                #    self.store_final_boxes_in_guard(copied_op, [])
+                #failargs = copied_op.getfailargs()
+                #if failargs:
+                #    for i, arg in enumerate(failargs):
+                #        try:
+                #            value = rename_map[arg]
+                #            print(type(copied_op))
+                #            copied_op.setfailarg(i, value)
+                #        except KeyError:
+                #            pass
 
                 self.emit_unrolled_operation(copied_op)
                 self.vec_info.inspect_operation(copied_op)
@@ -129,17 +145,15 @@ class VectorizingOptimizer(Optimizer):
         for i,op in enumerate(loop.operations):
             self.vec_info.inspect_operation(op)
 
-    def get_estimated_unroll_factor(self, force_reg_bytes = -1):
-        """ force_reg_bytes used for testing """
+    def get_unroll_count(self):
+        """ This is an estimated number of further unrolls """
         # this optimization is not opaque, and needs info about the CPU
         byte_count = self.vec_info.smallest_type_bytes
         if byte_count == 0:
             return 0
         simd_vec_reg_bytes = 16 # TODO get from cpu
-        if force_reg_bytes > 0:
-            simd_vec_reg_bytes = force_reg_bytes
         unroll_factor = simd_vec_reg_bytes // byte_count
-        return unroll_factor
+        return unroll_factor-1 # it is already unrolled once
 
     def propagate_all_forward(self):
 
@@ -152,7 +166,7 @@ class VectorizingOptimizer(Optimizer):
             # stop, there is no chance to vectorize this trace
             raise NotAVectorizeableLoop()
 
-        unroll_factor = self.get_estimated_unroll_factor()
+        unroll_factor = self.get_unroll_count()
 
         self.unroll_loop_iterations(self.loop, unroll_factor)
 
