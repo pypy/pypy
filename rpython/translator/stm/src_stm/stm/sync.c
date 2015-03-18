@@ -141,6 +141,27 @@ static void wait_for_end_of_inevitable_transaction(void)
     }
 }
 
+void stm_wait_for_current_inevitable_transaction(void)
+{
+    long i;
+    for (i = 1; i <= NB_SEGMENTS; i++) {
+        struct stm_priv_segment_info_s *other_pseg = get_priv_segment(i);
+        if (other_pseg->transaction_state == TS_INEVITABLE) {
+            /* Asynchronously found out that there is an inevitable
+               transaction running.  Wait until it signals "done",
+               then return (even if another inev transaction started
+               in the meantime).
+             */
+            s_mutex_lock();
+            if (other_pseg->transaction_state == TS_INEVITABLE)
+                cond_wait(C_INEVITABLE);
+            /*else: this inev transaction finished just now */
+            s_mutex_unlock();
+            break;
+        }
+    }
+}
+
 static bool acquire_thread_segment(stm_thread_local_t *tl)
 {
     /* This function acquires a segment for the currently running thread,
@@ -148,7 +169,7 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     assert(_has_mutex());
     assert(_is_tl_registered(tl));
 
-    int num = tl->associated_segment_num;
+    int num = tl->last_associated_segment_num;
     if (sync_ctl.in_use1[num - 1] == 0) {
         /* fast-path: we can get the same segment number than the one
            we had before.  The value stored in GS is still valid. */
@@ -167,8 +188,9 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
         num = (num % NB_SEGMENTS) + 1;
         if (sync_ctl.in_use1[num - 1] == 0) {
             /* we're getting 'num', a different number. */
-            dprintf(("acquired different segment: %d->%d\n", tl->associated_segment_num, num));
-            tl->associated_segment_num = num;
+            dprintf(("acquired different segment: %d->%d\n",
+                     tl->last_associated_segment_num, num));
+            tl->last_associated_segment_num = num;
             set_gs_register(get_segment_base(num));
             goto got_num;
         }
@@ -186,6 +208,7 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     sync_ctl.in_use1[num - 1] = 1;
     assert(STM_SEGMENT->segment_num == num);
     assert(STM_SEGMENT->running_thread == NULL);
+    tl->associated_segment_num = tl->last_associated_segment_num;
     STM_SEGMENT->running_thread = tl;
     return true;
 }
@@ -204,10 +227,12 @@ static void release_thread_segment(stm_thread_local_t *tl)
     }
 
     assert(STM_SEGMENT->running_thread == tl);
+    assert(tl->associated_segment_num == tl->last_associated_segment_num);
+    tl->associated_segment_num = -1;
     STM_SEGMENT->running_thread = NULL;
 
-    assert(sync_ctl.in_use1[tl->associated_segment_num - 1] == 1);
-    sync_ctl.in_use1[tl->associated_segment_num - 1] = 0;
+    assert(sync_ctl.in_use1[tl->last_associated_segment_num - 1] == 1);
+    sync_ctl.in_use1[tl->last_associated_segment_num - 1] = 0;
 }
 
 __attribute__((unused))
@@ -218,9 +243,16 @@ static bool _seems_to_be_running_transaction(void)
 
 bool _stm_in_transaction(stm_thread_local_t *tl)
 {
-    int num = tl->associated_segment_num;
-    assert(1 <= num && num <= NB_SEGMENTS);
-    return get_segment(num)->running_thread == tl;
+    if (tl->associated_segment_num == -1) {
+        return false;
+    }
+    else {
+        int num = tl->associated_segment_num;
+        OPT_ASSERT(1 <= num && num <= NB_SEGMENTS);
+        OPT_ASSERT(num == tl->last_associated_segment_num);
+        OPT_ASSERT(get_segment(num)->running_thread == tl);
+        return true;
+    }
 }
 
 void _stm_test_switch(stm_thread_local_t *tl)

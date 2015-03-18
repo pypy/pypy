@@ -833,7 +833,6 @@ static void _finish_transaction(enum stm_event_e event)
 
 void stm_commit_transaction(void)
 {
- restart_all:
     exec_local_finalizers();
 
     assert(!_has_mutex());
@@ -852,11 +851,6 @@ void stm_commit_transaction(void)
        automatically when we are done here, i.e. at mutex_unlock().
        Important: we should not call cond_wait() in the meantime. */
     synchronize_all_threads(STOP_OTHERS_UNTIL_MUTEX_UNLOCK);
-
-    if (any_local_finalizers()) {
-        s_mutex_unlock();
-        goto restart_all;
-    }
 
     /* detect conflicts */
     if (detect_write_read_conflicts())

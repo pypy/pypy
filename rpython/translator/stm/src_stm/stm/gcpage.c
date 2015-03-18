@@ -418,12 +418,12 @@ static void mark_visit_from_roots(void)
 
     stm_thread_local_t *tl = stm_all_thread_locals;
     do {
-        /* If 'tl' is currently running, its 'associated_segment_num'
+        /* If 'tl' is currently running, its 'last_associated_segment_num'
            field is the segment number that contains the correct
            version of its overflowed objects.  If not, then the
            field is still some correct segment number, and it doesn't
            matter which one we pick. */
-        char *segment_base = get_segment_base(tl->associated_segment_num);
+        char *segment_base = get_segment_base(tl->last_associated_segment_num);
 
         struct stm_shadowentry_s *current = tl->shadowstack;
         struct stm_shadowentry_s *base = tl->shadowstack_base;

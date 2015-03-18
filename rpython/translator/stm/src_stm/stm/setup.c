@@ -255,7 +255,7 @@ void stm_register_thread_local(stm_thread_local_t *tl)
         tl->prev = stm_all_thread_locals->prev;
         stm_all_thread_locals->prev->next = tl;
         stm_all_thread_locals->prev = tl;
-        num = tl->prev->associated_segment_num;
+        num = tl->prev->last_associated_segment_num;
     }
     tl->thread_local_obj = NULL;
 
@@ -263,7 +263,8 @@ void stm_register_thread_local(stm_thread_local_t *tl)
        assign the same number to all of them and they would get their own
        numbers automatically. */
     num = (num % NB_SEGMENTS) + 1;
-    tl->associated_segment_num = num;
+    tl->associated_segment_num = -1;
+    tl->last_associated_segment_num = num;
     tl->thread_local_counter = ++thread_local_counters;
     *_get_cpth(tl) = pthread_self();
     _init_shadow_stack(tl);

@@ -58,6 +58,7 @@ static void marker_fetch_obj_write(object_t *obj, stm_loc_marker_t *out_marker)
     */
     long i;
     int in_segment_num = out_marker->tl->associated_segment_num;
+    assert(in_segment_num >= 1);
     struct stm_priv_segment_info_s *pseg = get_priv_segment(in_segment_num);
     struct list_s *mlst = pseg->modified_old_objects;
     struct list_s *mlstm = pseg->modified_old_objects_markers;

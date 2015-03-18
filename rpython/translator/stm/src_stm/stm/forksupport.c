@@ -220,9 +220,8 @@ static void forksupport_child(void)
             if (endpagenum == NB_PAGES)
                 break;   /* done */
             pagenum = (uninitialized_page_stop - stm_object_pages) / 4096UL;
+            pagenum--;    /* contains data from largemalloc */
             endpagenum = NB_PAGES;
-            if (endpagenum == NB_PAGES)
-                break;   /* done */
         }
 
         struct page_shared_s ps = pages_privatized[pagenum - PAGE_FLAG_START];

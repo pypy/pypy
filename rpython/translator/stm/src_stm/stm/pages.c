@@ -63,12 +63,12 @@ static void reset_major_collection_requested(void)
 
 static void d_remap_file_pages(char *addr, size_t size, ssize_t pgoff)
 {
-    dprintf(("remap_file_pages: 0x%lx bytes: (seg%ld %p) --> (seg%ld %p)\n",
+    /*dprintf(("remap_file_pages: 0x%lx bytes: (seg%ld %p) --> (seg%ld %p)\n",
              (long)size,
              (long)((addr - stm_object_pages) / 4096UL) / NB_PAGES,
              (void *)((addr - stm_object_pages) % (4096UL * NB_PAGES)),
              (long)pgoff / NB_PAGES,
-             (void *)((pgoff % NB_PAGES) * 4096UL)));
+             (void *)((pgoff % NB_PAGES) * 4096UL)));*/
     assert(size % 4096 == 0);
     assert(size <= TOTAL_MEMORY);
     assert(((uintptr_t)addr) % 4096 == 0);
