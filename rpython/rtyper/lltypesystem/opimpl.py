@@ -678,12 +678,6 @@ def op_ll_read_timestamp():
     from rpython.rlib.rtimer import read_timestamp
     return read_timestamp()
 
-def op_stm_start_transaction():
-    pass
-
-def op_stm_stop_transaction():
-    pass
-
 def op_debug_fatalerror(ll_msg):
     from rpython.rtyper.lltypesystem import lltype, rstr
     from rpython.rtyper.llinterp import LLFatalError
