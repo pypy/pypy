@@ -105,18 +105,13 @@ class VectorizingOptimizer(Optimizer):
                     except KeyError:
                         pass
 
-
-                #if copied_op.is_guard():
-                #    self.store_final_boxes_in_guard(copied_op, [])
-                #failargs = copied_op.getfailargs()
-                #if failargs:
-                #    for i, arg in enumerate(failargs):
-                #        try:
-                #            value = rename_map[arg]
-                #            print(type(copied_op))
-                #            copied_op.setfailarg(i, value)
-                #        except KeyError:
-                #            pass
+                # not only the arguments, but also the fail args need
+                # to be adjusted. rd_snapshot stores the live variables
+                # that are needed to resume.
+                if copied_op.is_guard():
+                    new_snapshot = self.clone_snapshot(copied_op.rd_snapshot,
+                                                       rename_map)
+                    copied_op.rd_snapshot = new_snapshot
 
                 self.emit_unrolled_operation(copied_op)
                 self.vec_info.inspect_operation(copied_op)
@@ -139,6 +134,23 @@ class VectorizingOptimizer(Optimizer):
             self._last_emitted_op = self.last_debug_merge_point
             self._newoperations.append(self.last_debug_merge_point)
         self.emit_unrolled_operation(jump_op)
+
+    def clone_snapshot(self, snapshot, rename_map):
+        # snapshots are nested like the MIFrames
+        if snapshot is None:
+            return None
+        boxes = snapshot.boxes
+        new_boxes = boxes[:]
+        for i,box in enumerate(boxes):
+            try:
+                value = rename_map[box]
+                new_boxes[i] = value
+            except KeyError:
+                pass
+
+        snapshot = Snapshot(self.clone_snapshot(snapshot.prev, rename_map),
+                            new_boxes)
+        return snapshot
 
     def _gather_trace_information(self, loop, track_memref = False):
         self.vec_info.track_memory_refs = track_memref
