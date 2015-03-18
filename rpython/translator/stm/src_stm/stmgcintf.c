@@ -167,7 +167,7 @@ void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter)
     pypy_stm_nursery_low_fill_mark = _stm_nursery_start + limit;
 }
 
-long _pypy_stm_start_transaction(void)
+void _pypy_stm_start_transaction(void)
 {
     pypy_stm_nursery_low_fill_mark = 1;  /* will be set to a correct value below */
     long counter = stm_start_transaction(&stm_thread_local);
@@ -175,8 +175,14 @@ long _pypy_stm_start_transaction(void)
     _pypy_stm_initialize_nursery_low_fill_mark(counter);
 
     pypy_stm_ready_atomic = 1; /* reset after abort */
+}
 
-    return counter;
+void _pypy_stm_start_transaction_save_errno_wait_inev(void)
+{
+    int e = errno;
+    stm_wait_for_current_inevitable_transaction();
+    _pypy_stm_start_transaction();
+    errno = e;
 }
 
 void pypy_stm_transaction_break(void)

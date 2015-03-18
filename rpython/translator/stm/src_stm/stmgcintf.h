@@ -26,7 +26,8 @@ void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
 
 void _pypy_stm_initialize_nursery_low_fill_mark(long v_counter);
 void _pypy_stm_inev_state(void);
-long _pypy_stm_start_transaction(void);
+void _pypy_stm_start_transaction(void);
+void _pypy_stm_start_transaction_save_errno_wait_inev(void);
 
 void _pypy_stm_become_inevitable(const char *);
 
@@ -57,11 +58,8 @@ static inline void pypy_stm_commit_if_not_atomic(void) {
     errno = e;
 }
 static inline void pypy_stm_start_if_not_atomic(void) {
-    if (pypy_stm_ready_atomic == 1) {
-        int e = errno;
-        _pypy_stm_start_transaction();
-        errno = e;
-    }
+    if (pypy_stm_ready_atomic == 1)
+        _pypy_stm_start_transaction_save_errno_wait_inev();
 }
 static inline void pypy_stm_start_inevitable_if_not_atomic(void) {
     if (pypy_stm_ready_atomic == 1) {
