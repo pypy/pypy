@@ -1,6 +1,7 @@
 from rpython.rlib import rgc, jit, types
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.signature import signature
+from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
      GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)

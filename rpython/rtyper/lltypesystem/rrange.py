@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem.lltype import Ptr, GcStruct, Signed, malloc, Void
 from rpython.rtyper.rrange import AbstractRangeRepr, AbstractRangeIteratorRepr
+from rpython.rtyper.error import TyperError
 
 # ____________________________________________________________
 #
