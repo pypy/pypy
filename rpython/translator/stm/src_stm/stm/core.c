@@ -889,7 +889,8 @@ void stm_commit_transaction(void)
     /* send what is hopefully the correct signals */
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
         /* wake up one thread in wait_for_end_of_inevitable_transaction() */
-        cond_signal(C_INEVITABLE);
+        STM_PSEGMENT->transaction_state = TS_NONE;
+        cond_broadcast(C_INEVITABLE);
         if (globally_unique_transaction)
             committed_globally_unique_transaction();
     }
