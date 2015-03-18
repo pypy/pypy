@@ -336,7 +336,7 @@ class TestFlowObjSpace(Base):
         simplify_graph(x)
         self.show(x)
         exc_cases = [exit.exitcase for exit in x.startblock.exits]
-        assert exc_cases == [None, OSError]
+        assert exc_cases == [None, OSError, Exception]
 
     #__________________________________________________________
     def reraiseAnythingDicCase(dic):
@@ -501,7 +501,7 @@ class TestFlowObjSpace(Base):
         simplify_graph(graph)
         assert self.all_operations(graph) == {'simple_call': 1}
         exc_cases = [exit.exitcase for exit in graph.startblock.exits]
-        assert exc_cases == [None, IndexError, OSError]
+        assert exc_cases == [None, IndexError, OSError, Exception]
 
     #__________________________________________________________
     def dellocal():

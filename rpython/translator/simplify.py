@@ -342,7 +342,15 @@ def specialize_exceptions(graph):
                 if not exits:
                     block.exitswitch = None
                 block.recloseblock(block.exits[0], *exits)
-
+            else:
+                if block.exits[-1].exitcase is not Exception:
+                    v_etype = Variable('last_exception')
+                    v_exc = Variable('last_exc_value')
+                    exit = Link([v_etype, v_exc], graph.exceptblock, Exception)
+                    exit.extravars(v_etype, v_exc)
+                    exits = list(block.exits)
+                    exits.append(exit)
+                    block.recloseblock(*exits)
 
 
 def remove_assertion_errors(graph):
@@ -363,15 +371,6 @@ def remove_assertion_errors(graph):
             if block.canraise:
                 if exit.exitcase is None:
                     break
-                elif (exit.exitcase is Exception and
-                      block.raising_op.opname
-                        in ('simple_call', 'call_args')):
-                    v_etype = Variable('last_exception')
-                    v_exc = Variable('last_exc_value')
-                    exit.args = [v_etype, v_exc]
-                    exit.last_exception = v_etype
-                    exit.last_exc_value = v_exc
-                    continue
                 if len(block.exits) == 2:
                     # removing the last non-exceptional exit
                     block.exitswitch = None
