@@ -44,7 +44,7 @@ def test_bisect_left():
             ([1, 2, 2, 3, 3, 3, 4, 4, 4, 4], 5, 10),
         ]
     for lst, elem, exp in cases:
-        assert bisect_left(lst, elem) == exp
+        assert bisect_left(lst, elem, len(lst)) == exp
 
 def test_bisect_right():
     cases = [
@@ -90,4 +90,4 @@ def test_bisect_right():
             ([1, 2, 2, 3, 3, 3, 4, 4, 4, 4], 5, 10),
         ]
     for lst, elem, exp in cases:
-        assert bisect_right(lst, elem) == exp
+        assert bisect_right(lst, elem, len(lst)) == exp
