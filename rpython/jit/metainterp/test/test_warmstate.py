@@ -91,12 +91,14 @@ def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:
         cpu = None
         memory_manager = None
+        rtyper = None
         jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
+        _get_unique_id_ptr = None
         _can_never_inline_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
@@ -128,6 +130,7 @@ def test_make_jitdriver_callbacks_3():
         _get_printable_location_ptr = llhelper(GET_LOCATION, get_location)
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = None
+        _get_unique_id_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
@@ -154,6 +157,7 @@ def test_make_jitdriver_callbacks_4():
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = llhelper(ENTER_JIT, confirm_enter_jit)
         _can_never_inline_ptr = None
+        _get_unique_id_ptr = None
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
 
@@ -179,6 +183,7 @@ def test_make_jitdriver_callbacks_5():
         _green_args_spec = [lltype.Signed, lltype.Float]
         _get_printable_location_ptr = None
         _confirm_enter_jit_ptr = None
+        _get_unique_id_ptr = None
         _can_never_inline_ptr = llhelper(CAN_NEVER_INLINE, can_never_inline)
         _should_unroll_one_iteration_ptr = None
         red_args_types = []
