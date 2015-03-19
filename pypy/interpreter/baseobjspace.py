@@ -666,30 +666,15 @@ class ObjSpace(object):
             assert ec is not None
             return ec
 
-    def _open_code_info_file(self):
+    def register_code_callback(self, callback):
         ec = self.getexecutioncontext()
-        try:
-            ec.code_info_file = os.tmpfile()
-        except:
-            ec.code_info_file_present = False # we failed to open it
+        ec._code_callback = callback
 
     def register_code_object(self, pycode):
         ec = self.getexecutioncontext()
-        if ec.code_info_file is None:
-            self._open_code_info_file()
-        if not ec.code_info_file_present:
+        if ec._code_callback is None:
             return
-        try:
-            rfile.write_int(ec.code_info_file, pycode._unique_id)
-            s = pycode._get_full_name()
-            rfile.write_int(ec.code_info_file, len(s))
-            ec.code_info_file.write(s)
-        except OSError:
-            ec.code_info_file_present = False
-            try:
-                ec.code_info_file.close()
-            except:
-                pass # can fail, ignore
+        ec._code_callback(self, pycode)
     
     def _freeze_(self):
         return True

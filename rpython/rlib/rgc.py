@@ -695,7 +695,7 @@ class RegisterGcTraceEntry(ExtRegistryEntry):
 
 @specialize.arg(0)
 def do_get_objects(callback):
-    """ Get all the objects that satisfy callback(gcref) -> True
+    """ Get all the objects that satisfy callback(gcref) -> obj
     """
     roots = [gcref for gcref in get_rpy_roots() if gcref]
     pending = roots[:]

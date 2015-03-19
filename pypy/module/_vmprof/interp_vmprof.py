@@ -3,13 +3,14 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import jit, rposix, entrypoint
+from rpython.rlib import jit, rposix, entrypoint, rgc
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror, OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pycode import PyCode
 
 ROOT = py.path.local(__file__).join('..')
 SRC = ROOT.join('src')
@@ -120,6 +121,9 @@ def write_long_to_string_builder(l, b):
         b.append(chr((l >> 48) & 0xff))
         b.append(chr((l >> 56) & 0xff))
 
+def try_cast_to_pycode(gcref):
+    return rgc.try_cast_gcref_to_instance(PyCode, gcref)
+
 class VMProf(object):
     def __init__(self):
         self.is_enabled = False
@@ -137,6 +141,8 @@ class VMProf(object):
             if we_are_translated():
                 pypy_vmprof_init()
             self.ever_enabled = True
+        self.gather_all_code_objs(space)
+        space.register_code_callback(self.register_code)
         if we_are_translated():
             # does not work untranslated
             res = vmprof_enable(fileno, period, 0,
@@ -146,6 +152,11 @@ class VMProf(object):
         if res == -1:
             raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.enable"))
+
+    def gather_all_code_objs(self, space):
+        all_code_objs = rgc.do_get_objects(try_cast_to_pycode)
+        for code in all_code_objs:
+            self.register_code(space, code)
 
     def write_header(self, fileno, period):
         if period == -1:
@@ -177,6 +188,7 @@ class VMProf(object):
             raise oefmt(space.w_ValueError, "_vmprof not enabled")
         self.is_enabled = False
         self.fileno = -1
+        space.register_code_callback(None)
         if we_are_translated():
            # does not work untranslated
             res = vmprof_disable()
