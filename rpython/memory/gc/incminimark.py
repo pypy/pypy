@@ -62,7 +62,7 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 
 #
 # Handles the objects in 2 generations:
@@ -695,7 +695,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         minor_collection_count = 0
         while True:
-            self.nursery_free = llmemory.NULL      # debug: don't use me
+            if not we_are_translated():
+                # debug: don't use 'nursery_free', but only if not translated;
+                # in real code we might get a MemoryError in minor_collection()
+                # and exit this function unexpectedly, but still catch the
+                # MemoryError somewhere and continue afterwards --- if we then
+                # see 'nursery_free == NULL', we segfault.
+                del self.nursery_free
 
             if self.nursery_barriers.non_empty():
                 size_gc_header = self.gcheaderbuilder.size_gc_header
