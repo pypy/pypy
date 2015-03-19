@@ -142,7 +142,7 @@ class VMProf(object):
                 pypy_vmprof_init()
             self.ever_enabled = True
         self.gather_all_code_objs(space)
-        space.register_code_callback(self.register_code)
+        space.register_code_callback(vmprof_register_code)
         if we_are_translated():
             # does not work untranslated
             res = vmprof_enable(fileno, period, 0,
