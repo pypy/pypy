@@ -4,8 +4,8 @@ from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.micronumpy import support, loop
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from pypy.module.micronumpy import support, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException
 from pypy.module.micronumpy.iterators import ArrayIter
@@ -13,6 +13,8 @@ from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides)
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+from pypy.interpreter.baseobjspace import W_Root
 
 
 class BaseConcreteArray(object):
@@ -333,6 +335,35 @@ class BaseConcreteArray(object):
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
+OBJECTSTORE = lltype.GcStruct('ObjectStore',
+                              ('length', lltype.Signed),
+                              ('step', lltype.Signed),
+                              ('storage', llmemory.Address),
+                              rtti=True)
+offset_of_storage = llmemory.offsetof(OBJECTSTORE, 'storage')
+offset_of_length = llmemory.offsetof(OBJECTSTORE, 'length')
+offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
+
+def customtrace(gc, obj, callback, arg):
+    print 'in customtrace w/obj',obj
+    length = rffi.cast(lltype.Signed, obj + offset_of_length)
+    step = rffi.cast(lltype.Signed, obj + offset_of_step)
+    storage = obj + offset_of_storage
+    print 'tracing', length, 'objects in ndarray.storage'
+    for i in range(length):
+        gcref = rffi.cast(llmemory.GCREF, storage)
+        w_obj = cast_gcref_to_instance(W_Root, gcref)
+        print w_obj 
+        gc._trace_callback(callback, arg, storage)
+        storage += step
+    
+lambda_customtrace = lambda: customtrace
+
+def _setup():
+    print 'registering custom trace for OBJECTSTORE'
+    rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
+
+
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides, storage, start=0):
@@ -347,7 +378,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
         self.start = start
-        self.gcstruct = None
+        self.gcstruct = lltype.nullptr(OBJECTSTORE)
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
@@ -375,32 +406,25 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def base(self):
         return None
 
-OBJECTSTORE = lltype.GcStruct('ObjectStore',
-                              ('storage', llmemory.Address),
-                              rtti=True)
-def customtrace(gc, obj, callback, arg):
-    xxxx
-lambda_customtrace = lambda: customtrace
-
-
 class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
-
-        gcstruct = None
+        gcstruct = lltype.nullptr(OBJECTSTORE)
         if storage == lltype.nullptr(RAW_STORAGE):
-            storage = dtype.itemtype.malloc(support.product(shape) *
-                                            dtype.elsize, zero=zero)
+            length = support.product(shape) 
+            storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
             if dtype.num == NPY.OBJECT:
-                rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
+                _setup() # make sure gc hook is registered
                 gcstruct = lltype.malloc(OBJECTSTORE)
-                gcstruct.storage = storage        
+                gcstruct.storage = llmemory.cast_ptr_to_adr(storage)
+                print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
+                gcstruct.length = length
+                gcstruct.step = dtype.elsize
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
         self.gcstruct = gcstruct
 
     def __del__(self):
-        rgc.
         free_raw_storage(self.storage, track_allocation=False)
 
 

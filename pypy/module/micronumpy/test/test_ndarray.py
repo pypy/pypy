@@ -17,6 +17,7 @@ class MockDtype(object):
     def __init__(self):
         self.base = self
         self.elsize = 1
+        self.num = 0
 
 
 def create_slice(space, a, chunks):
