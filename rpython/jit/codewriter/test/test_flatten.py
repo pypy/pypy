@@ -485,11 +485,11 @@ class TestFlatten:
             ---
             L1:
             goto_if_exception_mismatch $<* struct object_vtable>, L2
-            int_return $42
+            int_return $-42
             ---
             L2:
             goto_if_exception_mismatch $<* struct object_vtable>, L3
-            int_return $-42
+            int_return $42
             ---
             L3:
             reraise
@@ -503,9 +503,8 @@ class TestFlatten:
                 return ovfcheck(i % j)
             except OverflowError:
                 return 42
-        # XXX so far, this really produces a int_mod_ovf_zer...
         self.encoding_test(f, [7, 2], """
-            residual_call_ir_i $<* fn int_mod_ovf_zer>, I[%i0, %i1], R[], <Descr> -> %i2
+            residual_call_ir_i $<* fn int_mod_ovf>, I[%i0, %i1], R[], <Descr> -> %i2
             -live-
             catch_exception L1
             int_return %i2
