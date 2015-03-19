@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import jit, rposix, entrypoint, rgc
+from rpython.rlib import jit, rposix, rgc
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import W_Root
