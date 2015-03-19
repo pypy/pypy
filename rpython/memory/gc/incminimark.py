@@ -62,7 +62,8 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize
+from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
 # Handles the objects in 2 generations:
@@ -474,7 +475,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # anyway so it doesn't even counct.
         nursery = llarena.arena_malloc(self._nursery_memory_size(), 0)
         if not nursery:
-            raise MemoryError("cannot allocate nursery")
+            out_of_memory("cannot allocate nursery")
         return nursery
 
     def allocate_nursery(self):
@@ -695,13 +696,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
         minor_collection_count = 0
         while True:
-            if not we_are_translated():
-                # debug: don't use 'nursery_free', but only if not translated;
-                # in real code we might get a MemoryError in minor_collection()
-                # and exit this function unexpectedly, but still catch the
-                # MemoryError somewhere and continue afterwards --- if we then
-                # see 'nursery_free == NULL', we segfault.
-                del self.nursery_free
+            self.nursery_free = llmemory.NULL      # debug: don't use me
+            # note: no "raise MemoryError" between here and the next time
+            # we initialize nursery_free!
 
             if self.nursery_barriers.non_empty():
                 size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1956,7 +1953,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         arena = llarena.arena_malloc(raw_malloc_usage(totalsize), False)
         if not arena:
-            raise MemoryError("cannot allocate object")
+            out_of_memory("out of memory: couldn't allocate a few KB more")
         llarena.arena_reserve(arena, totalsize)
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -2154,9 +2151,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     # even higher memory consumption.  To prevent it, if it's
                     # the second time we are here, then abort the program.
                     if self.max_heap_size_already_raised:
-                        llop.debug_fatalerror(lltype.Void,
-                                              "Using too much memory, aborting")
+                        out_of_memory("using too much memory, aborting")
                     self.max_heap_size_already_raised = True
+                    self.gc_state = STATE_SCANNING
                     raise MemoryError
 
                 self.gc_state = STATE_FINALIZING

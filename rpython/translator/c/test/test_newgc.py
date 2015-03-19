@@ -1557,26 +1557,6 @@ class TestMiniMarkGC(TestSemiSpaceGC):
             res = self.run("limited_memory", -1, runner=myrunner)
             assert res == 42
 
-    define_limited_memory_linux = define_limited_memory
-
-    def test_limited_memory_linux(self):
-        if not sys.platform.startswith('linux'):
-            py.test.skip("linux only")
-        py.test.skip('XXX fix me?')
-        #
-        import random
-        #
-        def myrunner(args):
-            args1 = ['/bin/bash', '-c', 'ulimit -v %d && %s' %
-                     (ulimitv, ' '.join(args),)]
-            return subprocess.check_output(args1)
-        #
-        for i in range(10):
-            ulimitv = random.randrange(50000, 100000)
-            print ulimitv
-            res = self.run("limited_memory_linux", -1, runner=myrunner)
-            assert res == 42
-
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
@@ -1629,6 +1609,29 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def test_random_pin(self):
         res = self.run("random_pin")
         assert res == 28495
+
+    define_limited_memory_linux = TestMiniMarkGC.define_limited_memory.im_func
+
+    def test_limited_memory_linux(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux only")
+        #
+        import random
+        #
+        def myrunner(args):
+            args1 = ['/bin/bash', '-c', 'ulimit -v %d && %s' %
+                     (ulimitv, ' '.join(args),)]
+            popen = subprocess.Popen(args1, stderr=subprocess.PIPE)
+            _, child_stderr = popen.communicate()
+            assert popen.wait() == 134     # aborted
+            assert 'out of memory:' in child_stderr
+            return '42'
+        #
+        for i in range(10):
+            ulimitv = random.randrange(50000, 100000)
+            print ulimitv
+            res = self.run("limited_memory_linux", -1, runner=myrunner)
+            assert res == 42
 
 
 # ____________________________________________________________________
