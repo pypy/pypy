@@ -83,13 +83,6 @@ class AppTest(object):
         s = set([2, 3, 4])
         assert strategy(s) == "IntegerSetStrategy"
 
-    def test_code_info_file(self):
-        from __pypy__ import all_code_info
-
-        assert len(all_code_info()) > 0 # eh, what else?
-        exec """def function_of_a_relatively_unique_name():
-            pass"""
-        assert 'function_of_a_relatively_unique_name' in all_code_info()
 
 class AppTestJitFeatures(object):
     spaceconfig = {"translation.jit": True}
