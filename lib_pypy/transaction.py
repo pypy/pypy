@@ -216,6 +216,12 @@ class TransactionQueue(object):
             assert len(pending) == 0
             while True:
                 f, args, kwds = next_transaction
+                # The next hint_commit_soon() is essential: without it, the
+                # current transaction is short, so far, but includes everything
+                # after some lock.acquire() done recently.  That means that
+                # anything we do in the atomic section will run with the lock
+                # still acquired.  This prevents any parallelization.
+                hint_commit_soon()
                 with atomic:
                     if exception:
                         break
