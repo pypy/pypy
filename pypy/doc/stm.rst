@@ -174,6 +174,38 @@ interpreter and other ones might have slightly different needs.
 User Guide
 ==========
 
+How to write multithreaded programs: the 10'000-feet view
+---------------------------------------------------------
+
+PyPy-STM offers two ways to write multithreaded programs:
+
+* the traditional way, using the ``thread`` or ``threading`` modules,
+  described first__.
+
+* using ``TransactionQueue``, described next__, as a way to hide the
+  low-level notion of threads.
+
+.. __: `Drop-in replacement`_
+.. __: `transaction.TransactionQueue`_
+
+The issue with low-level threads are well known (particularly in other
+languages that don't have GIL-based interpreters): memory corruption,
+deadlocks, livelocks, and so on.  There are alternative approaches to
+dealing directly with threads, like OpenMP_.  These approaches
+typically enforce some structure on your code.  ``TransactionQueue``
+is in part similar: your program needs to have "some chances" of
+parallelization before you can apply it.  But I believe that the scope
+of applicability is much larger with ``TransactionQueue`` than with
+other approaches.  It usually works without forcing a complete
+reorganization of your existing code, and it works on any Python
+program which has got *latent* and *imperfect* parallelism.  Ideally,
+it only requires that the end programmer identifies where this
+parallelism is likely to be found, and communicates it to the system
+using a simple API.
+
+.. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
+
+
 Drop-in replacement
 -------------------
 
@@ -194,31 +226,6 @@ CPython would release the GIL, and replacing them with the boundaries of
 can execute in parallel, but will commit in some serial order.  They
 appear to behave as if they were completely run in this serialization
 order.
-
-
-How to write multithreaded programs: the 10'000-feet view
----------------------------------------------------------
-
-PyPy-STM offers two ways to write multithreaded programs:
-
-* the traditional way, using the ``thread`` or ``threading`` modules.
-
-* using ``TransactionQueue``, described next__, as a way to hide the
-  low-level notion of threads.
-
-.. __: `transaction.TransactionQueue`_
-
-``TransactionQueue`` hides the hard multithreading-related issues that
-we typically encounter when using low-level threads.  This is not the
-first alternative approach to avoid dealing with low-level threads;
-for example, OpenMP_ is one.  However, it is one of the first ones
-which does not require the code to be organized in a particular
-fashion.  Instead, it works on any Python program which has got
-*latent* and *imperfect* parallelism.  Ideally, it only requires that
-the end programmer identifies where this parallelism is likely to be
-found, and communicates it to the system using a simple API.
-
-.. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
 
 
 transaction.TransactionQueue
@@ -256,8 +263,9 @@ interleaved with each other just because they run in parallel.  The
 behavior did not change because we are using ``TransactionQueue``.
 All the calls still *appear* to execute in some serial order.
 
-However, the performance typically does not increase out of the box.
-In fact, it is likely to be worse at first.  Typically, this is
+A typical usage of ``TransactionQueue`` goes like that: at first,
+the performance does not increase.
+In fact, it is likely to be worse.  Typically, this is
 indicated by the total CPU usage, which remains low (closer to 1 than
 N cores).  First note that it is expected that the CPU usage should
 not go much higher than 1 in the JIT warm-up phase: you must run a
@@ -282,9 +290,9 @@ aborted (which caused another 1.25 seconds of lost time by pausing),
 because of the reason shown in the two independent single-entry
 tracebacks: one thread ran the line ``someobj.stuff = 5``, whereas
 another thread concurrently ran the line ``someobj.other = 10`` on the
-same object.  Two writes to the same object cause a conflict, which
-aborts one of the two transactions.  In the example above this
-occurred 12412 times.
+same object.  These two writes are done to the same object.  This
+causes a conflict, which aborts one of the two transactions.  In the
+example above this occurred 12412 times.
 
 The two other conflict sources are ``STM_CONTENTION_INEVITABLE``,
 which means that two transactions both tried to do an external
@@ -303,7 +311,7 @@ Common causes of conflicts:
   each transaction starts with sending data to a log file.  You should
   refactor this case so that it occurs either near the end of the
   transaction (which can then mostly run in non-inevitable mode), or
-  even delegate it to a separate thread.
+  delegate it to a separate transaction or even a separate thread.
 
 * Writing to a list or a dictionary conflicts with any read from the
   same list or dictionary, even one done with a different key.  For
@@ -322,7 +330,7 @@ Common causes of conflicts:
   results is fine, use ``transaction.time()`` or
   ``transaction.clock()``.
 
-* ``transaction.threadlocalproperty`` can be used as class-level::
+* ``transaction.threadlocalproperty`` can be used at class-level::
 
       class Foo(object):     # must be a new-style class!
           x = transaction.threadlocalproperty()
@@ -342,11 +350,11 @@ Common causes of conflicts:
   threads, each running the transactions one after the other; such
   thread-local properties will have the value last stored in them in
   the same thread,, which may come from a random previous transaction.
-  ``threadlocalproperty`` is still useful to avoid conflicts from
-  cache-like data structures.
+  This means that ``threadlocalproperty`` is useful mainly to avoid
+  conflicts from cache-like data structures.
 
 Note that Python is a complicated language; there are a number of less
-common cases that may cause conflict (of any type) where we might not
+common cases that may cause conflict (of any kind) where we might not
 expect it at priori.  In many of these cases it could be fixed; please
 report any case that you don't understand.  (For example, so far,
 creating a weakref to an object requires attaching an auxiliary
@@ -395,8 +403,8 @@ threads can progress or not are rather complicated; you have to consider
 it likely that such a piece of code will eventually block all other
 threads anyway.
 
-Note that if you want to experiment with ``atomic``, you may have to add
-manually a transaction break just before the atomic block.  This is
+Note that if you want to experiment with ``atomic``, you may have to
+manually add a transaction break just before the atomic block.  This is
 because the boundaries of the block are not guaranteed to be the
 boundaries of the transaction: the latter is at least as big as the
 block, but may be bigger.  Therefore, if you run a big atomic block, it
@@ -522,7 +530,7 @@ parallelize almost freely (as long as it's not some artificial example
 where, say, all threads try to increase the same global counter and do
 nothing else).
 
-However, using if the program requires longer transactions, it comes
+However, if the program requires longer transactions, it comes
 with less obvious rules.  The exact details may vary from version to
 version, too, until they are a bit more stabilized.  Here is an
 overview.
