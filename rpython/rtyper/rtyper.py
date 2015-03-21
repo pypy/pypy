@@ -337,23 +337,19 @@ class RPythonTyper(object):
         assert isinstance(v, Variable)
         v.concretetype = self.bindingrepr(v).lowleveltype
 
-    def setup_block_entry(self, block):
+    def get_block_entry(self, block):
         if block.operations == () and len(block.inputargs) == 2:
             # special case for exception blocks: force them to return an
             # exception type and value in a standardized format
-            v1, v2 = block.inputargs
-            v1.concretetype = self.exceptiondata.lltype_of_exception_type
-            v2.concretetype = self.exceptiondata.lltype_of_exception_value
             return [self.exceptiondata.r_exception_type,
                     self.exceptiondata.r_exception_value]
         else:
             # normal path
-            result = []
-            for a in block.inputargs:
-                r = self.bindingrepr(a)
-                a.concretetype = r.lowleveltype
-                result.append(r)
-            return result
+            return [self.bindingrepr(a) for a in block.inputargs]
+
+    def setup_block_entry(self, block, entry_reprs):
+        for r, a in zip(entry_reprs, block.inputargs):
+            a.concretetype = r.lowleveltype
 
     def make_new_lloplist(self, block):
         return LowLevelOpList(self, block)
@@ -379,7 +375,7 @@ class RPythonTyper(object):
     def _specialize_block(self, block):
         # give the best possible types to the input args
         try:
-            self.setup_block_entry(block)
+            self.setup_block_entry(block, self.get_block_entry(block))
         except TyperError, e:
             self.gottypererror(e, block, "block-entry", None)
             return  # cannot continue this block
@@ -469,7 +465,7 @@ class RPythonTyper(object):
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits[skip:]:
             self._convert_link(block, link)
-            inputargs_reprs = self.setup_block_entry(link.target)
+            inputargs_reprs = self.get_block_entry(link.target)
             newops = self.make_new_lloplist(block)
             newlinkargs = {}
             for i in range(len(link.args)):
