@@ -23,6 +23,11 @@ from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
 
+try:
+    from pypystm import stmdict
+except ImportError:
+    stmdict = {}
+
 
 BUILTIN_ANALYZERS = {}
 
@@ -54,7 +59,7 @@ class Bookkeeper(object):
     def __init__(self, annotator):
         self.annotator = annotator
         self.bkTLS = TlsClass()
-        self.descs = {}          # map Python objects to their XxxDesc wrappers
+        self.descs = stmdict()  # map Python objects to their XxxDesc wrappers
         self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
         self.classdefs = []      # list of all ClassDefs
         self.seen_mutable = {}
