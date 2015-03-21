@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <errno.h>
 
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
@@ -200,10 +201,12 @@ static int __attribute__((noinline)) frame_forcer(int rv) {
 
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
     void* stack[MAX_STACK_DEPTH];
+    int saved_errno = errno;
     stack[0] = GetPC((ucontext_t*)ucontext);
     int depth = frame_forcer(get_stack_trace(stack+1, MAX_STACK_DEPTH-1, ucontext));
     depth++;  // To account for pc value in stack[0];
     prof_write_stacktrace(profile_file, stack, depth, 1);
+    errno = saved_errno;
 }
 
 /* *************************************************************
