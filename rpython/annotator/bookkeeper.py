@@ -26,7 +26,7 @@ from rpython.rtyper import extregistry
 try:
     from pypystm import stmdict
 except ImportError:
-    stmdict = {}
+    stmdict = dict
 
 
 BUILTIN_ANALYZERS = {}
