@@ -67,8 +67,7 @@ class WeakrefLifeline(W_Root):
             self.cached_weakref = weakref.ref(w_ref)
         else:
             # subclass: cannot cache
-            w_ref = space.allocate_instance(W_Weakref, w_subtype)
-            W_Weakref.__init__(w_ref, space, w_obj, None)
+            w_ref = W_Weakref.new(space, w_subtype, w_obj)
             self.append_wref_to(w_ref)
         return w_ref
 
@@ -79,10 +78,7 @@ class WeakrefLifeline(W_Root):
             w_cached = self.cached_proxy()
             if w_cached is not None:
                 return w_cached
-        if space.is_true(space.callable(w_obj)):
-            w_proxy = W_CallableProxy(space, w_obj, None)
-        else:
-            w_proxy = W_Proxy(space, w_obj, None)
+        w_proxy = W_Proxy.new(space, w_obj)
         self.cached_proxy = weakref.ref(w_proxy)
         return w_proxy
 
@@ -128,18 +124,14 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
     @jit.dont_look_inside
     def make_weakref_with_callback(self, w_subtype, w_obj, w_callable):
         space = self.space
-        w_ref = space.allocate_instance(W_Weakref, w_subtype)
-        W_Weakref.__init__(w_ref, space, w_obj, w_callable)
+        w_ref = W_Weakref.new(space, w_subtype, w_obj, w_callable)
         self.append_wref_to(w_ref)
         return w_ref
 
     @jit.dont_look_inside
     def make_proxy_with_callback(self, w_obj, w_callable):
         space = self.space
-        if space.is_true(space.callable(w_obj)):
-            w_proxy = W_CallableProxy(space, w_obj, w_callable)
-        else:
-            w_proxy = W_Proxy(space, w_obj, w_callable)
+        w_proxy = W_Proxy.new(space, w_obj, w_callable)
         self.append_wref_to(w_proxy)
         return w_proxy
 
@@ -184,6 +176,12 @@ class W_Weakref(W_WeakrefBase):
     def __init__(w_self, space, w_obj, w_callable):
         W_WeakrefBase.__init__(w_self, space, w_obj, w_callable)
         w_self.w_hash = None
+
+    @staticmethod
+    def new(space, w_subtype, w_obj, w_callable=None):
+        w_ref = space.allocate_instance(W_Weakref, w_subtype)
+        W_Weakref.__init__(w_ref, space, w_obj, w_callable)
+        return w_ref
 
     def descr__init__weakref(self, space, w_obj, w_callable=None,
                              __args__=None):
@@ -238,6 +236,10 @@ def getlifelinewithcallbacks(space, w_obj):
 
 
 def get_or_make_weakref(space, w_subtype, w_obj):
+    if space.config.translation.stm:
+        # With stm, return a non-cached, non-recorded weakref.
+        # Helpers like getweakrefcount() will fail; too bad for now.
+        return W_Weakref.new(space, w_subtype, w_obj)
     return getlifeline(space, w_obj).get_or_make_weakref(w_subtype, w_obj)
 
 
@@ -305,6 +307,13 @@ class W_Proxy(W_WeakrefBase):
         raise OperationError(space.w_TypeError,
                              space.wrap("unhashable type"))
 
+    @staticmethod
+    def new(space, w_obj, w_callable=None):
+        if space.is_true(space.callable(w_obj)):
+            return W_CallableProxy(space, w_obj, w_callable)
+        else:
+            return W_Proxy(space, w_obj, w_callable)
+
 class W_CallableProxy(W_Proxy):
     def descr__call__(self, space, __args__):
         w_obj = force(space, self)
@@ -312,6 +321,10 @@ class W_CallableProxy(W_Proxy):
 
 
 def get_or_make_proxy(space, w_obj):
+    if space.config.translation.stm:
+        # With stm, return a non-cached, non-recorded proxy.
+        # Helpers like getweakrefcount() will fail; too bad for now.
+        return W_Proxy.new(space, w_obj)
     return getlifeline(space, w_obj).get_or_make_proxy(w_obj)
 
 
