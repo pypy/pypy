@@ -130,7 +130,7 @@ def stats_get_counter_value(warmrunnerdesc, no):
 
 @register_helper(annmodel.SomeFloat())
 def stats_get_times_value(warmrunnerdesc, no):
-    return warmrunnerdesc.metainterp_sd.profiler.times[no]
+    return warmrunnerdesc.metainterp_sd.profiler.get_times(no)
 
 LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
                                                   ('type', lltype.Char),
