@@ -234,6 +234,8 @@ class RPythonTyper(object):
             else:
                 tracking = lambda block: None
 
+            for block in pending:
+                self._processing_block(block)
             self.call_all_setups(all_threads=True)
 
             try:
@@ -244,7 +246,6 @@ class RPythonTyper(object):
               for block in pending:
                 tracking(block)
                 blockcount += 1
-                self._processing_block(block)
                 self.specialize_block(block)
                 self.already_seen[block] = True
                 # progress bar
@@ -266,7 +267,6 @@ class RPythonTyper(object):
                                (len(pending),))
                 tq = transaction.TransactionQueue()
                 for block in pending:
-                    self._processing_block(block)
                     tq.add(self.specialize_block, block)
                 tq.run()
                 self.log.event('left transactional mode')
