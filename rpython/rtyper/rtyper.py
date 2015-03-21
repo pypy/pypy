@@ -244,6 +244,7 @@ class RPythonTyper(object):
               for block in pending:
                 tracking(block)
                 blockcount += 1
+                self._processing_block(block)
                 self.specialize_block(block)
                 self.already_seen[block] = True
                 # progress bar
@@ -265,6 +266,7 @@ class RPythonTyper(object):
                                (len(pending),))
                 tq = transaction.TransactionQueue()
                 for block in pending:
+                    self._processing_block(block)
                     tq.add(self.specialize_block, block)
                 tq.run()
                 self.log.event('left transactional mode')
@@ -366,7 +368,7 @@ class RPythonTyper(object):
         # and then other reprs' setup crash
         self.call_all_setups()
 
-    def _specialize_block(self, block):
+    def _processing_block(self, block):
         graph = self.annotator.annotated[block]
         if graph not in self.annotator.fixed_graphs:
             self.annotator.fixed_graphs.add(graph)
@@ -374,6 +376,7 @@ class RPythonTyper(object):
             # are concretetype'd
             self.setconcretetype(graph.getreturnvar())
 
+    def _specialize_block(self, block):
         # give the best possible types to the input args
         try:
             self.setup_block_entry(block)
