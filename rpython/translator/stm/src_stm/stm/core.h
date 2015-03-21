@@ -295,6 +295,7 @@ static inline bool was_read_remote(char *base, object_t *obj)
     uint8_t other_transaction_read_version =
         ((struct stm_segment_info_s *)REAL_ADDRESS(base, STM_PSEGMENT))
             ->transaction_read_version;
+    read_fence();
     uint8_t rm = ((struct stm_read_marker_s *)
                   (base + (((uintptr_t)obj) >> 4)))->rm;
     assert(rm <= other_transaction_read_version);

@@ -323,6 +323,7 @@ static void reset_transaction_read_version(void)
         /* failed */
         stm_fatalerror("reset_transaction_read_version: %m");
     }
+    write_fence();
     STM_SEGMENT->transaction_read_version = 1;
 }
 
@@ -350,20 +351,22 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
 
+    uint8_t rv = STM_SEGMENT->transaction_read_version + 1;
+    STM_SEGMENT->transaction_read_version = rv;
+
     enter_safe_point_if_requested();
     dprintf(("start_transaction\n"));
 
     s_mutex_unlock();
 
-    /* Now running the SP_RUNNING start.  We can set our
-       'transaction_read_version' after releasing the mutex,
-       because it is only read by a concurrent thread in
-       stm_commit_transaction(), which waits until SP_RUNNING
-       threads are paused.
+    /* Now running the SP_RUNNING start.  We can reset the
+       transaction read version here, but we need to increment it
+       before, otherwise we can end up in enter_safe_point_if_requested(),
+       and another thread runs stm_commit_transaction(), and it may find
+       that we have read some object (even though we didn't do any read
+       so far).
     */
-    uint8_t old_rv = STM_SEGMENT->transaction_read_version;
-    STM_SEGMENT->transaction_read_version = old_rv + 1;
-    if (UNLIKELY(old_rv == 0xff)) {
+    if (UNLIKELY(rv == 0xff)) {
         reset_transaction_read_version();
     }
 
