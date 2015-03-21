@@ -999,6 +999,7 @@ class TestFlatten:
         e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")
+        assert "<Descr>" in str(e.value)
 
     def test_vable_attribute_list_copied_around(self):
         class F:
@@ -1014,6 +1015,7 @@ class TestFlatten:
         e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")
+        assert "<Descr>" in str(e.value)
 
 
 def check_force_cast(FROM, TO, operations, value):

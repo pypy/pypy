@@ -3,8 +3,7 @@ from rpython.translator.c.support import USESLOTS # set to False if necessary wh
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant
-from rpython.flowspace.model import c_last_exception, copygraph
+from rpython.flowspace.model import Variable, Constant, copygraph
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -233,7 +232,7 @@ class FunctionCodeGenerator(object):
                 for op in self.gen_link(block.exits[0]):
                     yield op
             else:
-                assert block.exitswitch != c_last_exception
+                assert not block.canraise
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
                 if TYPE == Bool:
@@ -652,6 +651,11 @@ class FunctionCodeGenerator(object):
     OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
+
+    def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
+        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+                '  /* length_of_simple_gcarray_from_opaque */'
+            % (self.expr(op.result), self.expr(op.args[0])))
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)

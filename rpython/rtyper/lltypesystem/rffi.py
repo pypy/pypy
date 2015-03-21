@@ -59,12 +59,25 @@ class _IsLLPtrEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
+RFFI_SAVE_ERRNO          = 1     # save the real errno after the call
+RFFI_READSAVED_ERRNO     = 2     # copy saved errno into real errno before call
+RFFI_ZERO_ERRNO_BEFORE   = 4     # copy the value 0 into real errno before call
+RFFI_FULL_ERRNO          = RFFI_SAVE_ERRNO | RFFI_READSAVED_ERRNO
+RFFI_FULL_ERRNO_ZERO     = RFFI_SAVE_ERRNO | RFFI_ZERO_ERRNO_BEFORE
+RFFI_SAVE_LASTERROR      = 8     # win32: save GetLastError() after the call
+RFFI_READSAVED_LASTERROR = 16    # win32: call SetLastError() before the call
+RFFI_SAVE_WSALASTERROR   = 32    # win32: save WSAGetLastError() after the call
+RFFI_FULL_LASTERROR      = RFFI_SAVE_LASTERROR | RFFI_READSAVED_LASTERROR
+RFFI_ERR_NONE            = 0
+RFFI_ERR_ALL             = RFFI_FULL_ERRNO | RFFI_FULL_LASTERROR
+RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',
                _nowrapper=False, calling_conv='c',
                elidable_function=False, macro=None,
-               random_effects_on_gcobjs='auto'):
+               random_effects_on_gcobjs='auto',
+               save_err=RFFI_ERR_NONE):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -141,8 +154,8 @@ def llexternal(name, args, result, _callable=None,
         _callable.funcptr = funcptr
 
     if _nowrapper:
+        assert save_err == RFFI_ERR_NONE
         return funcptr
-
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -160,7 +173,13 @@ def llexternal(name, args, result, _callable=None,
                 before = aroundstate.before
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
+                if %(save_err)d:
+                    from rpython.rlib import rposix
+                    rposix._errno_before(%(save_err)d)
                 res = funcptr(%(argnames)s)
+                if %(save_err)d:
+                    from rpython.rlib import rposix
+                    rposix._errno_after(%(save_err)d)
                 after = aroundstate.after
                 if after: after()
                 return res
@@ -179,7 +198,7 @@ def llexternal(name, args, result, _callable=None,
         # CALL_RELEASE_GIL directly to 'funcptr'.  This doesn't work if
         # 'funcptr' might be a C macro, though.
         if macro is None:
-            call_external_function._call_aroundstate_target_ = funcptr
+            call_external_function._call_aroundstate_target_ = funcptr, save_err
         #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
@@ -188,7 +207,7 @@ def llexternal(name, args, result, _callable=None,
     else:
         # if we don't have to invoke the aroundstate, we can just call
         # the low-level function pointer carelessly
-        if macro is None:
+        if macro is None and save_err == RFFI_ERR_NONE:
             call_external_function = funcptr
         else:
             # ...well, unless it's a macro, in which case we still have
@@ -196,7 +215,14 @@ def llexternal(name, args, result, _callable=None,
             argnames = ', '.join(['a%d' % i for i in range(len(args))])
             source = py.code.Source("""
                 def call_external_function(%(argnames)s):
-                    return funcptr(%(argnames)s)
+                    if %(save_err)d:
+                        from rpython.rlib import rposix
+                        rposix._errno_before(%(save_err)d)
+                    res = funcptr(%(argnames)s)
+                    if %(save_err)d:
+                        from rpython.rlib import rposix
+                        rposix._errno_after(%(save_err)d)
+                    return res
             """ % locals())
             miniglobals = {'funcptr':     funcptr,
                            '__name__':    __name__,
@@ -471,11 +497,21 @@ try:
 except CompilationError:
     pass
 
-_TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
     TYPES.append('ssize_t')
+    # the types below are rare enough and not available on Windows
+    TYPES.extend(['ptrdiff_t',
+          'int_least8_t',  'uint_least8_t',
+          'int_least16_t', 'uint_least16_t',
+          'int_least32_t', 'uint_least32_t',
+          'int_least64_t', 'uint_least64_t',
+          'int_fast8_t',  'uint_fast8_t',
+          'int_fast16_t', 'uint_fast16_t',
+          'int_fast32_t', 'uint_fast32_t',
+          'int_fast64_t', 'uint_fast64_t',
+          'intmax_t', 'uintmax_t'])
 else:
     MODE_T = lltype.Signed
     PID_T = lltype.Signed
@@ -489,8 +525,10 @@ def populate_inttypes():
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
+        elif name == 'size_t' or name.startswith('uint'):
+            signed = False
         else:
-            signed = (name not in _TYPES_ARE_UNSIGNED)
+            signed = True
         name = name.replace(' ', '')
         names.append(name)
         populatelist.append((name.upper(), c_name, signed))
@@ -756,6 +794,14 @@ def make_string_mappings(strtype):
         else:
             lltype.free(cp, flavor='raw', track_allocation=False)
 
+    # str -> already-existing char[maxsize]
+    def str2chararray(s, array, maxsize):
+        length = min(len(s), maxsize)
+        ll_s = llstrtype(s)
+        copy_string_to_raw(ll_s, array, 0, length)
+        return length
+    str2chararray._annenforceargs_ = [strtype, None, int]
+
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
@@ -906,19 +952,19 @@ def make_string_mappings(strtype):
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
-            charp2strn, charpsize2str,
+            charp2strn, charpsize2str, str2chararray,
             )
 
 (str2charp, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
- charp2strn, charpsize2str,
+ charp2strn, charpsize2str, str2chararray,
  ) = make_string_mappings(str)
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
- wcharp2unicoden, wcharpsize2unicode,
+ wcharp2unicoden, wcharpsize2unicode, unicode2wchararray,
  ) = make_string_mappings(unicode)
 
 # char**

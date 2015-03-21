@@ -123,10 +123,9 @@ class TestNumpyJit(LLJitMixin):
         assert result == 3 ** 2
         self.check_trace_count(1)
         self.check_simple_loop({
-            'call': 1,
+            'call': 2,        # ccall_pow / _ll_1_threadlocalref_get(rpy_errno)
             'float_eq': 2,
             'float_mul': 2,
-            'getarrayitem_raw': 1,     # read the errno
             'guard_false': 2,
             'guard_not_invalidated': 1,
             'guard_true': 2,
@@ -136,7 +135,6 @@ class TestNumpyJit(LLJitMixin):
             'jump': 1,
             'raw_load': 1,
             'raw_store': 1,
-            'setarrayitem_raw': 1,     # write the errno
         })
 
     def define_pow_int():
@@ -240,15 +238,15 @@ class TestNumpyJit(LLJitMixin):
             'getfield_gc': 5,
             'getfield_gc_pure': 51,
             'guard_class': 3,
-            'guard_false': 13,
+            'guard_false': 12,
             'guard_nonnull': 11,
             'guard_nonnull_class': 3,
             'guard_not_invalidated': 2,
             'guard_true': 10,
-            'guard_value': 5,
+            'guard_value': 6,
             'int_add': 13,
             'int_ge': 4,
-            'int_is_true': 4,
+            'int_is_true': 3,
             'int_is_zero': 4,
             'int_le': 2,
             'int_lt': 3,
@@ -618,15 +616,15 @@ class TestNumpyJit(LLJitMixin):
             'getfield_gc': 6,
             'getfield_gc_pure': 63,
             'guard_class': 5,
-            'guard_false': 20,
+            'guard_false': 19,
             'guard_nonnull': 6,
             'guard_nonnull_class': 1,
             'guard_not_invalidated': 3,
             'guard_true': 16,
-            'guard_value': 2,
+            'guard_value': 3,
             'int_add': 24,
             'int_ge': 4,
-            'int_is_true': 6,
+            'int_is_true': 5,
             'int_is_zero': 4,
             'int_le': 5,
             'int_lt': 7,

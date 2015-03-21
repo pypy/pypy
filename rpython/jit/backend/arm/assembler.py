@@ -4,7 +4,7 @@ import os
 
 from rpython.jit.backend.arm import conditions as c, registers as r
 from rpython.jit.backend.arm import shift
-from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD, FUNC_ALIGN,
+from rpython.jit.backend.arm.arch import (WORD, DOUBLE_WORD,
     JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.arm.codebuilder import InstrBuilder, OverwritingBuilder
 from rpython.jit.backend.arm.locations import imm, StackLocation, get_fp_offset
@@ -484,10 +484,6 @@ class AssemblerARM(ResOpAssembler):
         self.mc.BL(target)
         return startpos
 
-    def align(self):
-        while(self.mc.currpos() % FUNC_ALIGN != 0):
-            self.mc.writechar(chr(0))
-
     def gen_func_epilog(self, mc=None, cond=c.AL):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if mc is None:
@@ -557,7 +553,7 @@ class AssemblerARM(ResOpAssembler):
         debug_stop('jit-backend-ops')
 
     def _call_header(self):
-        self.align()
+        assert self.mc.currpos() == 0
         self.gen_func_prolog()
 
     def _call_header_with_stack_check(self):
@@ -901,7 +897,7 @@ class AssemblerARM(ResOpAssembler):
             descr = tok.faildescr
             assert isinstance(descr, AbstractFailDescr)
             failure_recovery_pos = block_start + tok.pos_recovery_stub
-            descr._arm_failure_recovery_block = failure_recovery_pos
+            descr.adr_jump_offset = failure_recovery_pos
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
             if not tok.is_guard_not_invalidated:
@@ -968,11 +964,11 @@ class AssemblerARM(ResOpAssembler):
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
         b = InstrBuilder(self.cpu.cpuinfo.arch_version)
-        patch_addr = faildescr._arm_failure_recovery_block
+        patch_addr = faildescr.adr_jump_offset
         assert patch_addr != 0
         b.B(bridge_addr)
         b.copy_to_raw_memory(patch_addr)
-        faildescr._arm_failure_recovery_block = 0
+        faildescr.adr_jump_offset = 0
 
     # regalloc support
     def load(self, loc, value):

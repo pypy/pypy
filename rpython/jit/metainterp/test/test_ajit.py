@@ -2764,7 +2764,8 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, loop, enable_opts, *args, **kwds):
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
+                              *args, **kwds):
             seen.append('unroll' in enable_opts)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace

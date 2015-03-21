@@ -1,7 +1,13 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
-        find_unaryop_result_dtype)
+        find_unaryop_result_dtype, W_UfuncGeneric)
+from pypy.module.micronumpy.support import _parse_signature
 from pypy.module.micronumpy.descriptor import get_dtype_cache
+from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.concrete import VoidBoxStorage
+from pypy.interpreter.gateway import interp2app
+from pypy.conftest import option
+from pypy.interpreter.error import OperationError
 
 
 class TestUfuncCoercion(object):
@@ -82,6 +88,53 @@ class TestUfuncCoercion(object):
         assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
 
+class TestGenericUfuncOperation(object):
+    def test_signature_parser(self, space):
+        class Ufunc(object):
+            def __init__(self, nin, nout):
+                self.nin = nin
+                self.nout = nout
+                self.nargs = nin + nout
+                self.core_enabled = True
+                self.core_num_dim_ix = 0 
+                self.core_num_dims = [0] * self.nargs  
+                self.core_offsets = [0] * self.nargs
+                self.core_dim_ixs = [] 
+
+        u = Ufunc(2, 1)
+        _parse_signature(space, u, '(m,n), (n,r)->(m,r)')
+        assert u.core_dim_ixs == [0, 1, 1, 2, 0, 2]
+        assert u.core_num_dims == [2, 2, 2]
+        assert u.core_offsets == [0, 2, 4]
+
+    def test_type_resolver(self, space):
+        c128_dtype = get_dtype_cache(space).w_complex128dtype
+        c64_dtype = get_dtype_cache(space).w_complex64dtype
+        f64_dtype = get_dtype_cache(space).w_float64dtype
+        f32_dtype = get_dtype_cache(space).w_float32dtype
+        u32_dtype = get_dtype_cache(space).w_uint32dtype
+        b_dtype = get_dtype_cache(space).w_booldtype
+
+        ufunc = W_UfuncGeneric(space, [None, None, None], 'eigenvals', None, 1, 1,
+                     [f32_dtype, c64_dtype, 
+                      f64_dtype, c128_dtype, 
+                      c128_dtype, c128_dtype],
+                     '')
+        f32_array = W_NDimArray(VoidBoxStorage(0, f32_dtype))
+        index, dtypes = ufunc.type_resolver(space, [f32_array], [None],
+                                            'd->D', ufunc.dtypes)
+        #needs to cast input type, create output type
+        assert index == 1
+        assert dtypes == [f64_dtype, c128_dtype]
+        index, dtypes = ufunc.type_resolver(space, [f32_array], [None],
+                                             '', ufunc.dtypes)
+        assert index == 0
+        assert dtypes == [f32_dtype, c64_dtype]
+        raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
+                                'u->u', ufunc.dtypes)
+        exc = raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
+                                'i->i', ufunc.dtypes)
+
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):
         import numpy as np
@@ -94,6 +147,186 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert repr(add) == "<ufunc 'add'>"
         assert repr(ufunc) == "<type 'numpy.ufunc'>"
         assert add.__name__ == 'add'
+        raises(TypeError, ufunc)
+
+    def test_frompyfunc_innerloop(self):
+        from numpy import ufunc, frompyfunc, arange, dtype
+        def adder(a, b):
+            return a+b
+        def sumdiff(a, b):
+                return a+b, a-b
+        try:
+            adder_ufunc0 = frompyfunc(adder, 2, 1)
+            adder_ufunc1 = frompyfunc(adder, 2, 1)
+            int_func22 = frompyfunc(int, 2, 2)
+            int_func12 = frompyfunc(int, 1, 2)
+            sumdiff = frompyfunc(sumdiff, 2, 2)
+            retype = dtype(object)
+        except NotImplementedError as e:
+            # dtype of returned value is object, which is not supported yet
+            assert 'object' in str(e)
+            # Use pypy specific extension for out_dtype
+            adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
+            sumdiff = frompyfunc(sumdiff, 2, 2, dtypes=['match'], 
+                                    signature='(i),(i)->(i),(i)')
+            adder_ufunc1 = frompyfunc([adder, adder], 2, 1,
+                            dtypes=[int, int, int, float, float, float])
+            int_func22 = frompyfunc([int, int], 2, 2, signature='(i),(i)->(i),(i)',
+                                    dtypes=['match'])
+            int_func12 = frompyfunc([int], 1, 2, dtypes=['match'])
+            retype = dtype(int)
+        a = arange(10)
+        assert isinstance(adder_ufunc1, ufunc)
+        res = adder_ufunc0(a, a)
+        assert res.dtype == retype
+        assert all(res == a + a)
+        res = adder_ufunc1(a, a)
+        assert res.dtype == retype
+        assert all(res == a + a)
+        raises(TypeError, frompyfunc, 1, 2, 3)
+        raises (ValueError, int_func22, a)
+        res = int_func12(a)
+        assert len(res) == 2
+        assert isinstance(res, tuple)
+        assert (res[0] == a).all()
+        res = sumdiff(2 * a, a)
+        assert (res[0] == 3 * a).all()
+        assert (res[1] == a).all()
+
+    def test_frompyfunc_outerloop(self):
+        def int_times2(in_array, out_array):
+            assert in_array.dtype == int
+            in_flat = in_array.flat
+            out_flat = out_array.flat
+            for i in range(in_array.size):
+                out_flat[i] = in_flat[i] * 2
+        def double_times2(in_array, out_array):
+            assert in_array.dtype == float
+            in_flat = in_array.flat
+            out_flat = out_array.flat
+            for i in range(in_array.size):
+                out_flat[i] = in_flat[i] * 2
+        from numpy import frompyfunc, dtype, arange
+        ufunc = frompyfunc([int_times2, double_times2], 1, 1,
+                            signature='()->()',
+                            dtypes=[dtype(int), dtype(int),
+                                    dtype(float), dtype(float)
+                                    ],
+                            stack_inputs=True,
+                    )
+        ai = arange(10, dtype=int)
+        ai2 = ufunc(ai)
+        assert all(ai2 == ai * 2)
+        af = arange(10, dtype=float)
+        af2 = ufunc(af)
+        assert all(af2 == af * 2)
+        ac = arange(10, dtype=complex)
+        skip('casting not implemented yet')
+        ac1 = ufunc(ac)
+
+    def test_frompyfunc_2d_sig(self):
+        def times_2(in_array, out_array):
+            assert len(in_array.shape) == 2
+            assert in_array.shape == out_array.shape
+            out_array[:] = in_array * 2
+
+        from numpy import frompyfunc, dtype, arange
+        ufunc = frompyfunc([times_2], 1, 1,
+                            signature='(m,n)->(n,m)',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ai = arange(18, dtype=int).reshape(2,3,3)
+        ai3 = ufunc(ai[0,:,:])
+        ai2 = ufunc(ai)
+        assert (ai2 == ai * 2).all()
+
+        ufunc = frompyfunc([times_2], 1, 1,
+                            signature='(m,m)->(m,m)',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ai = arange(18, dtype=int).reshape(2,3,3)
+        exc = raises(ValueError, ufunc, ai[:,:,0])
+        assert "perand 0 has a mismatch in its core dimension 1" in exc.value.message
+        ai3 = ufunc(ai[0,:,:])
+        ai2 = ufunc(ai)
+        assert (ai2 == ai * 2).all()
+
+    def test_frompyfunc_needs_nditer(self):
+        def summer(in0):
+            print 'in summer, in0=',in0,'in0.shape=',in0.shape
+            return in0.sum()
+
+        from numpy import frompyfunc, dtype, arange
+        ufunc = frompyfunc([summer], 1, 1,
+                            signature='(m,m)->()',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=False,
+                          )
+        ai = arange(12, dtype=int).reshape(3, 2, 2)
+        ao = ufunc(ai)
+        assert ao.size == 3
+
+    def test_frompyfunc_sig_broadcast(self):
+        def sum_along_0(in_array, out_array):
+            out_array[...] = in_array.sum(axis=0)
+
+        def add_two(in0, in1, out):
+            out[...] = in0 + in1
+
+        from numpy import frompyfunc, dtype, arange
+        ufunc_add = frompyfunc(add_two, 2, 1,
+                            signature='(m,n),(m,n)->(m,n)',
+                            dtypes=[dtype(int), dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ufunc_sum = frompyfunc([sum_along_0], 1, 1,
+                            signature='(m,n)->(n)',
+                            dtypes=[dtype(int), dtype(int)],
+                            stack_inputs=True,
+                          )
+        ai = arange(18, dtype=int).reshape(3,2,3)
+        aout = ufunc_add(ai, ai[0,:,:])
+        assert aout.shape == (3, 2, 3)
+        aout = ufunc_sum(ai)
+        assert aout.shape == (3, 3)
+
+    def test_frompyfunc_fortran(self):
+        import numpy as np
+        def tofrom_fortran(in0, out0):
+            out0[:] = in0.T
+
+        def lapack_like_times2(in0, out0):
+            a = np.empty(in0.T.shape, in0.dtype)
+            tofrom_fortran(in0, a)
+            a *= 2
+            tofrom_fortran(a, out0)
+
+        times2 = np.frompyfunc([lapack_like_times2], 1, 1,
+                            signature='(m,n)->(m,n)',
+                            dtypes=[np.dtype(float), np.dtype(float)],
+                            stack_inputs=True,
+                          )
+        in0 = np.arange(3300, dtype=float).reshape(100, 33)
+        out0 = times2(in0)
+        assert out0.shape == in0.shape
+        assert (out0 == in0 * 2).all()
+
+    def test_ufunc_kwargs(self):
+        from numpy import ufunc, frompyfunc, arange, dtype
+        def adder(a, b):
+            return a+b
+        adder_ufunc = frompyfunc(adder, 2, 1, dtypes=['match'])
+        args = [arange(10), arange(10)]
+        res = adder_ufunc(*args, dtype=int)
+        assert all(res == args[0] + args[1])
+        # extobj support needed for linalg ufuncs
+        res = adder_ufunc(*args, extobj=[8192, 0, None])
+        assert all(res == args[0] + args[1])
+        raises(TypeError, adder_ufunc, *args, blah=True)
+        raises(TypeError, adder_ufunc, *args, extobj=True)
+        raises(RuntimeError, adder_ufunc, *args, sig='(d,d)->(d)', dtype=int)
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin
@@ -103,8 +336,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert sin.identity is None
 
         assert add.nin == 2
+        assert add.nout == 1
+        assert add.nargs == 3
+        assert add.signature == None
         assert multiply.nin == 2
+        assert multiply.nout == 1
+        assert multiply.nargs == 3
+        assert multiply.signature == None
         assert sin.nin == 1
+        assert sin.nout == 1
+        assert sin.nargs == 2
+        assert sin.signature == None
 
     def test_wrong_arguments(self):
         from numpy import add, sin

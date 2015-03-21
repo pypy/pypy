@@ -30,15 +30,14 @@ The API is:
 
    Initialize threads. Only need to be called if there are any threads involved
 
-.. function:: long pypy_setup_home(char* home, int verbose);
+.. function:: int pypy_setup_home(char* home, int verbose);
 
    This function searches the PyPy standard library starting from the given
-   "PyPy home directory".  It is not strictly necessary to execute it before
-   running Python code, but without it you will not be able to import any
-   non-builtin module from the standard library.  The arguments are:
+   "PyPy home directory".  The arguments are:
 
    * ``home``: NULL terminated path to an executable inside the pypy directory
-     (can be a .so name, can be made up)
+     (can be a .so name, can be made up).  Used to look up the standard
+     library, and is also set as ``sys.executable``.
 
    * ``verbose``: if non-zero, it will print error messages to stderr
 
@@ -84,23 +83,34 @@ We write a little C program:
 
     const char source[] = "print 'hello from pypy'";
 
-    int main()
+    int main(void)
     {
-      int res;
+        int res;
 
-      rpython_startup_code();
-      // pypy_setup_home() is not needed in this trivial example
-      res = pypy_execute_source((char*)source);
-      if (res) {
-        printf("Error calling pypy_execute_source!\n");
-      }
-      return res;
+        rpython_startup_code();
+        res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
+        if (res) {
+            printf("Error setting pypy home!\n");
+            return 1;
+        }
+
+        res = pypy_execute_source((char*)source);
+        if (res) {
+            printf("Error calling pypy_execute_source!\n");
+        }
+        return res;
     }
 
-If we save it as ``x.c`` now, compile it and run it with::
+If we save it as ``x.c`` now, compile it and run it (on linux) with::
 
     fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
     fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
+    hello from pypy
+
+on OSX it is necessary to set the rpath of the binary if one wants to link to it::
+
+    gcc -o x x.c -lpypy-c -L. -Wl,-rpath -Wl,@executable_path
+    ./x
     hello from pypy
 
 Worked!

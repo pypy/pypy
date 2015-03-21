@@ -23,6 +23,15 @@ def main(argv):
         if attr is None and name.startswith("_"):
             continue
         subobj = getattr(obj, name)
+        if subobj is None:
+            continue
+        if isinstance(subobj, types.FunctionType):
+            try:
+                subobj()
+            except NotImplementedError:
+                continue
+            except:
+                pass
         if isinstance(subobj, types.TypeType):
             kind = KINDS["TYPE"]
         else:

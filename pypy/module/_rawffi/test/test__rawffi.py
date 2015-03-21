@@ -1144,6 +1144,20 @@ class AppTestFfi:
         b[3] = b'x'
         assert b[3] == b'x'
 
+    def test_pypy_raw_address(self):
+        import _rawffi
+        S = _rawffi.Structure((40, 1))
+        s = S(autofree=True)
+        addr = buffer(s)._pypy_raw_address()
+        assert type(addr) is int
+        assert buffer(s)._pypy_raw_address() == addr
+        assert buffer(s, 10)._pypy_raw_address() == addr + 10
+
+        addr = memoryview(s)._pypy_raw_address()
+        assert type(addr) is int
+        assert memoryview(s)._pypy_raw_address() == addr
+        assert memoryview(s)[10:]._pypy_raw_address() == addr + 10
+
     def test_union(self):
         import _rawffi
         longsize = _rawffi.sizeof('l')

@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
-#include <errno.h>
 
 
 /*
@@ -185,10 +184,12 @@ int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
     return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
 }
 
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
-	if (!LeaveNonRecursiveMutex(lock))
-		/* XXX complain? */;
+    if (LeaveNonRecursiveMutex(lock))
+        return 0;   /* success */
+    else
+        return -1;  /* failure: the lock was not previously acquired */
 }
 
 /************************************************************/
@@ -243,10 +244,5 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 #endif
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
-
-#define SAVE_ERRNO()      int saved_errno = errno; \
-                          DWORD saved_lasterr = GetLastError()
-#define RESTORE_ERRNO()   errno = saved_errno; \
-                          SetLastError(saved_lasterr)
 
 #include "src/thread_gil.c"

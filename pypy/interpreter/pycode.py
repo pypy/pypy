@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types, new, sys
+import dis, imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
@@ -128,6 +128,17 @@ class PyCode(eval.Code):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
+        # When translating PyPy, freeze the file name
+        #     <builtin>/lastdirname/basename.py
+        # instead of freezing the complete translation-time path.
+        filename = self.co_filename.lstrip('<').rstrip('>')
+        if filename.lower().endswith('.pyc'):
+            filename = filename[:-1]
+        basename = os.path.basename(filename)
+        lastdirname = os.path.basename(os.path.dirname(filename))
+        if lastdirname:
+            basename = '%s/%s' % (lastdirname, basename)
+        self.co_filename = '<builtin>/%s' % (basename,)
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -381,6 +392,9 @@ class PyCode(eval.Code):
     def get_repr(self):
         return "<code object %s, file '%s', line %d>" % (
             self.co_name, self.co_filename, self.co_firstlineno)
+
+    def __repr__(self):
+        return self.get_repr()
 
     def repr(self, space):
         return space.wrap(self.get_repr())

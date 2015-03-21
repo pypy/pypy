@@ -8,7 +8,7 @@ class TestTargetPyPy(object):
         entry_point = get_entry_point(config)[0]
         entry_point(['pypy-c' , '-S', '-c', 'print 3'])
 
-def test_exeucte_source(space):
+def test_execute_source(space):
     _, d = create_entry_point(space, None)
     execute_source = d['pypy_execute_source']
     lls = rffi.str2charp("import sys; sys.modules['xyz'] = 3")
@@ -27,6 +27,6 @@ def test_exeucte_source(space):
     pypy_setup_home = d['pypy_setup_home']
     lls = rffi.str2charp(__file__)
     res = pypy_setup_home(lls, rffi.cast(rffi.INT, 1))
-    assert lltype.typeOf(res) == rffi.LONG
+    assert lltype.typeOf(res) == rffi.INT
     assert rffi.cast(lltype.Signed, res) == 0
     lltype.free(lls, flavor='raw')

@@ -2,13 +2,15 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload
 
+VERSION = "0.9.2"
+
 
 class Module(MixedModule):
 
     appleveldefs = {
         }
     interpleveldefs = {
-        '__version__': 'space.wrap("0.8.6")',
+        '__version__': 'space.wrap("%s")' % VERSION,
 
         'load_library': 'libraryobj.load_library',
 
@@ -34,6 +36,7 @@ class Module(MixedModule):
         'newp_handle': 'handle.newp_handle',
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
+        'from_buffer': 'func.from_buffer',
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',

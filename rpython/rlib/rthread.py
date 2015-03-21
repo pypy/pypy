@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
-import py
+import py, sys
 from rpython.rlib import jit, rgc
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -58,17 +58,20 @@ c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed',
                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
                                         rffi.INT,
                                         releasegil=True)    # release the GIL
-c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
-                                  releasegil=True)    # release the GIL
+c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP],
+                                  lltype.Signed,
+                                  _nowrapper=True)   # *don't* release the GIL
 
 # another set of functions, this time in versions that don't cause the
-# GIL to be released.  To use to handle the GIL lock itself.
+# GIL to be released.  Used to be there to handle the GIL lock itself,
+# but that was changed (see rgil.py).  Now here for performance only.
 c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
                                          [TLOCKP, rffi.INT], rffi.INT,
                                          _nowrapper=True)
-c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
-                                         [TLOCKP], lltype.Void,
-                                         _nowrapper=True)
+c_thread_acquirelock_timed_NOAUTO = llexternal('RPyThreadAcquireLockTimed',
+                                         [TLOCKP, rffi.LONGLONG, rffi.INT],
+                                         rffi.INT, _nowrapper=True)
+c_thread_releaselock_NOAUTO = c_thread_releaselock
 
 
 def allocate_lock():
@@ -131,9 +134,16 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
-        res = c_thread_acquirelock(self._lock, int(flag))
-        res = rffi.cast(lltype.Signed, res)
-        return bool(res)
+        if flag:
+            c_thread_acquirelock(self._lock, 1)
+            return True
+        else:
+            res = c_thread_acquirelock_timed_NOAUTO(
+                self._lock,
+                rffi.cast(rffi.LONGLONG, 0),
+                rffi.cast(rffi.INT, 0))
+            res = rffi.cast(lltype.Signed, res)
+            return bool(res)
 
     def acquire_timed(self, timeout):
         """Timeout is in microseconds.  Returns 0 in case of failure,
@@ -143,12 +153,8 @@ class Lock(object):
         return res
 
     def release(self):
-        # Sanity check: the lock must be locked
-        if self.acquire(False):
-            c_thread_releaselock(self._lock)
-            raise error("bad lock")
-        else:
-            c_thread_releaselock(self._lock)
+        if c_thread_releaselock(self._lock) != 0:
+            raise error("the lock was not previously acquired")
 
     def __del__(self):
         if free_ll_lock is None:  # happens when tests are shutting down
@@ -266,41 +272,57 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 
 # ____________________________________________________________
 #
-# Thread-locals.  Only for references that change "not too often" --
-# for now, the JIT compiles get() as a loop-invariant, so basically
-# don't change them.
+# Thread-locals.
 # KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
 # We use _make_sure_does_not_move() to make sure the pointer will not move.
 
 
 class ThreadLocalField(object):
-    def __init__(self, FIELDTYPE, fieldname):
+    def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
+        from thread import _local
         self.FIELDTYPE = FIELDTYPE
         self.fieldname = fieldname
+        self.local = _local()      # <- NOT_RPYTHON
+        zero = rffi.cast(FIELDTYPE, 0)
         offset = CDefinedIntSymbolic('RPY_TLOFS_%s' % self.fieldname,
                                      default='?')
+        offset.loop_invariant = loop_invariant
         self.offset = offset
 
         def getraw():
-            _threadlocalref_seeme(self)
-            return llop.threadlocalref_get(FIELDTYPE, offset)
+            if we_are_translated():
+                _threadlocalref_seeme(self)
+                return llop.threadlocalref_get(FIELDTYPE, offset)
+            else:
+                return getattr(self.local, 'rawvalue', zero)
 
         @jit.dont_look_inside
         def get_or_make_raw():
-            _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
-            return llop.raw_load(FIELDTYPE, addr, offset)
+            if we_are_translated():
+                _threadlocalref_seeme(self)
+                addr = llop.threadlocalref_addr(llmemory.Address)
+                return llop.raw_load(FIELDTYPE, addr, offset)
+            else:
+                return getattr(self.local, 'rawvalue', zero)
 
         @jit.dont_look_inside
         def setraw(value):
+            if we_are_translated():
+                _threadlocalref_seeme(self)
+                addr = llop.threadlocalref_addr(llmemory.Address)
+                llop.raw_store(lltype.Void, addr, offset, value)
+            else:
+                self.local.rawvalue = value
+
+        def getoffset():
             _threadlocalref_seeme(self)
-            addr = llop.threadlocalref_addr(llmemory.Address)
-            llop.raw_store(lltype.Void, addr, offset, value)
+            return offset
 
         self.getraw = getraw
         self.get_or_make_raw = get_or_make_raw
         self.setraw = setraw
+        self.getoffset = getoffset
 
     def _freeze_(self):
         return True
@@ -309,14 +331,13 @@ class ThreadLocalField(object):
 class ThreadLocalReference(ThreadLocalField):
     _COUNT = 1
 
-    def __init__(self, Cls):
+    def __init__(self, Cls, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
-        import thread
         self.Cls = Cls
-        self.local = thread._local()      # <- NOT_RPYTHON
         unique_id = ThreadLocalReference._COUNT
         ThreadLocalReference._COUNT += 1
-        ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id)
+        ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,
+                                  loop_invariant=loop_invariant)
         setraw = self.setraw
         offset = self.offset
 
@@ -350,8 +371,16 @@ class ThreadLocalReference(ThreadLocalField):
         self.set = set
 
 
-tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident")
-tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno")
+tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
+                                        loop_invariant=True)
+tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
+                                   loop_invariant=True)
+tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
+tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")
+if sys.platform == "win32":
+    from rpython.rlib import rwin32
+    tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
+    tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")
 
 def _threadlocalref_seeme(field):
     "NOT_RPYTHON"

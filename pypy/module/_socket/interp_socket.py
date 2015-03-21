@@ -30,7 +30,7 @@ def addr_as_object(addr, fd, space):
                                space.wrap(addr.get_protocol()),
                                space.wrap(addr.get_pkttype()),
                                space.wrap(addr.get_hatype()),
-                               space.wrap(addr.get_addr())])
+                               space.wrap(addr.get_haddr())])
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
         return space.wrap(addr.get_path())
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
@@ -79,7 +79,7 @@ def fill_from_object(addr, space, w_address):
         raise NotImplementedError
 
 # XXX Hack to seperate rpython and pypy
-def addr_from_object(family, space, w_address):
+def addr_from_object(family, fd, space, w_address):
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
         host = space.str_w(w_host)
@@ -89,8 +89,9 @@ def addr_from_object(family, space, w_address):
     if family == rsocket.AF_INET6:
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
-            raise TypeError("AF_INET6 address must be a tuple of length 2 "
-                               "to 4, not %d" % len(pieces_w))
+            raise oefmt(space.w_TypeError,
+                        "AF_INET6 address must be a tuple of length 2 "
+                        "to 4, not %d", len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = make_ushort_port(space, port)
@@ -105,6 +106,28 @@ def addr_from_object(family, space, w_address):
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
         w_pid, w_groups = space.unpackiterable(w_address, 2)
         return rsocket.NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
+    if rsocket.HAS_AF_PACKET and family == rsocket.AF_PACKET:
+        pieces_w = space.unpackiterable(w_address)
+        if not (2 <= len(pieces_w) <= 5):
+            raise oefmt(space.w_TypeError,
+                        "AF_PACKET address must be a tuple of length 2 "
+                        "to 5, not %d", len(pieces_w))
+        ifname = space.str_w(pieces_w[0])
+        ifindex = rsocket.PacketAddress.get_ifindex_from_ifname(fd, ifname)
+        protocol = space.int_w(pieces_w[1])
+        if len(pieces_w) > 2: pkttype = space.int_w(pieces_w[2])
+        else:                 pkttype = 0
+        if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
+        else:                 hatype = 0
+        if len(pieces_w) > 4: haddr = space.str_w(pieces_w[4])
+        else:                 haddr = ""
+        if len(haddr) > 8:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "Hardware address must be 8 bytes or less"))
+        if protocol < 0 or protocol > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "protoNumber must be 0-65535."))
+        return rsocket.PacketAddress(ifindex, protocol, pkttype, hatype, haddr)
     raise RSocketError("unknown address family")
 
 # XXX Hack to seperate rpython and pypy
@@ -142,6 +165,13 @@ class W_Socket(W_Root):
     def get_family_w(self, space):
         return space.wrap(self.sock.family)
 
+    def descr_repr(self, space):
+        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        return space.wrap("<socket object, fd=%d, family=%d,"
+                          " type=%d, protocol=%d>" %
+                          (fd, self.sock.family,
+                           self.sock.type, self.sock.proto))
+
     def accept_w(self, space):
         """accept() -> (socket object, address info)
 
@@ -165,7 +195,8 @@ class W_Socket(W_Root):
     # convert an app-level object into an Address
     # based on the current socket's family
     def addr_from_object(self, space, w_address):
-        return addr_from_object(self.sock.family, space, w_address)
+        fd = intmask(self.sock.fd)
+        return addr_from_object(self.sock.family, fd, space, w_address)
 
     def bind_w(self, space, w_addr):
         """bind(address)
@@ -661,6 +692,7 @@ shutdown(how) -- shut down traffic in one or both directions
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
     __weakref__ = make_weakref_descr(W_Socket),
+    __repr__ = interp2app(W_Socket.descr_repr),
     type = GetSetProperty(W_Socket.get_type_w),
     proto = GetSetProperty(W_Socket.get_proto_w),
     family = GetSetProperty(W_Socket.get_family_w),

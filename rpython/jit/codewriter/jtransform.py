@@ -8,7 +8,7 @@ from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_exception
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -110,7 +110,7 @@ class Transformer(object):
                 else:
                     raise TypeError(repr(op1))
         #
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             if len(newoperations) == count_before_last_operation:
                 self._killed_exception_raising_operation(block)
         block.operations = newoperations
@@ -143,13 +143,16 @@ class Transformer(object):
             return
         for v in list:
             if v in self.vable_array_vars:
+                vars = self.vable_array_vars[v]
+                (v_base, arrayfielddescr, arraydescr) = vars
                 raise AssertionError(
                     "A virtualizable array is passed around; it should\n"
                     "only be used immediately after being read.  Note\n"
                     "that a possible cause is indexing with an index not\n"
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
-                    "Occurred in: %r" % self.graph)
+                    "This is about: %r\n"
+                    "Occurred in: %r" % (arrayfielddescr, self.graph))
             # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
@@ -175,7 +178,7 @@ class Transformer(object):
 
     def follow_constant_exit(self, block):
         v = block.exitswitch
-        if isinstance(v, Constant) and v != c_last_exception:
+        if isinstance(v, Constant) and not block.canraise:
             llvalue = v.value
             for link in block.exits:
                 if link.llexitcase == llvalue:
@@ -192,7 +195,7 @@ class Transformer(object):
         if len(block.exits) != 2:
             return False
         v = block.exitswitch
-        if (v == c_last_exception or isinstance(v, tuple)
+        if (block.canraise or isinstance(v, tuple)
             or v.concretetype != lltype.Bool):
             return False
         for op in block.operations[::-1]:
@@ -252,6 +255,12 @@ class Transformer(object):
                 const_vtable = Constant(vtable, lltype.typeOf(vtable))
                 return [None, # hack, do the right renaming from op.args[0] to op.result
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
+
+    def rewrite_op_likely(self, op):
+        return None   # "no real effect"
+
+    def rewrite_op_unlikely(self, op):
+        return None   # "no real effect"
 
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
@@ -1993,15 +2002,15 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_threadlocalref_get(self, op):
-        # only supports RESTYPE being exactly one word.
-        RESTYPE = op.result.concretetype
-        assert (RESTYPE in (lltype.Signed, lltype.Unsigned, llmemory.Address)
-                or isinstance(RESTYPE, lltype.Ptr))
         c_offset, = op.args
         op1 = self.prepare_builtin_call(op, 'threadlocalref_get', [c_offset])
+        if c_offset.value.loop_invariant:
+            effect = EffectInfo.EF_LOOPINVARIANT
+        else:
+            effect = EffectInfo.EF_CANNOT_RAISE
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_THREADLOCALREF_GET,
-            extraeffect=EffectInfo.EF_LOOPINVARIANT)
+            extraeffect=effect)
 
 # ____________________________________________________________
 

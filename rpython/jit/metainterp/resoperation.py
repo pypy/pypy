@@ -91,8 +91,6 @@ class AbstractResOp(object):
     def clone(self):
         args = self.getarglist()
         descr = self.getdescr()
-        if descr is not None:
-            descr = descr.clone_if_mutable()
         op = ResOperation(self.getopnum(), args[:], self.result, descr)
         if not we_are_translated():
             op.name = self.name
@@ -217,6 +215,9 @@ class GuardResOp(ResOpWithDescr):
 
     _fail_args = None
 
+    rd_snapshot = None
+    rd_frame_info_list = None
+
     def getfailargs(self):
         return self._fail_args
 
@@ -225,12 +226,18 @@ class GuardResOp(ResOpWithDescr):
 
     def copy_and_change(self, opnum, args=None, result=None, descr=None):
         newop = AbstractResOp.copy_and_change(self, opnum, args, result, descr)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
     def clone(self):
         newop = AbstractResOp.clone(self)
+        assert isinstance(newop, GuardResOp)
         newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
 # ============

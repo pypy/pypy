@@ -62,6 +62,9 @@ class AbstractLLCPU(AbstractCPU):
             self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
                                               ad.lendescr, FLAG_FLOAT)
         self.setup()
+        self._debug_errno_container = lltype.malloc(
+            rffi.CArray(lltype.Signed), 7, flavor='raw', zero=True,
+            track_allocation=False)
 
     def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
@@ -222,7 +225,8 @@ class AbstractLLCPU(AbstractCPU):
         # as arguments, and it returns the (possibly reallocated) jitframe.
         # The backend can optimize OS_THREADLOCALREF_GET calls to return a
         # field of this threadlocal_addr, but only if 'translate_support_code':
-        # in untranslated tests, threadlocal_addr is a dummy NULL.
+        # in untranslated tests, threadlocal_addr is a dummy container
+        # for errno tests only.
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
                                              llmemory.GCREF))
 
@@ -259,7 +263,8 @@ class AbstractLLCPU(AbstractCPU):
                     ll_threadlocal_addr = llop.threadlocalref_addr(
                         llmemory.Address)
                 else:
-                    ll_threadlocal_addr = llmemory.NULL
+                    ll_threadlocal_addr = rffi.cast(llmemory.Address,
+                        self._debug_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
                 ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:

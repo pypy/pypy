@@ -18,8 +18,7 @@ def test_file(space):
     ''')
 
 
-class AppTestExecStmt: 
-
+class AppTestExecStmt:
     def test_string(self):
         g = {}
         l = {}
@@ -30,7 +29,7 @@ class AppTestExecStmt:
         g = {}
         exec "a = 3" in g
         assert g['a'] == 3
-        
+
     def test_builtinsupply(self):
         g = {}
         exec "pass" in g
@@ -63,7 +62,7 @@ class AppTestExecStmt:
         l = {}
         exec ("a = 3", g, l)
         assert l['a'] == 3
-        
+
     def test_tupleglobals(self):
         g = {}
         exec ("a = 3", g)
@@ -207,9 +206,8 @@ class AppTestExecStmt:
     def test_exec_and_name_lookups(self):
         ns = {}
         exec """def f():
-        exec 'x=1' in locals()
-        return x
-""" in ns
+            exec 'x=1' in locals()
+            return x""" in ns
 
         f = ns['f']
 
@@ -246,3 +244,29 @@ class AppTestExecStmt:
         exec c
         assert len(x) == 6
         assert ord(x[0]) == 0x0439
+
+    def test_nested_qualified_exec(self):
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
+        code = ["""
+def g():
+    def f():
+        if True:
+            exec "" in {}, {}
+        """, """
+def g():
+    def f():
+        if True:
+            exec("", {}, {})
+        """]
+        for c in code:
+            compile(c, "<code>", "exec")
+
+    def test_exec_tuple(self):
+        # note: this is VERY different than testing exec("a = 42", d), because
+        # this specific case is handled specially by the AST compiler
+        d = {}
+        x = ("a = 42", d)
+        exec x
+        assert d['a'] == 42

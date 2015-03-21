@@ -10,6 +10,7 @@
 
 /*** misc ***/
 
+RPY_EXTERN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg) {
   fprintf(stderr,
@@ -19,8 +20,8 @@ void RPyAssertFailed(const char* filename, long lineno,
   abort();
 }
 
+RPY_EXTERN
 void RPyAbort(void) {
   fprintf(stderr, "Invalid RPython operation (NULL ptr or bad array index)\n");
   abort();
 }
-

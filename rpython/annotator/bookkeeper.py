@@ -12,14 +12,14 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
-from rpython.rlib.objectmodel import r_dict, Symbolic
+from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
 
@@ -260,21 +260,23 @@ class Bookkeeper(object):
                     result.listdef.generalize(self.immutablevalue(e))
                 result.const_box = key
                 return result
-        elif tp is dict or tp is r_dict or tp is SomeOrderedDict.knowntype:
-            if tp is SomeOrderedDict.knowntype:
-                cls = SomeOrderedDict
-            else:
-                cls = SomeDict
+        elif (tp is dict or tp is r_dict or
+              tp is SomeOrderedDict.knowntype or tp is r_ordereddict):
             key = Constant(x)
             try:
                 return self.immutable_cache[key]
             except KeyError:
+                if tp is SomeOrderedDict.knowntype or tp is r_ordereddict:
+                    cls = SomeOrderedDict
+                else:
+                    cls = SomeDict
+                is_r_dict = issubclass(tp, r_dict)
                 result = cls(DictDef(self,
                                         s_ImpossibleValue,
                                         s_ImpossibleValue,
-                                        is_r_dict = tp is r_dict))
+                                        is_r_dict = is_r_dict))
                 self.immutable_cache[key] = result
-                if tp is r_dict:
+                if is_r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
                     s_hashfn = self.immutablevalue(x.key_hash)
                     result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
@@ -299,6 +301,8 @@ class Bookkeeper(object):
                 s1 = self.immutablevalue(x1)
                 assert isinstance(s1, SomeInstance)
                 result = SomeWeakRef(s1.classdef)
+        elif tp is property:
+            return SomeProperty(x)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
