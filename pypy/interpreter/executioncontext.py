@@ -2,6 +2,7 @@ import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
 
 TICK_COUNTER_STEP = 100
 
@@ -37,7 +38,11 @@ class ExecutionContext(object):
         if sys.maxint == 2147483647:
             self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
         else:
-            self._code_unique_id = 0x7000000000000000
+            if we_are_translated():
+                self._code_unique_id = 0x7000000000000000
+            else:
+                self._code_unique_id = 0x7700000000000000
+                # should be enough code objects
         self._code_callback = None
 
     @staticmethod
