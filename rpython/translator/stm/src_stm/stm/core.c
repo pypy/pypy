@@ -351,7 +351,9 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
 
-    uint8_t rv = STM_SEGMENT->transaction_read_version + 1;
+    uint8_t rv = STM_SEGMENT->transaction_read_version;
+    if (rv < 0xff)   /* else, rare (maybe impossible?) case: we did already */
+        rv++;        /* incr it but enter_safe_point_if_requested() aborted */
     STM_SEGMENT->transaction_read_version = rv;
 
     enter_safe_point_if_requested();
