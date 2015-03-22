@@ -51,9 +51,8 @@ class Module(MixedModule):
                  'XML_PARAM_ENTITY_PARSING_ALWAYS']:
         interpleveldefs[name] = 'space.wrap(interp_pyexpat.%s)' % (name,)
 
-    def setup_after_space_initialization(self):
+    def startup(self, space):
         from pypy.module.pyexpat import interp_pyexpat
-        space = self.space
         w_ver = interp_pyexpat.get_expat_version(space)
         space.setattr(self, space.wrap("EXPAT_VERSION"), w_ver)
         w_ver = interp_pyexpat.get_expat_version_info(space)
