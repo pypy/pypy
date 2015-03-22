@@ -475,7 +475,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize().  The few extra pages are never used
-        # anyway so it doesn't even counct.
+        # anyway so it doesn't even count.
         nursery = llarena.arena_malloc(self._nursery_memory_size(), 0)
         if not nursery:
             out_of_memory("cannot allocate nursery")
