@@ -37,7 +37,10 @@
 #define MAX_FUNC_NAME 128
 #define MAX_STACK_DEPTH 64
 
-static FILE* profile_file = NULL;
+
+static int profile_file = 0;
+static char profile_write_buffer[4096];
+static int profile_buffer_position = 0;
 void* vmprof_mainloop_func;
 static ptrdiff_t mainloop_sp_offset;
 static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
@@ -52,27 +55,29 @@ static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
 
-static void prof_word(FILE* f, long x) {
-    fwrite(&x, sizeof(x), 1, f);
+static void prof_word(long x) {
+	((long*)(profile_write_buffer + profile_buffer_position))[0] = x;
+	profile_buffer_position += sizeof(long);
 }
 
-static void prof_header(FILE* f, long period_usec) {
-    prof_word(f, 0);
-    prof_word(f, 3);
-    prof_word(f, 0);
-    prof_word(f, period_usec);
-    prof_word(f, 0);
+static void prof_header(long period_usec) {
+    prof_word(0);
+    prof_word(3);
+    prof_word(0);
+    prof_word(period_usec);
+    prof_word(0);
 }
 
-static void prof_write_stacktrace(FILE* f, void** stack, int depth, int count) {
+static void prof_write_stacktrace(void** stack, int depth, int count) {
     int i;
 	char marker = MARKER_STACKTRACE;
 
-	fwrite(&marker, 1, 1, f);
-    prof_word(f, count);
-    prof_word(f, depth);
+	profile_write_buffer[profile_buffer_position++] = MARKER_STACKTRACE;
+    prof_word(count);
+    prof_word(depth);
     for(i=0; i<depth; i++)
-        prof_word(f, (long)stack[i]);
+        prof_word((long)stack[i]);
+	write(profile_file, profile_write_buffer, profile_buffer_position);
 }
 
 
@@ -202,10 +207,11 @@ static int __attribute__((noinline)) frame_forcer(int rv) {
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
     void* stack[MAX_STACK_DEPTH];
     int saved_errno = errno;
+	profile_buffer_position = 0;
     stack[0] = GetPC((ucontext_t*)ucontext);
     int depth = frame_forcer(get_stack_trace(stack+1, MAX_STACK_DEPTH-1, ucontext));
     depth++;  // To account for pc value in stack[0];
-    prof_write_stacktrace(profile_file, stack, depth, 1);
+    prof_write_stacktrace(stack, depth, 1);
     errno = saved_errno;
 }
 
@@ -219,14 +225,11 @@ static int open_profile(int fd, long period_usec, int write_header, char *s,
 	if ((fd = dup(fd)) == -1) {
 		return -1;
 	}
-    profile_file = fdopen(fd, "wb");
-	if (!profile_file) {
-		return -1;
-	}
+    profile_file = fd;
 	if (write_header)
-		prof_header(profile_file, period_usec);
+		prof_header(period_usec);
 	if (s)
-		fwrite(s, slen, 1, profile_file);
+		write(profile_file, s, slen);
 	return 0;
 }
 
@@ -236,16 +239,16 @@ static int close_profile(void) {
     char buf[BUFSIZ];
     size_t size;
 	int marker = MARKER_TRAILER;
-	fwrite(&marker, 1, 1, profile_file);
+	write(profile_file, &marker, 1);
 
     // copy /proc/PID/maps to the end of the profile file
     sprintf(buf, "/proc/%d/maps", getpid());
     src = fopen(buf, "r");    
     while ((size = fread(buf, 1, BUFSIZ, src))) {
-        fwrite(buf, 1, size, profile_file);
+        write(profile_file, buf, size);
     }
     fclose(src);
-    fclose(profile_file);
+    close(profile_file);
 	return 0;
 }
 
@@ -263,10 +266,10 @@ static int install_sigprof_handler(void) {
 }
 
 static int remove_sigprof_handler(void) {
-    //sighandler_t res = signal(SIGPROF, SIG_DFL);
-	//if (res == SIG_ERR) {
-	//	return -1;
-	//}
+    sighandler_t res = signal(SIGPROF, SIG_DFL);
+	if (res == SIG_ERR) {
+		return -1;
+	}
 	return 0;
 };
 
@@ -335,6 +338,7 @@ int vmprof_disable(void) {
 }
 
 void vmprof_register_virtual_function(const char* name, void* start, void* end) {
+	// XXX unused by pypy
     // for now *end is simply ignored
 	char buf[1024];
 	int lgt = strlen(name) + 2 * sizeof(long) + 1;
@@ -346,5 +350,5 @@ void vmprof_register_virtual_function(const char* name, void* start, void* end) 
 	((void **)(((void*)buf) + 1))[0] = start;
 	((long *)(((void*)buf) + 1 + sizeof(long)))[0] = lgt - 2 * sizeof(long) - 1;
 	strncpy(buf + 2 * sizeof(long) + 1, name, 1024 - 2 * sizeof(long) - 1);
-	fwrite(buf, lgt, 1, profile_file);
+	write(profile_file, buf, lgt);
 }
