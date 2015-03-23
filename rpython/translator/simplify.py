@@ -334,25 +334,25 @@ def remove_assertion_errors(graph):
     flowcontext.py).
     """
     for block in list(graph.iterblocks()):
-            for i in range(len(block.exits)-1, -1, -1):
-                exit = block.exits[i]
-                if not (exit.target is graph.exceptblock and
-                        exit.args[0] == Constant(AssertionError)):
-                    continue
-                # can we remove this exit without breaking the graph?
-                if len(block.exits) < 2:
+        for i in range(len(block.exits)-1, -1, -1):
+            exit = block.exits[i]
+            if not (exit.target is graph.exceptblock and
+                    exit.args[0] == Constant(AssertionError)):
+                continue
+            # can we remove this exit without breaking the graph?
+            if len(block.exits) < 2:
+                break
+            if block.canraise:
+                if exit.exitcase is None:
                     break
-                if block.canraise:
-                    if exit.exitcase is None:
-                        break
-                    if len(block.exits) == 2:
-                        # removing the last non-exceptional exit
-                        block.exitswitch = None
-                        exit.exitcase = None
-                # remove this exit
-                lst = list(block.exits)
-                del lst[i]
-                block.recloseblock(*lst)
+                if len(block.exits) == 2:
+                    # removing the last non-exceptional exit
+                    block.exitswitch = None
+                    exit.exitcase = None
+            # remove this exit
+            lst = list(block.exits)
+            del lst[i]
+            block.recloseblock(*lst)
 
 
 # _____________________________________________________________________

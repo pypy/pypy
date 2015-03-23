@@ -5,7 +5,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.annlowlevel import hlstr
-from rpython.jit.metainterp.jitprof import Profiler
+from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
 
 
 class JitHookInterfaceTests(object):
@@ -177,6 +177,20 @@ class JitHookInterfaceTests(object):
             assert jit_hooks.stats_get_times_value(None, Counters.TRACING) >= 0
 
         self.meta_interp(main, [], ProfilerClass=Profiler)
+
+    def test_get_stats_empty(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+        def loop(i):
+            while i > 0:
+                driver.jit_merge_point(i=i)
+                i -= 1
+        def main():
+            loop(30)
+            assert jit_hooks.stats_get_counter_value(None,
+                                           Counters.TOTAL_COMPILED_LOOPS) == 0
+            assert jit_hooks.stats_get_times_value(None, Counters.TRACING) == 0
+        self.meta_interp(main, [], ProfilerClass=EmptyProfiler)
+
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class

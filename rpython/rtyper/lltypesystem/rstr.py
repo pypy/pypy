@@ -156,7 +156,10 @@ class BaseLLStringRepr(Repr):
             self.CACHE[value] = p
             return p
 
-    def make_iterator_repr(self):
+    def make_iterator_repr(self, variant=None):
+        if variant is not None:
+            raise TyperError("unsupported %r iterator over a str/unicode" %
+                             (variant,))
         return self.repr.iterator_repr
 
     def can_ll_be_null(self, s_value):
