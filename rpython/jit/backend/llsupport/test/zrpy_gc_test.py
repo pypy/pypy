@@ -223,6 +223,7 @@ class BaseFrameworkTests(object):
 
 class CompileFrameworkTests(BaseFrameworkTests):
     # Test suite using (so far) the minimark GC.
+    can_pin = True
 
 ##    def define_libffi_workaround(cls):
 ##        # XXX: this is a workaround for a bug in database.py.  It seems that
@@ -921,6 +922,8 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, None
 
     def test_pinned_simple(self):
+        if not self.can_pin:
+            py.test.skip("not in this configuration")
         self.run('pinned_simple')
 
     def define_pinned_unpin(cls):
@@ -965,6 +968,8 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, after
 
     def test_pinned_unpin(self):
+        if not self.can_pin:
+            py.test.skip("not in this configuration")
         self.run('pinned_unpin')
 
     def define_multiple_pinned(cls):
@@ -1012,4 +1017,6 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, None
 
     def test_multiple_pinned(self):
+        if not self.can_pin:
+            py.test.skip("not in this configuration")
         self.run('multiple_pinned')

@@ -3,6 +3,7 @@ from rpython.jit.backend.llsupport.test.zrpy_gc_test import CompileFrameworkTest
 
 class TestSTMShadowStack(CompileFrameworkTests):
     gcrootfinder = "stm"
+    can_pin = False
 
 
 class TestShadowStack(CompileFrameworkTests):
