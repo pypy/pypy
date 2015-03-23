@@ -1523,7 +1523,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # being moved, not from being collected if it is not reachable anymore.
         self.surviving_pinned_objects = self.AddressStack()
         # The following counter keeps track of alive and pinned young objects
-        # inside the nursery. We reset it here and increace it in
+        # inside the nursery. We reset it here and increase it in
         # '_trace_drag_out()'.
         any_pinned_object_from_earlier = self.any_pinned_object_kept
         self.pinned_objects_in_nursery = 0
@@ -2092,7 +2092,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
-            # they do not need a seperate state and do not need to be
+            # they do not need a separate state and do not need to be
             # made incremental.
             if (not self.objects_to_trace.non_empty() and
                 not self.more_objects_to_trace.non_empty()):
