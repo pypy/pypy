@@ -342,7 +342,7 @@ def specialize_exceptions(graph):
                 if not exits:
                     block.exitswitch = None
                 block.recloseblock(block.exits[0], *exits)
-            else:
+            if Exception in op.canraise:
                 if block.exits[-1].exitcase is not Exception:
                     v_etype = Variable('last_exception')
                     v_exc = Variable('last_exc_value')
