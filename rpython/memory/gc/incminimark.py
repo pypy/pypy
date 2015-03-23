@@ -56,6 +56,7 @@ Environment variables can be used to fine-tune the following parameters:
 # XXX try merging old_objects_pointing_to_pinned into
 # XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
+import os
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
@@ -463,9 +464,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.nursery_size = newsize
             self.allocate_nursery()
         #
-        # Estimate this number conservatively
-        bigobj = self.nonlarge_max + 1
-        self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+        max_number_of_pinned_objects = os.environ.get('PYPY_GC_MAX_PINNED')
+        if max_number_of_pinned_objects:
+            try:
+                max_number_of_pinned_objects = int(max_number_of_pinned_objects)
+            except ValueError:
+                max_number_of_pinned_objects = 0
+            #
+            if max_number_of_pinned_objects >= 0: # 0 allows to disable pinning completely
+                self.max_number_of_pinned_objects = max_number_of_pinned_objects
+        else:
+            # Estimate this number conservatively
+            bigobj = self.nonlarge_max + 1
+            self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
