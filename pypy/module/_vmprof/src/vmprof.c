@@ -35,7 +35,7 @@
 #define _unused(x) ((void)x)
 
 #define MAX_FUNC_NAME 128
-#define MAX_STACK_DEPTH 64
+#define MAX_STACK_DEPTH 1024
 
 
 static int profile_file = 0;
