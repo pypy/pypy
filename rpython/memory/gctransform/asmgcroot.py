@@ -368,6 +368,13 @@ class AsmStackRootWalker(BaseRootWalker):
         if rpy_fastgil != 1:
             ll_assert(rpy_fastgil != 0, "walk_stack_from doesn't have the GIL")
             initialframedata = rffi.cast(llmemory.Address, rpy_fastgil)
+            #
+            # very rare issue: initialframedata.address[0] is uninitialized
+            # in this case, but "retaddr = callee.frame_address.address[0]"
+            # reads it.  If it happens to be exactly a valid return address
+            # inside the C code, then bad things occur.
+            initialframedata.address[0] = llmemory.NULL
+            #
             self.walk_frames(curframe, otherframe, initialframedata)
             stackscount += 1
         #
