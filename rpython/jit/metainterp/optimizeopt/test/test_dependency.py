@@ -8,11 +8,9 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 class DepTestHelper(BaseTest):
 
-    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unfold"
-
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
-        return DependencyGraph(loop)
+        return DependencyGraph(loop.operations)
 
     def parse_loop(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
@@ -23,27 +21,6 @@ class DepTestHelper(BaseTest):
             loop.operations[-1].setdescr(token)
         return loop
 
-    def assert_no_edge(self, graph, f, t = -1):
-        if type(f) == list:
-            for _f,_t in f:
-                self.assert_no_edge(graph, _f, _t)
-        else:
-            assert graph.instr_dependency(f, t) is None, \
-                   " it is expected that instruction at index" + \
-                   " %d DOES NOT depend on instr on index %d but it does" \
-                        % (f, t)
-
-    def assert_def_use(self, graph, from_instr_index, to_instr_index = -1):
-        if type(from_instr_index) == list:
-            for f,t in from_instr_index:
-                self.assert_def_use(graph, f, t)
-        else:
-            assert graph.instr_dependency(from_instr_index,
-                                          to_instr_index) is not None, \
-                   " it is expected that instruction at index" + \
-                   " %d depends on instr on index %d but it is not" \
-                        % (from_instr_index, to_instr_index)
-
     def assert_dependant(self, graph, edge_list):
         """ Check if all dependencies are met. for complex cases
         adding None instead of a list of integers skips the test.
@@ -53,17 +30,29 @@ class DepTestHelper(BaseTest):
         for idx,edges in enumerate(edge_list):
             if edges is None:
                 continue
-            dependencies = graph.adjacent_list[idx]
+            dependencies = graph.adjacent_list[idx][:]
             for edge in edges:
                 dependency = graph.instr_dependency(idx,edge)
+                if edge < idx:
+                    dependency = graph.instr_dependency(edge, idx)
                 assert dependency is not None, \
                    " it is expected that instruction at index" + \
-                   " %d depends on instr on index %d but it is not" \
-                        % (idx, edge)
+                   " %d depends on instr on index %d but it does not.\n%s" \
+                        % (idx, edge, graph)
                 dependencies.remove(dependency)
             assert dependencies == [], \
-                    "dependencies unexpected %s" \
-                    % dependencies
+                    "dependencies unexpected %s.\n%s" \
+                    % (dependencies,graph)
+    def assert_graph_equal(self, ga, gb):
+        assert len(ga.adjacent_list) == len(gb.adjacent_list)
+        for i in range(len(ga.adjacent_list)):
+            la = ga.adjacent_list[i]
+            lb = gb.adjacent_list[i]
+            assert len(la) == len(lb)
+            assert sorted([l.idx_to for l in la]) == \
+                   sorted([l.idx_to for l in lb])
+            assert sorted([l.idx_from for l in la]) == \
+                   sorted([l.idx_from for l in lb])
 
 class BaseTestDependencyGraph(DepTestHelper):
     def test_dependency_empty(self):
@@ -139,6 +128,112 @@ class BaseTestDependencyGraph(DepTestHelper):
         dep_graph = self.build_dependency(ops)
         self.assert_dependant(dep_graph, 
                 [ [1,2,3], [0,2], [1,0], [0] ])
+
+    def test_swap_dependencies(self):
+        ops = """
+        [i1,i4] # 0
+        i2 = int_lt(i1,0) # 1
+        i3 = int_lt(i4,0) # 2
+        guard_value(i2,0) [] # 3
+        jump(i1,i3) # 4
+        """
+        dep_graph = self.build_dependency(ops)
+        dep_graph.swap_instructions(1,2)
+        self.assert_dependant(dep_graph,
+                [ [1,2,4], [4,0], [3,0], [2], [0,1] ])
+        dep_graph.swap_instructions(1,2)
+        self.assert_graph_equal(dep_graph, self.build_dependency(ops))
+
+        dep_graph.swap_instructions(2,3)
+        ops2 = """
+        [i1,i4] # 0
+        i2 = int_lt(i1,0) # 1
+        guard_value(i2,0) [] # 2
+        i3 = int_lt(i4,0) # 3
+        jump(i1,i3) # 4
+        """
+        dep_graph_final = self.build_dependency(ops2)
+        self.assert_graph_equal(dep_graph, dep_graph_final)
+
+    def test_dependencies_1(self):
+        ops="""
+        [i0, i1, i2] # 0
+        i4 = int_gt(i1, 0) # 1
+        guard_true(i4) [] # 2
+        i6 = int_sub(i1, 1) # 3
+        i8 = int_gt(i6, 0) # 4
+        guard_false(i8) [] # 5
+        i10 = int_add(i2, 1) # 6
+        i12 = int_sub(i0, 1) # 7
+        i14 = int_add(i10, 1) # 8
+        i16 = int_gt(i12, 0) # 9
+        guard_true(i16) [] # 10
+        jump(i12, i1, i14) # 11
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_dependant(dep_graph,
+                [ [1,3,6,7,11], [0,2], [1], [0,4], [3,5], [4],
+                  # next entry is instr 6
+                  [0,8], [0,9,11], [6,11], [7,10], [9], [7,0,8] ])
+
+    def test_prevent_double_arg(self):
+        ops="""
+        [i0, i1, i2]
+        i4 = int_gt(i1, i0)
+        guard_true(i4) []
+        jump(i0, i1, i2)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_dependant(dep_graph,
+                [ [1,3], [0,2], [1], [0] ])
+
+    def test_ovf_dep(self):
+        ops="""
+        [i0, i1, i2]
+        i4 = int_sub_ovf(1, 0)
+        guard_overflow() [i2]
+        jump(i0, i1, i2)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_dependant(dep_graph,
+                [ [1,2,3], [0,2], [0,1], [0] ])
+
+    def test_exception_dep(self):
+        ops="""
+        [p0, i1, i2]
+        i4 = call(p0, 1, descr=nonwritedescr)
+        guard_no_exception() []
+        jump(p0, i1, i2)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_dependant(dep_graph,
+                [ [1,3], [0,2], [1], [0] ])
+
+    def test_call_dependency_on_ptr_but_not_index_value(self):
+        ops="""
+        [p0, p1, i2]
+        i3 = int_add(i2,1)
+        i4 = call(p0, i3, descr=nonwritedescr)
+        guard_no_exception() [i2]
+        p2 = getarrayitem_gc(p1,i3)
+        jump(p2, p1, i3)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_dependant(dep_graph,
+                [ [1,2,3,4,5], [0,2,4,5], [0,1,3], [0,2], [0,1,5], [4,0,1] ])
+
+    def test_call_dependency(self):
+        ops="""
+        [p0, p1, i2, i5]
+        i3 = int_add(i2,1)
+        i4 = call(i5, i3, descr=nonwritedescr)
+        guard_no_exception() [i2]
+        p2 = getarrayitem_gc(p1,i3)
+        jump(p2, p1, i3)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_dependant(dep_graph,
+                [ [1,2,3,4,5], [0,2,4,5], [0,1,3], [0,2], [0,1,5], [4,0,1] ])
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

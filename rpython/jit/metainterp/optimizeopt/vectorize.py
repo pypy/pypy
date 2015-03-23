@@ -35,6 +35,7 @@ class VectorizingOptimizer(Optimizer):
         self.dependency_graph = None
         self.first_debug_merge_point = False
         self.last_debug_merge_point = None
+        self.pack_set = None
 
     def emit_unrolled_operation(self, op):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -189,13 +190,15 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
 
     def build_dependency_graph(self):
-        self.dependency_graph = DependencyGraph(self.loop)
+        self.dependency_graph = DependencyGraph(self.loop.operations)
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
-        operations. Since it is in SSA form there is no array index. Indices
-        are flattend. If there are two array accesses in the unrolled loop
-        i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1 """
+        operations. Since it is in SSA form there are no array indices.
+        If there are two array accesses in the unrolled loop
+        i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1.
+        They are represented as a linear combination: i*c/d + e, i is a variable,
+        all others are integers that are calculated in reverse direction"""
         loop = self.loop
         operations = loop.operations
         integral_mod = IntegralMod(self)
@@ -206,7 +209,8 @@ class VectorizingOptimizer(Optimizer):
                 for dep in self.dependency_graph.instr_dependencies(opidx):
                     # this is a use, thus if dep is not a defintion
                     # it points back to the definition
-                    if memref.origin == dep.defined_arg and not dep.is_definition:
+                    # if memref.origin == dep.defined_arg and not dep.is_definition:
+                    if memref.origin in dep.args and not dep.is_definition:
                         # if is_definition is false the params is swapped
                         # idx_to attributes points to definer
                         def_op = operations[dep.idx_to]
@@ -226,6 +230,9 @@ class VectorizingOptimizer(Optimizer):
                     integral_mod.update_memory_ref(memref)
                 else:
                     break
+
+    def init_pack_set(self):
+        self.pack_set = PackSet()
 
     def vectorize_trace(self, loop):
         """ Implementation of the algorithm introduced by Larsen. Refer to
@@ -381,6 +388,9 @@ class LoopVectorizeInfo(object):
 dispatch_opt = make_dispatcher_method(LoopVectorizeInfo, 'operation_',
         default=LoopVectorizeInfo.default_operation)
 LoopVectorizeInfo.inspect_operation = dispatch_opt
+
+class PackSet(object):
+    pass
 
 class Pack(object):
     """ A pack is a set of n statements that are:

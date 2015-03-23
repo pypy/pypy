@@ -58,32 +58,18 @@ class VecTestHelper(BaseTest):
         opt.loop.operations = opt.get_newoperations()
         return opt
 
+    def init_pack_set(self, loop, unroll_factor = -1):
+        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
+        opt.build_dependency_graph()
+        opt.find_adjacent_memory_refs()
+        opt.initialize_pack_set()
+        return opt
+
     def assert_unroll_loop_equals(self, loop, expected_loop, \
                      unroll_factor = -1):
         vec_optimizer = self.vec_optimizer_unrolled(loop, unroll_factor)
         self.assert_equal(loop, expected_loop)
 
-    def assert_no_edge(self, graph, f, t = -1):
-        if type(f) == list:
-            for _f,_t in f:
-                self.assert_no_edge(graph, _f, _t)
-        else:
-            assert graph.instr_dependency(f, t) is None, \
-                   " it is expected that instruction at index" + \
-                   " %d DOES NOT depend on instr on index %d but it does" \
-                        % (f, t)
-
-    def assert_def_use(self, graph, from_instr_index, to_instr_index = -1):
-
-        if type(from_instr_index) == list:
-            for f,t in from_instr_index:
-                self.assert_def_use(graph, f, t)
-        else:
-            assert graph.instr_dependency(from_instr_index,
-                                          to_instr_index) is not None, \
-                   " it is expected that instruction at index" + \
-                   " %d depends on instr on index %d but it is not" \
-                        % (from_instr_index, to_instr_index)
 
     def assert_memory_ref_adjacent(self, m1, m2):
         assert m1.is_adjacent_to(m2)
@@ -97,6 +83,29 @@ class VecTestHelper(BaseTest):
         print('--- loop instr numbered ---')
         for i,op in enumerate(loop.operations):
             print(i,op)
+
+    def assert_dependant(self, graph, edge_list):
+        """ Check if all dependencies are met. for complex cases
+        adding None instead of a list of integers skips the test.
+        This checks both if a dependency forward and backward exists.
+        """
+        assert len(edge_list) == len(graph.adjacent_list)
+        for idx,edges in enumerate(edge_list):
+            if edges is None:
+                continue
+            dependencies = graph.adjacent_list[idx][:]
+            for edge in edges:
+                dependency = graph.instr_dependency(idx,edge)
+                if edge < idx:
+                    dependency = graph.instr_dependency(edge, idx)
+                assert dependency is not None, \
+                   " it is expected that instruction at index" + \
+                   " %d depends on instr on index %d but it does not.\n%s" \
+                        % (idx, edge, graph)
+                dependencies.remove(dependency)
+            assert dependencies == [], \
+                    "dependencies unexpected %s.\n%s" \
+                    % (dependencies,graph)
 
 class BaseTestVectorize(VecTestHelper):
 
@@ -246,9 +255,8 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         vopt.build_dependency_graph()
-        self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
-        self.assert_def_use(vopt.dependency_graph, [(0,1),(2,3),(4,5)])
-        self.assert_no_edge(vopt.dependency_graph, [(0,4),(0,0)])
+        self.assert_dependant(vopt.dependency_graph,
+                [ [1,2,3,5], [0], [0,3,4], [0,2], [2,5], [0,4] ])
 
         vopt.find_adjacent_memory_refs()
         assert 1 in vopt.vec_info.memory_refs
@@ -513,6 +521,20 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.vec_optimizer_unrolled(loop,1)
         self.assert_equal(loop, self.parse_loop(ops))
+
+    def test_packset_init_simple(self):
+        ops = """
+        [p0,i0]
+        i3 = getarrayitem_gc(p0, i0, descr=chararraydescr)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 16)
+        guard_true(i2) [p0, i0]
+        jump(p0,i1)
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.init_pack_set(loop,2)
+        assert vopt.pack_set is not None
+
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
