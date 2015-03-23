@@ -10,7 +10,7 @@ from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
      GcLLDescr_framework, GcCache, JitFrameDescrs
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.backend.llsupport import jitframe, gcmap
+from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 
@@ -315,13 +315,11 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_malloc_slowpath(self):
         def check(frame):
-            # xxx for now we always have GCMAP_STM_LOCATION, but it should
-            # be added only if we really have stm in the first place
-            expected_size = 1 + gcmap.GCMAP_STM_LOCATION
+            expected_size = 1
             idx = 0
             if self.cpu.backend_name.startswith('arm'):
                 # jitframe fixed part is larger here
-                expected_size = 2 + gcmap.GCMAP_STM_LOCATION
+                expected_size = 2
                 idx = 1
             assert len(frame.jf_gcmap) == expected_size
             if self.cpu.IS_64_BIT:
@@ -357,11 +355,11 @@ class TestMallocFastpath(BaseTestRegalloc):
         def check(frame):
             x = frame.jf_gcmap
             if self.cpu.IS_64_BIT:
-                assert len(x) == 1 + gcmap.GCMAP_STM_LOCATION
+                assert len(x) == 1
                 assert (bin(x[0]).count('1') ==
                         '0b1111100000000000000001111111011110'.count('1'))
             else:
-                assert len(x) == 2 + gcmap.GCMAP_STM_LOCATION
+                assert len(x) == 2
                 s = bin(x[0]).count('1') + bin(x[1]).count('1')
                 assert s == 16
             # all but two registers + some stuff on stack

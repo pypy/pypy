@@ -2,7 +2,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.jit.backend.llsupport import jitframe, gc, descr, gcmap
+from rpython.jit.backend.llsupport import jitframe, gc, descr
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.metainterp.history import BoxPtr, BoxInt, ConstPtr
@@ -188,7 +188,7 @@ class TestFramework(object):
         rewriter = GcRewriterAssembler(gc_ll_descr, None)
         newops = rewriter.newops
         v_base = BoxPtr()
-        rewriter.gen_write_barrier(v_base, stm_location=None)
+        rewriter.gen_write_barrier(v_base)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
@@ -246,8 +246,7 @@ def test_custom_tracer():
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
     frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
-    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4 + gcmap.GCMAP_STM_LOCATION,
-                                   flavor='raw')
+    frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4, flavor='raw')
     if sys.maxint == 2**31 - 1:
         max = r_uint(2 ** 31)
     else:
