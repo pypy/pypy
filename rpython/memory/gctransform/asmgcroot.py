@@ -519,17 +519,15 @@ class AsmStackRootWalker(BaseRootWalker):
             from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
 
             tid = self.gc.get_possibly_forwarded_type_id(ebp_in_caller)
-            ll_assert(rffi.cast(lltype.Signed, tid) ==
-                      rffi.cast(lltype.Signed, self.frame_tid),
-                      "found a stack frame that does not belong "
-                      "anywhere I know, bug in asmgcc")
-            # fish the depth
-            extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
-            ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
-                       == 0, "asmgcc: misaligned extra_stack_depth")
-            extra_stack_depth //= rffi.sizeof(lltype.Signed)
-            self._shape_decompressor.setjitframe(extra_stack_depth)
-            return
+            if (rffi.cast(lltype.Signed, tid) ==
+                    rffi.cast(lltype.Signed, self.frame_tid)):
+                # fish the depth
+                extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+                ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
+                           == 0, "asmgcc: misaligned extra_stack_depth")
+                extra_stack_depth //= rffi.sizeof(lltype.Signed)
+                self._shape_decompressor.setjitframe(extra_stack_depth)
+                return
         llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
     def getlocation(self, callee, ebp_in_caller, location):
