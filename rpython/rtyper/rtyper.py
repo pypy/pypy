@@ -371,6 +371,10 @@ class RPythonTyper(object):
             # make sure that the return variables of all graphs
             # are concretetype'd
             self.setconcretetype(graph.getreturnvar())
+            #
+            v1, v2 = graph.exceptblock.inputargs
+            v1.concretetype = self.exceptiondata.lltype_of_exception_type
+            v2.concretetype = self.exceptiondata.lltype_of_exception_value
 
     def _specialize_block(self, block):
         # give the best possible types to the input args
