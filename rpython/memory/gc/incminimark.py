@@ -704,21 +704,33 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if self.nursery_barriers.non_empty():
                 # Pinned object in front of nursery_top. Try reserving totalsize
                 # by jumping into the next, yet unused, area inside the
-                # nursery. 'Next area' is in this case the space inside the
-                # nursery between the next pinned object and the one after that
-                # or the end of the nursery. Graphically explained:
+                # nursery. "Next area" in this case is the space between the
+                # pinned object in front of nusery_top and the pinned object
+                # after that. Graphically explained:
                 # 
                 #     |- allocating totalsize failed in this area
-                #     v          v- next pinned object, jump over this one
-                # +---------+--------+--------+--------+-----------+
-                # | unknown | pinned | empty  | pinned |  empty    | <- nursery
-                # +---------+--------+--------+--------+-----------+
-                #                      ^- try reserving totalsize in here next
+                #     |     |- nursery_top
+                #     |     |    |- pinned object in front of nursery_top,
+                #     v     v    v  jump over this
+                # +---------+--------+--------+--------+-----------+ }
+                # | used    | pinned | empty  | pinned |  empty    | }- nursery
+                # +---------+--------+--------+--------+-----------+ }
+                #                       ^- try reserving totalsize in here next
                 #
+                # All pinned objects are represented by entries in
+                # nursery_barriers (see minor_collection). The last entry is
+                # always the end of the nursery. Therefore if nursery_barriers
+                # contains only one element, we jump over a pinned object and
+                # the "next area" (the space where we will try to allocate
+                # totalsize) starts at the end of the pinned object and ends at
+                # nursery's end.
+                #
+                # find the size of the pinned object after nursery_top
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 pinned_obj_size = size_gc_header + self.get_size(
                         self.nursery_top + size_gc_header)
                 #
+                # update used nursery space to allocate objects
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
             else:
@@ -1645,7 +1657,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 0)
         #
+        # always add the end of the nursery to the list
         nursery_barriers.append(self.nursery + self.nursery_size)
+        #
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
         #
