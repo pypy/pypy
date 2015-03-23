@@ -39,7 +39,7 @@
 
 
 static int profile_file = 0;
-static char profile_write_buffer[4096];
+static char profile_write_buffer[10000];
 static int profile_buffer_position = 0;
 void* vmprof_mainloop_func;
 static ptrdiff_t mainloop_sp_offset;
