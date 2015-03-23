@@ -464,15 +464,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.nursery_size = newsize
             self.allocate_nursery()
         #
-        max_number_of_pinned_objects = os.environ.get('PYPY_GC_MAX_PINNED')
-        if max_number_of_pinned_objects:
+        env_max_number_of_pinned_objects = os.environ.get('PYPY_GC_MAX_PINNED')
+        if env_max_number_of_pinned_objects:
             try:
-                max_number_of_pinned_objects = int(max_number_of_pinned_objects)
+                env_max_number_of_pinned_objects = int(env_max_number_of_pinned_objects)
             except ValueError:
-                max_number_of_pinned_objects = 0
+                env_max_number_of_pinned_objects = 0
             #
-            if max_number_of_pinned_objects >= 0: # 0 allows to disable pinning completely
-                self.max_number_of_pinned_objects = max_number_of_pinned_objects
+            if env_max_number_of_pinned_objects >= 0: # 0 allows to disable pinning completely
+                self.max_number_of_pinned_objects = env_max_number_of_pinned_objects
         else:
             # Estimate this number conservatively
             bigobj = self.nonlarge_max + 1
