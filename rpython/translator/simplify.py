@@ -339,9 +339,9 @@ def specialize_exceptions(graph):
                         continue
                 if has_generic_case:
                     exits += exc_exits
-                if not exits:
-                    block.exitswitch = None
-                block.recloseblock(block.exits[0], *exits)
+                exits.insert(0, block.exits[0])
+            else:
+                exits = list(block.exits)
             if OverflowError in op.canraise:
                 if not any(issubclass(OverflowError, exit.exitcase)
                            for exit in block.exits[1:]):
@@ -349,18 +349,17 @@ def specialize_exceptions(graph):
                     v_exc = Variable('last_exc_value')
                     exit = Link([v_etype, v_exc], graph.exceptblock, OverflowError)
                     exit.extravars(v_etype, v_exc)
-                    exits = list(block.exits)
                     exits.append(exit)
-                    block.recloseblock(*exits)
             if Exception in op.canraise:
                 if block.exits[-1].exitcase is not Exception:
                     v_etype = Variable('last_exception')
                     v_exc = Variable('last_exc_value')
                     exit = Link([v_etype, v_exc], graph.exceptblock, Exception)
                     exit.extravars(v_etype, v_exc)
-                    exits = list(block.exits)
                     exits.append(exit)
-                    block.recloseblock(*exits)
+            block.recloseblock(*exits)
+            if len(exits) == 1:
+                block.exitswitch = None
 
 
 def remove_assertion_errors(graph):

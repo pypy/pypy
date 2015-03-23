@@ -71,7 +71,7 @@ def test_remove_ovfcheck_floordiv_2():
     graph, _ = translate(f, [int, int])
     assert len(graph.startblock.operations) == 1
     assert graph.startblock.operations[0].opname == 'int_floordiv_ovf_zer'
-    assert len(graph.startblock.exits) == 2
+    assert len(graph.startblock.exits) == 3
     assert graph.startblock.exits[1].target is graph.returnblock
 
 def test_remove_direct_call_without_side_effects():
