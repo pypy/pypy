@@ -62,7 +62,7 @@ class BaseTestPyPyC(object):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
-        if getattr(pipe, 'returncode', 0) < 0:
+        if pipe.wait() < 0:
             raise IOError("subprocess was killed by signal %d" % (
                 pipe.returncode,))
         if stderr.startswith('SKIP:'):
