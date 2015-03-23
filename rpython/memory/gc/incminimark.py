@@ -52,6 +52,9 @@ Environment variables can be used to fine-tune the following parameters:
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
 # XXX pre-reserved, enough for a few nursery collections?  What about
 # XXX raw-malloced memory?
+
+# XXX try merging old_objects_pointing_to_pinned into
+# XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -472,7 +475,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize().  The few extra pages are never used
-        # anyway so it doesn't even counct.
+        # anyway so it doesn't even count.
         nursery = llarena.arena_malloc(self._nursery_memory_size(), 0)
         if not nursery:
             out_of_memory("cannot allocate nursery")
@@ -686,12 +689,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def collect_and_reserve(self, totalsize):
         """To call when nursery_free overflows nursery_top.
-        First check if the nursery_top is the real top, otherwise we
-        can just move the top of one cleanup and continue
-
-        Do a minor collection, and possibly also a major collection,
-        and finally reserve 'totalsize' bytes at the start of the
-        now-empty nursery.
+        First check if pinned objects are in front of nursery_top. If so,
+        jump over the pinned object and try again to reserve totalsize.
+        Otherwise do a minor collection, and possibly a major collection, and
+        finally reserve totalsize bytes.
         """
 
         minor_collection_count = 0
@@ -701,10 +702,35 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # we initialize nursery_free!
 
             if self.nursery_barriers.non_empty():
+                # Pinned object in front of nursery_top. Try reserving totalsize
+                # by jumping into the next, yet unused, area inside the
+                # nursery. "Next area" in this case is the space between the
+                # pinned object in front of nusery_top and the pinned object
+                # after that. Graphically explained:
+                # 
+                #     |- allocating totalsize failed in this area
+                #     |     |- nursery_top
+                #     |     |    |- pinned object in front of nursery_top,
+                #     v     v    v  jump over this
+                # +---------+--------+--------+--------+-----------+ }
+                # | used    | pinned | empty  | pinned |  empty    | }- nursery
+                # +---------+--------+--------+--------+-----------+ }
+                #                       ^- try reserving totalsize in here next
+                #
+                # All pinned objects are represented by entries in
+                # nursery_barriers (see minor_collection). The last entry is
+                # always the end of the nursery. Therefore if nursery_barriers
+                # contains only one element, we jump over a pinned object and
+                # the "next area" (the space where we will try to allocate
+                # totalsize) starts at the end of the pinned object and ends at
+                # nursery's end.
+                #
+                # find the size of the pinned object after nursery_top
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 pinned_obj_size = size_gc_header + self.get_size(
                         self.nursery_top + size_gc_header)
-
+                #
+                # update used nursery space to allocate objects
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
             else:
@@ -732,6 +758,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             "Seeing minor_collection() at least twice."
                             "Too many pinned objects?")
             #
+            # Tried to do something about nursery_free overflowing
+            # nursery_top before this point. Try to reserve totalsize now.
+            # If this succeeds break out of loop.
             result = self.nursery_free
             if self.nursery_free + totalsize <= self.nursery_top:
                 self.nursery_free = result + totalsize
@@ -1494,7 +1523,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # being moved, not from being collected if it is not reachable anymore.
         self.surviving_pinned_objects = self.AddressStack()
         # The following counter keeps track of alive and pinned young objects
-        # inside the nursery. We reset it here and increace it in
+        # inside the nursery. We reset it here and increase it in
         # '_trace_drag_out()'.
         any_pinned_object_from_earlier = self.any_pinned_object_kept
         self.pinned_objects_in_nursery = 0
@@ -1628,7 +1657,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 0)
         #
+        # always add the end of the nursery to the list
         nursery_barriers.append(self.nursery + self.nursery_size)
+        #
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
         #
@@ -2061,7 +2092,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
-            # they do not need a seperate state and do not need to be
+            # they do not need a separate state and do not need to be
             # made incremental.
             if (not self.objects_to_trace.non_empty() and
                 not self.more_objects_to_trace.non_empty()):
