@@ -3,6 +3,7 @@ import sys
 from rpython.translator.c.test import test_typed
 from rpython.translator.c.test import test_backendoptimized
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.rarithmetic import ovfcheck
 
 getcompiled = test_typed.TestTypedTestCase().getcompiled
 getcompiledopt = test_backendoptimized.TestTypedOptimizedTestCase().getcompiled
@@ -195,3 +196,19 @@ def test_getitem_custom_exception():
     assert g() == -1
     compiled = getcompiled(g, [])
     assert compiled() == -1
+
+def test_ovf_propagation():
+    def div(a, b):
+        try:
+            return ovfcheck(a//b)
+        except ZeroDivisionError:
+            raise
+    def f():
+        div(4, 2)
+        try:
+            return div(-sys.maxint-1, -1)
+        except OverflowError:
+            return 0
+    assert f() == 0
+    compiled = getcompiled(f, [])
+    assert compiled() == 0

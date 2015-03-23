@@ -342,6 +342,16 @@ def specialize_exceptions(graph):
                 if not exits:
                     block.exitswitch = None
                 block.recloseblock(block.exits[0], *exits)
+            if OverflowError in op.canraise:
+                if not any(issubclass(OverflowError, exit.exitcase)
+                           for exit in block.exits[1:]):
+                    v_etype = const(OverflowError)
+                    v_exc = Variable('last_exc_value')
+                    exit = Link([v_etype, v_exc], graph.exceptblock, OverflowError)
+                    exit.extravars(v_etype, v_exc)
+                    exits = list(block.exits)
+                    exits.append(exit)
+                    block.recloseblock(*exits)
             if Exception in op.canraise:
                 if block.exits[-1].exitcase is not Exception:
                     v_etype = Variable('last_exception')
