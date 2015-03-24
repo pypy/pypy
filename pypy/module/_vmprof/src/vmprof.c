@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <pthread.h>
 
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
@@ -44,6 +45,8 @@ static int profile_buffer_position = 0;
 void* vmprof_mainloop_func;
 static ptrdiff_t mainloop_sp_offset;
 static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
+static long last_period_usec = 0;
+static int atfork_hook_installed = 0;
 
 
 /* *************************************************************
@@ -275,6 +278,7 @@ static int remove_sigprof_handler(void) {
 
 static int install_sigprof_timer(long period_usec) {
     static struct itimerval timer;
+    last_period_usec = period_usec;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = period_usec;
     timer.it_value = timer.it_interval;
@@ -293,6 +297,34 @@ static int remove_sigprof_timer(void) {
 		return -1;
     }
 	return 0;
+}
+
+static void atfork_disable_timer(void) {
+    remove_sigprof_timer();
+}
+
+static void atfork_enable_timer(void) {
+    install_sigprof_timer(last_period_usec);
+}
+
+static int install_pthread_atfork_hooks(void) {
+    /* this is needed to prevent the problems described there:
+         - http://code.google.com/p/gperftools/issues/detail?id=278
+         - http://lists.debian.org/debian-glibc/2010/03/msg00161.html
+
+        TL;DR: if the RSS of the process is large enough, the clone() syscall
+        will be interrupted by the SIGPROF before it can complete, then
+        retried, interrupted again and so on, in an endless loop.  The
+        solution is to disable the timer around the fork, and re-enable it
+        only inside the parent.
+    */
+    if (atfork_hook_installed)
+        return 0;
+    int ret = pthread_atfork(atfork_disable_timer, atfork_enable_timer, NULL);
+    if (ret != 0)
+        return -1;
+    atfork_hook_installed = 1;
+    return 0;
 }
 
 /* *************************************************************
@@ -321,6 +353,9 @@ int vmprof_enable(int fd, long period_usec, int write_header, char *s,
     if (install_sigprof_timer(period_usec) == -1) {
 		return -1;
 	}
+    if (install_pthread_atfork_hooks() == -1) {
+        return -1;
+    }
 	return 0;
 }
 
