@@ -97,7 +97,7 @@ def compile(f, gc, **kwds):
     from rpython.translator.c import genc
     #
     t = TranslationContext()
-    gcrootfinder = kwds['gcrootfinder']
+    gcrootfinder = kwds.get('gcrootfinder')
     if gcrootfinder == 'stm':
         t.config.translation.stm = True
         t.config.translation.gc = 'stmgc'
