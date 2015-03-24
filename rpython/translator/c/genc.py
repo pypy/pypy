@@ -816,6 +816,9 @@ def gen_startupcode(f, database):
         print >> f, '\t/* XXX temporary workaround for late_initializations */'
         print >> f, '\tsyscall(SYS_arch_prctl, ARCH_SET_GS, (uint64_t)0);'
 
+    # make sure the PYPYLOG file is created
+    print >> f, '\tpypy_debug_ensure_opened();'
+
     bk = database.translator.annotator.bookkeeper
     if bk.thread_local_fields:
         print >> f, '\tRPython_ThreadLocals_ProgramInit();'
