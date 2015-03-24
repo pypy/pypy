@@ -212,7 +212,7 @@ PyPy-STM offers two ways to write multithreaded programs:
 .. __: `Drop-in replacement`_
 .. __: `transaction.TransactionQueue`_
 
-The issue with low-level threads are well known (particularly in other
+The issues with low-level threads are well known (particularly in other
 languages that don't have GIL-based interpreters): memory corruption,
 deadlocks, livelocks, and so on.  There are alternative approaches to
 dealing directly with threads, like OpenMP_.  These approaches
