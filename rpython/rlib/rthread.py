@@ -332,8 +332,6 @@ class ThreadLocalField(object):
                 _threadlocalref_seeme(self)
                 addr = llop.threadlocalref_addr(llmemory.Address)
                 if rgc.stm_is_enabled():
-                    from rpython.rlib import rstm
-                    rstm.become_inevitable()
                     p = llmemory.cast_adr_to_ptr(addr + offset, PSTRUCTTYPE)
                     p.c_value = value
                 else:
