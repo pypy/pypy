@@ -663,7 +663,10 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    stream.close()
+                    try:
+                        stream.close()
+                    except StreamErrors:
+                        pass
 
     if tentative:
         return None
