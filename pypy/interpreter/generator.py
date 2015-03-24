@@ -99,7 +99,12 @@ return next yielded value or raise StopIteration."""
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
                 self.frame = None
-                raise OperationError(space.w_StopIteration, w_result)
+                if space.is_none(w_result):
+                    # Delay exception instantiation if we can
+                    raise OperationError(space.w_StopIteration, space.w_None)
+                else:
+                    raise OperationError(space.w_StopIteration,
+                                         space.newtuple([w_result]))
             else:
                 return w_result     # YIELDed
         finally:
@@ -170,7 +175,9 @@ return next yielded value or raise StopIteration."""
                 # Termination repetition of YIELD_FROM
                 self.frame.last_instr += 1
                 if operr.match(space, space.w_StopIteration):
-                    w_val = operr.get_w_value(space)
+                    operr.normalize_exception(space)
+                    w_val = space.getattr(operr.get_w_value(space),
+                                          space.wrap("value"))
                     return self.send_ex(w_val)
                 else:
                     return self.send_ex(space.w_None, operr)
