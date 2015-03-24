@@ -25,8 +25,8 @@ for donation`_.
 .. _`2nd call for donation`: http://pypy.org/tmdonate2.html
 
 
-Introduction
-============
+What pypy-stm is for
+====================
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  (This
 version supports Python 2.7; see below for `Python 3`_.)  With caveats_
@@ -53,6 +53,27 @@ more in parallel should ideally run faster than in a regular PyPy
 * Building on top of the way the GIL is removed, we will talk
   about `How to write multithreaded programs: the 10'000-feet view`_
   and `transaction.TransactionQueue`_.
+
+
+...and what pypy-stm is not for
+-------------------------------
+
+``pypy-stm`` gives a Python without the GIL.  This means that it is
+useful in situations where the GIL is the problem in the first place.
+(This includes cases where the program can easily be modified to run
+in multiple threads; often, we don't consider doing that precisely
+because of the GIL.)
+
+However, there are plenty of cases where the GIL is not the problem.
+Do not hope ``pypy-stm`` to be helpful in these cases!  This includes
+all programs that use multiple threads but don't actually spend a lot
+of time running Python code.  For example, it may be spending all its
+time waiting for I/O to occur, or performing some long computation on
+a huge matrix.  These are cases where the CPU is either idle, or in
+some C/Fortran library anyway; in both cases, the interpreter (either
+CPython or the regular PyPy) should release the GIL around the
+external calls.  The threads will thus not end up fighting for the
+GIL.
 
 
 
