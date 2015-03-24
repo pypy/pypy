@@ -211,6 +211,9 @@ class ArrayDescr(ArrayOrFieldDescr):
     def get_item_size_in_bytes(self):
         return self.itemsize
 
+    def get_flag(self):
+        return self.flag
+
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
 

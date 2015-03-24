@@ -10,7 +10,10 @@ class DepTestHelper(BaseTest):
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
-        return DependencyGraph(loop.operations)
+        self.last_graph = DependencyGraph(loop.operations)
+        for i in range(len(self.last_graph.adjacent_list)):
+            self.assert_independent(i,i)
+        return self.last_graph
 
     def parse_loop(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
@@ -21,7 +24,7 @@ class DepTestHelper(BaseTest):
             loop.operations[-1].setdescr(token)
         return loop
 
-    def assert_dependant(self, graph, edge_list):
+    def assert_edges(self, graph, edge_list):
         """ Check if all dependencies are met. for complex cases
         adding None instead of a list of integers skips the test.
         This checks both if a dependency forward and backward exists.
@@ -53,6 +56,11 @@ class DepTestHelper(BaseTest):
                    sorted([l.idx_to for l in lb])
             assert sorted([l.idx_from for l in la]) == \
                    sorted([l.idx_from for l in lb])
+    
+    def assert_independent(self, a, b):
+        assert self.last_graph.independant(a,b), "{a} and {b} are dependant!".format(a=a,b=b)
+    def assert_dependent(self, a, b):
+        assert not self.last_graph.independant(a,b), "{a} and {b} are independant!".format(a=a,b=b)
 
 class BaseTestDependencyGraph(DepTestHelper):
     def test_dependency_empty(self):
@@ -61,7 +69,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump()
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, [ [], [], ])
+        self.assert_edges(dep_graph, [ [], [], ])
 
     def test_dependency_of_constant_not_used(self):
         ops = """
@@ -70,7 +78,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump()
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, [ [], [], [] ])
+        self.assert_edges(dep_graph, [ [], [], [] ])
 
     def test_dependency_simple(self):
         ops = """
@@ -80,9 +88,16 @@ class BaseTestDependencyGraph(DepTestHelper):
         guard_value(i2,3) []
         jump()
         """
-        dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, 
+        graph = self.build_dependency(ops)
+        self.assert_edges(graph, 
                 [ [], [2], [1,3], [2], [], ])
+        for i in range(0,5):
+            self.assert_independent(0,i)
+        self.assert_dependent(1,2)
+        self.assert_dependent(2,3)
+        self.assert_dependent(1,3)
+        self.assert_independent(2,4)
+        self.assert_independent(3,4)
 
     def test_def_use_jump_use_def(self):
         ops = """
@@ -92,7 +107,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i1)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, 
+        self.assert_edges(dep_graph, 
                 [ [1], [0,2,3], [1], [1] ])
 
     def test_dependency_guard(self):
@@ -103,7 +118,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i3)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, 
+        self.assert_edges(dep_graph, 
                 [ [2,3], [2], [1,0], [0] ])
 
     def test_no_edge_duplication(self):
@@ -115,7 +130,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i3)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, 
+        self.assert_edges(dep_graph, 
                 [ [1,2,3], [0,2], [1,0], [0,4], [3] ])
 
     def test_no_edge_duplication_in_guard_failargs(self):
@@ -126,8 +141,11 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i1)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph, 
+        self.assert_edges(dep_graph, 
                 [ [1,2,3], [0,2], [1,0], [0] ])
+        self.assert_dependent(0,1)
+        self.assert_dependent(0,2)
+        self.assert_dependent(0,3)
 
     def test_swap_dependencies(self):
         ops = """
@@ -139,7 +157,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         """
         dep_graph = self.build_dependency(ops)
         dep_graph.swap_instructions(1,2)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,2,4], [4,0], [3,0], [2], [0,1] ])
         dep_graph.swap_instructions(1,2)
         self.assert_graph_equal(dep_graph, self.build_dependency(ops))
@@ -171,10 +189,13 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i12, i1, i14) # 11
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,3,6,7,11], [0,2], [1], [0,4], [3,5], [4],
                   # next entry is instr 6
                   [0,8], [0,9,11], [6,11], [7,10], [9], [7,0,8] ])
+        self.assert_independent(6, 2)
+        self.assert_independent(6, 1)
+        self.assert_dependent(6, 0)
 
     def test_prevent_double_arg(self):
         ops="""
@@ -184,7 +205,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i0, i1, i2)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,3], [0,2], [1], [0] ])
 
     def test_ovf_dep(self):
@@ -195,7 +216,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(i0, i1, i2)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,2,3], [0,2], [0,1], [0] ])
 
     def test_exception_dep(self):
@@ -206,7 +227,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p0, i1, i2)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,3], [0,2], [1], [0] ])
 
     def test_call_dependency_on_ptr_but_not_index_value(self):
@@ -219,7 +240,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p2, p1, i3)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,2,3,4,5], [0,2,4,5], [0,1,3], [0,2], [0,1,5], [4,0,1] ])
 
     def test_call_dependency(self):
@@ -232,7 +253,7 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p2, p1, i3)
         """
         dep_graph = self.build_dependency(ops)
-        self.assert_dependant(dep_graph,
+        self.assert_edges(dep_graph,
                 [ [1,2,3,4,5], [0,2,4,5], [0,1,3], [0,2], [0,1,5], [4,0,1] ])
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):

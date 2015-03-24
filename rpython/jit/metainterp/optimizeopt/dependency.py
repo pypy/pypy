@@ -171,7 +171,6 @@ class DependencyGraph(object):
 
     def _put_edge(self, idx_from, idx_to, arg):
         assert idx_from != idx_to
-        print("puttin", idx_from, idx_to)
         dep = self.instr_dependency(idx_from, idx_to)
         if dep is None:
             dep = Dependency(idx_from, idx_to, arg)
@@ -199,6 +198,32 @@ class DependencyGraph(object):
         edges = self.adjacent_list[idx]
         return edges
 
+    def independant(self, ai, bi):
+        """ An instruction depends on another if there is a dependency path from
+        A to B. It is not enough to check only if A depends on B, because
+        due to transitive relations.
+        """
+        if ai == bi:
+            return True
+        if ai > bi:
+            ai, bi = bi, ai
+        stmt_indices = [bi]
+        while len(stmt_indices) > 0:
+            idx = stmt_indices.pop()
+            for dep in self.instr_dependencies(idx):
+                if idx < dep.idx_to:
+                    # this dependency points downwards (thus unrelevant)
+                    continue
+                if ai > dep.idx_from:
+                    # this points above ai (thus unrelevant)
+                    continue
+
+                if dep.idx_from == ai:
+                    # dependant. There is a path from ai to bi
+                    return False
+                stmt_indices.append(dep.idx_from)
+        return True
+
     def definition_dependencies(self, idx):
         deps = []
         for dep in self.adjacent_list[idx]:
@@ -211,6 +236,8 @@ class DependencyGraph(object):
             Returns None if there is no dependency or the Dependency object in
             any other case.
         """
+        if from_instr_idx > to_instr_idx:
+            to_instr_idx, from_instr_idx = from_instr_idx, to_instr_idx
         for edge in self.instr_dependencies(from_instr_idx):
             if edge.idx_to == to_instr_idx:
                 return edge

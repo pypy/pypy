@@ -210,11 +210,11 @@ class VectorizingOptimizer(Optimizer):
                     # this is a use, thus if dep is not a defintion
                     # it points back to the definition
                     # if memref.origin == dep.defined_arg and not dep.is_definition:
-                    if memref.origin in dep.args and not dep.is_definition:
+                    if memref.origin in dep.args:
                         # if is_definition is false the params is swapped
-                        # idx_to attributes points to definer
-                        def_op = operations[dep.idx_to]
-                        opidx = dep.idx_to
+                        # idx_to attributes points to define
+                        def_op = operations[dep.idx_from]
+                        opidx = dep.idx_from
                         break
                 else:
                     # this is an error in the dependency graph
@@ -231,8 +231,18 @@ class VectorizingOptimizer(Optimizer):
                 else:
                     break
 
-    def init_pack_set(self):
-        self.pack_set = PackSet()
+        self.pack_set = PackSet(self.dependency_graph, operations)
+        memory_refs = self.vec_info.memory_refs.items()
+        # initialize the pack set
+        for a_opidx,a_memref in memory_refs:
+            for b_opidx,b_memref in memory_refs:
+                # instead of compare every possible combination and
+                # exclue a_opidx == b_opidx only consider the ones
+                # that point forward:
+                if a_opidx < b_opidx:
+                    if a_memref.is_adjacent_to(b_memref):
+                        if self.pack_set.can_be_packed(a_memref, b_memref):
+                            self.pack_set.packs.append(Pair(a_memref, b_memref))
 
     def vectorize_trace(self, loop):
         """ Implementation of the algorithm introduced by Larsen. Refer to
@@ -251,6 +261,116 @@ class VectorizingOptimizer(Optimizer):
         # was not able to vectorize
         return False
 
+def isomorphic(l_op, r_op):
+    """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
+    I think this definition is to strict. TODO -> find another reference
+    For now it must have the same instruction type, the array parameter must be equal,
+    and it must be of the same type (both size in bytes and type of array)
+    .
+    """
+    if l_op.getopnum() == r_op.getopnum() and \
+       l_op.getarg(0) == r_op.getarg(0):
+        l_d = l_op.getdescr()
+        r_d = r_op.getdescr()
+        if l_d is not None and r_d is not None:
+            if l_d.get_item_size_in_bytes() == r_d.get_item_size_in_bytes():
+                if l_d.getflag() == r_d.getflag():
+                    return True
+
+        elif l_d is None and r_d is None:
+            return True
+
+    return False
+
+class PackSet(object):
+
+    def __init__(self, dependency_graph, operations):
+        self.packs = []
+        self.dependency_graph = dependency_graph
+        self.operations = operations
+
+    def can_be_packed(self, lh_ref, rh_ref):
+        l_op = self.operations[lh_ref.op_idx]
+        r_op = self.operations[lh_ref.op_idx]
+        if isomorphic(l_op, r_op):
+            if self.dependency_graph.independant(lh_ref.op_idx, rh_ref.op_idx):
+                for pack in self.packs:
+                    if pack.left == lh_ref or pack.right == rh_ref:
+                        return False
+                return True
+        return False
+
+
+class Pack(object):
+    """ A pack is a set of n statements that are:
+        * isomorphic
+        * independant
+        Statements are named operations in the code.
+    """
+    def __init__(self, ops):
+        self.operations = ops
+
+class Pair(Pack):
+    """ A special Pack object with only two statements. """
+    def __init__(self, left, right):
+        assert isinstance(left, MemoryRef)
+        assert isinstance(right, MemoryRef)
+        self.left = left
+        self.right = right
+        Pack.__init__(self, [left, right])
+
+    def __eq__(self, other):
+        if isinstance(other, Pair):
+            return self.left == other.left and \
+                   self.right == other.right
+
+class MemoryRef(object):
+    def __init__(self, op_idx, array, origin, descr):
+        self.op_idx = op_idx
+        self.array = array
+        self.origin = origin
+        self.descr = descr
+        self.coefficient_mul = 1
+        self.coefficient_div = 1
+        self.constant = 0
+
+    def is_adjacent_to(self, other):
+        """ this is a symmetric relation """
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 1 or off == -1
+        return False
+
+    def is_adjacent_after(self, other):
+        """ the asymetric relation to is_adjacent_to """
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 1
+        return False
+
+    def __eq__(self, other):
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 0
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+    def calc_difference(self, other):
+        if self.array == other.array \
+            and self.origin == other.origin:
+            mycoeff = self.coefficient_mul // self.coefficient_div
+            othercoeff = other.coefficient_mul // other.coefficient_div
+            diff = other.constant - self.constant
+            return mycoeff == othercoeff, diff
+        return False, 0
+
+    def __repr__(self):
+        return 'MemoryRef(%s*(%s/%s)+%s)' % (self.origin, self.coefficient_mul,
+                                            self.coefficient_div, self.constant)
+
 class IntegralMod(object):
     """ Calculates integral modifications on an integer object.
     The operations must be provided in backwards direction and of one
@@ -268,26 +388,9 @@ class IntegralMod(object):
         self.constant = 0
         self.used_box = None
 
-    def operation_INT_SUB(self, op):
-        box_a0 = op.getarg(0)
-        box_a1 = op.getarg(1)
-        a0 = self.optimizer.getvalue(box_a0)
-        a1 = self.optimizer.getvalue(box_a1)
-        self.is_const_mod = True
-        if a0.is_constant() and a1.is_constant():
-            raise NotImplementedError()
-        elif a0.is_constant():
-            self.constant -= box_a0.getint() * self.coefficient_mul
-            self.used_box = box_a1
-        elif a1.is_constant():
-            self.constant -= box_a1.getint() * self.coefficient_mul
-            self.used_box = box_a0
-        else:
-            self.is_const_mod = False
-
     def _update_additive(self, i):
         return (i * self.coefficient_mul) / self.coefficient_div
-    
+
     additive_func_source = """
     def operation_{name}(self, op):
         box_a0 = op.getarg(0)
@@ -371,17 +474,23 @@ class LoopVectorizeInfo(object):
         self.memory_refs = {}
         self.track_memory_refs = False
 
-    def operation_RAW_LOAD(self, op):
+    array_access_source = """
+    def operation_{name}(self, op):
         descr = op.getdescr()
         if self.track_memory_refs:
             idx = len(self.optimizer._newoperations)-1
             self.memory_refs[idx] = \
-                    MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
+                    MemoryRef(idx, op.getarg(0), op.getarg(1), op.getdescr())
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
                or byte_count < self.smallest_type_bytes:
                 self.smallest_type_bytes = byte_count
+    """
+    exec py.code.Source(array_access_source.format(name='RAW_LOAD')).compile()
+    exec py.code.Source(array_access_source.format(name='GETARRAYITEM_GC')).compile()
+    exec py.code.Source(array_access_source.format(name='GETARRAYITEM_RAW')).compile()
+    del array_access_source
 
     def default_operation(self, operation):
         pass
@@ -389,70 +498,3 @@ dispatch_opt = make_dispatcher_method(LoopVectorizeInfo, 'operation_',
         default=LoopVectorizeInfo.default_operation)
 LoopVectorizeInfo.inspect_operation = dispatch_opt
 
-class PackSet(object):
-    pass
-
-class Pack(object):
-    """ A pack is a set of n statements that are:
-        * isomorphic
-        * independant
-        Statements are named operations in the code.
-    """
-    def __init__(self, ops):
-        self.operations = ops
-
-class Pair(Pack):
-    """ A special Pack object with only two statements. """
-    def __init__(self, left_op, right_op):
-        assert isinstance(left_op, rop.ResOperation)
-        assert isinstance(right_op, rop.ResOperation)
-        self.left_op = left_op
-        self.right_op = right_op
-        Pack.__init__(self, [left_op, right_op])
-
-
-class MemoryRef(object):
-    def __init__(self, array, origin, descr):
-        self.array = array
-        self.origin = origin
-        self.descr = descr
-        self.coefficient_mul = 1
-        self.coefficient_div = 1
-        self.constant = 0
-
-    def is_adjacent_to(self, other):
-        """ this is a symmetric relation """
-        match, off = self.calc_difference(other)
-        if match:
-            return off == 1 or off == -1
-        return False
-
-    def is_adjacent_after(self, other):
-        """ the asymetric relation to is_adjacent_to """
-        match, off = self.calc_difference(other)
-        if match:
-            return off == 1
-        return False
-
-    def __eq__(self, other):
-        match, off = self.calc_difference(other)
-        if match:
-            return off == 0
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-
-    def calc_difference(self, other):
-        if self.array == other.array \
-            and self.origin == other.origin:
-            mycoeff = self.coefficient_mul // self.coefficient_div
-            othercoeff = other.coefficient_mul // other.coefficient_div
-            diff = other.constant - self.constant
-            return mycoeff == othercoeff, diff
-        return False, 0
-
-    def __repr__(self):
-        return 'MemoryRef(%s*(%s/%s)+%s)' % (self.origin, self.coefficient_mul,
-                                            self.coefficient_div, self.constant)

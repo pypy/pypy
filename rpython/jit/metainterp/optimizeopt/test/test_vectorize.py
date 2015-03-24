@@ -9,7 +9,7 @@ import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
-from rpython.jit.metainterp.optimizeopt.vectorize import VectorizingOptimizer, MemoryRef
+from rpython.jit.metainterp.optimizeopt.vectorize import VectorizingOptimizer, MemoryRef, isomorphic
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
@@ -62,7 +62,6 @@ class VecTestHelper(BaseTest):
         opt = self.vec_optimizer_unrolled(loop, unroll_factor)
         opt.build_dependency_graph()
         opt.find_adjacent_memory_refs()
-        opt.initialize_pack_set()
         return opt
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
@@ -84,7 +83,7 @@ class VecTestHelper(BaseTest):
         for i,op in enumerate(loop.operations):
             print(i,op)
 
-    def assert_dependant(self, graph, edge_list):
+    def assert_edges(self, graph, edge_list):
         """ Check if all dependencies are met. for complex cases
         adding None instead of a list of integers skips the test.
         This checks both if a dependency forward and backward exists.
@@ -255,7 +254,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         vopt.build_dependency_graph()
-        self.assert_dependant(vopt.dependency_graph,
+        self.assert_edges(vopt.dependency_graph,
                 [ [1,2,3,5], [0], [0,3,4], [0,2], [2,5], [0,4] ])
 
         vopt.find_adjacent_memory_refs()
@@ -397,11 +396,27 @@ class BaseTestVectorize(VecTestHelper):
         i6 = int_add(i4,1)
         jump(p0,i1,i6)
         """
+        ops2 = """
+        [p0,i0,i4]
+        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i1 = int_add(i0,1)
+        i5 = raw_load(p0,i4,descr=chararraydescr)
+        i6 = int_add(i4,1)
+        i3 = raw_load(p0,i1,descr=chararraydescr)
+        i8 = int_add(i1,1)
+        i9 = raw_load(p0,i6,descr=chararraydescr)
+        i7 = int_add(i6,1)
+        jump(p0,i8,i7)
+        """
+
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         vopt.build_dependency_graph()
-        self.assert_no_edge(vopt.dependency_graph, [(i,i) for i in range(6)])
-        self.assert_def_use(vopt.dependency_graph, [(0,1),(0,2),(0,3),(0,4),(2,5)])
-        self.assert_no_edge(vopt.dependency_graph, [(1,3),(2,4)])
+        self.assert_edges(vopt.dependency_graph,
+                [ [1,2,3,4,5,7,9], 
+                    [0], [0,5,6], [0], [0,7,8],
+                    [0,2],  [2,9], [0,4], [4,9], 
+                  [0,6,8],
+                ])
 
         vopt.find_adjacent_memory_refs()
 
@@ -532,10 +547,33 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
-        vopt = self.init_pack_set(loop,2)
+        vopt = self.init_pack_set(loop,1)
+        assert vopt.dependency_graph.independant(1,5)
         assert vopt.pack_set is not None
+        assert len(vopt.vec_info.memory_refs) == 2
+        assert len(vopt.pack_set.packs) == 1
 
-
+    def test_isomorphic_operations(self):
+        ops_src = """
+        [p1,p0,i0]
+        i3 = getarrayitem_gc(p0, i0, descr=chararraydescr)
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 16)
+        i4 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        i5 = getarrayitem_gc(p1, i1, descr=floatarraydescr)
+        i6 = getarrayitem_gc(p0, i1, descr=floatarraydescr)
+        guard_true(i2) [p0, i0]
+        jump(p1,p0,i1)
+        """
+        loop = self.parse_loop(ops_src)
+        ops = loop.operations
+        assert isomorphic(ops[1], ops[4])
+        assert not isomorphic(ops[0], ops[1])
+        assert not isomorphic(ops[0], ops[5])
+        assert not isomorphic(ops[4], ops[5])
+        assert not isomorphic(ops[5], ops[6])
+        assert not isomorphic(ops[4], ops[6])
+        assert not isomorphic(ops[1], ops[6])
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

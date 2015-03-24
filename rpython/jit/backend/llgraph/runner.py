@@ -157,6 +157,10 @@ class ArrayDescr(AbstractDescr):
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
 
+    def getflag(self):
+        from rpython.jit.backend.llsupport.descr import get_type_flag
+        return get_type_flag(self.A.OF)
+
     def is_array_of_floats(self):
         return getkind(self.A.OF) == 'float'
 
