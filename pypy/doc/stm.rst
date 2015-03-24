@@ -155,7 +155,8 @@ Current status (stmgc-c7)
   show up occasionally elsewhere with accesses to some external
   resources, where the (apparent) serialized order doesn't match the
   underlying (multithreading) order.  These are bugs (partially fixed
-  already in ``stmgc-c8``).
+  already in ``stmgc-c8``).  Also, debugging helpers like
+  ``weakref.getweakrefcount()`` might give wrong answers.
 
 * The STM system is based on very efficient read/write barriers, which
   are mostly done (their placement could be improved a bit in
@@ -380,10 +381,7 @@ Common causes of conflicts:
 Note that Python is a complicated language; there are a number of less
 common cases that may cause conflict (of any kind) where we might not
 expect it at priori.  In many of these cases it could be fixed; please
-report any case that you don't understand.  (For example, so far,
-creating a weakref to an object requires attaching an auxiliary
-internal object to that object, and so it can cause write-write
-conflicts.)
+report any case that you don't understand.
 
 
 Atomic sections
