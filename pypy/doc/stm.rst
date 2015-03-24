@@ -147,6 +147,9 @@ Current status (stmgc-c7)
   crash on an assertion error because of a non-implemented overflow of
   an internal 28-bit counter.
 
+* The recursion detection code was not reimplemented.  Infinite
+  recursion just segfaults for now.
+
 
 .. _`report any crash`: https://bitbucket.org/pypy/pypy/issues?status=new&status=open
 .. __: https://bitbucket.org/pypy/pypy/raw/stmgc-c7/rpython/translator/stm/src_stm/stm/core.h
