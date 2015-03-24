@@ -48,20 +48,9 @@ class VectorizingOptimizer(Optimizer):
         self._newoperations.append(op)
         return True
 
-    def _rename_arguments_ssa(self, rename_map, label_args, jump_args):
-        # fill the map with the renaming boxes. keys are boxes from the label
-        # values are the target boxes.
-
-        # it is assumed that #label_args == #jump_args
-        for i in range(len(label_args)):
-            la = label_args[i]
-            ja = jump_args[i]
-            if la != ja:
-                rename_map[la] = ja
-
-    def unroll_loop_iterations(self, loop, unroll_factor):
-        """ Unroll the loop X times. Unroll_factor of 0 = no unrolling,
-        1 once, ...
+    def unroll_loop_iterations(self, loop, unroll_count):
+        """ Unroll the loop X times. unroll_count is an integral how
+        often to further unroll the loop.
         """
         op_count = len(loop.operations)
 
@@ -82,22 +71,23 @@ class VectorizingOptimizer(Optimizer):
             operations.append(op)
             self.emit_unrolled_operation(op)
             self.vec_info.inspect_operation(op)
-        jump_op_args = jump_op.getarglist()
 
+        orig_jump_args = jump_op.getarglist()[:]
+        # it is assumed that #label_args == #jump_args
+        label_arg_count = len(orig_jump_args)
         rename_map = {}
-        for i in range(0, unroll_factor):
-            # for each unrolling factor the boxes are renamed.
-            self._rename_arguments_ssa(rename_map, label_op_args, jump_op_args)
+        for i in range(0, unroll_count):
+            # fill the map with the renaming boxes. keys are boxes from the label
+            for i in range(label_arg_count):
+                la = label_op.getarg(i)
+                ja = jump_op.getarg(i)
+                if ja in rename_map:
+                    ja = rename_map[ja]
+                if la != ja:
+                    rename_map[la] = ja
+            #
             for op in operations:
                 copied_op = op.clone()
-
-                if copied_op.result is not None:
-                    # every result assigns a new box, thus creates an entry
-                    # to the rename map.
-                    new_assigned_box = copied_op.result.clonebox()
-                    rename_map[copied_op.result] = new_assigned_box
-                    copied_op.result = new_assigned_box
-
                 args = copied_op.getarglist()
                 for i, arg in enumerate(args):
                     try:
@@ -105,7 +95,6 @@ class VectorizingOptimizer(Optimizer):
                         copied_op.setarg(i, value)
                     except KeyError:
                         pass
-
                 # not only the arguments, but also the fail args need
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
@@ -113,23 +102,27 @@ class VectorizingOptimizer(Optimizer):
                     new_snapshot = self.clone_snapshot(copied_op.rd_snapshot,
                                                        rename_map)
                     copied_op.rd_snapshot = new_snapshot
-
+                #
+                if copied_op.result is not None:
+                    # every result assigns a new box, thus creates an entry
+                    # to the rename map.
+                    new_assigned_box = copied_op.result.clonebox()
+                    rename_map[copied_op.result] = new_assigned_box
+                    copied_op.result = new_assigned_box
+                #
                 self.emit_unrolled_operation(copied_op)
                 self.vec_info.inspect_operation(copied_op)
 
-            # the jump arguments have been changed
-            # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
-            # must look like this: label(i(X+1)) ... jump(i(X+2))
-
-            args = jump_op.getarglist()
-            for i, arg in enumerate(args):
-                try:
-                    value = rename_map[arg]
-                    jump_op.setarg(i, value)
-                except KeyError:
-                    pass
-            # map will be rebuilt, the jump operation has been updated already
-            rename_map.clear()
+        # the jump arguments have been changed
+        # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
+        # must look like this: label(i(X+1)) ... jump(i(X+2))
+        args = jump_op.getarglist()
+        for i, arg in enumerate(args):
+            try:
+                value = rename_map[arg]
+                jump_op.setarg(i, value)
+            except KeyError:
+                pass
 
         if self.last_debug_merge_point is not None:
             self._last_emitted_op = self.last_debug_merge_point
@@ -165,8 +158,8 @@ class VectorizingOptimizer(Optimizer):
         if byte_count == 0:
             return 0
         simd_vec_reg_bytes = 16 # TODO get from cpu
-        unroll_factor = simd_vec_reg_bytes // byte_count
-        return unroll_factor-1 # it is already unrolled once
+        unroll_count = simd_vec_reg_bytes // byte_count
+        return unroll_count-1 # it is already unrolled once
 
     def propagate_all_forward(self):
 
@@ -179,9 +172,9 @@ class VectorizingOptimizer(Optimizer):
             # stop, there is no chance to vectorize this trace
             raise NotAVectorizeableLoop()
 
-        unroll_factor = self.get_unroll_count()
+        unroll_count = self.get_unroll_count()
 
-        self.unroll_loop_iterations(self.loop, unroll_factor)
+        self.unroll_loop_iterations(self.loop, unroll_count)
 
         self.loop.operations = self.get_newoperations();
         self.clear_newoperations();
@@ -205,31 +198,20 @@ class VectorizingOptimizer(Optimizer):
         for opidx,memref in self.vec_info.memory_refs.items():
             integral_mod.reset()
             while True:
-
                 for dep in self.dependency_graph.instr_dependencies(opidx):
-                    # this is a use, thus if dep is not a defintion
-                    # it points back to the definition
-                    # if memref.origin == dep.defined_arg and not dep.is_definition:
-                    if memref.origin in dep.args:
-                        # if is_definition is false the params is swapped
-                        # idx_to attributes points to define
-                        def_op = operations[dep.idx_from]
-                        opidx = dep.idx_from
-                        break
+                    if dep.idx_from < opidx:
+                        op = operations[dep.idx_from]
+                        if op.result == memref.origin:
+                            opidx = dep.idx_from
+                            break
                 else:
-                    # this is an error in the dependency graph
-                    raise RuntimeError("a variable usage does not have a " +
-                             " definition. Cannot continue!")
+                    break # cannot go further, this might be the label, or a constant
 
-                op = operations[opidx]
-                if op.getopnum() == rop.LABEL:
-                    break
-
-                integral_mod.inspect_operation(def_op)
+                integral_mod.inspect_operation(op)
                 if integral_mod.is_const_mod:
                     integral_mod.update_memory_ref(memref)
                 else:
-                    break
+                    break # an operation that is not tractable
 
         self.pack_set = PackSet(self.dependency_graph, operations)
         memory_refs = self.vec_info.memory_refs.items()
@@ -265,8 +247,7 @@ def isomorphic(l_op, r_op):
     """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
     I think this definition is to strict. TODO -> find another reference
     For now it must have the same instruction type, the array parameter must be equal,
-    and it must be of the same type (both size in bytes and type of array)
-    .
+    and it must be of the same type (both size in bytes and type of array).
     """
     if l_op.getopnum() == r_op.getopnum() and \
        l_op.getarg(0) == r_op.getarg(0):
@@ -425,7 +406,7 @@ class IntegralMod(object):
         a1 = self.optimizer.getvalue(box_a1)
         self.is_const_mod = True
         if a0.is_constant() and a1.is_constant():
-            # here these factor becomes a constant, thus it is
+            # here this factor becomes a constant, thus it is
             # handled like any other additive operation
             self.used_box = None
             self.constant += self._update_additive(box_a0.getint() {cop} \

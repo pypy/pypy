@@ -1,4 +1,5 @@
 import py
+import pytest
 
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
@@ -552,6 +553,34 @@ class BaseTestVectorize(VecTestHelper):
         assert vopt.pack_set is not None
         assert len(vopt.vec_info.memory_refs) == 2
         assert len(vopt.pack_set.packs) == 1
+
+    def test_packset_init_2(self):
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 16)
+        guard_true(i2) [p0, i0]
+        i3 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        jump(p0,i1)
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.init_pack_set(loop,15)
+        self.debug_print_operations(loop)
+        assert len(vopt.vec_info.memory_refs) == 16
+        assert len(vopt.pack_set.packs) == 15
+        for i in range(15):
+            x = (i+1)*4
+            y = x + 4
+            assert vopt.dependency_graph.independant(x,y)
+            mref1 = vopt.vec_info.memory_refs[x]
+            mref2 = vopt.vec_info.memory_refs[y]
+            assert mref1.is_adjacent_to(mref2)
+            for pack in vopt.pack_set.packs:
+                if pack.left.op_idx == (i+1)*4 and \
+                   pack.right.op_idx == (i+1)*4 + 4:
+                    break
+            else:
+                pytest.fail("must find a pack set for {x},{y}".format(x=x,y=y))
 
     def test_isomorphic_operations(self):
         ops_src = """
