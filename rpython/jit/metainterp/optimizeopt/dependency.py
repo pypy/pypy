@@ -181,18 +181,15 @@ class DependencyGraph(object):
                 dep.args.append(arg)
 
     def get_uses(self, idx):
-        deps = []
         for dep in self.adjacent_list[idx]:
             if idx < dep.idx_to:
-                deps.append(dep)
-        return deps
+                yield dep
 
     def get_defs(self, idx):
         deps = []
         for dep in self.adjacent_list[idx]:
             if idx > dep.idx_from:
-                deps.append(dep)
-        return deps
+                yield dep
 
     def instr_dependencies(self, idx):
         edges = self.adjacent_list[idx]

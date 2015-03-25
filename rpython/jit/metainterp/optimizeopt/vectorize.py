@@ -228,8 +228,26 @@ class VectorizingOptimizer(Optimizer):
                                                    a_memref, b_memref)
 
     def extend_pack_set(self):
-        for p in self.pack_set.packs:
-            self.follow_def_uses(p)
+        pack_count = self.pack_set.pack_count()
+        while True:
+            for pack in self.pack_set.packs:
+                self.follow_use_defs(pack)
+                self.follow_def_uses(pack)
+            if pack_count == self.pack_set.pack_count():
+                break
+            pack_count = self.pack_set.pack_count()
+
+    def follow_use_defs(self, pack):
+        assert isinstance(pack, Pair)
+        for ldef in self.dependency_graph.get_defs(pack.left.opidx):
+            for rdef in self.dependency_graph.get_defs(pack.right.opidx):
+                ldef_idx = ldef.idx_from
+                rdef_idx = rdef.idx_from
+                if ldef_idx != rdef_idx and \
+                   self.pack_set.can_be_packed(ldef_idx, rdef_idx):
+                    savings = self.pack_set.estimate_savings(ldef_idx, rdef_idx)
+                    if savings >= 0:
+                        self.pack_set.add_pair(ldef_idx, rdef_idx)
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
