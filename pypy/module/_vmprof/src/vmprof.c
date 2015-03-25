@@ -37,10 +37,11 @@
 
 #define MAX_FUNC_NAME 128
 #define MAX_STACK_DEPTH 1024
+#define BUFFER_SIZE 8192
 
 
 static int profile_file = 0;
-static char profile_write_buffer[100000];
+static char profile_write_buffer[BUFFER_SIZE];
 static int profile_buffer_position = 0;
 void* vmprof_mainloop_func;
 static ptrdiff_t mainloop_sp_offset;
@@ -99,12 +100,14 @@ typedef struct {
     void* _unused3[sizeof(unw_cursor_t)/sizeof(void*) - 4];
 } vmprof_hacked_unw_cursor_t;
 
-static int vmprof_unw_step(unw_cursor_t *cp) {
+static int vmprof_unw_step(unw_cursor_t *cp, int first_run) {
 	void* ip;
     void* sp;
     ptrdiff_t sp_offset;
     unw_get_reg (cp, UNW_REG_IP, (unw_word_t*)&ip);
     unw_get_reg (cp, UNW_REG_SP, (unw_word_t*)&sp);
+	if (!first_run)
+		ip -= 1;
     sp_offset = vmprof_unw_get_custom_offset(ip, cp);
 
     if (sp_offset == -1) {
@@ -158,6 +161,7 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
     int ret = unw_init_local(&cursor, &uc);
     assert(ret >= 0);
     _unused(ret);
+	int first_run = 1;
 
     while (n < max_depth) {
         if (unw_get_reg(&cursor, UNW_REG_IP, (unw_word_t *) &ip) < 0) {
@@ -194,9 +198,10 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
 
         result[n++] = ip;
 		n = vmprof_write_header_for_jit_addr(result, n, ip, max_depth);
-        if (vmprof_unw_step(&cursor) <= 0) {
+        if (vmprof_unw_step(&cursor, first_run) <= 0) {
             break;
         }
+		first_run = 0;
     }
     --recursive;
     return n;
