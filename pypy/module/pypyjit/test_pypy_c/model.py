@@ -10,6 +10,8 @@ from rpython.tool.jitlogparser.parser import (SimpleParser, Function,
                                               TraceForOpcode)
 from rpython.tool.jitlogparser.storage import LoopStorage
 
+is_stm = 'pypystm' in sys.builtin_module_names
+
 
 def find_ids_range(code):
     """
@@ -322,24 +324,41 @@ class OpMatcher(object):
         # in jump_absolute() in pypyjit/interp.py. The string --TICK-- is
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
-        ticker_check = """
-            guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker_cond0 = int_lt(ticker0, 0)
-            guard_false(ticker_cond0, descr=...)
-            guard_not_invalidated?
-        """           # guard_not_invalidated might be at the end, in pypy-stm
+        if not is_stm:
+            ticker_check = """
+                guard_not_invalidated?
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker0, 0)
+                guard_false(ticker_cond0, descr=...)
+            """
+        else:
+            ticker_check = """
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker0, 0)
+                guard_false(ticker_cond0, descr=...)
+                guard_not_invalidated?
+            """
         src = src.replace('--TICK--', ticker_check)
         #
         # this is the ticker check generated if we have threads
-        thread_ticker_check = """
-            guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker1 = int_sub(ticker0, #)
-            setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker_cond0 = int_lt(ticker1, 0)
-            guard_false(ticker_cond0, descr=...)
-        """
+        if not is_stm:
+            thread_ticker_check = """
+                guard_not_invalidated?
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker1 = int_sub(ticker0, #)
+                setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker1, 0)
+                guard_false(ticker_cond0, descr=...)
+            """
+        else:
+            thread_ticker_check = """
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker0, 0)
+                guard_false(ticker_cond0, descr=...)
+                guard_not_invalidated?
+                i_sbt = stm_should_break_transaction()
+                guard_false(i_sbt, descr=...)
+            """
         src = src.replace('--THREAD-TICK--', thread_ticker_check)
         #
         # this is the ticker check generated in PyFrame.handle_operation_error

@@ -8,7 +8,15 @@ from rpython.tool.udir import udir
 from rpython.tool import logparser
 from rpython.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import \
-    Log, find_ids_range, find_ids, OpMatcher, InvalidMatch
+    Log, find_ids_range, find_ids, OpMatcher, InvalidMatch, is_stm
+
+
+if not is_stm:
+    SIGCHECK = ['guard_not_invalidated',
+                'getfield_raw', 'int_lt', 'guard_false']
+else:
+    SIGCHECK = ['getfield_raw', 'int_lt', 'guard_false',
+                'guard_not_invalidated']
 
 
 class BaseTestPyPyC(object):
@@ -446,19 +454,14 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert loop.filename == self.filepath
         assert loop.code.co.co_name == 'f'
         #
-        ops = log.opnames(loop.allops())
-        found = False
-        for SIGCHECK in (
-            ['guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false'],
-            ['getfield_raw', 'int_lt', 'guard_false', 'guard_not_invalidated'],
-            ):
-            found |= (ops == [
-                # this is the actual loop
-                'int_lt', 'guard_true', 'int_add',
-                # this is the signal checking stuff
-                ] + SIGCHECK + ['jump'])
-        #
-        assert found
+        ops = loop.allops()
+        assert log.opnames(ops) == [
+            # this is the actual loop
+            'int_lt', 'guard_true', 'int_add',
+            # this is the signal checking stuff
+            ] + SIGCHECK + [
+            'jump'
+            ]
 
     def test_ops_by_id(self):
         def f():
@@ -517,18 +520,13 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert add_ops == ['int_add']
         #
         ops = log.opnames(loop.allops())
-        found = False
-        for SIGCHECK in (
-            ['guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false'],
-            ['getfield_raw', 'int_lt', 'guard_false', 'guard_not_invalidated'],
-            ):
-            found |= (ops == [
-                # this is the actual loop
-                'int_lt', 'guard_true', 'force_token', 'int_add',
-                # this is the signal checking stuff
-                ] + SIGCHECK + ['jump'])
-        #
-        assert found
+        assert ops == [
+            # this is the actual loop
+            'int_lt', 'guard_true', 'force_token', 'int_add',
+            # this is the signal checking stuff
+            ] + SIGCHECK + [
+            'jump'
+            ]
 
     def test_loop_match(self):
         def f():
