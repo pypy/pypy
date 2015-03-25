@@ -327,7 +327,8 @@ class OpMatcher(object):
             ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)
-        """
+            guard_not_invalidated?
+        """           # guard_not_invalidated might be at the end, in pypy-stm
         src = src.replace('--TICK--', ticker_check)
         #
         # this is the ticker check generated if we have threads

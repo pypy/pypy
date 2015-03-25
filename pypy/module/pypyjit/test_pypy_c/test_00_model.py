@@ -446,14 +446,19 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert loop.filename == self.filepath
         assert loop.code.co.co_name == 'f'
         #
-        ops = loop.allops()
-        assert log.opnames(ops) == [
-            # this is the actual loop
-            'int_lt', 'guard_true', 'int_add',
-            # this is the signal checking stuff
-            'guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false',
-            'jump'
-            ]
+        ops = log.opnames(loop.allops())
+        found = False
+        for SIGCHECK in (
+            ['guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false'],
+            ['getfield_raw', 'int_lt', 'guard_false', 'guard_not_invalidated'],
+            ):
+            found |= (ops == [
+                # this is the actual loop
+                'int_lt', 'guard_true', 'int_add',
+                # this is the signal checking stuff
+                ] + SIGCHECK + ['jump'])
+        #
+        assert found
 
     def test_ops_by_id(self):
         def f():
@@ -512,13 +517,18 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert add_ops == ['int_add']
         #
         ops = log.opnames(loop.allops())
-        assert ops == [
-            # this is the actual loop
-            'int_lt', 'guard_true', 'force_token', 'int_add',
-            # this is the signal checking stuff
-            'guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false',
-            'jump'
-            ]
+        found = False
+        for SIGCHECK in (
+            ['guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false'],
+            ['getfield_raw', 'int_lt', 'guard_false', 'guard_not_invalidated'],
+            ):
+            found |= (ops == [
+                # this is the actual loop
+                'int_lt', 'guard_true', 'force_token', 'int_add',
+                # this is the signal checking stuff
+                ] + SIGCHECK + ['jump'])
+        #
+        assert found
 
     def test_loop_match(self):
         def f():
@@ -534,10 +544,11 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i10 = getfield_raw(..., descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
+            guard_not_invalidated?
             jump(..., descr=...)
         """)
         #
