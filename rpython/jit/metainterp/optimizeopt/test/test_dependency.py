@@ -282,5 +282,19 @@ class BaseTestDependencyGraph(DepTestHelper):
         self.assert_edges(dep_graph,
                 [ [1,2,3], [0,2], [0,1,3], [0,2] ])
 
+    def test_setarrayitem_same_modified_var_not_aliased(self):
+        # #1 depends on #2, i1 and i2 might alias, reordering would destroy
+        # coorectness
+        ops="""
+        [p0, i1]
+        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) #1
+        i2 = int_add(i1,1)
+        setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) #2
+        jump(p0, i1)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_edges(dep_graph,
+                [ [1,2,3,4], [0], [0,3], [0,2,4], [0,3] ])
+
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass
