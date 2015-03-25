@@ -56,11 +56,12 @@ class DepTestHelper(BaseTest):
                    sorted([l.idx_to for l in lb])
             assert sorted([l.idx_from for l in la]) == \
                    sorted([l.idx_from for l in lb])
-    
+
     def assert_independent(self, a, b):
-        assert self.last_graph.independant(a,b), "{a} and {b} are dependant!".format(a=a,b=b)
+        assert self.last_graph.independent(a,b), "{a} and {b} are dependent!".format(a=a,b=b)
+
     def assert_dependent(self, a, b):
-        assert not self.last_graph.independant(a,b), "{a} and {b} are independant!".format(a=a,b=b)
+        assert not self.last_graph.independent(a,b), "{a} and {b} are independent!".format(a=a,b=b)
 
 class BaseTestDependencyGraph(DepTestHelper):
     def test_dependency_empty(self):
@@ -255,6 +256,31 @@ class BaseTestDependencyGraph(DepTestHelper):
         dep_graph = self.build_dependency(ops)
         self.assert_edges(dep_graph,
                 [ [1,2,3,4,5], [0,2,4,5], [0,1,3], [0,2], [0,1,5], [4,0,1] ])
+
+    def test_setarrayitem_dependency(self):
+        ops="""
+        [p0, i1]
+        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # redef p0[i1]
+        i2 = getarrayitem_raw(p0, i1, descr=floatarraydescr) # use of redef above
+        setarrayitem_raw(p0, i1, 2, descr=floatarraydescr) # redef of p0[i1]
+        jump(p0, i2)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_edges(dep_graph,
+                [ [1,2,3], [0,2,3], [0,1,4], [0,1,4], [2,3] ])
+
+    def test_setarrayitem_alias_dependency(self):
+        # #1 depends on #2, i1 and i2 might alias, reordering would destroy
+        # coorectness
+        ops="""
+        [p0, i1, i2]
+        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) #1
+        setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) #2
+        jump(p0, i1, i2)
+        """
+        dep_graph = self.build_dependency(ops)
+        self.assert_edges(dep_graph,
+                [ [1,2,3], [0,2], [0,1,3], [0,2] ])
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

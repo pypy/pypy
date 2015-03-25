@@ -98,7 +98,7 @@ class VecTestHelper(BaseTest):
         import itertools
         combintations = set(itertools.product(range(instr_count),
                                               range(instr_count)))
-        combintations -= set([(5,10),(4,9)])
+        combintations -= set(exceptions)
         for a,b in combintations:
             self.assert_packset_not_contains(packset, a, b)
 
@@ -583,7 +583,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.init_pack_set(loop,1)
-        assert vopt.dependency_graph.independant(1,5)
+        assert vopt.dependency_graph.independent(1,5)
         assert vopt.pack_set is not None
         assert len(vopt.vec_info.memory_refs) == 2
         assert len(vopt.pack_set.packs) == 1
@@ -611,7 +611,7 @@ class BaseTestVectorize(VecTestHelper):
         for i in range(3):
             x = (i+1)*2
             y = x + 2
-            assert vopt.dependency_graph.independant(x,y)
+            assert vopt.dependency_graph.independent(x,y)
             self.assert_packset_contains(vopt.pack_set, x,y)
 
     def test_packset_init_2(self):
@@ -644,7 +644,7 @@ class BaseTestVectorize(VecTestHelper):
         for i in range(15):
             x = (i+1)*4
             y = x + 4
-            assert vopt.dependency_graph.independant(x,y)
+            assert vopt.dependency_graph.independent(x,y)
             self.assert_packset_contains(vopt.pack_set, x, y)
 
     def test_isomorphic_operations(self):
@@ -684,10 +684,32 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.extend_pack_set(loop,1)
         self.debug_print_operations(loop)
         assert len(vopt.vec_info.memory_refs) == 2
-        assert vopt.dependency_graph.independant(5,10) == True
+        assert vopt.dependency_graph.independent(5,10) == True
         assert len(vopt.pack_set.packs) == 2
         self.assert_packset_empty(vopt.pack_set, len(loop.operations),
                                   [(5,10), (4,9)])
+
+    def test_packset_extend_load_modify_store(self):
+        ops = """
+        [p0,i0]
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 16)
+        guard_true(i2) [p0, i0]
+        i3 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        i4 = int_mul(i3, 2)
+        setarrayitem_gc(p0, i1, i4, descr=chararraydescr)
+        jump(p0,i1)
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.extend_pack_set(loop,1)
+        self.debug_print_operations(loop)
+        assert len(vopt.vec_info.memory_refs) == 2
+        assert vopt.dependency_graph.independent(4,10)
+        assert vopt.dependency_graph.independent(5,11)
+        assert vopt.dependency_graph.independent(6,12)
+        assert len(vopt.pack_set.packs) == 3
+        self.assert_packset_empty(vopt.pack_set, len(loop.operations),
+                                  [(5,11), (4,10), (6,12)])
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

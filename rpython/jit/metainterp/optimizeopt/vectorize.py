@@ -309,7 +309,7 @@ class PackSet(object):
         l_op = self.operations[lop_idx]
         r_op = self.operations[rop_idx]
         if isomorphic(l_op, r_op):
-            if self.dependency_graph.independant(lop_idx, rop_idx):
+            if self.dependency_graph.independent(lop_idx, rop_idx):
                 for pack in self.packs:
                     if pack.left.opidx == lop_idx or \
                        pack.right.opidx == rop_idx:
@@ -329,7 +329,7 @@ class PackSet(object):
 class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic
-        * independant
+        * independent
         Statements are named operations in the code.
     """
     def __init__(self, ops):
