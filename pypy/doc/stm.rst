@@ -350,10 +350,17 @@ Common causes of conflicts:
   ``stmidset`` classes using the identity of the key.
 
 * ``time.time()`` and ``time.clock()`` turn the transaction inevitable
-  in order to guarantee that a call that appears to be later will
-  really return a higher number.  If getting slightly unordered
-  results is fine, use ``transaction.time()`` or
-  ``transaction.clock()``.
+  in order to guarantee that a call that appears to be later will really
+  return a higher number.  If getting slightly unordered results is
+  fine, use ``transaction.time()`` or ``transaction.clock()``.  The
+  latter operations guarantee to return increasing results only if you
+  can "prove" that two calls occurred in a specific order (for example
+  because they are both called by the same thread).  In cases where no
+  such proof is possible, you might get randomly interleaved values.
+  (If you have two independent transactions, they normally behave as if
+  one of them was fully executed before the other; but using
+  ``transaction.time()`` you might see the "hidden truth" that they are
+  actually interleaved.)
 
 * ``transaction.threadlocalproperty`` can be used at class-level::
 
