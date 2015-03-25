@@ -107,6 +107,9 @@ static int vmprof_unw_step(unw_cursor_t *cp, int first_run) {
     unw_get_reg (cp, UNW_REG_IP, (unw_word_t*)&ip);
     unw_get_reg (cp, UNW_REG_SP, (unw_word_t*)&sp);
 	if (!first_run)
+		// make sure we're pointing to the CALL and not to the first
+		// instruction after. If the callee adjusts the stack for us
+		// it's not safe to be at the instruction after
 		ip -= 1;
     sp_offset = vmprof_unw_get_custom_offset(ip, cp);
 
