@@ -226,22 +226,12 @@ class VectorizingOptimizer(Optimizer):
                         if self.pack_set.can_be_packed(a_memref, b_memref):
                             self.pack_set.packs.append(Pair(a_memref, b_memref))
 
-    def vectorize_trace(self, loop):
-        """ Implementation of the algorithm introduced by Larsen. Refer to
-              '''Exploiting Superword Level Parallelism
-                 with Multimedia Instruction Sets'''
-            for more details.
-        """
+    def extend_pack_set(self):
+        for p in self.pack_set.packs:
+            self.follow_def_uses(p)
 
-        for i,operation in enumerate(loop.operations):
-
-            if operation.getopnum() == rop.RAW_LOAD:
-                # TODO while the loop is unrolled, build memory accesses
-                pass
-
-
-        # was not able to vectorize
-        return False
+    def follow_def_uses(self, pack):
+        pass
 
 def isomorphic(l_op, r_op):
     """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
@@ -269,6 +259,9 @@ class PackSet(object):
         self.packs = []
         self.dependency_graph = dependency_graph
         self.operations = operations
+
+    def pack_count(self):
+        return len(self.packs)
 
     def can_be_packed(self, lh_ref, rh_ref):
         l_op = self.operations[lh_ref.op_idx]

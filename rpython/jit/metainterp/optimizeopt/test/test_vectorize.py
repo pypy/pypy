@@ -65,6 +65,13 @@ class VecTestHelper(BaseTest):
         opt.find_adjacent_memory_refs()
         return opt
 
+    def extend_pack_set(self, loop, unroll_factor = -1):
+        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
+        opt.build_dependency_graph()
+        opt.find_adjacent_memory_refs()
+        opt.extend_pack_set()
+        return opt
+
     def assert_unroll_loop_equals(self, loop, expected_loop, \
                      unroll_factor = -1):
         vec_optimizer = self.vec_optimizer_unrolled(loop, unroll_factor)
@@ -83,6 +90,14 @@ class VecTestHelper(BaseTest):
         print('--- loop instr numbered ---')
         for i,op in enumerate(loop.operations):
             print(i,op)
+
+    def assert_packset_contains(self, packset, x, y):
+        for pack in packset.packs:
+            if pack.left.op_idx == x and \
+               pack.right.op_idx == y:
+                break
+        else:
+            pytest.fail("must find a pack set for {x},{y}".format(x=x,y=y))
 
     def assert_edges(self, graph, edge_list):
         """ Check if all dependencies are met. for complex cases
@@ -554,6 +569,32 @@ class BaseTestVectorize(VecTestHelper):
         assert len(vopt.vec_info.memory_refs) == 2
         assert len(vopt.pack_set.packs) == 1
 
+    def test_packset_init_raw_load_not_adjacent_and_adjacent(self):
+        ops = """
+        [p0,i0]
+        i3 = raw_load(p0, i0, descr=floatarraydescr)
+        jump(p0,i0)
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.init_pack_set(loop,3)
+        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.pack_set.packs) == 0
+        ops = """
+        [p0,i0]
+        i2 = int_add(i0,1)
+        raw_load(p0, i2, descr=floatarraydescr)
+        jump(p0,i2)
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.init_pack_set(loop,3)
+        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.pack_set.packs) == 3
+        for i in range(3):
+            x = (i+1)*2
+            y = x + 2
+            assert vopt.dependency_graph.independant(x,y)
+            self.assert_packset_contains(vopt.pack_set, x,y)
+
     def test_packset_init_2(self):
         ops = """
         [p0,i0]
@@ -565,22 +606,27 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.init_pack_set(loop,15)
-        self.debug_print_operations(loop)
         assert len(vopt.vec_info.memory_refs) == 16
         assert len(vopt.pack_set.packs) == 15
+        # assure that memory refs are not adjacent for all
+        for i in range(15):
+            for j in range(15):
+                try:
+                    if i-4 == j or i+4 == j:
+                        mref1 = vopt.vec_info.memory_refs[i]
+                        mref2 = vopt.vec_info.memory_refs[j]
+                        assert mref1.is_adjacent_to(mref2)
+                    else:
+                        mref1 = vopt.vec_info.memory_refs[i]
+                        mref2 = vopt.vec_info.memory_refs[j]
+                        assert not mref1.is_adjacent_to(mref2)
+                except KeyError:
+                    pass
         for i in range(15):
             x = (i+1)*4
             y = x + 4
             assert vopt.dependency_graph.independant(x,y)
-            mref1 = vopt.vec_info.memory_refs[x]
-            mref2 = vopt.vec_info.memory_refs[y]
-            assert mref1.is_adjacent_to(mref2)
-            for pack in vopt.pack_set.packs:
-                if pack.left.op_idx == (i+1)*4 and \
-                   pack.right.op_idx == (i+1)*4 + 4:
-                    break
-            else:
-                pytest.fail("must find a pack set for {x},{y}".format(x=x,y=y))
+            self.assert_packset_contains(vopt.pack_set, x, y)
 
     def test_isomorphic_operations(self):
         ops_src = """
@@ -603,6 +649,24 @@ class BaseTestVectorize(VecTestHelper):
         assert not isomorphic(ops[5], ops[6])
         assert not isomorphic(ops[4], ops[6])
         assert not isomorphic(ops[1], ops[6])
+
+    def test_packset_extend_simple(self):
+        ops = """
+        [p0,i0,i10]
+        i1 = int_add(i0, 1)
+        i2 = int_le(i1, 16)
+        guard_true(i2) [p0, i0]
+        i3 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        i4 = int_add(i10, i3)
+        jump(p0,i1, i4)
+        """
+        loop = self.parse_loop(ops)
+        vopt = self.extend_pack_set(loop,1)
+        assert len(vopt.vec_info.memory_refs) == 2
+        assert len(vopt.pack_set.packs) == 2
+        assert vopt.dependency_graph.independant(5,10)
+        self.assert_packset_contains(vopt.pack_set, 5, 10)
+
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass
