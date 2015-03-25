@@ -223,15 +223,32 @@ class VectorizingOptimizer(Optimizer):
                 # that point forward:
                 if a_opidx < b_opidx:
                     if a_memref.is_adjacent_to(b_memref):
-                        if self.pack_set.can_be_packed(a_memref, b_memref):
-                            self.pack_set.packs.append(Pair(a_memref, b_memref))
+                        if self.pack_set.can_be_packed(a_opidx, b_opidx):
+                            self.pack_set.add_pair(a_opidx, b_opidx,
+                                                   a_memref, b_memref)
 
     def extend_pack_set(self):
         for p in self.pack_set.packs:
             self.follow_def_uses(p)
 
     def follow_def_uses(self, pack):
-        pass
+        assert isinstance(pack, Pair)
+        savings = -1
+        candidate = (-1,-1)
+        for luse in self.dependency_graph.get_uses(pack.left.opidx):
+            for ruse in self.dependency_graph.get_uses(pack.right.opidx):
+                luse_idx = luse.idx_to
+                ruse_idx = ruse.idx_to
+                if luse_idx != ruse_idx and \
+                   self.pack_set.can_be_packed(luse_idx, ruse_idx):
+                    est_savings = self.pack_set.estimate_savings(luse_idx,
+                                                                 ruse_idx)
+                    if est_savings > savings:
+                        savings = est_savings
+                        candidate = (luse_idx, ruse_idx)
+
+        if savings >= 0:
+            self.pack_set.add_pair(*candidate)
 
 def isomorphic(l_op, r_op):
     """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
@@ -239,19 +256,21 @@ def isomorphic(l_op, r_op):
     For now it must have the same instruction type, the array parameter must be equal,
     and it must be of the same type (both size in bytes and type of array).
     """
-    if l_op.getopnum() == r_op.getopnum() and \
-       l_op.getarg(0) == r_op.getarg(0):
-        l_d = l_op.getdescr()
-        r_d = r_op.getdescr()
-        if l_d is not None and r_d is not None:
-            if l_d.get_item_size_in_bytes() == r_d.get_item_size_in_bytes():
-                if l_d.getflag() == r_d.getflag():
-                    return True
-
-        elif l_d is None and r_d is None:
-            return True
-
-    return False
+    if l_op.getopnum() == r_op.getopnum():
+        return True
+    # the stronger counterpart. TODO which structural equivalence is
+    # needed here?
+    #if l_op.getopnum() == r_op.getopnum() and \
+    #   l_op.getarg(0) == r_op.getarg(0):
+    #    l_d = l_op.getdescr()
+    #    r_d = r_op.getdescr()
+    #    if l_d is not None and r_d is not None:
+    #        if l_d.get_item_size_in_bytes() == r_d.get_item_size_in_bytes():
+    #            if l_d.getflag() == r_d.getflag():
+    #                return True
+    #    elif l_d is None and r_d is None:
+    #        return True
+    #return False
 
 class PackSet(object):
 
@@ -263,16 +282,30 @@ class PackSet(object):
     def pack_count(self):
         return len(self.packs)
 
-    def can_be_packed(self, lh_ref, rh_ref):
-        l_op = self.operations[lh_ref.op_idx]
-        r_op = self.operations[lh_ref.op_idx]
+    def add_pair(self, lidx, ridx, lmemref = None, rmemref = None):
+        l = PackOpWrapper(lidx, lmemref)
+        r = PackOpWrapper(ridx, rmemref)
+        self.packs.append(Pair(l,r))
+
+    def can_be_packed(self, lop_idx, rop_idx):
+        l_op = self.operations[lop_idx]
+        r_op = self.operations[rop_idx]
         if isomorphic(l_op, r_op):
-            if self.dependency_graph.independant(lh_ref.op_idx, rh_ref.op_idx):
+            if self.dependency_graph.independant(lop_idx, rop_idx):
                 for pack in self.packs:
-                    if pack.left == lh_ref or pack.right == rh_ref:
+                    if pack.left.opidx == lop_idx or \
+                       pack.right.opidx == rop_idx:
                         return False
                 return True
         return False
+
+    def estimate_savings(self, lopidx, ropidx):
+        """ estimate the number of savings to add this pair.
+        Zero is the minimum value returned. This should take
+        into account the benefit of executing this instruction
+        as SIMD instruction.
+        """
+        return 0
 
 
 class Pack(object):
@@ -287,8 +320,8 @@ class Pack(object):
 class Pair(Pack):
     """ A special Pack object with only two statements. """
     def __init__(self, left, right):
-        assert isinstance(left, MemoryRef)
-        assert isinstance(right, MemoryRef)
+        assert isinstance(left, PackOpWrapper)
+        assert isinstance(right, PackOpWrapper)
         self.left = left
         self.right = right
         Pack.__init__(self, [left, right])
@@ -298,9 +331,18 @@ class Pair(Pack):
             return self.left == other.left and \
                    self.right == other.right
 
+class PackOpWrapper(object):
+    def __init__(self, opidx, memref = None):
+        self.opidx = opidx
+        self.memref = memref
+
+    def __eq__(self, other):
+        if isinstance(other, PackOpWrapper):
+            return self.opidx == other.opidx and self.memref == other.memref
+        return False
+
 class MemoryRef(object):
-    def __init__(self, op_idx, array, origin, descr):
-        self.op_idx = op_idx
+    def __init__(self, array, origin, descr):
         self.array = array
         self.origin = origin
         self.descr = descr
@@ -426,12 +468,10 @@ class IntegralMod(object):
     
 
     def update_memory_ref(self, memref):
-        #print("updating memory ref pre: ", memref)
         memref.constant = self.constant
         memref.coefficient_mul = self.coefficient_mul
         memref.coefficient_div = self.coefficient_div
         memref.origin = self.used_box
-        #print("updating memory ref post: ", memref)
 
     def default_operation(self, operation):
         pass
@@ -454,7 +494,7 @@ class LoopVectorizeInfo(object):
         if self.track_memory_refs:
             idx = len(self.optimizer._newoperations)-1
             self.memory_refs[idx] = \
-                    MemoryRef(idx, op.getarg(0), op.getarg(1), op.getdescr())
+                    MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
