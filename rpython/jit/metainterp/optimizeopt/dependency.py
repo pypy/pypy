@@ -1,3 +1,4 @@
+from rpython.jit.metainterp.optimizeopt.util import MemoryRef
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt
@@ -11,7 +12,6 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.SETINTERIORFIELD_RAW, 0, -1)
                      , (rop.SETFIELD_GC, 0, -1)
                      , (rop.SETFIELD_RAW, 0, -1)
-                     , (rop.ZERO_PTR_FIELD, 0, -1)
                      , (rop.ZERO_PTR_FIELD, 0, -1)
                      , (rop.ZERO_ARRAY, 0, -1)
                      , (rop.STRSETITEM, 0, -1)
@@ -46,6 +46,41 @@ class Dependency(object):
         return 'Dep(trace[%d] -> trace[%d], arg: %s)' \
                 % (self.idx_from, self.idx_to, self.args)
 
+class DefTracker(object):
+    def __init__(self, memory_refs):
+        self.memory_refs = memory_refs
+        self.defs = {}
+
+    def define(self, arg, index, argcell=None):
+        print "def", arg, "at", index, "cell", argcell
+        if arg in self.defs:
+            self.defs[arg].append((index,argcell))
+        else:
+            self.defs[arg] = [(index,argcell)]
+
+    def definition_index(self, arg, index, argcell=None):
+        def_chain = self.defs[arg]
+        if len(def_chain) == 1:
+            return def_chain[0][0]
+        else:
+            if argcell == None:
+                return def_chain[-1][0]
+            else:
+                i = len(def_chain)-1
+                try:
+                    mref = self.memory_refs[index]
+                    while i >= 0:
+                        def_index = def_chain[i][0]
+                        oref = self.memory_refs[def_index]
+                        if mref.indices_can_alias(oref):
+                            return def_index
+                        i -= 1
+                except KeyError:
+                    # when a key error is raised, this means
+                    # no information is available, assume the worst
+                    pass
+                return def_chain[-1][0]
+
 class DependencyGraph(object):
     """ A graph that represents one of the following dependencies:
           * True dependency
@@ -56,16 +91,19 @@ class DependencyGraph(object):
         Note that adjacent lists order their dependencies. They are ordered
         by the target instruction they point to if the instruction is
         a dependency.
+
+        memory_refs: a dict that contains indices of memory references
+        (load,store,getarrayitem,...). If none provided, the construction
+        is conservative. It will never dismiss dependencies of two
+        modifications of one array even if the indices can never point to
+        the same element.
     """
-    def __init__(self, operations):
+    def __init__(self, operations, memory_refs):
         self.operations = operations
+        self.memory_refs = memory_refs
         self.adjacent_list = [ [] for i in range(len(self.operations)) ]
-
         self.build_dependencies(self.operations)
-
-    def is_complex_object_load(self, op):
-        opnum = op.getopnum()
-        return rop._ALWAYS_PURE_LAST <= opnum and opnum <= rop._MALLOC_FIRST
+        self.integral_mod = IntegralMod()
 
     def build_dependencies(self, operations):
         """ This is basically building the definition-use chain and saving this
@@ -75,126 +113,119 @@ class DependencyGraph(object):
             Write After Read, Write After Write dependencies are not possible,
             the operations are in SSA form
         """
-        defining_indices = {}
-        complex_indices = {}
+        tracker = DefTracker(self.memory_refs)
 
         for i,op in enumerate(operations):
             # the label operation defines all operations at the
             # beginning of the loop
             if op.getopnum() == rop.LABEL:
                 for arg in op.getarglist():
-                    defining_indices[arg] = 0
+                    tracker.define(arg, 0)
                 continue # prevent adding edge to the label itself
 
+            # definition of a new variable
             if op.result is not None:
-                # the trace is always in SSA form, thus it is neither possible
-                # to have a WAR not a WAW dependency
-                defining_indices[op.result] = i
+                # In SSA form. Modifications get a new variable
+                tracker.define(op.result, i)
 
-            if self.is_complex_object_load(op):
-                self._reuse_complex_definitions(op, i, defining_indices, complex_indices)
-            elif op.getopnum() == rop.JUMP:
-                self._finish_building_graph(op, i, defining_indices, complex_indices)
-            else:
+            # usage of defined variables
+            if op.is_always_pure() or op.is_final():
                 # normal case every arguments definition is set
                 for arg in op.getarglist():
-                    self._def_use(arg, i, defining_indices)
+                    self._def_use(arg, i, tracker)
+            else:
+                self.update_memory_ref(op, i, integral_mod)
+                self.put_edges_for_complex_objects(op, i, tracker)
 
-            if op.getfailargs():
+            # guard specifics
+            if op.is_guard():
                 for arg in op.getfailargs():
-                    self._def_use(arg, i, defining_indices)
+                    self._def_use(arg, i, tracker)
+                if i > 0:
+                    self._guard_dependency(op, i, operations, tracker)
 
-            # a trace has store operations on complex operations
-            # (e.g. setarrayitem). in general only once cell is updated,
-            # and in theroy it could be tracked but for simplicity, the
-            # whole is marked as redefined, thus any later usage sees
-            # only this definition.
-            self._redefine_complex_modification(op, i, defining_indices,
-                                                complex_indices)
-            if op.is_guard() and i > 0:
-                self._guard_dependency(op, i, operations, defining_indices)
+    def update_memory_ref(self, op, index):
+        if index not in self.memory_refs:
+            return
+        memref = self.memory_refs[index]
+        self.integral_mod.reset()
+        while True:
+            for dep in self.get_defs(index):
+                op = operations[dep.idx_from]
+                if op.result == memref.origin:
+                    index = dep.idx_from
+                    break
+            else:
+                break # cannot go further, this might be the label, or a constant
+            self.integral_mod.inspect_operation(op)
+            if self.integral_mod.is_const_mod:
+                self.integral_mod.update_memory_ref(memref)
+            else:
+                break # an operation that is not tractable
 
-    def _finish_building_graph(self, jumpop, orig_index, defining_indices, complex_indices):
-        assert jumpop.getopnum() == rop.JUMP
-        for (cobj, obj_index),index in complex_indices.items():
-            try:
-                old_idx = defining_indices[cobj]
-                if old_idx < index:
-                    defining_indices[cobj] = index
-            except KeyError:
-                defining_indices[cobj] = index
+    def put_edges_for_complex_objects(self, op, index, tracker):
+        self.update_memory_ref(op, index)
+        if self.loads_from_complex_object(op):
+            # If this complex object load operation loads an index that has been
+            # modified, the last modification should be used to put a def-use edge.
+            for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
+                if opnum == op.getopnum():
+                    cobj = op.getarg(i)
+                    index_var = op.getarg(j)
+                    self._def_use(cobj, index, tracker, argcell=index_var)
+                    self._def_use(index_var, index, tracker)
+        else:
+            for arg, argcell, destroyed in self._side_effect_argument(op):
+                if argcell is not None:
+                    # tracks the exact cell that is modified
+                    self._def_use(arg, index, tracker, argcell=argcell)
+                    self._def_use(argcell, index, tracker)
+                    if destroyed:
+                        tracker.define(arg, index, argcell=argcell)
+                else:
+                    if destroyed:
+                        # we cannot be sure that only a one cell is modified
+                        # assume the worst, this is a complete redefintion
+                        try:
+                            # A trace is not in SSA form, but this complex object
+                            # modification introduces a WAR/WAW dependency
+                            def_idx = tracker.definition_index(arg, index)
+                            for dep in self.get_uses(def_idx):
+                                if dep.idx_to >= index:
+                                    break
+                                self._put_edge(dep.idx_to, index, argcell)
+                            self._put_edge(def_idx, index, argcell)
+                        except KeyError:
+                            pass
+                    else:
+                        # not destroyed, just a normal use of arg
+                        self._def_use(arg, index, tracker)
 
-        for arg in jumpop.getarglist():
-            self._def_use(arg, orig_index, defining_indices)
-
-    def _reuse_complex_definitions(self, op, index, defining_indices, complex_indices):
-        """ If this complex object load operation loads an index that has been
-        modified, the last modification should be used to put a def-use edge.
-        """
-        for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
-            if opnum == op.getopnum():
-                cobj = op.getarg(i)
-                index_var = op.getarg(j)
-                try:
-                    cindex = complex_indices[(cobj, index_var)]
-                    self._put_edge(cindex, index, cobj)
-                except KeyError:
-                    # not redefined, edge to the label(...) definition
-                    self._def_use(cobj, index, defining_indices)
-
-                # def-use for the index variable
-                self._def_use(index_var, index, defining_indices)
-
-    def _def_use(self, param, index, defining_indices):
+    def _def_use(self, arg, index, tracker, argcell=None):
         try:
-            def_idx = defining_indices[param]
-            self._put_edge(def_idx, index, param)
+            def_idx = tracker.definition_index(arg, index, argcell)
+            self._put_edge(def_idx, index, arg)
         except KeyError:
             pass
 
-    def _redefine_complex_modification(self, op, index, defining_indices, complex_indices):
-        if not op.has_no_side_effect():
-            for cobj, arg in self._destroyed_arguments(op):
-                if arg is not None:
-                    # tracks the exact cell that is modified
-                    try:
-                        cindex = complex_indices[(cobj,arg)]
-                        self._put_edge(cindex, index, cobj)
-                    except KeyError:
-                        pass
-                    complex_indices[(cobj,arg)] = index
-                else:
-                    # we cannot prove that only a cell is modified, but we have
-                    # to assume that many of them are!
-                    try:
-                        # put an edge from the def. and all later uses until this
-                        # instruction to this instruction
-                        def_idx = defining_indices[cobj]
-                        for dep in self.instr_dependencies(def_idx):
-                            if dep.idx_to >= index:
-                                break
-                            self._put_edge(dep.idx_to, index, arg)
-                        self._put_edge(def_idx, index, arg)
-                    except KeyError:
-                        pass
-
-    def _destroyed_arguments(self, op):
+    def _side_effect_argument(self, op):
         # if an item in array p0 is modified or a call contains an argument
         # it can modify it is returned in the destroyed list.
         args = []
-        if op.is_call() and op.getopnum() != rop.CALL_ASSEMBLER:
-            # free destroys an argument -> connect all uses & def with it
-            descr = op.getdescr()
-            extrainfo = descr.get_extra_info()
-            if extrainfo.oopspecindex == EffectInfo.OS_RAW_FREE:
-                args.append((op.getarg(1),None))
-        else:
+        if self.modifies_complex_object(op):
             for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
                 if op.getopnum() == opnum:
                     if j == -1:
-                        args.append((op.getarg(i), None))
+                        args.append((op.getarg(i), None, True))
                     else:
-                        args.append((op.getarg(i), op.getarg(j)))
+                        args.append((op.getarg(i), op.getarg(j), True))
+                    break
+        else:
+            # assume this destroys every argument... can be enhanced by looking
+            # at the effect info of a call for instance
+            for arg in op.getarglist():
+                args.append((arg,None,True))
+
         return args
 
     def _guard_dependency(self, op, i, operations, defining_indices):
@@ -329,4 +360,184 @@ class DependencyGraph(object):
         self.adjacent_list[ia] = depb
         self.adjacent_list[ib] = depa
 
+    def loads_from_complex_object(self, op):
+        opnum = op.getopnum()
+        return rop._ALWAYS_PURE_LAST <= opnum and opnum <= rop._MALLOC_FIRST
+
+    def modifies_complex_object(self, op):
+        opnum = op.getopnum()
+        return rop.SETARRAYITEM_GC<= opnum and opnum <= rop.UNICODESETITEM
+
+
+# Utilities for array references.
+# Needed by dependency.py and vectorize.py
+# ____________________________________________________________
+
+class IntegralMod(object):
+    """ Calculates integral modifications on an integer object.
+    The operations must be provided in backwards direction and of one
+    variable only. Call reset() to reuse this object for other variables.
+    See MemoryRef for an example.
+    """
+
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
+        self.reset()
+
+    def reset(self):
+        self.is_const_mod = False
+        self.coefficient_mul = 1
+        self.coefficient_div = 1
+        self.constant = 0
+        self.used_box = None
+
+    def _update_additive(self, i):
+        return (i * self.coefficient_mul) / self.coefficient_div
+
+    def is_const_integral(self, box):
+        if isinstance(box, ConstInt):
+            return True
+        return False
+
+    additive_func_source = """
+    def operation_{name}(self, op):
+        box_a0 = op.getarg(0)
+        box_a1 = op.getarg(1)
+        a0 = self.optimizer.getvalue(box_a0)
+        a1 = self.optimizer.getvalue(box_a1)
+        self.is_const_mod = True
+        if self.is_const_integral(a0) and self.is_const_integral(a1):
+            self.used_box = None
+            self.constant += self._update_additive(box_a0.getint() {op} \
+                                                      box_a1.getint())
+        elif self.is_const_integral(a0):
+            self.constant {op}= self._update_additive(box_a0.getint())
+            self.used_box = box_a1
+        elif self.is_const_integral(a1):
+            self.constant {op}= self._update_additive(box_a1.getint())
+            self.used_box = box_a0
+        else:
+            self.is_const_mod = False
+    """
+    exec py.code.Source(additive_func_source.format(name='INT_ADD', 
+                                                    op='+')).compile()
+    exec py.code.Source(additive_func_source.format(name='INT_SUB', 
+                                                    op='-')).compile()
+    del additive_func_source
+
+    multiplicative_func_source = """
+    def operation_{name}(self, op):
+        box_a0 = op.getarg(0)
+        box_a1 = op.getarg(1)
+        a0 = self.optimizer.getvalue(box_a0)
+        a1 = self.optimizer.getvalue(box_a1)
+        self.is_const_mod = True
+        if self.is_const_integral(a0) and self.is_const_integral(a1):
+            # here this factor becomes a constant, thus it is
+            # handled like any other additive operation
+            self.used_box = None
+            self.constant += self._update_additive(box_a0.getint() {cop} \
+                                                      box_a1.getint())
+        elif a0.is_constant():
+            self.coefficient_{tgt} {op}= box_a0.getint()
+            self.used_box = box_a1
+        elif self.is_const_integral(a1):
+            self.coefficient_{tgt} {op}= box_a1.getint()
+            self.used_box = box_a0
+        else:
+            self.is_const_mod = False
+    """
+    exec py.code.Source(multiplicative_func_source.format(name='INT_MUL', 
+                                                 op='*', tgt='mul',
+                                                 cop='*')).compile()
+    exec py.code.Source(multiplicative_func_source.format(name='INT_FLOORDIV',
+                                                 op='*', tgt='div',
+                                                 cop='/')).compile()
+    exec py.code.Source(multiplicative_func_source.format(name='UINT_FLOORDIV',
+                                                 op='*', tgt='div',
+                                                 cop='/')).compile()
+    del multiplicative_func_source
+
+    def update_memory_ref(self, memref):
+        memref.constant = self.constant
+        memref.coefficient_mul = self.coefficient_mul
+        memref.coefficient_div = self.coefficient_div
+        memref.origin = self.used_box
+
+    def default_operation(self, operation):
+        pass
+integral_dispatch_opt = make_dispatcher_method(IntegralMod, 'operation_',
+        default=IntegralMod.default_operation)
+IntegralMod.inspect_operation = integral_dispatch_opt
+del integral_dispatch_opt
+
+class MemoryRef(object):
+    """ a memory reference to an array object. IntegralMod is able
+    to propagate changes to this object if applied in backwards direction.
+    Example:
+
+    i1 = int_add(i0,1)
+    i2 = int_mul(i1,2)
+    setarrayitem_gc(p0, i2, 1, ...)
+
+    will result in the linear combination i0 * (2/1) + 2
+    """
+    def __init__(self, array, origin, descr):
+        self.array = array
+        self.origin = origin
+        self.descr = descr
+        self.coefficient_mul = 1
+        self.coefficient_div = 1
+        self.constant = 0
+
+    def is_adjacent_to(self, other):
+        """ this is a symmetric relation """
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 1 or off == -1
+        return False
+
+    def is_adjacent_after(self, other):
+        """ the asymetric relation to is_adjacent_to """
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 1
+        return False
+
+    def indices_can_alias(self, other):
+        """ can to array indices alias? they can alias iff 
+        self.origin != other.origin, or their
+        linear combination point to the same element.
+        """
+        match, off = self.calc_difference(other)
+        if match:
+            return off != 0
+        return False
+
+    def __eq__(self, other):
+        match, off = self.calc_difference(other)
+        if match:
+            return off == 0
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def accesses_same_object(self, other):
+        assert isinstance(other, MemoryRef)
+        return self.array == other.array
+
+    def calc_difference(self, other):
+        assert isinstance(other, MemoryRef)
+        if self.array == other.array \
+            and self.origin == other.origin:
+            mycoeff = self.coefficient_mul // self.coefficient_div
+            othercoeff = other.coefficient_mul // other.coefficient_div
+            diff = other.constant - self.constant
+            return mycoeff == othercoeff, diff
+        return False, 0
+
+    def __repr__(self):
+        return 'MemoryRef(%s*(%s/%s)+%s)' % (self.origin, self.coefficient_mul,
+                                            self.coefficient_div, self.constant)
 

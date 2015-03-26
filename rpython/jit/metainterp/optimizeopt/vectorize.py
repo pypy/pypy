@@ -2,7 +2,8 @@ import sys
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+        MemoryRef, IntegralMod)
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot
@@ -183,7 +184,8 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
 
     def build_dependency_graph(self):
-        self.dependency_graph = DependencyGraph(self.loop.operations)
+        self.dependency_graph = \
+            DependencyGraph(self.loop.operations, self.vec_info.memory_refs)
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -194,24 +196,6 @@ class VectorizingOptimizer(Optimizer):
         all others are integers that are calculated in reverse direction"""
         loop = self.loop
         operations = loop.operations
-        integral_mod = IntegralMod(self)
-        for opidx,memref in self.vec_info.memory_refs.items():
-            integral_mod.reset()
-            while True:
-                for dep in self.dependency_graph.instr_dependencies(opidx):
-                    if dep.idx_from < opidx:
-                        op = operations[dep.idx_from]
-                        if op.result == memref.origin:
-                            opidx = dep.idx_from
-                            break
-                else:
-                    break # cannot go further, this might be the label, or a constant
-
-                integral_mod.inspect_operation(op)
-                if integral_mod.is_const_mod:
-                    integral_mod.update_memory_ref(memref)
-                else:
-                    break # an operation that is not tractable
 
         self.pack_set = PackSet(self.dependency_graph, operations)
         memory_refs = self.vec_info.memory_refs.items()
@@ -359,143 +343,6 @@ class PackOpWrapper(object):
             return self.opidx == other.opidx and self.memref == other.memref
         return False
 
-class MemoryRef(object):
-    def __init__(self, array, origin, descr):
-        self.array = array
-        self.origin = origin
-        self.descr = descr
-        self.coefficient_mul = 1
-        self.coefficient_div = 1
-        self.constant = 0
-
-    def is_adjacent_to(self, other):
-        """ this is a symmetric relation """
-        match, off = self.calc_difference(other)
-        if match:
-            return off == 1 or off == -1
-        return False
-
-    def is_adjacent_after(self, other):
-        """ the asymetric relation to is_adjacent_to """
-        match, off = self.calc_difference(other)
-        if match:
-            return off == 1
-        return False
-
-    def __eq__(self, other):
-        match, off = self.calc_difference(other)
-        if match:
-            return off == 0
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-
-    def calc_difference(self, other):
-        if self.array == other.array \
-            and self.origin == other.origin:
-            mycoeff = self.coefficient_mul // self.coefficient_div
-            othercoeff = other.coefficient_mul // other.coefficient_div
-            diff = other.constant - self.constant
-            return mycoeff == othercoeff, diff
-        return False, 0
-
-    def __repr__(self):
-        return 'MemoryRef(%s*(%s/%s)+%s)' % (self.origin, self.coefficient_mul,
-                                            self.coefficient_div, self.constant)
-
-class IntegralMod(object):
-    """ Calculates integral modifications on an integer object.
-    The operations must be provided in backwards direction and of one
-    variable only. Call reset() to reuse this object for other variables.
-    """
-
-    def __init__(self, optimizer):
-        self.optimizer = optimizer
-        self.reset()
-
-    def reset(self):
-        self.is_const_mod = False
-        self.coefficient_mul = 1
-        self.coefficient_div = 1
-        self.constant = 0
-        self.used_box = None
-
-    def _update_additive(self, i):
-        return (i * self.coefficient_mul) / self.coefficient_div
-
-    additive_func_source = """
-    def operation_{name}(self, op):
-        box_a0 = op.getarg(0)
-        box_a1 = op.getarg(1)
-        a0 = self.optimizer.getvalue(box_a0)
-        a1 = self.optimizer.getvalue(box_a1)
-        self.is_const_mod = True
-        if a0.is_constant() and a1.is_constant():
-            self.used_box = None
-            self.constant += self._update_additive(box_a0.getint() {op} \
-                                                      box_a1.getint())
-        elif a0.is_constant():
-            self.constant {op}= self._update_additive(box_a0.getint())
-            self.used_box = box_a1
-        elif a1.is_constant():
-            self.constant {op}= self._update_additive(box_a1.getint())
-            self.used_box = box_a0
-        else:
-            self.is_const_mod = False
-    """
-    exec py.code.Source(additive_func_source.format(name='INT_ADD', 
-                                                    op='+')).compile()
-    exec py.code.Source(additive_func_source.format(name='INT_SUB', 
-                                                    op='-')).compile()
-    del additive_func_source
-
-    multiplicative_func_source = """
-    def operation_{name}(self, op):
-        box_a0 = op.getarg(0)
-        box_a1 = op.getarg(1)
-        a0 = self.optimizer.getvalue(box_a0)
-        a1 = self.optimizer.getvalue(box_a1)
-        self.is_const_mod = True
-        if a0.is_constant() and a1.is_constant():
-            # here this factor becomes a constant, thus it is
-            # handled like any other additive operation
-            self.used_box = None
-            self.constant += self._update_additive(box_a0.getint() {cop} \
-                                                      box_a1.getint())
-        elif a0.is_constant():
-            self.coefficient_{tgt} {op}= box_a0.getint()
-            self.used_box = box_a1
-        elif a1.is_constant():
-            self.coefficient_{tgt} {op}= box_a1.getint()
-            self.used_box = box_a0
-        else:
-            self.is_const_mod = False
-    """
-    exec py.code.Source(multiplicative_func_source.format(name='INT_MUL', 
-                                                 op='*', tgt='mul',
-                                                 cop='*')).compile()
-    exec py.code.Source(multiplicative_func_source.format(name='INT_FLOORDIV',
-                                                 op='*', tgt='div',
-                                                 cop='/')).compile()
-    exec py.code.Source(multiplicative_func_source.format(name='UINT_FLOORDIV',
-                                                 op='*', tgt='div',
-                                                 cop='/')).compile()
-    del multiplicative_func_source
-    
-
-    def update_memory_ref(self, memref):
-        memref.constant = self.constant
-        memref.coefficient_mul = self.coefficient_mul
-        memref.coefficient_div = self.coefficient_div
-        memref.origin = self.used_box
-
-    def default_operation(self, operation):
-        pass
-integral_dispatch_opt = make_dispatcher_method(IntegralMod, 'operation_',
-        default=IntegralMod.default_operation)
-IntegralMod.inspect_operation = integral_dispatch_opt
 
 
 class LoopVectorizeInfo(object):
@@ -519,9 +366,18 @@ class LoopVectorizeInfo(object):
                or byte_count < self.smallest_type_bytes:
                 self.smallest_type_bytes = byte_count
     """
-    exec py.code.Source(array_access_source.format(name='RAW_LOAD')).compile()
-    exec py.code.Source(array_access_source.format(name='GETARRAYITEM_GC')).compile()
-    exec py.code.Source(array_access_source.format(name='GETARRAYITEM_RAW')).compile()
+    exec py.code.Source(array_access_source
+              .format(name='RAW_LOAD')).compile()
+    exec py.code.Source(array_access_source
+              .format(name='RAW_STORE')).compile()
+    exec py.code.Source(array_access_source
+              .format(name='GETARRAYITEM_GC')).compile()
+    exec py.code.Source(array_access_source
+              .format(name='SETARRAYITEM_GC')).compile()
+    exec py.code.Source(array_access_source
+              .format(name='GETARRAYITEM_RAW')).compile()
+    exec py.code.Source(array_access_source
+              .format(name='SETARRAYITEM_RAW')).compile()
     del array_access_source
 
     def default_operation(self, operation):

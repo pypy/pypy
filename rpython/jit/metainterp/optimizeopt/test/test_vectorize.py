@@ -703,7 +703,7 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.extend_pack_set(loop,1)
         self.debug_print_operations(loop)
-        assert len(vopt.vec_info.memory_refs) == 2
+        assert len(vopt.vec_info.memory_refs) == 4
         assert vopt.dependency_graph.independent(4,10)
         assert vopt.dependency_graph.independent(5,11)
         assert vopt.dependency_graph.independent(6,12)

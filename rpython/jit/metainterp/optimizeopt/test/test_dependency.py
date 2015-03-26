@@ -3,14 +3,20 @@ import py
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
-from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph, Dependency
+from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
+        IntegralMod)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 class DepTestHelper(BaseTest):
 
-    def build_dependency(self, ops):
+    def build_dependency(self, ops, memory_refs = False):
         loop = self.parse_loop(ops)
-        self.last_graph = DependencyGraph(loop.operations)
+        refs = {}
+        if memory_refs:
+            opt = Optimizer(None, None, loop)
+
+
+        self.last_graph = DependencyGraph(loop.operations, refs)
         for i in range(len(self.last_graph.adjacent_list)):
             self.assert_independent(i,i)
         return self.last_graph
@@ -293,6 +299,9 @@ class BaseTestDependencyGraph(DepTestHelper):
         jump(p0, i1)
         """
         dep_graph = self.build_dependency(ops)
+        self.assert_edges(dep_graph,
+                [ [1,2,4], [0,3], [0,3], [0,1,2,4], [0,3] ])
+        dep_graph = self.build_dependency(ops, memory_refs=True)
         self.assert_edges(dep_graph,
                 [ [1,2,3,4], [0], [0,3], [0,2,4], [0,3] ])
 
