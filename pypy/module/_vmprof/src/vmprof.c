@@ -81,7 +81,7 @@ static void prof_write_stacktrace(void** stack, int depth, int count) {
     prof_word(depth);
     for(i=0; i<depth; i++)
         prof_word((long)stack[i]);
-	write(profile_file, profile_write_buffer, profile_buffer_position);
+    write(profile_file, profile_write_buffer, profile_buffer_position);
 }
 
 
