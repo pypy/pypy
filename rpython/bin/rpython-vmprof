@@ -24,3 +24,4 @@ try:
 	main()
 finally:
 	_vmprof.disable()
+    x.close()
