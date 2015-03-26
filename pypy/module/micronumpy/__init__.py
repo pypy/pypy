@@ -30,6 +30,9 @@ class MultiArrayModule(MixedModule):
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c
 
+    def startup(self, space):
+        from pypy.module.micronumpy.concrete import _setup
+        _setup()
 
 class UMathModule(MixedModule):
     appleveldefs = {}

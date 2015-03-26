@@ -1378,6 +1378,7 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         assert res[0] == "foobar"
 
     def test_keep_object_alive(self):
+        # XXX how can I run this test?
         import numpy as np
         import gc
         class O(object):
@@ -1386,6 +1387,5 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         fiveOs = [O()] * 5
         a = np.array(fiveOs, dtype=object)
         del fiveOs
-        gc.collect()
         gc.collect()
         assert a[2].whatami() == 'an object'

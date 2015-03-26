@@ -353,7 +353,7 @@ def customtrace(gc, obj, callback, arg):
     for i in range(length):
         gcref = rffi.cast(llmemory.GCREF, storage)
         w_obj = cast_gcref_to_instance(W_Root, gcref)
-        print w_obj 
+        print 'tracing', w_obj 
         gc._trace_callback(callback, arg, storage)
         storage += step
     
@@ -363,6 +363,15 @@ def _setup():
     print 'registering custom trace for OBJECTSTORE'
     rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
 
+@jit.dont_look_inside
+def _create_objectstore(storage, length, elsize):
+    gcstruct = lltype.malloc(OBJECTSTORE)
+    # JIT does not support cast_ptr_to_adr
+    gcstruct.storage = llmemory.cast_ptr_to_adr(storage)
+    print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
+    gcstruct.length = length
+    gcstruct.step = elsize
+    return gcstruct
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
@@ -414,12 +423,7 @@ class ConcreteArray(ConcreteArrayNotOwning):
             length = support.product(shape) 
             storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
             if dtype.num == NPY.OBJECT:
-                _setup() # make sure gc hook is registered
-                gcstruct = lltype.malloc(OBJECTSTORE)
-                gcstruct.storage = llmemory.cast_ptr_to_adr(storage)
-                print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
-                gcstruct.length = length
-                gcstruct.step = dtype.elsize
+                gcstruct = _create_objectstore(storage, length, dtype.elsize)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
         self.gcstruct = gcstruct
