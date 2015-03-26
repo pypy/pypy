@@ -214,6 +214,7 @@ class MIFrame(object):
             resbox = history.BoxInt(0)
             record_break = True
 
+        self.metainterp.heapcache.reset()
         rstm.possible_transaction_break(0)
 
         if record_break:
