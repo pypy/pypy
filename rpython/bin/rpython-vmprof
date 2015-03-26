@@ -21,7 +21,7 @@ import _vmprof
 x = open("vmprof.log", "w")
 _vmprof.enable(x.fileno(), 1000)
 try:
-	main()
+    main()
 finally:
-	_vmprof.disable()
+    _vmprof.disable()
     x.close()
