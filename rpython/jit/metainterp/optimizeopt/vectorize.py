@@ -2,9 +2,9 @@ import sys
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
-from rpython.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
         MemoryRef, IntegralMod)
-from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -31,7 +31,7 @@ class VectorizingOptimizer(Optimizer):
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, optimizations)
-        self.vec_info = LoopVectorizeInfo(self)
+        self.vec_info = LoopVectorizeInfo()
         self.memory_refs = []
         self.dependency_graph = None
         self.first_debug_merge_point = False
@@ -71,6 +71,7 @@ class VectorizingOptimizer(Optimizer):
             op = loop.operations[i].clone()
             operations.append(op)
             self.emit_unrolled_operation(op)
+            self.vec_info.index = len(self._newoperations)-1
             self.vec_info.inspect_operation(op)
 
         orig_jump_args = jump_op.getarglist()[:]
@@ -112,6 +113,7 @@ class VectorizingOptimizer(Optimizer):
                     copied_op.result = new_assigned_box
                 #
                 self.emit_unrolled_operation(copied_op)
+                self.vec_info.index = len(self._newoperations)-1
                 self.vec_info.inspect_operation(copied_op)
 
         # the jump arguments have been changed
@@ -343,22 +345,19 @@ class PackOpWrapper(object):
             return self.opidx == other.opidx and self.memref == other.memref
         return False
 
-
-
 class LoopVectorizeInfo(object):
 
-    def __init__(self, optimizer):
-        self.optimizer = optimizer
+    def __init__(self):
         self.smallest_type_bytes = 0
         self.memory_refs = {}
         self.track_memory_refs = False
+        self.index = 0
 
     array_access_source = """
     def operation_{name}(self, op):
         descr = op.getdescr()
         if self.track_memory_refs:
-            idx = len(self.optimizer._newoperations)-1
-            self.memory_refs[idx] = \
+            self.memory_refs[self.index] = \
                     MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()

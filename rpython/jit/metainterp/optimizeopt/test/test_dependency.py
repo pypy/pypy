@@ -4,19 +4,21 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
-        IntegralMod)
+        IntegralMod, MemoryRef)
+from rpython.jit.metainterp.optimizeopt.vectorize import LoopVectorizeInfo
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 class DepTestHelper(BaseTest):
 
-    def build_dependency(self, ops, memory_refs = False):
+    def build_dependency(self, ops, refs = False):
         loop = self.parse_loop(ops)
-        refs = {}
-        if memory_refs:
-            opt = Optimizer(None, None, loop)
-
-
-        self.last_graph = DependencyGraph(loop.operations, refs)
+        lvi = LoopVectorizeInfo()
+        if refs:
+            lvi.track_memory_refs = True
+            for i,op in enumerate(loop.operations):
+                lvi.index = i
+                lvi.inspect_operation(op)
+        self.last_graph = DependencyGraph(loop.operations, lvi.memory_refs)
         for i in range(len(self.last_graph.adjacent_list)):
             self.assert_independent(i,i)
         return self.last_graph
@@ -298,12 +300,12 @@ class BaseTestDependencyGraph(DepTestHelper):
         setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) #2
         jump(p0, i1)
         """
-        dep_graph = self.build_dependency(ops)
-        self.assert_edges(dep_graph,
-                [ [1,2,4], [0,3], [0,3], [0,1,2,4], [0,3] ])
-        dep_graph = self.build_dependency(ops, memory_refs=True)
+        dep_graph = self.build_dependency(ops, True)
         self.assert_edges(dep_graph,
                 [ [1,2,3,4], [0], [0,3], [0,2,4], [0,3] ])
+        dep_graph = self.build_dependency(ops)
+        self.assert_edges(dep_graph,
+                [ [1,2,4], [0,3], [0,3], [1,2,4], [0,3] ])
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

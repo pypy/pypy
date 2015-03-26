@@ -1,4 +1,5 @@
-from rpython.jit.metainterp.optimizeopt.util import MemoryRef
+import py
+from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt
@@ -52,13 +53,12 @@ class DefTracker(object):
         self.defs = {}
 
     def define(self, arg, index, argcell=None):
-        print "def", arg, "at", index, "cell", argcell
         if arg in self.defs:
             self.defs[arg].append((index,argcell))
         else:
             self.defs[arg] = [(index,argcell)]
 
-    def definition_index(self, arg, index, argcell=None):
+    def definition_index(self, arg, index = -1, argcell=None):
         def_chain = self.defs[arg]
         if len(def_chain) == 1:
             return def_chain[0][0]
@@ -66,13 +66,16 @@ class DefTracker(object):
             if argcell == None:
                 return def_chain[-1][0]
             else:
+                assert index != -1
                 i = len(def_chain)-1
                 try:
                     mref = self.memory_refs[index]
                     while i >= 0:
                         def_index = def_chain[i][0]
-                        oref = self.memory_refs[def_index]
-                        if mref.indices_can_alias(oref):
+                        oref = self.memory_refs.get(def_index)
+                        if oref is not None and mref.indices_can_alias(oref):
+                            return def_index
+                        elif oref is None:
                             return def_index
                         i -= 1
                 except KeyError:
@@ -102,8 +105,8 @@ class DependencyGraph(object):
         self.operations = operations
         self.memory_refs = memory_refs
         self.adjacent_list = [ [] for i in range(len(self.operations)) ]
-        self.build_dependencies(self.operations)
         self.integral_mod = IntegralMod()
+        self.build_dependencies(self.operations)
 
     def build_dependencies(self, operations):
         """ This is basically building the definition-use chain and saving this
@@ -134,7 +137,6 @@ class DependencyGraph(object):
                 for arg in op.getarglist():
                     self._def_use(arg, i, tracker)
             else:
-                self.update_memory_ref(op, i, integral_mod)
                 self.put_edges_for_complex_objects(op, i, tracker)
 
             # guard specifics
@@ -144,27 +146,32 @@ class DependencyGraph(object):
                 if i > 0:
                     self._guard_dependency(op, i, operations, tracker)
 
-    def update_memory_ref(self, op, index):
+    def update_memory_ref(self, op, index, tracker):
         if index not in self.memory_refs:
             return
         memref = self.memory_refs[index]
         self.integral_mod.reset()
+        try:
+            curidx = tracker.definition_index(memref.origin)
+        except KeyError:
+            return
+        curop = self.operations[curidx]
         while True:
-            for dep in self.get_defs(index):
-                op = operations[dep.idx_from]
-                if op.result == memref.origin:
-                    index = dep.idx_from
-                    break
-            else:
-                break # cannot go further, this might be the label, or a constant
-            self.integral_mod.inspect_operation(op)
+            self.integral_mod.inspect_operation(curop)
             if self.integral_mod.is_const_mod:
                 self.integral_mod.update_memory_ref(memref)
             else:
                 break # an operation that is not tractable
+            for dep in self.get_defs(curidx):
+                curop = self.operations[dep.idx_from]
+                if curop.result == memref.origin:
+                    curidx = dep.idx_from
+                    break
+            else:
+                break # cannot go further, this might be the label, or a constant
 
     def put_edges_for_complex_objects(self, op, index, tracker):
-        self.update_memory_ref(op, index)
+        self.update_memory_ref(op, index, tracker)
         if self.loads_from_complex_object(op):
             # If this complex object load operation loads an index that has been
             # modified, the last modification should be used to put a def-use edge.
@@ -189,7 +196,7 @@ class DependencyGraph(object):
                         try:
                             # A trace is not in SSA form, but this complex object
                             # modification introduces a WAR/WAW dependency
-                            def_idx = tracker.definition_index(arg, index)
+                            def_idx = tracker.definition_index(arg)
                             for dep in self.get_uses(def_idx):
                                 if dep.idx_to >= index:
                                     break
@@ -368,11 +375,6 @@ class DependencyGraph(object):
         opnum = op.getopnum()
         return rop.SETARRAYITEM_GC<= opnum and opnum <= rop.UNICODESETITEM
 
-
-# Utilities for array references.
-# Needed by dependency.py and vectorize.py
-# ____________________________________________________________
-
 class IntegralMod(object):
     """ Calculates integral modifications on an integer object.
     The operations must be provided in backwards direction and of one
@@ -380,8 +382,7 @@ class IntegralMod(object):
     See MemoryRef for an example.
     """
 
-    def __init__(self, optimizer):
-        self.optimizer = optimizer
+    def __init__(self):
         self.reset()
 
     def reset(self):
@@ -403,17 +404,15 @@ class IntegralMod(object):
     def operation_{name}(self, op):
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
-        a0 = self.optimizer.getvalue(box_a0)
-        a1 = self.optimizer.getvalue(box_a1)
         self.is_const_mod = True
-        if self.is_const_integral(a0) and self.is_const_integral(a1):
+        if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
             self.used_box = None
             self.constant += self._update_additive(box_a0.getint() {op} \
                                                       box_a1.getint())
-        elif self.is_const_integral(a0):
+        elif self.is_const_integral(box_a0):
             self.constant {op}= self._update_additive(box_a0.getint())
             self.used_box = box_a1
-        elif self.is_const_integral(a1):
+        elif self.is_const_integral(box_a1):
             self.constant {op}= self._update_additive(box_a1.getint())
             self.used_box = box_a0
         else:
@@ -429,19 +428,17 @@ class IntegralMod(object):
     def operation_{name}(self, op):
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
-        a0 = self.optimizer.getvalue(box_a0)
-        a1 = self.optimizer.getvalue(box_a1)
         self.is_const_mod = True
-        if self.is_const_integral(a0) and self.is_const_integral(a1):
+        if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
             # here this factor becomes a constant, thus it is
             # handled like any other additive operation
             self.used_box = None
             self.constant += self._update_additive(box_a0.getint() {cop} \
                                                       box_a1.getint())
-        elif a0.is_constant():
+        elif self.is_const_integral(box_a0):
             self.coefficient_{tgt} {op}= box_a0.getint()
             self.used_box = box_a1
-        elif self.is_const_integral(a1):
+        elif self.is_const_integral(box_a1):
             self.coefficient_{tgt} {op}= box_a1.getint()
             self.used_box = box_a0
         else:
@@ -511,7 +508,7 @@ class MemoryRef(object):
         """
         match, off = self.calc_difference(other)
         if match:
-            return off != 0
+            return off == 0
         return False
 
     def __eq__(self, other):
