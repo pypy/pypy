@@ -51,6 +51,11 @@ class Module(MixedModule):
 
         super(Module, cls).buildloaders()
 
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON"""
+        from pypy.module._ssl.interp_ssl import PWINFO_STORAGE
+        PWINFO_STORAGE.clear()
+
     def startup(self, space):
         from rpython.rlib.ropenssl import init_ssl
         init_ssl()

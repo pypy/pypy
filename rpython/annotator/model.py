@@ -587,6 +587,19 @@ class SomeImpossibleValue(SomeObject):
         return False
 
 
+class SomeProperty(SomeObject):
+    # used for union error only 
+    immutable = True
+    knowntype = type(property)
+
+    def __init__(self, prop):
+        self.fget = prop.fget
+        self.fset = prop.fset
+
+    def can_be_none(self):
+        return False
+
+
 s_None = SomeNone()
 s_Bool = SomeBool()
 s_Int = SomeInteger()
