@@ -22,13 +22,10 @@ eci = ExternalCompilationInfo(
         includes=['zlib.h'],
         testonly_libraries = testonly_libraries
     )
-try:
-    eci = rffi_platform.configure_external_library(
-        libname, eci,
-        [dict(prefix='zlib-'),
-         ])
-except CompilationError:
-    raise ImportError("Could not find a zlib library")
+eci = rffi_platform.configure_external_library(
+    libname, eci,
+    [dict(prefix='zlib-'),
+     ])
 
 
 constantnames = '''

@@ -5,15 +5,8 @@ Note that the interface has to be slightly different - this is not
 a drop-in replacement for the 'socket' module.
 """
 
-# Known missing features:
-#
-#   - address families other than AF_INET, AF_INET6, AF_UNIX, AF_PACKET
-#   - AF_PACKET is only supported on Linux
-#   - methods makefile(),
-#   - SSL
-#
-# It's unclear if makefile() and SSL support belong here or only as
-# app-level code for PyPy.
+# XXX this does not support yet the least common AF_xxx address families
+# supported by CPython.  See http://bugs.pypy.org/issue1942
 
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
 from rpython.rlib.objectmodel import instantiate, keepalive_until_here
@@ -200,23 +193,49 @@ if HAS_AF_PACKET:
         family = AF_PACKET
         struct = _c.sockaddr_ll
         maxlen = minlen = sizeof(struct)
+        ifr_name_size = _c.ifreq.c_ifr_name.length
+        sll_addr_size = _c.sockaddr_ll.c_sll_addr.length
+
+        def __init__(self, ifindex, protocol, pkttype=0, hatype=0, haddr=""):
+            addr = lltype.malloc(_c.sockaddr_ll, flavor='raw', zero=True,
+                                 track_allocation=False)
+            self.setdata(addr, PacketAddress.maxlen)
+            rffi.setintfield(addr, 'c_sll_family', AF_PACKET)
+            rffi.setintfield(addr, 'c_sll_protocol', htons(protocol))
+            rffi.setintfield(addr, 'c_sll_ifindex', ifindex)
+            rffi.setintfield(addr, 'c_sll_pkttype', pkttype)
+            rffi.setintfield(addr, 'c_sll_hatype', hatype)
+            halen = rffi.str2chararray(haddr,
+                                       rffi.cast(rffi.CCHARP, addr.c_sll_addr),
+                                       PacketAddress.sll_addr_size)
+            rffi.setintfield(addr, 'c_sll_halen', halen)
+
+        @staticmethod
+        def get_ifindex_from_ifname(fd, ifname):
+            p = lltype.malloc(_c.ifreq, flavor='raw')
+            iflen = rffi.str2chararray(ifname,
+                                       rffi.cast(rffi.CCHARP, p.c_ifr_name),
+                                       PacketAddress.ifr_name_size - 1)
+            p.c_ifr_name[iflen] = '\0'
+            err = _c.ioctl(fd, _c.SIOCGIFINDEX, p)
+            ifindex = p.c_ifr_ifindex
+            lltype.free(p, flavor='raw')
+            if err != 0:
+                raise RSocketError("invalid interface name")
+            return ifindex
 
         def get_ifname(self, fd):
+            ifname = ""
             a = self.lock(_c.sockaddr_ll)
-            p = lltype.malloc(_c.ifreq, flavor='raw')
-            rffi.setintfield(p, 'c_ifr_ifindex',
-                             rffi.getintfield(a, 'c_sll_ifindex'))
-            if (_c.ioctl(fd, _c.SIOCGIFNAME, p) == 0):
-                # eh, the iface name is a constant length array
-                i = 0
-                d = []
-                while p.c_ifr_name[i] != '\x00' and i < len(p.c_ifr_name):
-                    d.append(p.c_ifr_name[i])
-                    i += 1
-                ifname = ''.join(d)
-            else:
-                ifname = ""
-            lltype.free(p, flavor='raw')
+            ifindex = rffi.getintfield(a, 'c_sll_ifindex')
+            if ifindex:
+                p = lltype.malloc(_c.ifreq, flavor='raw')
+                rffi.setintfield(p, 'c_ifr_ifindex', ifindex)
+                if (_c.ioctl(fd, _c.SIOCGIFNAME, p) == 0):
+                    ifname = rffi.charp2strn(
+                        rffi.cast(rffi.CCHARP, p.c_ifr_name),
+                        PacketAddress.ifr_name_size)
+                lltype.free(p, flavor='raw')
             self.unlock()
             return ifname
 
@@ -235,11 +254,11 @@ if HAS_AF_PACKET:
 
         def get_hatype(self):
             a = self.lock(_c.sockaddr_ll)
-            res = bool(rffi.getintfield(a, 'c_sll_hatype'))
+            res = rffi.getintfield(a, 'c_sll_hatype')
             self.unlock()
             return res
 
-        def get_addr(self):
+        def get_haddr(self):
             a = self.lock(_c.sockaddr_ll)
             lgt = rffi.getintfield(a, 'c_sll_halen')
             d = []

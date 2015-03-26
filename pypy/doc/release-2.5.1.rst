@@ -67,7 +67,19 @@ Highlights
   `PyPy documentation`_  and we now have seperate `RPython documentation`_.
   Tell us what still isn't clear, or even better help us improve the documentation.
 
-* We merged version 2.7.9 of python's stdlib
+* We merged version 2.7.9 of python's stdlib. From the python release notice:
+
+  * The entirety of Python 3.4's `ssl module`_ has been backported. 
+    See `PEP 466`_ for justification.
+
+  * HTTPS certificate validation using the system's certificate store is now
+    enabled by default. See `PEP 476`_ for details.
+
+  * SSLv3 has been disabled by default in httplib and its reverse dependencies
+    due to the `POODLE attack`_.
+
+  * The `ensurepip module`_ has been backported, which provides the pip
+    package manager in every Python 2.7 installation. See `PEP 477`_.
 
 * The garbage collector now ignores parts of the stack which did not change
   since the last collection, another performance boost
@@ -84,6 +96,12 @@ Highlights
 
 .. _`PyPy documentation`: http://doc.pypy.org
 .. _`RPython documentation`: http://rpython.readthedocs.org
+.. _`ssl module`: https://docs.python.org/3/library/ssl.html
+.. _`PEP 466`: https://www.python.org/dev/peps/pep-0466
+.. _`PEP 476`: https://www.python.org/dev/peps/pep-0476
+.. _`PEP 477`: https://www.python.org/dev/peps/pep-0477
+.. _`POODLE attack`: https://www.imperialviolet.org/2014/10/14/poodle.html
+.. _`ensurepip module`: https://docs.python.org/2/library/ensurepip.html
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.1.html
 
 Please try it out and let us know what you think. We welcome
