@@ -614,6 +614,18 @@ Implementation
 XXX this section mostly empty for now
 
 
+Technical reports
+-----------------
+
+STMGC-C7 is described in detail in a `technical report`__.
+
+A separate `position paper`__ gives an overview of our position about
+STM in general.
+
+.. __: http://bitbucket.org/pypy/extradoc/src/extradoc/talk/dls2014/paper/paper.pdf
+.. __: http://bitbucket.org/pypy/extradoc/src/extradoc/talk/icooolps2014/
+
+
 Reference to implementation details
 -----------------------------------
 
