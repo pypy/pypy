@@ -232,7 +232,10 @@ enum /* transaction_state */ {
     TS_INEVITABLE,
 };
 
-static char *stm_object_pages;
+extern char *stm_object_pages;
+extern long _stm_segment_nb_pages;
+extern int _stm_nb_segments;
+extern int _stm_psegment_ofs;
 static int stm_object_pages_fd;
 static stm_thread_local_t *stm_all_thread_locals = NULL;
 

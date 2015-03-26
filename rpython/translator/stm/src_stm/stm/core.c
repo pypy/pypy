@@ -2,6 +2,11 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
+char *stm_object_pages;
+long _stm_segment_nb_pages = NB_PAGES;
+int _stm_nb_segments = NB_SEGMENTS;
+int _stm_psegment_ofs = (int)(uintptr_t)STM_PSEGMENT;
+
 
 static void teardown_core(void)
 {
