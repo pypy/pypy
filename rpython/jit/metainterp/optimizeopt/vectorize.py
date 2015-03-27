@@ -36,7 +36,8 @@ class VectorizingOptimizer(Optimizer):
         self.dependency_graph = None
         self.first_debug_merge_point = False
         self.last_debug_merge_point = None
-        self.pack_set = None
+        self.packset = None
+        self.unroll_count = 0
 
     def emit_unrolled_operation(self, op):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -175,9 +176,9 @@ class VectorizingOptimizer(Optimizer):
             # stop, there is no chance to vectorize this trace
             raise NotAVectorizeableLoop()
 
-        unroll_count = self.get_unroll_count()
+        self.unroll_count = self.get_unroll_count()
 
-        self.unroll_loop_iterations(self.loop, unroll_count)
+        self.unroll_loop_iterations(self.loop, self.unroll_count)
 
         self.loop.operations = self.get_newoperations();
         self.clear_newoperations();
@@ -199,7 +200,9 @@ class VectorizingOptimizer(Optimizer):
         loop = self.loop
         operations = loop.operations
 
-        self.pack_set = PackSet(self.dependency_graph, operations)
+        self.packset = PackSet(self.dependency_graph, operations,
+                                self.unroll_count,
+                                self.vec_info.smallest_type_bytes)
         memory_refs = self.vec_info.memory_refs.items()
         # initialize the pack set
         for a_opidx,a_memref in memory_refs:
@@ -209,50 +212,76 @@ class VectorizingOptimizer(Optimizer):
                 # that point forward:
                 if a_opidx < b_opidx:
                     if a_memref.is_adjacent_to(b_memref):
-                        if self.pack_set.can_be_packed(a_opidx, b_opidx):
-                            self.pack_set.add_pair(a_opidx, b_opidx,
+                        if self.packset.can_be_packed(a_opidx, b_opidx,
+                                                       a_memref, b_memref):
+                            self.packset.add_pair(a_opidx, b_opidx,
                                                    a_memref, b_memref)
 
-    def extend_pack_set(self):
-        pack_count = self.pack_set.pack_count()
+    def extend_packset(self):
+        pack_count = self.packset.pack_count()
         while True:
-            for pack in self.pack_set.packs:
+            for pack in self.packset.packs:
                 self.follow_use_defs(pack)
                 self.follow_def_uses(pack)
-            if pack_count == self.pack_set.pack_count():
+            if pack_count == self.packset.pack_count():
                 break
-            pack_count = self.pack_set.pack_count()
+            pack_count = self.packset.pack_count()
 
     def follow_use_defs(self, pack):
         assert isinstance(pack, Pair)
+        lref = pack.left.memref
+        rref = pack.right.memref
         for ldef in self.dependency_graph.get_defs(pack.left.opidx):
             for rdef in self.dependency_graph.get_defs(pack.right.opidx):
                 ldef_idx = ldef.idx_from
                 rdef_idx = rdef.idx_from
                 if ldef_idx != rdef_idx and \
-                   self.pack_set.can_be_packed(ldef_idx, rdef_idx):
-                    savings = self.pack_set.estimate_savings(ldef_idx, rdef_idx)
+                   self.packset.can_be_packed(ldef_idx, rdef_idx, lref, rref):
+                    savings = self.packset.estimate_savings(ldef_idx, rdef_idx)
                     if savings >= 0:
-                        self.pack_set.add_pair(ldef_idx, rdef_idx)
+                        self.packset.add_pair(ldef_idx, rdef_idx, lref, rref)
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
         savings = -1
-        candidate = (-1,-1)
+        candidate = (-1,-1, None, None)
+        lref = pack.left.memref
+        rref = pack.right.memref
         for luse in self.dependency_graph.get_uses(pack.left.opidx):
             for ruse in self.dependency_graph.get_uses(pack.right.opidx):
                 luse_idx = luse.idx_to
                 ruse_idx = ruse.idx_to
                 if luse_idx != ruse_idx and \
-                   self.pack_set.can_be_packed(luse_idx, ruse_idx):
-                    est_savings = self.pack_set.estimate_savings(luse_idx,
+                   self.packset.can_be_packed(luse_idx, ruse_idx, lref, rref):
+                    est_savings = self.packset.estimate_savings(luse_idx,
                                                                  ruse_idx)
                     if est_savings > savings:
                         savings = est_savings
-                        candidate = (luse_idx, ruse_idx)
-
+                        candidate = (luse_idx, ruse_idx, lref, rref)
+        #
         if savings >= 0:
-            self.pack_set.add_pair(*candidate)
+            self.packset.add_pair(*candidate)
+
+    def combine_packset(self):
+        changed = False
+        while True:
+            changed = False
+            for i,pack1 in enumerate(self.packset.packs):
+                for j,pack2 in enumerate(self.packset.packs):
+                    if i == j:
+                        continue
+                    if pack1.rightmost_match_leftmost(pack2):
+                        self.packset.combine(i,j)
+                        changed = True
+                        break
+                    if pack2.rightmost_match_leftmost(pack1):
+                        self.packset.combine(j,i)
+                        changed = True
+                        break
+                if changed:
+                    break
+            if not changed:
+                break
 
 def isomorphic(l_op, r_op):
     """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
@@ -278,20 +307,23 @@ def isomorphic(l_op, r_op):
 
 class PackSet(object):
 
-    def __init__(self, dependency_graph, operations):
+    def __init__(self, dependency_graph, operations, unroll_count,
+                 smallest_type_bytes):
         self.packs = []
         self.dependency_graph = dependency_graph
         self.operations = operations
+        self.unroll_count = unroll_count
+        self.smallest_type_bytes = smallest_type_bytes
 
     def pack_count(self):
         return len(self.packs)
 
-    def add_pair(self, lidx, ridx, lmemref = None, rmemref = None):
+    def add_pair(self, lidx, ridx, lmemref=None, rmemref=None):
         l = PackOpWrapper(lidx, lmemref)
         r = PackOpWrapper(ridx, rmemref)
         self.packs.append(Pair(l,r))
 
-    def can_be_packed(self, lop_idx, rop_idx):
+    def can_be_packed(self, lop_idx, rop_idx, lmemref, rmemref):
         l_op = self.operations[lop_idx]
         r_op = self.operations[rop_idx]
         if isomorphic(l_op, r_op):
@@ -311,6 +343,15 @@ class PackSet(object):
         """
         return 0
 
+    def combine(self, i, j):
+        print "combine", i, j
+        pack_i = self.packs[i]
+        pack_j = self.packs[j]
+        operations = pack_i.operations
+        for op in pack_j.operations[1:]:
+            operations.append(op)
+        self.packs[i] = Pack(operations)
+        del self.packs[j]
 
 class Pack(object):
     """ A pack is a set of n statements that are:
@@ -320,6 +361,15 @@ class Pack(object):
     """
     def __init__(self, ops):
         self.operations = ops
+
+    def rightmost_match_leftmost(self, other):
+        assert isinstance(other, Pack)
+        rightmost = self.operations[-1]
+        leftmost = other.operations[0]
+        return rightmost == leftmost
+
+    def __repr__(self):
+        return "Pack(%r)" % self.operations
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
@@ -344,6 +394,9 @@ class PackOpWrapper(object):
         if isinstance(other, PackOpWrapper):
             return self.opidx == other.opidx and self.memref == other.memref
         return False
+
+    def __repr__(self):
+        return "PackOpWrapper(%d, %r)" % (self.opidx, self.memref)
 
 class LoopVectorizeInfo(object):
 
