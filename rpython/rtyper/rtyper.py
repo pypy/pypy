@@ -54,7 +54,6 @@ class RPythonTyper(object):
         self.concrete_calltables = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
-        self.typererrors = []
         self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
@@ -233,38 +232,12 @@ class RPythonTyper(object):
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
-        if self.typererrors:
-            self.dump_typererrors(to_log=True)
-            raise TyperError("there were %d error" % len(self.typererrors))
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))
         annmixlevel = self.annmixlevel
         del self.annmixlevel
         if annmixlevel is not None:
             annmixlevel.finish()
-
-    def dump_typererrors(self, num=None, minimize=True, to_log=False):
-        c = 0
-        bc = 0
-        for err in self.typererrors[:num]:
-            c += 1
-            if minimize and isinstance(err, BrokenReprTyperError):
-                bc += 1
-                continue
-            graph, block, position = err.where
-            errmsg = ("TyperError-%d: %s\n" % (c, graph) +
-                      str(err) +
-                      "\n")
-            if to_log:
-                self.log.ERROR(errmsg)
-            else:
-                print errmsg
-        if bc:
-            minmsg = "(minimized %d errors away for this dump)" % (bc,)
-            if to_log:
-                self.log.ERROR(minmsg)
-            else:
-                print minmsg
 
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
