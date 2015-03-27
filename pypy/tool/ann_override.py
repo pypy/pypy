@@ -13,11 +13,10 @@ def isidentifier(s):
 
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
-    def __init__(pol, single_space=None):
+    def __init__(pol):
         pol.lookups = {}
         pol.lookups_where = {}
         pol.pypytypes = {}
-        pol.single_space = single_space
 
     def specialize__wrap(pol,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import W_Root
