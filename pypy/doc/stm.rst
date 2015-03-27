@@ -29,7 +29,8 @@ What pypy-stm is for
 ====================
 
 ``pypy-stm`` is a variant of the regular PyPy interpreter.  (This
-version supports Python 2.7; see below for `Python 3`_.)  With caveats_
+version supports Python 2.7; see below for `Python 3, CPython,
+and others`_.)  With caveats_
 listed below, it should be in theory within 20%-50% slower than a
 regular PyPy, comparing the JIT version in both cases (but see below!).
 It is called
@@ -178,8 +179,8 @@ Current status (stmgc-c7)
 
 
 
-Python 3
-========
+Python 3, CPython, and others
+=============================
 
 In this document I describe "pypy-stm", which is based on PyPy's Python
 2.7 interpreter.  Supporting Python 3 should take about half an
@@ -194,6 +195,29 @@ The same is true for other languages implemented in the RPython
 framework, although the amount of work to put there might vary, because
 the STM framework within RPython is currently targeting the PyPy
 interpreter and other ones might have slightly different needs.
+But in general, all the tedious transformations are done by RPython
+and you're only left with the (hopefully few) hard and interesting bits.
+
+The core of STM works as a library written in C (see `reference to
+implementation details`_ below).  It means that it can be used on
+other interpreters than the ones produced by RPython.  Duhton_ is an
+early example of that.  At this point, you might think about adapting
+this library for CPython.  You're warned, though: as far as I can
+tell, it is a doomed idea.  I had a hard time debugging Duhton, and
+that's infinitely simpler than CPython.  Even ignoring that, you can
+see in the C sources of Duhton that many core design decisions are
+different than in CPython: no refcounting; limited support for
+prebuilt "static" objects; ``stm_read()`` and ``stm_write()`` macro
+calls everywhere (and getting very rare and very obscure bugs if you
+forget one); and so on.  You could imagine some custom special-purpose
+extension of the C language, which you would preprocess to regular C.
+In my opinion that's starting to look a lot like RPython itself, but
+maybe you'd prefer this approach.  Of course you still have to worry
+about each and every C extension module you need, but maybe you'd have
+a way forward.
+
+.. _Duhton: https://bitbucket.org/pypy/duhton
+
 
 
 User Guide
