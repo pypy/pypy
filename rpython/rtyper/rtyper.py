@@ -26,7 +26,6 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     attachRuntimeTypeInfo, Primitive)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
 from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
-from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
@@ -55,8 +54,6 @@ class RPythonTyper(object):
         self.concrete_calltables = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
-        self.typererrors = []
-        self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         self.isinstance_helpers = {}
@@ -169,22 +166,16 @@ class RPythonTyper(object):
     def specialize(self, dont_simplify_again=False):
         """Main entry point: specialize all annotated blocks of the program."""
         # specialize depends on annotator simplifications
-        assert dont_simplify_again in (False, True)  # safety check
         if not dont_simplify_again:
             self.annotator.simplify()
-
-        # first make sure that all functions called in a group have exactly
-        # the same signature, by hacking their flow graphs if needed
-        perform_normalizations(self.annotator)
         self.exceptiondata.finish(self)
 
         # new blocks can be created as a result of specialize_block(), so
         # we need to be careful about the loop here.
         self.already_seen = {}
         self.specialize_more_blocks()
-        if self.exceptiondata is not None:
-            self.exceptiondata.make_helpers(self)
-            self.specialize_more_blocks()   # for the helpers just made
+        self.exceptiondata.make_helpers(self)
+        self.specialize_more_blocks()   # for the helpers just made
 
     def getannmixlevel(self):
         if self.annmixlevel is not None:
@@ -231,47 +222,17 @@ class RPythonTyper(object):
                     percentage = 100 * n // total
                     if percentage >= previous_percentage + 5:
                         previous_percentage = percentage
-                        if self.typererror_count:
-                            error_report = " but %d errors" % self.typererror_count
-                        else:
-                            error_report = ''
-                        self.log.event('specializing: %d / %d blocks   (%d%%)%s' %
-                                       (n, total, percentage, error_report))
+                        self.log.event('specializing: %d / %d blocks   (%d%%)' %
+                                       (n, total, percentage))
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
-        if self.typererrors:
-            self.dump_typererrors(to_log=True)
-            raise TyperError("there were %d error" % len(self.typererrors))
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))
         annmixlevel = self.annmixlevel
         del self.annmixlevel
         if annmixlevel is not None:
             annmixlevel.finish()
-
-    def dump_typererrors(self, num=None, minimize=True, to_log=False):
-        c = 0
-        bc = 0
-        for err in self.typererrors[:num]:
-            c += 1
-            if minimize and isinstance(err, BrokenReprTyperError):
-                bc += 1
-                continue
-            graph, block, position = err.where
-            errmsg = ("TyperError-%d: %s\n" % (c, graph) +
-                      str(err) +
-                      "\n")
-            if to_log:
-                self.log.ERROR(errmsg)
-            else:
-                print errmsg
-        if bc:
-            minmsg = "(minimized %d errors away for this dump)" % (bc,)
-            if to_log:
-                self.log.ERROR(minmsg)
-            else:
-                print minmsg
 
     def call_all_setups(self):
         # make sure all reprs so far have had their setup() called
@@ -324,9 +285,9 @@ class RPythonTyper(object):
         # give the best possible types to the input args
         try:
             self.setup_block_entry(block)
-        except TyperError, e:
-            self.gottypererror(e, block, "block-entry", None)
-            return  # cannot continue this block
+        except TyperError as e:
+            self.gottypererror(e, block, "block-entry")
+            raise
 
 
         # specialize all the operations, as far as possible
@@ -341,9 +302,9 @@ class RPythonTyper(object):
             try:
                 hop.setup()  # this is called from here to catch TyperErrors...
                 self.translate_hl_to_ll(hop, varmapping)
-            except TyperError, e:
-                self.gottypererror(e, block, hop.spaceop, newops)
-                return  # cannot continue this block: no op.result.concretetype
+            except TyperError as e:
+                self.gottypererror(e, block, hop.spaceop)
+                raise
 
         block.operations[:] = newops
         block.renamevariables(varmapping)
@@ -432,9 +393,9 @@ class RPythonTyper(object):
                     continue   # no conversion needed
                 try:
                     new_a1 = newops.convertvar(a1, r_a1, r_a2)
-                except TyperError, e:
-                    self.gottypererror(e, block, link, newops)
-                    continue # try other args
+                except TyperError as e:
+                    self.gottypererror(e, block, link)
+                    raise
                 if new_a1 != a1:
                     newlinkargs[i] = new_a1
 
@@ -516,14 +477,10 @@ class RPythonTyper(object):
                              "has no return value" % op.opname)
         op.result.concretetype = Void
 
-    def gottypererror(self, e, block, position, llops):
-        """Record a TyperError without crashing immediately.
-        Put a 'TyperError' operation in the graph instead.
-        """
+    def gottypererror(self, exc, block, position):
+        """Record information about the location of a TyperError"""
         graph = self.annotator.annotated.get(block)
-        e.where = (graph, block, position)
-        self.typererror_count += 1
-        raise
+        exc.where = (graph, block, position)
 
     # __________ regular operations __________
 
