@@ -7,7 +7,7 @@ from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
-from rpython.annotator.model import AnnotatorError
+from rpython.annotator.model import AnnotatorError, SomeInteger, SomeString
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -477,8 +477,7 @@ class ClassDesc(Desc):
 
         if (self.is_builtin_exception_class() and
                 self.all_enforced_attrs is None):
-            from rpython.annotator import classdef
-            if cls not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
+            if cls not in FORCE_ATTRIBUTES_INTO_CLASSES:
                 self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
@@ -573,8 +572,7 @@ class ClassDesc(Desc):
         try:
             return self._classdefs[key]
         except KeyError:
-            from rpython.annotator.classdef import (
-                ClassDef, FORCE_ATTRIBUTES_INTO_CLASSES)
+            from rpython.annotator.classdef import ClassDef
             classdef = ClassDef(self.bookkeeper, self)
             self.bookkeeper.classdefs.append(classdef)
             self._classdefs[key] = classdef
@@ -1077,3 +1075,18 @@ try:
     MemberDescriptorTypes.append(type(OSError.errno))
 except AttributeError:    # on CPython <= 2.4
     pass
+
+# ____________________________________________________________
+
+FORCE_ATTRIBUTES_INTO_CLASSES = {
+    EnvironmentError: {'errno': SomeInteger(),
+                       'strerror': SomeString(can_be_None=True),
+                       'filename': SomeString(can_be_None=True)},
+}
+
+try:
+    WindowsError
+except NameError:
+    pass
+else:
+    FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}
