@@ -404,6 +404,8 @@ class ClassDesc(Desc):
                  name=None, basedesc=None, classdict=None,
                  specialize=None):
         super(ClassDesc, self).__init__(bookkeeper, cls)
+        if '__NOT_RPYTHON__' in cls.__dict__:
+            raise AnnotatorError('Bad class')
 
         if name is None:
             name = cls.__module__ + '.' + cls.__name__
