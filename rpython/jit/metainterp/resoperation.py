@@ -167,6 +167,9 @@ class AbstractResOp(object):
     def is_ovf(self):
         return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
 
+    def is_vector_arithmetic(self):
+        return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
+
     def is_comparison(self):
         return self.is_always_pure() and self.returns_bool_result()
 
@@ -440,6 +443,28 @@ _oplist = [
     'CONVERT_FLOAT_BYTES_TO_LONGLONG/1',
     'CONVERT_LONGLONG_BYTES_TO_FLOAT/1',
     #
+    # vector operations
+    '_VEC_ARITHMETIC_FIRST',
+    'VEC_CHAR_ADD/3d',
+    'VEC_CHAR_SUB/3d',
+    'VEC_CHAR_MUL/3d',
+    'VEC_SHORT_ADD/3d',
+    'VEC_SHORT_SUB/3d',
+    'VEC_SHORT_MUL/3d',
+    'VEC_INT_ADD/3d',
+    'VEC_INT_SUB/3d',
+    'VEC_INT_MUL/3d',
+    'VEC_UINT_ADD/3d',
+    'VEC_UINT_SUB/3d',
+    'VEC_UINT_MUL/3d',
+    'VEC_SP_FLOAT_ADD/3d',
+    'VEC_SP_FLOAT_SUB/3d',
+    'VEC_SP_FLOAT_MUL/3d',
+    'VEC_FLOAT_ADD/3d',
+    'VEC_FLOAT_SUB/3d',
+    'VEC_FLOAT_MUL/3d',
+    '_VEC_ARITHMETIC_LAST',
+    #
     'INT_LT/2b',
     'INT_LE/2b',
     'INT_EQ/2b',
@@ -488,6 +513,7 @@ _oplist = [
     'GETARRAYITEM_RAW/2d',
     'GETINTERIORFIELD_GC/2d',
     'RAW_LOAD/2d',
+    'VEC_RAW_LOAD/3d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -511,6 +537,7 @@ _oplist = [
     'SETINTERIORFIELD_GC/3d',
     'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'RAW_STORE/3d',
+    'VEC_RAW_STORE/4d',
     'SETFIELD_GC/2d',
     'ZERO_PTR_FIELD/2', # only emitted by the rewrite, clears a pointer field
                         # at a given constant offset, no descr

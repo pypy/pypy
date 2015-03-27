@@ -106,6 +106,7 @@ class DependencyGraph(object):
         self.memory_refs = memory_refs
         self.adjacent_list = [ [] for i in range(len(self.operations)) ]
         self.integral_mod = IntegralMod()
+        self.schedulable_nodes = [0] # label is always scheduleable
         self.build_dependencies(self.operations)
 
     def build_dependencies(self, operations):
@@ -145,6 +146,9 @@ class DependencyGraph(object):
                     self._def_use(arg, i, tracker)
                 if i > 0:
                     self._guard_dependency(op, i, operations, tracker)
+
+            if len(self.adjacent_list[i]) == 0:
+                self.schedulable_nodes.append(i)
 
     def update_memory_ref(self, op, index, tracker):
         if index not in self.memory_refs:
@@ -374,6 +378,26 @@ class DependencyGraph(object):
     def modifies_complex_object(self, op):
         opnum = op.getopnum()
         return rop.SETARRAYITEM_GC<= opnum and opnum <= rop.UNICODESETITEM
+
+class Scheduler(object):
+    def __init__(self, graph):
+        self.graph = graph
+        self.schedulable_nodes = self.graph.schedulable_nodes
+
+    def has_more_to_schedule(self):
+        return len(self.schedulable_nodes) > 0
+
+    def next_schedule_index(self):
+        return self.schedulable_nodes[0]
+
+    def schedule(self, index):
+        node = self.schedulable_nodes[index]
+        del self.schedulable_nodes[index]
+        #
+        for dep in self.graph.get_uses(node):
+            self.schedulable_nodes.append(dep.idx_to)
+        #
+        # self.graph.adjacent_list[node] = None
 
 class IntegralMod(object):
     """ Calculates integral modifications on an integer object.

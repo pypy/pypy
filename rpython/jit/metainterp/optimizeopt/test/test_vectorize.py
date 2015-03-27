@@ -11,7 +11,7 @@ import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 from rpython.jit.metainterp.optimizeopt.vectorize import (VectorizingOptimizer, MemoryRef,
-        isomorphic, Pair)
+        isomorphic, Pair, NotAVectorizeableLoop)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
@@ -79,6 +79,15 @@ class VecTestHelper(BaseTest):
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
+        return opt
+
+    def schedule(self, loop, unroll_factor = -1):
+        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
+        opt.build_dependency_graph()
+        opt.find_adjacent_memory_refs()
+        opt.extend_packset()
+        opt.combine_packset()
+        opt.schedule()
         return opt
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
@@ -783,19 +792,23 @@ class BaseTestVectorize(VecTestHelper):
         []
         jump()
         """
-        vopt = self.combine_packset(self.parse_loop(ops),15)
-        assert len(vopt.vec_info.memory_refs) == 0
-        assert len(vopt.packset.packs) == 0
+        try:
+            self.combine_packset(self.parse_loop(ops),15)
+            pytest.fail("combine should raise an exception if no pack "
+                        "statements are present")
+        except NotAVectorizeableLoop:
+            pass
 
         ops = """
         [p0,i0]
         i3 = getarrayitem_gc(p0, i0, descr=floatarraydescr)
         jump(p0,i3)
         """
-        loop = self.parse_loop(ops)
-        vopt = self.combine_packset(loop,15)
-        assert len(vopt.vec_info.memory_refs) == 16
-        assert len(vopt.packset.packs) == 0
+        try:
+            loop = self.parse_loop(ops)
+            self.combine_packset(loop,15)
+        except NotAVectorizeableLoop:
+            pass
 
     def test_packset_vector_operation(self):
         for op in ['int_add', 'int_sub', 'int_mul']:
@@ -849,13 +862,13 @@ class BaseTestVectorize(VecTestHelper):
             guard_true(i16) []
             i2 = vec_raw_load(p0, i0, 4, descr=floatarraydescr)
             i3 = vec_raw_load(p1, i0, 4, descr=floatarraydescr)
-            i4 = {op}(i2,i3)
+            i4 = {op}(i2,i3,4,descr=floatarraydescr)
             vec_raw_store(p2, i0, i4, 4, descr=floatarraydescr)
             jump(p0,p1,p2,i15)
             """.format(op=vop)
             loop = self.parse_loop(ops)
             vopt = self.schedule(loop,3)
-            self.assert_equals(loop, self.parse_loop(vops)
+            self.assert_equal(loop, self.parse_loop(vops))
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

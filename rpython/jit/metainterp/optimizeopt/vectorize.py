@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
-        MemoryRef, IntegralMod)
+        MemoryRef, IntegralMod, Scheduler)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -38,6 +38,10 @@ class VectorizingOptimizer(Optimizer):
         self.last_debug_merge_point = None
         self.packset = None
         self.unroll_count = 0
+
+    def emit_operation(self, op):
+        self._last_emitted_op = op
+        self._newoperations.append(op)
 
     def emit_unrolled_operation(self, op):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -263,25 +267,41 @@ class VectorizingOptimizer(Optimizer):
             self.packset.add_pair(*candidate)
 
     def combine_packset(self):
-        changed = False
+        if len(self.packset.packs) == 0:
+            raise NotAVectorizeableLoop()
         while True:
-            changed = False
+            len_before = len(self.packset.packs)
             for i,pack1 in enumerate(self.packset.packs):
                 for j,pack2 in enumerate(self.packset.packs):
                     if i == j:
                         continue
                     if pack1.rightmost_match_leftmost(pack2):
                         self.packset.combine(i,j)
-                        changed = True
-                        break
+                        continue
                     if pack2.rightmost_match_leftmost(pack1):
                         self.packset.combine(j,i)
-                        changed = True
-                        break
-                if changed:
-                    break
-            if not changed:
+                        continue
+            if len_before == len(self.packset.packs):
                 break
+
+    def schedule(self):
+        scheduler = Scheduler(self.dependency_graph)
+        while scheduler.has_more_to_schedule():
+            candidate_index = scheduler.next_schedule_index()
+            candidate = self.loop.operations[candidate_index]
+            pack = self.packset.pack_for_operation(candidate, candidate_index)
+            if pack:
+                self._schedule_pack(scheduler, pack)
+            else:
+                self.emit_operation(candidate)
+                scheduler.schedule(0)
+
+    def _schedule_pack(self, scheduler, pack):
+        if scheduler.all_schedulable([ e.opidx for e in pack.operations ]):
+            self.emit_vec_operation(pack)
+
+    def emit_vec_operation(self, pack):
+        pass
 
 def isomorphic(l_op, r_op):
     """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
@@ -350,7 +370,15 @@ class PackSet(object):
         for op in pack_j.operations[1:]:
             operations.append(op)
         self.packs[i] = Pack(operations)
-        del self.packs[j]
+        # instead of deleting an item in the center of pack array,
+        # the last element is assigned to position j and
+        # the last slot is freed. Order of packs don't matter
+        last_pos = len(self.packs) - 1
+        if j == last_pos:
+            del self.packs[j]
+        else:
+            self.packs[j] = self.packs[last_pos]
+            del self.packs[last_pos]
 
 class Pack(object):
     """ A pack is a set of n statements that are:
