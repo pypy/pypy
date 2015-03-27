@@ -105,6 +105,18 @@ class VecTestHelper(BaseTest):
         for op,i in zip(pack.operations, indices):
             assert op.opidx == i
 
+    def assert_has_pack_with(self, packset, opindices):
+        for pack in packset.packs:
+            for op,i in zip(pack.operations, opindices):
+                if op.opidx != i:
+                    break
+            else:
+                # found a pack that points to the specified operations
+                break
+        else:
+            pytest.fail("could not find a packset that points to %s" % str(opindices))
+
+
     def assert_packset_empty(self, packset, instr_count, exceptions):
         for a,b in exceptions:
             self.assert_packset_contains_pair(packset, a, b)
@@ -784,6 +796,28 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.combine_packset(loop,15)
         assert len(vopt.vec_info.memory_refs) == 16
         assert len(vopt.packset.packs) == 0
+
+    def test_packset_vector_operation(self):
+        for op in ['int_add', 'int_sub', 'int_mul']:
+            ops = """
+            [p0,p1,p2,i0]
+            i1 = int_add(i0, 1)
+            i10 = int_le(i1, 128)
+            guard_true(i10) []
+            i2 = getarrayitem_gc(p0, i0, descr=floatarraydescr)
+            i3 = getarrayitem_gc(p1, i0, descr=floatarraydescr)
+            i4 = {op}(i2,i3)
+            setarrayitem_gc(p1, i0, i4, descr=floatarraydescr)
+            jump(p0,p1,p2,i1)
+            """.format(op=op)
+            loop = self.parse_loop(ops)
+            vopt = self.combine_packset(loop,3)
+            assert len(vopt.vec_info.memory_refs) == 12
+            assert len(vopt.packset.packs) == 4
+
+            for opindices in [(4,11,18,25),(5,12,19,26),
+                              (6,13,20,27),(7,14,21,28)]:
+                self.assert_has_pack_with(vopt.packset, opindices)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

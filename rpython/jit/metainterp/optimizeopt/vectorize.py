@@ -344,7 +344,6 @@ class PackSet(object):
         return 0
 
     def combine(self, i, j):
-        print "combine", i, j
         pack_i = self.packs[i]
         pack_j = self.packs[j]
         operations = pack_i.operations
