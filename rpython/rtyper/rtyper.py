@@ -54,7 +54,6 @@ class RPythonTyper(object):
         self.concrete_calltables = {}
         self.cache_dummy_values = {}
         self.lltype2vtable = {}
-        self.typererror_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         self.isinstance_helpers = {}
@@ -223,12 +222,8 @@ class RPythonTyper(object):
                     percentage = 100 * n // total
                     if percentage >= previous_percentage + 5:
                         previous_percentage = percentage
-                        if self.typererror_count:
-                            error_report = " but %d errors" % self.typererror_count
-                        else:
-                            error_report = ''
-                        self.log.event('specializing: %d / %d blocks   (%d%%)%s' %
-                                       (n, total, percentage, error_report))
+                        self.log.event('specializing: %d / %d blocks   (%d%%)' %
+                                       (n, total, percentage))
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
