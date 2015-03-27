@@ -48,10 +48,10 @@ Environment variables can be used to fine-tune the following parameters:
                          1 (on major collections) or 2 (also on minor
                          collections).
 
- PYPY_GC_MAX_PINNED     The maximal number of pinned objects at any point
-                        in time.  Defaults to a conservative value depending
-                        on nursery size and maximum object size inside the
-                        nursery.  Useful for debugging by setting it to 0.
+ PYPY_GC_MAX_PINNED      The maximal number of pinned objects at any point
+                         in time.  Defaults to a conservative value depending
+                         on nursery size and maximum object size inside the
+                         nursery.  Useful for debugging by setting it to 0.
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
