@@ -56,7 +56,7 @@ def _run(tnum, lock, result, function, args):
     while len(result) != NUM_THREADS:
         barrier(tnum, done=True)
 
-def run_in_threads(function, arg_thread_num=False, arg_class=None):
+def _run_in_threads(function, arg_thread_num=False, arg_class=None):
     locks = []
     result = []
     for i in range(NUM_THREADS):
@@ -73,6 +73,13 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
         lock._py3k_acquire(timeout=30)
     if len(result) < len(locks):
         raise Exception("not all threads completed successfully")
+
+def run_in_threads(*args, **kwds):
+    import time
+    try:
+        _run_in_threads(*args, **kwds)
+    finally:
+        time.sleep(0.5)
 """
 
     def setup_class(cls):
@@ -112,16 +119,17 @@ def run_in_threads(function, arg_thread_num=False, arg_class=None):
         print '*', ' '.join(cmdline)
         env = os.environ.copy()
         env['PYPYSTM'] = str(self.stmfile)
-        env['PYPYLOG'] = str(self.logfile)
+        #env['PYPYLOG'] = str(self.logfile)
         #
         pipe = subprocess.Popen(cmdline,
-                                env=env,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        stdout, stderr = pipe.communicate()
+                                env=env)
+#                                stdout=subprocess.PIPE,
+#                                stderr=subprocess.PIPE)
+#        stdout, stderr = pipe.communicate()
+        pipe.wait()
         if pipe.returncode > 0:
             raise IOError("subprocess error %d:\n%s" % (pipe.returncode,
-                                                        stderr))
+                                                        '(see stderr)')) #stderr))
         if pipe.returncode < 0:
             raise IOError("subprocess was killed by signal %d" % (
                 pipe.returncode,))
