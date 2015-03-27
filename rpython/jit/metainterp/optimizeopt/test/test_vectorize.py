@@ -807,7 +807,7 @@ class BaseTestVectorize(VecTestHelper):
             i2 = getarrayitem_gc(p0, i0, descr=floatarraydescr)
             i3 = getarrayitem_gc(p1, i0, descr=floatarraydescr)
             i4 = {op}(i2,i3)
-            setarrayitem_gc(p1, i0, i4, descr=floatarraydescr)
+            setarrayitem_gc(p2, i0, i4, descr=floatarraydescr)
             jump(p0,p1,p2,i1)
             """.format(op=op)
             loop = self.parse_loop(ops)
@@ -818,6 +818,44 @@ class BaseTestVectorize(VecTestHelper):
             for opindices in [(4,11,18,25),(5,12,19,26),
                               (6,13,20,27),(7,14,21,28)]:
                 self.assert_has_pack_with(vopt.packset, opindices)
+
+    def test_schedule_vector_operation(self):
+        for op,vop in [('int_add','vec_int_add'), ('int_sub','vec_int_sub'),
+                       ('int_mul','vec_int_mul')]:
+            ops = """
+            [p0,p1,p2,i0]
+            i1 = int_add(i0, 1)
+            i10 = int_le(i1, 128)
+            guard_true(i10) []
+            i2 = getarrayitem_gc(p0, i0, descr=floatarraydescr)
+            i3 = getarrayitem_gc(p1, i0, descr=floatarraydescr)
+            i4 = {op}(i2,i3)
+            setarrayitem_gc(p2, i0, i4, descr=floatarraydescr)
+            jump(p0,p1,p2,i1)
+            """.format(op=op)
+            vops = """
+            [p0,p1,p2,i0]
+            i1 = int_add(i0, 1)
+            i10 = int_le(i1, 128)
+            guard_true(i10) []
+            i11 = int_add(i1, 1)
+            i12 = int_le(i11, 128)
+            guard_true(i12) []
+            i13 = int_add(i11, 1)
+            i14 = int_le(i13, 128)
+            guard_true(i14) []
+            i15 = int_add(i13, 1)
+            i16 = int_le(i15, 128)
+            guard_true(i16) []
+            i2 = vec_raw_load(p0, i0, 4, descr=floatarraydescr)
+            i3 = vec_raw_load(p1, i0, 4, descr=floatarraydescr)
+            i4 = {op}(i2,i3)
+            vec_raw_store(p2, i0, i4, 4, descr=floatarraydescr)
+            jump(p0,p1,p2,i15)
+            """.format(op=vop)
+            loop = self.parse_loop(ops)
+            vopt = self.schedule(loop,3)
+            self.assert_equals(loop, self.parse_loop(vops)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass
