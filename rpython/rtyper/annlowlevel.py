@@ -100,7 +100,6 @@ def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
 class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
 
     def __init__(pol, annhelper):
-        pol.annhelper = annhelper
         pol.rtyper = annhelper.rtyper
 
     def default_specialize(pol, funcdesc, args_s):
