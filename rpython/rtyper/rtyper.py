@@ -290,9 +290,9 @@ class RPythonTyper(object):
         # give the best possible types to the input args
         try:
             self.setup_block_entry(block)
-        except TyperError, e:
-            self.gottypererror(e, block, "block-entry", None)
-            return  # cannot continue this block
+        except TyperError as e:
+            self.gottypererror(e, block, "block-entry")
+            raise
 
 
         # specialize all the operations, as far as possible
@@ -307,9 +307,9 @@ class RPythonTyper(object):
             try:
                 hop.setup()  # this is called from here to catch TyperErrors...
                 self.translate_hl_to_ll(hop, varmapping)
-            except TyperError, e:
-                self.gottypererror(e, block, hop.spaceop, newops)
-                return  # cannot continue this block: no op.result.concretetype
+            except TyperError as e:
+                self.gottypererror(e, block, hop.spaceop)
+                raise
 
         block.operations[:] = newops
         block.renamevariables(varmapping)
@@ -398,9 +398,9 @@ class RPythonTyper(object):
                     continue   # no conversion needed
                 try:
                     new_a1 = newops.convertvar(a1, r_a1, r_a2)
-                except TyperError, e:
-                    self.gottypererror(e, block, link, newops)
-                    continue # try other args
+                except TyperError as e:
+                    self.gottypererror(e, block, link)
+                    raise
                 if new_a1 != a1:
                     newlinkargs[i] = new_a1
 
@@ -482,14 +482,10 @@ class RPythonTyper(object):
                              "has no return value" % op.opname)
         op.result.concretetype = Void
 
-    def gottypererror(self, e, block, position, llops):
-        """Record a TyperError without crashing immediately.
-        Put a 'TyperError' operation in the graph instead.
-        """
+    def gottypererror(self, exc, block, position):
+        """Record information about the location of a TyperError"""
         graph = self.annotator.annotated.get(block)
-        e.where = (graph, block, position)
-        self.typererror_count += 1
-        raise
+        exc.where = (graph, block, position)
 
     # __________ regular operations __________
 
