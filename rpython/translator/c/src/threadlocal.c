@@ -1,5 +1,6 @@
 #include "common_header.h"
 #include "structdef.h"       /* for struct pypy_threadlocal_s */
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
