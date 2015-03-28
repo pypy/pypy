@@ -147,7 +147,7 @@ def no_links_to_startblock(graph):
                 links_to_start_block = True
                 break
     if links_to_start_block:
-        insert_empty_startblock(None, graph)
+        insert_empty_startblock(graph)
 
 def call_initial_function(translator, initial_func, annhelper=None):
     """Before the program starts, call 'initial_func()'."""
