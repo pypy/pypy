@@ -409,6 +409,25 @@ Common causes of conflicts:
   This means that ``threadlocalproperty`` is useful mainly to avoid
   conflicts from cache-like data structures.
 
+* In addition to all of the above, there are cases where write-write
+  conflicts are caused by writing the same value to an attribute again
+  and again.  See for example ea2e519614ab_: this fixes two such
+  issues where we write an object field without first checking if we
+  already did it.  The ``dont_change_any_more`` field is a flag set to
+  ``True`` in that part of the code, but usually this
+  ``rtyper_makekey()`` method will be called many times for the same
+  object; the code used to repeatedly set the flag to ``True``, but
+  now it first checks and only does the write if it is ``False``.
+  Similarly, in the second half of the checkin, the method
+  ``setup_block_entry()`` used to both assign the ``concretetype``
+  fields and return a list, but its two callers were different: one
+  would really need the ``concretetype`` fields initialized, whereas
+  the other would only need to get its result list --- the
+  ``concretetype`` field in that case might already be set or not, but
+  that would not matter.
+
+.. _ea2e519614ab: https://bitbucket.org/pypy/pypy/commits/ea2e519614ab
+
 Note that Python is a complicated language; there are a number of less
 common cases that may cause conflict (of any kind) where we might not
 expect it at priori.  In many of these cases it could be fixed; please
