@@ -1839,7 +1839,7 @@ class GenLLVM(object):
                 '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
                               type=get_repr(self.ovf_err[0]),
                               inst=get_repr(self.ovf_err[1])))
-        f.write('!0 = metadata !{ }\n')
+        f.write('!0 = !{ }\n')
 
     def gen_source(self):
         global database
