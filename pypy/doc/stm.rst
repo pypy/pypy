@@ -396,18 +396,30 @@ Common causes of conflicts:
   and ``y`` that are thread-local: reading or writing them from
   concurrently-running transactions will return independent results.
   (Any other attributes of ``Foo`` instances will be globally visible
-  from all threads, as usual.)  The optional argument to
-  ``threadlocalproperty()`` is the default value factory: in case no
-  value was assigned in the current thread yet, the factory is called
-  and its result becomes the value in that thread (like
-  ``collections.defaultdict``).  If no default value factory is
-  specified, uninitialized reads raise ``AttributeError``.  Note that
-  with ``TransactionQueue`` you get a pool of a fixed number of
-  threads, each running the transactions one after the other; such
-  thread-local properties will have the value last stored in them in
-  the same thread,, which may come from a random previous transaction.
-  This means that ``threadlocalproperty`` is useful mainly to avoid
-  conflicts from cache-like data structures.
+  from all threads, as usual.)  This is useful together with
+  ``TransactionQueue`` for these two cases:
+
+  - For attributes of long-lived objects that change during one
+    transaction, but should always be reset to some initial value
+    around transaction (for example, initialized to 0 at the start of
+    a transaction; or, if used for a list of pending things to do
+    within this transaction, it will always be empty at the end of one
+    transaction).
+
+  - For general caches across transactions.  With ``TransactionQueue``
+    you get a pool of a fixed number N of threads, each running the
+    transactions serially.  A thread-local property will have the
+    value last stored in it by the same thread, which may come from a
+    random previous transaction.  Basically, you get N copies of the
+    property's value, and each transaction accesses a random copy.  It
+    works fine for caches.
+
+  In more details, the optional argument to ``threadlocalproperty()``
+  is the default value factory: in case no value was assigned in the
+  current thread yet, the factory is called and its result becomes the
+  value in that thread (like ``collections.defaultdict``).  If no
+  default value factory is specified, uninitialized reads raise
+  ``AttributeError``.
 
 * In addition to all of the above, there are cases where write-write
   conflicts are caused by writing the same value to an attribute again
