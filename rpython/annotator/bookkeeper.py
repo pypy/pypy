@@ -169,9 +169,7 @@ class Bookkeeper(object):
     def consider_call_site_for_pbc(self, s_callable, args, s_result,
                                    call_op):
         descs = list(s_callable.descriptions)
-        family = descs[0].getcallfamily()
-        s_callable.getKind().consider_call_site(self, family, descs, args,
-                                                s_result, call_op)
+        s_callable.getKind().consider_call_site(descs, args, s_result, call_op)
 
     def getuniqueclassdef(self, cls):
         """Get the ClassDef associated with the given user cls.

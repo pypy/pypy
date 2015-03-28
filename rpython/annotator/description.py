@@ -329,9 +329,10 @@ class FunctionDesc(Desc):
                                              name)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         shape = rawshape(args)
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     @staticmethod
@@ -760,7 +761,7 @@ class ClassDesc(Desc):
         return s_result     # common case
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         from rpython.annotator.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -795,17 +796,14 @@ class ClassDesc(Desc):
                     "unexpected dynamic __init__?")
                 initfuncdesc, = s_init.descriptions
                 if isinstance(initfuncdesc, FunctionDesc):
-                    initmethdesc = bookkeeper.getmethoddesc(initfuncdesc,
-                                                            classdef,
-                                                            classdef,
-                                                            '__init__')
+                    from rpython.annotator.bookkeeper import getbookkeeper
+                    initmethdesc = getbookkeeper().getmethoddesc(
+                        initfuncdesc, classdef, classdef, '__init__')
                     initdescs.append(initmethdesc)
         # register a call to exactly these __init__ methods
         if initdescs:
             initdescs[0].mergecallfamilies(*initdescs[1:])
-            initfamily = initdescs[0].getcallfamily()
-            MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
-                                          args, s_None, op)
+            MethodDesc.consider_call_site(initdescs, args, s_None, op)
 
     def getallbases(self):
         desc = self
@@ -897,10 +895,11 @@ class MethodDesc(Desc):
                                              flags)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     def rowkey(self):
@@ -1058,10 +1057,11 @@ class MethodOfFrozenDesc(Desc):
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     def rowkey(self):
