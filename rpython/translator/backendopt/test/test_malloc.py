@@ -10,7 +10,6 @@ from rpython.rlib import objectmodel
 from rpython.conftest import option
 
 class TestMallocRemoval(object):
-    type_system = 'lltype'
     MallocRemover = LLTypeMallocRemover
 
     def check_malloc_removed(cls, graph):
