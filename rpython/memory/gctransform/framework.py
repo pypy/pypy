@@ -36,7 +36,10 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
     def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
+        try:
+            funcobj = op.args[0].value._obj
+        except lltype.DelayedPointer:
+            return True
         if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
         return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
