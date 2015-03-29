@@ -2,11 +2,10 @@ import ctypes, ctypes.util, operator, sys
 from . import model
 
 if sys.version_info < (3,):
-    integer_types = (int, long)
     bytechr = chr
 else:
     unicode = str
-    integer_types = int
+    long = int
     xrange = range
     bytechr = lambda num: bytes([num])
 
@@ -181,7 +180,7 @@ class CTypesGenericPtr(CTypesData):
             address = 0
         elif isinstance(source, CTypesData):
             address = source._cast_to_integer()
-        elif isinstance(source, integer_types):
+        elif isinstance(source, (int, long)):
             address = source
         else:
             raise TypeError("bad type for cast to %r: %r" %
@@ -358,7 +357,7 @@ class CTypesBackend(object):
             is_signed = (ctype(-1).value == -1)
         #
         def _cast_source_to_int(source):
-            if isinstance(source, (integer_types, float)):
+            if isinstance(source, (int, long, float)):
                 source = int(source)
             elif isinstance(source, CTypesData):
                 source = source._cast_to_integer()
@@ -399,7 +398,7 @@ class CTypesBackend(object):
             if kind == 'bool':
                 @classmethod
                 def _cast_from(cls, source):
-                    if not isinstance(source, (integer_types, float)):
+                    if not isinstance(source, (int, long, float)):
                         source = _cast_source_to_int(source)
                     return cls(bool(source))
                 def __int__(self):
@@ -438,7 +437,7 @@ class CTypesBackend(object):
             if kind == 'int' or kind == 'byte' or kind == 'bool':
                 @staticmethod
                 def _to_ctypes(x):
-                    if not isinstance(x, integer_types):
+                    if not isinstance(x, (int, long)):
                         if isinstance(x, CTypesData):
                             x = int(x)
                         else:
@@ -465,7 +464,7 @@ class CTypesBackend(object):
             if kind == 'float':
                 @staticmethod
                 def _to_ctypes(x):
-                    if not isinstance(x, (integer_types, float, CTypesData)):
+                    if not isinstance(x, (int, long, float, CTypesData)):
                         raise TypeError("float expected, got %s" %
                                         type(x).__name__)
                     return ctype(x).value
@@ -529,14 +528,14 @@ class CTypesBackend(object):
                 self._own = True
 
             def __add__(self, other):
-                if isinstance(other, integer_types):
+                if isinstance(other, (int, long)):
                     return self._new_pointer_at(self._address +
                                                 other * self._bitem_size)
                 else:
                     return NotImplemented
 
             def __sub__(self, other):
-                if isinstance(other, integer_types):
+                if isinstance(other, (int, long)):
                     return self._new_pointer_at(self._address -
                                                 other * self._bitem_size)
                 elif type(self) is type(other):
@@ -611,7 +610,7 @@ class CTypesBackend(object):
 
             def __init__(self, init):
                 if length is None:
-                    if isinstance(init, integer_types):
+                    if isinstance(init, (int, long)):
                         len1 = init
                         init = None
                     elif kind == 'char' and isinstance(init, bytes):
@@ -686,7 +685,7 @@ class CTypesBackend(object):
                 return CTypesPtr._arg_to_ctypes(value)
 
             def __add__(self, other):
-                if isinstance(other, integer_types):
+                if isinstance(other, (int, long)):
                     return CTypesPtr._new_pointer_at(
                         ctypes.addressof(self._blob) +
                         other * ctypes.sizeof(BItem._ctype))

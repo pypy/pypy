@@ -5,6 +5,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 
+
 class BaseTestCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
@@ -721,13 +722,13 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
 
 
 class AppTestCompiler:
-
     def test_bom_with_future(self):
         s = '\xef\xbb\xbffrom __future__ import division\nx = 1/2'
         ns = {}
@@ -778,8 +779,8 @@ class AppTestCompiler:
 ##    def test_try_except_finally(self):
 ##        py.test.skip("unsupported")
 
-class AppTestOptimizer:
 
+class AppTestOptimizer:
     def setup_class(cls):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
@@ -932,14 +933,14 @@ class AppTestOptimizer:
             sys.stdout = save_stdout
         output = s.getvalue()
         assert "STOP_CODE" not in output
-    
+
     def test_optimize_list_comp(self):
         source = """def _f(a):
             return [x for x in a if None]
         """
         exec source
         code = _f.func_code
-        
+
         import StringIO, sys, dis
         s = StringIO.StringIO()
         out = sys.stdout
@@ -971,7 +972,7 @@ class AppTestOptimizer:
         """
         exec source
         code = _f.func_code
-        
+
         import StringIO, sys, dis
         s = StringIO.StringIO()
         out = sys.stdout
@@ -1002,8 +1003,6 @@ class AppTestExceptions:
         else:
             raise Exception("DID NOT RAISE")
 
-
-
     def test_bad_oudent(self):
         source = """if 1:
           x
@@ -1016,7 +1015,6 @@ class AppTestExceptions:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
-
 
     def test_repr_vs_str(self):
         source1 = "x = (\n"
@@ -1038,3 +1036,24 @@ class AppTestExceptions:
         err3 = eval(repr(err1))
         assert str(err3) == str(err1)
         assert repr(err3) == repr(err1)
+
+    def test_encoding(self):
+        code = b'# -*- coding: badencoding -*-\npass\n'
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = u"# -*- coding: utf-8 -*-\npass\n"
+        raises(SyntaxError, compile, code, 'tmp', 'exec')
+        code = 'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = u'u"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\xa4'
+        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xa4'
+        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        assert eval(code) == u'\xc2\u20ac'
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
+        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
+        assert eval(code) == u'# -*- coding: utf-8 -*-\n\xc2\xa4'

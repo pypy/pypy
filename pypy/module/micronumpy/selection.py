@@ -33,14 +33,14 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             self.values = values
             self.indexes = indexes
 
-        def getitem(self, item):
+        def getitem(self, idx):
             if count < 2:
-                v = raw_storage_getitem(TP, self.values, item * self.stride_size
+                v = raw_storage_getitem(TP, self.values, idx * self.stride_size
                                     + self.start)
             else:
                 v = []
                 for i in range(count):
-                    _v = raw_storage_getitem(TP, self.values, item * self.stride_size
+                    _v = raw_storage_getitem(TP, self.values, idx * self.stride_size
                                     + self.start + step * i)
                     v.append(_v)
             if comp_type == 'int':
@@ -52,7 +52,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             else:
                 raise NotImplementedError('cannot reach')
             return (v, raw_storage_getitem(lltype.Signed, self.indexes,
-                                           item * self.index_stride_size +
+                                           idx * self.index_stride_size +
                                            self.index_start))
 
         def setitem(self, idx, item):
@@ -134,37 +134,37 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
         # create array of indexes
         dtype = descriptor.get_dtype_cache(space).w_longdtype
         index_arr = W_NDimArray.from_shape(space, arr.get_shape(), dtype)
-        storage = index_arr.implementation.get_storage()
-        if len(arr.get_shape()) == 1:
-            for i in range(arr.get_size()):
-                raw_storage_setitem(storage, i * INT_SIZE, i)
-            r = Repr(INT_SIZE, itemsize, arr.get_size(), arr.get_storage(),
-                     storage, 0, arr.start)
-            ArgSort(r).sort()
-        else:
-            shape = arr.get_shape()
-            if axis < 0:
-                axis = len(shape) + axis
-            if axis < 0 or axis >= len(shape):
-                raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
-            arr_iter = AllButAxisIter(arr, axis)
-            arr_state = arr_iter.reset()
-            index_impl = index_arr.implementation
-            index_iter = AllButAxisIter(index_impl, axis)
-            index_state = index_iter.reset()
-            stride_size = arr.strides[axis]
-            index_stride_size = index_impl.strides[axis]
-            axis_size = arr.shape[axis]
-            while not arr_iter.done(arr_state):
-                for i in range(axis_size):
-                    raw_storage_setitem(storage, i * index_stride_size +
-                                        index_state.offset, i)
-                r = Repr(index_stride_size, stride_size, axis_size,
-                         arr.get_storage(), storage, index_state.offset, arr_state.offset)
+        with index_arr.implementation as storage, arr as arr_storage:
+            if len(arr.get_shape()) == 1:
+                for i in range(arr.get_size()):
+                    raw_storage_setitem(storage, i * INT_SIZE, i)
+                r = Repr(INT_SIZE, itemsize, arr.get_size(), arr_storage,
+                         storage, 0, arr.start)
                 ArgSort(r).sort()
-                arr_state = arr_iter.next(arr_state)
-                index_state = index_iter.next(index_state)
-        return index_arr
+            else:
+                shape = arr.get_shape()
+                if axis < 0:
+                    axis = len(shape) + axis
+                if axis < 0 or axis >= len(shape):
+                    raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
+                arr_iter = AllButAxisIter(arr, axis)
+                arr_state = arr_iter.reset()
+                index_impl = index_arr.implementation
+                index_iter = AllButAxisIter(index_impl, axis)
+                index_state = index_iter.reset()
+                stride_size = arr.strides[axis]
+                index_stride_size = index_impl.strides[axis]
+                axis_size = arr.shape[axis]
+                while not arr_iter.done(arr_state):
+                    for i in range(axis_size):
+                        raw_storage_setitem(storage, i * index_stride_size +
+                                            index_state.offset, i)
+                    r = Repr(index_stride_size, stride_size, axis_size,
+                         arr_storage, storage, index_state.offset, arr_state.offset)
+                    ArgSort(r).sort()
+                    arr_state = arr_iter.next(arr_state)
+                    index_state = index_iter.next(index_state)
+            return index_arr
 
     return argsort
 
@@ -282,25 +282,25 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             axis = -1
         else:
             axis = space.int_w(w_axis)
-        # create array of indexes
-        if len(arr.get_shape()) == 1:
-            r = Repr(itemsize, arr.get_size(), arr.get_storage(),
-                     arr.start)
-            ArgSort(r).sort()
-        else:
-            shape = arr.get_shape()
-            if axis < 0:
-                axis = len(shape) + axis
-            if axis < 0 or axis >= len(shape):
-                raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
-            arr_iter = AllButAxisIter(arr, axis)
-            arr_state = arr_iter.reset()
-            stride_size = arr.strides[axis]
-            axis_size = arr.shape[axis]
-            while not arr_iter.done(arr_state):
-                r = Repr(stride_size, axis_size, arr.get_storage(), arr_state.offset)
+        with arr as storage:
+            if len(arr.get_shape()) == 1:
+                r = Repr(itemsize, arr.get_size(), storage,
+                         arr.start)
                 ArgSort(r).sort()
-                arr_state = arr_iter.next(arr_state)
+            else:
+                shape = arr.get_shape()
+                if axis < 0:
+                    axis = len(shape) + axis
+                if axis < 0 or axis >= len(shape):
+                    raise oefmt(space.w_IndexError, "Wrong axis %d", axis)
+                arr_iter = AllButAxisIter(arr, axis)
+                arr_state = arr_iter.reset()
+                stride_size = arr.strides[axis]
+                axis_size = arr.shape[axis]
+                while not arr_iter.done(arr_state):
+                    r = Repr(stride_size, axis_size, storage, arr_state.offset)
+                    ArgSort(r).sort()
+                    arr_state = arr_iter.next(arr_state)
 
     return sort
 

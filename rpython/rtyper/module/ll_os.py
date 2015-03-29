@@ -164,7 +164,7 @@ class RegisterOs(BaseLazyRegistering):
         # we need an indirection via c functions to get macro calls working on llvm XXX still?
         if hasattr(os, 'WCOREDUMP'):
             decl_snippet = """
-            %(ret_type)s pypy_macro_wrapper_%(name)s (int status);
+            RPY_EXTERN %(ret_type)s pypy_macro_wrapper_%(name)s (int status);
             """
             def_snippet = """
             %(ret_type)s pypy_macro_wrapper_%(name)s (int status) {

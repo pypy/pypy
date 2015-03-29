@@ -36,6 +36,7 @@ RPython.
    :maxdepth: 1
 
    arm
+   logging
 
 
 Writing your own interpreter in RPython

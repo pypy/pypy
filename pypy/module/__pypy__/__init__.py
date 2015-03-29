@@ -82,6 +82,8 @@ class Module(MixedModule):
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
+        'save_module_content_for_future_reload':
+                          'interp_magic.save_module_content_for_future_reload',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

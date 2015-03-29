@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 
 def issequence_w(space, w_obj):
@@ -147,3 +148,7 @@ def _parse_signature(space, ufunc, signature):
     if cur_core_dim == 0:
         ufunc.core_enabled = False
     return 0 # for historical reasons, any failures will raise
+
+def get_storage_as_int(storage, start=0):
+        return rffi.cast(lltype.Signed, storage) + start
+

@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib import rbigint, rrandom, rstring
 
 
@@ -54,8 +54,8 @@ class W_Random(W_Root):
     def getstate(self, space):
         state = [None] * (rrandom.N + 1)
         for i in range(rrandom.N):
-            state[i] = space.newint(intmask(self._rnd.state[i]))
-        state[rrandom.N] = space.newint(self._rnd.index)
+            state[i] = space.wrap(widen(self._rnd.state[i]))
+        state[rrandom.N] = space.newlong(self._rnd.index)
         return space.newtuple(state)
 
     def setstate(self, space, w_state):

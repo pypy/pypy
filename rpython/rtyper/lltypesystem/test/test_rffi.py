@@ -102,24 +102,19 @@ class BaseTestRffi:
         #include <string.h>
         #include <src/mem.h>
 
-        char *f(char* arg)
+        void f(char *target, char* arg)
         {
-            char *ret;
-            /* lltype.free uses OP_RAW_FREE, we must allocate
-             * with the matching function
-             */
-            OP_RAW_MALLOC(strlen(arg) + 1, ret, char*)
-            strcpy(ret, arg);
-            return ret;
+            strcpy(target, arg);
         }
         """)
         eci = ExternalCompilationInfo(separate_module_sources=[c_source],
-                                      post_include_bits=['char *f(char*);'])
-        z = llexternal('f', [CCHARP], CCHARP, compilation_info=eci)
+                                     post_include_bits=['void f(char*,char*);'])
+        z = llexternal('f', [CCHARP, CCHARP], lltype.Void, compilation_info=eci)
 
         def f():
             s = str2charp("xxx")
-            l_res = z(s)
+            l_res = lltype.malloc(CCHARP.TO, 10, flavor='raw')
+            z(l_res, s)
             res = charp2str(l_res)
             lltype.free(l_res, flavor='raw')
             free_charp(s)
@@ -675,6 +670,23 @@ class TestRffiInternals:
             return cast(SIGNED, res1*10 + res2)
 
         assert interpret(f, [], backendopt=True) == 43
+
+    def test_str2chararray(self):
+        eci = ExternalCompilationInfo(includes=['string.h'])
+        strlen = llexternal('strlen', [CCHARP], SIZE_T,
+                            compilation_info=eci)
+        def f():
+            raw = str2charp("XxxZy")
+            n = str2chararray("abcdef", raw, 4)
+            assert raw[0] == 'a'
+            assert raw[1] == 'b'
+            assert raw[2] == 'c'
+            assert raw[3] == 'd'
+            assert raw[4] == 'y'
+            lltype.free(raw, flavor='raw')
+            return n
+
+        assert interpret(f, []) == 4
 
     def test_around_extcall(self):
         if sys.platform == "win32":

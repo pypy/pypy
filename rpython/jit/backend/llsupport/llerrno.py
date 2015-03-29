@@ -18,19 +18,41 @@ def get_rpy_errno_offset(cpu):
         return 3 * WORD
 
 
-def get_debug_saved_lasterror(cpu):
+def get_debug_saved_alterrno(cpu):
     return cpu._debug_errno_container[4]
+
+def set_debug_saved_alterrno(cpu, nerrno):
+    assert nerrno >= 0
+    cpu._debug_errno_container[4] = nerrno
+
+def get_alt_errno_offset(cpu):
+    if cpu.translate_support_code:
+        from rpython.rlib import rthread
+        return rthread.tlfield_alt_errno.getoffset()
+    else:
+        return 4 * WORD
+
+
+def get_debug_saved_lasterror(cpu):
+    return cpu._debug_errno_container[5]
 
 def set_debug_saved_lasterror(cpu, nerrno):
     assert nerrno >= 0
-    cpu._debug_errno_container[4] = nerrno
+    cpu._debug_errno_container[5] = nerrno
 
 def get_rpy_lasterror_offset(cpu):
     if cpu.translate_support_code:
         from rpython.rlib import rthread
         return rthread.tlfield_rpy_lasterror.getoffset()
     else:
-        return 4 * WORD
+        return 5 * WORD
+
+def get_alt_lasterror_offset(cpu):
+    if cpu.translate_support_code:
+        from rpython.rlib import rthread
+        return rthread.tlfield_alt_lasterror.getoffset()
+    else:
+        return 6 * WORD
 
 
 def _fetch_addr_errno():

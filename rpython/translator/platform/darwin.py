@@ -12,6 +12,12 @@ class Darwin(posix.BasePosix):
     DEFAULT_CC = 'clang'
     rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
 
+    def get_rpath_flags(self, rel_libdirs):
+        # needed for cross compiling on ARM, needs fixing if relevant for darwin
+        if len(rel_libdirs) > 0:
+            print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
+        return self.rpath_flags 
+
     def _args_for_shared(self, args):
         return (list(self.shared_only)
                 + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
@@ -35,6 +41,13 @@ class Darwin(posix.BasePosix):
         frameworks = self._frameworks(eci.frameworks)
         include_dirs = self._includedirs(eci.include_dirs)
         return (args + frameworks + include_dirs)
+
+    def _exportsymbols_link_flags(self):
+        # XXX unsure if OS/X requires an option to the linker to tell
+        # "please export all RPY_EXPORTED symbols even in the case of
+        # making a binary and not a dynamically-linked library".
+        # It's not "-exported_symbols_list" but something close.
+        return []
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],

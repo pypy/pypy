@@ -13,11 +13,12 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
-from pypy.module.micronumpy.support import _parse_signature, product
+from pypy.module.micronumpy.support import _parse_signature, product, get_storage_as_int
 from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
              alloc_raw_storage)
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import LONG_BIT, _get_bitsize
+from rpython.rlib.objectmodel import keepalive_until_here
 
 
 def done_if_true(dtype, val):
@@ -98,7 +99,9 @@ class W_Ufunc(W_Root):
         if out is not None and not isinstance(out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                             'output must be an array'))
-        return self.call(space, args_w, sig, casting, extobj)
+        retval = self.call(space, args_w, sig, casting, extobj)
+        keepalive_until_here(args_w)
+        return retval
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
         if space.is_none(w_axis):
@@ -804,11 +807,12 @@ class W_UfuncGeneric(W_Ufunc):
             assert isinstance(curarg, W_NDimArray)
             if len(arg_shapes[i]) != curarg.ndims():
                 # reshape
+                
                 sz = product(curarg.get_shape()) * curarg.get_dtype().elsize
-                inargs[i] = W_NDimArray.from_shape_and_storage(
-                    space, arg_shapes[i], curarg.implementation.storage,
-                    curarg.get_dtype(), storage_bytes=sz, w_base=curarg)
-                pass
+                with curarg.implementation as storage:
+                    inargs[i] = W_NDimArray.from_shape_and_storage(
+                        space, arg_shapes[i], storage,
+                        curarg.get_dtype(), storage_bytes=sz, w_base=curarg)
             need_to_cast.append(curarg.get_dtype() != dtypes[i])
         for i in range(len(outargs)):
             j = self.nin + i
@@ -819,9 +823,10 @@ class W_UfuncGeneric(W_Ufunc):
             elif len(arg_shapes[i]) != curarg.ndims():
                 # reshape
                 sz = product(curarg.get_shape()) * curarg.get_dtype().elsize
-                outargs[i] = W_NDimArray.from_shape_and_storage(
-                    space, arg_shapes[i], curarg.implementation.storage,
-                    curarg.get_dtype(), storage_bytes=sz, w_base=curarg)
+                with curarg.implementation as storage:
+                    outargs[i] = W_NDimArray.from_shape_and_storage(
+                        space, arg_shapes[i], storage,
+                        curarg.get_dtype(), storage_bytes=sz, w_base=curarg)
                 curarg = outargs[i]
             assert isinstance(curarg, W_NDimArray)
             need_to_cast.append(curarg.get_dtype() != dtypes[j])
@@ -1406,8 +1411,9 @@ class W_GenericUFuncCaller(W_Root):
                     raise OperationError(space.w_NotImplementedError,
                          space.wrap("cannot mix ndarray and %r (arg %d) in call to ufunc" % (
                                     arg_i, i)))
-                raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int(space)))
+                with arg_i.implementation as storage:
+                    addr = get_storage_as_int(storage, arg_i.get_start())
+                    raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, addr))
                 #This assumes we iterate over the whole array (it should be a view...)
                 raw_storage_setitem(self.dims, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_size()))
                 raw_storage_setitem(self.steps, LONG_SIZE * i, rffi.cast(rffi.LONG, arg_i.get_dtype().elsize))
@@ -1415,8 +1421,9 @@ class W_GenericUFuncCaller(W_Root):
             for i in range(len(args_w)):
                 arg_i = args_w[i]
                 assert isinstance(arg_i, W_NDimArray)
-                raw_storage_setitem(dataps, CCHARP_SIZE * i,
-                        rffi.cast(rffi.CCHARP, arg_i.implementation.get_storage_as_int(space)))
+                with arg_i.implementation as storage:
+                    addr = get_storage_as_int(storage, arg_i.get_start())
+                raw_storage_setitem(dataps, CCHARP_SIZE * i, rffi.cast(rffi.CCHARP, addr))
         try:
             arg1 = rffi.cast(rffi.CArrayPtr(rffi.CCHARP), dataps)
             arg2 = rffi.cast(npy_intpp, self.dims)
@@ -1424,6 +1431,7 @@ class W_GenericUFuncCaller(W_Root):
             self.func(arg1, arg2, arg3, self.data)
         finally:
             free_raw_storage(dataps, track_allocation=False)
+        keepalive_until_here(args_w)
 
     def set_dims_and_steps(self, space, dims, steps):
         if not isinstance(dims, list) or not isinstance(steps, list):

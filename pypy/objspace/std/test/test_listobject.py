@@ -1565,6 +1565,18 @@ class AppTestListObject(object):
         assert l[::11] == [-sys.maxint, item11]
         assert item11 in l[::11]
 
+    def test_bug_list_of_nans(self):
+        N = float('nan')
+        L1 = [N, 'foo']       # general object strategy
+        assert N in L1
+        assert L1.index(N) == 0
+        assert L1 == [N, 'foo']
+        # our float list strategy needs to consider NaNs are equal!
+        L2 = [N, 0.0]         # float strategy
+        assert N in L2
+        assert L2.index(N) == 0
+        assert L2 == [N, -0.0]
+
 
 class AppTestListObjectWithRangeList(AppTestListObject):
     """Run the list object tests with range lists enabled. Tests should go in

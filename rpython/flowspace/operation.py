@@ -57,8 +57,10 @@ class HLOperationMeta(type):
             setattr(op, cls.opname, cls)
         if cls.dispatch == 1:
             cls._registry = {}
+            cls._transform = {}
         elif cls.dispatch == 2:
             cls._registry = DoubleDispatchRegistry()
+            cls._transform = DoubleDispatchRegistry()
 
 
 class HLOperation(SpaceOperation):
@@ -74,8 +76,8 @@ class HLOperation(SpaceOperation):
         self.offset = -1
 
     def replace(self, mapping):
-        newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        newargs = [arg.replace(mapping) for arg in self.args]
+        newresult = self.result.replace(mapping)
         newop = type(self)(*newargs)
         newop.result = newresult
         newop.offset = self.offset
@@ -103,6 +105,14 @@ class HLOperation(SpaceOperation):
 
     def get_can_only_throw(self, annotator):
         return None
+
+    def get_transformer(self, *args_s):
+        return lambda *args: None
+
+    def transform(self, annotator):
+        args_s = [annotator.annotation(arg) for arg in self.args]
+        transformer = self.get_transformer(*args_s)
+        return transformer(annotator, *self.args)
 
 class PureOperation(HLOperation):
     pure = True
@@ -185,6 +195,37 @@ class SingleDispatchMixin(object):
         except AttributeError:
             return cls._dispatch(type(s_arg))
 
+    @classmethod
+    def get_specialization(cls, s_arg, *_ignored):
+        try:
+            impl = getattr(s_arg, cls.opname)
+
+            def specialized(annotator, arg, *other_args):
+                return impl(*[annotator.annotation(x) for x in other_args])
+            try:
+                specialized.can_only_throw = impl.can_only_throw
+            except AttributeError:
+                pass
+            return specialized
+        except AttributeError:
+            return cls._dispatch(type(s_arg))
+
+    @classmethod
+    def register_transform(cls, Some_cls):
+        def decorator(func):
+            cls._transform[Some_cls] = func
+            return func
+        return decorator
+
+    @classmethod
+    def get_transformer(cls, s_arg, *_ignored):
+        for c in type(s_arg).__mro__:
+            try:
+                return cls._transform[c]
+            except KeyError:
+                pass
+        return lambda *args: None
+
 
 class DoubleDispatchMixin(object):
     dispatch = 2
@@ -215,6 +256,20 @@ class DoubleDispatchMixin(object):
         args_s = [annotator.annotation(v) for v in self.args]
         spec = type(self).get_specialization(*args_s)
         return read_can_only_throw(spec, args_s[0], args_s[1])
+
+    @classmethod
+    def register_transform(cls, Some1, Some2):
+        def decorator(func):
+            cls._transform[Some1, Some2] = func
+            return func
+        return decorator
+
+    @classmethod
+    def get_transformer(cls, s_arg1, s_arg2, *_ignored):
+        try:
+            return cls._transform[type(s_arg1), type(s_arg2)]
+        except KeyError:
+            return lambda *args: None
 
 
 def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False):
@@ -367,8 +422,6 @@ add_operator('setattr', 3, dispatch=1, pyfunc=setattr)
 add_operator('delattr', 2, dispatch=1, pyfunc=delattr)
 add_operator('getitem', 2, dispatch=2, pure=True)
 add_operator('getitem_idx', 2, dispatch=2, pure=True)
-add_operator('getitem_key', 2, dispatch=2, pure=True)
-add_operator('getitem_idx_key', 2, dispatch=2, pure=True)
 add_operator('setitem', 3, dispatch=2)
 add_operator('delitem', 2, dispatch=2)
 add_operator('getslice', 3, dispatch=1, pyfunc=do_getslice, pure=True)
@@ -500,7 +553,7 @@ class Next(SingleDispatchMixin, HLOperation):
     opname = 'next'
     arity = 1
     can_overflow = False
-    canraise = []
+    canraise = [StopIteration, RuntimeError]
     pyfunc = staticmethod(next)
 
     def eval(self, ctx):
@@ -516,9 +569,7 @@ class Next(SingleDispatchMixin, HLOperation):
                 else:
                     ctx.replace_in_stack(it, next_unroller)
                     return const(v)
-        w_item = ctx.do_op(self)
-        ctx.guessexception([StopIteration, RuntimeError], force=True)
-        return w_item
+        return HLOperation.eval(self, ctx)
 
 class GetAttr(SingleDispatchMixin, HLOperation):
     opname = 'getattr'
@@ -633,8 +684,6 @@ op_appendices = {
 # the annotator tests
 op.getitem.canraise = [IndexError, KeyError, Exception]
 op.getitem_idx.canraise = [IndexError, KeyError, Exception]
-op.getitem_key.canraise = [IndexError, KeyError, Exception]
-op.getitem_idx_key.canraise = [IndexError, KeyError, Exception]
 op.setitem.canraise = [IndexError, KeyError, Exception]
 op.delitem.canraise = [IndexError, KeyError, Exception]
 op.contains.canraise = [Exception]    # from an r_dict
