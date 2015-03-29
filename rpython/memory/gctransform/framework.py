@@ -521,7 +521,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
         custom_trace_funcs_unrolled = unrolling_iterable(
             [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
 
-        @rgc.no_collect
         @specialize.arg(2)
         def custom_trace_dispatcher(obj, typeid, callback, arg):
             for type_id_exp, func in custom_trace_funcs_unrolled:
