@@ -495,6 +495,10 @@ class SomePBC(SomeObject):
         if len(self.descriptions) > 1:
             kind.simplify_desc_set(self.descriptions)
 
+    def consider_call_site(self, args, s_result, call_op):
+        descs = list(self.descriptions)
+        self.getKind().consider_call_site(descs, args, s_result, call_op)
+
     def can_be_none(self):
         return self.can_be_None
 
@@ -588,7 +592,7 @@ class SomeImpossibleValue(SomeObject):
 
 
 class SomeProperty(SomeObject):
-    # used for union error only 
+    # used for union error only
     immutable = True
     knowntype = type(property)
 

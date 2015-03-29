@@ -12,6 +12,7 @@ from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.argument import simple_args
 from rpython.annotator.bookkeeper import Bookkeeper
+from rpython.rtyper.normalizecalls import perform_normalizations
 
 import py
 log = py.log.Producer("annrpython")
@@ -317,6 +318,8 @@ class RPythonAnnotator(object):
                     graphs[graph] = True
         for graph in graphs:
             simplify.eliminate_empty_blocks(graph)
+        if block_subset is None:
+            perform_normalizations(self)
 
 
     #___ flowing annotations in blocks _____________________

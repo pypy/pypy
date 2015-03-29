@@ -144,10 +144,10 @@ class W_Hash(W_Root):
             with self.lock:
                 ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
             digest_size = self.digest_size
-            with lltype.scoped_alloc(rffi.CCHARP.TO, digest_size) as digest:
-                ropenssl.EVP_DigestFinal(ctx, digest, None)
+            with rffi.scoped_alloc_buffer(digest_size) as buf:
+                ropenssl.EVP_DigestFinal(ctx, buf.raw, None)
                 ropenssl.EVP_MD_CTX_cleanup(ctx)
-                return rffi.charpsize2str(digest, digest_size)
+                return buf.str(digest_size)
 
 
 W_Hash.typedef = TypeDef(
