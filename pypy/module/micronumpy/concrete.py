@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -345,17 +345,19 @@ offset_of_length = llmemory.offsetof(OBJECTSTORE, 'length')
 offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
 
 def customtrace(gc, obj, callback, arg):
-    print 'in customtrace w/obj',obj
+    #debug_print('in customtrace w/obj', obj)
     length = rffi.cast(lltype.Signed, obj + offset_of_length)
     step = rffi.cast(lltype.Signed, obj + offset_of_step)
     storage = obj + offset_of_storage
-    print 'tracing', length, 'objects in ndarray.storage'
-    for i in range(length):
-        gcref = rffi.cast(llmemory.GCREF, storage)
-        w_obj = cast_gcref_to_instance(W_Root, gcref)
-        print 'tracing', w_obj 
+    debug_print('tracing', length, 'objects in ndarray.storage')
+    i = 0
+    while i < length:
+        #gcref = rffi.cast(llmemory.GCREF, storage)
+        #w_obj = cast_gcref_to_instance(W_Root, gcref)
+        #debug_print('tracing', w_obj) 
         gc._trace_callback(callback, arg, storage)
         storage += step
+        i += 1
     
 lambda_customtrace = lambda: customtrace
 
