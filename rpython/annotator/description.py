@@ -351,6 +351,7 @@ class FunctionDesc(Desc):
         row = FunctionDesc.row_to_consider(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
+        descs[0].mergecallfamilies(*descs[1:])
 
     @staticmethod
     def variant_for_call_site(bookkeeper, family, descs, args, op):
@@ -777,6 +778,8 @@ class ClassDesc(Desc):
 
     @staticmethod
     def consider_call_site(descs, args, s_result, op):
+        descs[0].getcallfamily()
+        descs[0].mergecallfamilies(*descs[1:])
         from rpython.annotator.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -916,6 +919,7 @@ class MethodDesc(Desc):
         row = FunctionDesc.row_to_consider(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
+        descs[0].mergecallfamilies(*descs[1:])
 
     def rowkey(self):
         # we are computing call families and call tables that always contain
@@ -1077,6 +1081,7 @@ class MethodOfFrozenDesc(Desc):
         row = FunctionDesc.row_to_consider(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
+        descs[0].mergecallfamilies(*descs[1:])
 
     def rowkey(self):
         return self.funcdesc

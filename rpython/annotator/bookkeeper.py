@@ -495,9 +495,6 @@ class Bookkeeper(object):
         annotations).
         """
         descs = list(pbc.descriptions)
-        first = descs[0]
-        first.mergecallfamilies(*descs[1:])
-
         if emulated is None:
             whence = self.position_key
             # fish the existing annotation for the result variable,
@@ -519,7 +516,7 @@ class Bookkeeper(object):
             return self.annotator.recursivecall(graph, whence, inputcells)
 
         results = []
-        for desc in descs:
+        for desc in pbc.descriptions:
             results.append(desc.pycall(schedule, args, s_previous_result, op))
         s_result = unionof(*results)
         return s_result
