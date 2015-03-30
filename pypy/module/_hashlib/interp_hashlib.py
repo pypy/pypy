@@ -16,8 +16,6 @@ from pypy.module.thread.os_lock import Lock
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
 def hash_name_mapper_callback(obj_name, userdata):
-    state = global_state[0]
-    assert state is not None
     if not obj_name:
         return
     # Ignore aliased names, they pollute the list and OpenSSL appears
@@ -27,36 +25,31 @@ def hash_name_mapper_callback(obj_name, userdata):
     if obj_name[0].c_alias:
         return
     try:
-        w_name = state.space.wrap(rffi.charp2str(obj_name[0].c_name))
-        state.space.call_method(state.w_meth_names, "add", w_name)
+        space = global_name_fetcher.space
+        w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
+        space.call_method(global_name_fetcher.w_meth_names, "add", w_name)
     except OperationError, e:
-        state.w_error = e
+        global_name_fetcher.w_error = e
 
-# XXX make it threadlocal?
-global_state = [None]
-
-class State:
-    def __init__(self, space):
+class NameFetcher:
+    def setup(self, space):
         self.space = space
-        self.generate_method_names(space)
-
-    def generate_method_names(self, space):
-        if not we_are_translated():
-            ropenssl.init_digests()
+        self.w_meth_names = space.call_function(space.w_set)
         self.w_error = None
-        try:
-            global_state[0] = self
-            self.w_meth_names = space.call_function(space.w_set)
-            ropenssl.OBJ_NAME_do_all(
-                ropenssl.OBJ_NAME_TYPE_MD_METH,
-                hash_name_mapper_callback, None)
-        finally:
-            global_state[0] = None
-        if self.w_error:
-            raise self.w_error
+    def _cleanup_(self):
+        del self.space
+        del self.w_meth_names
+        del self.w_error
+global_name_fetcher = NameFetcher()
 
-def get(space):
-    return space.fromcache(State)
+def fetch_names(space):
+    global_name_fetcher.setup(space)
+    ropenssl.init_digests()
+    ropenssl.OBJ_NAME_do_all(ropenssl.OBJ_NAME_TYPE_MD_METH,
+                             hash_name_mapper_callback, None)
+    if global_name_fetcher.w_error:
+        raise global_name_fetcher.w_error
+    return global_name_fetcher.w_meth_names
 
 class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
