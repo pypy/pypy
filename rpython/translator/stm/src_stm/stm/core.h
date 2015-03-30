@@ -222,11 +222,10 @@ static struct stm_commit_log_entry_s *malloc_cle(long entries);
 static void free_cle(struct stm_commit_log_entry_s *e);
 
 
-#ifndef STM_TESTS
-static char *stm_object_pages;
-#else
-char *stm_object_pages;
-#endif
+extern char *stm_object_pages;
+extern long _stm_segment_nb_pages;
+extern int _stm_nb_segments;
+extern int _stm_psegment_ofs;
 static stm_thread_local_t *stm_all_thread_locals = NULL;
 
 

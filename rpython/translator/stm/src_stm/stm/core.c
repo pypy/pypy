@@ -2,6 +2,11 @@
 #ifndef _STM_CORE_H_
 # error "must be compiled via stmgc.c"
 #endif
+char *stm_object_pages;
+long _stm_segment_nb_pages = NB_PAGES;
+int _stm_nb_segments = NB_SEGMENTS;
+int _stm_psegment_ofs = (int)(uintptr_t)STM_PSEGMENT;
+
 /* *** MISC *** */
 static void free_bk(struct stm_undo_s *undo)
 {
@@ -48,6 +53,7 @@ static void import_objects(
     assert(IMPLY(from_segnum >= 0, get_priv_segment(from_segnum)->modification_lock));
     assert(STM_PSEGMENT->modification_lock);
 
+    long my_segnum = STM_SEGMENT->segment_num;
     DEBUG_EXPECT_SEGFAULT(false);
     for (; undo < end; undo++) {
         if (undo->type == TYPE_POSITION_MARKER)
@@ -57,18 +63,19 @@ static void import_objects(
         uintptr_t current_page_num = ((uintptr_t)oslice) / 4096;
 
         if (pagenum == -1) {
-            if (get_page_status_in(STM_SEGMENT->segment_num,
-                                   current_page_num) == PAGE_NO_ACCESS)
+            if (get_page_status_in(my_segnum, current_page_num) == PAGE_NO_ACCESS)
                 continue;
-        }
-        else {
-            if (current_page_num != pagenum)
-                continue;
+        } else if (pagenum != current_page_num) {
+            continue;
         }
 
-        if (from_segnum == -2 && _stm_was_read(obj) && (obj->stm_flags & GCFLAG_WB_EXECUTED)) {
+        if (from_segnum == -2
+            && _stm_was_read(obj)
+            && (get_page_status_in(my_segnum, (uintptr_t)obj / 4096) == PAGE_ACCESSIBLE)
+            && (obj->stm_flags & GCFLAG_WB_EXECUTED)) {
             /* called from stm_validate():
                 > if not was_read(), we certainly didn't modify
+                > if obj->stm_flags is not accessible, WB_EXECUTED cannot be set
                 > if not WB_EXECUTED, we may have read from the obj in a different page but
                   did not modify it (should not occur right now, but future proof!)
                only the WB_EXECUTED alone is not enough, since we may have imported from a
@@ -79,8 +86,7 @@ static void import_objects(
 
         /* XXX: if the next assert is always true, we should never get a segfault
            in this function at all. So the DEBUG_EXPECT_SEGFAULT is correct. */
-        assert((get_page_status_in(STM_SEGMENT->segment_num,
-                                   current_page_num) != PAGE_NO_ACCESS));
+        assert((get_page_status_in(my_segnum, current_page_num) != PAGE_NO_ACCESS));
 
         /* dprintf(("import slice seg=%d obj=%p off=%lu sz=%d pg=%lu\n", */
         /*          from_segnum, obj, SLICE_OFFSET(undo->slice), */
@@ -95,7 +101,8 @@ static void import_objects(
 
         if (src_segment_base == NULL && SLICE_OFFSET(undo->slice) == 0) {
             /* check that restored obj doesn't have WB_EXECUTED */
-            assert(!(obj->stm_flags & GCFLAG_WB_EXECUTED));
+            assert((get_page_status_in(my_segnum, (uintptr_t)obj / 4096) == PAGE_NO_ACCESS)
+                   || !(obj->stm_flags & GCFLAG_WB_EXECUTED));
         }
     }
     DEBUG_EXPECT_SEGFAULT(true);
@@ -1107,16 +1114,6 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
 
-    enter_safe_point_if_requested();
-    dprintf(("> start_transaction\n"));
-
-    s_mutex_unlock();   // XXX it's probably possible to not acquire this here
-
-    uint8_t old_rv = STM_SEGMENT->transaction_read_version;
-    STM_SEGMENT->transaction_read_version = old_rv + 1;
-    if (UNLIKELY(old_rv == 0xff)) {
-        reset_transaction_read_version();
-    }
 
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects));
     assert(list_is_empty(STM_PSEGMENT->large_overflow_objects));
@@ -1134,6 +1131,25 @@ static void _stm_start_transaction(stm_thread_local_t *tl)
 #endif
 
     check_nursery_at_transaction_start();
+
+    /* Change read-version here, because if we do stm_validate in the
+       safe-point below, we should not see our old reads from the last
+       transaction. */
+    uint8_t rv = STM_SEGMENT->transaction_read_version;
+    if (rv < 0xff)   /* else, rare (maybe impossible?) case: we did already */
+        rv++;        /* incr it but enter_safe_point_if_requested() aborted */
+    STM_SEGMENT->transaction_read_version = rv;
+
+    /* Warning: this safe-point may run light finalizers and register
+       commit/abort callbacks if a major GC is triggered here */
+    enter_safe_point_if_requested();
+    dprintf(("> start_transaction\n"));
+
+    s_mutex_unlock();   // XXX it's probably possible to not acquire this here
+
+    if (UNLIKELY(rv == 0xff)) {
+        reset_transaction_read_version();
+    }
 
     stm_validate();
 }

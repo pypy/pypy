@@ -103,6 +103,24 @@ static inline void cond_broadcast(enum cond_type_e ctype)
 /************************************************************/
 
 
+void stm_wait_for_current_inevitable_transaction(void)
+{
+    struct stm_commit_log_entry_s *current = STM_PSEGMENT->last_commit_log_entry;
+
+    /* XXX: don't do busy-waiting */
+    while (1) {
+        if (current->next == NULL) {
+            break;
+        } else if (current->next == INEV_RUNNING) {
+            usleep(10);
+            continue;
+        }
+        current = current->next;
+    }
+}
+
+
+
 static bool acquire_thread_segment(stm_thread_local_t *tl)
 {
     /* This function acquires a segment for the currently running thread,
