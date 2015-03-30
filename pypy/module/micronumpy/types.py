@@ -1649,14 +1649,18 @@ class ObjectType(BaseType):
         return boxes.W_ObjectBox(w_item)
 
     def store(self, arr, i, offset, box):
-        self._write(arr.storage, i, offset, self.unbox(box))
+        self._write(arr.storage, i, offset, self.unbox(box),
+                    arr.gcstruct)
 
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
 
     @jit.dont_look_inside
-    def _write(self, storage, i, offset, w_obj):
+    def _write(self, storage, i, offset, w_obj, gcstruct):
+        # no GC anywhere in this function!
         if we_are_translated():
+            from rpython.rlib import rgc
+            rgc.ll_writebarrier(gcstruct)
             value = rffi.cast(lltype.Signed, cast_instance_to_gcref(w_obj))
         else:
             value = len(_all_objs_for_tests)
@@ -1676,7 +1680,7 @@ class ObjectType(BaseType):
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
-            self._write(storage, i, offset, value)
+            self._write(storage, i, offset, value, XXX)
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)

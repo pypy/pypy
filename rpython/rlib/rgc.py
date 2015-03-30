@@ -681,6 +681,14 @@ def register_custom_trace_hook(TP, lambda_func):
     call, for internal reasons.
     """
 
+@specialize.ll()
+def ll_writebarrier(gc_obj):
+    """Use together with custom tracers.  When you update some object pointer
+    stored in raw memory, you must call this function on 'gc_obj', which must
+    be the object of type TP with the custom tracer (*not* the value stored!).
+    This makes sure that the custom hook will be called again."""
+    llop.gc_writebarrier(lltype.Void, gc_obj)
+
 class RegisterGcTraceEntry(ExtRegistryEntry):
     _about_ = register_custom_trace_hook
 
