@@ -71,6 +71,14 @@ class DepTestHelper(BaseTest):
     def assert_dependent(self, a, b):
         assert not self.last_graph.independent(a,b), "{a} and {b} are independent!".format(a=a,b=b)
 
+    def _write_dot_and_convert_to_svg(self, graph, ops, filename):
+        dot = graph.as_dot(ops)
+        with open('/home/rich/' + filename + '.dot', 'w') as fd:
+            fd.write(dot)
+        with open('/home/rich/'+filename+'.svg', 'w') as fd:
+            import subprocess
+            subprocess.Popen(['dot', '-Tsvg', '/home/rich/'+filename+'.dot'], stdout=fd).communicate()
+
 class BaseTestDependencyGraph(DepTestHelper):
     def test_dependency_empty(self):
         ops = """
@@ -129,6 +137,18 @@ class BaseTestDependencyGraph(DepTestHelper):
         dep_graph = self.build_dependency(ops)
         self.assert_edges(dep_graph, 
                 [ [2,3], [2], [1,0], [0] ])
+
+    #def test_dependency_guard_2(self):
+    #    ops = """
+    #    [i1]
+    #    i2 = int_le(i1, 10)
+    #    guard_true(i2) [i1]
+    #    i3 = int_add(i1,1)
+    #    jump(i3)
+    #    """
+    #    dep_graph = self.build_dependency(ops)
+    #    self.assert_edges(dep_graph, 
+    #            [ [1], [0,2], [1], [2,4], [3] ])
 
     def test_no_edge_duplication(self):
         ops = """

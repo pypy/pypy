@@ -25,6 +25,7 @@ class AbstractResOp(object):
     _cls_has_bool_result = False
     boolreflex = -1
     boolinverse = -1
+    vector = -1
 
     _attrs_ = ('result',)
 
@@ -445,21 +446,9 @@ _oplist = [
     #
     # vector operations
     '_VEC_ARITHMETIC_FIRST',
-    'VEC_CHAR_ADD/3d',
-    'VEC_CHAR_SUB/3d',
-    'VEC_CHAR_MUL/3d',
-    'VEC_SHORT_ADD/3d',
-    'VEC_SHORT_SUB/3d',
-    'VEC_SHORT_MUL/3d',
     'VEC_INT_ADD/3d',
     'VEC_INT_SUB/3d',
     'VEC_INT_MUL/3d',
-    'VEC_UINT_ADD/3d',
-    'VEC_UINT_SUB/3d',
-    'VEC_UINT_MUL/3d',
-    'VEC_SP_FLOAT_ADD/3d',
-    'VEC_SP_FLOAT_SUB/3d',
-    'VEC_SP_FLOAT_MUL/3d',
     'VEC_FLOAT_ADD/3d',
     'VEC_FLOAT_SUB/3d',
     'VEC_FLOAT_MUL/3d',
@@ -707,6 +696,22 @@ _opboolreflex = {
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
 }
+_opvector = {
+    rop.RAW_LOAD: rop.VEC_RAW_LOAD,
+    rop.GETARRAYITEM_RAW: rop.VEC_RAW_LOAD,
+    rop.GETARRAYITEM_GC: rop.VEC_RAW_LOAD,
+
+    rop.RAW_STORE: rop.VEC_RAW_STORE,
+    rop.SETARRAYITEM_RAW: rop.VEC_RAW_STORE,
+    rop.SETARRAYITEM_GC: rop.VEC_RAW_STORE,
+
+    rop.INT_ADD: rop.VEC_INT_ADD,
+    rop.INT_SUB: rop.VEC_INT_SUB,
+    rop.INT_MUL: rop.VEC_INT_MUL,
+    rop.FLOAT_ADD: rop.VEC_FLOAT_ADD,
+    rop.FLOAT_SUB: rop.VEC_FLOAT_SUB,
+    rop.FLOAT_MUL: rop.VEC_FLOAT_MUL,
+}
 
 def setup2():
     for cls in opclasses:
@@ -717,10 +722,13 @@ def setup2():
             cls.boolreflex = _opboolreflex[opnum]
         if opnum in _opboolinverse:
             cls.boolinverse = _opboolinverse[opnum]
+        if opnum in _opvector:
+            cls.vector = _opvector[opnum]
 
 setup2()
 del _opboolinverse
 del _opboolreflex
+del _opvector
 
 def get_deep_immutable_oplist(operations):
     """

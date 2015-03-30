@@ -1,11 +1,12 @@
 import sys
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
         MemoryRef, IntegralMod, Scheduler)
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import (rop, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.metainterp.jitexc import JitException
@@ -40,6 +41,7 @@ class VectorizingOptimizer(Optimizer):
         self.unroll_count = 0
 
     def emit_operation(self, op):
+        print "emit[", len(self._newoperations), "]:", op
         self._last_emitted_op = op
         self._newoperations.append(op)
 
@@ -269,6 +271,7 @@ class VectorizingOptimizer(Optimizer):
     def combine_packset(self):
         if len(self.packset.packs) == 0:
             raise NotAVectorizeableLoop()
+        # TODO modifying of lists while iterating has undefined results!!
         while True:
             len_before = len(self.packset.packs)
             for i,pack1 in enumerate(self.packset.packs):
@@ -285,7 +288,9 @@ class VectorizingOptimizer(Optimizer):
                 break
 
     def schedule(self):
+        self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph)
+        i = 0
         while scheduler.has_more_to_schedule():
             candidate_index = scheduler.next_schedule_index()
             candidate = self.loop.operations[candidate_index]
@@ -295,13 +300,32 @@ class VectorizingOptimizer(Optimizer):
             else:
                 self.emit_operation(candidate)
                 scheduler.schedule(0)
+            i+=1
+            if i > 20:
+                print self.dependency_graph
+                break
+
+        self.loop.operations = self._newoperations[:]
 
     def _schedule_pack(self, scheduler, pack):
-        if scheduler.all_schedulable([ e.opidx for e in pack.operations ]):
+        opindices = [ e.opidx for e in pack.operations ]
+        if scheduler.schedulable(opindices):
             self.emit_vec_operation(pack)
+            scheduler.schedule_all(opindices)
+        else:
+            print "pack not schedulable", pack
+            scheduler.schedule_later(0)
 
     def emit_vec_operation(self, pack):
-        pass
+        op0_wrapper = pack.operations[0]
+        op0 = self.loop.operations[op0_wrapper.opidx]
+        op_count = len(pack.operations)
+        assert op0.vector != -1
+        args = op0.getarglist()[:]
+        args.append(ConstInt(op_count))
+        vecop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
+        self.emit_operation(vecop)
+
 
 def isomorphic(l_op, r_op):
     """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
@@ -364,6 +388,7 @@ class PackSet(object):
         return 0
 
     def combine(self, i, j):
+        # TODO modifying of lists while iterating has undefined results!!
         pack_i = self.packs[i]
         pack_j = self.packs[j]
         operations = pack_i.operations
@@ -379,6 +404,13 @@ class PackSet(object):
         else:
             self.packs[j] = self.packs[last_pos]
             del self.packs[last_pos]
+
+    def pack_for_operation(self, op, opidx):
+        for pack in self.packs:
+            for op in pack.operations:
+                if op.getopidx() == opidx:
+                    return pack
+        return None
 
 class Pack(object):
     """ A pack is a set of n statements that are:
@@ -416,6 +448,9 @@ class PackOpWrapper(object):
     def __init__(self, opidx, memref = None):
         self.opidx = opidx
         self.memref = memref
+
+    def getopidx(self):
+        return self.opidx
 
     def __eq__(self, other):
         if isinstance(other, PackOpWrapper):

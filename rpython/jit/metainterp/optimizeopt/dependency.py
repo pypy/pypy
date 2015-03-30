@@ -2,9 +2,10 @@ import py
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt
+from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import we_are_translated
 
 MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.SETARRAYITEM_RAW, 0, 1)
@@ -36,12 +37,6 @@ class Dependency(object):
 
         self.idx_from = idx_from 
         self.idx_to = idx_to
-
-    def adjust_dep_after_swap(self, idx_old, idx_new):
-        if self.idx_from == idx_old:
-            self.idx_from = idx_new
-        elif self.idx_to == idx_old:
-            self.idx_to = idx_new
 
     def __repr__(self):
         return 'Dep(trace[%d] -> trace[%d], arg: %s)' \
@@ -119,6 +114,8 @@ class DependencyGraph(object):
         """
         tracker = DefTracker(self.memory_refs)
 
+        guards = []
+        # pass 1
         for i,op in enumerate(operations):
             # the label operation defines all operations at the
             # beginning of the loop
@@ -142,13 +139,46 @@ class DependencyGraph(object):
 
             # guard specifics
             if op.is_guard():
-                for arg in op.getfailargs():
-                    self._def_use(arg, i, tracker)
-                if i > 0:
-                    self._guard_dependency(op, i, operations, tracker)
+                guards.append(i)
+                # TODO
+                #if i > 0:
+                #    self._guard_dependency(op, i, operations, tracker)
 
+        # pass 2 correct guard dependencies
+        for guard_idx in guards:
+            variables = []
+            for dep in self.depends(guard_idx):
+                idx = dep.idx_from
+                op = operations[idx]
+                for arg in op.getarglist():
+                    if isinstance(arg, Box):
+                        variables.append(arg)
+                if op.result:
+                    variables.append(op.result)
+            print "\ntesting", variables
+            for var in variables:
+                try:
+                    def_idx = tracker.definition_index(var)
+                    print "guard", guard_idx, def_idx, "var", var, "aaa", [d.idx_to for d in self.get_uses(def_idx)]
+                    for dep in self.provides(def_idx):
+                        if var in dep.args and dep.idx_to > guard_idx:
+                            self._put_edge(guard_idx, dep.idx_to, var)
+                            print "put edge", guard_idx, dep.idx_to, var, dep.args
+                except KeyError:
+                    pass
+            op = operations[guard_idx]
+            for arg in op.getfailargs():
+                try:
+                    def_idx = tracker.definition_index(arg)
+                    self._put_edge(def_idx, i, arg)
+                except KeyError:
+                    pass
+
+        # pass 3 find schedulable nodes
+        for i,op in enumerate(operations):
             if len(self.adjacent_list[i]) == 0:
                 self.schedulable_nodes.append(i)
+
 
     def update_memory_ref(self, op, index, tracker):
         if index not in self.memory_refs:
@@ -166,7 +196,7 @@ class DependencyGraph(object):
                 self.integral_mod.update_memory_ref(memref)
             else:
                 break # an operation that is not tractable
-            for dep in self.get_defs(curidx):
+            for dep in self.depends(curidx):
                 curop = self.operations[dep.idx_from]
                 if curop.result == memref.origin:
                     curidx = dep.idx_from
@@ -201,7 +231,7 @@ class DependencyGraph(object):
                             # A trace is not in SSA form, but this complex object
                             # modification introduces a WAR/WAW dependency
                             def_idx = tracker.definition_index(arg)
-                            for dep in self.get_uses(def_idx):
+                            for dep in self.provides(def_idx):
                                 if dep.idx_to >= index:
                                     break
                                 self._put_edge(dep.idx_to, index, argcell)
@@ -226,10 +256,15 @@ class DependencyGraph(object):
         if self.modifies_complex_object(op):
             for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
                 if op.getopnum() == opnum:
+                    op_args = op.getarglist()
                     if j == -1:
                         args.append((op.getarg(i), None, True))
+                        for j in range(i+1,len(op_args)):
+                            args.append((op.getarg(j), None, False))
                     else:
                         args.append((op.getarg(i), op.getarg(j), True))
+                        for x in range(j+1,len(op_args)):
+                            args.append((op.getarg(x), None, False))
                     break
         else:
             # assume this destroys every argument... can be enhanced by looking
@@ -243,7 +278,7 @@ class DependencyGraph(object):
         # respect a guard after a statement that can raise!
         assert i > 0
 
-        j = i-1
+        j = i - 1
         while j > 0:
             prev_op = operations[j]
             if prev_op.is_guard():
@@ -275,6 +310,8 @@ class DependencyGraph(object):
 
     def _put_edge(self, idx_from, idx_to, arg):
         assert idx_from != idx_to
+        if idx_from == 6 and idx_to == 9:
+            assert False
         dep = self.instr_dependency(idx_from, idx_to)
         if dep is None:
             dep = Dependency(idx_from, idx_to, arg)
@@ -284,13 +321,28 @@ class DependencyGraph(object):
             if arg not in dep.args:
                 dep.args.append(arg)
 
+    def provides_count(self, idx):
+        i = 0
+        for _ in self.provides(idx):
+            i += 1
+        return i
+
+    def provides(self, idx):
+        return self.get_uses(idx)
     def get_uses(self, idx):
         for dep in self.adjacent_list[idx]:
             if idx < dep.idx_to:
                 yield dep
 
+    def depends_count(self, idx):
+        i = 0
+        for _ in self.depends(idx):
+            i += 1
+        return i
+
+    def depends(self, idx):
+        return self.get_defs(idx)
     def get_defs(self, idx):
-        deps = []
         for dep in self.adjacent_list[idx]:
             if idx > dep.idx_from:
                 yield dep
@@ -344,11 +396,25 @@ class DependencyGraph(object):
                 return edge
         return None 
 
+    def remove_depencency(self, follow_dep, point_to_idx):
+        """ removes a all dependencies that point to the second parameter.
+        it is assumed that the adjacent_list[point_to_idx] is not iterated
+        when calling this function.
+        """
+        idx = follow_dep.idx_from
+        if idx == point_to_idx:
+            idx = follow_dep.idx_to
+
+        preount = len(self.adjacent_list[idx])
+        self.adjacent_list[idx] = [d for d in self.adjacent_list[idx] \
+                if d.idx_to != point_to_idx and d.idx_from != point_to_idx]
+        #print "reduced", idx, "from",preount,"to",len(self.adjacent_list[idx])
+
     def __repr__(self):
         graph = "graph([\n"
 
         for i,l in enumerate(self.adjacent_list):
-            graph += "       "
+            graph += "       " + str(i) + ": "
             for d in l:
                 if i == d.idx_from:
                     graph += str(d.idx_to) + ","
@@ -358,19 +424,6 @@ class DependencyGraph(object):
 
         return graph + "      ])"
 
-    def swap_instructions(self, ia, ib):
-        depa = self.adjacent_list[ia]
-        depb = self.adjacent_list[ib]
-
-        for d in depa:
-            d.adjust_dep_after_swap(ia, ib)
-
-        for d in depb:
-            d.adjust_dep_after_swap(ib, ia)
-
-        self.adjacent_list[ia] = depb
-        self.adjacent_list[ib] = depa
-
     def loads_from_complex_object(self, op):
         opnum = op.getopnum()
         return rop._ALWAYS_PURE_LAST <= opnum and opnum <= rop._MALLOC_FIRST
@@ -378,6 +431,24 @@ class DependencyGraph(object):
     def modifies_complex_object(self, op):
         opnum = op.getopnum()
         return rop.SETARRAYITEM_GC<= opnum and opnum <= rop.UNICODESETITEM
+
+    def as_dot(self, operations):
+        if not we_are_translated():
+            dot = "digraph dep_graph {\n"
+
+            for i in range(len(self.adjacent_list)):
+                op = operations[i]
+                dot += " n%d [label=\"[%d]: %s\"];\n" % (i,i,str(op))
+
+            dot += "\n"
+            for i,alist in enumerate(self.adjacent_list):
+                for dep in alist:
+                    if dep.idx_to > i:
+                        dot += " n%d -> n%d;\n" % (i,dep.idx_to)
+            dot += "\n}\n"
+            return dot
+
+        return ""
 
 class Scheduler(object):
     def __init__(self, graph):
@@ -390,14 +461,49 @@ class Scheduler(object):
     def next_schedule_index(self):
         return self.schedulable_nodes[0]
 
+    def schedulable(self, indices):
+        for index in indices:
+            if index not in self.schedulable_nodes:
+                break
+        else:
+            return True
+        return False
+
+    def schedule_later(self, index):
+        node = self.schedulable_nodes[index]
+        del self.schedulable_nodes[index]
+        self.schedulable_nodes.append(node)
+        print "shifting", index, "(", node ,")","to", len(self.schedulable_nodes)-1, "sched", self.schedulable_nodes
+
+    def schedule_all(self, opindices):
+        indices = []
+        while len(opindices) > 0:
+            opidx = opindices.pop()
+            for i,node in enumerate(self.schedulable_nodes):
+                if node == opidx:
+                    indices.append(i)
+        for index in indices:
+            self.schedule(index)
+
     def schedule(self, index):
         node = self.schedulable_nodes[index]
         del self.schedulable_nodes[index]
+        print "schedule[", index, "](", node, "):",
+        to_del = []
+        adj_list = self.graph.adjacent_list[node]
+        for dep in adj_list:
+            self.graph.remove_depencency(dep, node)
         #
-        for dep in self.graph.get_uses(node):
-            self.schedulable_nodes.append(dep.idx_to)
-        #
-        # self.graph.adjacent_list[node] = None
+        for dep in self.graph.provideso(node):
+            candidate = dep.idx_to
+            if self.is_schedulable(dep.idx_to):
+                self.schedulable_nodes.append(dep.idx_to)
+                print dep.idx_to, ",",
+        self.graph.adjacent_list[node] = []
+        print ""
+
+    def is_schedulable(self, idx):
+        return self.graph.depends_count(idx) == 0
 
 class IntegralMod(object):
     """ Calculates integral modifications on an integer object.
