@@ -196,7 +196,7 @@ class Primitive(object):
         with arr as storage:
             self._write(storage, i, offset, self.unbox(box))
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
@@ -1157,7 +1157,7 @@ class ComplexFloating(object):
         with arr as storage:
             self._write(storage, i, offset, self.unbox(box))
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
@@ -1677,10 +1677,10 @@ class ObjectType(BaseType):
             w_obj = _all_objs_for_tests[res]
         return w_obj
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
-            self._write(storage, i, offset, value, XXX)
+            self._write(storage, i, offset, value, gcstruct)
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
@@ -1851,7 +1851,7 @@ class StringType(FlexibleType):
     def bool(self, v):
         return bool(self.to_str(v))
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
 
@@ -2006,7 +2006,7 @@ class RecordType(FlexibleType):
             for k in range(size):
                 storage[k + i + ofs] = box_storage[k + box.ofs]
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         assert isinstance(box, boxes.W_VoidBox)
         assert width == box.dtype.elsize
         for i in xrange(start, stop, width):

@@ -346,8 +346,8 @@ offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
 
 def customtrace(gc, obj, callback, arg):
     #debug_print('in customtrace w/obj', obj)
-    length = rffi.cast(lltype.Signed, obj + offset_of_length)
-    step = rffi.cast(lltype.Signed, obj + offset_of_step)
+    length = rffi.cast(rffi.SIGNEDP, obj + offset_of_length)[0]
+    step = rffi.cast(rffi.SIGNEDP, obj + offset_of_step)[0]
     storage = obj + offset_of_storage
     debug_print('tracing', length, 'objects in ndarray.storage')
     i = 0
@@ -362,7 +362,6 @@ def customtrace(gc, obj, callback, arg):
 lambda_customtrace = lambda: customtrace
 
 def _setup():
-    print 'registering custom trace for OBJECTSTORE'
     rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
 
 @jit.dont_look_inside
@@ -393,7 +392,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
-                                 box, 0, self.size, 0)
+                                 box, 0, self.size, 0, self.gcstruct)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,
@@ -423,14 +422,18 @@ class ConcreteArray(ConcreteArrayNotOwning):
         gcstruct = lltype.nullptr(OBJECTSTORE)
         if storage == lltype.nullptr(RAW_STORAGE):
             length = support.product(shape) 
-            storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
             if dtype.num == NPY.OBJECT:
+                storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
+            else:
+                storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
         self.gcstruct = gcstruct
 
     def __del__(self):
+        if self.gcstruct:
+            self.gcstruct.length = 0
         free_raw_storage(self.storage, track_allocation=False)
 
 
@@ -469,6 +472,7 @@ class SliceArray(BaseConcreteArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
+        self.gcstruct = parent.gcstruct
         self.order = parent.order
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.elsize
@@ -526,6 +530,7 @@ class NonWritableSliceArray(SliceArray):
 class VoidBoxStorage(BaseConcreteArray):
     def __init__(self, size, dtype):
         self.storage = alloc_raw_storage(size)
+        self.gcstruct = lltype.nullptr(OBJECTSTORE)
         self.dtype = dtype
         self.size = size
 
