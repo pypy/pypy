@@ -96,7 +96,7 @@ class __extend__(PyFrame):
             gc_frame = cast_instance_to_gcref(frame)
             gc_inputvalue = cast_instance_to_gcref(w_inputvalue)
             gc_operr = cast_instance_to_gcref(operr)
-            unique_id = frame.pycode._unique_id | 1
+            unique_id = frame.pycode._unique_id - 1
             gc_result = pypy_execute_frame_trampoline(gc_frame, gc_inputvalue,
                                                       gc_operr, unique_id)
             return cast_base_ptr_to_instance(W_Root, gc_result)
