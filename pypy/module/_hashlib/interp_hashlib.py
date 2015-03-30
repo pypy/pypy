@@ -27,14 +27,14 @@ def hash_name_mapper_callback(obj_name, userdata):
     try:
         space = global_name_fetcher.space
         w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
-        space.call_method(global_name_fetcher.w_meth_names, "add", w_name)
+        global_name_fetcher.meth_names.append(w_name)
     except OperationError, e:
         global_name_fetcher.w_error = e
 
 class NameFetcher:
     def setup(self, space):
         self.space = space
-        self.w_meth_names = space.call_function(space.w_set)
+        self.meth_names = []
         self.w_error = None
     def _cleanup_(self):
         self.__dict__.clear()
@@ -47,7 +47,9 @@ def fetch_names(space):
                              hash_name_mapper_callback, None)
     if global_name_fetcher.w_error:
         raise global_name_fetcher.w_error
-    return global_name_fetcher.w_meth_names
+    meth_names = global_name_fetcher.meth_names
+    global_name_fetcher.meth_names = None
+    return space.call_function(space.w_frozenset, space.newlist(meth_names))
 
 class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
