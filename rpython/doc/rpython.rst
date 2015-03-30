@@ -92,6 +92,11 @@ We are using
   no variable-length tuples; use them to store or return pairs or n-tuples of
   values. Each combination of types for elements and length constitute
   a separate and not mixable type.
+  
+  There is no general way to convert a list into a tuple, because the
+  length of the result would not be known statically.  (You can of course
+  do ``t = (lst[0], lst[1], lst[2])`` if you know that ``lst`` has got 3
+  items.)
 
 **lists**
 
