@@ -687,6 +687,7 @@ def ll_writebarrier(gc_obj):
     stored in raw memory, you must call this function on 'gc_obj', which must
     be the object of type TP with the custom tracer (*not* the value stored!).
     This makes sure that the custom hook will be called again."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
     llop.gc_writebarrier(lltype.Void, gc_obj)
 
 class RegisterGcTraceEntry(ExtRegistryEntry):
