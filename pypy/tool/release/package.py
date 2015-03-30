@@ -116,6 +116,11 @@ def create_package(basedir, options):
             os.rename(str(libpypy_c) + '~', str(libpypy_c))
         binaries.append((libpypy_c, libpypy_name))
     #
+    # PyPy-STM only
+    p = basedir.join('pypy', 'stm', 'print_stm_log.py')
+    assert p.check(), "this version should be run in the stm branch"
+    binaries.append((p, p.basename))
+    #
     builddir = options.builddir
     pypydir = builddir.ensure(name, dir=True)
     includedir = basedir.join('include')
