@@ -27,11 +27,13 @@
 # define HAVE_FULL_EXCHANGE_INSN
   static inline void spin_loop(void) { asm("pause" : : : "memory"); }
   static inline void write_fence(void) { asm("" : : : "memory"); }
+  static inline void read_fence(void) { asm("" : : : "memory"); }
 
 #else
 
   static inline void spin_loop(void) { asm("" : : : "memory"); }
   static inline void write_fence(void) { __sync_synchronize(); }
+  static inline void read_fence(void) { asm("" : : : "memory"); }
 
 #endif
 

@@ -17,7 +17,7 @@ import py
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
-from rpython.flowspace.model import Variable, Constant, SpaceOperation, c_last_exception
+from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
@@ -234,6 +234,8 @@ class RPythonTyper(object):
             else:
                 tracking = lambda block: None
 
+            for block in pending:
+                self._processing_block(block)
             self.call_all_setups(all_threads=True)
 
             try:
@@ -335,23 +337,19 @@ class RPythonTyper(object):
         assert isinstance(v, Variable)
         v.concretetype = self.bindingrepr(v).lowleveltype
 
-    def setup_block_entry(self, block):
+    def get_block_entry(self, block):
         if block.operations == () and len(block.inputargs) == 2:
             # special case for exception blocks: force them to return an
             # exception type and value in a standardized format
-            v1, v2 = block.inputargs
-            v1.concretetype = self.exceptiondata.lltype_of_exception_type
-            v2.concretetype = self.exceptiondata.lltype_of_exception_value
             return [self.exceptiondata.r_exception_type,
                     self.exceptiondata.r_exception_value]
         else:
             # normal path
-            result = []
-            for a in block.inputargs:
-                r = self.bindingrepr(a)
-                a.concretetype = r.lowleveltype
-                result.append(r)
-            return result
+            return [self.bindingrepr(a) for a in block.inputargs]
+
+    def setup_block_entry(self, block, entry_reprs):
+        for r, a in zip(entry_reprs, block.inputargs):
+            a.concretetype = r.lowleveltype
 
     def make_new_lloplist(self, block):
         return LowLevelOpList(self, block)
@@ -366,17 +364,22 @@ class RPythonTyper(object):
         # and then other reprs' setup crash
         self.call_all_setups()
 
-    def _specialize_block(self, block):
+    def _processing_block(self, block):
         graph = self.annotator.annotated[block]
         if graph not in self.annotator.fixed_graphs:
             self.annotator.fixed_graphs.add(graph)
             # make sure that the return variables of all graphs
             # are concretetype'd
             self.setconcretetype(graph.getreturnvar())
+            #
+            v1, v2 = graph.exceptblock.inputargs
+            v1.concretetype = self.exceptiondata.lltype_of_exception_type
+            v2.concretetype = self.exceptiondata.lltype_of_exception_value
 
+    def _specialize_block(self, block):
         # give the best possible types to the input args
         try:
-            self.setup_block_entry(block)
+            self.setup_block_entry(block, self.get_block_entry(block))
         except TyperError, e:
             self.gottypererror(e, block, "block-entry", None)
             return  # cannot continue this block
@@ -406,7 +409,7 @@ class RPythonTyper(object):
         if (pos is not None and pos != len(newops) - 1):
             # this is for the case where the llop that raises the exceptions
             # is not the last one in the list.
-            assert block.exitswitch == c_last_exception
+            assert block.canraise
             noexclink = block.exits[0]
             assert noexclink.exitcase is None
             if pos == "removed":
@@ -424,9 +427,7 @@ class RPythonTyper(object):
                 assert 0 <= pos < len(newops) - 1
                 extraops = block.operations[pos+1:]
                 del block.operations[pos+1:]
-                extrablock = insert_empty_block(self.annotator,
-                                                noexclink,
-                                                newops = extraops)
+                extrablock = insert_empty_block(noexclink, newops=extraops)
 
         if extrablock is None:
             self.insert_link_conversions(block)
@@ -443,7 +444,7 @@ class RPythonTyper(object):
             if isinstance(block.exitswitch, Variable):
                 r_case = self.bindingrepr(block.exitswitch)
             else:
-                assert block.exitswitch == c_last_exception
+                assert block.canraise
                 r_case = rclass.get_type_repr(self)
             link.llexitcase = r_case.convert_const(link.exitcase)
         else:
@@ -468,7 +469,7 @@ class RPythonTyper(object):
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits[skip:]:
             self._convert_link(block, link)
-            inputargs_reprs = self.setup_block_entry(link.target)
+            inputargs_reprs = self.get_block_entry(link.target)
             newops = self.make_new_lloplist(block)
             newlinkargs = {}
             for i in range(len(link.args)):
@@ -500,10 +501,9 @@ class RPythonTyper(object):
                     # cannot insert conversion operations around a single
                     # link, unless it is the only exit of this block.
                     # create a new block along the link...
-                    newblock = insert_empty_block(self.annotator,
-                                                  link,
+                    newblock = insert_empty_block(link,
                     # ...and store the conversions there.
-                                               newops=newops)
+                                                  newops=newops)
                     link = newblock.exits[0]
             for i, new_a1 in newlinkargs.items():
                 link.args[i] = new_a1
@@ -514,7 +514,7 @@ class RPythonTyper(object):
             for op in block.operations[:-1]:
                 yield HighLevelOp(self, op, [], llops)
             # look for exception links for the last operation
-            if block.exitswitch == c_last_exception:
+            if block.canraise:
                 exclinks = block.exits[1:]
             else:
                 exclinks = []

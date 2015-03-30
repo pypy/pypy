@@ -7,7 +7,7 @@ def varoftype(concretetype, name=None):
     var.concretetype = concretetype
     return var
 
-def insert_empty_block(annotator, link, newops=[]):
+def insert_empty_block(link, newops=[]):
     """Insert and return a new block along the given link."""
     vars = {}
     for v in link.args:
@@ -30,7 +30,7 @@ def insert_empty_block(annotator, link, newops=[]):
     link.target = newblock
     return newblock
 
-def insert_empty_startblock(annotator, graph):
+def insert_empty_startblock(graph):
     vars = [v.copy() for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
@@ -41,7 +41,7 @@ def starts_with_empty_block(graph):
             and graph.startblock.exitswitch is None
             and graph.startblock.exits[0].args == graph.getargs())
 
-def split_block(annotator, block, index, _forcelink=None):
+def split_block(block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables
     passed on.

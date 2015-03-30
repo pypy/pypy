@@ -18,6 +18,7 @@
 #ifdef __GNUC__
 /* Hack to prevent this function from being inlined.  Helps asmgcc
    because the main() function has often a different prologue/epilogue. */
+RPY_EXTERN
 int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #endif
 
@@ -26,6 +27,7 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include "forwarddecl.h"
 # endif
 
+RPY_EXTERN
 int pypy_main_function(int argc, char *argv[])
 {
     char *errmsg;

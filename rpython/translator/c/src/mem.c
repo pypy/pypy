@@ -7,6 +7,7 @@
 #ifdef RPY_STM
 # include "src/mem.h"
 # ifdef RPY_ASSERT
+RPY_EXTERN
 int try_pypy_debug_alloc_stop(void *);
 # else
 #  define try_pypy_debug_alloc_stop(p)  /* nothing */
@@ -67,6 +68,7 @@ static Signed pypy_debug_alloc_lock = 0;
 # define spinlock_release(lock)               /* nothing */
 #endif
 
+RPY_EXTERN
 void pypy_debug_alloc_start(void *addr, const char *funcname)
 {
   struct pypy_debug_alloc_s *p = malloc(sizeof(struct pypy_debug_alloc_s));
@@ -79,9 +81,12 @@ void pypy_debug_alloc_start(void *addr, const char *funcname)
   spinlock_release(pypy_debug_alloc_lock);
 }
 
+RPY_EXTERN
 int try_pypy_debug_alloc_stop(void *addr)
 {
   struct pypy_debug_alloc_s **p;
+  if (!addr)
+	return 1;
   spinlock_acquire(pypy_debug_alloc_lock);
   for (p = &pypy_debug_alloc_list; *p; p = &((*p)->next))
     if ((*p)->addr == addr)
@@ -97,12 +102,14 @@ int try_pypy_debug_alloc_stop(void *addr)
   return 0;
 }
 
+RPY_EXTERN
 void pypy_debug_alloc_stop(void *addr)
 {
   if (!try_pypy_debug_alloc_stop(addr))
     RPyAssert(0, "free() of a never-malloc()ed object");
 }
 
+RPY_EXTERN
 void pypy_debug_alloc_results(void)
 {
   long count = 0;

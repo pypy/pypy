@@ -140,6 +140,12 @@ class Link(object):
             newlink.llexitcase = self.llexitcase
         return newlink
 
+    def replace(self, mapping):
+        def rename(v):
+            if v is not None:
+                return v.replace(mapping)
+        return self.copy(rename)
+
     def settarget(self, targetblock):
         assert len(self.args) == len(targetblock.inputargs), (
             "output args mismatch")
@@ -190,6 +196,15 @@ class Block(object):
             txt = "%s(%s)" % (txt, self.exitswitch)
         return txt
 
+    @property
+    def canraise(self):
+        return self.exitswitch is c_last_exception
+
+    @property
+    def raising_op(self):
+        if self.canraise:
+            return self.operations[-1]
+
     def getvariables(self):
         "Return all variables mentioned in this Block."
         result = self.inputargs[:]
@@ -206,13 +221,12 @@ class Block(object):
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
     def renamevariables(self, mapping):
-        self.inputargs = [mapping.get(a, a) for a in self.inputargs]
-        for op in self.operations:
-            op.args = [mapping.get(a, a) for a in op.args]
-            op.result = mapping.get(op.result, op.result)
-        self.exitswitch = mapping.get(self.exitswitch, self.exitswitch)
+        self.inputargs = [a.replace(mapping) for a in self.inputargs]
+        self.operations = [op.replace(mapping) for op in self.operations]
+        if self.exitswitch is not None:
+            self.exitswitch = self.exitswitch.replace(mapping)
         for link in self.exits:
-            link.args = [mapping.get(a, a) for a in link.args]
+            link.args = [a.replace(mapping) for a in link.args]
 
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
@@ -318,6 +332,8 @@ class Variable(object):
             newvar.concretetype = self.concretetype
         return newvar
 
+    def replace(self, mapping):
+        return mapping.get(self, self)
 
 
 class Constant(Hashable):
@@ -346,6 +362,9 @@ class Constant(Hashable):
         else:
             # cannot count on it not mutating at runtime!
             return False
+
+    def replace(self, mapping):
+        return self
 
 
 class FSException(object):
@@ -422,8 +441,8 @@ class SpaceOperation(object):
                                 ", ".join(map(repr, self.args)))
 
     def replace(self, mapping):
-        newargs = [mapping.get(arg, arg) for arg in self.args]
-        newresult = mapping.get(self.result, self.result)
+        newargs = [arg.replace(mapping) for arg in self.args]
+        newresult = self.result.replace(mapping)
         return type(self)(self.opname, newargs, newresult, self.offset)
 
 class Atom(object):
@@ -591,11 +610,11 @@ def checkgraph(graph):
                 assert len(block.exits) <= 1
                 if block.exits:
                     assert block.exits[0].exitcase is None
-            elif block.exitswitch == Constant(last_exception):
+            elif block.canraise:
                 assert len(block.operations) >= 1
                 # check if an exception catch is done on a reasonable
                 # operation
-                assert block.operations[-1].opname not in ("keepalive",
+                assert block.raising_op.opname not in ("keepalive",
                                                            "cast_pointer",
                                                            "same_as")
                 assert len(block.exits) >= 2

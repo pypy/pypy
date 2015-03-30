@@ -302,15 +302,14 @@ class AppTestNonblocking(object):
 
         if cls.runappdirect:
             py.test.skip("works with internals of _file impl on py.py")
-        state = [0]
         def read(fd, n=None):
             if fd != 424242:
                 return cls.old_read(fd, n)
-            if state[0] == 0:
-                state[0] += 1
+            if cls.state == 0:
+                cls.state += 1
                 return "xyz"
-            if state[0] < 3:
-                state[0] += 1
+            if cls.state < 3:
+                cls.state += 1
                 raise OSError(errno.EAGAIN, "xyz")
             return ''
         os.read = read
@@ -319,11 +318,18 @@ class AppTestNonblocking(object):
         stdin.name = '<stdin>'
         cls.w_stream = stdin
 
+    def setup_method(self, meth):
+        self.__class__.state = 0
+
     def teardown_class(cls):
         os.read = cls.old_read
 
-    def test_nonblocking_file(self):
+    def test_nonblocking_file_all(self):
         res = self.stream.read()
+        assert res == 'xyz'
+
+    def test_nonblocking_file_max(self):
+        res = self.stream.read(100)
         assert res == 'xyz'
 
 class AppTestConcurrency(object):

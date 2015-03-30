@@ -97,7 +97,7 @@ def compile(f, gc, **kwds):
     from rpython.translator.c import genc
     #
     t = TranslationContext()
-    gcrootfinder = kwds['gcrootfinder']
+    gcrootfinder = kwds.get('gcrootfinder')
     if gcrootfinder == 'stm':
         t.config.translation.stm = True
         t.config.translation.gc = 'stmgc'
@@ -220,15 +220,10 @@ class BaseFrameworkTests(object):
     def run_orig(self, name, n, x):
         self.main_allfuncs(name, n, x)
 
-    def can_pin(self):
-        """Don't run the pinning tests with STM,
-        where the nursery objects cannot be pinned at all.
-        """
-        return self.gcrootfinder != 'stm'
-
 
 class CompileFrameworkTests(BaseFrameworkTests):
     # Test suite using (so far) the minimark GC.
+    can_pin = True
 
 ##    def define_libffi_workaround(cls):
 ##        # XXX: this is a workaround for a bug in database.py.  It seems that
@@ -927,8 +922,9 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, None
 
     def test_pinned_simple(self):
-        if self.can_pin():
-            self.run('pinned_simple')
+        if not self.can_pin:
+            py.test.skip("not in this configuration")
+        self.run('pinned_simple')
 
     def define_pinned_unpin(cls):
         class H:
@@ -972,8 +968,9 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, after
 
     def test_pinned_unpin(self):
-        if self.can_pin():
-            self.run('pinned_unpin')
+        if not self.can_pin:
+            py.test.skip("not in this configuration")
+        self.run('pinned_unpin')
 
     def define_multiple_pinned(cls):
         class H:
@@ -1020,5 +1017,6 @@ class CompileFrameworkTests(BaseFrameworkTests):
         return None, fn, None
 
     def test_multiple_pinned(self):
-        if self.can_pin():
-            self.run('multiple_pinned')
+        if not self.can_pin:
+            py.test.skip("not in this configuration")
+        self.run('multiple_pinned')

@@ -2,7 +2,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.jit.backend.llsupport import jitframe, gc, descr, gcmap
+from rpython.jit.backend.llsupport import jitframe, gc, descr
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.metainterp.history import BoxPtr, BoxInt, ConstPtr

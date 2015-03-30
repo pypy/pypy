@@ -10,7 +10,7 @@ from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
      GcLLDescr_framework, GcCache, JitFrameDescrs
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.backend.llsupport import jitframe, gcmap
+from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 

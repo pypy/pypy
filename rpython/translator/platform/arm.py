@@ -21,11 +21,14 @@ class ARM(Linux):
 
     available_librarydirs = [SB2 + '/lib/arm-linux-gnueabi/',
                              SB2 + '/lib/arm-linux-gnueabihf/',
+                             SB2 + '/lib/aarch64-linux-gnu/',
                              SB2 + '/usr/lib/arm-linux-gnueabi/',
-                             SB2 + '/usr/lib/arm-linux-gnueabihf/']
+                             SB2 + '/usr/lib/arm-linux-gnueabihf/',
+                             SB2 + '/usr/lib/aarch64-linux-gnu/']
 
     available_includedirs = [SB2 + '/usr/include/arm-linux-gnueabi/',
-                             SB2 + '/usr/include/arm-linux-gnueabihf/']
+                             SB2 + '/usr/include/arm-linux-gnueabihf/',
+                             SB2 + '/usr/include/aarch64-linux-gnu/']
     copied_cache = {}
 
 

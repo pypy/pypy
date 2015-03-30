@@ -38,6 +38,9 @@ def apply_jit(translator, backend_name="auto", inline=False,
     ProfilerClass = Profiler
     # Always use Profiler here, which should have a very low impact.
     # Otherwise you can try with ProfilerClass = EmptyProfiler.
+    # We do that for stm to avoid conflicts.
+    if translator.config.translation.stm:
+        ProfilerClass = EmptyProfiler
     warmrunnerdesc = WarmRunnerDesc(translator,
                                     translate_support_code=True,
                                     listops=True,

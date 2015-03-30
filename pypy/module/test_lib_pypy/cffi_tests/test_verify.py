@@ -1368,7 +1368,7 @@ def test_relative_to():
     ffi = FFI()
     ffi.cdef("int foo(int);")
     f = open(os.path.join(tmpdir, 'foo.h'), 'w')
-    print >> f, "int foo(int a) { return a + 42; }"
+    f.write("int foo(int a) { return a + 42; }\n")
     f.close()
     lib = ffi.verify('#include "foo.h"',
                      include_dirs=['.'],
@@ -2129,7 +2129,7 @@ def test_implicit_unicode_on_windows():
         n = lib.GetModuleFileName(ffi.NULL, outbuf, 500)
         assert 0 < n < 500
         for i in range(n):
-            print repr(outbuf[i])
+            #print repr(outbuf[i])
             assert ord(outbuf[i]) != 0
         assert ord(outbuf[n]) == 0
         assert ord(outbuf[0]) < 128     # should be a letter, or '\'

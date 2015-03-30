@@ -161,6 +161,12 @@ class AppTestAppComplexTest:
     def test_coerce(self):
         raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
 
+    def test_convert(self):
+        exc = raises(TypeError, complex.__int__, 3j)
+        assert str(exc.value) == "can't convert complex to int"
+        exc = raises(TypeError, complex.__float__, 3j)
+        assert str(exc.value) == "can't convert complex to float"
+
     def test_richcompare(self):
         assert complex.__lt__(1+1j, None) is NotImplemented
         assert complex.__eq__(1+1j, 2+2j) is False

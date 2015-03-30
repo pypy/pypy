@@ -86,6 +86,13 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
         return ''.join(b[p+1:self.pos])
 
     def get_completions(self, stem):
+        if len(stem) == 0 and self.more_lines is not None:
+            b = self.buffer
+            p = self.pos
+            while p > 0 and b[p - 1] != '\n':
+                p -= 1
+            num_spaces = 4 - ((self.pos - p) % 4)
+            return [' ' * num_spaces]
         result = []
         function = self.config.readline_completer
         if function is not None:
@@ -133,12 +140,16 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
 
     def collect_keymap(self):
         return super(ReadlineAlikeReader, self).collect_keymap() + (
-            (r'\n', 'maybe-accept'),)
+            (r'\n', 'maybe-accept'),
+            (r'\<backspace>', 'backspace-dedent'),
+            )
 
     def __init__(self, console):
         super(ReadlineAlikeReader, self).__init__(console)
         self.commands['maybe_accept'] = maybe_accept
         self.commands['maybe-accept'] = maybe_accept
+        self.commands['backspace_dedent'] = backspace_dedent
+        self.commands['backspace-dedent'] = backspace_dedent
 
     def after_command(self, cmd):
         super(ReadlineAlikeReader, self).after_command(cmd)
@@ -156,6 +167,28 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
                 if self.pos > len(self.buffer):
                     self.pos = len(self.buffer)
 
+def _get_this_line_indent(buffer, pos):
+    indent = 0
+    while pos > 0 and buffer[pos - 1] in " \t":
+        indent += 1
+        pos -= 1
+    if pos > 0 and buffer[pos - 1] == "\n":
+        return indent
+    return 0
+
+def _get_previous_line_indent(buffer, pos):
+    prevlinestart = pos
+    while prevlinestart > 0 and buffer[prevlinestart - 1] != "\n":
+        prevlinestart -= 1
+    prevlinetext = prevlinestart
+    while prevlinetext < pos and buffer[prevlinetext] in " \t":
+        prevlinetext += 1
+    if prevlinetext == pos:
+        indent = None
+    else:
+        indent = prevlinetext - prevlinestart
+    return prevlinestart, indent
+
 class maybe_accept(commands.Command):
     def do(self):
         r = self.reader
@@ -164,12 +197,38 @@ class maybe_accept(commands.Command):
         # if there are already several lines and the cursor
         # is not on the last one, always insert a new \n.
         text = r.get_unicode()
-        if "\n" in r.buffer[r.pos:]:
+        if ("\n" in r.buffer[r.pos:] or
+            (r.more_lines is not None and r.more_lines(text))):
+            #
+            # auto-indent the next line like the previous line
+            prevlinestart, indent = _get_previous_line_indent(r.buffer, r.pos)
             r.insert("\n")
-        elif r.more_lines is not None and r.more_lines(text):
-            r.insert("\n")
+            if indent:
+                for i in range(prevlinestart, prevlinestart + indent):
+                    r.insert(r.buffer[i])
         else:
             self.finish = 1
+
+class backspace_dedent(commands.Command):
+    def do(self):
+        r = self.reader
+        b = r.buffer
+        if r.pos > 0:
+            repeat = 1
+            if b[r.pos - 1] != "\n":
+                indent = _get_this_line_indent(b, r.pos)
+                if indent > 0:
+                    ls = r.pos - indent
+                    while ls > 0:
+                        ls, pi = _get_previous_line_indent(b, ls - 1)
+                        if pi is not None and pi < indent:
+                            repeat = indent - pi
+                            break
+            r.pos -= repeat
+            del b[r.pos:r.pos + repeat]
+            r.dirty = 1
+        else:
+            self.reader.error("can't backspace at start")
 
 # ____________________________________________________________
 

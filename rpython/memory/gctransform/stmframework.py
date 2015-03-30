@@ -235,5 +235,5 @@ class StmRootWalker(BaseRootWalker):
         # to "stm_enter_callback_call/stm_leave_callback_call".
         pass
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         raise NotImplementedError

@@ -11,7 +11,7 @@ def test_llhelper(monkeypatch):
     FT = lltype.FuncType([], lltype.Signed)
     FTPTR = lltype.Ptr(FT)
 
-    def make_wrapper(space, func):
+    def make_wrapper(space, func, gil=None):
         def wrapper():
             return func(space)
         return wrapper

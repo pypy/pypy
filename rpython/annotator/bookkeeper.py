@@ -12,7 +12,7 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, TlsClass, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -22,6 +22,11 @@ from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
+
+try:
+    from pypystm import stmdict
+except ImportError:
+    stmdict = dict
 
 
 BUILTIN_ANALYZERS = {}
@@ -54,7 +59,7 @@ class Bookkeeper(object):
     def __init__(self, annotator):
         self.annotator = annotator
         self.bkTLS = TlsClass()
-        self.descs = {}          # map Python objects to their XxxDesc wrappers
+        self.descs = stmdict()  # map Python objects to their XxxDesc wrappers
         self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
         self.classdefs = []      # list of all ClassDefs
         self.seen_mutable = {}
@@ -331,6 +336,8 @@ class Bookkeeper(object):
                 s1 = self.immutablevalue(x1)
                 assert isinstance(s1, SomeInstance)
                 result = SomeWeakRef(s1.classdef)
+        elif tp is property:
+            return SomeProperty(x)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))

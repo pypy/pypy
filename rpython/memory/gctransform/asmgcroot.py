@@ -340,9 +340,10 @@ class AsmStackRootWalker(BaseRootWalker):
         # called first, to initialize self.belongs_to_current_thread.
         assert not hasattr(self, 'gc_detach_callback_pieces_ptr')
 
-    def walk_stack_roots(self, collect_stack_root):
+    def walk_stack_roots(self, collect_stack_root, is_minor=False):
         gcdata = self.gcdata
         gcdata._gc_collect_stack_root = collect_stack_root
+        gcdata._gc_collect_is_minor = is_minor
         pypy_asm_stackwalk(llhelper(ASM_CALLBACK_PTR, self._asm_callback),
                            gcrootanchor)
 
@@ -367,6 +368,13 @@ class AsmStackRootWalker(BaseRootWalker):
         if rpy_fastgil != 1:
             ll_assert(rpy_fastgil != 0, "walk_stack_from doesn't have the GIL")
             initialframedata = rffi.cast(llmemory.Address, rpy_fastgil)
+            #
+            # very rare issue: initialframedata.address[0] is uninitialized
+            # in this case, but "retaddr = callee.frame_address.address[0]"
+            # reads it.  If it happens to be exactly a valid return address
+            # inside the C code, then bad things occur.
+            initialframedata.address[0] = llmemory.NULL
+            #
             self.walk_frames(curframe, otherframe, initialframedata)
             stackscount += 1
         #
@@ -468,6 +476,13 @@ class AsmStackRootWalker(BaseRootWalker):
             if gc.points_to_valid_gc_object(addr):
                 collect_stack_root(gc, addr)
         #
+        # small hack: the JIT reserves THREADLOCAL_OFS's last bit for
+        # us.  We use it to store an "already traced past this frame"
+        # flag.
+        if self._with_jit and self.gcdata._gc_collect_is_minor:
+            if self.mark_jit_frame_can_stop(callee):
+                return False
+        #
         # track where the caller_frame saved the registers from its own
         # caller
         #
@@ -511,17 +526,15 @@ class AsmStackRootWalker(BaseRootWalker):
             from rpython.jit.backend.llsupport.jitframe import STACK_DEPTH_OFS
 
             tid = self.gc.get_possibly_forwarded_type_id(ebp_in_caller)
-            ll_assert(rffi.cast(lltype.Signed, tid) ==
-                      rffi.cast(lltype.Signed, self.frame_tid),
-                      "found a stack frame that does not belong "
-                      "anywhere I know, bug in asmgcc")
-            # fish the depth
-            extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
-            ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
-                       == 0, "asmgcc: misaligned extra_stack_depth")
-            extra_stack_depth //= rffi.sizeof(lltype.Signed)
-            self._shape_decompressor.setjitframe(extra_stack_depth)
-            return
+            if (rffi.cast(lltype.Signed, tid) ==
+                    rffi.cast(lltype.Signed, self.frame_tid)):
+                # fish the depth
+                extra_stack_depth = (ebp_in_caller + STACK_DEPTH_OFS).signed[0]
+                ll_assert((extra_stack_depth & (rffi.sizeof(lltype.Signed) - 1))
+                           == 0, "asmgcc: misaligned extra_stack_depth")
+                extra_stack_depth //= rffi.sizeof(lltype.Signed)
+                self._shape_decompressor.setjitframe(extra_stack_depth)
+                return
         llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
     def getlocation(self, callee, ebp_in_caller, location):
@@ -547,6 +560,19 @@ class AsmStackRootWalker(BaseRootWalker):
             return ebp_in_caller + offset
         else:  # kind == LOC_EBP_MINUS:   at -N(%ebp)
             return ebp_in_caller - offset
+
+    def mark_jit_frame_can_stop(self, callee):
+        location = self._shape_decompressor.get_threadlocal_loc()
+        if location == LOC_NOWHERE:
+            return False
+        addr = self.getlocation(callee, llmemory.NULL, location)
+        #
+        x = addr.signed[0]
+        if x & 1:
+            return True            # this JIT stack frame is already marked!
+        else:
+            addr.signed[0] = x | 1    # otherwise, mark it but don't stop
+            return False
 
 
 LOC_REG       = 0
@@ -728,6 +754,17 @@ class ShapeDecompressor:
                         ((FRAME_FIXED_SIZE + self.extra_stack_depth) << 2))
             llop.debug_fatalerror(lltype.Void, "asmgcroot: invalid index")
             return 0   # annotator fix
+
+    def get_threadlocal_loc(self):
+        index = self.jit_index
+        if index < 0:
+            return LOC_NOWHERE     # case "outside the jit"
+        else:
+            # case "in the jit"
+            from rpython.jit.backend.x86.arch import THREADLOCAL_OFS, WORD
+            return (LOC_ESP_PLUS |
+                    ((THREADLOCAL_OFS // WORD + self.extra_stack_depth) << 2))
+
 
 # ____________________________________________________________
 

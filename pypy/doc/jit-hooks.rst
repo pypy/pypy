@@ -39,3 +39,30 @@ are three functions related to that coming from the ``pypyjit`` module:
     Reason is a string, the meaning of other arguments is the same
     as attributes on JitLoopInfo object
 
+.. function:: enable_debug()
+
+    Start recording debugging counters for ``get_stats_snapshot``
+
+.. function:: disable_debug()
+
+    Stop recording debugging counters for ``get_stats_snapshot``
+
+.. function:: get_stats_snapshot()
+
+    Get the jit status in the specific moment in time. Note that this
+    is eager - the attribute access is not lazy, if you need new stats
+    you need to call this function again. You might want to call
+    ``enable_debug`` to get more information. It returns an instance
+    of ``JitInfoSnapshot``
+
+.. class:: JitInfoSnapshot
+
+    A class describing current snapshot. Usable attributes:
+
+    * ``counters`` - internal JIT integer counters
+
+    * ``counter_times`` - internal JIT float counters, notably time spent
+      TRACING and in the JIT BACKEND
+
+    * ``loop_run_times`` - counters for number of times loops are run, only
+      works when ``enable_debug`` is called.

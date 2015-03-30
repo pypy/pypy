@@ -5,8 +5,7 @@ import traceback
 
 import py
 
-from rpython.flowspace.model import (FunctionGraph, Constant, Variable,
-    c_last_exception)
+from rpython.flowspace.model import (FunctionGraph, Constant, Variable)
 from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import (ComputedIntSymbolic, CDefinedIntSymbolic,
     Symbolic)
@@ -158,13 +157,21 @@ class LLInterpreter(object):
                            }
             return self._tlobj
 
-    def find_roots(self):
+    def find_roots(self, is_minor=False):
         """Return a list of the addresses of the roots."""
         #log.findroots("starting")
         roots = []
-        for frame in self.frame_stack:
+        for frame in reversed(self.frame_stack):
             #log.findroots("graph", frame.graph.name)
             frame.find_roots(roots)
+            # If a call is done with 'is_minor=True', we can stop after the
+            # first frame in the stack that was already seen by the previous
+            # call with 'is_minor=True'.  (We still need to trace that frame,
+            # but not its callers.)
+            if is_minor:
+                if getattr(frame, '_find_roots_already_seen', False):
+                    break
+                frame._find_roots_already_seen = True
         return roots
 
     def find_exception(self, exc):
@@ -296,7 +303,6 @@ class LLFrame(object):
             is None, values is the concrete return value.
         """
         self.curr_block = block
-        catch_exception = block.exitswitch == c_last_exception
         e = None
 
         try:
@@ -304,7 +310,7 @@ class LLFrame(object):
                 self.curr_operation_index = i
                 self.eval_operation(op)
         except LLException, e:
-            if not (catch_exception and op is block.operations[-1]):
+            if op is not block.raising_op:
                 raise
         except RuntimeError, e:
             rstackovf.check_stack_overflow()
@@ -316,7 +322,7 @@ class LLFrame(object):
             evalue = exdata.get_standard_ll_exc_instance(rtyper, classdef)
             etype = exdata.fn_type_of_exc_inst(evalue)
             e = LLException(etype, evalue)
-            if not (catch_exception and op is block.operations[-1]):
+            if op is not block.raising_op:
                 raise e
 
         # determine nextblock and/or return value
@@ -358,7 +364,7 @@ class LLFrame(object):
             # single-exit block
             assert len(block.exits) == 1
             link = block.exits[0]
-        elif catch_exception:
+        elif block.canraise:
             link = block.exits[0]
             if e:
                 exdata = self.llinterpreter.typer.exceptiondata

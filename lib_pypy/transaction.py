@@ -37,24 +37,19 @@ except ImportError:
     signals_enabled = _SignalsEnabled()
 
 try:
-    from pypystm import hint_commit_soon
+    from pypystm import hint_commit_soon, getsegmentlimit
+    from pypystm import hashtable, stmset, stmdict
+    from pypystm import local, time, clock
 except ImportError:
     # Not a STM-enabled PyPy.
     def hint_commit_soon():
         return None
-
-try:
-    from pypystm import getsegmentlimit
-except ImportError:
-    # Not a STM-enabled PyPy.
     def getsegmentlimit():
         return 1
-
-try:
-    from pypystm import hashtable
-except ImportError:
-    # Not a STM-enabled PyPy.
     hashtable = dict
+    stmset = set
+    stmdict = dict
+    from time import time, clock
 
 class stmidset(object):
     def __init__(self):
@@ -221,6 +216,12 @@ class TransactionQueue(object):
             assert len(pending) == 0
             while True:
                 f, args, kwds = next_transaction
+                # The next hint_commit_soon() is essential: without it, the
+                # current transaction is short, so far, but includes everything
+                # after some lock.acquire() done recently.  That means that
+                # anything we do in the atomic section will run with the lock
+                # still acquired.  This prevents any parallelization.
+                hint_commit_soon()
                 with atomic:
                     if exception:
                         break
@@ -299,9 +300,9 @@ def XXXreport_abort_info(info):
 
 
 class threadlocalproperty(object):
-    def __init__(self, *default):
-        self.tl_default = default
-        self.tl_name = intern(str(id(self)))
+    def __init__(self, default_factory=None):
+        self.tl_default_factory = default_factory
+        self.tl_name = intern('tlprop.%d' % id(self))
 
     def tl_get(self, obj):
         try:
@@ -313,7 +314,14 @@ class threadlocalproperty(object):
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
-        return getattr(self.tl_get(obj), self.tl_name, *self.tl_default)
+        try:
+            return getattr(self.tl_get(obj), self.tl_name)
+        except AttributeError:
+            if self.tl_default_factory is None:
+                raise
+            result = self.tl_default_factory()
+            setattr(self.tl_get(obj), self.tl_name, result)
+            return result
 
     def __set__(self, obj, value):
         setattr(self.tl_get(obj), self.tl_name, value)

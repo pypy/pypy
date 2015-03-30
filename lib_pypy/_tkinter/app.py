@@ -25,6 +25,8 @@ class _DummyLock(object):
 def varname_converter(input):
     if isinstance(input, TclObject):
         return input.string
+    if b'\0' in input:
+        raise ValueError("NUL character in string")
     return input
 
 
@@ -94,7 +96,7 @@ class TkApp(object):
 
         if not self.threaded:
             # TCL is not thread-safe, calls needs to be serialized.
-            self._tcl_lock = threading.Lock()
+            self._tcl_lock = threading.RLock()
         else:
             self._tcl_lock = _DummyLock()
 
@@ -533,3 +535,13 @@ class TkApp(object):
 
     def quit(self):
         self.quitMainLoop = True
+
+    def _createbytearray(self, buf):
+        """Convert Python string or any buffer compatible object to Tcl
+        byte-array object.  Use it to pass binary data (e.g. image's
+        data) to Tcl/Tk commands."""
+        cdata = tkffi.new("char[]", buf)
+        res = tklib.Tcl_NewByteArrayObj(cdata, len(buf))
+        if not res:
+            self.raiseTclError()
+        return TclObject(res)

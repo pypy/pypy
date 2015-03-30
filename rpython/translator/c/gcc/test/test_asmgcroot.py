@@ -251,13 +251,17 @@ class TestAsmGCRootWithSemiSpaceGC_Mingw32(TestAsmGCRootWithSemiSpaceGC):
     def define_callback_with_collect(cls):
         return lambda: 0
 
-class TestAsmGCRootWithSemiSpaceGC_Shared(TestAsmGCRootWithSemiSpaceGC):
-    @classmethod
-    def make_config(cls):
-        config = TestAsmGCRootWithSemiSpaceGC.make_config()
-        config.translation.shared = True
-        return config
+#class TestAsmGCRootWithSemiSpaceGC_Shared(TestAsmGCRootWithSemiSpaceGC):
+#    @classmethod
+#    def make_config(cls):
+#        config = TestAsmGCRootWithSemiSpaceGC.make_config()
+#        config.translation.shared = True
+#        return config
 
 class TestAsmGCRootWithHybridTagged(AbstractTestAsmGCRoot,
                                     test_newgc.TestHybridTaggedPointers):
+    pass
+
+class TestAsmGCRootWithIncrementalMinimark(AbstractTestAsmGCRoot,
+                                    test_newgc.TestIncrementalMiniMarkGC):
     pass

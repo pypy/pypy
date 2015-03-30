@@ -27,7 +27,7 @@ class Test__ffi(BaseTestPyPyC):
         log = self.run(main, [libm_name])
         pow_addr, res = log.result
         assert res == 8.0 * 300
-        py.test.xfail()     # XXX re-optimize _ffi for the JIT?
+        py.test.skip("XXX re-optimize _ffi for the JIT?")
         loop, = log.loops_by_filename(self.filepath)
         if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
             pow_addr = 'ConstClass(pow)'
@@ -134,7 +134,7 @@ class Test__ffi(BaseTestPyPyC):
         ops = loop.allops()
         opnames = log.opnames(ops)
         assert opnames.count('new_with_vtable') == 1 # only the virtualref
-        py.test.xfail()     # XXX re-optimize _ffi for the JIT?
+        py.test.skip("XXX re-optimize _ffi for the JIT?")
         assert opnames.count('call_release_gil') == 1
         idx = opnames.index('call_release_gil')
         call = ops[idx]
@@ -159,7 +159,7 @@ class Test__ffi(BaseTestPyPyC):
             return struct.getfield('x')
         #
         log = self.run(main, [])
-        py.test.xfail()     # XXX re-optimize _ffi for the JIT?
+        py.test.skip("XXX re-optimize _ffi for the JIT?")
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('getfield', """
             guard_not_invalidated(descr=...)
@@ -202,7 +202,7 @@ class Test__ffi(BaseTestPyPyC):
         assert loop.match_by_id('cfficall', """
             p96 = force_token()
             setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
-            f97 = call_release_gil(27, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """, ignore_ops=['guard_not_invalidated'])
@@ -333,7 +333,6 @@ class Test__ffi(BaseTestPyPyC):
         p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
         guard_no_exception(descr=...)
         i112 = int_signext(i160, 2)
-        setfield_gc(p167, ConstPtr(null), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst__lifeline_ .+>)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
@@ -342,7 +341,7 @@ class Test__ffi(BaseTestPyPyC):
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)
         raw_store(i119, 4, i160, descr=<ArrayS 2>)
-        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__cdata .+>)
+        setfield_gc(p167, i119, descr=<FieldU pypy.module._cffi_backend.cdataobj.W_CData.inst__ptr .+>)
         i123 = arraylen_gc(p67, descr=<ArrayP .>)
         jump(..., descr=...)
         """)

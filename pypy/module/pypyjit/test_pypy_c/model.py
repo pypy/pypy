@@ -10,6 +10,8 @@ from rpython.tool.jitlogparser.parser import (SimpleParser, Function,
                                               TraceForOpcode)
 from rpython.tool.jitlogparser.storage import LoopStorage
 
+is_stm = 'pypystm' in sys.builtin_module_names
+
 
 def find_ids_range(code):
     """
@@ -271,6 +273,7 @@ class OpMatcher(object):
     @classmethod
     def parse_ops(cls, src):
         ops = [cls.parse_op(line) for line in src.splitlines()]
+        ops.append(('--end--', None, [], '...', True))
         return [op for op in ops if op is not None]
 
     @classmethod
@@ -322,23 +325,41 @@ class OpMatcher(object):
         # in jump_absolute() in pypyjit/interp.py. The string --TICK-- is
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
-        ticker_check = """
-            guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker_cond0 = int_lt(ticker0, 0)
-            guard_false(ticker_cond0, descr=...)
-        """
+        if not is_stm:
+            ticker_check = """
+                guard_not_invalidated?
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker0, 0)
+                guard_false(ticker_cond0, descr=...)
+            """
+        else:
+            ticker_check = """
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker0, 0)
+                guard_false(ticker_cond0, descr=...)
+                guard_not_invalidated?
+            """
         src = src.replace('--TICK--', ticker_check)
         #
         # this is the ticker check generated if we have threads
-        thread_ticker_check = """
-            guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker1 = int_sub(ticker0, #)
-            setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
-            ticker_cond0 = int_lt(ticker1, 0)
-            guard_false(ticker_cond0, descr=...)
-        """
+        if not is_stm:
+            thread_ticker_check = """
+                guard_not_invalidated?
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker1 = int_sub(ticker0, #)
+                setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker1, 0)
+                guard_false(ticker_cond0, descr=...)
+            """
+        else:
+            thread_ticker_check = """
+                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker_cond0 = int_lt(ticker0, 0)
+                guard_false(ticker_cond0, descr=...)
+                guard_not_invalidated?
+                i_sbt = stm_should_break_transaction()
+                guard_false(i_sbt, descr=...)
+            """
         src = src.replace('--THREAD-TICK--', thread_ticker_check)
         #
         # this is the ticker check generated in PyFrame.handle_operation_error
@@ -403,6 +424,10 @@ class OpMatcher(object):
             raise InvalidMatch(message, frame=sys._getframe(1))
 
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr, _)):
+        if exp_opname == '--end--':
+            self._assert(op == '--end--', 'got more ops than expected')
+            return
+        self._assert(op != '--end--', 'got less ops than expected')
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
         if exp_args[-1:] == ['...']:      # exp_args ends with '...'
@@ -415,18 +440,15 @@ class OpMatcher(object):
         self.match_descr(op.descr, exp_descr)
 
 
-    def _next_op(self, iter_ops, assert_raises=False, ignore_ops=set()):
+    def _next_op(self, iter_ops, ignore_ops=set()):
         try:
             while True:
                 op = iter_ops.next()
                 if op.name not in ignore_ops:
                     break
         except StopIteration:
-            self._assert(assert_raises, "not enough operations")
-            return
-        else:
-            self._assert(not assert_raises, "operation list too long")
-            return op
+            return '--end--'
+        return op
 
     def try_match(self, op, exp_op):
         try:
@@ -493,16 +515,17 @@ class OpMatcher(object):
                     continue
                 else:
                     op = self._next_op(iter_ops, ignore_ops=ignore_ops)
-                self.match_op(op, exp_op)
-            except InvalidMatch, e:
-                if type(exp_op) is not str and exp_op[4] is False:    # optional operation
+                try:
+                    self.match_op(op, exp_op)
+                except InvalidMatch:
+                    if type(exp_op) is str or exp_op[4] is not False:
+                        raise
+                    #else: optional operation
                     iter_ops.revert_one()
                     continue       # try to match with the next exp_op
+            except InvalidMatch, e:
                 e.opindex = iter_ops.index - 1
                 raise
-        #
-        # make sure we exhausted iter_ops
-        self._next_op(iter_ops, assert_raises=True, ignore_ops=ignore_ops)
 
     def match(self, expected_src, ignore_ops=[]):
         def format(src, opindex=None):
@@ -545,9 +568,9 @@ class RevertableIterator(object):
         return self
     def next(self):
         index = self.index
-        if index == len(self.sequence):
-            raise StopIteration
         self.index = index + 1
+        if index >= len(self.sequence):
+            raise StopIteration
         return self.sequence[index]
     def revert_one(self):
         self.index -= 1

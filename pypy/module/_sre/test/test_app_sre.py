@@ -191,6 +191,15 @@ class AppTestSreMatch:
         raises(IndexError, m.group, 'foobarbaz')
         raises(IndexError, m.group, 'first', 'foobarbaz')
 
+    def test_group_takes_long(self):
+        import re
+        import sys
+        if sys.version_info < (2, 7, 9):
+            skip()
+        assert re.match("(foo)", "foo").group(1L) == "foo"
+        exc = raises(IndexError, re.match("", "").group, sys.maxint + 1)
+        assert str(exc.value) == "no such group"
+
     def test_expand(self):
         import re
         m = re.search("a(..)(?P<name>..)", "ab1bc")
@@ -403,6 +412,8 @@ class AppTestGetlower:
 
 
 class AppTestSimpleSearches:
+    spaceconfig = {"usemodules": ['array']}
+
     def test_search_simple_literal(self):
         import re
         assert re.search("bla", "bla")

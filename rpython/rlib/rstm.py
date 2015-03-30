@@ -250,6 +250,7 @@ def _ll_hashtable_writeobj(h, entry, value):
 
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
+                                 hints={'immutable': True},
                                  rtti=True,
                                  adtmeths={'get': _ll_hashtable_get,
                                            'set': _ll_hashtable_set,
@@ -290,8 +291,7 @@ def create_hashtable():
     #     p = lltype.malloc(_STM_HASHTABLE_ENTRY)
     # else:
     #     p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
-    # h = lltype.malloc(_HASHTABLE_OBJ)
-    # h.ll_raw_hashtable = lltype.nullptr(_STM_HASHTABLE_P.TO)
+    # h = lltype.malloc(_HASHTABLE_OBJ, zero=True)
     # h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
     # return h
 

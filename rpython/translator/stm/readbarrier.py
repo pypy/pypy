@@ -240,7 +240,7 @@ def insert_stm_read_barrier(stmtransformer, graph):
 
     join_blocks(graph)
     annotator = stmtransformer.translator.annotator
-    insert_empty_startblock(annotator, graph)
+    insert_empty_startblock(graph)
 
     block_transformers = {}
 

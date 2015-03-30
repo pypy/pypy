@@ -1,6 +1,6 @@
-=================================================
-PyPy 2.5 - XXXXXX
-=================================================
+==============================
+PyPy 2.5.0 - Pincushion Protea
+==============================
 
 We're pleased to announce PyPy 2.5, which contains significant performance
 enhancements and bug fixes.
@@ -55,10 +55,18 @@ Highlights
 * The past months have seen pypy mature and grow, as rpython becomes the goto
   solution for writing fast dynamic language interpreters. Our separation of
   rpython and the python interpreter PyPy is now much clearer in the
-  `PyPy documentation`_  and we now have seperate `Rpython documentation`_.
+  `PyPy documentation`_  and we now have seperate `RPython documentation`_.
 
 * We have improved warmup time as well as jitted code performance: more than 10%
   compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements.
+  We no longer zero-out memory allocated in the gc nursery by default, work that
+  was started during a GSoC.
+
+* Passing objects between C and PyPy has been improved. We are now able to pass
+  raw pointers to C (without copying) using **pinning**. This improves I/O;
+  benchmarks that use networking intensively improved by about 50%. File()
+  operations still need some refactoring but are already showing a 20%
+  improvement on our benchmarks. Let us know if you see similar improvements.
 
 * Our integrated numpy support gained much of the GenericUfunc api in order to
   support the lapack/blas linalg module of numpy. This dovetails with work in the
@@ -80,9 +88,9 @@ Highlights
   #pypy.
 
 .. _`PyPy documentation`: http://doc.pypy.org
-.. _`Rpython documentation`: http://rpython.readthedocs.org
+.. _`RPython documentation`: http://rpython.readthedocs.org
 .. _`blog post`: http://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
+.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
 
 We have further improvements on the way: rpython file handling,
 finishing numpy linalg compatibility, numpy object dtypes, a better profiler,

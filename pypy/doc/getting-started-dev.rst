@@ -188,6 +188,10 @@ Note that the prompt of the interpreter-level console is only '>>>' since
 it runs on CPython level. If you want to return to PyPy, press <Ctrl-D> (under
 Linux) or <Ctrl-Z>, <Enter> (under Windows).
 
+Also note that not all modules are available by default in this mode (for
+example: ``_continuation`` needed by ``greenlet``) , you may need to use one of
+``--withmod-...`` command line options.
+
 You may be interested in reading more about the distinction between
 :ref:`interpreter-level and app-level <interpreter-level>`.
 

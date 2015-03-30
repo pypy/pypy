@@ -68,7 +68,6 @@ class TestNoConflict(BaseTestSTM):
         self.check_almost_no_conflict(f)
 
     def test_weakrefs(self):
-        py.test.skip("next issue")
         def f():
             import weakref
 
