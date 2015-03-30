@@ -22,7 +22,7 @@ def hash_name_mapper_callback(obj_name, userdata):
     # to have a its own definition of alias as the resulting list
     # still contains duplicate and alternate names for several
     # algorithms.
-    if obj_name[0].c_alias:
+    if rffi.cast(lltype.Signed, obj_name[0].c_alias):
         return
     try:
         space = global_name_fetcher.space
