@@ -37,9 +37,7 @@ class NameFetcher:
         self.w_meth_names = space.call_function(space.w_set)
         self.w_error = None
     def _cleanup_(self):
-        del self.space
-        del self.w_meth_names
-        del self.w_error
+        self.__dict__.clear()
 global_name_fetcher = NameFetcher()
 
 def fetch_names(space):
