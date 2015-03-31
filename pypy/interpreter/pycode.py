@@ -129,7 +129,7 @@ class PyCode(eval.Code):
 
         ec = self.space.getexecutioncontext()
         self._unique_id = ec._code_unique_id
-        ec._code_unique_id += 2 # so we have one bit that we can mark stuff
+        ec._code_unique_id += 4 # so we have two bits that we can mark stuff
         # with
 
     def _get_full_name(self):
