@@ -340,7 +340,7 @@ def _make_execute_list():
                          rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
-            # XXX this is temporary! after the algorithm works i have to adjust the
+            # XXX this is temporary! after the algorithm works adjust the
             # black hole interpreter!
             if rop._VEC_ARITHMETIC_FIRST <= value <= rop._VEC_ARITHMETIC_LAST or \
                value == rop.VEC_RAW_LOAD or value == rop.VEC_RAW_STORE:

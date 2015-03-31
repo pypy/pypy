@@ -853,39 +853,37 @@ class BaseTestVectorize(VecTestHelper):
                               (6,13,20,27),(7,14,21,28)]:
                 self.assert_has_pack_with(vopt.packset, opindices)
 
-    def test_schedule_vector_operation(self):
-        for op,vop in [ ('int_mul','vec_int_mul')]: #('int_add','vec_int_add'), ('int_sub','vec_int_sub'),
-            ops = """
-            [p0,p1,p2,i0] # 0
-            i10 = int_le(i0, 128)  # 1, 8, 15, 22
-            guard_true(i10) [p0,p1,p2,i0] # 2, 9, 16, 23
-            i2 = getarrayitem_gc(p0, i0, descr=floatarraydescr) # 3, 10, 17, 24
-            i3 = getarrayitem_gc(p1, i0, descr=floatarraydescr) # 4, 11, 18, 25
-            i4 = {op}(i2,i3) # 5, 12, 19, 26
-            setarrayitem_gc(p2, i0, i4, descr=floatarraydescr) # 6, 13, 20, 27
-            i1 = int_add(i0, 1) # 7, 14, 21, 28
-            jump(p0,p1,p2,i1) # 29
-            """.format(op=op)
-            vops = """
-            [p0,p1,p2,i0]
-            i10 = int_le(i0, 128)
-            guard_true(i10) [p0,p1,p2,i0]
-            i1 = int_add(i0, 1)
-            i11 = int_le(i1, 128)
-            guard_true(i11) [p0,p1,p2,i0]
-            i2 = vec_raw_load(p0, i0, 2, descr=floatarraydescr)
-            i3 = vec_raw_load(p1, i0, 2, descr=floatarraydescr)
-            i12 = int_add(i1, 1)
-            i4 = {op}(i2,i3,2)
-            vec_raw_store(p2, i0, i4, 2, descr=floatarraydescr)
-            jump(p0,p1,p2,i12)
-            """.format(op=vop)
-            loop = self.parse_loop(ops)
-            vopt = self.schedule(loop,1)
-            oo = self.vec_optimizer_unrolled(self.parse_loop(ops), 1)
-            self._write_dot_and_convert_to_svg(vopt.dependency_graph, oo.loop.operations, 'test_2')
-            self.debug_print_operations(vopt.loop)
-            self.assert_equal(loop, self.parse_loop(vops))
+    @pytest.mark.parametrize('op', ['int_mul','int_add','int_sub','float_mul','float_add','float_sub'])
+    def test_schedule_vector_operation(self, op):
+        ops = """
+        [p0,p1,p2,i0] # 0
+        i10 = int_le(i0, 128)  # 1, 8, 15, 22
+        guard_true(i10) [p0,p1,p2,i0] # 2, 9, 16, 23
+        i2 = getarrayitem_gc(p0, i0, descr=floatarraydescr) # 3, 10, 17, 24
+        i3 = getarrayitem_gc(p1, i0, descr=floatarraydescr) # 4, 11, 18, 25
+        i4 = {op}(i2,i3) # 5, 12, 19, 26
+        setarrayitem_gc(p2, i0, i4, descr=floatarraydescr) # 6, 13, 20, 27
+        i1 = int_add(i0, 1) # 7, 14, 21, 28
+        jump(p0,p1,p2,i1) # 29
+        """.format(op=op)
+        vops = """
+        [p0,p1,p2,i0]
+        i10 = int_le(i0, 128)
+        guard_true(i10) [p0,p1,p2,i0]
+        i1 = int_add(i0, 1)
+        i11 = int_le(i1, 128)
+        guard_true(i11) [p0,p1,p2,i0]
+        v1 = vec_raw_load(p0, i0, 2, descr=floatarraydescr)
+        v2 = vec_raw_load(p1, i0, 2, descr=floatarraydescr)
+        i12 = int_add(i1, 1)
+        v3 = {op}(v1,v2)
+        vec_raw_store(p2, i0, v3, 2, descr=floatarraydescr)
+        jump(p0,p1,p2,i12)
+        """.format(op='vec_'+op)
+        loop = self.parse_loop(ops)
+        vopt = self.schedule(loop,1)
+        self.debug_print_operations(vopt.loop)
+        self.assert_equal(loop, self.parse_loop(vops))
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

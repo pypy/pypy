@@ -19,6 +19,7 @@ FLOAT = 'f'
 STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
+VECTOR = 'V'
 
 FAILARGS_LIMIT = 1000
 
@@ -506,6 +507,40 @@ class BoxPtr(Box):
     _getrepr_ = repr_pointer
 
 NULLBOX = BoxPtr()
+
+# ____________________________________________________________
+
+class BoxVector(Box):
+    type = VECTOR
+    _attrs_ = ('item_type','byte_count','item_count','signed')
+
+    def __init__(self, item_type=INT, byte_count=4, item_count=4, signed=True):
+        assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
+        self.item_type = item_type
+        self.byte_count = byte_count
+        self.item_count = item_count
+        self.signed = signed
+
+    def forget_value(self):
+        self.value = longlong.ZEROF
+
+    def clonebox(self):
+        return BoxVector(self.value)
+
+    def constbox(self):
+        raise NotImplementedError("not possible to have a constant vector box")
+
+    def _get_hash_(self):
+        return longlong.gethash(self.value)
+
+    def nonnull(self):
+        return bool(longlong.extract_bits(self.value))
+
+    def _getrepr_(self):
+        return self.getfloat()
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'bv')
 
 # ____________________________________________________________
 

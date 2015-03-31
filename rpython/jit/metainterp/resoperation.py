@@ -446,12 +446,12 @@ _oplist = [
     #
     # vector operations
     '_VEC_ARITHMETIC_FIRST',
-    'VEC_INT_ADD/3d',
-    'VEC_INT_SUB/3d',
-    'VEC_INT_MUL/3d',
-    'VEC_FLOAT_ADD/3d',
-    'VEC_FLOAT_SUB/3d',
-    'VEC_FLOAT_MUL/3d',
+    'VEC_INT_ADD/2d',
+    'VEC_INT_SUB/2d',
+    'VEC_INT_MUL/2d',
+    'VEC_FLOAT_ADD/2d',
+    'VEC_FLOAT_SUB/2d',
+    'VEC_FLOAT_MUL/2d',
     '_VEC_ARITHMETIC_LAST',
     #
     'INT_LT/2b',

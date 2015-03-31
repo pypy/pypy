@@ -1,11 +1,11 @@
 import sys
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.history import ConstInt, VECTOR
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
-        MemoryRef, IntegralMod, Scheduler)
+        MemoryRef, IntegralMod, Scheduler, SchedulerData)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -289,7 +289,7 @@ class VectorizingOptimizer(Optimizer):
 
     def schedule(self):
         self.clear_newoperations()
-        scheduler = Scheduler(self.dependency_graph)
+        scheduler = Scheduler(self.dependency_graph, VecScheduleData())
         while scheduler.has_more_to_schedule():
             candidate_index = scheduler.next_schedule_index()
             candidate = self.loop.operations[candidate_index]
@@ -305,20 +305,57 @@ class VectorizingOptimizer(Optimizer):
     def _schedule_pack(self, scheduler, pack):
         opindices = [ e.opidx for e in pack.operations ]
         if scheduler.schedulable(opindices):
-            self.emit_vec_operation(pack)
+            self.emit_operation(ToSIMD.as_vector_operation(pack,
+                                    self.loop.operations,
+                                    scheduler)
+                               )
             scheduler.schedule_all(opindices)
         else:
             scheduler.schedule_later(0)
 
-    def emit_vec_operation(self, pack):
-        op0_wrapper = pack.operations[0]
-        op0 = self.loop.operations[op0_wrapper.opidx]
-        op_count = len(pack.operations)
-        assert op0.vector != -1
-        args = op0.getarglist()[:]
-        args.append(ConstInt(op_count))
-        vecop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
-        self.emit_operation(vecop)
+class VecScheduleData(SchedulerData):
+    def as_vector_operation(pack, operations):
+        assert len(pack.operations) > 1
+        op0 = operations[pack.operations[0].opidx]
+        for i,op_wrapper in enumerate(pack.operations):
+            op = operations[op_wrapper.opidx]
+            scheduler.simd.inspect_operation(op,i)
+        #if op0.vector not in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
+        #    op_count = len(pack.operations)
+        #    args.append(ConstInt(op_count))
+        return sisiToSimd.get_vector_op()
+
+    def __init__(self):
+        self.opnum = -1
+        self.args = None
+        self.result = None
+        self.descr = None
+        self.pack = None
+
+    def reset(self, op, pack):
+        self.opnum = op.getopnum()
+        self.args = op.getarglist()[:]
+        self.result = op.result
+        self.descr = op.getdescr()
+        self.pack = pack
+
+    def get_vector_op(self):
+        return ResOperation(self.opnum, self.args, self.result, self.descr)
+
+    def vectorize_INT_ADD(op, i):
+        self._pack_vector_arg(0)
+        self._pack_vector_arg(1)
+        self._pack_vector_result()
+
+    def _pack_vector_arg(self, i):
+        arg = self.args[i]
+        if arg.type != VECTOR:
+            box_vec = scheduler.vector_register_of(self.args[0])
+            if box_vec is None:
+                box_vec = BoxVector(arg.type, 4, len(pack.operations), True)
+            self.args[i] = box_vec
+
+SISItoSIMD.inspect_operation = make_dispatcher_method(Pack, 'vectorize_')
 
 
 def isomorphic(l_op, r_op):
@@ -430,7 +467,7 @@ class Pair(Pack):
         assert isinstance(left, PackOpWrapper)
         assert isinstance(right, PackOpWrapper)
         self.left = left
-        self.right = right
+        self.right = right'V'
         Pack.__init__(self, [left, right])
 
     def __eq__(self, other):

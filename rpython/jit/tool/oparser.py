@@ -120,6 +120,9 @@ class OpParser(object):
             ts = getattr(self.cpu, 'ts', self.model.llhelper)
             box = ts.BoxRef()
             _box_counter_more_than(self.model, elem[1:])
+        elif elem.startswith('v'):
+            box = self.model.BoxVector()
+            _box_counter_more_than(self.model, elem[1:])
         else:
             for prefix, boxclass in self.boxkinds.iteritems():
                 if elem.startswith(prefix):

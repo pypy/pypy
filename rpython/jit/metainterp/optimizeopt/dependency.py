@@ -452,10 +452,14 @@ class DependencyGraph(object):
             return dot
         return ""
 
+class SchedulerData(object):
+    pass
 class Scheduler(object):
-    def __init__(self, graph):
+    def __init__(self, graph, sched_data):
+        assert isinstance(sched_data, SchedulerData)
         self.graph = graph
         self.schedulable_nodes = self.graph.schedulable_nodes
+        self.sched_data = sched_data
 
     def has_more_to_schedule(self):
         return len(self.schedulable_nodes) > 0
