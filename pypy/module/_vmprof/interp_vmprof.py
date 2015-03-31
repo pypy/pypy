@@ -171,6 +171,9 @@ class VMProf(object):
         write_long_to_string_builder(0, b)
         write_long_to_string_builder(period_usec, b)
         write_long_to_string_builder(0, b)
+        b.append('\x04') # interp name
+        b.append(chr(len('pypy')))
+        b.append('pypy')
         os.write(fileno, b.build())
 
     def register_code(self, space, code):
