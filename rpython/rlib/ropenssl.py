@@ -93,6 +93,9 @@ class CConfig:
     SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
     SSL_OP_NO_SSLv3 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv3")
     SSL_OP_NO_TLSv1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1")
+    if HAVE_TLSv1_2:
+        SSL_OP_NO_TLSv1_1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_1")
+        SSL_OP_NO_TLSv1_2 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_2")
     SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
         "SSL_OP_CIPHER_SERVER_PREFERENCE")
     SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
