@@ -20,7 +20,7 @@ RPython. Packaging issues are likely, feedback is welcome.
 
 setup(
     name='rpython',
-    version='0.1.1',
+    version='0.1.2',
     description='RPython',
     long_description=long_description,
 
@@ -41,5 +41,6 @@ setup(
     keywords='development',
 
     packages=find_packages(),  # MANIFEST.in filters out all the pypy stuff
+    package_data={'rpython': ['translator/c/src/*.c', 'translator/c/src/*.h']},
     install_requires=['pytest'],
 )
