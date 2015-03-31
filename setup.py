@@ -40,8 +40,6 @@ setup(
     ],
     keywords='development',
 
-    packages=find_packages(exclude=[
-        '_pytest', 'ctypes_configure', 'include', 'lib-python', 'lib-pypy',
-        'py', 'pypy', 'site-packages', 'testrunner']),
+    packages=find_packages(),  # MANIFEST.in filters out all the pypy stuff
     install_requires=['pytest'],
 )
