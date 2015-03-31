@@ -17,11 +17,12 @@ if len(sys.argv) == 1:
     print __doc__
     sys.exit(1)
 
-import _vmprof
-x = open("vmprof.log", "w")
-_vmprof.enable(x.fileno(), 1000)
+import _vmprof, subprocess
+x = subprocess.Popen('gzip > vmprof.log.gz', shell=True, stdin=subprocess.PIPE)
+_vmprof.enable(x.stdin.fileno(), 1000)
 try:
     main()
 finally:
     _vmprof.disable()
-    x.close()
+    x.stdin.close()
+    x.wait()
