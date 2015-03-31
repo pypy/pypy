@@ -124,12 +124,14 @@ def write_long_to_string_builder(l, b):
 def try_cast_to_pycode(gcref):
     return rgc.try_cast_gcref_to_instance(PyCode, gcref)
 
+MAX_CODES = 1000
+
 class VMProf(object):
     def __init__(self):
         self.is_enabled = False
         self.ever_enabled = False
-        self.mapping_so_far = [] # stored mapping in between runs
         self.fileno = -1
+        self.current_codes = []
 
     def enable(self, space, fileno, period):
         if self.is_enabled:
@@ -175,20 +177,29 @@ class VMProf(object):
         if self.fileno == -1:
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("vmprof not running"))
-        name = code._get_full_name()
+        if len(self.current_codes) < MAX_CODES:
+            self.current_codes.append(code)
+        else:
+            self._flush_codes(space)
+
+    def _fluch_codes(self, space):
         b = StringBuilder()
-        b.append('\x02')
-        write_long_to_string_builder(code._unique_id, b)
-        write_long_to_string_builder(len(name), b)
-        b.append(name)
+        for code in self.current_codes:
+            name = code._get_full_name()
+            b.append('\x02')
+            write_long_to_string_builder(code._unique_id, b)
+            write_long_to_string_builder(len(name), b)
+            b.append(name)
         os.write(self.fileno, b.build())
+        self.current_codes = []
 
     def disable(self, space):
         if not self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof not enabled")
         self.is_enabled = False
-        self.fileno = -1
         space.register_code_callback(None)
+        self._fluch_codes(space)
+        self.fileno = -1
         if we_are_translated():
            # does not work untranslated
             res = vmprof_disable()
