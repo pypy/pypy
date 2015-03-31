@@ -20,7 +20,7 @@ RPython. Packaging issues are likely, feedback is welcome.
 
 setup(
     name='rpython',
-    version='0.1',
+    version='0.1.1',
     description='RPython',
     long_description=long_description,
 
