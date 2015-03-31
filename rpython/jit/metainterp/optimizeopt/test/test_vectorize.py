@@ -30,7 +30,12 @@ class VecTestHelper(BaseTest):
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
-        return DependencyGraph(loop)
+        graph = DependencyGraph(loop)
+        self.assert_acyclic(graph)
+        return graph
+
+    def assert_acyclic(self, graph):
+        pass
 
     def parse_loop(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
@@ -69,6 +74,7 @@ class VecTestHelper(BaseTest):
     def extend_packset(self, loop, unroll_factor = -1):
         opt = self.vec_optimizer_unrolled(loop, unroll_factor)
         opt.build_dependency_graph()
+        self._write_dot_and_convert_to_svg(opt.dependency_graph, opt.loop.operations, 'extend_packset')
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         return opt

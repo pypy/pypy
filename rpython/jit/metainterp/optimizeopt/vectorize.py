@@ -308,7 +308,6 @@ class VectorizingOptimizer(Optimizer):
             self.emit_vec_operation(pack)
             scheduler.schedule_all(opindices)
         else:
-            print "pack not schedulable", pack
             scheduler.schedule_later(0)
 
     def emit_vec_operation(self, pack):

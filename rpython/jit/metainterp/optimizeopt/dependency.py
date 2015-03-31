@@ -183,11 +183,9 @@ class DependencyGraph(object):
         for var in variables:
             try:
                 def_idx = tracker.definition_index(var)
-                print "guard", guard_idx, def_idx, "var", var, "aaa", [d.idx_to for d in self.get_uses(def_idx)]
                 for dep in self.provides(def_idx):
                     if var in dep.args and dep.idx_to > guard_idx:
                         self._put_edge(guard_idx, dep.idx_to, var)
-                        print "put edge", guard_idx, dep.idx_to, var, dep.args
             except KeyError:
                 pass
         # handle fail args
@@ -374,10 +372,7 @@ class DependencyGraph(object):
         stmt_indices = [bi]
         while len(stmt_indices) > 0:
             idx = stmt_indices.pop()
-            for dep in self.dependencies(idx):
-                if idx < dep.idx_to:
-                    # this dependency points downwards (thus unrelevant)
-                    continue
+            for dep in self.depends(idx):
                 if ai > dep.idx_from:
                     # this points above ai (thus unrelevant)
                     continue
@@ -480,14 +475,12 @@ class Scheduler(object):
         node = self.schedulable_nodes[index]
         del self.schedulable_nodes[index]
         self.schedulable_nodes.append(node)
-        print "shifting", index, "(", node ,")","to", len(self.schedulable_nodes)-1, "sched", self.schedulable_nodes
 
     def schedule_all(self, opindices):
         while len(opindices) > 0:
             opidx = opindices.pop()
             for i,node in enumerate(self.schedulable_nodes):
                 if node == opidx:
-                    print "will sch[",i,"]",node
                     break
             else:
                 i = -1
@@ -497,7 +490,6 @@ class Scheduler(object):
     def schedule(self, index):
         node = self.schedulable_nodes[index]
         del self.schedulable_nodes[index]
-        print "schedule[", index, "](", node, "):",
         to_del = []
         adj_list = self.graph.adjacent_list[node]
         for dep in adj_list:
@@ -507,9 +499,7 @@ class Scheduler(object):
             candidate = dep.idx_to
             if self.is_schedulable(dep.idx_to):
                 self.schedulable_nodes.append(dep.idx_to)
-                print dep.idx_to, ",",
         self.graph.adjacent_list[node] = []
-        print ""
 
     def is_schedulable(self, idx):
         return self.graph.depends_count(idx) == 0
