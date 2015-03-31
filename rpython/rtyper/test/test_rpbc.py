@@ -1658,16 +1658,17 @@ class TestRPBC(BaseRtypingTest):
 
     def test_bug_callfamily(self):
         def cb1():
-            pass
+            xxx    # never actually called
         def cb2():
             pass
-        def g(cb):
-            pass
+        def g(cb, result):
+            assert (cb is None) == (result == 0)
         def h(cb):
             cb()
         def f():
-            g(cb1)
-            g(cb2)
+            g(None, 0)
+            g(cb1, 1)
+            g(cb2, 2)
             h(cb2)
             return 42
         res = self.interpret(f, [])
