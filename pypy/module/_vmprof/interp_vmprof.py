@@ -182,7 +182,7 @@ class VMProf(object):
         else:
             self._flush_codes(space)
 
-    def _fluch_codes(self, space):
+    def _flush_codes(self, space):
         b = StringBuilder()
         for code in self.current_codes:
             name = code._get_full_name()
