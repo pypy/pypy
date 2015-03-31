@@ -213,8 +213,6 @@ class RPythonAnnotator(object):
             v = graph.getreturnvar()
             if v.annotation is None:
                 self.setbinding(v, annmodel.s_ImpossibleValue)
-        # policy-dependent computation
-        self.bookkeeper.compute_at_fixpoint()
 
     def validate(self):
         """Check that the annotation results are valid"""
@@ -309,6 +307,7 @@ class RPythonAnnotator(object):
                     graphs[graph] = True
         for graph in graphs:
             simplify.eliminate_empty_blocks(graph)
+        self.bookkeeper.compute_at_fixpoint()
         if block_subset is None:
             perform_normalizations(self)
 
