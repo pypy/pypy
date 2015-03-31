@@ -1656,6 +1656,23 @@ class TestRPBC(BaseRtypingTest):
         res = self.interpret(g, [2])
         assert self.ll_to_string(res) == "ASub"
 
+    def test_bug_callfamily(self):
+        def cb1():
+            pass
+        def cb2():
+            pass
+        def g(cb):
+            pass
+        def h(cb):
+            cb()
+        def f():
+            g(cb1)
+            g(cb2)
+            h(cb2)
+            return 42
+        res = self.interpret(f, [])
+        assert res == 42
+
 # ____________________________________________________________
 
 class TestRPBCExtra(BaseRtypingTest):
