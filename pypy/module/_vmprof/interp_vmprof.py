@@ -198,7 +198,7 @@ class VMProf(object):
             raise oefmt(space.w_ValueError, "_vmprof not enabled")
         self.is_enabled = False
         space.register_code_callback(None)
-        self._fluch_codes(space)
+        self._flush_codes(space)
         self.fileno = -1
         if we_are_translated():
            # does not work untranslated
