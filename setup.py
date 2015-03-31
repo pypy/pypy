@@ -7,8 +7,16 @@ from codecs import open
 from os import path
 
 here = path.abspath(path.dirname(__file__))
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = f.read()  # XXX
+with open(path.join(here, 'README-rpython.rst'), encoding='utf-8') as f:
+    long_description = f.read()
+
+long_description += """
+Warning
+-------
+
+This is an experimental release of a randomly chosen, untested version of
+RPython. Packaging issues are likely, feedback is welcome.
+"""
 
 setup(
     name='rpython',
