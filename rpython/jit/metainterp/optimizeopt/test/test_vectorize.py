@@ -340,7 +340,7 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
         vopt.build_dependency_graph()
         self.assert_edges(vopt.dependency_graph,
-                [ [1,2,3,5], [0], [0,3,4], [0,2], [2,5], [0,4] ])
+                [ [1,2,3,5], [0,5], [0,3,4], [0,2,5], [2,5], [0,4,1,3] ])
 
         vopt.find_adjacent_memory_refs()
         assert 1 in vopt.vec_info.memory_refs
@@ -498,9 +498,9 @@ class BaseTestVectorize(VecTestHelper):
         vopt.build_dependency_graph()
         self.assert_edges(vopt.dependency_graph,
                 [ [1,2,3,4,5,7,9], 
-                    [0], [0,5,6], [0], [0,7,8],
-                    [0,2],  [2,9], [0,4], [4,9], 
-                  [0,6,8],
+                    [0,9], [0,5,6], [0,9], [0,7,8],
+                    [0,2,9],  [2,9], [0,4,9], [4,9], 
+                  [0,6,8,1,3,5,7],
                 ])
 
         vopt.find_adjacent_memory_refs()
@@ -862,22 +862,24 @@ class BaseTestVectorize(VecTestHelper):
             """.format(op=op)
             vops = """
             [p0,p1,p2,i0]
-            i10 = int_le(i1, 128)
-            guard_true(i10) []
+            i10 = int_le(i0, 128)
+            guard_true(i10) [p0,p1,p2,i0]
             i1 = int_add(i0, 1)
-            i12 = int_le(i11, 128)
-            guard_true(i12) []
-            i11 = int_add(i1, 1)
-            i2 = vec_raw_load(p0, i0, 4, descr=floatarraydescr)
-            i3 = vec_raw_load(p1, i0, 4, descr=floatarraydescr)
-            i4 = {op}(i2,i3,4,descr=floatarraydescr)
-            vec_raw_store(p2, i0, i4, 4, descr=floatarraydescr)
+            i11 = int_le(i1, 128)
+            guard_true(i11) [p0,p1,p2,i0]
+            i2 = vec_raw_load(p0, i0, 2, descr=floatarraydescr)
+            i3 = vec_raw_load(p1, i0, 2, descr=floatarraydescr)
+            i12 = int_add(i1, 1)
+            i4 = {op}(i2,i3,2)
+            vec_raw_store(p2, i0, i4, 2, descr=floatarraydescr)
             jump(p0,p1,p2,i12)
             """.format(op=vop)
             loop = self.parse_loop(ops)
             vopt = self.schedule(loop,1)
+            oo = self.vec_optimizer_unrolled(self.parse_loop(ops), 1)
+            self._write_dot_and_convert_to_svg(vopt.dependency_graph, oo.loop.operations, 'test_2')
             self.debug_print_operations(vopt.loop)
-            #self.assert_equal(loop, self.parse_loop(vops))
+            self.assert_equal(loop, self.parse_loop(vops))
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

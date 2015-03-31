@@ -290,7 +290,6 @@ class VectorizingOptimizer(Optimizer):
     def schedule(self):
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph)
-        i = 0
         while scheduler.has_more_to_schedule():
             candidate_index = scheduler.next_schedule_index()
             candidate = self.loop.operations[candidate_index]
@@ -300,10 +299,6 @@ class VectorizingOptimizer(Optimizer):
             else:
                 self.emit_operation(candidate)
                 scheduler.schedule(0)
-            i+=1
-            if i > 20:
-                print self.dependency_graph
-                break
 
         self.loop.operations = self._newoperations[:]
 
