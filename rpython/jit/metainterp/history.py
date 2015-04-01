@@ -383,6 +383,8 @@ class Box(AbstractValue):
                     t = 'i'
                 elif self.type == FLOAT:
                     t = 'f'
+                elif self.type == VECTOR:
+                    t = 'v'
                 else:
                     t = 'p'
             except AttributeError:
@@ -513,16 +515,16 @@ NULLBOX = BoxPtr()
 class BoxVector(Box):
     type = VECTOR
     _attrs_ = ('item_type','byte_count','item_count','signed')
+    _extended_display = False
 
     def __init__(self, item_type=INT, byte_count=4, item_count=4, signed=True):
-        assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.item_type = item_type
         self.byte_count = byte_count
         self.item_count = item_count
         self.signed = signed
 
     def forget_value(self):
-        self.value = longlong.ZEROF
+        raise NotImplementedError("cannot forget value of vector")
 
     def clonebox(self):
         return BoxVector(self.value)
@@ -530,14 +532,8 @@ class BoxVector(Box):
     def constbox(self):
         raise NotImplementedError("not possible to have a constant vector box")
 
-    def _get_hash_(self):
-        return longlong.gethash(self.value)
-
     def nonnull(self):
-        return bool(longlong.extract_bits(self.value))
-
-    def _getrepr_(self):
-        return self.getfloat()
+        raise NotImplementedError("no value known, nonnull is unkown")
 
     def repr_rpython(self):
         return repr_rpython(self, 'bv')

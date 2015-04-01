@@ -1,7 +1,7 @@
 import sys
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.metainterp.history import ConstInt, VECTOR
+from rpython.jit.metainterp.history import ConstInt, VECTOR, BoxVector
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
@@ -305,57 +305,89 @@ class VectorizingOptimizer(Optimizer):
     def _schedule_pack(self, scheduler, pack):
         opindices = [ e.opidx for e in pack.operations ]
         if scheduler.schedulable(opindices):
-            self.emit_operation(ToSIMD.as_vector_operation(pack,
-                                    self.loop.operations,
-                                    scheduler)
-                               )
+            vop = scheduler.sched_data \
+                    .as_vector_operation(pack, self.loop.operations)
+            self.emit_operation(vop)
             scheduler.schedule_all(opindices)
         else:
             scheduler.schedule_later(0)
 
 class VecScheduleData(SchedulerData):
-    def as_vector_operation(pack, operations):
+    def __init__(self):
+        self.box_to_vbox = {}
+
+    def as_vector_operation(self, pack, operations):
         assert len(pack.operations) > 1
+        self.pack = pack
+        ops = [operations[w.opidx] for w in pack.operations]
         op0 = operations[pack.operations[0].opidx]
-        for i,op_wrapper in enumerate(pack.operations):
-            op = operations[op_wrapper.opidx]
-            scheduler.simd.inspect_operation(op,i)
+        assert op0.vector != -1
+        args = op0.getarglist()[:]
+        if op0.vector in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
+            args.append(ConstInt(0))
+        vopt = ResOperation(op0.vector, args,
+                            op0.result, op0.getdescr())
+        self._inspect_operation(vopt,ops) # op0 is for dispatch only
         #if op0.vector not in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
         #    op_count = len(pack.operations)
         #    args.append(ConstInt(op_count))
-        return sisiToSimd.get_vector_op()
+        return vopt
 
-    def __init__(self):
-        self.opnum = -1
-        self.args = None
-        self.result = None
-        self.descr = None
-        self.pack = None
+    def _pack_vector_arg(self, vop, op, i, vbox):
+        arg = op.getarg(i)
+        if vbox is None:
+            try:
+                _, vbox = self.box_to_vbox[arg]
+            except KeyError:
+                vbox = BoxVector(arg.type, 4, 0, True)
+            vop.setarg(i, vbox)
+        self.box_to_vbox[arg] = (i,vbox)
+        return vbox
 
-    def reset(self, op, pack):
-        self.opnum = op.getopnum()
-        self.args = op.getarglist()[:]
-        self.result = op.result
-        self.descr = op.getdescr()
-        self.pack = pack
+    def _pack_vector_result(self, vop, op, vbox):
+        result = op.result
+        if vbox is None:
+            vbox = BoxVector(result.type, 4, 0, True)
+            vop.result = vbox
+        self.box_to_vbox[result] = (-1,vbox)
+        return vbox
 
-    def get_vector_op(self):
-        return ResOperation(self.opnum, self.args, self.result, self.descr)
+    bin_arith_trans = """
+    def _vectorize_{name}(self, vop, ops):
+        vbox_arg_0 = None
+        vbox_arg_1 = None
+        vbox_result = None
+        for i, op in enumerate(ops):
+            vbox_arg_0 = self._pack_vector_arg(vop, op, 0, vbox_arg_0)
+            vbox_arg_1 = self._pack_vector_arg(vop, op, 1, vbox_arg_1)
+            vbox_result= self._pack_vector_result(vop, op, vbox_result)
+        vbox_arg_0.item_count = vbox_arg_1.item_count = \
+                vbox_result.item_count = len(ops)
+    """
+    exec py.code.Source(bin_arith_trans.format(name='VEC_INT_ADD')).compile()
+    exec py.code.Source(bin_arith_trans.format(name='VEC_INT_MUL')).compile()
+    exec py.code.Source(bin_arith_trans.format(name='VEC_INT_SUB')).compile()
+    exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_ADD')).compile()
+    exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_MUL')).compile()
+    exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_SUB')).compile()
+    del bin_arith_trans
 
-    def vectorize_INT_ADD(op, i):
-        self._pack_vector_arg(0)
-        self._pack_vector_arg(1)
-        self._pack_vector_result()
+    def _vectorize_VEC_RAW_LOAD(self, vop, ops):
+        vbox_result = None
+        for i, op in enumerate(ops):
+            vbox_result= self._pack_vector_result(vop, op, vbox_result)
+        vbox_result.item_count = len(ops)
+        vop.setarg(vop.numargs()-1,ConstInt(len(ops)))
 
-    def _pack_vector_arg(self, i):
-        arg = self.args[i]
-        if arg.type != VECTOR:
-            box_vec = scheduler.vector_register_of(self.args[0])
-            if box_vec is None:
-                box_vec = BoxVector(arg.type, 4, len(pack.operations), True)
-            self.args[i] = box_vec
+    def _vectorize_VEC_RAW_STORE(self, vop, ops):
+        vbox_arg_2 = None
+        for i, op in enumerate(ops):
+            vbox_arg_2 = self._pack_vector_arg(vop, op, 2, vbox_arg_2)
+        vbox_arg_2.item_count = len(ops)
+        vop.setarg(vop.numargs()-1,ConstInt(len(ops)))
 
-SISItoSIMD.inspect_operation = make_dispatcher_method(Pack, 'vectorize_')
+VecScheduleData._inspect_operation = \
+        make_dispatcher_method(VecScheduleData, '_vectorize_')
 
 
 def isomorphic(l_op, r_op):
@@ -467,7 +499,7 @@ class Pair(Pack):
         assert isinstance(left, PackOpWrapper)
         assert isinstance(right, PackOpWrapper)
         self.left = left
-        self.right = right'V'
+        self.right = right
         Pack.__init__(self, [left, right])
 
     def __eq__(self, other):

@@ -150,7 +150,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 op = opname[opnum]
             except KeyError:
                 continue
-            if 'FLOAT' in op:
+            if 'FLOAT' in op or 'VEC_' in op:
                 continue
             args = []
             for _ in range(oparity[opnum]):
