@@ -678,7 +678,12 @@ def register_custom_trace_hook(TP, lambda_func):
     """ This function does not do anything, but called from any annotated
     place, will tell that "func" is used to trace GC roots inside any instance
     of the type TP.  The func must be specified as "lambda: func" in this
-    call, for internal reasons.
+    call, for internal reasons.  Note that the func will be automatically
+    specialized on the 'callback' argument value.  Example:
+
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
     """
 
 class RegisterGcTraceEntry(ExtRegistryEntry):
