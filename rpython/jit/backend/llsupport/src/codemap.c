@@ -76,12 +76,13 @@ uintptr_t pypy_jit_codemap_firstkey(void)
 /*** interface used from pypy/module/_vmprof ***/
 
 RPY_EXTERN
-void *pypy_find_codemap_at_addr(long addr)
+void *pypy_find_codemap_at_addr(long addr, long* start_addr)
 {
     skipnode_t *codemap = skiplist_search(&jit_codemap_head, addr);
     codemap_data_t *data;
     uintptr_t rel_addr;
 
+    *start_addr = 0;
     if (codemap == &jit_codemap_head)
         return NULL;
 
@@ -90,6 +91,7 @@ void *pypy_find_codemap_at_addr(long addr)
     if (rel_addr >= data->machine_code_size)
         return NULL;
 
+    *start_addr = (long)codemap->key;
     return (void *)codemap;
 }
 
