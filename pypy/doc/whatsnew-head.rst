@@ -3,7 +3,7 @@ What's new in PyPy 2.5+
 =======================
 
 .. this is a revision shortly after release-2.5.1
-.. startrev: 397b96217b85
+.. startrev: cb01edcb59414d9d93056e54ed060673d24e67c1
 
 .. branch: gc-incminimark-pinning-improve
 Object Pinning is now used in `bz2` and `rzlib` (therefore also affects
