@@ -84,6 +84,7 @@ static void prof_write_stacktrace(void** stack, int depth, int count) {
     for(i=0; i<depth; i++)
         prof_word((long)stack[i]);
     write(profile_file, profile_write_buffer, profile_buffer_position);
+    profile_buffer_position = 0;
 }
 
 
@@ -220,7 +221,6 @@ static int __attribute__((noinline)) frame_forcer(int rv) {
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
     void* stack[MAX_STACK_DEPTH];
     int saved_errno = errno;
-	profile_buffer_position = 0;
     stack[0] = GetPC((ucontext_t*)ucontext);
     int depth = frame_forcer(get_stack_trace(stack+1, MAX_STACK_DEPTH-1, ucontext));
     depth++;  // To account for pc value in stack[0];
@@ -238,6 +238,7 @@ static int open_profile(int fd, long period_usec, int write_header, char *s,
 	if ((fd = dup(fd)) == -1) {
 		return -1;
 	}
+	profile_buffer_position = 0;
     profile_file = fd;
 	if (write_header)
 		prof_header(period_usec);
