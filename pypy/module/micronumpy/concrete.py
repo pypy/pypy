@@ -348,7 +348,7 @@ def customtrace(gc, obj, callback, arg):
     #debug_print('in customtrace w/obj', obj)
     length = rffi.cast(rffi.SIGNEDP, obj + offset_of_length)[0]
     step = rffi.cast(rffi.SIGNEDP, obj + offset_of_step)[0]
-    storage = obj + offset_of_storage
+    storage = (obj + offset_of_storage).address[0]
     debug_print('tracing', length, 'objects in ndarray.storage')
     i = 0
     while i < length:
