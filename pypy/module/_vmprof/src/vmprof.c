@@ -70,6 +70,8 @@ static void prof_header(long period_usec) {
     prof_word(0);
     prof_word(period_usec);
     prof_word(0);
+    write(profile_file, profile_write_buffer, profile_buffer_position);
+    profile_buffer_position = 0;
 }
 
 static void prof_write_stacktrace(void** stack, int depth, int count) {
@@ -298,9 +300,11 @@ static int install_sigprof_timer(long period_usec) {
 
 static int remove_sigprof_timer(void) {
     static struct itimerval timer;
+    last_period_usec = 0;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
-    timer.it_value = timer.it_interval;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 0;
     if (setitimer(ITIMER_PROF, &timer, NULL) != 0) {
 		return -1;
     }
