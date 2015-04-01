@@ -64,7 +64,7 @@ inline void stmcb_commit_soon()
 /************************************************************/
 
 
-#define LOW_FILL_MARK   400000
+#define LOW_FILL_MARK  (NURSERY_SIZE / 2)
 
 static long pypy_transaction_length;
 
