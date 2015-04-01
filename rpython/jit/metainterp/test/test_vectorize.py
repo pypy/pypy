@@ -21,27 +21,42 @@ class VectorizeTest(object):
                               CPUClass=self.CPUClass,
                               type_system=self.type_system)
 
-    def test_simple_raw_load(self):
+    def test_vectorize_simple_load_arith_store(self):
         myjitdriver = JitDriver(greens = [],
-                                reds = ['i', 'res', 'va','c'],
+                                reds = ['i','a','b','va','vb','vc','c','d'],
                                 vectorize=True)
-        def f(c):
-            res = 0
-            va = alloc_raw_storage(c*rffi.sizeof(rffi.SIGNED), zero=True)
-            for i in range(c):
+        def f(d):
+            va = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
+            vb = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
+            vc = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
+            for i in range(d):
                 raw_storage_setitem(va, i*rffi.sizeof(rffi.SIGNED),
                                     rffi.cast(rffi.SIGNED,i))
+                raw_storage_setitem(vb, i*rffi.sizeof(rffi.SIGNED),
+                                    rffi.cast(rffi.SIGNED,i))
             i = 0
-            while i < c:
-                myjitdriver.can_enter_jit(i=i, res=res,  va=va, c=c)
-                myjitdriver.jit_merge_point(i=i, res=res, va=va, c=c)
-                res += raw_storage_getitem(rffi.SIGNED,va,i*rffi.sizeof(rffi.SIGNED))
+            a = 0
+            b = 0
+            c = 0
+            while i < d:
+                myjitdriver.can_enter_jit(i=i, a=a, b=b, va=va, vb=vb, vc=vc, d=d, c=c)
+                myjitdriver.jit_merge_point(i=i, a=a, b=b, va=va, vb=vb, vc=vc, d=d, c=c)
+                a = raw_storage_getitem(rffi.SIGNED,va,i*rffi.sizeof(rffi.SIGNED))
+                b = raw_storage_getitem(rffi.SIGNED,va,i*rffi.sizeof(rffi.SIGNED))
+                c = a+b
+                raw_storage_setitem(vc, i*rffi.sizeof(rffi.SIGNED), rffi.cast(rffi.SIGNED,c))
                 i += 1
+            res = 0
+            for i in range(d):
+                res += raw_storage_getitem(rffi.SIGNED,vc,i*rffi.sizeof(rffi.SIGNED))
+
             free_raw_storage(va)
+            free_raw_storage(vb)
+            free_raw_storage(vc)
             return res
         i = 32
         res = self.meta_interp(f, [i])
-        assert res == sum(range(i))
+        assert res == sum(range(i)) + sum(range(i))
         self.check_trace_count(1)
 
 class TestLLtype(VectorizeTest, LLJitMixin):

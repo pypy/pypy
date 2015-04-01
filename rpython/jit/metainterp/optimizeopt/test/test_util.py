@@ -154,7 +154,10 @@ class LLtypeMixin(object):
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+    intarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    uintarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Unsigned))
     chararraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Char))
+    singlefloatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))
 
     # a GcStruct not inheriting from OBJECT
     S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('b', lltype.Ptr(NODE)))

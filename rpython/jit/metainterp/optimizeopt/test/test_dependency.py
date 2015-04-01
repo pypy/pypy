@@ -297,9 +297,9 @@ class BaseTestDependencyGraph(DepTestHelper):
     def test_setarrayitem_dont_depend_with_memref_info(self):
         ops="""
         [p0, i1] # 0: 1,2,3,4
-        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 4
+        setarrayitem_raw(p0, i1, 1, descr=chararraydescr) # 1: 4
         i2 = int_add(i1,1) # 2: 3
-        setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) # 3: 4
+        setarrayitem_raw(p0, i2, 2, descr=chararraydescr) # 3: 4
         jump(p0, i1) # 4:
         """
         self.assert_dependencies(ops, memref=True, full_check=True)

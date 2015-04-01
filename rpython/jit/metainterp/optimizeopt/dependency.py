@@ -190,12 +190,13 @@ class DependencyGraph(object):
                 pass
         # handle fail args
         op = self.operations[guard_idx]
-        for arg in op.getfailargs():
-            try:
-                def_idx = tracker.definition_index(arg)
-                self._put_edge(def_idx, guard_idx, arg)
-            except KeyError:
-                assert False
+        if op.getfailargs():
+            for arg in op.getfailargs():
+                try:
+                    def_idx = tracker.definition_index(arg)
+                    self._put_edge(def_idx, guard_idx, arg)
+                except KeyError:
+                    assert False
         #
         # guards check overflow or raise are directly dependent
         # find the first non guard operation
@@ -613,6 +614,7 @@ class MemoryRef(object):
     will result in the linear combination i0 * (2/1) + 2
     """
     def __init__(self, array, origin, descr):
+        assert descr is not None
         self.array = array
         self.origin = origin
         self.descr = descr
@@ -623,15 +625,21 @@ class MemoryRef(object):
     def is_adjacent_to(self, other):
         """ this is a symmetric relation """
         match, off = self.calc_difference(other)
-        if match:
-            return off == 1 or off == -1
+        stride = self.stride()
+        if match and stride != 0:
+            return abs(off) - stride == 0
         return False
+
+    def stride(self):
+        """ the stride in bytes """
+        return self.descr.get_item_size_in_bytes()
 
     def is_adjacent_after(self, other):
         """ the asymetric relation to is_adjacent_to """
         match, off = self.calc_difference(other)
-        if match:
-            return off == 1
+        stride = self.stride()
+        if match and stride != 0:
+            return off == stride # must be equal to the positive stride
         return False
 
     def indices_can_alias(self, other):
@@ -641,7 +649,7 @@ class MemoryRef(object):
         """
         match, off = self.calc_difference(other)
         if match:
-            return off == 0
+            return abs(off) < self.stride()
         return False
 
     def __eq__(self, other):
@@ -658,6 +666,7 @@ class MemoryRef(object):
         return self.array == other.array
 
     def calc_difference(self, other):
+        """ calculates the difference in bytes as second return value """
         assert isinstance(other, MemoryRef)
         if self.array == other.array \
             and self.origin == other.origin:
@@ -670,4 +679,3 @@ class MemoryRef(object):
     def __repr__(self):
         return 'MemoryRef(%s*(%s/%s)+%s)' % (self.origin, self.coefficient_mul,
                                             self.coefficient_div, self.constant)
-

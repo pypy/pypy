@@ -221,7 +221,7 @@ class VectorizingOptimizer(Optimizer):
                         if self.packset.can_be_packed(a_opidx, b_opidx,
                                                        a_memref, b_memref):
                             self.packset.add_pair(a_opidx, b_opidx,
-                                                   a_memref, b_memref)
+                                                  a_memref, b_memref)
 
     def extend_packset(self):
         pack_count = self.packset.pack_count()
