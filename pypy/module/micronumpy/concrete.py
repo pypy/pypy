@@ -346,15 +346,12 @@ offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
 
 def customtrace(gc, obj, callback, arg):
     #debug_print('in customtrace w/obj', obj)
-    length = rffi.cast(rffi.SIGNEDP, obj + offset_of_length)[0]
-    step = rffi.cast(rffi.SIGNEDP, obj + offset_of_step)[0]
+    length = (obj + offset_of_length).signed[0]
+    step = (obj + offset_of_step).signed[0]
     storage = (obj + offset_of_storage).address[0]
-    debug_print('tracing', length, 'objects in ndarray.storage')
+    #debug_print('tracing', length, 'objects in ndarray.storage')
     i = 0
     while i < length:
-        #gcref = rffi.cast(llmemory.GCREF, storage)
-        #w_obj = cast_gcref_to_instance(W_Root, gcref)
-        #debug_print('tracing', w_obj) 
         gc._trace_callback(callback, arg, storage)
         storage += step
         i += 1
@@ -369,7 +366,7 @@ def _create_objectstore(storage, length, elsize):
     gcstruct = lltype.malloc(OBJECTSTORE)
     # JIT does not support cast_ptr_to_adr
     gcstruct.storage = llmemory.cast_ptr_to_adr(storage)
-    print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
+    #print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
     gcstruct.length = length
     gcstruct.step = elsize
     return gcstruct

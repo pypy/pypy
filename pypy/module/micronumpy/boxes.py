@@ -868,7 +868,7 @@ W_UnicodeBox.typedef = TypeDef("numpy.unicode_", (W_CharacterBox.typedef, W_Unic
     __len__ = interp2app(W_UnicodeBox.descr_len),
 )
 
-W_ObjectBox.typedef = TypeDef("numpy.object", W_ObjectBox.typedef,
+W_ObjectBox.typedef = TypeDef("numpy.object_", W_ObjectBox.typedef,
     __new__ = interp2app(W_ObjectBox.descr__new__.im_func),
     __getattr__ = interp2app(W_ObjectBox.descr__getattr__),
 )
