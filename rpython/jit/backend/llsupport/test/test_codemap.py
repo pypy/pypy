@@ -1,8 +1,11 @@
 
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.jit.backend.llsupport.codemap import stack_depth_at_loc
 from rpython.jit.backend.llsupport.codemap import CodemapStorage, \
      CodemapBuilder, unpack_traceback, find_codemap_at_addr
 
+NULL = lltype.nullptr(rffi.CArray(lltype.Signed))
+     
 def test_register_codemap():
     codemap = CodemapStorage()
     codemap.setup()
@@ -10,17 +13,17 @@ def test_register_codemap():
     codemap.register_codemap((300, 30, [16, 17, 18]))
     codemap.register_codemap((200, 100, [19, 20, 21, 22, 23]))
     #
-    raw100 = find_codemap_at_addr(100)
-    assert find_codemap_at_addr(119) == raw100
-    assert not find_codemap_at_addr(120)
+    raw100 = find_codemap_at_addr(100, NULL)
+    assert find_codemap_at_addr(119, NULL) == raw100
+    assert not find_codemap_at_addr(120, NULL)
     #
-    raw200 = find_codemap_at_addr(200)
+    raw200 = find_codemap_at_addr(200, NULL)
     assert raw200 != raw100
-    assert find_codemap_at_addr(299) == raw200
+    assert find_codemap_at_addr(299, NULL) == raw200
     #
-    raw300 = find_codemap_at_addr(329)
+    raw300 = find_codemap_at_addr(329, NULL)
     assert raw300 != raw100 and raw300 != raw200
-    assert find_codemap_at_addr(300) == raw300
+    assert find_codemap_at_addr(300, NULL) == raw300
     #
     codemap.free()
 
