@@ -149,7 +149,7 @@ We are using
   and you can pass a ``*args`` argument (it must be a tuple).
 
 + as explained above, tuples are not of a variable length.  If you need
-  to call a function with a variable number of arguments, refactor the
+  to call a function with a dynamic number of arguments, refactor the
   function itself to accept a single argument which is a regular list.
 
 + dynamic dispatch enforces the use of signatures that are equal for all
