@@ -33,7 +33,7 @@ RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
                                      unsigned int bytecode_info_size);
 RPY_EXTERN long *pypy_jit_codemap_del(uintptr_t addr);
 RPY_EXTERN uintptr_t pypy_jit_codemap_firstkey(void);
-RPY_EXTERN void *pypy_find_codemap_at_addr(long addr);
+RPY_EXTERN void *pypy_find_codemap_at_addr(long addr, long* start_addr);
 RPY_EXTERN long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                            long *current_pos_addr);
 
@@ -69,7 +69,7 @@ pypy_jit_depthmap_clear = llexternal('pypy_jit_depthmap_clear',
 stack_depth_at_loc = llexternal('pypy_jit_stack_depth_at_loc',
                                 [lltype.Signed], lltype.Signed)
 find_codemap_at_addr = llexternal('pypy_find_codemap_at_addr',
-                                  [lltype.Signed], lltype.Signed)
+                                  [lltype.Signed, rffi.CArrayPtr(lltype.Signed)], lltype.Signed)
 yield_bytecode_at_addr = llexternal('pypy_yield_codemap_at_addr',
                                     [lltype.Signed, lltype.Signed,
                                      rffi.CArrayPtr(lltype.Signed)],
@@ -123,7 +123,8 @@ class CodemapStorage(object):
         self.free()
 
 def unpack_traceback(addr):
-    codemap_raw = find_codemap_at_addr(addr)
+    codemap_raw = find_codemap_at_addr(addr,
+                                lltype.nullptr(rffi.CArray(lltype.Signed)))
     if not codemap_raw:
         return [] # no codemap for that position
     storage = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
