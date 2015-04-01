@@ -71,6 +71,12 @@ class BaseAssembler(object):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
+        if self.cpu.gc_ll_descr.stm:
+            from rpython.rlib import rstm
+            # become inevitable so that the raw-memory used later
+            # will only be modified by one thread at a time
+            rstm.become_inevitable()
+
         if hasattr(gc_ll_descr, 'minimal_size_in_nursery'):
             self.gc_minimal_size_in_nursery = gc_ll_descr.minimal_size_in_nursery
         else:

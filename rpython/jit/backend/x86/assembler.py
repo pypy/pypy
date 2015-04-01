@@ -86,6 +86,12 @@ class Assembler386(BaseAssembler):
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = []
             self.error_trampoline_64 = 0
+
+        if self.cpu.gc_ll_descr.stm:
+            # become inevitable so that the raw-memory used later
+            # will only be modified by one thread at a time
+            rstm.become_inevitable()
+
         self.mc = codebuf.MachineCodeBlockWrapper()
         #assert self.datablockwrapper is None --- but obscure case
         # possible, e.g. getting MemoryError and continuing
