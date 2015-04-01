@@ -105,18 +105,25 @@ static inline void cond_broadcast(enum cond_type_e ctype)
 
 void stm_wait_for_current_inevitable_transaction(void)
 {
+ restart:
+    /* make sure there is no major collection happening, which
+       could free some commit log entries */
+    s_mutex_lock();
+
     struct stm_commit_log_entry_s *current = STM_PSEGMENT->last_commit_log_entry;
 
     /* XXX: don't do busy-waiting */
-    while (1) {
-        if (current->next == NULL) {
-            break;
-        } else if (current->next == INEV_RUNNING) {
+    while (current->next != NULL) {
+        if (current->next == INEV_RUNNING) {
+            s_mutex_unlock();
             usleep(10);
-            continue;
+            /* some major collection could have freed "current", so
+               restart from the beginning */
+            goto restart;
         }
         current = current->next;
     }
+    s_mutex_unlock();
 }
 
 

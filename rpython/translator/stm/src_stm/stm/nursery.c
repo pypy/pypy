@@ -106,7 +106,6 @@ static void minor_trace_if_young(object_t **pobj)
             /* case "small enough" */
             nobj = (object_t *)allocate_outside_nursery_small(size);
         }
-
         //dprintf(("move %p -> %p\n", obj, nobj));
 
         /* copy the object */
@@ -143,6 +142,9 @@ static void minor_trace_if_young(object_t **pobj)
     /* Must trace the object later */
     LIST_APPEND(STM_PSEGMENT->objects_pointing_to_nursery, nobj_sync_now);
     _cards_cleared_in_object(get_priv_segment(STM_SEGMENT->segment_num), nobj, true);
+
+    assert(IMPLY(obj_should_use_cards(STM_SEGMENT->segment_base, nobj),
+                 (((uintptr_t)nobj) & 15) == 0));
 }
 
 static void _cards_cleared_in_object(struct stm_priv_segment_info_s *pseg, object_t *obj,
