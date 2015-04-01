@@ -276,8 +276,6 @@ class BaseTestSQLite:
         exc = raises(ValueError, cur.execute, "select 2\0")
         assert str(exc.value) == "the query contains a null character"
 
-        import sqlite3
-
     def test_close_in_del_ordering(self):
         import gc
         class SQLiteBackend(object):
