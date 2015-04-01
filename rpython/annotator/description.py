@@ -7,7 +7,8 @@ from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.annotator.argument import rawshape, ArgErr
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
-from rpython.annotator.model import AnnotatorError, SomeInteger, SomeString
+from rpython.annotator.model import (
+    AnnotatorError, SomeInteger, SomeString, s_ImpossibleValue)
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -75,7 +76,6 @@ class FrozenAttrFamily(object):
         try:
             return self.attrs[attrname]
         except KeyError:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
 
     def set_s_value(self, attrname, s_value):
@@ -97,7 +97,6 @@ class ClassAttrFamily(object):
     # ClassAttrFamily is more precise: it is only about one attribut name.
 
     def __init__(self, desc):
-        from rpython.annotator.model import s_ImpossibleValue
         self.descs = {desc: True}
         self.read_locations = {}     # set of position_keys
         self.s_value = s_ImpossibleValue    # union of possible values
@@ -321,6 +320,26 @@ class FunctionDesc(Desc):
         result = unionof(result, s_previous_result)
         return result
 
+    def pycall_2(self, args):
+        inputcells = self.parse_arguments(args)
+        graph = self.specialize(inputcells)
+        assert isinstance(graph, FunctionGraph)
+        # if that graph has a different signature, we need to re-parse
+        # the arguments.
+        # recreate the args object because inputcells may have been changed
+        new_args = args.unmatch_signature(self.signature, inputcells)
+        inputcells = self.parse_arguments(new_args, graph)
+        res = graph, inputcells
+        result = s_ImpossibleValue
+        signature = getattr(self.pyobj, '_signature_', None)
+        if signature:
+            sigresult = enforce_signature_return(self, signature[1], result)
+            if sigresult is not None:
+                self.bookkeeper.annotator.addpendingblock(
+                    graph, graph.returnblock, [sigresult])
+                result = sigresult
+        return res
+
     def bind_under(self, classdef, name):
         # XXX static methods
         return self.bookkeeper.getmethoddesc(self,
@@ -352,7 +371,6 @@ class FunctionDesc(Desc):
     @staticmethod
     def row_to_consider(descs, args, op):
         # see comments in CallFamily
-        from rpython.annotator.model import s_ImpossibleValue
         row = {}
         for desc in descs:
             def enlist(graph, ignore):
@@ -685,7 +703,6 @@ class ClassDesc(Desc):
         # look up an attribute in the class
         cdesc = self.lookup(name)
         if cdesc is None:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
         else:
             # delegate to s_get_value to turn it into an annotation
@@ -999,7 +1016,6 @@ class FrozenDesc(Desc):
         try:
             value = self.read_attribute(attr)
         except AttributeError:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
         else:
             return self.bookkeeper.immutablevalue(value)
