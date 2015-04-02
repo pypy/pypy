@@ -21,6 +21,11 @@ class AppTestVMProf(object):
             i = 0
             count = 0
             i += 5 * WORD # header
+            assert s[i] == '\x04'
+            i += 1 # marker
+            assert s[i] == '\x04'
+            i += 1 # length
+            i += len('pypy')
             while i < len(s):
                 assert s[i] == '\x02'
                 i += 1
