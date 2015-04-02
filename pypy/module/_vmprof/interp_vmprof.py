@@ -181,9 +181,8 @@ class VMProf(object):
         if self.fileno == -1:
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("vmprof not running"))
-        if len(self.current_codes) < MAX_CODES:
-            self.current_codes.append(code)
-        else:
+        self.current_codes.append(code)
+        if len(self.current_codes) >= MAX_CODES:
             self._flush_codes(space)
 
     def _flush_codes(self, space):
