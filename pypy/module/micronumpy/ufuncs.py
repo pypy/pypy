@@ -349,7 +349,7 @@ class W_Ufunc1(W_Ufunc):
         if dtype.is_flexible():
             raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
-        if (self.int_only and not dtype.is_int() or
+        if (self.int_only and not (dtype.is_int() or dtype.is_object()) or
                 not self.allow_bool and dtype.is_bool() or
                 not self.allow_complex and dtype.is_complex()):
             raise oefmt(space.w_TypeError,
@@ -465,9 +465,9 @@ class W_Ufunc2(W_Ufunc):
             w_ldtype, w_rdtype,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools)
-        if (self.int_only and (not w_ldtype.is_int() or
-                               not w_rdtype.is_int() or
-                               not calc_dtype.is_int()) or
+        if (self.int_only and (not (w_ldtype.is_int() or w_ldtype.is_object()) or
+                               not (w_rdtype.is_int() or w_rdtype.is_object()) or
+                               not (calc_dtype.is_int() or calc_dtype.is_object())) or
                 not self.allow_bool and (w_ldtype.is_bool() or
                                          w_rdtype.is_bool()) or
                 not self.allow_complex and (w_ldtype.is_complex() or

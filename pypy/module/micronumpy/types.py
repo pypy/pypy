@@ -149,7 +149,9 @@ class Primitive(object):
         return self.box(array[0])
 
     def unbox(self, box):
-        assert isinstance(box, self.BoxType)
+        if not isinstance(box, self.BoxType):
+            # i.e. box is an ObjectBox
+            raise oefmt(self.space.w_AttributeError, '')
         return box.value
 
     def coerce(self, space, dtype, w_item):
@@ -427,29 +429,25 @@ class Integer(Primitive):
     def default_fromstring(self, space):
         return self.box(0)
 
-    @specialize.argtype(1, 2)
-    def div(self, b1, b2):
-        v1 = self.for_computation(self.unbox(b1))
-        v2 = self.for_computation(self.unbox(b2))
+    @simple_binary_op
+    def div(self, v1, v2):
         if v2 == 0:
-            return self.box(0)
+            return 0
         if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
                 self.T is rffi.LONG or self.T is rffi.LONGLONG):
             if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
-                return self.box(0)
-        return self.box(v1 / v2)
+                return 0
+        return v1 / v2
 
-    @specialize.argtype(1, 2)
-    def floordiv(self, b1, b2):
-        v1 = self.for_computation(self.unbox(b1))
-        v2 = self.for_computation(self.unbox(b2))
+    @simple_binary_op
+    def floordiv(self, v1, v2):
         if v2 == 0:
-            return self.box(0)
+            return 0
         if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
                 self.T is rffi.LONG or self.T is rffi.LONGLONG):
             if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
-                return self.box(0)
-        return self.box(v1 // v2)
+                return 0
+        return v1 // v2
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -485,7 +483,7 @@ class Integer(Primitive):
         elif v < 0:
             return -1
         else:
-            assert v == 0
+            #assert v == 0
             return 0
 
     @raw_unary_op
@@ -1711,16 +1709,134 @@ class ObjectType(BaseType):
     def for_computation(v):
         return v
 
-    @simple_binary_op
-    def add(self, v1, v2):
-        return v1
-        #return self.space.add(v1, v2)
-
     @raw_binary_op
     def eq(self, v1, v2):
-        return True
-        #return self.space.eq_w(v1, v2)
+        return self.space.eq_w(v1, v2)
 
+    @raw_binary_op
+    def max(self, v1, v2):
+        if self.space.is_true(self.space.ge(v1, v2)):
+            return v1
+        return v2
+
+    @raw_binary_op
+    def min(self, v1, v2):
+        if self.space.is_true(self.space.le(v1, v2)):
+            return v1
+        return v2
+
+    def arctan2(self, v1, v2):
+        raise oefmt(self.space.w_AttributeError, 'arctan2')
+
+    @specialize.argtype(1)
+    def _bool(self, v):
+        return self.space.bool_w(v)
+
+    @raw_binary_op
+    def logical_and(self, v1, v2):
+        return self._bool(v1) and self._bool(v2)
+
+    @raw_binary_op
+    def logical_or(self, v1, v2):
+        return self._bool(v1) or self._bool(v2)
+
+    @raw_unary_op
+    def logical_not(self, v):
+        return not self._bool(v)
+
+    @raw_binary_op
+    def logical_xor(self, v1, v2):
+        a = self._bool(v1)
+        b = self._bool(v2)
+        return (not b and a) or (not a and b)
+
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return self.space.and_(v1, v2)
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return self.space.or_(v1, v2)
+
+    @simple_binary_op
+    def bitwise_xor(self, v1, v2):
+        return self.space.xor(v1, v2)
+
+    @simple_binary_op
+    def pow(self, v1, v2):
+        return self.space.pow(v1, v2, self.space.wrap(1))
+
+    @simple_unary_op
+    def reciprocal(self, v1):
+        return self.space.div(self.space.wrap(1.0), v1)
+
+    @simple_unary_op
+    def sign(self, v):
+        zero = self.space.wrap(0)
+        one = self.space.wrap(1)
+        m_one = self.space.wrap(-1)
+        if self.space.is_true(self.space.gt(v, zero)):
+            return one
+        elif self.space.is_true(self.space.lt(v, zero)):
+            return m_one
+        else:
+            return zero
+
+
+def add_unsupported_op(cls, op):
+    def func(self, *args):
+        raise oefmt(self.space.w_TypeError, 
+            "ufunc '%s' not supported for input types", op)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+        
+
+def add_unary_op(cls, op):
+    @simple_unary_op
+    def func(self, w_v):
+        w_impl = self.space.lookup(w_v, op)
+        if w_impl is None:
+            raise oefmt(self.space.w_AttributeError, op)
+        return self.space.get_and_call_function(w_impl, w_v)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_space_unary_op(cls, op):
+    @simple_unary_op
+    def func(self, v):
+        return getattr(self.space, op)(v)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_space_binary_op(cls, op):
+    @simple_binary_op
+    def func(self, v1, v2):
+        return getattr(self.space, op)(v1, v2)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_space_comp_op(cls, op):
+    @raw_binary_op
+    def func(self, v1, v2):
+        return self.space.is_true(getattr(self.space, op)(v1, v2))
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+for op in ('copysign', 'isfinite', 'isinf', 'isnan', 'logaddexp', 'logaddexp2',
+           'signbit',):
+    add_unsupported_op(ObjectType, op)
+for op in ('conj', 'real', 'imag', 'rint'):
+    add_unary_op(ObjectType, op)
+for op in ('abs', 'neg', 'pos', 'invert'):
+    add_space_unary_op(ObjectType, op)
+for op in ('add', 'floordiv', 'div', 'mod', 'mul', 'sub', 'lshift', 'rshift'):
+    add_space_binary_op(ObjectType, op)
+for op in ('lt', 'gt', 'le', 'ge', 'ne'):
+    add_space_comp_op(ObjectType, op)
+
+ObjectType.fmax = ObjectType.max
+ObjectType.fmin = ObjectType.min
+ObjectType.fmod = ObjectType.mod
 
 class FlexibleType(BaseType):
     def get_element_size(self):
