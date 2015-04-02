@@ -1347,16 +1347,22 @@ def start_color():
 
 def tigetflag(capname):
     _ensure_initialised_setupterm()
+    if isinstance(capname, str):
+        capname = capname.encode('utf-8')
     return lib.tigetflag(capname)
 
 
 def tigetnum(capname):
     _ensure_initialised_setupterm()
+    if isinstance(capname, str):
+        capname = capname.encode('utf-8')
     return lib.tigetnum(capname)
 
 
 def tigetstr(capname):
     _ensure_initialised_setupterm()
+    if isinstance(capname, str):
+        capname = capname.encode('utf-8')
     val = lib.tigetstr(capname)
     if int(ffi.cast("intptr_t", val)) in (0, -1):
         return None
@@ -1365,6 +1371,13 @@ def tigetstr(capname):
 
 def tparm(fmt, i1=0, i2=0, i3=0, i4=0, i5=0, i6=0, i7=0, i8=0, i9=0):
     args = [ffi.cast("int", i) for i in (i1, i2, i3, i4, i5, i6, i7, i8, i9)]
+    # fmt is expected to be a byte string; CPython 3.x complains
+    # "TypeError: 'str' does not support the buffer interface", but we
+    # can do better.
+    if isinstance(fmt, str):
+        # error message modeled on "TypeError: must be str, not bytes"
+        # that you get if you call curses.tigetstr(b'...') on CPython 3.x
+        raise TypeError('must be bytes, not str')
     result = lib.tparm(fmt, *args)
     if result == ffi.NULL:
         raise error("tparm() returned NULL")
