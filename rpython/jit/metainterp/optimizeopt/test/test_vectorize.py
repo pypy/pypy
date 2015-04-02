@@ -952,13 +952,18 @@ class BaseTestVectorize(VecTestHelper):
         guard_future_condition() []
         jump(i16, i10, i12, i3, i4, i5, i13, i7)
         """
+        self.debug_print_operations(self.parse_loop(ops))
         vopt = self.schedule(self.parse_loop(ops),1)
+        print "_--" * 10
+        print vopt.vec_info.memory_refs
+        print "_--" * 10
+        self.debug_print_operations(vopt.loop)
 
     def test_vectorize_raw_load_add_index_item_byte_size(self):
         ops = """
         [i0, i1, i2, i3, i4, i5, i6, i7]
         i8 = raw_load(i3, i0, descr=intarraydescr)
-        i9 = raw_load(i3, i0, descr=intarraydescr)
+        i9 = raw_load(i4, i0, descr=intarraydescr)
         i10 = int_add(i8, i9)
         raw_store(i5, i0, i10, descr=intarraydescr)
         i12 = int_add(i0, 8)
@@ -969,6 +974,24 @@ class BaseTestVectorize(VecTestHelper):
         jump(i12, i8, i9, i3, i4, i5, i10, i7)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
+        self.debug_print_operations(vopt.loop)
+
+    def test_111(self):
+        ops = """
+        [i0, i1, i2, i3, i4, i5, i6, i7]
+        i8 = raw_load(i3, i0, descr=intarraydescr)
+        i9 = raw_load(i4, i0, descr=intarraydescr)
+        i10 = int_add(i8, i9)
+        raw_store(i5, i0, i10, descr=intarraydescr)
+        i12 = int_add(i0, 8)
+        i14 = int_mul(i7, 8)
+        i15 = int_lt(i12, i14)
+        guard_true(i15) [i7, i10, i5, i4, i3, i9, i8, i12]
+        guard_future_condition() []
+        label(i12, i8, i9, i3, i4, i5, i10, i7)
+        """
+        vopt = self.schedule(self.parse_loop(ops),1)
+        self.debug_print_operations(vopt.loop)
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

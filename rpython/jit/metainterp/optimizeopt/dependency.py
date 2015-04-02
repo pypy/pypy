@@ -170,6 +170,7 @@ class DependencyGraph(object):
         for arg in guard_op.getarglist():
             self._def_use(arg, guard_idx, tracker)
 
+        print "guard[", guard_idx, "]", guard_op
         variables = []
         for dep in self.depends(guard_idx):
             idx = dep.idx_from
@@ -177,14 +178,18 @@ class DependencyGraph(object):
             for arg in op.getarglist():
                 if isinstance(arg, Box):
                     variables.append(arg)
+                    print " + in spe", arg
             if op.result:
                 variables.append(op.result)
+                print " + in spe res", op.result
         #
         for var in variables:
             try:
                 def_idx = tracker.definition_index(var)
                 for dep in self.provides(def_idx):
                     if var in dep.args and dep.idx_to > guard_idx:
+                        print "checking", var, "def at", def_idx, " -> ", dep
+                        print " ==> yes"
                         self._put_edge(guard_idx, dep.idx_to, var)
             except KeyError:
                 pass
@@ -194,7 +199,7 @@ class DependencyGraph(object):
             for arg in op.getfailargs():
                 try:
                     def_idx = tracker.definition_index(arg)
-                    self._put_edge(def_idx, guard_idx, arg)
+                    #self._put_edge(def_idx, guard_idx, arg)
                 except KeyError:
                     assert False
         #
@@ -415,10 +420,8 @@ class DependencyGraph(object):
         idx = follow_dep.idx_from
         if idx == point_to_idx:
             idx = follow_dep.idx_to
-        #preount = len(self.adjacent_list[idx])
         self.adjacent_list[idx] = [d for d in self.adjacent_list[idx] \
                 if d.idx_to != point_to_idx and d.idx_from != point_to_idx]
-        #print "reduced", idx, "from",preount,"to",len(self.adjacent_list[idx])
 
     def __repr__(self):
         graph = "graph([\n"

@@ -4,7 +4,7 @@ from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.jit.metainterp.history import Const, getkind
-from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
+from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, VECTOR
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.codewriter import longlong, heaptracker
@@ -563,6 +563,14 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def bh_vec_raw_load(self, struct, offset, count, descr):
+        values = []
+        stride = descr.get_item_size_in_bytes()
+        for i in range(count):
+            val = self.bh_raw_load(struct, offset + i*stride, descr)
+            values.append(val)
+        return values
+
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
         p[0] += 1
@@ -594,6 +602,11 @@ class LLGraphCPU(model.AbstractCPU):
             self.bh_raw_store_f(struct, offset, newvalue, descr)
         else:
             self.bh_raw_store_i(struct, offset, newvalue, descr)
+
+    def bh_vec_raw_store(self, struct, offset, newvalues, count, descr):
+        stride = descr.get_item_size_in_bytes()
+        for i in range(count):
+            self.bh_raw_store(struct, offset + i*stride, newvalues[i], descr)
 
     def bh_newstr(self, length):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
@@ -722,6 +735,21 @@ class LLFrame(object):
             assert lltype.typeOf(arg) == llmemory.GCREF
         elif box.type == FLOAT:
             assert lltype.typeOf(arg) == longlong.FLOATSTORAGE
+        elif box.type == VECTOR:
+            if box.item_type == INT:
+                _type = lltype.Signed
+                i = 0
+                while i < len(arg):
+                    a = arg[i]
+                    if isinstance(a, bool):
+                        arg[i] = int(a) 
+                    i+=1
+            elif box.item_type == FLOAT:
+                _type = longlong.FLOATSTORAGE
+            else:
+                raise AssertionError(box)
+            for a in arg:
+                assert lltype.typeOf(a) == _type
         else:
             raise AssertionError(box)
         #
@@ -901,6 +929,15 @@ class LLFrame(object):
     def execute_guard_overflow(self, descr):
         if not self.overflow_flag:
             self.fail_guard(descr)
+
+    def execute_vec_int_add(self, _, vx, vy):
+        return [_vx + _vy for _vx,_vy in zip(vx,vy)]
+
+    def execute_vec_int_mul(self, _, vx, vy):
+        return [_vx * _vy for _vx,_vy in zip(vx,vy)]
+
+    def execute_vec_int_sub(self, _, vx, vy):
+        return [_vx - _vy for _vx,_vy in zip(vx,vy)]
 
     def execute_jump(self, descr, *args):
         raise Jump(descr._llgraph_target, args)

@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import (ConstInt, BoxInt, ConstFloat,
-    BoxFloat, TargetToken)
+    BoxFloat, TargetToken, BoxVector)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
@@ -126,6 +126,8 @@ class LogOperations(object):
             return str(arg.getfloat())
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
+        elif isinstance(arg, BoxVector):
+            return 'v' + str(mv)
         elif arg is None:
             return 'None'
         else:

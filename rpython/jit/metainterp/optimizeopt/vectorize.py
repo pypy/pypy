@@ -15,13 +15,49 @@ class NotAVectorizeableLoop(JitException):
     def __str__(self):
         return 'NotAVectorizeableLoop()'
 
+def debug_print_operations(self, loop):
+    # XXX
+    print('--- loop instr numbered ---')
+    def ps(snap):
+        if snap.prev is None:
+            return []
+        return ps(snap.prev) + snap.boxes[:]
+    for i,op in enumerate(loop.operations):
+        print "[",str(i).center(2," "),"]",op,
+        if op.is_guard():
+            if op.rd_snapshot is not None:
+                print ps(op.rd_snapshot)
+            else:
+                print op.getfailargs()
+        else:
+            print ""
+
+def must_unpack_result_to_exec(var, op):
+    # TODO either move to resop or util
+    if op.vector == -1:
+        return True
+    if op.getopnum() == rop.RAW_LOAD or \
+       op.getopnum() == rop.GETARRAYITEM_GC or \
+       op.getopnum() == rop.GETARRAYITEM_RAW:
+        return True
+    if op.getopnum() == rop.RAW_STORE or \
+       op.getopnum() == rop.SETARRAYITEM_GC or \
+       op.getopnum() == rop.SETARRAYITEM_RAW:
+        if op.getarg(1) == var:
+            return True
+    return False
+
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
     opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     try:
         opt.propagate_all_forward()
+        # XXX
+        debug_print_operations(None, loop)
         # TODO
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
+        # XXX
+        debug_print_operations(None, loop)
     except NotAVectorizeableLoop:
         # vectorization is not possible, propagate only normal optimizations
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
@@ -41,7 +77,6 @@ class VectorizingOptimizer(Optimizer):
         self.unroll_count = 0
 
     def emit_operation(self, op):
-        print "emit[", len(self._newoperations), "]:", op
         self._last_emitted_op = op
         self._newoperations.append(op)
 
@@ -64,14 +99,17 @@ class VectorizingOptimizer(Optimizer):
 
         label_op = loop.operations[0]
         jump_op = loop.operations[op_count-1]
+        assert label_op.getopnum() == rop.LABEL
+        assert jump_op.is_final() or jump_op.getopnum() == rop.LABEL
+
 
         self.vec_info.track_memory_refs = True
 
         self.emit_unrolled_operation(label_op)
 
-        # TODO use the new optimizer structure (branch of fijal currently)
-        label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
-        values = [self.getvalue(box) for box in label_op.getarglist()]
+        # TODO use the new optimizer structure (branch of fijal)
+        #label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
+        #values = [self.getvalue(box) for box in label_op.getarglist()]
 
         operations = []
         for i in range(1,op_count-1):
@@ -97,27 +135,28 @@ class VectorizingOptimizer(Optimizer):
             #
             for op in operations:
                 copied_op = op.clone()
-                args = copied_op.getarglist()
-                for i, arg in enumerate(args):
-                    try:
-                        value = rename_map[arg]
-                        copied_op.setarg(i, value)
-                    except KeyError:
-                        pass
-                # not only the arguments, but also the fail args need
-                # to be adjusted. rd_snapshot stores the live variables
-                # that are needed to resume.
-                if copied_op.is_guard():
-                    new_snapshot = self.clone_snapshot(copied_op.rd_snapshot,
-                                                       rename_map)
-                    copied_op.rd_snapshot = new_snapshot
-                #
                 if copied_op.result is not None:
                     # every result assigns a new box, thus creates an entry
                     # to the rename map.
                     new_assigned_box = copied_op.result.clonebox()
                     rename_map[copied_op.result] = new_assigned_box
                     copied_op.result = new_assigned_box
+                #
+                args = copied_op.getarglist()
+                for i, arg in enumerate(args):
+                    try:
+                        value = rename_map[arg]
+                        copied_op.setarg(i, value)
+                        print "rename", arg, " to ", value
+                    except KeyError:
+                        print "failing", arg, i
+                        pass
+                # not only the arguments, but also the fail args need
+                # to be adjusted. rd_snapshot stores the live variables
+                # that are needed to resume.
+                if copied_op.is_guard():
+                    copied_op.rd_snapshot = \
+                        self.clone_snapshot(copied_op.rd_snapshot, rename_map)
                 #
                 self.emit_unrolled_operation(copied_op)
                 self.vec_info.index = len(self._newoperations)-1
@@ -149,8 +188,9 @@ class VectorizingOptimizer(Optimizer):
             try:
                 value = rename_map[box]
                 new_boxes[i] = value
+                print "box", box, "=>", value
             except KeyError:
-                pass
+                print "FAIL:", i, box
 
         snapshot = Snapshot(self.clone_snapshot(snapshot.prev, rename_map),
                             new_boxes)
@@ -191,6 +231,9 @@ class VectorizingOptimizer(Optimizer):
 
         self.build_dependency_graph()
         self.find_adjacent_memory_refs()
+        self.extend_packset()
+        self.combine_packset()
+        self.schedule()
 
     def build_dependency_graph(self):
         self.dependency_graph = \
@@ -217,9 +260,12 @@ class VectorizingOptimizer(Optimizer):
                 # exclue a_opidx == b_opidx only consider the ones
                 # that point forward:
                 if a_opidx < b_opidx:
+                    #print "point forward[", a_opidx, "]", a_memref, "[",b_opidx,"]", b_memref
                     if a_memref.is_adjacent_to(b_memref):
+                        #print "  -> adjacent[", a_opidx, "]", a_memref, "[",b_opidx,"]", b_memref
                         if self.packset.can_be_packed(a_opidx, b_opidx,
-                                                       a_memref, b_memref):
+                                                      a_memref, b_memref):
+                            #print "    =-=-> can be packed[", a_opidx, "]", a_memref, "[",b_opidx,"]", b_memref
                             self.packset.add_pair(a_opidx, b_opidx,
                                                   a_memref, b_memref)
 
@@ -237,13 +283,14 @@ class VectorizingOptimizer(Optimizer):
         assert isinstance(pack, Pair)
         lref = pack.left.memref
         rref = pack.right.memref
-        for ldef in self.dependency_graph.get_defs(pack.left.opidx):
-            for rdef in self.dependency_graph.get_defs(pack.right.opidx):
+        for ldef in self.dependency_graph.depends(pack.left.opidx):
+            for rdef in self.dependency_graph.depends(pack.right.opidx):
                 ldef_idx = ldef.idx_from
                 rdef_idx = rdef.idx_from
                 if ldef_idx != rdef_idx and \
                    self.packset.can_be_packed(ldef_idx, rdef_idx, lref, rref):
-                    savings = self.packset.estimate_savings(ldef_idx, rdef_idx)
+                    savings = self.packset.estimate_savings(ldef_idx, rdef_idx,
+                                                            pack, False)
                     if savings >= 0:
                         self.packset.add_pair(ldef_idx, rdef_idx, lref, rref)
 
@@ -253,14 +300,14 @@ class VectorizingOptimizer(Optimizer):
         candidate = (-1,-1, None, None)
         lref = pack.left.memref
         rref = pack.right.memref
-        for luse in self.dependency_graph.get_uses(pack.left.opidx):
-            for ruse in self.dependency_graph.get_uses(pack.right.opidx):
+        for luse in self.dependency_graph.provides(pack.left.opidx):
+            for ruse in self.dependency_graph.provides(pack.right.opidx):
                 luse_idx = luse.idx_to
                 ruse_idx = ruse.idx_to
                 if luse_idx != ruse_idx and \
                    self.packset.can_be_packed(luse_idx, ruse_idx, lref, rref):
-                    est_savings = self.packset.estimate_savings(luse_idx,
-                                                                 ruse_idx)
+                    est_savings = self.packset.estimate_savings(luse_idx, ruse_idx,
+                                                                pack, True)
                     if est_savings > savings:
                         savings = est_savings
                         candidate = (luse_idx, ruse_idx, lref, rref)
@@ -271,19 +318,24 @@ class VectorizingOptimizer(Optimizer):
     def combine_packset(self):
         if len(self.packset.packs) == 0:
             raise NotAVectorizeableLoop()
-        # TODO modifying of lists while iterating has undefined results!!
+        i = 0
+        j = 0
+        end_ij = len(self.packset.packs)
         while True:
             len_before = len(self.packset.packs)
-            for i,pack1 in enumerate(self.packset.packs):
-                for j,pack2 in enumerate(self.packset.packs):
+            while i < end_ij:
+                while j < end_ij and i < end_ij:
                     if i == j:
+                        j += 1
                         continue
+                    pack1 = self.packset.packs[i]
+                    pack2 = self.packset.packs[j]
                     if pack1.rightmost_match_leftmost(pack2):
-                        self.packset.combine(i,j)
-                        continue
-                    if pack2.rightmost_match_leftmost(pack1):
-                        self.packset.combine(j,i)
-                        continue
+                        end_ij = self.packset.combine(i,j)
+                    elif pack2.rightmost_match_leftmost(pack1):
+                        end_ij = self.packset.combine(j,i)
+                    j += 1
+                i += 1
             if len_before == len(self.packset.packs):
                 break
 
@@ -442,16 +494,30 @@ class PackSet(object):
                 return True
         return False
 
-    def estimate_savings(self, lopidx, ropidx):
-        """ estimate the number of savings to add this pair.
+    def estimate_savings(self, lopidx, ropidx, pack, expand_forward):
+        """ Estimate the number of savings to add this pair.
         Zero is the minimum value returned. This should take
         into account the benefit of executing this instruction
         as SIMD instruction.
         """
-        return 0
+        savings = -1 # 1 point for loading and 1 point for storing
+
+        # without loss of generatlity: only check the left side
+        lop = self.operations[lopidx]
+        target_op = self.operations[pack.left.opidx]
+
+        if not expand_forward:
+            if not must_unpack_result_to_exec(lop.result, target_op):
+                savings += 1
+        else:
+            if not must_unpack_result_to_exec(target_op.result, lop):
+                savings += 1
+
+        return savings
 
     def combine(self, i, j):
-        # TODO modifying of lists while iterating has undefined results!!
+        """ combine two packs. it is assumed that the attribute self.packs
+        is not iterated when calling this method. """
         pack_i = self.packs[i]
         pack_j = self.packs[j]
         operations = pack_i.operations
@@ -460,13 +526,14 @@ class PackSet(object):
         self.packs[i] = Pack(operations)
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
-        # the last slot is freed. Order of packs don't matter
+        # the last slot is freed. Order of packs doesn't matter
         last_pos = len(self.packs) - 1
         if j == last_pos:
             del self.packs[j]
         else:
             self.packs[j] = self.packs[last_pos]
             del self.packs[last_pos]
+        return last_pos
 
     def pack_for_operation(self, op, opidx):
         for pack in self.packs:
@@ -479,10 +546,10 @@ class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic
         * independent
-        Statements are named operations in the code.
     """
     def __init__(self, ops):
         self.operations = ops
+        self.savings = 0
 
     def rightmost_match_leftmost(self, other):
         assert isinstance(other, Pack)
