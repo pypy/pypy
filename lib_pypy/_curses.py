@@ -324,7 +324,7 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=['ncurses', 'panel'])
+""", libraries=['ncursesw', 'panel'])
 
 
 def _copy_to_globals(name):
