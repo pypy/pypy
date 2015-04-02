@@ -24,7 +24,7 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
 
         a = np.array(["foo"], dtype=object)
         b = np.array(["bar"], dtype=object)
-
+        raises(TypeError, np.add, a, 1)
         res = a + b
         assert res[0] == "foobar"
 
