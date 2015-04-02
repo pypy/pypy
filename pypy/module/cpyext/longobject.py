@@ -194,7 +194,8 @@ def PyLong_FromUnicode(space, u, length, base):
     for the conversion.  The radix must be in the range [2, 36]; if it is
     out of range, ValueError will be raised."""
     w_value = space.wrap(rffi.wcharpsize2unicode(u, length))
-    return space.call_function(space.w_long, w_value)
+    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    return space.call_function(space.w_long, w_value, w_base)
 
 @cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):
