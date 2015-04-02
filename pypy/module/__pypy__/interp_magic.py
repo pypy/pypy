@@ -130,4 +130,3 @@ def add_memory_pressure(estimate):
 def locals_to_fast(space, w_frame):
     assert isinstance(w_frame, PyFrame)
     w_frame.locals2fast()
-
