@@ -485,12 +485,12 @@ def _chtype(ch):
     return int(ffi.cast("chtype", ch))
 
 def _texttype(text):
-    if isinstance(text, str):
+    if isinstance(text, bytes):
         return text
-    elif isinstance(text, unicode):
-        return str(text)   # default encoding
+    elif isinstance(text, str):
+        return text.encode('utf-8')
     else:
-        raise TypeError("str or unicode expected, got a '%s' object"
+        raise TypeError("str or bytes expected, got a '%s' object"
                         % (type(text).__name__,))
 
 
