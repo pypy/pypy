@@ -4,6 +4,7 @@ import weakref
 from rpython.jit.codewriter import support, heaptracker, longlong
 from rpython.jit.metainterp import history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.debug import have_debug_prints
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
@@ -619,21 +620,28 @@ class WarmEnterState(object):
         self.get_assembler_token = get_assembler_token
 
         #
+        jitdriver = self.jitdriver_sd.jitdriver
+        if self.jitdriver_sd.jitdriver:
+            drivername = jitdriver.name
+        else:
+            drivername = '<unknown jitdriver>'
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
-            jitdriver = self.jitdriver_sd.jitdriver
-            if self.jitdriver_sd.jitdriver:
-                drivername = jitdriver.name
-            else:
-                drivername = '<unknown jitdriver>'
             missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
+            # the following missing text should not be seen, as it is
+            # returned only if debug_prints are currently not enabled,
+            # but it may show up anyway (consider it bugs)
+            missing = ('(%s: get_printable_location '
+                       'disabled, no debug_print)' % drivername)
             #
             def get_location_str(greenkey):
+                if not have_debug_prints():
+                    return missing
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 llres = fn(*greenargs)
