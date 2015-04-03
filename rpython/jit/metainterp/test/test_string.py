@@ -897,7 +897,9 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_resops(unicodesetitem=2, newunicode=2, call=4,
+        # xxx used to be 'call=4', but the two extra calls in the loop
+        # are not safe to remove; see 56eebe9dd813
+        self.check_resops(unicodesetitem=2, newunicode=2, call=6,
                           copyunicodecontent=2, unicodegetitem=0)
 
     def test_str2unicode_fold(self):
