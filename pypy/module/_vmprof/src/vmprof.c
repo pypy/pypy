@@ -65,6 +65,7 @@ static void prof_word(long x) {
 }
 
 static void prof_header(long period_usec) {
+    // XXX never used here?
     prof_word(0);
     prof_word(3);
     prof_word(0);
@@ -351,8 +352,7 @@ void vmprof_set_mainloop(void* func, ptrdiff_t sp_offset,
 int vmprof_enable(int fd, long period_usec, int write_header, char *s,
 				  int slen)
 {
-    if (period_usec == -1)
-        period_usec = 1000000 / 100; /* 100hz */
+    assert(period_usec > 0);
     if (open_profile(fd, period_usec, write_header, s, slen) == -1) {
 		return -1;
 	}

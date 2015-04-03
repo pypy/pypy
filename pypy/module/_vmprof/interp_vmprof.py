@@ -134,12 +134,12 @@ class VMProf(object):
         self.fileno = -1
         self.current_codes = []
 
-    def enable(self, space, fileno, period):
+    def enable(self, space, fileno, period_usec):
         if self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof already enabled")
         self.fileno = fileno
         self.is_enabled = True
-        self.write_header(fileno, period)
+        self.write_header(fileno, period_usec)
         if not self.ever_enabled:
             if we_are_translated():
                 pypy_vmprof_init()
@@ -148,7 +148,7 @@ class VMProf(object):
         space.register_code_callback(vmprof_register_code)
         if we_are_translated():
             # does not work untranslated
-            res = vmprof_enable(fileno, period, 0,
+            res = vmprof_enable(fileno, period_usec, 0,
                                 lltype.nullptr(rffi.CCHARP.TO), 0)
         else:
             res = 0
@@ -161,11 +161,8 @@ class VMProf(object):
         for code in all_code_objs:
             self.register_code(space, code)
 
-    def write_header(self, fileno, period):
-        if period == -1:
-            period_usec = 1000000 / 100 #  100hz
-        else:
-            period_usec = period
+    def write_header(self, fileno, period_usec):
+        assert period_usec > 0
         b = StringBuilder()
         write_long_to_string_builder(0, b)
         write_long_to_string_builder(3, b)
@@ -217,13 +214,22 @@ def vmprof_register_code(space, code):
     mod_vmprof = space.getbuiltinmodule('_vmprof')
     assert isinstance(mod_vmprof, Module)
     mod_vmprof.vmprof.register_code(space, code)
-        
-@unwrap_spec(fileno=int, period=int)
-def enable(space, fileno, period=-1):
+
+@unwrap_spec(fileno=int, period=float)
+def enable(space, fileno, period=0.01):   # default 100 Hz
     from pypy.module._vmprof import Module
     mod_vmprof = space.getbuiltinmodule('_vmprof')
     assert isinstance(mod_vmprof, Module)
-    mod_vmprof.vmprof.enable(space, fileno, period)
+    #
+    try:
+        period_usec = int(period * 1000000.0 + 0.5)
+        if period_usec <= 0:
+            raise ValueError
+    except (ValueError, OverflowError):
+        raise OperationError(self.w_ValueError,
+                             self.wrap("'period' too large or non positive"))
+    #
+    mod_vmprof.vmprof.enable(space, fileno, period_usec)
 
 def disable(space):
     from pypy.module._vmprof import Module
