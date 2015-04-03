@@ -438,6 +438,9 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             optimizer.send_extra_operation(guard)
+        if op.is_call_pure_with_exception():
+            guard = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
+            optimizer.send_extra_operation(guard)
 
     def add_op_to_short(self, op, emit=True, guards_needed=False):
         if op is None:
@@ -470,6 +473,9 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            self.add_op_to_short(guard, emit, guards_needed)
+        if op.is_call_pure_with_exception():
+            guard = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
             self.add_op_to_short(guard, emit, guards_needed)
         for guard in value_guards:
             self.add_op_to_short(guard, emit, guards_needed)
