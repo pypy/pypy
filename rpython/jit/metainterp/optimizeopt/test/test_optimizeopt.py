@@ -3605,7 +3605,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=cannotraisecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3617,7 +3617,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
+        i3 = call(p1, descr=cannotraisecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         i148 = same_as(i3)
         i147 = same_as(i3)
@@ -3630,7 +3630,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=cannotraisecalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3642,7 +3642,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
+        i3 = call(p1, descr=cannotraisecalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         i151 = same_as(i3)
         jump(p1, i4, i3, i151)
@@ -3656,15 +3656,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=cannotraisecalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=cannotraisecalldescr)
         jump(i0, i3, i4)
         '''
         preamble = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        i4 = call(123456, 4, i0, 6, descr=cannotraisecalldescr)
         i153 = same_as(i4)
         jump(i0, i4, i153)
         '''
@@ -3678,6 +3678,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     def test_call_pure_constant_folding_exc(self):
         # CALL_PURE may be followed by GUARD_NO_EXCEPTION
+        # XXX maybe temporary, but we can't remove such call_pures from
+        # the loop, because the short preamble can't call them safely.
         arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
         call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
@@ -3696,14 +3698,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i2)
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
         guard_no_exception() []
-        i155 = same_as(i4)
-        jump(i0, i4, i155)
+        jump(i0, i4)
         '''
         expected = '''
-        [i0, i2, i3]
+        [i0, i2]
         escape(42)
         escape(i2)
-        jump(i0, i3, i3)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        guard_no_exception() []
+        jump(i0, i4)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
