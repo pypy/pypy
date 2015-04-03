@@ -28,6 +28,23 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         res = a + b
         assert res[0] == "foobar"
 
+    def test_bool_func(self):
+        import numpy as np
+        a = np.array(["foo"], dtype=object)
+        b = a and complex(1, -1)
+        assert b == complex(1, -1)
+        b = complex(1, -1) and a
+        assert (b == a).all()
+
+    def test_logical_ufunc(self):
+        import numpy as np
+        a = np.array(["foo"], dtype=object)
+        b = np.array([1], dtype=object)
+        raises(TypeError, np.logical_and, a, 1)
+        raises(TypeError, np.logical_and, b, complex(1, -1))
+        c = b & 1
+        assert (c == b).all()
+
     def test_reduce(self):
         import numpy as np
         class O(object):

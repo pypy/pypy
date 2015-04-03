@@ -1697,6 +1697,11 @@ class ObjectType(BaseType):
                 "cannot create object array/scalar from lltype")
         return self.BoxType(w_obj)
 
+    @specialize.argtype(1, 2)
+    def box_complex(self, real, imag):
+        w_obj = self.space.newcomplex(real, imag)
+        return self.BoxType(w_obj)
+
     def str_format(self, box):
         return 'Object as string'
         #return space.str_w(space.repr(self.unbox(box)))
@@ -1728,8 +1733,14 @@ class ObjectType(BaseType):
     def arctan2(self, v1, v2):
         raise oefmt(self.space.w_AttributeError, 'arctan2')
 
-    @specialize.argtype(1)
+    @raw_unary_op
+    def bool(self,v):
+        return not self.space.is_w(v, self.space.w_None) and \
+               not self.space.eq_w(v, self.space.wrap(0)) and \
+               not self.space.len_w(v) == 0 
+
     def _bool(self, v):
+        #assert isinstance(v, W_Root)
         return self.space.bool_w(v)
 
     @raw_binary_op
