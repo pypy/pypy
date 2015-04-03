@@ -19,7 +19,7 @@ if len(sys.argv) == 1:
 
 import _vmprof, subprocess
 x = subprocess.Popen('gzip > vmprof.log.gz', shell=True, stdin=subprocess.PIPE)
-_vmprof.enable(x.stdin.fileno(), 1000)
+_vmprof.enable(x.stdin.fileno(), 0.001)
 try:
     main()
 finally:
