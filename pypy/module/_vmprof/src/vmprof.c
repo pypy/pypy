@@ -140,29 +140,25 @@ static int vmprof_unw_step(unw_cursor_t *cp, int first_run) {
  * *************************************************************
  */
 
-// stolen from pprof:
-// Sometimes, we can try to get a stack trace from within a stack
-// trace, because libunwind can call mmap (maybe indirectly via an
-// internal mmap based memory allocator), and that mmap gets trapped
-// and causes a stack-trace request.  If were to try to honor that
-// recursive request, we'd end up with infinite recursion or deadlock.
-// Luckily, it's safe to ignore those subsequent traces.  In such
-// cases, we return 0 to indicate the situation.
+// The original code here has a comment, "stolen from pprof",
+// about a "__thread int recursive".  But general __thread
+// variables are not really supposed to be accessed from a
+// signal handler.  Moreover, we are using SIGPROF, which
+// should not be recursively called on the same thread.
 //static __thread int recursive;
-static int recursive; // XXX antocuni: removed __thread
 
 int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
     void *ip;
     int n = 0;
     unw_cursor_t cursor;
     unw_context_t uc = *ucontext;
-    if (recursive) {
+    //if (recursive) {
+    //    return 0;
+    //}
+    if (!custom_sanity_check()) {
         return 0;
     }
-	if (!custom_sanity_check()) {
-		return 0;
-	}
-    ++recursive;
+    //++recursive;
 
     int ret = unw_init_local(&cursor, &uc);
     assert(ret >= 0);
@@ -209,7 +205,7 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext) {
         }
 		first_run = 0;
     }
-    --recursive;
+    //--recursive;
     return n;
 }
 
