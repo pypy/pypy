@@ -1246,7 +1246,6 @@ class Statement(object):
         ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                       statement_star, next_char)
         self._statement = statement_star[0]
-        self.__con._remember_statement(self)
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
@@ -1258,6 +1257,8 @@ class Statement(object):
 
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
+
+        self.__con._remember_statement(self)
 
         tail = _ffi.string(next_char[0]).decode('utf-8')
         if _check_remaining_sql(tail):
