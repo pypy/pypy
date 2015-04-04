@@ -151,6 +151,12 @@ class CodemapBuilder(object):
                 return
             assert unique_id & 1 == 0
             if call_depth > self.last_call_depth:
+                assert call_depth == self.last_call_depth + 1
+                # ^^^ It should never be the case that we see
+                # debug_merge_points that suddenly go more than *one*
+                # call deeper than the previous one (unless we're at
+                # the start of a bridge, handled by
+                # inherit_code_from_position()).
                 self.l.append(unique_id)
                 self.l.append(pos) # <- this is a relative pos
                 self.patch_position.append(len(self.l))
