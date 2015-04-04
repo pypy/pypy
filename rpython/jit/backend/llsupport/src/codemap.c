@@ -82,17 +82,19 @@ void *pypy_find_codemap_at_addr(long addr, long* start_addr)
     codemap_data_t *data;
     uintptr_t rel_addr;
 
-    if (codemap == &jit_codemap_head)
+    if (codemap == &jit_codemap_head) {
         if (start_addr)
             *start_addr = 0;
         return NULL;
+    }
 
     rel_addr = (uintptr_t)addr - codemap->key;
     data = (codemap_data_t *)codemap->data;
-    if (rel_addr >= data->machine_code_size)
+    if (rel_addr >= data->machine_code_size) {
         if (start_addr)
             *start_addr = 0;
         return NULL;
+    }
 
     if (start_addr)
         *start_addr = (long)codemap->key;
