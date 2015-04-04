@@ -91,3 +91,8 @@ def test_codemaps():
     codemap.free_asm_block(200, 300)
     assert unpack_traceback(225) == []
     codemap.free()
+
+def test_codemaps_bug1():
+    builder = CodemapBuilder()
+    builder.debug_merge_point(3, 102, 0)
+    builder.debug_merge_point(0, 104, 10)
