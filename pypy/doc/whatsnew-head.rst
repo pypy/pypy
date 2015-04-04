@@ -5,6 +5,11 @@ What's new in PyPy 2.5+
 .. this is a revision shortly after release-2.5.1
 .. startrev: cb01edcb59414d9d93056e54ed060673d24e67c1
 
+Issue #2017: on non-Linux-x86 platforms, reduced the memory impact of
+creating a lot of greenlets/tasklets.  Particularly useful on Win32 and
+on ARM, where you used to get a MemoryError after only 2500-5000
+greenlets (the 32-bit address space is exhausted).
+
 .. branch: gc-incminimark-pinning-improve
 Object Pinning is now used in `bz2` and `rzlib` (therefore also affects
 Python's `zlib`). In case the data to compress/decompress is inside the nursery
