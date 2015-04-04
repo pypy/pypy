@@ -55,22 +55,30 @@ for name in constant_names:
         constants[name] = value
 locals().update(constants)
 
-def external(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=CConfig._compilation_info_)
+def external(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result,
+                           compilation_info=CConfig._compilation_info_,
+                           **kwds)
 
 _flock = lltype.Ptr(cConfig.flock)
-fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
-fcntl_str = external('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT)
-fcntl_flock = external('fcntl', [rffi.INT, rffi.INT, _flock], rffi.INT)
-ioctl_int = external('ioctl', [rffi.INT, rffi.UINT, rffi.INT], rffi.INT)
-ioctl_str = external('ioctl', [rffi.INT, rffi.UINT, rffi.CCHARP], rffi.INT)
+fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+fcntl_str = external('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+fcntl_flock = external('fcntl', [rffi.INT, rffi.INT, _flock], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+ioctl_int = external('ioctl', [rffi.INT, rffi.UINT, rffi.INT], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+ioctl_str = external('ioctl', [rffi.INT, rffi.UINT, rffi.CCHARP], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 has_flock = cConfig.has_flock
 if has_flock:
-    c_flock = external('flock', [rffi.INT, rffi.INT], rffi.INT)
+    c_flock = external('flock', [rffi.INT, rffi.INT], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 def _get_error(space, funcname):
-    errno = rposix.get_errno()
+    errno = rposix.get_saved_errno()
     return wrap_oserror(space, OSError(errno, funcname),
                         exception_name = 'w_IOError')
 

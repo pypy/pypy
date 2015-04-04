@@ -648,7 +648,7 @@ _static_opcode_stack_effects = {
 
 
 def _compute_UNPACK_SEQUENCE(arg):
-    return arg + 1
+    return arg - 1
 
 def _compute_DUP_TOPX(arg):
     return arg

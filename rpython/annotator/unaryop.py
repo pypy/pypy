@@ -5,6 +5,7 @@ Unary operations on SomeValues.
 from __future__ import absolute_import
 
 from rpython.flowspace.operation import op
+from rpython.flowspace.model import const, Constant
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
@@ -686,27 +687,77 @@ class __extend__(SomeInstance):
         if not self.can_be_None:
             s.const = True
 
-    def _emulate_call(self, meth_name, *args_s):
-        bk = getbookkeeper()
-        s_attr = self._true_getattr(meth_name)
-        # record for calltables
-        bk.emulate_pbc_call(bk.position_key, s_attr, args_s)
-        return s_attr.call(simple_args(args_s))
+@op.len.register_transform(SomeInstance)
+def len_SomeInstance(annotator, v_arg):
+    get_len = op.getattr(v_arg, const('__len__'))
+    return [get_len, op.simple_call(get_len.result)]
 
-    def iter(self):
-        return self._emulate_call('__iter__')
+@op.iter.register_transform(SomeInstance)
+def iter_SomeInstance(annotator, v_arg):
+    get_iter = op.getattr(v_arg, const('__iter__'))
+    return [get_iter, op.simple_call(get_iter.result)]
 
-    def next(self):
-        return self._emulate_call('next')
+@op.next.register_transform(SomeInstance)
+def next_SomeInstance(annotator, v_arg):
+    get_next = op.getattr(v_arg, const('next'))
+    return [get_next, op.simple_call(get_next.result)]
 
-    def len(self):
-        return self._emulate_call('__len__')
+@op.getslice.register_transform(SomeInstance)
+def getslice_SomeInstance(annotator, v_obj, v_start, v_stop):
+    get_getslice = op.getattr(v_obj, const('__getslice__'))
+    return [get_getslice, op.simple_call(get_getslice.result, v_start, v_stop)]
 
-    def getslice(self, s_start, s_stop):
-        return self._emulate_call('__getslice__', s_start, s_stop)
 
-    def setslice(self, s_start, s_stop, s_iterable):
-        return self._emulate_call('__setslice__', s_start, s_stop, s_iterable)
+@op.setslice.register_transform(SomeInstance)
+def setslice_SomeInstance(annotator, v_obj, v_start, v_stop, v_iterable):
+    get_setslice = op.getattr(v_obj, const('__setslice__'))
+    return [get_setslice,
+            op.simple_call(get_setslice.result, v_start, v_stop, v_iterable)]
+
+
+def _find_property_meth(s_obj, attr, meth):
+    result = []
+    for clsdef in s_obj.classdef.getmro():
+        dct = clsdef.classdesc.classdict
+        if attr not in dct:
+            continue
+        obj = dct[attr]
+        if (not isinstance(obj, Constant) or 
+                not isinstance(obj.value, property)):
+            return
+        result.append(getattr(obj.value, meth))
+    return result
+
+
+@op.getattr.register_transform(SomeInstance)
+def getattr_SomeInstance(annotator, v_obj, v_attr):
+    s_attr = annotator.annotation(v_attr)
+    if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+        return
+    attr = s_attr.const
+    getters = _find_property_meth(annotator.annotation(v_obj), attr, 'fget')
+    if getters:
+        if all(getters):
+            get_getter = op.getattr(v_obj, const(attr + '__getter__'))
+            return [get_getter, op.simple_call(get_getter.result)]
+        elif not any(getters):
+            raise AnnotatorError("Attribute %r is unreadable" % attr)
+
+
+@op.setattr.register_transform(SomeInstance)
+def setattr_SomeInstance(annotator, v_obj, v_attr, v_value):
+    s_attr = annotator.annotation(v_attr)
+    if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+        return
+    attr = s_attr.const
+    setters = _find_property_meth(annotator.annotation(v_obj), attr, 'fset')
+    if setters:
+        if all(setters):
+            get_setter = op.getattr(v_obj, const(attr + '__setter__'))
+            return [get_setter, op.simple_call(get_setter.result, v_value)]
+        elif not any(setters):
+            raise AnnotatorError("Attribute %r is unwritable" % attr)
+
 
 class __extend__(SomeBuiltin):
     def call(self, args, implicit_init=False):

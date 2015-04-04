@@ -254,7 +254,10 @@ class SomeStringOrUnicode(SomeObject):
         return self.__class__(can_be_None=False, no_nul=self.no_nul)
 
     def nonnulify(self):
-        return self.__class__(can_be_None=self.can_be_None, no_nul=True)
+        if self.can_be_None:
+            return self.__class__(can_be_None=True, no_nul=True)
+        else:
+            return self.__class__(no_nul=True)
 
 
 class SomeString(SomeStringOrUnicode):
@@ -389,6 +392,8 @@ class SomeOrderedDict(SomeDict):
         assert isinstance(dct2, SomeOrderedDict), "OrderedDict.update(dict) not allowed"
         dct1.dictdef.union(dct2.dictdef)
 
+SomeDict = SomeOrderedDict      # all dicts are ordered!
+
 
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects from a given container."
@@ -490,6 +495,10 @@ class SomePBC(SomeObject):
         if len(self.descriptions) > 1:
             kind.simplify_desc_set(self.descriptions)
 
+    def consider_call_site(self, args, s_result, call_op):
+        descs = list(self.descriptions)
+        self.getKind().consider_call_site(descs, args, s_result, call_op)
+
     def can_be_none(self):
         return self.can_be_None
 
@@ -577,6 +586,19 @@ class SomeImpossibleValue(SomeObject):
     will never show up at run-time, e.g. elements of an empty list."""
     immutable = True
     annotationcolor = (160, 160, 160)
+
+    def can_be_none(self):
+        return False
+
+
+class SomeProperty(SomeObject):
+    # used for union error only
+    immutable = True
+    knowntype = type(property)
+
+    def __init__(self, prop):
+        self.fget = prop.fget
+        self.fset = prop.fset
 
     def can_be_none(self):
         return False

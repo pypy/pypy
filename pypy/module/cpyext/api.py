@@ -192,7 +192,7 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction:
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
-                 c_name=None):
+                 c_name=None, gil=None):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -208,6 +208,7 @@ class ApiFunction:
         assert argnames[0] == 'space'
         self.argnames = argnames[1:]
         assert len(self.argnames) == len(self.argtypes)
+        self.gil = gil
 
     def _freeze_(self):
         return True
@@ -223,14 +224,15 @@ class ApiFunction:
     def get_wrapper(self, space):
         wrapper = getattr(self, '_wrapper', None)
         if wrapper is None:
-            wrapper = make_wrapper(space, self.callable)
+            wrapper = make_wrapper(space, self.callable, self.gil)
             self._wrapper = wrapper
             wrapper.relax_sig_check = True
             if self.c_name is not None:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
+                gil=None):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -240,6 +242,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
       SytemError.
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
+    - set `gil` to "acquire", "release" or "around" to acquire the GIL,
+      release the GIL, or both
     """
     if isinstance(restype, lltype.Typedef):
         real_restype = restype.OF
@@ -262,7 +266,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
             c_name = None
         else:
             c_name = func_name
-        api_function = ApiFunction(argtypes, restype, func, error, c_name=c_name)
+        api_function = ApiFunction(argtypes, restype, func, error,
+                                   c_name=c_name, gil=gil)
         func.api_func = api_function
 
         if external:
@@ -594,12 +599,15 @@ def build_type_checkers(type_name, cls=None):
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
 # Make the wrapper for the cases (1) and (2)
-def make_wrapper(space, callable):
+def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
     names = callable.api_func.argnames
     argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
         [name.startswith("w_") for name in names])))
     fatal_value = callable.api_func.restype._defl()
+    gil_acquire = (gil == "acquire" or gil == "around")
+    gil_release = (gil == "release" or gil == "around")
+    assert gil is None or gil_acquire or gil_release
 
     @specialize.ll()
     def wrapper(*args):
@@ -607,6 +615,10 @@ def make_wrapper(space, callable):
         from pypy.module.cpyext.pyobject import Reference
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
+        if gil_acquire:
+            after = rffi.aroundstate.after
+            if after:
+                after()
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
@@ -678,6 +690,10 @@ def make_wrapper(space, callable):
                 print str(e)
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
+        if gil_release:
+            before = rffi.aroundstate.before
+            if before:
+                before()
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )

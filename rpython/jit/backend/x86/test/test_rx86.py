@@ -229,3 +229,9 @@ def test_movsd_xj_64():
     s = CodeBuilder64()
     s.MOVSD_xj(xmm2, 0x01234567)
     assert s.getvalue() == '\xF2\x0F\x10\x14\x25\x67\x45\x23\x01'
+
+def test_multibyte_nops():
+    for cls in [X86_64_CodeBuilder, X86_32_CodeBuilder]:
+        assert len(cls.MULTIBYTE_NOPs) == 16
+        for i in range(16):
+            assert len(cls.MULTIBYTE_NOPs[i]) == i

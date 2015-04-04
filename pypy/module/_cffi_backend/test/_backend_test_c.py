@@ -397,7 +397,7 @@ def test_cmp_none():
 def test_invalid_indexing():
     p = new_primitive_type("int")
     x = cast(p, 42)
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises(TypeError, "x[0]")
 
 def test_default_str():
     BChar = new_primitive_type("char")
@@ -1030,11 +1030,12 @@ def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
     BStruct = new_struct_type("struct foo")
+    BStructP = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a', BArray0)])
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BStruct,), BInt, False)
-    py.test.raises(NotImplementedError, new_function_type,
-                   (BInt,), BStruct, False)
+    BFunc = new_function_type((BStruct,), BInt, False)
+    py.test.raises(NotImplementedError, cast(BFunc, 123), cast(BStructP, 123))
+    BFunc2 = new_function_type((BInt,), BStruct, False)
+    py.test.raises(NotImplementedError, cast(BFunc2, 123), 123)
 
 def test_call_function_9():
     BInt = new_primitive_type("int")
@@ -1174,7 +1175,7 @@ def test_callback_exception():
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function$Zcb1 at 0x$>:
+From cffi callback <function$Zcb1 at 0x$>:
 Traceback (most recent call last):
   File "$", line $, in Zcb1
     $
@@ -1186,7 +1187,7 @@ ValueError: 42
         bigvalue = 20000
         assert f(bigvalue) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function$Zcb1 at 0x$>:
+From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
 """)
@@ -1805,7 +1806,8 @@ def test_invalid_function_result_types():
     new_function_type((), new_pointer_type(BFunc))
     BUnion = new_union_type("union foo_u")
     complete_struct_or_union(BUnion, [])
-    py.test.raises(NotImplementedError, new_function_type, (), BUnion)
+    BFunc = new_function_type((), BUnion)
+    py.test.raises(NotImplementedError, cast(BFunc, 123))
     py.test.raises(TypeError, new_function_type, (), BArray)
 
 def test_struct_return_in_func():
@@ -2525,13 +2527,32 @@ def test_typeoffsetof():
                                        ('a2', BChar, -1),
                                        ('a3', BChar, -1)])
     py.test.raises(TypeError, typeoffsetof, BStructPtr, None)
-    assert typeoffsetof(BStruct, None) == (BStruct, 0)
+    py.test.raises(TypeError, typeoffsetof, BStruct, None)
     assert typeoffsetof(BStructPtr, 'a1') == (BChar, 0)
     assert typeoffsetof(BStruct, 'a1') == (BChar, 0)
     assert typeoffsetof(BStructPtr, 'a2') == (BChar, 1)
     assert typeoffsetof(BStruct, 'a3') == (BChar, 2)
+    assert typeoffsetof(BStructPtr, 'a2', 0) == (BChar, 1)
+    assert typeoffsetof(BStruct, u+'a3') == (BChar, 2)
+    py.test.raises(TypeError, typeoffsetof, BStructPtr, 'a2', 1)
     py.test.raises(KeyError, typeoffsetof, BStructPtr, 'a4')
     py.test.raises(KeyError, typeoffsetof, BStruct, 'a5')
+    py.test.raises(TypeError, typeoffsetof, BStruct, 42)
+    py.test.raises(TypeError, typeoffsetof, BChar, 'a1')
+
+def test_typeoffsetof_array():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BArray = new_array_type(BIntP, None)
+    py.test.raises(TypeError, typeoffsetof, BArray, None)
+    py.test.raises(TypeError, typeoffsetof, BArray, 'a1')
+    assert typeoffsetof(BArray, 51) == (BInt, 51 * size_of_int())
+    assert typeoffsetof(BIntP, 51) == (BInt, 51 * size_of_int())
+    assert typeoffsetof(BArray, -51) == (BInt, -51 * size_of_int())
+    MAX = sys.maxsize // size_of_int()
+    assert typeoffsetof(BArray, MAX) == (BInt, MAX * size_of_int())
+    assert typeoffsetof(BIntP, MAX) == (BInt, MAX * size_of_int())
+    py.test.raises(OverflowError, typeoffsetof, BArray, MAX + 1)
 
 def test_typeoffsetof_no_bitfield():
     BInt = new_primitive_type("int")
@@ -2551,17 +2572,26 @@ def test_rawaddressof():
     assert repr(p) == "<cdata 'struct foo *' owning 3 bytes>"
     s = p[0]
     assert repr(s) == "<cdata 'struct foo' owning 3 bytes>"
-    a = rawaddressof(BStructPtr, s)
+    a = rawaddressof(BStructPtr, s, 0)
     assert repr(a).startswith("<cdata 'struct foo *' 0x")
-    py.test.raises(TypeError, rawaddressof, BStruct, s)
-    b = rawaddressof(BCharP, s)
+    py.test.raises(TypeError, rawaddressof, BStruct, s, 0)
+    b = rawaddressof(BCharP, s, 0)
     assert b == cast(BCharP, p)
-    c = rawaddressof(BStructPtr, a)
+    c = rawaddressof(BStructPtr, a, 0)
     assert c == a
-    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'))
+    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'), 0)
     #
     d = rawaddressof(BCharP, s, 1)
     assert d == cast(BCharP, p) + 1
+    #
+    e = cast(BCharP, 109238)
+    f = rawaddressof(BCharP, e, 42)
+    assert f == e + 42
+    #
+    BCharA = new_array_type(BCharP, None)
+    e = newp(BCharA, 50)
+    f = rawaddressof(BCharP, e, 42)
+    assert f == e + 42
 
 def test_newp_signed_unsigned_char():
     BCharArray = new_array_type(
@@ -2686,6 +2716,14 @@ def test_FILE_object():
     assert data == b"Xhello\n"
     posix.close(fdr)
 
+def test_errno_saved():
+    set_errno(42)
+    # a random function that will reset errno to 0 (at least on non-windows)
+    import os; os.stat('.')
+    #
+    res = get_errno()
+    assert res == 42
+
 def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
@@ -2718,7 +2756,16 @@ def test_GetLastError():
 def test_nonstandard_integer_types():
     for typename in ['int8_t', 'uint8_t', 'int16_t', 'uint16_t', 'int32_t',
                      'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
-                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
+                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t',
+                     'int_least8_t',  'uint_least8_t',
+                     'int_least16_t', 'uint_least16_t',
+                     'int_least32_t', 'uint_least32_t',
+                     'int_least64_t', 'uint_least64_t',
+                     'int_fast8_t',  'uint_fast8_t',
+                     'int_fast16_t', 'uint_fast16_t',
+                     'int_fast32_t', 'uint_fast32_t',
+                     'int_fast64_t', 'uint_fast64_t',
+                     'intmax_t', 'uintmax_t']:
         new_primitive_type(typename)    # works
 
 def test_cannot_convert_unicode_to_charp():
@@ -3186,6 +3233,102 @@ def test_packed_with_bitfields():
                              ('a2', BChar, 5)],
                    None, -1, -1, SF_PACKED)
 
+def test_from_buffer():
+    import array
+    a = array.array('H', [10000, 20000, 30000])
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    c = from_buffer(BCharA, a)
+    assert typeof(c) is BCharA
+    assert len(c) == 6
+    assert repr(c) == "<cdata 'char[]' buffer len 6 from 'array.array' object>"
+    p = new_pointer_type(new_primitive_type("unsigned short"))
+    cast(p, c)[1] += 500
+    assert list(a) == [10000, 20500, 30000]
+
+def test_from_buffer_not_str_unicode_bytearray():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    py.test.raises(TypeError, from_buffer, BCharA, b"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, u"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, bytearray(b"foo"))
+    try:
+        from __builtin__ import buffer
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(u"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA,
+                       buffer(bytearray(b"foo")))
+    try:
+        from __builtin__ import memoryview
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA,
+                       memoryview(bytearray(b"foo")))
+
+def test_from_buffer_more_cases():
+    try:
+        from _cffi_backend import _testbuff
+    except ImportError:
+        py.test.skip("not for pypy")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    #
+    def check1(bufobj, expected):
+        c = from_buffer(BCharA, bufobj)
+        assert typeof(c) is BCharA
+        if sys.version_info >= (3,):
+            expected = [bytes(c, "ascii") for c in expected]
+        assert list(c) == list(expected)
+    #
+    def check(methods, expected, expected_for_memoryview=None):
+        if sys.version_info >= (3,):
+            if methods <= 7:
+                return
+            if expected_for_memoryview is not None:
+                expected = expected_for_memoryview
+        class X(object):
+            pass
+        _testbuff(X, methods)
+        bufobj = X()
+        check1(bufobj, expected)
+        try:
+            from __builtin__ import buffer
+            bufobjb = buffer(bufobj)
+        except (TypeError, ImportError):
+            pass
+        else:
+            check1(bufobjb, expected)
+        try:
+            bufobjm = memoryview(bufobj)
+        except (TypeError, NameError):
+            pass
+        else:
+            check1(bufobjm, expected_for_memoryview or expected)
+    #
+    check(1, "RDB")
+    check(2, "WRB")
+    check(4, "CHB")
+    check(8, "GTB")
+    check(16, "ROB")
+    #
+    check(1 | 2,  "RDB")
+    check(1 | 4,  "RDB")
+    check(2 | 4,  "CHB")
+    check(1 | 8,  "RDB", "GTB")
+    check(1 | 16, "RDB", "ROB")
+    check(2 | 8,  "WRB", "GTB")
+    check(2 | 16, "WRB", "ROB")
+    check(4 | 8,  "CHB", "GTB")
+    check(4 | 16, "CHB", "ROB")
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8.6"
+    assert __version__ == "0.9.2"

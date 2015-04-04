@@ -4,6 +4,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import jit
 
 
 if rffi.sizeof(lltype.UniChar) == 4:
@@ -1053,10 +1054,12 @@ def unicode_encode_ucs1_helper(p, size, errors,
 
     return result.build()
 
+@specialize.arg_or_var(3)
 def unicode_encode_latin_1(p, size, errors, errorhandler=None):
     res = unicode_encode_ucs1_helper(p, size, errors, errorhandler, 256)
     return res
 
+@specialize.arg_or_var(3)
 def unicode_encode_ascii(p, size, errors, errorhandler=None):
     res = unicode_encode_ucs1_helper(p, size, errors, errorhandler, 128)
     return res
@@ -1114,9 +1117,13 @@ def unicode_encode_charmap(s, size, errors, errorhandler=None,
 
         c = mapping.get(ch, '')
         if len(c) == 0:
+            # collect all unencodable chars. Important for narrow builds.
+            collend = pos + 1
+            while collend < size and mapping.get(s[collend], '') == '':
+                collend += 1
             ru, rs, pos = errorhandler(errors, "charmap",
                                        "character maps to <undefined>",
-                                       s, pos, pos + 1)
+                                       s, pos, collend)
             if rs is not None:
                 # py3k only
                 result.append(rs)
@@ -1597,7 +1604,8 @@ if sys.platform == 'win32':
                                            rwin32.LPCSTR, rffi.INT,
                                            rffi.CWCHARP, rffi.INT],
                                           rffi.INT,
-                                          calling_conv='win')
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
 
     WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
                                           [rffi.UINT, rwin32.DWORD,
@@ -1605,19 +1613,20 @@ if sys.platform == 'win32':
                                            rwin32.LPCSTR, rffi.INT,
                                            rwin32.LPCSTR, BOOLP],
                                           rffi.INT,
-                                          calling_conv='win')
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def is_dbcs_lead_byte(c):
         # XXX don't know how to test this
         return False
 
     def _decode_mbcs_error(s, errorhandler):
-        if rwin32.GetLastError() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
+        if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
             msg = ("No mapping for the Unicode character exists in the target "
                    "multi-byte code page.")
             errorhandler('strict', 'mbcs', msg, s, 0, 0)
         else:
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
     def str_decode_mbcs(s, size, errors, final=False, errorhandler=None,
                         force_ignore=True):
@@ -1684,7 +1693,7 @@ if sys.platform == 'win32':
                                                dataptr, size, None, 0,
                                                None, used_default_p)
                 if mbcssize == 0:
-                    raise rwin32.lastWindowsError()
+                    raise rwin32.lastSavedWindowsError()
                 # If we used a default char, then we failed!
                 if (used_default_p and
                     rffi.cast(lltype.Bool, used_default_p[0])):
@@ -1696,7 +1705,7 @@ if sys.platform == 'win32':
                     if WideCharToMultiByte(CP_ACP, flags,
                                            dataptr, size, buf.raw, mbcssize,
                                            None, used_default_p) == 0:
-                        raise rwin32.lastWindowsError()
+                        raise rwin32.lastSavedWindowsError()
                     if (used_default_p and
                         rffi.cast(lltype.Bool, used_default_p[0])):
                         errorhandler('strict', 'mbcs', "invalid character",

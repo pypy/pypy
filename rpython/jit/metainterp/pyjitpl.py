@@ -8,11 +8,11 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, Box, TargetToken)
+    ConstFloat, Box, TargetToken, MissingValue)
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, GuardResOp
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
@@ -53,6 +53,11 @@ class MIFrame(object):
         self.registers_f = [None] * 256
 
     def setup(self, jitcode, greenkey=None):
+        # if not translated, fill the registers with MissingValue()
+        if not we_are_translated():
+            self.registers_i = [MissingValue()] * 256
+            self.registers_r = [MissingValue()] * 256
+            self.registers_f = [MissingValue()] * 256
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
@@ -172,7 +177,7 @@ class MIFrame(object):
                 registers[i] = newbox
         if not we_are_translated():
             for b in registers[count:]:
-                assert not oldbox.same_box(b)
+                assert isinstance(b, (MissingValue, Const))
 
 
     def make_result_of_lastop(self, resultbox):
@@ -785,7 +790,8 @@ class MIFrame(object):
                 eqbox = self.implement_guard_value(eqbox, pc)
                 isstandard = eqbox.getint()
                 if isstandard:
-                    self.metainterp.replace_box(box, standard_box)
+                    if isinstance(box, history.BoxPtr):
+                        self.metainterp.replace_box(box, standard_box)
                     return False
         if not self.metainterp.heapcache.is_unescaped(box):
             self.emit_force_virtualizable(fielddescr, box)
@@ -1170,6 +1176,10 @@ class MIFrame(object):
         if have_debug_prints():
             loc = jitdriver_sd.warmstate.get_location_str(greenkey)
             debug_print(loc)
+        #
+        # Note: the logger hides the jd_index argument, so we see in the logs:
+        #    debug_merge_point(portal_call_depth, current_call_id, 'location')
+        #
         args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
@@ -1874,23 +1884,15 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-            resumedescr = compile.ResumeGuardForcedDescr(self.staticdata,
-                                                         self.jitdriver_sd)
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            resumedescr = compile.ResumeGuardNotInvalidated()
-        elif opnum == rop.GUARD_FUTURE_CONDITION:
-            resumedescr = compile.ResumeAtPositionDescr()
-        else:
-            resumedescr = compile.ResumeGuardDescr()
-        guard_op = self.history.record(opnum, moreargs, None, descr=resumedescr)
-        self.capture_resumedata(resumedescr, resumepc)
+        guard_op = self.history.record(opnum, moreargs, None)
+        assert isinstance(guard_op, GuardResOp)
+        self.capture_resumedata(guard_op, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
         self.attach_debug_info(guard_op)
         return guard_op
 
-    def capture_resumedata(self, resumedescr, resumepc=-1):
+    def capture_resumedata(self, guard_op, resumepc=-1):
         virtualizable_boxes = None
         if (self.jitdriver_sd.virtualizable_info is not None or
             self.jitdriver_sd.greenfield_info is not None):
@@ -1902,7 +1904,7 @@ class MetaInterp(object):
             if resumepc >= 0:
                 frame.pc = resumepc
         resume.capture_resumedata(self.framestack, virtualizable_boxes,
-                                  self.virtualref_boxes, resumedescr)
+                                  self.virtualref_boxes, guard_op)
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 
@@ -2147,7 +2149,9 @@ class MetaInterp(object):
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
-        self.resumekey_original_loop_token = key.wref_original_loop_token()
+        self.resumekey_original_loop_token = key.rd_loop_token.loop_token_wref()
+        if self.resumekey_original_loop_token is None:
+            raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key, deadframe)
         try:
@@ -2163,13 +2167,8 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-            dont_change_position = True
-        else:
-            dont_change_position = False
         try:
-            self.prepare_resume_from_failure(key.guard_opnum,
-                                             dont_change_position,
-                                             deadframe)
+            self.prepare_resume_from_failure(key.guard_opnum, deadframe)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2198,7 +2197,8 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes):
-        self.heapcache.reset(reset_virtuals=False)
+        self.heapcache.reset() #reset_virtuals=False)
+        #self.heapcache.reset_keep_likely_virtuals()
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
@@ -2312,12 +2312,12 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, opnum, dont_change_position,
-                                    deadframe):
+    def prepare_resume_from_failure(self, opnum, deadframe):
         frame = self.framestack[-1]
-        if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            if not dont_change_position:
-                frame.pc = frame.jitcode.follow_jump(frame.pc)
+        if opnum == rop.GUARD_FUTURE_CONDITION:
+            pass
+        elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
+            frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;
             pass                  # or a switch that was in its "default" case
         elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
@@ -2341,12 +2341,11 @@ class MetaInterp(object):
             pass # XXX we want to do something special in resume descr,
                  # but not now
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            if not dont_change_position:
-                self.execute_raised(OverflowError(), constant=True)
-                try:
-                    self.finishframe_exception()
-                except ChangeFrame:
-                    pass
+            self.execute_raised(OverflowError(), constant=True)
+            try:
+                self.finishframe_exception()
+            except ChangeFrame:
+                pass
         elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
             self.clear_exception()
         else:
@@ -2531,13 +2530,15 @@ class MetaInterp(object):
                      self.jitdriver_sd.index_of_virtualizable)
             virtualizable_box = original_boxes[index]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
+            # First force the virtualizable if needed!
+            vinfo.clear_vable_token(virtualizable)
             # The field 'virtualizable_boxes' is not even present
             # if 'virtualizable_info' is None.  Check for that first.
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
                                                         virtualizable)
             original_boxes += self.virtualizable_boxes
             self.virtualizable_boxes.append(virtualizable_box)
-            self.initialize_virtualizable_enter()
+            self.check_synchronized_virtualizable()
 
     def initialize_withgreenfields(self, original_boxes):
         ginfo = self.jitdriver_sd.greenfield_info
@@ -2546,12 +2547,6 @@ class MetaInterp(object):
             index = (self.jitdriver_sd.num_green_args +
                      ginfo.red_index)
             self.virtualizable_boxes = [original_boxes[index]]
-
-    def initialize_virtualizable_enter(self):
-        vinfo = self.jitdriver_sd.virtualizable_info
-        virtualizable_box = self.virtualizable_boxes[-1]
-        virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-        vinfo.clear_vable_token(virtualizable)
 
     def vable_and_vrefs_before_residual_call(self):
         vrefinfo = self.staticdata.virtualref_info
@@ -2887,8 +2882,12 @@ class MetaInterp(object):
             arg_boxes.append(box_arg)
         #
         box_result = op.result
+        # for now, any call via libffi saves and restores everything
+        # (that is, errno and SetLastError/GetLastError on Windows)
+        # Note these flags match the ones in clibffi.ll_callback
+        c_saveall = ConstInt(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
         self.history.record(rop.CALL_RELEASE_GIL,
-                            [op.getarg(2)] + arg_boxes,
+                            [c_saveall, op.getarg(2)] + arg_boxes,
                             box_result, calldescr)
         #
         self.history.operations.extend(extra_guards)
@@ -2901,10 +2900,11 @@ class MetaInterp(object):
         assert op.opnum == rop.CALL_MAY_FORCE
         descr = op.getdescr()
         effectinfo = descr.get_extra_info()
-        realfuncaddr = effectinfo.call_release_gil_target
+        realfuncaddr, saveerr = effectinfo.call_release_gil_target
         funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
+        savebox = ConstInt(saveerr)
         self.history.record(rop.CALL_RELEASE_GIL,
-                            [funcbox] + op.getarglist()[1:],
+                            [savebox, funcbox] + op.getarglist()[1:],
                             op.result, descr)
         if not we_are_translated():       # for llgraph
             descr._original_func_ = op.getarg(0).value

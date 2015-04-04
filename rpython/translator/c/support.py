@@ -89,7 +89,8 @@ class CNameManager(NameManager):
            ''')
 
 def _char_repr(c):
-    if c in '\\"': return '\\' + c
+    # escape with a '\' the characters '\', '"' or (for trigraphs) '?'
+    if c in '\\"?': return '\\' + c
     if ' ' <= c < '\x7F': return c
     return '\\%03o' % ord(c)
 

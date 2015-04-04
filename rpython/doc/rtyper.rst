@@ -118,8 +118,7 @@ gets copied into the attribute ``concretetype`` of the Variables that have been
 given this representation.  The RTyper also computes a ``concretetype`` for
 Constants, to match the way they are used in the low-level operations (for
 example, ``int_add(x, 1)`` requires a ``Constant(1)`` with
-``concretetype=Signed``, but an untyped ``add(x, 1)`` works with a
-``Constant(1)`` that must actually be a PyObject at run-time).
+``concretetype=Signed``).
 
 In addition to ``lowleveltype``, each Repr subclass provides a set of methods
 called ``rtype_op_xxx()`` which define how each high-level operation ``op_xxx``
@@ -306,14 +305,14 @@ Pointer Types
 ~~~~~~~~~~~~~
 
 As in C, pointers provide the indirection needed to make a reference modifiable
-or sharable.  Pointers can only point to a structure, an array, a function
-(see below) or a PyObject (see below).  Pointers to primitive types, if needed,
-must be done by pointing to a structure with a single field of the required
-type.  Pointer types are declared by::
+or sharable.  Pointers can only point to a structure, an array or a function
+(see below).  Pointers to primitive types, if needed, must be done by pointing
+to a structure with a single field of the required type.  Pointer types are
+declared by::
 
    Ptr(TYPE)
 
-At run-time, pointers to GC structures (GcStruct, GcArray and PyObject) hold a
+At run-time, pointers to GC structures (GcStruct, GcArray) hold a
 reference to what they are pointing to.  Pointers to non-GC structures that can
 go away when their container is deallocated (Struct, Array) must be handled
 with care: the bigger structure of which they are part of could be freed while
@@ -354,22 +353,6 @@ function in a way that isn't fully specified now, but the following attributes
 
     :_callable:  a Python callable, typically a function object.
     :graph:      the flow graph of the function.
-
-
-The PyObject Type
-~~~~~~~~~~~~~~~~~
-
-This is a special type, for compatibility with CPython: it stands for a
-structure compatible with PyObject.  This is also a "container" type (thinking
-about C, this is ``PyObject``, not ``PyObject*``), so it is usually manipulated
-via a Ptr.  A typed graph can still contain generic space operations (add,
-getitem, etc.) provided they are applied on objects whose low-level type is
-``Ptr(PyObject)``.  In fact, code generators that support this should consider
-that the default type of a variable, if none is specified, is ``Ptr(PyObject)``.
-In this way, they can generate the correct code for fully-untyped flow graphs.
-
-The testing implementation allows you to "create" PyObjects by calling
-``pyobjectptr(obj)``.
 
 
 Opaque Types

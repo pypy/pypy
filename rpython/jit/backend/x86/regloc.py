@@ -516,6 +516,7 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
+                        # This is for CALL or JMP only.
                         if self.WORD == 4:
                             _rx86_getattr(self, name + "_l")(val)
                             self.add_pending_relocation()

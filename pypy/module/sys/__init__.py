@@ -64,7 +64,6 @@ class Module(MixedModule):
         'call_tracing'          : 'vm.call_tracing',
         'getsizeof'             : 'vm.getsizeof',
 
-        'executable'            : 'space.wrap("py.py")',
         'api_version'           : 'version.get_api_version(space)',
         'version_info'          : 'version.get_version_info(space)',
         'version'               : 'version.get_version(space)',

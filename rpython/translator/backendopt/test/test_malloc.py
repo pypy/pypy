@@ -10,7 +10,6 @@ from rpython.rlib import objectmodel
 from rpython.conftest import option
 
 class TestMallocRemoval(object):
-    type_system = 'lltype'
     MallocRemover = LLTypeMallocRemover
 
     def check_malloc_removed(cls, graph):
@@ -340,3 +339,15 @@ class TestMallocRemoval(object):
             u[0].s.x = x
             return u[0].s.x
         graph = self.check(f, [int], [42], 42)
+
+    def test_two_paths_one_with_constant(self):
+        py.test.skip("XXX implement me?")
+        def fn(n):
+            if n > 100:
+                tup = (0,)
+            else:
+                tup = (n,)
+            (n,)    # <- flowspace
+            return tup[0]
+
+        self.check(fn, [int], [42], 42)

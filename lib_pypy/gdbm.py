@@ -1,4 +1,4 @@
-import cffi, os
+import cffi, os, sys
 
 ffi = cffi.FFI()
 ffi.cdef('''
@@ -20,9 +20,11 @@ typedef struct {
 } datum;
 
 datum gdbm_fetch(void*, datum);
+datum pygdbm_fetch(void*, char*, int);
 int gdbm_delete(void*, datum);
 int gdbm_store(void*, datum, datum, int);
 int gdbm_exists(void*, datum);
+int pygdbm_exists(void*, char*, int);
 
 int gdbm_reorganize(void*);
 
@@ -37,9 +39,29 @@ void free(void*);
 ''')
 
 try:
-    lib = ffi.verify('''
+    verify_code = '''
     #include "gdbm.h"
-    ''', libraries=['gdbm'])
+
+    static datum pygdbm_fetch(GDBM_FILE gdbm_file, char *dptr, int dsize) {
+        datum key = {dptr, dsize};
+        return gdbm_fetch(gdbm_file, key);
+    }
+
+    static int pygdbm_exists(GDBM_FILE gdbm_file, char *dptr, int dsize) {
+        datum key = {dptr, dsize};
+        return gdbm_exists(gdbm_file, key);
+    }
+    
+    '''
+    if sys.platform.startswith('freebsd'):
+        import os.path
+        _localbase = os.environ.get('LOCALBASE', '/usr/local')
+        lib = ffi.verify(verify_code, libraries=['gdbm'],
+             include_dirs=[os.path.join(_localbase, 'include')],
+             library_dirs=[os.path.join(_localbase, 'lib')]
+        )
+    else:
+        lib = ffi.verify(verify_code, libraries=['gdbm'])
 except cffi.VerificationError as e:
     # distutils does not preserve the actual message,
     # but the verification is simple enough that the
@@ -48,6 +70,13 @@ except cffi.VerificationError as e:
 
 class error(Exception):
     pass
+
+def _checkstr(key):
+    if isinstance(key, unicode):
+        key = key.encode("ascii")
+    if not isinstance(key, str):
+        raise TypeError("gdbm mappings have string indices only")
+    return key
 
 def _fromstr(key):
     if isinstance(key, unicode):
@@ -97,12 +126,14 @@ class gdbm(object):
 
     def __contains__(self, key):
         self._check_closed()
-        return lib.gdbm_exists(self.ll_dbm, _fromstr(key))
+        key = _checkstr(key)
+        return lib.pygdbm_exists(self.ll_dbm, key, len(key))
     has_key = __contains__
 
     def __getitem__(self, key):
         self._check_closed()
-        drec = lib.gdbm_fetch(self.ll_dbm, _fromstr(key))
+        key = _checkstr(key)        
+        drec = lib.pygdbm_fetch(self.ll_dbm, key, len(key))
         if not drec.dptr:
             raise KeyError(key)
         res = str(ffi.buffer(drec.dptr, drec.dsize))

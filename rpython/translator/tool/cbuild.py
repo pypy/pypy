@@ -59,7 +59,11 @@ class ExternalCompilationInfo(object):
         separately and linked later on.  (If an .h file is needed for
         other .c files to access this, it can be put in includes.)
 
-        (export_symbols: killed, replaced by @rlib.entrypoint.export_symbol)
+        (export_symbols: killed; you need, depending on the case, to
+        add the RPY_EXTERN or RPY_EXPORTED macro just before the
+        declaration of each function in the C header file, as explained
+        in translator/c/src/precommondefs.h; or you need the decorator
+        @rlib.entrypoint.export_symbol)
 
         compile_extra: list of parameters which will be directly passed to
         the compiler
@@ -289,7 +293,8 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] = ()
         return files, ExternalCompilationInfo(**d)
 
-    def compile_shared_lib(self, outputfilename=None, ignore_a_files=False):
+    def compile_shared_lib(self, outputfilename=None, ignore_a_files=False,
+                           debug_mode=True):
         self = self.convert_sources_to_files()
         if ignore_a_files:
             if not [fn for fn in self.link_files if fn.endswith('.a')]:
@@ -314,6 +319,8 @@ class ExternalCompilationInfo(object):
         if ignore_a_files:
             d['link_files'] = [fn for fn in d['link_files']
                                   if not fn.endswith('.a')]
+        if debug_mode and sys.platform != 'win32':
+            d['compile_extra'] = d['compile_extra'] + ('-g', '-O0')
         d['compile_extra'] = d['compile_extra'] + (
             '-DRPY_EXTERN=RPY_EXPORTED',)
         self = ExternalCompilationInfo(**d)

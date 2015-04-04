@@ -1,15 +1,16 @@
 import unittest
+from test.test_support import gc_collect
 
-from Tkinter import Variable, StringVar, IntVar, DoubleVar, BooleanVar, Tk, TclError
+from Tkinter import Variable, StringVar, IntVar, DoubleVar, BooleanVar, Tcl, TclError
 
 
 class TestBase(unittest.TestCase):
 
     def setUp(self):
-        self.root = Tk()
+        self.root = Tcl()
 
     def tearDown(self):
-        self.root.destroy()
+        del self.root
 
 
 class TestVariable(TestBase):
@@ -32,6 +33,7 @@ class TestVariable(TestBase):
         v = Variable(self.root, "sample string", "varname")
         self.assertTrue(self.info_exists("varname"))
         del v
+        gc_collect()
         self.assertFalse(self.info_exists("varname"))
 
     def test_dont_unset_not_existing(self):
@@ -39,9 +41,11 @@ class TestVariable(TestBase):
         v1 = Variable(self.root, name="name")
         v2 = Variable(self.root, name="name")
         del v1
+        gc_collect()
         self.assertFalse(self.info_exists("name"))
         # shouldn't raise exception
         del v2
+        gc_collect()
         self.assertFalse(self.info_exists("name"))
 
     def test___eq__(self):

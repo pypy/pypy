@@ -20,7 +20,7 @@ from rpython.annotator.model import s_ImpossibleValue, s_None, s_Bool
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.tool import rffi_platform as platform
-from rpython.rlib import rposix, rwin32
+from rpython.rlib import rposix, rwin32, jit
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import specialize
 from rpython.translator import cdir

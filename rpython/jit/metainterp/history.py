@@ -134,14 +134,6 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def _clone_if_mutable(self):
-        return self
-    def clone_if_mutable(self):
-        clone = self._clone_if_mutable()
-        if not we_are_translated():
-            assert clone.__class__ is self.__class__
-        return clone
-
     def hide(self, cpu):
         descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(descr_ptr)
@@ -159,6 +151,8 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token')
+
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
@@ -174,6 +168,10 @@ class BasicFinalDescr(AbstractFailDescr):
 class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
+
+
+class MissingValue(object):
+    "NOT_RPYTHON"
 
 
 class Const(AbstractValue):

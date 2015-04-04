@@ -12,6 +12,7 @@ from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides)
+from rpython.rlib.objectmodel import keepalive_until_here
 
 
 class BaseConcreteArray(object):
@@ -77,12 +78,15 @@ class BaseConcreteArray(object):
             else:
                 new_strides = calc_new_strides(new_shape, self.get_shape(),
                                                self.get_strides(), self.order)
+                if new_strides is None or len(new_strides) != len(new_shape):
+                    return None
         if new_strides is not None:
             # We can create a view, strides somehow match up.
             new_backstrides = calc_backstrides(new_strides, new_shape)
             assert isinstance(orig_array, W_NDimArray) or orig_array is None
             return SliceArray(self.start, new_strides, new_backstrides,
                               new_shape, self, orig_array)
+        return None
 
     def get_view(self, space, orig_array, dtype, new_shape):
         strides, backstrides = calc_strides(new_shape, dtype,
@@ -309,12 +313,15 @@ class BaseConcreteArray(object):
         l_w = [w_res.descr_getitem(space, space.wrap(d)) for d in range(nd)]
         return space.newtuple(l_w)
 
-    def get_storage_as_int(self, space):
-        return rffi.cast(lltype.Signed, self.storage) + self.start
-
-    def get_storage(self):
+    ##def get_storage(self):
+    ##    return self.storage
+    ## use a safer context manager
+    def __enter__(self):
         return self.storage
 
+    def __exit__(self, typ, value, traceback):
+        keepalive_until_here(self)
+        
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
@@ -328,7 +335,7 @@ class BaseConcreteArray(object):
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage, start=0):
         make_sure_not_resized(shape)
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
@@ -339,6 +346,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.storage = storage
+        self.start = start
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
@@ -347,7 +355,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,
                                                     self.order)
-        return SliceArray(0, strides, backstrides, new_shape, self,
+        return SliceArray(self.start, strides, backstrides, new_shape, self,
                           orig_array)
 
     def set_dtype(self, space, dtype):
@@ -381,9 +389,10 @@ class ConcreteArray(ConcreteArrayNotOwning):
 
 
 class ConcreteArrayWithBase(ConcreteArrayNotOwning):
-    def __init__(self, shape, dtype, order, strides, backstrides, storage, orig_base):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage,
+                 orig_base, start=0):
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order,
-                                        strides, backstrides, storage)
+                                        strides, backstrides, storage, start)
         self.orig_base = orig_base
 
     def base(self):
@@ -452,7 +461,7 @@ class SliceArray(BaseConcreteArray):
         new_strides = calc_new_strides(new_shape, self.get_shape(),
                                        self.get_strides(),
                                        self.order)
-        if new_strides is None:
+        if new_strides is None or len(new_strides) != len(new_shape):
             raise oefmt(space.w_AttributeError,
                 "incompatible shape for a non-contiguous array")
         new_backstrides = [0] * len(new_shape)

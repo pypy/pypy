@@ -470,7 +470,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         allow_surrogates=True)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
-@unwrap_spec(data=str, errors='str_or_None', byteorder=int,
+@unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     if errors is None:
@@ -491,7 +491,7 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     return space.newtuple([space.wrap(res), space.wrap(consumed),
                            space.wrap(byteorder)])
 
-@unwrap_spec(data=str, errors='str_or_None', byteorder=int,
+@unwrap_spec(data='bufferstr', errors='str_or_None', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     final = space.is_true(w_final)
@@ -589,7 +589,7 @@ class Charmap_Encode:
             "character mapping must return integer, None or str")
 
 
-@unwrap_spec(string=str, errors='str_or_None')
+@unwrap_spec(string='bufferstr', errors='str_or_None')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'

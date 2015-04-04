@@ -100,26 +100,100 @@ errno_eci = ExternalCompilationInfo(
     separate_module_sources=separate_module_sources,
 )
 
+# Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
                                          _nowrapper=True, c_type='int')
-# the default wrapper for set_errno is not suitable for use in critical places
-# like around GIL handling logic, so we provide our own wrappers.
 
-def get_errno():
-    if jit.we_are_jitted():
-        from rpython.rlib import rthread
-        perrno = rthread.tlfield_p_errno.getraw()
-        return intmask(perrno[0])
-    return intmask(_get_errno())
+def get_saved_errno():
+    """Return the value of the "saved errno".
+    This value is saved after a call to a C function, if it was declared
+    with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO).
+    Functions without that flag don't change the saved errno.
+    """
+    from rpython.rlib import rthread
+    return intmask(rthread.tlfield_rpy_errno.getraw())
 
-def set_errno(errno):
-    if jit.we_are_jitted():
+def set_saved_errno(errno):
+    """Set the value of the saved errno.  This value will be used to
+    initialize the real errno just before calling the following C function,
+    provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO).
+    Note also that it is more common to want the real errno to be initially
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
+    and then you don't need set_saved_errno(0).
+    """
+    from rpython.rlib import rthread
+    rthread.tlfield_rpy_errno.setraw(rffi.cast(INT, errno))
+
+def get_saved_alterrno():
+    """Return the value of the "saved alterrno".
+    This value is saved after a call to a C function, if it was declared
+    with the flag llexternal(..., save_err=rffi.RFFI_SAVE_ERRNO | rffl.RFFI_ALT_ERRNO).
+    Functions without that flag don't change the saved errno.
+    """
+    from rpython.rlib import rthread
+    return intmask(rthread.tlfield_alt_errno.getraw())
+
+def set_saved_alterrno(errno):
+    """Set the value of the saved alterrno.  This value will be used to
+    initialize the real errno just before calling the following C function,
+    provided it was declared llexternal(..., save_err=RFFI_READSAVED_ERRNO | rffl.RFFI_ALT_ERRNO).
+    Note also that it is more common to want the real errno to be initially
+    zero; for that case, use llexternal(..., save_err=RFFI_ZERO_ERRNO_BEFORE)
+    and then you don't need set_saved_errno(0).
+    """
+    from rpython.rlib import rthread
+    rthread.tlfield_alt_errno.setraw(rffi.cast(INT, errno))
+
+
+# These are not posix specific, but where should they move to?
+@specialize.call_location()
+def _errno_before(save_err):
+    if save_err & rffi.RFFI_READSAVED_ERRNO:
         from rpython.rlib import rthread
-        perrno = rthread.tlfield_p_errno.getraw()
-        perrno[0] = rffi.cast(INT, errno)
-        return
-    _set_errno(rffi.cast(INT, errno))
+        if save_err & rffi.RFFI_ALT_ERRNO:
+            _set_errno(rthread.tlfield_alt_errno.getraw())
+        else:
+            _set_errno(rthread.tlfield_rpy_errno.getraw())
+    elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+        _set_errno(rffi.cast(rffi.INT, 0))
+    if _WIN32 and (save_err & rffi.RFFI_READSAVED_LASTERROR):
+        from rpython.rlib import rthread, rwin32
+        if save_err & rffi.RFFI_ALT_ERRNO:
+            err = rthread.tlfield_alt_lasterror.getraw()
+        else:
+            err = rthread.tlfield_rpy_lasterror.getraw()
+        # careful, getraw() overwrites GetLastError.
+        # We must assign it with _SetLastError() as the last
+        # operation, i.e. after the errno handling.
+        rwin32._SetLastError(err)
+
+@specialize.call_location()
+def _errno_after(save_err):
+    if _WIN32:
+        if save_err & rffi.RFFI_SAVE_LASTERROR:
+            from rpython.rlib import rthread, rwin32
+            err = rwin32._GetLastError()
+            # careful, setraw() overwrites GetLastError.
+            # We must read it first, before the errno handling.
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rthread.tlfield_alt_lasterror.setraw(err)
+            else:
+                rthread.tlfield_rpy_lasterror.setraw(err)
+        elif save_err & rffi.RFFI_SAVE_WSALASTERROR:
+            from rpython.rlib import rthread, _rsocket_rffi
+            err = _rsocket_rffi._WSAGetLastError()
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rthread.tlfield_alt_lasterror.setraw(err)
+            else:
+                rthread.tlfield_rpy_lasterror.setraw(err)
+    if save_err & rffi.RFFI_SAVE_ERRNO:
+        from rpython.rlib import rthread
+        if save_err & rffi.RFFI_ALT_ERRNO:
+            rthread.tlfield_alt_errno.setraw(_get_errno())
+        else:
+            rthread.tlfield_rpy_errno.setraw(_get_errno())
+
 
 if os.name == 'nt':
     is_valid_fd = jit.dont_look_inside(rffi.llexternal(
@@ -129,7 +203,8 @@ if os.name == 'nt':
     @enforceargs(int)
     def validate_fd(fd):
         if not is_valid_fd(fd):
-            raise OSError(get_errno(), 'Bad file descriptor')
+            from errno import EBADF
+            raise OSError(EBADF, 'Bad file descriptor')
 else:
     def is_valid_fd(fd):
         return 1
@@ -195,14 +270,18 @@ def external(name, args, result, compilation_info=eci, **kwds):
 # off_t.
 assert OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
-c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT)
-c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT)
+c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT,
+                 save_err=rffi.RFFI_SAVE_ERRNO)
+c_dup2 = external(UNDERSCORE_ON_WIN32 + 'dup2', [rffi.INT, rffi.INT], rffi.INT,
+                  save_err=rffi.RFFI_SAVE_ERRNO)
 c_open = external(UNDERSCORE_ON_WIN32 + 'open',
-                  [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
+                  [rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
+                  save_err=rffi.RFFI_SAVE_ERRNO)
 
 # Win32 Unicode functions
 c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
-                   [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT)
+                   [rffi.CWCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
 
 #___________________________________________________________________
 # Wrappers around posix functions, that accept either strings, or
@@ -310,7 +389,7 @@ def replace_os_function(name):
 def handle_posix_error(name, result):
     result = widen(result)
     if result < 0:
-        raise OSError(get_errno(), '%s failed' % name)
+        raise OSError(get_saved_errno(), '%s failed' % name)
     return result
 
 @replace_os_function('dup')
@@ -335,11 +414,13 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 c_read = external(UNDERSCORE_ON_WIN32 + 'read',
-                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T)
+                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO)
 c_write = external(UNDERSCORE_ON_WIN32 + 'write',
-                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T)
+                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
-                   releasegil=False)
+                   releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('read')
 @enforceargs(int, int)
@@ -367,7 +448,7 @@ def close(fd):
 
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
-                   macro=True)
+                   macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('lseek')
 def lseek(fd, pos, how):
@@ -382,9 +463,11 @@ def lseek(fd, pos, how):
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
-                       macro=True)
-c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT)
-c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT)
+                       macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
+c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
@@ -403,8 +486,10 @@ def fdatasync(fd):
 
 #___________________________________________________________________
 
-c_chdir = external('chdir', [rffi.CCHARP], rffi.INT)
-c_fchdir = external('fchdir', [rffi.INT], rffi.INT)
+c_chdir = external('chdir', [rffi.CCHARP], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+c_fchdir = external('fchdir', [rffi.INT], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_access = external(UNDERSCORE_ON_WIN32 + 'access',
                     [rffi.CCHARP, rffi.INT], rffi.INT)
 c_waccess = external(UNDERSCORE_ON_WIN32 + 'waccess',
@@ -429,14 +514,14 @@ def chdir(path):
         # indicating the per-drive current directory, which are of the
         # form =<drive>:
         if not win32traits.SetCurrentDirectory(path):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
         MAX_PATH = rwin32.MAX_PATH
         assert MAX_PATH > 0
 
         with traits.scoped_alloc_buffer(MAX_PATH) as path:
             res = win32traits.GetCurrentDirectory(MAX_PATH + 1, path.raw)
             if not res:
-                raise rwin32.lastWindowsError()
+                raise rwin32.lastSavedWindowsError()
             res = rffi.cast(lltype.Signed, res)
             assert res > 0
             if res <= MAX_PATH + 1:
@@ -445,7 +530,7 @@ def chdir(path):
                 with traits.scoped_alloc_buffer(res) as path:
                     res = win32traits.GetCurrentDirectory(res, path.raw)
                     if not res:
-                        raise rwin32.lastWindowsError()
+                        raise rwin32.lastSavedWindowsError()
                     res = rffi.cast(lltype.Signed, res)
                     assert res > 0
                     new_path = path.str(res)
@@ -458,7 +543,7 @@ def chdir(path):
                 return
             magic_envvar = '=' + new_path[0] + ':'
         if not win32traits.SetEnvironmentVariable(magic_envvar, new_path):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('fchdir')
 def fchdir(fd):
@@ -490,13 +575,15 @@ def getfullpathname(path):
             traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
             buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
         if res == 0:
-            raise rwin32.lastWindowsError("_getfullpathname failed")
+            raise rwin32.lastSavedWindowsError("_getfullpathname failed")
         return buf.str(intmask(res))
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
-                    [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP)
+                    [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_wgetcwd = external(UNDERSCORE_ON_WIN32 + 'wgetcwd',
-                     [rffi.CWCHARP, rffi.SIZE_T], rffi.CWCHARP)
+                     [rffi.CWCHARP, rffi.SIZE_T], rffi.CWCHARP,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getcwd')
 def getcwd():
@@ -506,7 +593,7 @@ def getcwd():
         res = c_getcwd(buf, bufsize)
         if res:
             break   # ok
-        error = get_errno()
+        error = get_saved_errno()
         lltype.free(buf, flavor='raw')
         if error != errno.ERANGE:
             raise OSError(error, "getcwd failed")
@@ -526,7 +613,7 @@ def getcwdu():
         res = c_wgetcwd(buf, bufsize)
         if res:
             break   # ok
-        error = get_errno()
+        error = get_saved_errno()
         lltype.free(buf, flavor='raw')
         if error != errno.ERANGE:
             raise OSError(error, "getcwd failed")
@@ -548,10 +635,12 @@ if not _WIN32:
     config = rffi_platform.configure(CConfig)
     DIRENT = config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
-    c_opendir = external('opendir', [rffi.CCHARP], DIRP)
+    c_opendir = external('opendir', [rffi.CCHARP], DIRP,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
     # XXX macro=True is hack to make sure we get the correct kind of
     # dirent struct (which depends on defines)
-    c_readdir = external('readdir', [DIRP], DIRENTP, macro=True)
+    c_readdir = external('readdir', [DIRP], DIRENTP,
+                         macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT)
 
 @replace_os_function('listdir')
@@ -561,13 +650,12 @@ def listdir(path):
         path = _as_bytes0(path)
         dirp = c_opendir(path)
         if not dirp:
-            raise OSError(get_errno(), "opendir failed")
+            raise OSError(get_saved_errno(), "opendir failed")
         result = []
         while True:
-            set_errno(0)
             direntp = c_readdir(dirp)
             if not direntp:
-                error = get_errno()
+                error = get_saved_errno()
                 break
             namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
             name = rffi.charp2str(namep)
@@ -597,7 +685,7 @@ def listdir(path):
             result = []
             hFindFile = win32traits.FindFirstFile(mask, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
-                error = rwin32.GetLastError()
+                error = rwin32.GetLastError_saved()
                 if error == win32traits.ERROR_FILE_NOT_FOUND:
                     return result
                 else:
@@ -615,7 +703,7 @@ def listdir(path):
                     break
             # FindNextFile sets error to ERROR_NO_MORE_FILES if
             # it got to the end of the directory
-            error = rwin32.GetLastError()
+            error = rwin32.GetLastError_saved()
             win32traits.FindClose(hFindFile)
             if error == win32traits.ERROR_NO_MORE_FILES:
                 return result
@@ -626,14 +714,18 @@ def listdir(path):
 
 #___________________________________________________________________
 
-c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT)
+c_execv = external('execv', [rffi.CCHARP, rffi.CCHARPP], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_execve = external('execve',
-                    [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT)
+                    [rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_spawnv = external('spawnv',
-                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT)
+                    [rffi.INT, rffi.CCHARP, rffi.CCHARPP], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_spawnve = external('spawnve',
                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP, rffi.CCHARPP],
-                     rffi.INT)
+                     rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('execv')
 def execv(path, args):
@@ -642,7 +734,7 @@ def execv(path, args):
     l_args = rffi.ll_liststr2charpp(args)
     c_execv(path, l_args)
     rffi.free_charpp(l_args)
-    raise OSError(get_errno(), "execv failed")
+    raise OSError(get_saved_errno(), "execv failed")
 
 @replace_os_function('execve')
 def execve(path, args, env):
@@ -659,7 +751,7 @@ def execve(path, args, env):
 
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
-    raise OSError(get_errno(), "execve failed")
+    raise OSError(get_saved_errno(), "execve failed")
 
 @replace_os_function('spawnv')
 def spawnv(mode, path, args):
@@ -685,10 +777,12 @@ def spawnve(mode, path, args, env):
 c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
 c_openpty = external('openpty',
                      [rffi.INTP, rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.INT)
+                     rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 c_forkpty = external('forkpty',
                      [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.PID_T)
+                     rffi.PID_T,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('fork')
 def fork():
@@ -733,7 +827,8 @@ def forkpty():
 if _WIN32:
     # emulate waitpid() with the _cwait() of Microsoft's compiler
     c__cwait = external('_cwait',
-                        [rffi.INTP, rffi.PID_T, rffi.INT], rffi.PID_T)
+                        [rffi.INTP, rffi.PID_T, rffi.INT], rffi.PID_T,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
     def c_waitpid(pid, status_p, options):
         result = c__cwait(status_p, pid, options)
         # shift the status left a byte so this is more
@@ -742,10 +837,12 @@ if _WIN32:
         return result
 elif _CYGWIN:
     c_waitpid = external('cygwin_waitpid',
-                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T)
+                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     c_waitpid = external('waitpid',
-                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T)
+                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('waitpid')
 def waitpid(pid, options):
@@ -780,7 +877,8 @@ for name in WAIT_MACROS:
 
 #___________________________________________________________________
 
-c_getlogin = external('getlogin', [], rffi.CCHARP, releasegil=False)
+c_getlogin = external('getlogin', [], rffi.CCHARP,
+                      releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 c_getloadavg = external('getloadavg', 
                         [rffi.CArrayPtr(lltype.Float), rffi.INT], rffi.INT)
 
@@ -788,7 +886,7 @@ c_getloadavg = external('getloadavg',
 def getlogin():
     result = c_getlogin()
     if not result:
-        raise OSError(get_errno(), "getlogin failed")
+        raise OSError(get_saved_errno(), "getlogin failed")
     return rffi.charp2str(result)
 
 @replace_os_function('getloadavg')
@@ -805,7 +903,8 @@ def getloadavg():
 #___________________________________________________________________
 
 c_readlink = external('readlink',
-                      [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T)
+                      [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T], rffi.SSIZE_T,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('readlink')
 def readlink(path):
@@ -816,7 +915,7 @@ def readlink(path):
         res = widen(c_readlink(path, buf, bufsize))
         if res < 0:
             lltype.free(buf, flavor='raw')
-            error = get_errno()    # failed
+            error = get_saved_errno()    # failed
             raise OSError(error, "readlink failed")
         elif res < bufsize:
             break                       # ok
@@ -837,13 +936,15 @@ def isatty(fd):
         return False
     return c_isatty(fd) != 0
 
-c_ttyname = external('ttyname', [lltype.Signed], rffi.CCHARP, releasegil=False)
+c_ttyname = external('ttyname', [lltype.Signed], rffi.CCHARP,
+                     releasegil=False,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('ttyname')
 def ttyname(fd):
     l_name = c_ttyname(fd)
     if not l_name:
-        raise OSError(get_errno(), "ttyname raised")
+        raise OSError(get_saved_errno(), "ttyname raised")
     return rffi.charp2str(l_name)
 
 c_strerror = external('strerror', [rffi.INT], rffi.CCHARP,
@@ -862,10 +963,14 @@ c_system = external('system', [rffi.CCHARP], rffi.INT)
 def system(command):
     return widen(c_system(command))
 
-c_unlink = external('unlink', [rffi.CCHARP], rffi.INT)
-c_mkdir = external('mkdir', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
-c_rmdir = external(UNDERSCORE_ON_WIN32 + 'rmdir', [rffi.CCHARP], rffi.INT)
-c_wrmdir = external(UNDERSCORE_ON_WIN32 + 'wrmdir', [rffi.CWCHARP], rffi.INT)
+c_unlink = external('unlink', [rffi.CCHARP], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
+c_mkdir = external('mkdir', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+c_rmdir = external(UNDERSCORE_ON_WIN32 + 'rmdir', [rffi.CCHARP], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+c_wrmdir = external(UNDERSCORE_ON_WIN32 + 'wrmdir', [rffi.CWCHARP], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('unlink')
 @specialize.argtype(0)
@@ -876,7 +981,7 @@ def unlink(path):
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         if not win32traits.DeleteFile(traits.as_str0(path)):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('mkdir')
 @specialize.argtype(0)
@@ -887,7 +992,7 @@ def mkdir(path, mode=0o777):
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         if not win32traits.CreateDirectory(traits.as_str0(path), None):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('rmdir')
 @specialize.argtype(0)
@@ -897,9 +1002,12 @@ def rmdir(path):
     else:
         handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
 
-c_chmod = external('chmod', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
-c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT)
-c_rename = external('rename', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
+c_chmod = external('chmod', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+c_fchmod = external('fchmod', [rffi.INT, rffi.MODE_T], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO,)
+c_rename = external('rename', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('chmod')
 @specialize.argtype(0)
@@ -912,13 +1020,13 @@ def chmod(path, mode):
         path = traits.as_str0(path)
         attr = win32traits.GetFileAttributes(path)
         if attr == win32traits.INVALID_FILE_ATTRIBUTES:
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
         if mode & 0200: # _S_IWRITE
             attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
         else:
             attr |= win32traits.FILE_ATTRIBUTE_READONLY
         if not win32traits.SetFileAttributes(path, attr):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('fchmod')
 def fchmod(fd, mode):
@@ -936,14 +1044,15 @@ def rename(path1, path2):
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFile(path1, path2):
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
 
 #___________________________________________________________________
 
-c_mkfifo = external('mkfifo', [rffi.CCHARP, rffi.MODE_T], rffi.INT)
+c_mkfifo = external('mkfifo', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_mknod = external('mknod', [rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
-                   macro=True)
 #                                           # xxx: actually ^^^ dev_t
+                   macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('mkfifo')
 @specialize.argtype(0)
@@ -966,7 +1075,8 @@ if _WIN32:
                                 rffi.INT)
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
-    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT)
+    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('pipe')
 def pipe():
@@ -976,7 +1086,8 @@ def pipe():
         try:
             if not CreatePipe(
                     pread, pwrite, lltype.nullptr(rffi.VOIDP.TO), 0):
-                raise WindowsError(rwin32.GetLastError(), "CreatePipe failed")
+                raise WindowsError(rwin32.GetLastError_saved(),
+                                   "CreatePipe failed")
             hread = rffi.cast(rffi.INTPTR_T, pread[0])
             hwrite = rffi.cast(rffi.INTPTR_T, pwrite[0])
         finally:
@@ -993,8 +1104,10 @@ def pipe():
         finally:
             lltype.free(filedes, flavor='raw')
 
-c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
-c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
+c_link = external('link', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+                  save_err=rffi.RFFI_SAVE_ERRNO,)
+c_symlink = external('symlink', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 #___________________________________________________________________
 
@@ -1018,9 +1131,12 @@ c_umask = external(UNDERSCORE_ON_WIN32 + 'umask', [rffi.MODE_T], rffi.MODE_T)
 def umask(newmask):
     return widen(c_umask(newmask))
 
-c_chown = external('chown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
-c_lchown = external('lchown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT)
-c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
+c_chown = external('chown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
+c_lchown = external('lchown', [rffi.CCHARP, rffi.INT, rffi.INT], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
+c_fchown = external('fchown', [rffi.INT, rffi.INT, rffi.INT], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('chown')
 def chown(path, uid, gid):
@@ -1037,7 +1153,8 @@ def fchown(fd, uid, gid):
 #___________________________________________________________________
 
 UTIMBUFP = lltype.Ptr(UTIMBUF)
-c_utime = external('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
+c_utime = external('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
 if HAVE_UTIMES:
     class CConfig:
         _compilation_info_ = eci
@@ -1047,7 +1164,8 @@ if HAVE_UTIMES:
     config = rffi_platform.configure(CConfig)
     TIMEVAL = config['TIMEVAL']
     TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
-    c_utimes = external('utimes', [rffi.CCHARP, TIMEVAL2P], rffi.INT)
+    c_utimes = external('utimes', [rffi.CCHARP, TIMEVAL2P], rffi.INT,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -1055,14 +1173,16 @@ if _WIN32:
         'GetSystemTime',
         [lltype.Ptr(rwin32.SYSTEMTIME)],
         lltype.Void,
-        calling_conv='win')
+        calling_conv='win',
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     SystemTimeToFileTime = external(
         'SystemTimeToFileTime',
         [lltype.Ptr(rwin32.SYSTEMTIME),
          lltype.Ptr(rwin32.FILETIME)],
         rwin32.BOOL,
-        calling_conv='win')
+        calling_conv='win',
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
     SetFileTime = external(
         'SetFileTime',
@@ -1095,6 +1215,8 @@ def utime(path, times):
                 error = c_utimes(path, l_times)
                 lltype.free(l_times, flavor='raw')
             else:
+                # we only have utime(), which does not allow
+                # sub-second resolution
                 l_utimbuf = lltype.malloc(UTIMBUFP.TO, flavor='raw')
                 l_utimbuf.c_actime  = rffi.r_time_t(actime)
                 l_utimbuf.c_modtime = rffi.r_time_t(modtime)
@@ -1112,7 +1234,7 @@ def utime(path, times):
                            win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                            rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastWindowsError()
+            raise rwin32.lastSavedWindowsError()
         ctime = lltype.nullptr(rwin32.FILETIME)
         atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
         mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
@@ -1123,7 +1245,7 @@ def utime(path, times):
                     GetSystemTime(now)
                     if (not SystemTimeToFileTime(now, atime) or
                         not SystemTimeToFileTime(now, mtime)):
-                        raise rwin32.lastWindowsError()
+                        raise rwin32.lastSavedWindowsError()
                 finally:
                     lltype.free(now, flavor='raw')
             else:
@@ -1131,7 +1253,7 @@ def utime(path, times):
                 time_t_to_FILE_TIME(actime, atime)
                 time_t_to_FILE_TIME(modtime, mtime)
             if not SetFileTime(hFile, ctime, atime, mtime):
-                raise rwin32.lastWindowsError()
+                raise rwin32.lastSavedWindowsError()
         finally:
             rwin32.CloseHandle(hFile)
             lltype.free(atime, flavor='raw')
@@ -1139,7 +1261,8 @@ def utime(path, times):
 
 if not _WIN32:
     TMSP = lltype.Ptr(TMS)
-    os_times = external('times', [TMSP], CLOCK_T)
+    c_times = external('times', [TMSP], CLOCK_T,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
 
     # Here is a random extra platform parameter which is important.
     # Strictly speaking, this should probably be retrieved at runtime, not
@@ -1161,10 +1284,10 @@ def times():
     if not _WIN32:
         l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
         try:
-            result = os_times(l_tmsbuf)
+            result = c_times(l_tmsbuf)
             result = rffi.cast(lltype.Signed, result)
             if result == -1:
-                raise OSError(get_errno(), "times failed")
+                raise OSError(get_saved_errno(), "times failed")
             return (
                 rffi.cast(lltype.Signed, l_tmsbuf.c_tms_utime)
                                                / CLOCK_TICKS_PER_SECOND,
@@ -1200,10 +1323,13 @@ def times():
             lltype.free(pexit,   flavor='raw')
             lltype.free(pcreate, flavor='raw')
 
-c_kill = external('kill', [rffi.PID_T, rffi.INT], rffi.INT)
-c_killpg = external('killpg', [rffi.INT, rffi.INT], rffi.INT)
+c_kill = external('kill', [rffi.PID_T, rffi.INT], rffi.INT
+                  save_err=rffi.RFFI_SAVE_ERRNO)
+c_killpg = external('killpg', [rffi.INT, rffi.INT], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_exit = external('_exit', [rffi.INT], lltype.Void)
-c_nice = external('nice', [rffi.INT], rffi.INT)
+c_nice = external('nice', [rffi.INT], rffi.INT,
+                  save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
 @replace_os_function('kill')
 def kill(pid, sig):
@@ -1212,14 +1338,15 @@ def kill(pid, sig):
     else:
         if sig == rwin32.CTRL_C_EVENT or sig == rwin32.CTRL_BREAK_EVENT:
             if rwin32.GenerateConsoleCtrlEvent(sig, pid) == 0:
-                raise rwin32.lastWindowsError('kill() failed generating event')
+                raise rwin32.lastSavedWindowsError(
+                    'kill() failed generating event')
             return
         handle = rwin32.OpenProcess(rwin32.PROCESS_ALL_ACCESS, False, pid)
         if not handle:
-            raise rwin32.lastWindowsError('kill() failed opening process')
+            raise rwin32.lastSavedWindowsError('kill() failed opening process')
         try:
             if rwin32.TerminateProcess(handle, sig) == 0:
-                raise rwin32.lastWindowsError(
+                raise rwin32.lastSavedWindowsError(
                     'kill() failed to terminate process')
         finally:
             rwin32.CloseHandle(handle)
@@ -1238,10 +1365,9 @@ def nice(inc):
     # Assume that the system provides a standard-compliant version
     # of nice() that returns the new priority.  Nowadays, FreeBSD
     # might be the last major non-compliant system (xxx check me).
-    set_errno(0)
     res = widen(c_nice(inc))
     if res == -1:
-        err = get_errno()
+        err = get_saved_errno()
         if err != 0:
             raise OSError(err, "os_nice failed")
     return res
@@ -1260,18 +1386,22 @@ def tmpnam():
 
 #___________________________________________________________________
 
-c_getpid = external('getpid', [], rffi.PID_T, releasegil=False)
-c_getppid = external('getppid', [], rffi.PID_T, releasegil=False)
-c_setsid = external('setsid', [], rffi.PID_T)
-c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T)
+c_getpid = external('getpid', [], rffi.PID_T,
+                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
+c_getppid = external('getppid', [], rffi.PID_T,
+                     releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
+c_setsid = external('setsid', [], rffi.PID_T,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
+c_getsid = external('getsid', [rffi.PID_T], rffi.PID_T,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getpid')
 def getpid():
-    return widen(c_getpid())
+    return handle_posix_error('getpid', c_getpid())
 
 @replace_os_function('getppid')
 def getppid():
-    return widen(c_getppid())
+    return handle_posix_error('getppid', c_getppid())
 
 @replace_os_function('setsid')
 def setsid():
@@ -1281,8 +1411,10 @@ def setsid():
 def getsid(pid):
     return handle_posix_error('getsid', c_getsid(pid))
 
-c_getpgid = external('getpgid', [rffi.PID_T], rffi.PID_T)
-c_setpgid = external('setpgid', [rffi.PID_T, rffi.PID_T], rffi.INT)
+c_getpgid = external('getpgid', [rffi.PID_T], rffi.PID_T,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+c_setpgid = external('setpgid', [rffi.PID_T, rffi.PID_T], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getpgid')
 def getpgid(pid):
@@ -1293,9 +1425,12 @@ def setpgid(pid, gid):
     handle_posix_error('setpgid', c_setpgid(pid, gid))
 
 PID_GROUPS_T = rffi.CArrayPtr(rffi.PID_T)
-c_getgroups = external('getgroups', [rffi.INT, PID_GROUPS_T], rffi.INT)
-c_setgroups = external('setgroups', [rffi.SIZE_T, PID_GROUPS_T], rffi.INT)
-c_initgroups = external('initgroups', [rffi.CCHARP, rffi.PID_T], rffi.INT)
+c_getgroups = external('getgroups', [rffi.INT, PID_GROUPS_T], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_setgroups = external('setgroups', [rffi.SIZE_T, PID_GROUPS_T], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_initgroups = external('initgroups', [rffi.CCHARP, rffi.PID_T], rffi.INT,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getgroups')
 def getgroups():
@@ -1324,13 +1459,17 @@ def initgroups(user, group):
     handle_posix_error('initgroups', c_initgroups(user, group))
 
 if GETPGRP_HAVE_ARG:
-    c_getpgrp = external('getpgrp', [rffi.INT], rffi.INT)
+    c_getpgrp = external('getpgrp', [rffi.INT], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 else:
-    c_getpgrp = external('getpgrp', [], rffi.INT)
+    c_getpgrp = external('getpgrp', [], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 if SETPGRP_HAVE_ARG:
-    c_setpgrp = external('setpgrp', [rffi.INT, rffi.INT], rffi.INT)
+    c_setpgrp = external('setpgrp', [rffi.INT, rffi.INT], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 else:
-    c_setpgrp = external('setpgrp', [], rffi.INT)
+    c_setpgrp = external('setpgrp', [], rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getpgrp')
 def getpgrp():
@@ -1346,8 +1485,10 @@ def setpgrp():
     else:
         handle_posix_error('setpgrp', c_setpgrp())
 
-c_tcgetpgrp = external('tcgetpgrp', [rffi.INT], rffi.PID_T)
-c_tcsetpgrp = external('tcsetpgrp', [rffi.INT, rffi.PID_T], rffi.INT)
+c_tcgetpgrp = external('tcgetpgrp', [rffi.INT], rffi.PID_T,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_tcsetpgrp = external('tcsetpgrp', [rffi.INT, rffi.PID_T], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('tcgetpgrp')
 def tcgetpgrp(fd):
@@ -1359,14 +1500,18 @@ def tcsetpgrp(fd, pgrp):
 
 #___________________________________________________________________
 
-c_getuid = external('getuid', [], rffi.INT)
-c_geteuid = external('geteuid', [], rffi.INT)
-c_setuid = external('setuid', [rffi.INT], rffi.INT)
-c_seteuid = external('seteuid', [rffi.INT], rffi.INT)
-c_getgid = external('getgid', [], rffi.INT)
-c_getegid = external('getegid', [], rffi.INT)
-c_setgid = external('setgid', [rffi.INT], rffi.INT)
-c_setegid = external('setegid', [rffi.INT], rffi.INT)
+c_getuid = external('getuid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+c_geteuid = external('geteuid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+c_setuid = external('setuid', [rffi.INT], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
+c_seteuid = external('seteuid', [rffi.INT], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
+c_getgid = external('getgid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+c_getegid = external('getegid', [], rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
+c_setgid = external('setgid', [rffi.INT], rffi.INT,
+                    save_err=rffi.RFFI_SAVE_ERRNO)
+c_setegid = external('setegid', [rffi.INT], rffi.INT,
+                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getuid')
 def getuid():
@@ -1400,8 +1545,10 @@ def setgid(gid):
 def setegid(gid):
     handle_posix_error('setegid', c_setegid(gid))
 
-c_setreuid = external('setreuid', [rffi.INT, rffi.INT], rffi.INT)
-c_setregid = external('setregid', [rffi.INT, rffi.INT], rffi.INT)
+c_setreuid = external('setreuid', [rffi.INT, rffi.INT], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
+c_setregid = external('setregid', [rffi.INT, rffi.INT], rffi.INT,
+                      save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('setreuid')
 def setreuid(ruid, euid):
@@ -1411,10 +1558,14 @@ def setreuid(ruid, euid):
 def setregid(rgid, egid):
     handle_posix_error('setregid', c_setregid(rgid, egid))
 
-c_getresuid = external('getresuid', [rffi.INTP] * 3, rffi.INT)
-c_getresgid = external('getresgid', [rffi.INTP] * 3, rffi.INT)
-c_setresuid = external('setresuid', [rffi.INT] * 3, rffi.INT)
-c_setresgid = external('setresgid', [rffi.INT] * 3, rffi.INT)
+c_getresuid = external('getresuid', [rffi.INTP] * 3, rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_getresgid = external('getresgid', [rffi.INTP] * 3, rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_setresuid = external('setresuid', [rffi.INT] * 3, rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+c_setresgid = external('setresgid', [rffi.INT] * 3, rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('getresuid')
 def getresuid():
@@ -1450,7 +1601,8 @@ def setresgid(rgid, egid, sgid):
 
 #___________________________________________________________________
 
-c_chroot = external('chroot', [rffi.CCHARP], rffi.INT)
+c_chroot = external('chroot', [rffi.CCHARP], rffi.INT, 
+                    save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('chroot')
 def chroot(path):
@@ -1472,7 +1624,8 @@ if not _WIN32:
     UTSNAMEP = lltype.Ptr(config['UTSNAME'])
 
     c_uname = external('uname', [UTSNAMEP], rffi.INT,
-                        compilation_info=CConfig._compilation_info_)
+                       compilation_info=CConfig._compilation_info_,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('uname')
 def uname():
@@ -1507,45 +1660,45 @@ def minor(dev):
 
 #___________________________________________________________________
 
-c_sysconf = external('sysconf', [rffi.INT], rffi.LONG)
-c_fpathconf = external('fpathconf', [rffi.INT, rffi.INT], rffi.LONG)
-c_pathconf = external('pathconf', [rffi.CCHARP, rffi.INT], rffi.LONG)
+c_sysconf = external('sysconf', [rffi.INT], rffi.LONG,
+                     save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+c_fpathconf = external('fpathconf', [rffi.INT, rffi.INT], rffi.LONG,
+                       save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+c_pathconf = external('pathconf', [rffi.CCHARP, rffi.INT], rffi.LONG,
+                      save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 c_confstr = external('confstr',
-                     [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T)
+                     [rffi.INT, rffi.CCHARP, rffi.SIZE_T], rffi.SIZE_T,
+                      save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 
 @replace_os_function('sysconf')
 def sysconf(value):
-    set_errno(0)
     res = c_sysconf(value)
     if res == -1:
-        errno = get_errno()
+        errno = get_saved_errno()
         if errno != 0:
             raise OSError(errno, "sysconf failed")
     return res
 
 @replace_os_function('fpathconf')
 def fpathconf(fd, value):
-    set_errno(0)
     res = c_fpathconf(fd, value)
     if res == -1:
-        errno = get_errno()
+        errno = get_saved_errno()
         if errno != 0:
             raise OSError(errno, "fpathconf failed")
     return res
 
 @replace_os_function('pathconf')
 def pathconf(path, value):
-    set_errno(0)
     res = c_pathconf(_as_bytes0(path), value)
     if res == -1:
-        errno = get_errno()
+        errno = get_saved_errno()
         if errno != 0:
             raise OSError(errno, "pathconf failed")
     return res
 
 @replace_os_function('confstr')
 def confstr(value):
-    set_errno(0)
     n = intmask(c_confstr(value, lltype.nullptr(rffi.CCHARP.TO), 0))
     if n > 0:
         buf = lltype.malloc(rffi.CCHARP.TO, n, flavor='raw')
@@ -1555,7 +1708,7 @@ def confstr(value):
         finally:
             lltype.free(buf, flavor='raw')
     else:
-        errno = get_errno()
+        errno = get_saved_errno()
         if errno != 0:
             raise OSError(errno, "confstr failed")
         return None

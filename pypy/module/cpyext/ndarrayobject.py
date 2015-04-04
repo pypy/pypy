@@ -11,7 +11,12 @@ from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
+from pypy.module.micronumpy import ufuncs
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.gateway import interp2app
 
 NPY_C_CONTIGUOUS   = 0x0001
 NPY_F_CONTIGUOUS   = 0x0002
@@ -252,3 +257,40 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
 
+gufunctype = lltype.Ptr(ufuncs.GenericUfunc)
+# XXX single rffi.CArrayPtr(gufunctype) does not work, this does, is there
+# a problem with casting function pointers?
+@cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+              Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t,
+              rffi.CCHARP], PyObject)
+def PyUFunc_FromFuncAndDataAndSignature(space, funcs, data, types, ntypes,
+                    nin, nout, identity, name, doc, check_return, signature):
+    w_signature = rffi.charp2str(signature)
+    return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
+             check_return, w_signature)
+            
+
+def do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity, name, doc,
+             check_return, w_signature):
+    funcs_w = [None] * ntypes
+    dtypes_w = [None] * ntypes * (nin + nout)
+    for i in range(ntypes):
+        funcs_w[i] = ufuncs.W_GenericUFuncCaller(rffi.cast(gufunctype, funcs[i]), data)
+    for i in range(ntypes*(nin+nout)):
+        dtypes_w[i] = get_dtype_cache(space).dtypes_by_num[ord(types[i])]
+    w_funcs = space.newlist(funcs_w)
+    w_dtypes = space.newlist(dtypes_w)
+    w_doc = rffi.charp2str(doc)
+    w_name = rffi.charp2str(name)
+    w_identity = space.wrap(identity)
+    ufunc_generic = ufuncs.frompyfunc(space, w_funcs, nin, nout, w_dtypes,
+                 w_signature, w_identity, w_name, w_doc, stack_inputs=True)
+    return ufunc_generic
+
+@cpython_api([rffi.CArrayPtr(rffi.CArrayPtr(gufunctype)), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,
+              Py_ssize_t, Py_ssize_t, rffi.CCHARP, rffi.CCHARP, Py_ssize_t], PyObject)
+def PyUFunc_FromFuncAndData(space, funcs, data, types, ntypes,
+                    nin, nout, identity, name, doc, check_return):
+    w_signature =  ','.join(['()'] * nin) + '->' + ','.join(['()'] * nout)
+    return do_ufunc(space, funcs, data, types, ntypes, nin, nout, identity,
+                    name, doc, check_return, w_signature)

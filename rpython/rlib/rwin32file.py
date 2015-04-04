@@ -111,10 +111,12 @@ def make_win32_traits(traits):
 
         FindFirstFile = external('FindFirstFile' + suffix,
                                  [traits.CCHARP, LPWIN32_FIND_DATA],
-                                 rwin32.HANDLE)
+                                 rwin32.HANDLE,
+                                 save_err=rffi.RFFI_SAVE_LASTERROR)
         FindNextFile = external('FindNextFile' + suffix,
                                 [rwin32.HANDLE, LPWIN32_FIND_DATA],
-                                rwin32.BOOL)
+                                rwin32.BOOL,
+                                save_err=rffi.RFFI_SAVE_LASTERROR)
         FindClose = external('FindClose',
                              [rwin32.HANDLE],
                              rwin32.BOOL)
@@ -122,28 +124,33 @@ def make_win32_traits(traits):
         GetFileAttributes = external(
             'GetFileAttributes' + suffix,
             [traits.CCHARP],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         SetFileAttributes = external(
             'SetFileAttributes' + suffix,
             [traits.CCHARP, rwin32.DWORD],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetFileAttributesEx = external(
             'GetFileAttributesEx' + suffix,
             [traits.CCHARP, GET_FILEEX_INFO_LEVELS,
              lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetFileInformationByHandle = external(
             'GetFileInformationByHandle',
             [rwin32.HANDLE, lltype.Ptr(BY_HANDLE_FILE_INFORMATION)],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetFileType = external(
             'GetFileType',
             [rwin32.HANDLE],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         LPSTRP = rffi.CArrayPtr(traits.CCHARP)
 
@@ -151,44 +158,52 @@ def make_win32_traits(traits):
             'GetFullPathName' + suffix,
             [traits.CCHARP, rwin32.DWORD,
              traits.CCHARP, LPSTRP],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         GetCurrentDirectory = external(
             'GetCurrentDirectory' + suffix,
             [rwin32.DWORD, traits.CCHARP],
-            rwin32.DWORD)
+            rwin32.DWORD,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         SetCurrentDirectory = external(
             'SetCurrentDirectory' + suffix,
             [traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         CreateDirectory = external(
             'CreateDirectory' + suffix,
             [traits.CCHARP, rffi.VOIDP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         SetEnvironmentVariable = external(
             'SetEnvironmentVariable' + suffix,
             [traits.CCHARP, traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         CreateFile = external(
             'CreateFile' + apisuffix,
             [traits.CCHARP, rwin32.DWORD, rwin32.DWORD,
              rwin32.LPSECURITY_ATTRIBUTES, rwin32.DWORD, rwin32.DWORD,
              rwin32.HANDLE],
-            rwin32.HANDLE)
+            rwin32.HANDLE,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         DeleteFile = external(
             'DeleteFile' + suffix,
             [traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
         MoveFile = external(
             'MoveFile' + suffix,
             [traits.CCHARP, traits.CCHARP],
-            rwin32.BOOL)
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
 
     return Win32Traits
 

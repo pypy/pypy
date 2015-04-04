@@ -47,6 +47,15 @@ where XXXXX is the revision id.
 
 Install build-time dependencies
 -------------------------------
+(**Note**: for some hints on how to translate the Python interpreter under
+Windows, see the `windows document`_ . For hints on how to cross-compile in
+a chroot using scratchbox2, see the `arm document`_ in the 
+`RPython documentation`_)
+
+.. _`windows document`: windows.html
+.. _`arm document`: http://rpython.readthedocs.org/en/latest/arm.html
+.. _`RPython documentation`: http://rpython.readthedocs.org
+
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional
@@ -136,6 +145,26 @@ It is possible to have non-standard features enabled for translation,
 but they are not really tested any more.  Look, for example, at the
 :doc:`objspace proxies <objspace-proxies>` document.
 
+
+Packaging (preparing for installation)
+--------------------------------------
+
+Packaging is required if you want to install PyPy system-wide, even to
+install on the same machine.  The reason is that doing so prepares a
+number of extra features that cannot be done lazily on a root-installed
+PyPy, because the normal users don't have write access.  This concerns
+mostly libraries that would normally be compiled if and when they are
+imported the first time.
+
+::
+    
+    cd pypy/tool/release
+    ./package.py pypy-VER-PLATFORM
+
+This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
+with the same content; both are found by default in
+``/tmp/usession-YOURNAME/build/``.  You can then either move the file
+hierarchy or unpack the ``.tar.bz2`` at the correct place.
 
 
 Installation

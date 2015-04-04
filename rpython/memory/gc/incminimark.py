@@ -47,12 +47,21 @@ Environment variables can be used to fine-tune the following parameters:
                          too slow for normal use.  Values are 0 (off),
                          1 (on major collections) or 2 (also on minor
                          collections).
+
+ PYPY_GC_MAX_PINNED      The maximal number of pinned objects at any point
+                         in time.  Defaults to a conservative value depending
+                         on nursery size and maximum object size inside the
+                         nursery.  Useful for debugging by setting it to 0.
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
 # XXX pre-reserved, enough for a few nursery collections?  What about
 # XXX raw-malloced memory?
+
+# XXX try merging old_objects_pointing_to_pinned into
+# XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
+import os
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
@@ -63,6 +72,7 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
+from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
 # Handles the objects in 2 generations:
@@ -375,6 +385,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the nursery.
         self.pinned_objects_in_nursery = 0
         #
+        # This flag is set if the previous minor collection found at least
+        # one pinned object alive.
+        self.any_pinned_object_kept = False
+        #
         # Keeps track of old objects pointing to pinned objects. These objects
         # must be traced every minor collection. Without tracing them the
         # referenced pinned object wouldn't be visited and therefore collected.
@@ -455,9 +469,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.nursery_size = newsize
             self.allocate_nursery()
         #
-        # Estimate this number conservatively
-        bigobj = self.nonlarge_max + 1
-        self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+        env_max_number_of_pinned_objects = os.environ.get('PYPY_GC_MAX_PINNED')
+        if env_max_number_of_pinned_objects:
+            try:
+                env_max_number_of_pinned_objects = int(env_max_number_of_pinned_objects)
+            except ValueError:
+                env_max_number_of_pinned_objects = 0
+            #
+            if env_max_number_of_pinned_objects >= 0: # 0 allows to disable pinning completely
+                self.max_number_of_pinned_objects = env_max_number_of_pinned_objects
+        else:
+            # Estimate this number conservatively
+            bigobj = self.nonlarge_max + 1
+            self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1
@@ -467,10 +491,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the start of the nursery: we actually allocate a bit more for
         # the nursery than really needed, to simplify pointer arithmetic
         # in malloc_fixedsize().  The few extra pages are never used
-        # anyway so it doesn't even counct.
+        # anyway so it doesn't even count.
         nursery = llarena.arena_malloc(self._nursery_memory_size(), 0)
         if not nursery:
-            raise MemoryError("cannot allocate nursery")
+            out_of_memory("cannot allocate nursery")
         return nursery
 
     def allocate_nursery(self):
@@ -681,23 +705,48 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def collect_and_reserve(self, totalsize):
         """To call when nursery_free overflows nursery_top.
-        First check if the nursery_top is the real top, otherwise we
-        can just move the top of one cleanup and continue
-
-        Do a minor collection, and possibly also a major collection,
-        and finally reserve 'totalsize' bytes at the start of the
-        now-empty nursery.
+        First check if pinned objects are in front of nursery_top. If so,
+        jump over the pinned object and try again to reserve totalsize.
+        Otherwise do a minor collection, and possibly a major collection, and
+        finally reserve totalsize bytes.
         """
 
         minor_collection_count = 0
         while True:
             self.nursery_free = llmemory.NULL      # debug: don't use me
+            # note: no "raise MemoryError" between here and the next time
+            # we initialize nursery_free!
 
             if self.nursery_barriers.non_empty():
+                # Pinned object in front of nursery_top. Try reserving totalsize
+                # by jumping into the next, yet unused, area inside the
+                # nursery. "Next area" in this case is the space between the
+                # pinned object in front of nusery_top and the pinned object
+                # after that. Graphically explained:
+                # 
+                #     |- allocating totalsize failed in this area
+                #     |     |- nursery_top
+                #     |     |    |- pinned object in front of nursery_top,
+                #     v     v    v  jump over this
+                # +---------+--------+--------+--------+-----------+ }
+                # | used    | pinned | empty  | pinned |  empty    | }- nursery
+                # +---------+--------+--------+--------+-----------+ }
+                #                       ^- try reserving totalsize in here next
+                #
+                # All pinned objects are represented by entries in
+                # nursery_barriers (see minor_collection). The last entry is
+                # always the end of the nursery. Therefore if nursery_barriers
+                # contains only one element, we jump over a pinned object and
+                # the "next area" (the space where we will try to allocate
+                # totalsize) starts at the end of the pinned object and ends at
+                # nursery's end.
+                #
+                # find the size of the pinned object after nursery_top
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 pinned_obj_size = size_gc_header + self.get_size(
                         self.nursery_top + size_gc_header)
-
+                #
+                # update used nursery space to allocate objects
                 self.nursery_free = self.nursery_top + pinned_obj_size
                 self.nursery_top = self.nursery_barriers.popleft()
             else:
@@ -725,6 +774,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             "Seeing minor_collection() at least twice."
                             "Too many pinned objects?")
             #
+            # Tried to do something about nursery_free overflowing
+            # nursery_top before this point. Try to reserve totalsize now.
+            # If this succeeds break out of loop.
             result = self.nursery_free
             if self.nursery_free + totalsize <= self.nursery_top:
                 self.nursery_free = result + totalsize
@@ -773,11 +825,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
             raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
-        # force a full collection.  XXX make this more incremental!
-        if (float(self.get_total_memory_used()) + raw_malloc_usage(totalsize) >
-                self.next_major_collection_threshold):
-            self.gc_step_until(STATE_SWEEPING)
-            self.gc_step_until(STATE_FINALIZING, raw_malloc_usage(totalsize))
+        # force a collection.  XXX make this more incremental!  For now
+        # the logic is to first do a minor GC only, and check if that
+        # was enough to free a bunch of large young objects.  If not,
+        # we do a complete major GC.
+        if self.get_total_memory_free() < raw_malloc_usage(totalsize):
+            self.minor_collection()
+            if self.get_total_memory_free() < (raw_malloc_usage(totalsize) +
+                                               self.nursery_size // 2):
+                self.gc_step_until(STATE_SWEEPING)
+                self.gc_step_until(STATE_FINALIZING,
+                                   raw_malloc_usage(totalsize))
         #
         # Check if the object would fit in the ArenaCollection.
         if raw_malloc_usage(totalsize) <= self.small_request_threshold:
@@ -1053,6 +1111,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         nursery: only objects in the ArenaCollection or raw-malloced.
         """
         return self.ac.total_memory_used + self.rawmalloced_total_size
+
+    def get_total_memory_free(self):
+        return (self.next_major_collection_threshold -
+                float(self.get_total_memory_used()))
 
     def card_marking_words_for_length(self, length):
         # --- Unoptimized version:
@@ -1477,9 +1539,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # being moved, not from being collected if it is not reachable anymore.
         self.surviving_pinned_objects = self.AddressStack()
         # The following counter keeps track of alive and pinned young objects
-        # inside the nursery. We reset it here and increace it in
+        # inside the nursery. We reset it here and increase it in
         # '_trace_drag_out()'.
+        any_pinned_object_from_earlier = self.any_pinned_object_kept
         self.pinned_objects_in_nursery = 0
+        self.any_pinned_object_kept = False
         #
         # Before everything else, remove from 'old_objects_pointing_to_young'
         # the young arrays.
@@ -1503,7 +1567,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # are copied out or flagged.  They are also added to the list
         # 'old_objects_pointing_to_young'.
         self.nursery_surviving_size = 0
-        self.collect_roots_in_nursery()
+        self.collect_roots_in_nursery(any_pinned_object_from_earlier)
         #
         # visit all objects that are known for pointing to pinned
         # objects. This way we populate 'surviving_pinned_objects'
@@ -1609,7 +1673,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         else:
             llarena.arena_reset(prev, self.nursery + self.nursery_size - prev, 0)
         #
+        # always add the end of the nursery to the list
         nursery_barriers.append(self.nursery + self.nursery_size)
+        #
         self.nursery_barriers = nursery_barriers
         self.surviving_pinned_objects.delete()
         #
@@ -1639,7 +1705,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _visit_old_objects_pointing_to_pinned(self, obj, ignore):
         self.trace(obj, self._trace_drag_out, obj)
 
-    def collect_roots_in_nursery(self):
+    def collect_roots_in_nursery(self, any_pinned_object_from_earlier):
         # we don't need to trace prebuilt GcStructs during a minor collect:
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
@@ -1649,10 +1715,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
             callback = IncrementalMiniMarkGC._trace_drag_out1_marking_phase
         else:
             callback = IncrementalMiniMarkGC._trace_drag_out1
+        #
+        # Note a subtlety: if the nursery contains pinned objects "from
+        # earlier", i.e. created earlier than the previous minor
+        # collection, then we can't use the "is_minor=True" optimization.
+        # We really need to walk the complete stack to be sure we still
+        # see them.
+        use_jit_frame_stoppers = not any_pinned_object_from_earlier
+        #
         self.root_walker.walk_roots(
             callback,     # stack roots
             callback,     # static in prebuilt non-gc
-            None)         # static in prebuilt gc
+            None,         # static in prebuilt gc
+            is_minor=use_jit_frame_stoppers)
         debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
@@ -1834,6 +1909,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.surviving_pinned_objects.append(
                 llarena.getfakearenaaddress(obj - size_gc_header))
             self.pinned_objects_in_nursery += 1
+            self.any_pinned_object_kept = True
             return
         else:
             # First visit to an object that has already a shadow.
@@ -1924,7 +2000,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         arena = llarena.arena_malloc(raw_malloc_usage(totalsize), False)
         if not arena:
-            raise MemoryError("cannot allocate object")
+            out_of_memory("out of memory: couldn't allocate a few KB more")
         llarena.arena_reserve(arena, totalsize)
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -2032,7 +2108,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
             # XXX A simplifying assumption that should be checked,
             # finalizers/weak references are rare and short which means that
-            # they do not need a seperate state and do not need to be
+            # they do not need a separate state and do not need to be
             # made incremental.
             if (not self.objects_to_trace.non_empty() and
                 not self.more_objects_to_trace.non_empty()):
@@ -2122,9 +2198,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     # even higher memory consumption.  To prevent it, if it's
                     # the second time we are here, then abort the program.
                     if self.max_heap_size_already_raised:
-                        llop.debug_fatalerror(lltype.Void,
-                                              "Using too much memory, aborting")
+                        out_of_memory("using too much memory, aborting")
                     self.max_heap_size_already_raised = True
+                    self.gc_state = STATE_SCANNING
                     raise MemoryError
 
                 self.gc_state = STATE_FINALIZING

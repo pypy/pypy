@@ -113,7 +113,7 @@ class Entry(ExtRegistryEntry):
 
 BUILTIN_TYPES = ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict',
                  'unicode', 'complex', 'slice', 'bool', 'basestring', 'object',
-                 'bytearray', 'buffer']
+                 'bytearray', 'buffer', 'set', 'frozenset']
 
 class FakeObjSpace(ObjSpace):
     def __init__(self, config=None):
@@ -143,6 +143,12 @@ class FakeObjSpace(ObjSpace):
     def newtuple(self, list_w):
         for w_x in list_w:
             is_root(w_x)
+        return w_some_obj()
+
+    def newset(self, list_w=None):
+        if list_w is not None:
+            for w_x in list_w:
+                is_root(w_x)
         return w_some_obj()
 
     def newlist(self, list_w):
@@ -181,6 +187,9 @@ class FakeObjSpace(ObjSpace):
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
+
+    def wrapbytes(self, x):
+        return w_some_obj()
 
     def wrap(self, x):
         if not we_are_translated():

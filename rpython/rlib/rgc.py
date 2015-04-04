@@ -330,6 +330,20 @@ def ll_shrink_array(p, smallerlength):
     keepalive_until_here(newp)
     return newp
 
+@jit.dont_look_inside
+@specialize.ll()
+def ll_arrayclear(p):
+    # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
+    from rpython.rlib.objectmodel import keepalive_until_here
+
+    length = len(p)
+    ARRAY = lltype.typeOf(p).TO
+    offset = llmemory.itemoffsetof(ARRAY, 0)
+    dest_addr = llmemory.cast_ptr_to_adr(p) + offset
+    llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    keepalive_until_here(p)
+
+
 def no_release_gil(func):
     func._dont_inline_ = True
     func._no_release_gil_ = True
@@ -428,6 +442,10 @@ def dump_rpy_heap(fd):
     raise NotImplementedError
 
 def get_typeids_z():
+    "NOT_RPYTHON"
+    raise NotImplementedError
+
+def get_typeids_list():
     "NOT_RPYTHON"
     raise NotImplementedError
 
@@ -630,6 +648,18 @@ class Entry(ExtRegistryEntry):
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
+    _about_ = get_typeids_list
+
+    def compute_result_annotation(self):
+        from rpython.rtyper.llannotation import SomePtr
+        from rpython.rtyper.lltypesystem import llgroup
+        return SomePtr(lltype.Ptr(lltype.Array(llgroup.HALFWORD)))
+
+    def specialize_call(self, hop):
+        hop.exception_is_here()
+        return hop.genop('gc_typeids_list', [], resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
     _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)
     def compute_result_annotation(self, s_arg=None):
         from rpython.annotator.model import s_Bool
@@ -648,13 +678,18 @@ def register_custom_trace_hook(TP, lambda_func):
     """ This function does not do anything, but called from any annotated
     place, will tell that "func" is used to trace GC roots inside any instance
     of the type TP.  The func must be specified as "lambda: func" in this
-    call, for internal reasons.
+    call, for internal reasons.  Note that the func will be automatically
+    specialized on the 'callback' argument value.  Example:
+
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
     """
 
 class RegisterGcTraceEntry(ExtRegistryEntry):
     _about_ = register_custom_trace_hook
 
-    def compute_result_annotation(self, *args_s):
+    def compute_result_annotation(self, s_tp, s_lambda_func):
         pass
 
     def specialize_call(self, hop):
@@ -662,3 +697,26 @@ class RegisterGcTraceEntry(ExtRegistryEntry):
         lambda_func = hop.args_s[1].const
         hop.exception_cannot_occur()
         hop.rtyper.custom_trace_funcs.append((TP, lambda_func()))
+
+def register_custom_light_finalizer(TP, lambda_func):
+    """ This function does not do anything, but called from any annotated
+    place, will tell that "func" is used as a lightweight finalizer for TP.
+    The func must be specified as "lambda: func" in this call, for internal
+    reasons.
+    """
+
+class RegisterCustomLightFinalizer(ExtRegistryEntry):
+    _about_ = register_custom_light_finalizer
+
+    def compute_result_annotation(self, s_tp, s_lambda_func):
+        pass
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.llannotation import SomePtr
+        TP = hop.args_s[0].const
+        lambda_func = hop.args_s[1].const
+        ll_func = lambda_func()
+        args_s = [SomePtr(lltype.Ptr(TP))]
+        funcptr = hop.rtyper.annotate_helper_fn(ll_func, args_s)
+        hop.exception_cannot_occur()
+        lltype.attachRuntimeTypeInfo(TP, destrptr=funcptr)

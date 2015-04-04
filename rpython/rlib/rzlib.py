@@ -22,13 +22,10 @@ eci = ExternalCompilationInfo(
         includes=['zlib.h'],
         testonly_libraries = testonly_libraries
     )
-try:
-    eci = rffi_platform.configure_external_library(
-        libname, eci,
-        [dict(prefix='zlib-'),
-         ])
-except CompilationError:
-    raise ImportError("Could not find a zlib library")
+eci = rffi_platform.configure_external_library(
+    libname, eci,
+    [dict(prefix='zlib-'),
+     ])
 
 
 constantnames = '''
@@ -167,6 +164,7 @@ def _inflateInit2(stream, wbits):
 
 _deflateSetDictionary = zlib_external('deflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
 _inflateSetDictionary = zlib_external('inflateSetDictionary', [z_stream_p, Bytefp, uInt], rffi.INT)
+_zlibVersion = zlib_external('zlibVersion', [], rffi.CCHARP)
 
 # ____________________________________________________________
 
@@ -207,6 +205,10 @@ def adler32(string, start=ADLER32_DEFAULT_START):
     with rffi.scoped_nonmovingbuffer(string) as bytes:
         checksum = _adler32(start, rffi.cast(Bytefp, bytes), len(string))
     return checksum
+
+def zlibVersion():
+    """Return the runtime version of zlib library"""
+    return rffi.charp2str(_zlibVersion())
 
 # ____________________________________________________________
 
@@ -363,10 +365,8 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
-    with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
-        # XXX (groggi) should be possible to improve this with pinning by
-        # not performing the 'copy_string_to_raw' if non-movable/pinned
-        copy_string_to_raw(llstr(data), inbuf, 0, len(data))
+    assert data is not None # XXX seems to be sane assumption, however not for sure
+    with rffi.scoped_nonmovingbuffer(data) as inbuf:
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))
 

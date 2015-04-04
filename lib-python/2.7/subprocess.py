@@ -1054,7 +1054,15 @@ class Popen(object):
                     try:
                         self.stdin.write(input)
                     except IOError as e:
-                        if e.errno != errno.EPIPE:
+                        if e.errno == errno.EPIPE:
+                            # communicate() should ignore broken pipe error
+                            pass
+                        elif (e.errno == errno.EINVAL
+                              and self.poll() is not None):
+                            # Issue #19612: stdin.write() fails with EINVAL
+                            # if the process already exited before the write
+                            pass
+                        else:
                             raise
                 self.stdin.close()
 
@@ -1589,7 +1597,7 @@ def _pypy_install_libs_after_virtualenv(target_executable):
                   'copyfile' in caller.f_globals):
         dest_dir = sys.pypy_resolvedirof(target_executable)
         src_dir = sys.pypy_resolvedirof(sys.executable)
-        for libname in ['libpypy-c.so']:
+        for libname in ['libpypy-c.so', 'libpypy-c.dylib']:
             dest_library = os.path.join(dest_dir, libname)
             src_library = os.path.join(src_dir, libname)
             if os.path.exists(src_library):

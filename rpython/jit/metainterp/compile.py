@@ -63,14 +63,18 @@ def record_loop_or_bridge(metainterp_sd, loop):
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         assert original_jitcell_token.generation > 0     # has been registered with memmgr
     wref = weakref.ref(original_jitcell_token)
+    clt = original_jitcell_token.compiled_loop_token
+    clt.loop_token_wref = wref
     for op in loop.operations:
         descr = op.getdescr()
+        # not sure what descr.index is about
         if isinstance(descr, ResumeDescr):
-            descr.wref_original_loop_token = wref   # stick it there
-            n = descr.index
-            if n >= 0:       # we also record the resumedescr number
-                original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
-        elif isinstance(descr, JitCellToken):
+            descr.rd_loop_token = clt   # stick it there
+            #n = descr.index
+            #if n >= 0:       # we also record the resumedescr number
+            #    original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
+        #    pass
+        if isinstance(descr, JitCellToken):
             # for a CALL_ASSEMBLER: record it as a potential jump.
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
@@ -123,12 +127,14 @@ def compile_loop(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     h_ops = history.operations
-    part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                      [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
+    label = ResOperation(rop.LABEL, inputargs, None,
+                         descr=TargetToken(jitcell_token))
+    end_label = ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)
+    part.operations = [label] + h_ops[start:] + [end_label]
 
     try:
-        start_state = optimize_trace(metainterp_sd, part, enable_opts)
+        start_state = optimize_trace(metainterp_sd, jitdriver_sd, part,
+                                     enable_opts, export_state=True)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -155,8 +161,8 @@ def compile_loop(metainterp, greenkey, start,
         jumpargs = part.operations[-1].getarglist()
 
         try:
-            optimize_trace(metainterp_sd, part, enable_opts,
-                           start_state=start_state)
+            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
+                           start_state=start_state, export_state=False)
         except InvalidLoop:
             return None
 
@@ -202,14 +208,15 @@ def compile_retrace(metainterp, greenkey, start,
     h_ops = history.operations
 
     part.operations = [partial_trace.operations[-1]] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                      h_ops[start:] + \
                       [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
     label = part.operations[0]
     orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
     try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
-                       start_state=start_state)
+        optimize_trace(metainterp_sd, jitdriver_sd, part,
+                       jitdriver_sd.warmstate.enable_opts,
+                       start_state=start_state, export_state=False)
     except InvalidLoop:
         # Fall back on jumping to preamble
         target_token = label.getdescr()
@@ -218,9 +225,10 @@ def compile_retrace(metainterp, greenkey, start,
                           [ResOperation(rop.JUMP, inputargs[:],
                                         None, descr=loop_jitcell_token)]
         try:
-            optimize_trace(metainterp_sd, part,
+            optimize_trace(metainterp_sd, jitdriver_sd, part,
                            jitdriver_sd.warmstate.enable_opts,
-                           inline_short_preamble=False, start_state=start_state)
+                           inline_short_preamble=False, start_state=start_state,
+                           export_state=False)
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
@@ -317,7 +325,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
 
     original_jitcell_token = loop.original_jitcell_token
-    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     original_jitcell_token.number = n = globaldata.loopnumbering
     globaldata.loopnumbering += 1
@@ -339,6 +346,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
+        loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
         asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname)
@@ -477,21 +485,30 @@ def make_done_loop_tokens():
     return d
 
 class ResumeDescr(AbstractFailDescr):
-    pass
+    _attrs_ = ()
 
 class ResumeGuardDescr(ResumeDescr):
-    # this class also gets the following attributes stored by resume.py code
-    # XXX move all of unused stuff to guard_op, now that we can have
-    #     a separate class, so it does not survive that long
-    rd_snapshot = None
-    rd_frame_info_list = None
+    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
+    
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
     rd_consts = None
     rd_virtuals = None
+    rd_frame_info_list = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     status = r_uint(0)
+
+    def copy_all_attributes_from(self, other):
+        assert isinstance(other, ResumeGuardDescr)
+        self.rd_count = other.rd_count
+        self.rd_consts = other.rd_consts
+        self.rd_frame_info_list = other.rd_frame_info_list
+        self.rd_pendingfields = other.rd_pendingfields
+        self.rd_virtuals = other.rd_virtuals
+        self.rd_numb = other.rd_numb
+        # we don't copy status
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
     ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
@@ -507,30 +524,11 @@ class ResumeGuardDescr(ResumeDescr):
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)
-        self.guard_opnum = guard_op.getopnum()
         #
         if metainterp_sd.warmrunnerdesc is not None:   # for tests
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
             hash = jitcounter.fetch_next_hash()
             self.status = hash & self.ST_SHIFT_MASK
-
-    def make_a_counter_per_value(self, guard_value_op):
-        assert guard_value_op.getopnum() == rop.GUARD_VALUE
-        box = guard_value_op.getarg(0)
-        try:
-            i = guard_value_op.getfailargs().index(box)
-        except ValueError:
-            return     # xxx probably very rare
-        else:
-            if box.type == history.INT:
-                ty = self.TY_INT
-            elif box.type == history.REF:
-                ty = self.TY_REF
-            elif box.type == history.FLOAT:
-                ty = self.TY_FLOAT
-            else:
-                assert 0, box.type
-            self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
@@ -630,32 +628,62 @@ class ResumeGuardDescr(ResumeDescr):
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token)
 
-    def copy_all_attributes_into(self, res):
-        # XXX a bit ugly to have to list them all here
-        res.rd_snapshot = self.rd_snapshot
-        res.rd_frame_info_list = self.rd_frame_info_list
-        res.rd_numb = self.rd_numb
-        res.rd_consts = self.rd_consts
-        res.rd_virtuals = self.rd_virtuals
-        res.rd_pendingfields = self.rd_pendingfields
-        res.rd_count = self.rd_count
+    def make_a_counter_per_value(self, guard_value_op):
+        assert guard_value_op.getopnum() == rop.GUARD_VALUE
+        box = guard_value_op.getarg(0)
+        try:
+            i = guard_value_op.getfailargs().index(box)
+        except ValueError:
+            return     # xxx probably very rare
+        else:
+            if box.type == history.INT:
+                ty = self.TY_INT
+            elif box.type == history.REF:
+                ty = self.TY_REF
+            elif box.type == history.FLOAT:
+                ty = self.TY_FLOAT
+            else:
+                assert 0, box.type
+            self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
-    def _clone_if_mutable(self):
-        res = ResumeGuardDescr()
-        self.copy_all_attributes_into(res)
-        return res
+class ResumeGuardNonnullDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NONNULL
+
+class ResumeGuardIsnullDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_ISNULL
+
+class ResumeGuardClassDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_CLASS
+
+class ResumeGuardTrueDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_TRUE
+
+class ResumeGuardFalseDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_FALSE
+
+class ResumeGuardNonnullClassDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NONNULL_CLASS
+
+class ResumeGuardExceptionDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_EXCEPTION
+
+class ResumeGuardNoExceptionDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NO_EXCEPTION
+
+class ResumeGuardOverflowDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_OVERFLOW
+
+class ResumeGuardNoOverflowDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NO_OVERFLOW
+
+class ResumeGuardValueDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_VALUE
 
 class ResumeGuardNotInvalidated(ResumeGuardDescr):
-    def _clone_if_mutable(self):
-        res = ResumeGuardNotInvalidated()
-        self.copy_all_attributes_into(res)
-        return res
+    guard_opnum = rop.GUARD_NOT_INVALIDATED
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
-    def _clone_if_mutable(self):
-        res = ResumeAtPositionDescr()
-        self.copy_all_attributes_into(res)
-        return res
+    guard_opnum = rop.GUARD_FUTURE_CONDITION
 
 class AllVirtuals:
     llopaque = True
@@ -676,8 +704,10 @@ class AllVirtuals:
 
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_NOT_FORCED
 
-    def __init__(self, metainterp_sd, jitdriver_sd):
+    def _init(self, metainterp_sd, jitdriver_sd):
+        # to please the annotator
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
 
@@ -719,18 +749,14 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import (force_from_resumedata,
-                                                   AlreadyForced)
+        from rpython.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
         # there is some chance that this is already forced. In this case
         # the virtualizable would have a token = NULL
-        try:
-            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                                 vinfo, ginfo)
-        except AlreadyForced:
-            return
+        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                             vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
@@ -738,12 +764,39 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
 
-    def _clone_if_mutable(self):
-        res = ResumeGuardForcedDescr(self.metainterp_sd,
-                                     self.jitdriver_sd)
-        self.copy_all_attributes_into(res)
-        return res
-
+def invent_fail_descr_for_op(opnum, optimizer):
+    if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
+        resumedescr = ResumeGuardForcedDescr()
+        resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
+    elif opnum == rop.GUARD_NOT_INVALIDATED:
+        resumedescr = ResumeGuardNotInvalidated()
+    elif opnum == rop.GUARD_FUTURE_CONDITION:
+        resumedescr = ResumeAtPositionDescr()
+    elif opnum == rop.GUARD_VALUE:
+        resumedescr = ResumeGuardValueDescr()
+    elif opnum == rop.GUARD_NONNULL:
+        resumedescr = ResumeGuardNonnullDescr()
+    elif opnum == rop.GUARD_ISNULL:
+        resumedescr = ResumeGuardIsnullDescr()
+    elif opnum == rop.GUARD_NONNULL_CLASS:
+        resumedescr = ResumeGuardNonnullClassDescr()
+    elif opnum == rop.GUARD_CLASS:
+        resumedescr = ResumeGuardClassDescr()
+    elif opnum == rop.GUARD_TRUE:
+        resumedescr = ResumeGuardTrueDescr()
+    elif opnum == rop.GUARD_FALSE:
+        resumedescr = ResumeGuardFalseDescr()
+    elif opnum == rop.GUARD_EXCEPTION:
+        resumedescr = ResumeGuardExceptionDescr()
+    elif opnum == rop.GUARD_NO_EXCEPTION:
+        resumedescr = ResumeGuardNoExceptionDescr()
+    elif opnum == rop.GUARD_OVERFLOW:
+        resumedescr = ResumeGuardOverflowDescr()
+    elif opnum == rop.GUARD_NO_OVERFLOW:
+        resumedescr = ResumeGuardNoOverflowDescr()
+    else:
+        assert False
+    return resumedescr
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
@@ -779,17 +832,19 @@ def compile_trace(metainterp, resumekey):
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_trace = create_empty_loop(metainterp)
     new_trace.inputargs = metainterp.history.inputargs[:]
-    # clone ops, as optimize_bridge can mutate the ops
 
-    new_trace.operations = [op.clone() for op in metainterp.history.operations]
+    new_trace.operations = metainterp.history.operations[:]
     metainterp_sd = metainterp.staticdata
-    state = metainterp.jitdriver_sd.warmstate
+    jitdriver_sd = metainterp.jitdriver_sd
+    state = jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
     else:
         inline_short_preamble = True
     try:
-        state = optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
+        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace,
+                               state.enable_opts,
+                               inline_short_preamble, export_state=True)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise

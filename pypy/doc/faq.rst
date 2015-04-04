@@ -3,6 +3,13 @@ Frequently Asked Questions
 
 .. contents::
 
+See also: `Frequently ask questions about RPython.`__
+
+.. __: http://rpython.readthedocs.org/en/latest/faq.html
+
+---------------------------
+
+
 What is PyPy?
 -------------
 
@@ -188,6 +195,55 @@ machine code completely impossible without some very advanced way of
 mapping addresses in the old (now-dead) process to addresses in the new
 process, including checking that all the previous assumptions about the
 (now-dead) object are still true about the new object.
+
+
+
+Would type annotations help PyPy's performance?
+-----------------------------------------------
+
+Two examples of type annotations that are being proposed for improved
+performance are `Cython types`__ and `PEP 484 - Type Hints`__.
+
+.. __: http://docs.cython.org/src/reference/language_basics.html#declaring-data-types
+.. __: https://www.python.org/dev/peps/pep-0484/
+
+**Cython types** are, by construction, similar to C declarations.  For
+example, a local variable or an instance attribute can be declared
+``"cdef int"`` to force a machine word to be used.  This changes the
+usual Python semantics (e.g. no overflow checks, and errors when
+trying to write other types of objects there).  It gives some extra
+performance, but the exact benefits are unclear: right now
+(January 2015) for example we are investigating a technique that would
+store machine-word integers directly on instances, giving part of the
+benefits without the user-supplied ``"cdef int"``.
+
+**PEP 484 - Type Hints,** on the other hand, is almost entirely
+useless if you're looking at performance.  First, as the name implies,
+they are *hints:* they must still be checked at runtime, like PEP 484
+says.  Or maybe you're fine with a mode in which you get very obscure
+crashes when the type annotations are wrong; but even in that case the
+speed benefits would be extremely minor.
+
+There are several reasons for why.  One of them is that annotations
+are at the wrong level (e.g. a PEP 484 "int" corresponds to Python 3's
+int type, which does not necessarily fits inside one machine word;
+even worse, an "int" annotation allows arbitrary int subclasses).
+Another is that a lot more information is needed to produce good code
+(e.g. "this ``f()`` called here really means this function there, and
+will never be monkey-patched" -- same with ``len()`` or ``list()``,
+btw).  The third reason is that some "guards" in PyPy's JIT traces
+don't really have an obvious corresponding type (e.g. "this dict is so
+far using keys which don't override ``__hash__`` so a more efficient
+implementation was used").  Many guards don't even have any correspondence
+with types at all ("this class attribute was not modified"; "the loop
+counter did not reach zero so we don't need to release the GIL"; and
+so on).
+
+As PyPy works right now, it is able to derive far more useful
+information than can ever be given by PEP 484, and it works
+automatically.  As far as we know, this is true even if we would add
+other techniques to PyPy, like a fast first-pass JIT.
+
 
 
 .. _`prolog and javascript`:
