@@ -1284,10 +1284,7 @@ def times():
     if not _WIN32:
         l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
         try:
-            result = c_times(l_tmsbuf)
-            result = rffi.cast(lltype.Signed, result)
-            if result == -1:
-                raise OSError(get_saved_errno(), "times failed")
+            handle_posix_error('times', c_times(l_tmsbuf))
             return (
                 rffi.cast(lltype.Signed, l_tmsbuf.c_tms_utime)
                                                / CLOCK_TICKS_PER_SECOND,
@@ -1323,7 +1320,7 @@ def times():
             lltype.free(pexit,   flavor='raw')
             lltype.free(pcreate, flavor='raw')
 
-c_kill = external('kill', [rffi.PID_T, rffi.INT], rffi.INT
+c_kill = external('kill', [rffi.PID_T, rffi.INT], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_killpg = external('killpg', [rffi.INT, rffi.INT], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
