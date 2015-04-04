@@ -58,3 +58,11 @@ class AppTestVMProf(object):
         assert "py:foo:" in s
         assert "py:foo2:" in s
         assert no_of_codes2 >= no_of_codes + 2 # some extra codes from tests
+
+    def test_enable_ovf(self):
+        import _vmprof
+        raises(ValueError, _vmprof.enable, 999, 0)
+        raises(ValueError, _vmprof.enable, 999, -2.5)
+        raises(ValueError, _vmprof.enable, 999, 1e300)
+        raises(ValueError, _vmprof.enable, 999, 1e300 * 1e300)
+        raises(ValueError, _vmprof.enable, 999, (1e300*1e300) / (1e300*1e300))
