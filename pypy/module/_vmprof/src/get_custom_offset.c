@@ -29,6 +29,8 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
     intptr_t id;
     long start_addr = 0;
     intptr_t addr = (intptr_t)ip;
+    int start, k;
+    void *tmp;
 
     codemap = pypy_find_codemap_at_addr(addr, &start_addr);
     if (codemap == NULL)
@@ -38,12 +40,20 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
     // modify the last entry to point to start address and not the random one
     // in the middle
     result[n - 1] = (void*)start_addr;
+    start = n;
     while (n < max_depth) {
         id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
         if (id == 0)
             // finish
             break;
         result[n++] = (void *)id;
+    }
+    k = 0;
+    while (k < (n - start) / 2) {
+        tmp = result[start + k];
+        result[start + k] = result[n - k - 1];
+        result[n - k - 1] = tmp;
+        k++;
     }
     return n;
 }
