@@ -4,6 +4,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit, rposix, rgc
+from rpython.rlib.rarithmetic import ovfcheck_float_to_int
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import W_Root
@@ -222,12 +223,12 @@ def enable(space, fileno, period=0.01):   # default 100 Hz
     assert isinstance(mod_vmprof, Module)
     #
     try:
-        period_usec = int(period * 1000000.0 + 0.5)
+        period_usec = ovfcheck_float_to_int(period * 1000000.0 + 0.5)
         if period_usec <= 0:
             raise ValueError
     except (ValueError, OverflowError):
-        raise OperationError(self.w_ValueError,
-                             self.wrap("'period' too large or non positive"))
+        raise OperationError(space.w_ValueError,
+                             space.wrap("'period' too large or non positive"))
     #
     mod_vmprof.vmprof.enable(space, fileno, period_usec)
 
