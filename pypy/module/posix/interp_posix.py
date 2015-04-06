@@ -1,11 +1,11 @@
 import os
 import sys
 
-from rpython.rlib import rposix, objectmodel, rurandom
+from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.module import ll_os_stat
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
@@ -215,13 +215,13 @@ opened on a directory, not a file."""
 
 # ____________________________________________________________
 
-STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
+STAT_FIELDS = unrolling_iterable(enumerate(rposix_stat.STAT_FIELDS))
 
-STATVFS_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STATVFS_FIELDS))
+STATVFS_FIELDS = unrolling_iterable(enumerate(rposix_stat.STATVFS_FIELDS))
 
 def build_stat_result(space, st):
     FIELDS = STAT_FIELDS    # also when not translating at all
-    lst = [None] * ll_os_stat.N_INDEXABLE_FIELDS
+    lst = [None] * rposix_stat.N_INDEXABLE_FIELDS
     w_keywords = space.newdict()
     stat_float_times = space.fromcache(StatState).stat_float_times
     for i, (name, TYPE) in FIELDS:
@@ -229,7 +229,7 @@ def build_stat_result(space, st):
         if name in ('st_atime', 'st_mtime', 'st_ctime'):
             value = int(value)   # rounded to an integer for indexed access
         w_value = space.wrap(value)
-        if i < ll_os_stat.N_INDEXABLE_FIELDS:
+        if i < rposix_stat.N_INDEXABLE_FIELDS:
             lst[i] = w_value
         else:
             space.setitem(w_keywords, space.wrap(name), w_value)
@@ -257,7 +257,7 @@ def build_stat_result(space, st):
 
 
 def build_statvfs_result(space, st):
-    vals_w = [None] * len(ll_os_stat.STATVFS_FIELDS)
+    vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.wrap(getattr(st, name))
     w_tuple = space.newtuple(vals_w)
@@ -270,7 +270,7 @@ def fstat(space, fd):
     """Perform a stat system call on the file referenced to by an open
 file descriptor."""
     try:
-        st = os.fstat(fd)
+        st = rposix_stat.fstat(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
@@ -292,7 +292,7 @@ with (at least) the following attributes:
 """
 
     try:
-        st = dispatch_filename(rposix.stat)(space, w_path)
+        st = dispatch_filename(rposix_stat.stat)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -301,7 +301,7 @@ with (at least) the following attributes:
 def lstat(space, w_path):
     "Like stat(path), but do no follow symbolic links."
     try:
-        st = dispatch_filename(rposix.lstat)(space, w_path)
+        st = dispatch_filename(rposix_stat.lstat)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:
@@ -330,7 +330,7 @@ If newval is omitted, return the current setting.
 @unwrap_spec(fd=c_int)
 def fstatvfs(space, fd):
     try:
-        st = os.fstatvfs(fd)
+        st = rposix_stat.fstatvfs(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -339,7 +339,7 @@ def fstatvfs(space, fd):
 
 def statvfs(space, w_path):
     try:
-        st = dispatch_filename(rposix.statvfs)(space, w_path)
+        st = dispatch_filename(rposix_stat.statvfs)(space, w_path)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:

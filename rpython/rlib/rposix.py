@@ -355,18 +355,6 @@ else:
     def _preferred_traits(path):
         return string_traits
     
-@specialize.argtype(0)
-def stat(path):
-    return os.stat(_as_bytes(path))
-
-@specialize.argtype(0)
-def lstat(path):
-    return os.lstat(_as_bytes(path))
-
-@specialize.argtype(0)
-def statvfs(path):
-    return os.statvfs(_as_bytes(path))
-
 @specialize.argtype(0, 1)
 def putenv(name, value):
     os.environ[_as_bytes(name)] = _as_bytes(value)
@@ -1284,7 +1272,7 @@ def times():
     if not _WIN32:
         l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
         try:
-            handle_posix_error('times', c_times(l_tmsbuf))
+            result = handle_posix_error('times', c_times(l_tmsbuf))
             return (
                 rffi.cast(lltype.Signed, l_tmsbuf.c_tms_utime)
                                                / CLOCK_TICKS_PER_SECOND,

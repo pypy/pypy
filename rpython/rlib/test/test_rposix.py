@@ -1,7 +1,7 @@
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.udir import udir
-from rpython.rlib import rposix, rstring
+from rpython.rlib import rposix, rposix_stat, rstring
 import os, sys
 import py
 
@@ -60,7 +60,7 @@ class BasePosixUnicodeOrAscii:
 
     def test_stat(self):
         def f():
-            return rposix.stat(self.path).st_mtime
+            return rposix_stat.stat(self.path).st_mtime
         if sys.platform == 'win32':
             # double vs. float, be satisfied with sub-millisec resolution
             assert abs(interpret(f, []) - os.stat(self.ufilename).st_mtime) < 1e-4

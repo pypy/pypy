@@ -167,7 +167,7 @@ def test_llinterp_unmarshal():
 def test_stat_result():
     import os
     from rpython.translator.c.test.test_genc import compile
-    from rpython.rtyper.module.ll_os_stat import s_StatResult
+    from rpython.rlib.rposix_stat import s_StatResult
     marshal_stat_result = get_marshaller(s_StatResult)
     unmarshal_stat_result = get_unmarshaller(s_StatResult)
     def f(path):
