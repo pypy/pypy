@@ -16,7 +16,7 @@ int custom_sanity_check()
     return !pypy_codemap_currently_invalid;
 }
 
-static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, unw_cursor_t *cp) {
+static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, void *cp) {
     intptr_t ip_l = (intptr_t)ip;
     return pypy_jit_stack_depth_at_loc(ip_l);
 }
