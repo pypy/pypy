@@ -411,6 +411,7 @@ def lstat(path):
         with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
             arg = _as_bytes0(path)
             handle_posix_error('lstat', c_stat(arg, stresult))
+            return build_stat_result(stresult)
     else:
         traits = _preferred_traits(path)
         path = traits.as_str0(path)
