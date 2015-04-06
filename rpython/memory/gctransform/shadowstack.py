@@ -464,6 +464,13 @@ def get_shadowstackref(root_walker, gctransformer):
 
     def customtrace(gc, obj, callback, arg):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
+        index = obj.fsindex
+        if index > 0:
+            # Haaaaaaack: fullstack_cache[] is just an integer, so it
+            # doesn't follow the SHADOWSTACKREF when it moves.  But we
+            # know this customtrace() will be called just after the
+            # move.  So we fix the fullstack_cache[] now... :-/
+            fullstack_cache[index] = lltype.cast_ptr_to_int(obj)
         addr = obj.top
         start = obj.base
         while addr != start:
