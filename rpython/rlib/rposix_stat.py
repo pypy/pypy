@@ -417,6 +417,7 @@ def fstatvfs(fd):
         return build_statvfs_result(stresult)
 
 @replace_os_function('statvfs')
+@specialize.argtype(0)
 def statvfs(path):
     with lltype.scoped_alloc(STATVFS_STRUCT.TO) as stresult:
         arg = _as_bytes0(path)
