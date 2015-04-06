@@ -18,6 +18,11 @@ from rpython.rlib import debug, rthread
 _WIN32 = sys.platform.startswith('win')
 _CYGWIN = sys.platform == 'cygwin'
 UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
+_MACRO_ON_POSIX = True if not _WIN32 else None
+
+if _WIN32:
+    from rpython.rlib import rwin32 
+    from rpython.rlib.rwin32file import make_win32_traits
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -268,7 +273,8 @@ def external(name, args, result, compilation_info=eci, **kwds):
 # For now we require off_t to be the same size as LONGLONG, which is the
 # interface required by callers of functions that thake an argument of type
 # off_t.
-assert OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
+if not _WIN32:
+    assert OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
 c_dup = external(UNDERSCORE_ON_WIN32 + 'dup', [rffi.INT], rffi.INT,
                  save_err=rffi.RFFI_SAVE_ERRNO)
@@ -369,8 +375,11 @@ def unsetenv(name):
 # with errno.
 
 def replace_os_function(name):
+    func = getattr(os, name, None)
+    if func is None:
+        return lambda f: f
     return register_replacement_for(
-        getattr(os, name, None),
+        func,
         sandboxed_name='ll_os.ll_os_%s' % name)
 
 @specialize.arg(0)
@@ -436,7 +445,7 @@ def close(fd):
 
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
                    [rffi.INT, rffi.LONGLONG, rffi.INT], rffi.LONGLONG,
-                   macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
+                   macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('lseek')
 def lseek(fd, pos, how):
@@ -451,7 +460,7 @@ def lseek(fd, pos, how):
     return handle_posix_error('lseek', c_lseek(fd, pos, how))
 
 c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
-                       macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
+                       macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT,
@@ -490,9 +499,8 @@ def chdir(path):
         handle_posix_error('chdir', c_chdir(_as_bytes0(path)))
     else:
         traits = _preferred_traits(path)
-        from rpython.rlib.rwin32file import make_win32_traits
         win32traits = make_win32_traits(traits)
-        path = traits._as_str0(path)
+        path = traits.as_str0(path)
 
         # This is a reimplementation of the C library's chdir
         # function, but one that produces Win32 errors instead of DOS
@@ -556,7 +564,6 @@ def access(path, mode):
 def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
     traits = _preferred_traits(path)
-    from rpython.rlib.rwin32file import make_win32_traits
     win32traits = make_win32_traits(traits)
     with traits.scoped_alloc_buffer(length) as buf:
         res = win32traits.GetFullPathName(
@@ -654,7 +661,6 @@ def listdir(path):
             raise OSError(error, "readdir failed")
         return result
     else:  # _WIN32 case
-        from rpython.rlib.rwin32file import make_win32_traits
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)
@@ -846,7 +852,7 @@ def waitpid(pid, options):
 
 def _make_waitmacro(name):
     c_func = external(name, [lltype.Signed], lltype.Signed,
-                      macro=True)
+                      macro=_MACRO_ON_POSIX)
     returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')
 
     @replace_os_function(name)
@@ -1040,7 +1046,7 @@ c_mkfifo = external('mkfifo', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
 c_mknod = external('mknod', [rffi.CCHARP, rffi.MODE_T, rffi.INT], rffi.INT,
 #                                           # xxx: actually ^^^ dev_t
-                   macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
+                   macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('mkfifo')
 @specialize.argtype(0)
@@ -1212,7 +1218,7 @@ def utime(path, times):
                 lltype.free(l_utimbuf, flavor='raw')
         handle_posix_error('utime', error)
     else:  # _WIN32 case
-        from rpython.rlib.rwin32file import make_win32_traits, time_t_to_FILE_TIME
+        from rpython.rlib.rwin32file import time_t_to_FILE_TIME
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)

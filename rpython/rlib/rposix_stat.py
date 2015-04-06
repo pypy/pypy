@@ -11,8 +11,7 @@ from rpython.tool.pairtype import pairtype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.llannotation import lltype_to_annotation
 
-from rpython.rlib.objectmodel import (
-    specialize)
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rposix import (
@@ -427,22 +426,13 @@ def statvfs(path):
 #__________________________________________________
 # Helper functions for win32
 if _WIN32:
+    from rpython.rlib.rwin32file import FILE_TIME_to_time_t_float
 
     def make_longlong(high, low):
         return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
 
     # Seconds between 1.1.1601 and 1.1.1970
     secs_between_epochs = rffi.r_longlong(11644473600)
-
-    def FILE_TIME_to_time_t_float(filetime):
-        ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
-        # FILETIME is in units of 100 nsec
-        return float(ft) * (1.0 / 10000000.0) - secs_between_epochs
-
-    def time_t_to_FILE_TIME(time, filetime):
-        ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)
-        filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
-        filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits
 
     def win32_xstat(traits, path, traverse=False):
         win32traits = make_win32_traits(traits)
