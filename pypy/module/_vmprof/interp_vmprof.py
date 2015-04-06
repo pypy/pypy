@@ -224,7 +224,7 @@ def enable(space, fileno, period=0.01):   # default 100 Hz
     #
     try:
         period_usec = ovfcheck_float_to_int(period * 1000000.0 + 0.5)
-        if period_usec <= 0 or period_usec >= 1e9:
+        if period_usec <= 0 or period_usec >= 1e6:
             # we don't want seconds here at all
             raise ValueError
     except (ValueError, OverflowError):
