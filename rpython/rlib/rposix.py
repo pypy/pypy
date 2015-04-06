@@ -1033,7 +1033,7 @@ def rename(path1, path2):
         handle_posix_error('rename',
                            c_rename(_as_bytes0(path1), _as_bytes0(path2)))
     else:
-        traits = _preferred_traits(path)
+        traits = _preferred_traits(path1)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
@@ -1087,8 +1087,8 @@ def pipe():
         finally:
             lltype.free(pwrite, flavor='raw')
             lltype.free(pread, flavor='raw')
-        fdread = _open_osfhandle(hread, 0)
-        fdwrite = _open_osfhandle(hwrite, 1)
+        fdread = c_open_osfhandle(hread, 0)
+        fdwrite = c_open_osfhandle(hwrite, 1)
         return (fdread, fdwrite)
     else:
         filedes = lltype.malloc(INT_ARRAY_P.TO, 2, flavor='raw')

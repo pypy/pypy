@@ -14,11 +14,17 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rposix import (
-    replace_os_function, handle_posix_error, _as_bytes0)
+    replace_os_function, handle_posix_error, _as_bytes0,
+    _preferred_traits, string_traits)
 
 _WIN32 = sys.platform.startswith('win')
 _LINUX = sys.platform.startswith('linux')
+
+if _WIN32:
+    from rpython.rlib import rwin32 
+    from rpython.rlib.rwin32file import make_win32_traits
 
 # Support for float times is here.
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
@@ -321,93 +327,94 @@ def build_statvfs_result(st):
 
 # Implement and register os.stat() & variants
 
-c_fstat = rffi.llexternal('fstat64' if _LINUX else 'fstat',
-                          [rffi.INT, STAT_STRUCT], rffi.INT,
-                          compilation_info=compilation_info,
-                          save_err=rffi.RFFI_SAVE_ERRNO,
-                          macro=True)
-c_stat = rffi.llexternal('stat64' if _LINUX else 'stat',
-                         [rffi.CCHARP, STAT_STRUCT], rffi.INT,
-                         compilation_info=compilation_info,
-                         save_err=rffi.RFFI_SAVE_ERRNO,
-                         macro=True)
-c_lstat = rffi.llexternal('lstat64' if _LINUX else 'lstat',
-                          [rffi.CCHARP, STAT_STRUCT], rffi.INT,
-                          compilation_info=compilation_info,
-                          save_err=rffi.RFFI_SAVE_ERRNO,
-                          macro=True)
-
-c_fstatvfs = rffi.llexternal('fstatvfs',
-                             [rffi.INT, STATVFS_STRUCT], rffi.INT,
-                             compilation_info=compilation_info,
-                             save_err=rffi.RFFI_SAVE_ERRNO)
-c_statvfs = rffi.llexternal('statvfs',
-                            [rffi.CCHARP, STATVFS_STRUCT], rffi.INT,
+if not _WIN32:
+  c_fstat = rffi.llexternal('fstat64' if _LINUX else 'fstat',
+                            [rffi.INT, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
-                            save_err=rffi.RFFI_SAVE_ERRNO)
+                            save_err=rffi.RFFI_SAVE_ERRNO,
+                            macro=True)
+  c_stat = rffi.llexternal('stat64' if _LINUX else 'stat',
+                           [rffi.CCHARP, STAT_STRUCT], rffi.INT,
+                           compilation_info=compilation_info,
+                           save_err=rffi.RFFI_SAVE_ERRNO,
+                           macro=True)
+  c_lstat = rffi.llexternal('lstat64' if _LINUX else 'lstat',
+                            [rffi.CCHARP, STAT_STRUCT], rffi.INT,
+                            compilation_info=compilation_info,
+                            save_err=rffi.RFFI_SAVE_ERRNO,
+                            macro=True)
+
+  c_fstatvfs = rffi.llexternal('fstatvfs',
+                               [rffi.INT, STATVFS_STRUCT], rffi.INT,
+                               compilation_info=compilation_info,
+                               save_err=rffi.RFFI_SAVE_ERRNO)
+  c_statvfs = rffi.llexternal('statvfs',
+                              [rffi.CCHARP, STATVFS_STRUCT], rffi.INT,
+                              compilation_info=compilation_info,
+                              save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('fstat')
 def fstat(fd):
-    with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
-        if not _WIN32:
+    if not _WIN32:
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
             handle_posix_error('fstat', c_fstat(fd, stresult))
             return build_stat_result(stresult)
-        else:
-            handle = rwin32.get_osfhandle(fd)
-            filetype = win32traits.GetFileType(handle)
-            if filetype == win32traits.FILE_TYPE_CHAR:
-                # console or LPT device
-                return make_stat_result((win32traits._S_IFCHR,
-                                         0, 0, 0, 0, 0,
-                                         0, 0, 0, 0))
-            elif filetype == win32traits.FILE_TYPE_PIPE:
-                # socket or named pipe
-                return make_stat_result((win32traits._S_IFIFO,
-                                         0, 0, 0, 0, 0,
-                                         0, 0, 0, 0))
-            elif filetype == win32traits.FILE_TYPE_UNKNOWN:
-                error = rwin32.GetLastError_saved()
-                if error != 0:
-                    raise WindowsError(error, "os_fstat failed")
-                # else: unknown but valid file
+    else:
+        handle = rwin32.get_osfhandle(fd)
+        win32traits = make_win32_traits(string_traits)
+        filetype = win32traits.GetFileType(handle)
+        if filetype == win32traits.FILE_TYPE_CHAR:
+            # console or LPT device
+            return make_stat_result((win32traits._S_IFCHR,
+                                     0, 0, 0, 0, 0,
+                                     0, 0, 0, 0))
+        elif filetype == win32traits.FILE_TYPE_PIPE:
+            # socket or named pipe
+            return make_stat_result((win32traits._S_IFIFO,
+                                     0, 0, 0, 0, 0,
+                                     0, 0, 0, 0))
+        elif filetype == win32traits.FILE_TYPE_UNKNOWN:
+            error = rwin32.GetLastError_saved()
+            if error != 0:
+                raise WindowsError(error, "os_fstat failed")
+            # else: unknown but valid file
 
-            # normal disk file (FILE_TYPE_DISK)
-            info = lltype.malloc(win32traits.BY_HANDLE_FILE_INFORMATION,
-                                 flavor='raw', zero=True)
-            try:
-                res = win32traits.GetFileInformationByHandle(handle, info)
-                if res == 0:
-                    raise WindowsError(rwin32.GetLastError_saved(),
-                                       "os_fstat failed")
-                return win32_by_handle_info_to_stat(info)
-            finally:
-                lltype.free(info, flavor='raw')
+        # normal disk file (FILE_TYPE_DISK)
+        info = lltype.malloc(win32traits.BY_HANDLE_FILE_INFORMATION,
+                             flavor='raw', zero=True)
+        try:
+            res = win32traits.GetFileInformationByHandle(handle, info)
+            if res == 0:
+                raise WindowsError(rwin32.GetLastError_saved(),
+                                   "os_fstat failed")
+            return win32_by_handle_info_to_stat(win32traits, info)
+        finally:
+            lltype.free(info, flavor='raw')
 
 @replace_os_function('stat')
 @specialize.argtype(0)
 def stat(path):
-    with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
-        if not _WIN32:
+    if not _WIN32:
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
             arg = _as_bytes0(path)
             handle_posix_error('stat', c_stat(arg, stresult))
             return build_stat_result(stresult)
-        else:
-            traits = _preferred_traits(path)
-            path = traits._as_str0(path)
-            return win32_xstat(path, traverse=True)
+    else:
+        traits = _preferred_traits(path)
+        path = traits.as_str0(path)
+        return win32_xstat(traits, path, traverse=True)
 
 @replace_os_function('lstat')
 @specialize.argtype(0)
 def lstat(path):
-    with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
-        if not _WIN32:
+    if not _WIN32:
+        with lltype.scoped_alloc(STAT_STRUCT.TO) as stresult:
             arg = _as_bytes0(path)
             handle_posix_error('lstat', c_stat(arg, stresult))
-        else:
-            traits = _preferred_traits(path)
-            arg = traits._as_str0(path)
-            handle_posix_error('lstat', c_stat(arg, stresult))
-        return build_stat_result(stresult)
+    else:
+        traits = _preferred_traits(path)
+        path = traits.as_str0(path)
+        return win32_xstat(traits, path, traverse=False)
 
 @replace_os_function('fstatvfs')
 def fstatvfs(fd):
@@ -434,6 +441,7 @@ if _WIN32:
     # Seconds between 1.1.1601 and 1.1.1970
     secs_between_epochs = rffi.r_longlong(11644473600)
 
+    @specialize.arg(0)
     def win32_xstat(traits, path, traverse=False):
         win32traits = make_win32_traits(traits)
         with lltype.scoped_alloc(
@@ -443,13 +451,15 @@ if _WIN32:
             if res == 0:
                 errcode = rwin32.GetLastError_saved()
                 if errcode == win32traits.ERROR_SHARING_VIOLATION:
-                    res = win32_attributes_from_dir(path, data)
+                    res = win32_attributes_from_dir(
+                        win32traits, path, data)
             if res == 0:
                 errcode = rwin32.GetLastError_saved()
                 raise WindowsError(errcode, "os_stat failed")
-            return attribute_data_to_stat(data)
+            return win32_attribute_data_to_stat(win32traits, data)
 
-    def win32_attributes_to_mode(attributes):
+    @specialize.arg(0)
+    def win32_attributes_to_mode(win32traits, attributes):
         m = 0
         attributes = intmask(attributes)
         if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
@@ -462,8 +472,9 @@ if _WIN32:
             m |= 0666
         return m
 
-    def win32_attribute_data_to_stat(info):
-        st_mode = win32_attributes_to_mode(info.c_dwFileAttributes)
+    @specialize.arg(0)
+    def win32_attribute_data_to_stat(win32traits, info):
+        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
         mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
@@ -476,9 +487,9 @@ if _WIN32:
 
         return make_stat_result(result)
 
-    def win32_by_handle_info_to_stat(info):
+    def win32_by_handle_info_to_stat(win32traits, info):
         # similar to the one above
-        st_mode = win32_attributes_to_mode(info.c_dwFileAttributes)
+        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime = FILE_TIME_to_time_t_float(info.c_ftCreationTime)
         mtime = FILE_TIME_to_time_t_float(info.c_ftLastWriteTime)
@@ -495,10 +506,11 @@ if _WIN32:
 
         return make_stat_result(result)
 
-    def win32_attributes_from_dir(l_path, data):
+    @specialize.arg(0)
+    def win32_attributes_from_dir(win32traits, path, data):
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
         try:
-            hFindFile = win32traits.FindFirstFile(l_path, filedata)
+            hFindFile = win32traits.FindFirstFile(path, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 return 0
             win32traits.FindClose(hFindFile)

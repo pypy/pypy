@@ -117,6 +117,7 @@ class UnicodeTraits:
             return path.as_unicode()
     
     @staticmethod
+    @specialize.argtype(0)
     def as_str0(path):
         res = UnicodeTraits.as_str(path)
         rstring.check_str0(res)
