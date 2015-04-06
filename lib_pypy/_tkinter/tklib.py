@@ -135,7 +135,7 @@ elif sys.platform == 'darwin':
     linklibs = ['tcl', 'tk']
     libdirs = []
 else:
-    incdirs=['/usr/include/tcl']
+    incdirs=['/usr/include/tcl', '/usr/include/tcl8.6', '/usr/include/tcl8.5']
     linklibs=['tcl', 'tk']
     libdirs = []
 
