@@ -48,6 +48,12 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
             break;
         result[n++] = (void *)id;
     }
+    // we strip the topmost part - the reason is that it's either
+    // represented in the jitted caller or it's not jitted (we have the
+    // same function essentially twice
+    if (n != max_depth) {
+        n--;
+    }
     k = 0;
     while (k < (n - start) / 2) {
         tmp = result[start + k];
