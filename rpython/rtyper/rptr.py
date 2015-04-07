@@ -1,4 +1,3 @@
-from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import (
     SomePtr, SomeInteriorPtr, SomeLLADTMeth, lltype_to_annotation)
 from rpython.flowspace import model as flowmodel
@@ -107,11 +106,7 @@ class PtrRepr(Repr):
                          resulttype = self.lowleveltype.TO.RESULT)
 
     def rtype_call_args(self, hop):
-        from rpython.rtyper.rbuiltin import call_args_expand
-        hop, _ = call_args_expand(hop, takes_kwds=False)
-        hop.swap_fst_snd_args()
-        hop.r_s_popfirstarg()
-        return self.rtype_simple_call(hop)
+        raise TyperError("kwds args not supported")
 
 class __extend__(pairtype(PtrRepr, PtrRepr)):
     def convert_from_to((r_ptr1, r_ptr2), v, llop):
