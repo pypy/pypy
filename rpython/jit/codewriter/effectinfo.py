@@ -126,13 +126,17 @@ class EffectInfo(object):
         if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
             assert readonly_descrs_fields is None
             assert readonly_descrs_arrays is None
+            assert readonly_descrs_interiorfields is None
             assert write_descrs_fields is None
             assert write_descrs_arrays is None
+            assert write_descrs_interiorfields is None
         else:
             assert readonly_descrs_fields is not None
             assert readonly_descrs_arrays is not None
+            assert readonly_descrs_interiorfields is not None
             assert write_descrs_fields is not None
             assert write_descrs_arrays is not None
+            assert write_descrs_interiorfields is not None
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
         result.readonly_descrs_arrays = readonly_descrs_arrays
@@ -140,6 +144,8 @@ class EffectInfo(object):
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
            extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
+            # Ignore the writes.  Note that this ignores also writes with
+            # no corresponding reads (rarely the case, but possible).
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
             result.write_descrs_interiorfields = []
