@@ -1692,6 +1692,8 @@ class ObjectType(BaseType):
             w_obj = self.space.newint(w_obj)
         elif isinstance(w_obj, lltype.Number):
             w_obj = self.space.newint(w_obj)
+        elif isinstance(w_obj, float):
+            w_obj = self.space.newfloat(w_obj)
         else:
             raise oefmt(self.space.w_NotImplementedError,
                 "cannot create object array/scalar from lltype")
@@ -1718,13 +1720,13 @@ class ObjectType(BaseType):
     def eq(self, v1, v2):
         return self.space.eq_w(v1, v2)
 
-    @raw_binary_op
+    @simple_binary_op
     def max(self, v1, v2):
         if self.space.is_true(self.space.ge(v1, v2)):
             return v1
         return v2
 
-    @raw_binary_op
+    @simple_binary_op
     def min(self, v1, v2):
         if self.space.is_true(self.space.le(v1, v2)):
             return v1
@@ -1740,7 +1742,6 @@ class ObjectType(BaseType):
                not self.space.len_w(v) == 0 
 
     def _bool(self, v):
-        #assert isinstance(v, W_Root)
         return self.space.bool_w(v)
 
     @raw_binary_op
