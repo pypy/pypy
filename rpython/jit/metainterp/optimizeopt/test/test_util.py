@@ -182,9 +182,10 @@ class LLtypeMixin(object):
     FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
     plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                      EffectInfo.MOST_GENERAL)
-    cannotraisecalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                    EffectInfo([], [], [], [valuedescr], [], [],
-                                               EffectInfo.EF_CANNOT_RAISE))
+    elidablecalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo([valuedescr], [], [],
+                                               [valuedescr], [], [],
+                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE))
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo([], [], [], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,

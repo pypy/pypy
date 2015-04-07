@@ -3605,7 +3605,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=cannotraisecalldescr)
+        i3 = call_pure(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3617,7 +3617,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=cannotraisecalldescr)
+        i3 = call(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         i148 = same_as(i3)
         i147 = same_as(i3)
@@ -3630,7 +3630,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=cannotraisecalldescr)
+        i3 = call_pure(p1, descr=elidablecalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3642,8 +3642,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=cannotraisecalldescr)
-        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidablecalldescr)
         i151 = same_as(i3)
         jump(p1, i4, i3, i151)
         '''
@@ -3656,15 +3655,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=cannotraisecalldescr)
-        i4 = call_pure(123456, 4, i0, 6, descr=cannotraisecalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=elidablecalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=elidablecalldescr)
         jump(i0, i3, i4)
         '''
         preamble = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=cannotraisecalldescr)
+        i4 = call(123456, 4, i0, 6, descr=elidablecalldescr)
         i153 = same_as(i4)
         jump(i0, i4, i153)
         '''
