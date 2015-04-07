@@ -84,7 +84,7 @@ class OptPure(Optimization):
         # don't move call_pure_with_exception in the short preamble...
         # issue #2015
         effectinfo = op.getdescr().get_extra_info()
-        if not effectinfo.check_can_raise():
+        if not effectinfo.check_can_raise(ignore_memoryerror=True):
             self.call_pure_positions.append(
                 len(self.optimizer._newoperations) - 1)
 

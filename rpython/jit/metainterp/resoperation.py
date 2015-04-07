@@ -176,12 +176,6 @@ class AbstractResOp(object):
     def returns_bool_result(self):
         return self._cls_has_bool_result
 
-    def is_call_pure_with_exception(self):
-        if self.getopnum() == rop.CALL_PURE:
-            effectinfo = self.getdescr().get_extra_info()
-            return effectinfo.check_can_raise()
-        return False
-
 
 # ===================
 # Top of the hierachy
