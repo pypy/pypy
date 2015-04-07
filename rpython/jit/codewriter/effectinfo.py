@@ -11,10 +11,11 @@ class EffectInfo(object):
     EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
-    EF_ELIDABLE_CAN_RAISE              = 3 #elidable function (but can raise)
-    EF_CAN_RAISE                       = 4 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
-    EF_RANDOM_EFFECTS                  = 6 #can do whatever
+    EF_ELIDABLE_OR_MEMORYERROR         = 3 #elidable, can only raise MemoryError
+    EF_ELIDABLE_CAN_RAISE              = 4 #elidable function (but can raise)
+    EF_CAN_RAISE                       = 5 #normal function (can raise)
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 6 #can raise and force virtualizables
+    EF_RANDOM_EFFECTS                  = 7 #can do whatever
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
@@ -143,6 +144,7 @@ class EffectInfo(object):
         result.readonly_descrs_interiorfields = readonly_descrs_interiorfields
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+           extraeffect == EffectInfo.EF_ELIDABLE_OR_MEMORYERROR or \
            extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
             # Ignore the writes.  Note that this ignores also writes with
             # no corresponding reads (rarely the case, but possible).
@@ -158,19 +160,23 @@ class EffectInfo(object):
         result.oopspecindex = oopspecindex
         result.extradescrs = extradescrs
         result.call_release_gil_target = call_release_gil_target
-        if result.check_can_raise():
+        if result.check_can_raise(ignore_memoryerror=True):
             assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
         return result
 
-    def check_can_raise(self):
-        return self.extraeffect > self.EF_CANNOT_RAISE
+    def check_can_raise(self, ignore_memoryerror=False):
+        if ignore_memoryerror:
+            return self.extraeffect > self.EF_ELIDABLE_OR_MEMORYERROR
+        else:
+            return self.extraeffect > self.EF_CANNOT_RAISE
 
     def check_can_invalidate(self):
         return self.can_invalidate
 
     def check_is_elidable(self):
         return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
+                self.extraeffect == self.EF_ELIDABLE_OR_MEMORYERROR or
                 self.extraeffect == self.EF_ELIDABLE_CANNOT_RAISE)
 
     def check_forces_virtual_or_virtualizable(self):
