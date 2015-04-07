@@ -16,3 +16,8 @@ Python's `zlib`). In case the data to compress/decompress is inside the nursery
 (incminimark) it no longer needs to create a non-moving copy of it. This saves
 one `malloc` and copying the data.  Additionally a new GC environment variable
 is introduced (`PYPY_GC_MAX_PINNED`) primarily for debugging purposes.
+
+.. branch: refactor-pycall
+Make `*`-unpacking in RPython function calls completely equivalent to passing
+the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves 
+exactly like `f(a, b)`.
