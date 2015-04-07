@@ -1,7 +1,7 @@
 # C bindings with libtcl and libtk.
 
 from cffi import FFI
-import sys
+import sys, os
 
 tkffi = FFI()
 
