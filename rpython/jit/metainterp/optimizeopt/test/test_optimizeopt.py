@@ -3737,6 +3737,29 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
+    def test_call_pure_constant_folding_memoryerr(self):
+        ops = '''
+        [p0, i0]
+        escape(i0)
+        i3 = call_pure(123456, p0, descr=elidable2calldescr)
+        guard_no_exception() []
+        jump(p0, i3)
+        '''
+        preamble = '''
+        [p0, i0]
+        escape(i0)
+        i3 = call(123456, p0, descr=elidable2calldescr)
+        guard_no_exception() []
+        i4 = same_as(i3)
+        jump(p0, i3, i4)
+        '''
+        expected = '''
+        [p0, i3, i4]
+        escape(i3)
+        jump(p0, i4, i4)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
     def test_call_pure_constant_folding_exc(self):
         # CALL_PURE may be followed by GUARD_NO_EXCEPTION
         # we can't remove such call_pures from the loop,
