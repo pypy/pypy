@@ -72,7 +72,7 @@ class DefTracker(object):
                     while i >= 0:
                         def_index = def_chain[i][0]
                         oref = self.memory_refs.get(def_index)
-                        if oref is not None and mref.indices_can_alias(oref):
+                        if oref is not None and not mref.indices_can_alias(oref):
                             return def_index
                         elif oref is None:
                             return def_index
@@ -88,6 +88,8 @@ class DependencyGraph(object):
           * True dependency
           * Anti dependency (not present in SSA traces)
           * Ouput dependency (not present in SSA traces)
+        Traces in RPython are not in SSA form when it comes to complex
+        object modification such as array or object side effects.
         Representation is an adjacent list. The number of edges between the
         vertices is expected to be small.
         Note that adjacent lists order their dependencies. They are ordered
@@ -100,15 +102,14 @@ class DependencyGraph(object):
         modifications of one array even if the indices can never point to
         the same element.
     """
-    def __init__(self, operations, memory_refs):
+    def __init__(self, operations):
         self.operations = operations
-        self.memory_refs = memory_refs
+        self.memory_refs = {}
         self.adjacent_list = [ [] for i in range(len(self.operations)) ]
-        self.integral_mod = IntegralMod()
         self.schedulable_nodes = [0] # label is always scheduleable
-        self.build_dependencies()
         self.index_vars = {}
         self.guards = []
+        self.build_dependencies()
 
     def build_dependencies(self):
         """ This is basically building the definition-use chain and saving this
@@ -120,7 +121,7 @@ class DependencyGraph(object):
         """
         tracker = DefTracker(self.memory_refs)
         #
-        intformod = IntegralForwardModification(self.index_vars)
+        intformod = IntegralForwardModification(self.memory_refs, self.index_vars)
         # pass 1
         for i,op in enumerate(self.operations):
             # the label operation defines all operations at the
@@ -132,6 +133,7 @@ class DependencyGraph(object):
                         assert arg not in self.index_vars
                         self.index_vars[arg] = IndexVar(arg)
                 continue # prevent adding edge to the label itself
+            intformod.inspect_operation(op, i)
             # definition of a new variable
             if op.result is not None:
                 # In SSA form. Modifications get a new variable
@@ -145,7 +147,6 @@ class DependencyGraph(object):
                 self.guards.append(i)
             else:
                 self._build_non_pure_dependencies(op, i, tracker)
-            intformod.inspect_operation(op, i)
         # pass 2 correct guard dependencies
         for guard_idx in self.guards:
             self._build_guard_dependencies(guard_idx, op.getopnum(), tracker)
@@ -236,7 +237,7 @@ class DependencyGraph(object):
                 self._put_edge(guard_idx, dep.idx_to, None)
 
     def _build_non_pure_dependencies(self, op, index, tracker):
-        self._update_memory_ref(op, index, tracker)
+        # self._update_memory_ref(op, index, tracker)
         if self.loads_from_complex_object(op):
             # If this complex object load operation loads an index that has been
             # modified, the last modification should be used to put a def-use edge.
@@ -463,7 +464,7 @@ class DependencyGraph(object):
                         dot += " n%d -> n%d;\n" % (i,dep.idx_to)
             dot += "\n}\n"
             return dot
-        return ""
+        raise NotImplementedError("dot cannot built at runtime")
 
 class SchedulerData(object):
     pass
@@ -523,8 +524,9 @@ class Scheduler(object):
 
 class IntegralForwardModification(object):
     """ Calculates integral modifications on an integer box. """
-    def __init__(self, index_vars):
+    def __init__(self, memory_refs, index_vars):
         self.index_vars = index_vars
+        self.memory_refs = memory_refs
 
     def is_const_integral(self, box):
         if isinstance(box, ConstInt):
@@ -540,27 +542,27 @@ class IntegralForwardModification(object):
         box_a1 = op.getarg(1)
         if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
             idx_ref = IndexVar(box_r)
-            idx_ref.constant = box_a0.getint() {op} box_a1.getint())
+            idx_ref.constant = box_a0.getint() {op} box_a1.getint()
             self.index_vars[box_r] = idx_ref 
         elif self.is_const_integral(box_a0):
-            idx_ref = self.index_vars[box_a0]
-            idx_ref = idx_ref.clone(box_r)
-            idx_ref.constant {op}= box_a0.getint()
-            self.index_vars[box_r] = idx_ref
-        elif self.is_const_integral(box_a1):
             idx_ref = self.index_vars[box_a1]
-            idx_ref = idx_ref.clone(box_r)
+            idx_ref = idx_ref.clone()
             idx_ref.constant {op}= box_a1.getint()
             self.index_vars[box_r] = idx_ref
+        elif self.is_const_integral(box_a1):
+            idx_ref = self.index_vars[box_a0]
+            idx_ref = idx_ref.clone()
+            idx_ref.constant {op}= box_a0.getint()
+            self.index_vars[box_r] = idx_ref
     """
-    exec py.code.Source(additive_func_source.format(name='INT_ADD', 
-                                                    op='+')).compile()
-    exec py.code.Source(additive_func_source.format(name='INT_SUB', 
-                                                    op='-')).compile()
+    exec py.code.Source(additive_func_source
+            .format(name='INT_ADD', op='+')).compile()
+    exec py.code.Source(additive_func_source
+            .format(name='INT_SUB', op='-')).compile()
     del additive_func_source
 
     multiplicative_func_source = """
-    def operation_{name}(self, op):
+    def operation_{name}(self, op, index):
         box_r = op.result
         if not box_r:
             return
@@ -568,127 +570,50 @@ class IntegralForwardModification(object):
         box_a1 = op.getarg(1)
         if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
             idx_ref = IndexVar(box_r)
-            idx_ref.constant = box_a0.getint() {cop} box_a1.getint())
+            idx_ref.constant = box_a0.getint() {cop} box_a1.getint()
             self.index_vars[box_r] = idx_ref 
         elif self.is_const_integral(box_a0):
-            idx_ref = self.index_vars[box_a0]
-            idx_ref = idx_ref.clone(box_r)
-            self.coefficient_{tgt} *= box_a0.getint()
-            self.constant {cop}= box_a0.getint()
+            idx_ref = self.index_vars[box_a1]
+            idx_ref = idx_ref.clone()
+            idx_ref.coefficient_{tgt} *= box_a1.getint()
+            idx_ref.constant {cop}= box_a1.getint()
             self.index_vars[box_r] = idx_ref
         elif self.is_const_integral(box_a1):
-            idx_ref = self.index_vars[box_a1]
-            idx_ref = idx_ref.clone(box_r)
-            self.coefficient_{tgt} {op}= box_a1.getint()
-            self.constant {cop}= box_a1.getint()
+            idx_ref = self.index_vars[box_a0]
+            idx_ref = idx_ref.clone()
+            idx_ref.coefficient_{tgt} {op}= box_a0.getint()
+            idx_ref.constant {cop}= box_a0.getint()
             self.index_vars[box_r] = idx_ref
     """
-    exec py.code.Source(multiplicative_func_source.format(name='INT_MUL', 
-                                                 op='*', tgt='mul',
-                                                 cop='*')).compile()
-    exec py.code.Source(multiplicative_func_source.format(name='INT_FLOORDIV',
-                                                 op='*', tgt='div',
-                                                 cop='/')).compile()
-    exec py.code.Source(multiplicative_func_source.format(name='UINT_FLOORDIV',
-                                                 op='*', tgt='div',
-                                                 cop='/')).compile()
+    exec py.code.Source(multiplicative_func_source
+            .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
+    exec py.code.Source(multiplicative_func_source
+            .format(name='INT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
+    exec py.code.Source(multiplicative_func_source
+            .format(name='UINT_FLOORDIV', op='*', tgt='div', cop='/')).compile()
     del multiplicative_func_source
 
+    array_access_source = """
+    def operation_{name}(self, op, index):
+        descr = op.getdescr()
+        idx_ref = self.index_vars[op.getarg(1)]
+        self.memory_refs[index] = MemoryRef(op, idx_ref, {raw_access})
+    """
+    exec py.code.Source(array_access_source
+           .format(name='RAW_LOAD',raw_access=True)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='RAW_STORE',raw_access=True)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_GC',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='SETARRAYITEM_GC',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_RAW',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='SETARRAYITEM_RAW',raw_access=False)).compile()
+    del array_access_source
 integral_dispatch_opt = make_dispatcher_method(IntegralForwardModification, 'operation_')
 IntegralForwardModification.inspect_operation = integral_dispatch_opt
-del integral_dispatch_opt
-
-class IntegralMod(object):
-    """ Calculates integral modifications on an integer object.
-    The operations must be provided in backwards direction and of one
-    variable only. Call reset() to reuse this object for other variables.
-    See MemoryRef for an example.
-    """
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.is_const_mod = False
-        self.coefficient_mul = 1
-        self.coefficient_div = 1
-        self.constant = 0
-        self.used_box = None
-
-    def _update_additive(self, i):
-        return (i * self.coefficient_mul) / self.coefficient_div
-
-    additive_func_source = """
-    def operation_{name}(self, op):
-        box_a0 = op.getarg(0)
-        box_a1 = op.getarg(1)
-        self.is_const_mod = True
-        if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
-            self.used_box = None
-            self.constant += self._update_additive(box_a0.getint() {op} \
-                                                      box_a1.getint())
-        elif self.is_const_integral(box_a0):
-            self.constant {op}= self._update_additive(box_a0.getint())
-            self.used_box = box_a1
-        elif self.is_const_integral(box_a1):
-            self.constant {op}= self._update_additive(box_a1.getint())
-            self.used_box = box_a0
-        else:
-            self.is_const_mod = False
-    """
-    exec py.code.Source(additive_func_source.format(name='INT_ADD', 
-                                                    op='+')).compile()
-    exec py.code.Source(additive_func_source.format(name='INT_SUB', 
-                                                    op='-')).compile()
-    del additive_func_source
-
-    multiplicative_func_source = """
-    def operation_{name}(self, op):
-        box_a0 = op.getarg(0)
-        box_a1 = op.getarg(1)
-        self.is_const_mod = True
-        if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
-            # here this factor becomes a constant, thus it is
-            # handled like any other additive operation
-            self.used_box = None
-            self.constant += self._update_additive(box_a0.getint() {cop} \
-                                                      box_a1.getint())
-        elif self.is_const_integral(box_a0):
-            self.coefficient_{tgt} {op}= box_a0.getint()
-            self.used_box = box_a1
-        elif self.is_const_integral(box_a1):
-            self.coefficient_{tgt} {op}= box_a1.getint()
-            self.used_box = box_a0
-        else:
-            self.is_const_mod = False
-    """
-    exec py.code.Source(multiplicative_func_source.format(name='INT_MUL', 
-                                                 op='*', tgt='mul',
-                                                 cop='*')).compile()
-    exec py.code.Source(multiplicative_func_source.format(name='INT_FLOORDIV',
-                                                 op='*', tgt='div',
-                                                 cop='/')).compile()
-    exec py.code.Source(multiplicative_func_source.format(name='UINT_FLOORDIV',
-                                                 op='*', tgt='div',
-                                                 cop='/')).compile()
-    del multiplicative_func_source
-
-    def is_const_integral(self, box):
-        if isinstance(box, ConstInt):
-            return True
-        return False
-
-    def update_memory_ref(self, memref):
-        memref.constant = self.constant
-        memref.coefficient_mul = self.coefficient_mul
-        memref.coefficient_div = self.coefficient_div
-        memref.origin = self.used_box
-
-    def default_operation(self, operation):
-        pass
-integral_dispatch_opt = make_dispatcher_method(IntegralMod, 'operation_',
-        default=IntegralMod.default_operation)
-IntegralMod.inspect_operation = integral_dispatch_opt
 del integral_dispatch_opt
 
 class IndexVar(object):
@@ -706,8 +631,8 @@ class IndexVar(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def clone(self, box):
-        c = IndexVar(box)
+    def clone(self):
+        c = IndexVar(self.var)
         c.coefficient_mul = self.coefficient_mul
         c.coefficient_div = self.coefficient_div
         c.constant = self.constant
@@ -715,6 +640,7 @@ class IndexVar(object):
 
     def same_variable(self, other):
         assert isinstance(other, IndexVar)
+        print other.var, "==", self.var, "?"
         return other.var == self.var
 
     def diff(self, other):
@@ -729,7 +655,7 @@ class IndexVar(object):
                                             self.coefficient_div, self.constant)
 
 class MemoryRef(object):
-    """ a memory reference to an array object. IntegralMod is able
+    """ a memory reference to an array object. IntegralForwardModification is able
     to propagate changes to this object if applied in backwards direction.
     Example:
 
@@ -739,12 +665,12 @@ class MemoryRef(object):
 
     will result in the linear combination i0 * (2/1) + 2
     """
-    def __init__(self, array, origin, descr, index_ref, byte_index=False):
-        assert descr is not None
-        self.array = array
-        self.descr = descr
+    def __init__(self, op, index_ref, raw_access=False):
+        assert op.getdescr() is not None
+        self.array = op.getarg(0)
+        self.descr = op.getdescr()
         self.index_ref = index_ref
-        self.byte_index = byte_index
+        self.raw_access = raw_access
 
     def is_adjacent_to(self, other):
         """ this is a symmetric relation """
@@ -756,12 +682,12 @@ class MemoryRef(object):
     def match(self, other):
         assert isinstance(other, MemoryRef)
         if self.array == other.array and self.descr == other.descr:
-            return self.index_ref.same_variable(other.index_ref):
+            return self.index_ref.same_variable(other.index_ref)
         return False
 
     def stride(self):
         """ the stride in bytes """
-        if not self.byte_index:
+        if not self.raw_access:
             return 1
         return self.descr.get_item_size_in_bytes()
 
@@ -777,12 +703,12 @@ class MemoryRef(object):
         self.origin != other.origin, or their
         linear combination point to the same element.
         """
-        if self.index_ref.same_variable(other.index_ref):
+        if not self.index_ref.same_variable(other.index_ref):
             return True
         stride = self.stride()
         if self.match(other):
-            return abs(self.index_ref.diff(other.index_ref)) < stride
-        return False
+            return not abs(self.index_ref.diff(other.index_ref)) < stride
+        return True
 
     def __eq__(self, other):
         if self.match(other):

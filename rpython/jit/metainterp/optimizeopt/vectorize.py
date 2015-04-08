@@ -5,7 +5,7 @@ from rpython.jit.metainterp.history import ConstInt, VECTOR, BoxVector
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
-        MemoryRef, IntegralMod, Scheduler, SchedulerData)
+        MemoryRef, Scheduler, SchedulerData)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -65,13 +65,13 @@ class VectorizingOptimizer(Optimizer):
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, optimizations)
-        self.vec_info = LoopVectorizeInfo()
         self.memory_refs = []
         self.dependency_graph = None
         self.first_debug_merge_point = False
         self.last_debug_merge_point = None
         self.packset = None
         self.unroll_count = 0
+        self.smallest_type_bytes = 0
 
     def emit_operation(self, op):
         self._last_emitted_op = op
@@ -99,8 +99,7 @@ class VectorizingOptimizer(Optimizer):
         assert label_op.getopnum() == rop.LABEL
         assert jump_op.is_final() or jump_op.getopnum() == rop.LABEL
 
-
-        self.vec_info.track_memory_refs = True
+        # XXX self.vec_info.track_memory_refs = True
 
         self.emit_unrolled_operation(label_op)
 
@@ -113,8 +112,8 @@ class VectorizingOptimizer(Optimizer):
             op = loop.operations[i].clone()
             operations.append(op)
             self.emit_unrolled_operation(op)
-            self.vec_info.index = len(self._newoperations)-1
-            self.vec_info.inspect_operation(op)
+            #self.vec_info.index = len(self._newoperations)-1
+            #self.vec_info.inspect_operation(op)
 
         orig_jump_args = jump_op.getarglist()[:]
         # it is assumed that #label_args == #jump_args
@@ -154,8 +153,8 @@ class VectorizingOptimizer(Optimizer):
                         self.clone_snapshot(copied_op.rd_snapshot, rename_map)
                 #
                 self.emit_unrolled_operation(copied_op)
-                self.vec_info.index = len(self._newoperations)-1
-                self.vec_info.inspect_operation(copied_op)
+                #self.vec_info.index = len(self._newoperations)-1
+                #self.vec_info.inspect_operation(copied_op)
 
         # the jump arguments have been changed
         # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
@@ -192,15 +191,21 @@ class VectorizingOptimizer(Optimizer):
                             new_boxes)
         return snapshot
 
-    def _gather_trace_information(self, loop, track_memref = False):
-        self.vec_info.track_memory_refs = track_memref
+    def linear_find_smallest_type(self, loop):
+        # O(#operations)
         for i,op in enumerate(loop.operations):
-            self.vec_info.inspect_operation(op)
+            if op.is_array_op():
+                descr = op.getdescr()
+                if not descr.is_array_of_pointers():
+                    byte_count = descr.get_item_size_in_bytes()
+                    if self.smallest_type_bytes == 0 \
+                       or byte_count < self.smallest_type_bytes:
+                        self.smallest_type_bytes = byte_count
 
     def get_unroll_count(self):
         """ This is an estimated number of further unrolls """
         # this optimization is not opaque, and needs info about the CPU
-        byte_count = self.vec_info.smallest_type_bytes
+        byte_count = self.smallest_type_bytes
         if byte_count == 0:
             return 0
         simd_vec_reg_bytes = 16 # TODO get from cpu
@@ -211,9 +216,9 @@ class VectorizingOptimizer(Optimizer):
 
         self.clear_newoperations()
 
-        self._gather_trace_information(self.loop)
+        self.linear_find_smallest_type(self.loop)
 
-        byte_count = self.vec_info.smallest_type_bytes
+        byte_count = self.smallest_type_bytes
         if byte_count == 0:
             # stop, there is no chance to vectorize this trace
             raise NotAVectorizeableLoop()
@@ -232,9 +237,9 @@ class VectorizingOptimizer(Optimizer):
         self.schedule()
 
     def relax_guard_dependencies(self):
-        int_mod = IntegralMod()
-        for idx, guard in self.vec_info.guards.items():
-            int_mod.reset()
+        return
+        for guard_idx in self.dependency_graph.guards:
+            guard = self.operations[guard_idx]
             for dep in self.dependency_graph.depends(idx):
                 op = self.operations[dep.idx_from]
                 if op.returns_bool_result():
@@ -247,7 +252,7 @@ class VectorizingOptimizer(Optimizer):
 
     def build_dependency_graph(self):
         self.dependency_graph = \
-            DependencyGraph(self.loop.operations, self.vec_info.memory_refs)
+            DependencyGraph(self.loop.operations)
         self.relax_guard_dependencies()
 
     def find_adjacent_memory_refs(self):
@@ -610,54 +615,4 @@ class PackOpWrapper(object):
 
     def __repr__(self):
         return "PackOpWrapper(%d, %r)" % (self.opidx, self.memref)
-
-class LoopVectorizeInfo(object):
-
-    def __init__(self):
-        self.smallest_type_bytes = 0
-        self.memory_refs = {}
-        self.guards = {}
-        self.track_memory_refs = False
-        self.index = 0
-
-    guard_source = """
-    def operation_{name}(self, op):
-        if self.track_memory_refs:
-            self.guards[self.index] = op
-    """
-    for op in ['GUARD_TRUE','GUARD_FALSE']:
-            exec py.code.Source(guard_source.format(name=op)).compile()
-    del guard_source
-
-    array_access_source = """
-    def operation_{name}(self, op):
-        descr = op.getdescr()
-        if self.track_memory_refs:
-            self.memory_refs[self.index] = \
-                MemoryRef(op.getarg(0), op.getarg(1), op.getdescr(), {elemidx})
-        if not descr.is_array_of_pointers():
-            byte_count = descr.get_item_size_in_bytes()
-            if self.smallest_type_bytes == 0 \
-               or byte_count < self.smallest_type_bytes:
-                self.smallest_type_bytes = byte_count
-    """
-    exec py.code.Source(array_access_source
-              .format(name='RAW_LOAD',elemidx=True)).compile()
-    exec py.code.Source(array_access_source
-              .format(name='RAW_STORE',elemidx=True)).compile()
-    exec py.code.Source(array_access_source
-              .format(name='GETARRAYITEM_GC',elemidx=False)).compile()
-    exec py.code.Source(array_access_source
-              .format(name='SETARRAYITEM_GC',elemidx=False)).compile()
-    exec py.code.Source(array_access_source
-              .format(name='GETARRAYITEM_RAW',elemidx=False)).compile()
-    exec py.code.Source(array_access_source
-              .format(name='SETARRAYITEM_RAW',elemidx=False)).compile()
-    del array_access_source
-
-    def default_operation(self, operation):
-        pass
-dispatch_opt = make_dispatcher_method(LoopVectorizeInfo, 'operation_',
-        default=LoopVectorizeInfo.default_operation)
-LoopVectorizeInfo.inspect_operation = dispatch_opt
 
