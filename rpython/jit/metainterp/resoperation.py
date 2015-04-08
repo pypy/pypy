@@ -171,6 +171,11 @@ class AbstractResOp(object):
     def is_vector_arithmetic(self):
         return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
 
+    def is_array_op(self):
+        on = self.getopnum()
+        return rop.GETARRAYITEM_GC <= on <= rop.VEC_RAW_LOAD or \
+               rop.SETARRAYITEM_GC <= on <= rop.VEC_RAW_STORE
+
     def is_comparison(self):
         return self.is_always_pure() and self.returns_bool_result()
 
@@ -500,9 +505,9 @@ _oplist = [
 
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
-    'GETINTERIORFIELD_GC/2d',
     'RAW_LOAD/2d',
     'VEC_RAW_LOAD/3d',
+    'GETINTERIORFIELD_GC/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -523,10 +528,10 @@ _oplist = [
     'INCREMENT_DEBUG_COUNTER/1',
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
-    'SETINTERIORFIELD_GC/3d',
-    'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'RAW_STORE/3d',
     'VEC_RAW_STORE/4d',
+    'SETINTERIORFIELD_GC/3d',
+    'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'SETFIELD_GC/2d',
     'ZERO_PTR_FIELD/2', # only emitted by the rewrite, clears a pointer field
                         # at a given constant offset, no descr

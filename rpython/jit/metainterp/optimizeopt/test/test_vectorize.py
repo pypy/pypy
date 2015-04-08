@@ -766,15 +766,25 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_packset_empty(vopt.packset, len(loop.operations),
                                   [(5,11), (4,10), (6,12)])
 
-    @pytest.mark.parametrize("descr,stride",
-            [('char',1),('float',8),('int',8),('singlefloat',4)])
-    def test_packset_combine_simple(self,descr,stride):
+    @pytest.mark.parametrize("descr", ['char','float','int','singlefloat'])
+    def test_packset_combine_simple(self,descr):
         ops = """
         [p0,i0]
         i3 = getarrayitem_gc(p0, i0, descr={descr}arraydescr)
-        i1 = int_add(i0,{stride})
+        i1 = int_add(i0,1)
         jump(p0,i1)
-        """.format(descr=descr,stride=stride)
+        """.format(descr=descr)
+        loop = self.parse_loop(ops)
+        vopt = self.combine_packset(loop,3)
+        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.packset.packs) == 1
+        self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
+        ops = """
+        [p0,i0]
+        i3 = getarrayitem_raw(p0, i0, descr={descr}arraydescr)
+        i1 = int_add(i0,1)
+        jump(p0,i1)
+        """.format(descr=descr)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.vec_info.memory_refs) == 4
@@ -786,15 +796,18 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_combine_2_loads_in_trace(self, descr, stride):
         ops = """
         [p0,i0]
-        i3 = getarrayitem_gc(p0, i0, descr={type}arraydescr)
+        i3 = raw_load(p0, i0, descr={type}arraydescr)
         i1 = int_add(i0,{stride})
-        i4 = getarrayitem_gc(p0, i1, descr={type}arraydescr)
+        i4 = raw_load(p0, i1, descr={type}arraydescr)
         i2 = int_add(i1,{stride})
         jump(p0,i2)
         """.format(type=descr,stride=stride)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.vec_info.memory_refs) == 8
+        print "---"
+        for p in vopt.packset.packs:
+            print p
         assert len(vopt.packset.packs) == 1
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7,9,11,13,15))
 
@@ -856,10 +869,10 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, {stride})
         i10 = int_le(i1, 128)
         guard_true(i10) []
-        i2 = getarrayitem_gc(p0, i0, descr={descr}arraydescr)
-        i3 = getarrayitem_gc(p1, i0, descr={descr}arraydescr)
+        i2 = raw_load(p0, i0, descr={descr}arraydescr)
+        i3 = raw_load(p1, i0, descr={descr}arraydescr)
         i4 = {op}(i2,i3)
-        setarrayitem_gc(p2, i0, i4, descr={descr}arraydescr)
+        raw_store(p2, i0, i4, descr={descr}arraydescr)
         jump(p0,p1,p2,i1)
         """.format(op=op,descr=descr,stride=stride)
         loop = self.parse_loop(ops)
@@ -896,7 +909,7 @@ class BaseTestVectorize(VecTestHelper):
         setarrayitem_gc(p2, i0, i4, descr={descr}arraydescr) # 6, 13, 20, 27
         i1 = int_add(i0, {stride}) # 7, 14, 21, 28
         jump(p0,p1,p2,i1) # 29
-        """.format(op=op,descr=descr,stride=stride)
+        """.format(op=op,descr=descr,stride=1) # stride getarray is always 1
         vops = """
         [p0,p1,p2,i0]
         i10 = int_le(i0, 128)
@@ -910,7 +923,7 @@ class BaseTestVectorize(VecTestHelper):
         v3 = {op}(v1,v2)
         vec_raw_store(p2, i0, v3, 2, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
-        """.format(op='vec_'+op,descr=descr,stride=stride)
+        """.format(op='vec_'+op,descr=descr,stride=1)
         loop = self.parse_loop(ops)
         vopt = self.schedule(loop,1)
         self.debug_print_operations(vopt.loop)
@@ -959,19 +972,20 @@ class BaseTestVectorize(VecTestHelper):
         print "_--" * 10
         self.debug_print_operations(vopt.loop)
 
-    def test_vectorize_raw_load_add_index_item_byte_size(self):
+    def test_123(self):
         ops = """
-        [i0, i1, i2, i3, i4, i5, i6, i7]
-        i8 = raw_load(i3, i0, descr=intarraydescr)
-        i9 = raw_load(i4, i0, descr=intarraydescr)
-        i10 = int_add(i8, i9)
-        raw_store(i5, i0, i10, descr=intarraydescr)
-        i12 = int_add(i0, 8)
-        i14 = int_mul(i7, 8)
-        i15 = int_lt(i12, i14)
-        guard_true(i15) [i7, i10, i5, i4, i3, i9, i8, i12]
-        guard_future_condition() []
-        jump(i12, i8, i9, i3, i4, i5, i10, i7)
+        [i0, i1, i2, i3, i4]
+        debug_merge_point(0, 0, '1')
+        i6 = int_mul(i0, 8)
+        i7 = raw_load(i2, i6, descr=intarraydescr)
+        i8 = raw_load(i3, i6, descr=intarraydescr)
+        i9 = int_add(i7, i8)
+        raw_store(i4, i6, i9, descr=intarraydescr)
+        i11 = int_add(i0, 1)
+        i12 = int_lt(i11, i1)
+        guard_true(i12) [i4, i3, i2, i1, i11]
+        debug_merge_point(0, 0, '2')
+        label(i11, i1, i2, i3, i4)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
         self.debug_print_operations(vopt.loop)

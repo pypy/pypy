@@ -32,18 +32,15 @@ def debug_print_operations(self, loop):
         else:
             print ""
 
-def must_unpack_result_to_exec(var, op):
+def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
-    if op.vector == -1:
-        return True
-    if op.getopnum() == rop.RAW_LOAD or \
-       op.getopnum() == rop.GETARRAYITEM_GC or \
-       op.getopnum() == rop.GETARRAYITEM_RAW:
-        return True
-    if op.getopnum() == rop.RAW_STORE or \
-       op.getopnum() == rop.SETARRAYITEM_GC or \
-       op.getopnum() == rop.SETARRAYITEM_RAW:
-        if op.getarg(1) == var:
+    if op.vector != -1:
+        return False
+    return True
+
+def prohibit_packing(op1, op2):
+    if op2.is_array_op():
+        if op2.getarg(1) == op1.result:
             return True
     return False
 
@@ -147,9 +144,7 @@ class VectorizingOptimizer(Optimizer):
                     try:
                         value = rename_map[arg]
                         copied_op.setarg(i, value)
-                        print "rename", arg, " to ", value
                     except KeyError:
-                        print "failing", arg, i
                         pass
                 # not only the arguments, but also the fail args need
                 # to be adjusted. rd_snapshot stores the live variables
@@ -191,6 +186,7 @@ class VectorizingOptimizer(Optimizer):
                 print "box", box, "=>", value
             except KeyError:
                 print "FAIL:", i, box
+                pass
 
         snapshot = Snapshot(self.clone_snapshot(snapshot.prev, rename_map),
                             new_boxes)
@@ -235,9 +231,24 @@ class VectorizingOptimizer(Optimizer):
         self.combine_packset()
         self.schedule()
 
+    def relax_guard_dependencies(self):
+        int_mod = IntegralMod()
+        for idx, guard in self.vec_info.guards.items():
+            int_mod.reset()
+            for dep in self.dependency_graph.depends(idx):
+                op = self.operations[dep.idx_from]
+                if op.returns_bool_result():
+                    for arg in op.getarglist():
+                        if isinstance(arg, Box):
+                            self._track_integral_modification(arg)
+
+    def _track_integral_modification(self, arg):
+        ref = MemoryRef(None, arg, None)
+
     def build_dependency_graph(self):
         self.dependency_graph = \
             DependencyGraph(self.loop.operations, self.vec_info.memory_refs)
+        self.relax_guard_dependencies()
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -323,6 +334,8 @@ class VectorizingOptimizer(Optimizer):
         end_ij = len(self.packset.packs)
         while True:
             len_before = len(self.packset.packs)
+            print "loop", len_before
+            i = 0
             while i < end_ij:
                 while j < end_ij and i < end_ij:
                     if i == j:
@@ -335,6 +348,7 @@ class VectorizingOptimizer(Optimizer):
                     elif pack2.rightmost_match_leftmost(pack1):
                         end_ij = self.packset.combine(j,i)
                     j += 1
+                j = 0
                 i += 1
             if len_before == len(self.packset.packs):
                 break
@@ -500,18 +514,25 @@ class PackSet(object):
         into account the benefit of executing this instruction
         as SIMD instruction.
         """
-        savings = -1 # 1 point for loading and 1 point for storing
+        savings = -1
 
-        # without loss of generatlity: only check the left side
+        # without loss of generatlity: only check 'left' operation
         lop = self.operations[lopidx]
         target_op = self.operations[pack.left.opidx]
 
+        if prohibit_packing(lop, target_op):
+            return -1
+
         if not expand_forward:
-            if not must_unpack_result_to_exec(lop.result, target_op):
+            print " backward savings", savings
+            if not must_unpack_result_to_exec(target_op, lop):
                 savings += 1
+            print " => backward savings", savings
         else:
-            if not must_unpack_result_to_exec(target_op.result, lop):
+            print " forward savings", savings
+            if not must_unpack_result_to_exec(target_op, lop):
                 savings += 1
+            print " => forward savings", savings
 
         return savings
 
@@ -595,15 +616,25 @@ class LoopVectorizeInfo(object):
     def __init__(self):
         self.smallest_type_bytes = 0
         self.memory_refs = {}
+        self.guards = {}
         self.track_memory_refs = False
         self.index = 0
+
+    guard_source = """
+    def operation_{name}(self, op):
+        if self.track_memory_refs:
+            self.guards[self.index] = op
+    """
+    for op in ['GUARD_TRUE','GUARD_FALSE']:
+            exec py.code.Source(guard_source.format(name=op)).compile()
+    del guard_source
 
     array_access_source = """
     def operation_{name}(self, op):
         descr = op.getdescr()
         if self.track_memory_refs:
             self.memory_refs[self.index] = \
-                    MemoryRef(op.getarg(0), op.getarg(1), op.getdescr())
+                MemoryRef(op.getarg(0), op.getarg(1), op.getdescr(), {elemidx})
         if not descr.is_array_of_pointers():
             byte_count = descr.get_item_size_in_bytes()
             if self.smallest_type_bytes == 0 \
@@ -611,17 +642,17 @@ class LoopVectorizeInfo(object):
                 self.smallest_type_bytes = byte_count
     """
     exec py.code.Source(array_access_source
-              .format(name='RAW_LOAD')).compile()
+              .format(name='RAW_LOAD',elemidx=True)).compile()
     exec py.code.Source(array_access_source
-              .format(name='RAW_STORE')).compile()
+              .format(name='RAW_STORE',elemidx=True)).compile()
     exec py.code.Source(array_access_source
-              .format(name='GETARRAYITEM_GC')).compile()
+              .format(name='GETARRAYITEM_GC',elemidx=False)).compile()
     exec py.code.Source(array_access_source
-              .format(name='SETARRAYITEM_GC')).compile()
+              .format(name='SETARRAYITEM_GC',elemidx=False)).compile()
     exec py.code.Source(array_access_source
-              .format(name='GETARRAYITEM_RAW')).compile()
+              .format(name='GETARRAYITEM_RAW',elemidx=False)).compile()
     exec py.code.Source(array_access_source
-              .format(name='SETARRAYITEM_RAW')).compile()
+              .format(name='SETARRAYITEM_RAW',elemidx=False)).compile()
     del array_access_source
 
     def default_operation(self, operation):

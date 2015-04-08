@@ -8,7 +8,7 @@ from rpython.jit.metainterp import history
 from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 
@@ -24,7 +24,7 @@ class VectorizeTest(object):
     def test_vectorize_simple_load_arith_store_mul(self):
         myjitdriver = JitDriver(greens = [],
                                 reds = ['i','d','va','vb','vc'],
-                                vectorize=True)
+                                vectorize=False)
         def f(d):
             va = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
             vb = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
@@ -96,7 +96,7 @@ class VectorizeTest(object):
         self.check_trace_count(1)
 
     def test_guard(self):
-        pytest.skip()
+        py.test.skip('abc')
         myjitdriver = JitDriver(greens = [],
                                 reds = ['a','b','c'],
                                 vectorize=True)
@@ -115,6 +115,41 @@ class VectorizeTest(object):
         i = 32
         res = self.meta_interp(f, [True,i])
         assert res == 42
+        self.check_trace_count(1)
+
+    @py.test.mark.parametrize('i',[8])
+    def test_vectorize_array_get_set(self,i):
+        myjitdriver = JitDriver(greens = [],
+                                reds = ['i','d','va','vb','vc'],
+                                vectorize=True)
+        ET = rffi.SIGNED
+        T = lltype.Array(ET, hints={'nolength': True})
+        def f(d):
+            i = 0
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            vb = lltype.malloc(T, d, flavor='raw', zero=True)
+            vc = lltype.malloc(T, d, flavor='raw', zero=True)
+            for j in range(d):
+                va[j] = j
+                vb[j] = j
+            while i < d:
+                myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc)
+                myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc)
+
+                a = va[i]
+                b = vb[i]
+                vc[i] = a+b
+
+                i += 1
+            res = 0
+            for j in range(d):
+                res += intmask(vc[j])
+            lltype.free(va, flavor='raw')
+            lltype.free(vb, flavor='raw')
+            lltype.free(vc, flavor='raw')
+            return res
+        res = self.meta_interp(f, [i])
+        assert res == f(i)
         self.check_trace_count(1)
 
 class TestLLtype(VectorizeTest, LLJitMixin):
