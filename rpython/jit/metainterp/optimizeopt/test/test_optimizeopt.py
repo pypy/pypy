@@ -3633,6 +3633,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_pure(p1, descr=elidable2calldescr)
+        guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3645,6 +3646,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=elidable2calldescr)
+        guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
         i148 = same_as(i3)
         i147 = same_as(i3)
@@ -3662,6 +3664,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_pure(p1, descr=elidable3calldescr)
+        guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3669,6 +3672,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=elidable3calldescr)
+        guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3676,6 +3680,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=elidable3calldescr)
+        guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
         i167 = same_as(i3)
         jump(p1, i4, i3)
