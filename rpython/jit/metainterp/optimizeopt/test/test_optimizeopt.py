@@ -3807,6 +3807,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i2]
         p2 = call_pure(0, p1, i1, i2, descr=strslicedescr)
+        guard_no_exception() []
         escape(p2)
         jump(p1, i1, i2)
         '''
