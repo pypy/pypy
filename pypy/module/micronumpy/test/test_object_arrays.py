@@ -33,16 +33,26 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         a = np.array(["foo"], dtype=object)
         b = a and complex(1, -1)
         assert b == complex(1, -1)
-        b = complex(1, -1) and a
+        b = np.array(complex(1, -1)) and a
         assert (b == a).all()
 
     def test_logical_ufunc(self):
         import numpy as np
         a = np.array(["foo"], dtype=object)
         b = np.array([1], dtype=object)
-        raises(TypeError, np.logical_and, a, 1)
-        raises(TypeError, np.logical_and, b, complex(1, -1))
+        d = np.array([complex(1, 10)], dtype=object)
+        c = np.logical_and(a, 1)
+        assert c.dtype == np.dtype('object')
+        assert c == 1
+        c = np.logical_and(b, complex(1, -1))
+        assert c.dtype == np.dtype('object')
+        assert c == complex(1, -1)
+        c = np.logical_and(d, b)
+        assert c == 1
         c = b & 1
+        assert c.dtype == np.dtype('object')
+        assert (c == 1).all()
+        c = np.array(1) & b
         assert (c == b).all()
 
     def test_reduce(self):

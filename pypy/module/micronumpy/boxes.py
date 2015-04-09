@@ -614,6 +614,8 @@ class W_ObjectBox(W_GenericBox):
         self.w_obj = w_obj
 
     def convert_to(self, space, dtype):
+        if dtype.is_bool():
+            return W_BoolBox(space.bool_w(self.w_obj))
         return self # XXX
 
     def descr__getattr__(self, space, w_key):

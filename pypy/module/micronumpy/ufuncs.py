@@ -378,6 +378,8 @@ class W_Ufunc1(W_Ufunc):
             w_val = self.func(calc_dtype,
                               w_obj.get_scalar_value().convert_to(space, calc_dtype))
             if out is None:
+                if res_dtype.is_object():
+                    w_val = w_obj.get_scalar_value()
                 return w_val
             w_val = res_dtype.coerce(space, w_val)
             if out.is_scalar():
@@ -481,7 +483,7 @@ class W_Ufunc2(W_Ufunc):
         else:
             out = w_out
             calc_dtype = out.get_dtype()
-        if self.comparison_func:
+        if self.comparison_func and not calc_dtype.is_object():
             res_dtype = get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
@@ -495,6 +497,8 @@ class W_Ufunc2(W_Ufunc):
                     out.set_scalar_value(arr)
                 else:
                     out.fill(space, arr)
+            elif calc_dtype.is_object():
+                out = arr.get_scalar_value()
             else:
                 out = arr
             return out
@@ -1130,6 +1134,8 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, nin, comparison_func,
         def impl(res_dtype, lvalue, rvalue):
             res = get_op(res_dtype)(lvalue, rvalue)
             if comparison_func:
+                if res_dtype.is_object():
+                    return res
                 return dtype_cache.w_booldtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)

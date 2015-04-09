@@ -202,11 +202,14 @@ class __extend__(W_NDimArray):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and w_idx.ndims() > 0:
-            return self.getitem_filter(space, w_idx)
+            w_res = self.getitem_filter(space, w_idx)
         try:
-            return self.implementation.descr_getitem(space, self, w_idx)
+            w_res = self.implementation.descr_getitem(space, self, w_idx)
         except ArrayArgumentException:
-            return self.getitem_array_int(space, w_idx)
+            w_res = self.getitem_array_int(space, w_idx)
+        if w_res.is_scalar() and w_res.get_dtype(space).is_object():
+            return w_res.get_dtype(space).itemtype.unbox(w_res)
+        return w_res
 
     def getitem(self, space, index_list):
         return self.implementation.getitem_index(space, index_list)
@@ -889,7 +892,10 @@ class __extend__(W_NDimArray):
                 "The truth value of an array with more than one element "
                 "is ambiguous. Use a.any() or a.all()"))
         iter, state = self.create_iter()
-        return space.wrap(space.is_true(iter.getitem(state)))
+        w_val = iter.getitem(state)
+        if self.get_dtype().is_object():
+            w_val = self.get_dtype().itemtype.unbox(w_val) 
+        return space.wrap(space.is_true(w_val))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):

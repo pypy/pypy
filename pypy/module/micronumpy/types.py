@@ -149,9 +149,8 @@ class Primitive(object):
         return self.box(array[0])
 
     def unbox(self, box):
-        if not isinstance(box, self.BoxType):
-            # i.e. box is an ObjectBox
-            raise oefmt(self.space.w_AttributeError, '')
+        if isinstance(box, ObjectType.BoxType):
+            return box.w_obj
         return box.value
 
     def coerce(self, space, dtype, w_item):
@@ -1701,12 +1700,15 @@ class ObjectType(BaseType):
 
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
+        if isinstance(real, rffi.r_singlefloat):
+            real = rffi.cast(rffi.DOUBLE, real)
+        if isinstance(imag, rffi.r_singlefloat):
+            imag = rffi.cast(rffi.DOUBLE, imag)
         w_obj = self.space.newcomplex(real, imag)
         return self.BoxType(w_obj)
 
     def str_format(self, box):
-        return 'Object as string'
-        #return space.str_w(space.repr(self.unbox(box)))
+        return self.space.str_w(self.space.repr(self.unbox(box)))
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, self.BoxType)
@@ -1716,7 +1718,7 @@ class ObjectType(BaseType):
     def for_computation(v):
         return v
 
-    @raw_binary_op
+    @simple_binary_op
     def eq(self, v1, v2):
         return self.space.eq_w(v1, v2)
 
@@ -1735,28 +1737,32 @@ class ObjectType(BaseType):
     def arctan2(self, v1, v2):
         raise oefmt(self.space.w_AttributeError, 'arctan2')
 
-    @raw_unary_op
+    @simple_unary_op
     def bool(self,v):
-        return not self.space.is_w(v, self.space.w_None) and \
-               not self.space.eq_w(v, self.space.wrap(0)) and \
-               not self.space.len_w(v) == 0 
+        return self._bool(v)
 
     def _bool(self, v):
-        return self.space.bool_w(v)
+        if self.space.is_true(v):
+            return True 
+        return False
 
-    @raw_binary_op
+    @simple_binary_op
     def logical_and(self, v1, v2):
-        return self._bool(v1) and self._bool(v2)
+        if self._bool(v1):
+            return v2
+        return v1
 
-    @raw_binary_op
+    @simple_binary_op
     def logical_or(self, v1, v2):
-        return self._bool(v1) or self._bool(v2)
+        if self._bool(v1):
+            return v1
+        return v2
 
-    @raw_unary_op
+    @simple_unary_op
     def logical_not(self, v):
         return not self._bool(v)
 
-    @raw_binary_op
+    @simple_binary_op
     def logical_xor(self, v1, v2):
         a = self._bool(v1)
         b = self._bool(v2)
@@ -1808,7 +1814,7 @@ def add_unary_op(cls, op):
     def func(self, w_v):
         w_impl = self.space.lookup(w_v, op)
         if w_impl is None:
-            raise oefmt(self.space.w_AttributeError, op)
+            raise oefmt(self.space.w_AttributeError, 'unknown op "%s" on object' % op)
         return self.space.get_and_call_function(w_impl, w_v)
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
