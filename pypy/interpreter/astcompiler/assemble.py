@@ -593,7 +593,9 @@ _static_opcode_stack_effects = {
 
     ops.WITH_CLEANUP: -1,
     ops.POP_BLOCK: 0,
-    ops.END_FINALLY: -1,
+    ops.END_FINALLY: -3,     # assume always 3: we pretend that SETUP_FINALLY
+                             # pushes 3.  In truth, it would only push 1 and
+                             # the corresponding END_FINALLY only pops 1.
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
