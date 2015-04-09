@@ -109,6 +109,8 @@ static bool _stm_was_read_by_anybody(object_t *obj)
 {
     /* can only be safely called during major GC, when all other threads
        are suspended */
+    assert(_has_mutex());
+
     long i;
     for (i = 1; i < NB_SEGMENTS; i++) {
         if (get_priv_segment(i)->transaction_state == TS_NONE)
@@ -174,6 +176,7 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
         if (entry == NULL)
             continue;
         if (segment_base != NULL) {
+            /* -> compaction during major GC */
             if (((struct stm_hashtable_entry_s *)
                        REAL_ADDRESS(segment_base, entry))->object == NULL &&
                    !_stm_was_read_by_anybody((object_t *)entry)) {
@@ -283,6 +286,9 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
         /* we can only enter here once!  If we allocate stuff, we may
            run the GC, and so 'hashtableobj' might move afterwards. */
         if (_is_in_nursery(hashtableobj)) {
+            /* this also means that the hashtable is from this
+               transaction and not visible to other segments yet, so
+               the new entry can be nursery-allocated. */
             entry = (stm_hashtable_entry_t *)
                 stm_allocate(sizeof(stm_hashtable_entry_t));
             entry->userdata = stm_hashtable_entry_userdata;

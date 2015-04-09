@@ -106,6 +106,9 @@ static stm_char *allocate_outside_nursery_large(uint64_t size)
 object_t *_stm_allocate_old(ssize_t size_rounded_up)
 {
     /* only for tests xxx but stm_setup_prebuilt() uses this now too */
+    if (size_rounded_up <= GC_LAST_SMALL_SIZE)
+        return _stm_allocate_old_small(size_rounded_up);
+
     stm_char *p = allocate_outside_nursery_large(size_rounded_up);
     object_t *o = (object_t *)p;
 
