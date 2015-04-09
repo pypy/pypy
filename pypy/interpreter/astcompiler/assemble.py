@@ -608,7 +608,6 @@ _static_opcode_stack_effects = {
     ops.YIELD_VALUE: 0,
     ops.BUILD_CLASS: -2,
     ops.BUILD_MAP: 1,
-    ops.BUILD_SET: 1,
     ops.COMPARE_OP: -1,
 
     ops.LOOKUP_METHOD: 1,
@@ -661,6 +660,9 @@ def _compute_BUILD_TUPLE(arg):
     return 1 - arg
 
 def _compute_BUILD_LIST(arg):
+    return 1 - arg
+
+def _compute_BUILD_SET(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
