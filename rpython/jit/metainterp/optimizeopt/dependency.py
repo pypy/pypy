@@ -72,8 +72,8 @@ class Dependency(object):
                 % (self.at.opidx, self.to.opidx, self.args)
 
 class DefTracker(object):
-    def __init__(self, memory_refs):
-        self.memory_refs = memory_refs
+    def __init__(self, graph):
+        self.graph = graph
         self.defs = {}
 
     def define(self, arg, index, argcell=None):
@@ -97,10 +97,10 @@ class DefTracker(object):
                 assert index != -1
                 i = len(def_chain)-1
                 try:
-                    mref = self.memory_refs[index]
+                    mref = self.graph.memory_refs[index]
                     while i >= 0:
                         def_index = def_chain[i][0]
-                        oref = self.memory_refs.get(def_index)
+                        oref = self.graph.memory_refs.get(def_index)
                         if oref is not None and mref.indices_can_alias(oref):
                             return def_index
                         elif oref is None:
@@ -111,6 +111,15 @@ class DefTracker(object):
                     # no information is available, safe default
                     pass
                 return def_chain[-1][0]
+
+    def depends_on_arg(self, arg, to, argcell=None):
+        try:
+            idx_at = self.definition_index(arg, to.opidx, argcell)
+            at = self.graph.operations[idx_at]
+            graph.edge(at, to, arg)
+        except KeyError:
+            assert False, "arg %s must be defined" % arg
+
 
 class DependencyGraph(object):
     """ A graph that represents one of the following dependencies:
@@ -148,11 +157,12 @@ class DependencyGraph(object):
             Write After Read, Write After Write dependencies are not possible,
             the operations are in SSA form
         """
-        tracker = DefTracker(self.memory_refs)
+        tracker = DefTracker(self)
         #
         intformod = IntegralForwardModification(self.memory_refs, self.index_vars)
         # pass 1
-        for i,op in enumerate(self.operations):
+        for i,opw in enumerate(self.operations):
+            op = opw.op
             # the label operation defines all operations at the
             # beginning of the loop
             if op.getopnum() == rop.LABEL:
@@ -176,7 +186,7 @@ class DependencyGraph(object):
             if op.is_always_pure() or op.is_final():
                 # normal case every arguments definition is set
                 for arg in op.getarglist():
-                    self._def_use(arg, i, tracker)
+                    tracker.depends_on_arg(arg, opw)
             elif op.is_guard():
                 self.guards.append(i)
             else:
@@ -209,14 +219,14 @@ class DependencyGraph(object):
         # 'GUARD_NONNULL/1d',
         # 'GUARD_ISNULL/1d',
         # 'GUARD_NONNULL_CLASS/2d',
-        guard_op = self.operations[guard_idx]
+        guard_opw = self.operations[guard_idx]
+        guard_op = guard_opw.op
         for arg in guard_op.getarglist():
-            self._def_use(arg, guard_idx, tracker)
+            tracker.depends_on_arg(arg, guard_opw)
 
         variables = []
-        for dep in self.depends(guard_idx):
-            idx = dep.idx_from
-            op = self.operations[idx]
+        for dep in self.depends(guard_opw):
+            op = dep.at.op
             for arg in op.getarglist():
                 if isinstance(arg, Box):
                     variables.append(arg)
@@ -228,16 +238,16 @@ class DependencyGraph(object):
                 def_idx = tracker.definition_index(var)
                 for dep in self.provides(def_idx):
                     if var in dep.args and dep.idx_to > guard_idx:
-                        self._put_edge(dep.idx_to, guard_idx, dep.idx_to, var, force=True, label='prev('+str(var)+')')
+                        self.edge(guard_opw, dep.to, var, label='prev('+str(var)+')')
             except KeyError:
                 pass
         # handle fail args
-        op = self.operations[guard_idx]
-        if op.getfailargs():
-            for arg in op.getfailargs():
+        if guard_op.getfailargs():
+            for arg in guard_op.getfailargs():
                 try:
                     for def_idx in tracker.redefintions(arg):
-                        dep = self._put_edge(guard_idx, def_idx, guard_idx, arg, label="fail")
+                        at = self.operations[def_idx]
+                        dep = self.edge(at, guard_opw, arg, label="fail")
                 except KeyError:
                     assert False
         #
@@ -245,27 +255,28 @@ class DependencyGraph(object):
         # find the first non guard operation
         prev_op_idx = guard_idx - 1
         while prev_op_idx > 0:
-            prev_op = self.operations[prev_op_idx]
+            prev_op = self.operations[prev_op_idx].op
             if prev_op.is_guard():
                 prev_op_idx -= 1
             else:
                 break
-        prev_op = self.operations[prev_op_idx]
+        prev_op = self.operations[prev_op_idx].op
         #
         if op.is_guard_exception() and prev_op.can_raise():
-            self._guard_inhert(prev_op_idx, guard_idx)
+            self.i_guard_inhert(prev_op_idx, guard_idx)
         elif op.is_guard_overflow() and prev_op.is_ovf():
-            self._guard_inhert(prev_op_idx, guard_idx)
+            self.i_guard_inhert(prev_op_idx, guard_idx)
         elif op.getopnum() == rop.GUARD_NOT_FORCED and prev_op.can_raise():
-            self._guard_inhert(prev_op_idx, guard_idx)
+            self.i_guard_inhert(prev_op_idx, guard_idx)
         elif op.getopnum() == rop.GUARD_NOT_FORCED_2 and prev_op.can_raise():
-            self._guard_inhert(prev_op_idx, guard_idx)
+            self.i_guard_inhert(prev_op_idx, guard_idx)
 
-    def _guard_inhert(self, idx, guard_idx):
-        dep = self._put_edge(guard_idx, idx, guard_idx, None, label='inhert')
-        for dep in self.provides(idx):
-            if dep.idx_to > guard_idx:
-                self._put_edge(dep.idx_to, guard_idx, dep.idx_to, None, label='inhert')
+    def i_guard_inhert(self, idx, guard_idx):
+        at = self.operation[idx]
+        dep = self.i_edge(idx, guard_idx, None, label='inhert')
+        for dep in self.provides(at):
+            if dep.to.opidx > guard_idx:
+                self.i_edge(guard_idx, dep.to.opidx, None, label='inhert')
 
     def _build_non_pure_dependencies(self, op, index, tracker):
         # self._update_memory_ref(op, index, tracker)
@@ -304,13 +315,6 @@ class DependencyGraph(object):
                         self._def_use(arg, index, tracker)
                 if destroyed:
                     tracker.define(arg, index, argcell=argcell)
-
-    def _def_use(self, arg, index, tracker, argcell=None):
-        try:
-            def_idx = tracker.definition_index(arg, index, argcell)
-            self._put_edge(index, def_idx, index, arg)
-        except KeyError:
-            pass
 
     def _side_effect_argument(self, op):
         # if an item in array p0 is modified or a call contains an argument
@@ -396,9 +400,9 @@ class DependencyGraph(object):
             i += 1
         return i
 
-    def provides(self, idx):
-        for dep in self.adjacent_list[idx]:
-            if idx < dep.idx_to:
+    def provides(self, opw):
+        for dep in self.adjacent_list[opw]:
+            if opw.opidx < dep.to.opidx:
                 yield dep
 
     def depends_count(self, idx):
@@ -407,9 +411,12 @@ class DependencyGraph(object):
             i += 1
         return i
 
-    def depends(self, idx):
-        for dep in self.adjacent_list[idx]:
-            if idx > dep.idx_from:
+    def i_depends(self, idx):
+        opw = self.operations[idx]
+        return self.depends(opw)
+    def depends(self, opw):
+        for dep in self.adjacent_list[opw]:
+            if opw.opidx > dep.at.opidx:
                 yield dep
 
     def dependencies(self, idx):
@@ -577,8 +584,8 @@ class Scheduler(object):
                 print "sched", dep.idx_to
                 self.schedulable_nodes.append(dep.idx_to)
         #
-        for dep in self.graph.provides(node):
-            candidate = dep.idx_to
+        # TODO for dep in self.graph.provides(node):
+        #    candidate = dep.idx_to
         self.graph.adjacent_list[node] = []
 
     def is_schedulable(self, idx):
