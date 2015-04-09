@@ -404,14 +404,13 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
-        done = False
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth >= self._max_depth:
                 self._max_depth = depth
+            jump_op = instr.opcode
             if instr.has_jump:
                 target_depth = depth
-                jump_op = instr.opcode
                 if jump_op == ops.FOR_ITER:
                     target_depth -= 2
                 elif (jump_op == ops.SETUP_FINALLY or
@@ -428,10 +427,13 @@ class PythonCodeMaker(ast.ASTVisitor):
                 self._next_stack_depth_walk(instr.jump[0], target_depth)
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
-                    done = True
                     break
-        if block.next_block and not done:
-            self._next_stack_depth_walk(block.next_block, depth)
+            elif jump_op == ops.RETURN_VALUE or jump_op == ops.RAISE_VARARGS:
+                # Nothing more can occur.
+                break
+        else:
+            if block.next_block:
+                self._next_stack_depth_walk(block.next_block, depth)
         return depth
 
     def _build_lnotab(self, blocks):
