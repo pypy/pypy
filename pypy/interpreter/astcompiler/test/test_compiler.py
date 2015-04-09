@@ -790,6 +790,18 @@ class TestCompiler:
         code = compile_with_astcompiler(source, 'exec', self.space)
         assert code.co_stacksize == 3
 
+    def test_stackeffect_bug4(self):
+        source = """if 1:
+        with a: pass
+        with a: pass
+        with a: pass
+        with a: pass
+        with a: pass
+        with a: pass
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 4
+
     def test_lambda(self):
         yield self.st, "y = lambda x: x", "y(4)", 4
 

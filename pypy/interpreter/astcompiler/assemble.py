@@ -406,7 +406,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH):
-                    target_depth += 3
+                    if jump_op == ops.SETUP_WITH:
+                        target_depth -= 1     # ignore the w_result just pushed
+                    target_depth += 3         # add [exc_type, exc, unroller]
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
