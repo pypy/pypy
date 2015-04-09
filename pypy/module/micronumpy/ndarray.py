@@ -203,10 +203,11 @@ class __extend__(W_NDimArray):
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and w_idx.ndims() > 0:
             w_res = self.getitem_filter(space, w_idx)
-        try:
-            w_res = self.implementation.descr_getitem(space, self, w_idx)
-        except ArrayArgumentException:
-            w_res = self.getitem_array_int(space, w_idx)
+        else:
+            try:
+                w_res = self.implementation.descr_getitem(space, self, w_idx)
+            except ArrayArgumentException:
+                w_res = self.getitem_array_int(space, w_idx)
         if w_res.is_scalar() and w_res.get_dtype(space).is_object():
             return w_res.get_dtype(space).itemtype.unbox(w_res)
         return w_res

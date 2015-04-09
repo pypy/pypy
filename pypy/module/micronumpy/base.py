@@ -125,7 +125,7 @@ class W_NDimArray(W_NumpyObject):
     def get_shape(self):
         return self.implementation.get_shape()
 
-    def get_dtype(self):
+    def get_dtype(self, space=None):
         return self.implementation.dtype
 
     def get_order(self):
