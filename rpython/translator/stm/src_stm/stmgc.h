@@ -196,10 +196,13 @@ static inline void stm_read(object_t *obj)
         STM_SEGMENT->transaction_read_version;
 }
 
+#define _STM_WRITE_CHECK_SLOWPATH(obj)  \
+    UNLIKELY(((obj)->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0)
+
 __attribute__((always_inline))
 static inline void stm_write(object_t *obj)
 {
-    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0))
+    if (_STM_WRITE_CHECK_SLOWPATH(obj))
         _stm_write_slowpath(obj);
 }
 
@@ -208,7 +211,7 @@ __attribute__((always_inline))
 static inline void stm_write_card(object_t *obj, uintptr_t index)
 {
     /* if GCFLAG_WRITE_BARRIER is set, then don't do anything more. */
-    if (UNLIKELY((obj->stm_flags & _STM_GCFLAG_WRITE_BARRIER) != 0)) {
+    if (_STM_WRITE_CHECK_SLOWPATH(obj)) {
 
         /* GCFLAG_WRITE_BARRIER is not set.  This might be because
            it's the first time we see a given small array; or it might
@@ -478,6 +481,38 @@ object_t *stm_allocate_with_finalizer(ssize_t size_rounded_up);
 
 /* dummies for now: */
 static inline void stm_flush_timing(stm_thread_local_t *tl, int verbose) {}
+
+
+/* Hashtables.  Keys are 64-bit unsigned integers, values are
+   'object_t *'.  Note that the type 'stm_hashtable_t' is not an
+   object type at all; you need to allocate and free it explicitly.
+   If you want to embed the hashtable inside an 'object_t' you
+   probably need a light finalizer to do the freeing. */
+typedef struct stm_hashtable_s stm_hashtable_t;
+typedef TLPREFIX struct stm_hashtable_entry_s stm_hashtable_entry_t;
+
+stm_hashtable_t *stm_hashtable_create(void);
+void stm_hashtable_free(stm_hashtable_t *);
+stm_hashtable_entry_t *stm_hashtable_lookup(object_t *, stm_hashtable_t *,
+                                            uintptr_t key);
+object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
+void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
+                         object_t *nvalue, stm_thread_local_t *);
+void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
+                               object_t *nvalue);
+long stm_hashtable_length_upper_bound(stm_hashtable_t *);
+long stm_hashtable_list(object_t *, stm_hashtable_t *,
+                        stm_hashtable_entry_t **results);
+extern uint32_t stm_hashtable_entry_userdata;
+void stm_hashtable_tracefn(struct object_s *, stm_hashtable_t *,
+                           void (object_t **));
+
+struct stm_hashtable_entry_s {
+    struct object_s header;
+    uint32_t userdata;
+    uintptr_t index;
+    object_t *object;
+};
 
 /* ==================== END ==================== */
 

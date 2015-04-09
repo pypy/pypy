@@ -259,14 +259,13 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                       'freelist': _ll_hashtable_freelist,
                                         'lookup': _ll_hashtable_lookup,
                                       'writeobj': _ll_hashtable_writeobj})
-# NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
-NULL_HASHTABLE = None
+NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
 def _ll_hashtable_trace(gc, obj, callback, arg):
     from rpython.memory.gctransform.stmframework import get_visit_function
     visit_fn = get_visit_function(callback, arg)
     addr = obj + llmemory.offsetof(_HASHTABLE_OBJ, 'll_raw_hashtable')
-    llop.stm_hashtable_tracefn(lltype.Void, addr.address[0], visit_fn)
+    llop.stm_hashtable_tracefn(lltype.Void, obj, addr.address[0], visit_fn)
 lambda_hashtable_trace = lambda: _ll_hashtable_trace
 
 def _ll_hashtable_finalizer(h):
@@ -280,65 +279,21 @@ _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 def create_hashtable():
     if not we_are_translated():
         return HashtableForTest()      # for tests
-    return HashtableEmulation()
-    # rgc.register_custom_light_finalizer(_HASHTABLE_OBJ, lambda_hashtable_finlz)
-    # rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
-    # # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
-    # # Make sure we see a malloc() of it, so that its typeid is correctly
-    # # initialized.  It can be done in a NonConstant(False) path so that
-    # # the C compiler will actually drop it.
-    # if _false:
-    #     p = lltype.malloc(_STM_HASHTABLE_ENTRY)
-    # else:
-    #     p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
-    # h = lltype.malloc(_HASHTABLE_OBJ, zero=True)
-    # h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
-    # return h
+    rgc.register_custom_light_finalizer(_HASHTABLE_OBJ, lambda_hashtable_finlz)
+    rgc.register_custom_trace_hook(_HASHTABLE_OBJ, lambda_hashtable_trace)
+    # Pass a null pointer to _STM_HASHTABLE_ENTRY to stm_hashtable_create().
+    # Make sure we see a malloc() of it, so that its typeid is correctly
+    # initialized.  It can be done in a NonConstant(False) path so that
+    # the C compiler will actually drop it.
+    if _false:
+        p = lltype.malloc(_STM_HASHTABLE_ENTRY)
+    else:
+        p = lltype.nullptr(_STM_HASHTABLE_ENTRY)
+    h = lltype.malloc(_HASHTABLE_OBJ, zero=True)
+    h.ll_raw_hashtable = llop.stm_hashtable_create(_STM_HASHTABLE_P, p)
+    return h
 
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
-
-class HashtableEmulation(object):
-    def __init__(self):
-        self._content = {}      # dict {integer: GCREF}
-
-    def get(self, key):
-        return self._content.get(key, NULL_GCREF)
-
-    def set(self, key, value):
-        if value:
-            self._content[key] = value
-        else:
-            try:
-                del self._content[key]
-            except KeyError:
-                pass
-
-    def len(self):
-        return len(self._content)
-
-    def list(self):
-        items = []
-        for key in self._content.keys():
-            items.append(self.lookup(key))
-        count = len(items)
-        return items, count
-
-    def freelist(self, array):
-        pass
-
-    def lookup(self, key):
-        return EntryObjectEmulation(self, key)
-
-    def writeobj(self, entry, nvalue):
-        self.set(entry.key, nvalue)
-
-class EntryObjectEmulation(object):
-    def __init__(self, hashtable, key):
-        self.hashtable = hashtable
-        self.key = key
-        self.index = r_uint(key)
-        self.object = hashtable.get(key)
-
 
 class HashtableForTest(object):
     def __init__(self):

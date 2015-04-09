@@ -190,9 +190,15 @@ struct stm_undo_s {
         uintptr_t marker_odd_number; /* the odd number part of the marker */
         object_t *marker_object;     /* the object part of the marker */
     };
+    struct {
+        intptr_t type1;             /* TYPE_POSITION_MARKER (again) */
+        intptr_t type2;             /* TYPE_MODIFIED_HASHTABLE */
+        object_t *modif_hashtable;  /* modified entry is previous stm_undo_s */
+    };
   };
 };
 #define TYPE_POSITION_MARKER    (-1)
+#define TYPE_MODIFIED_HASHTABLE (-2)
 #define SLICE_OFFSET(slice)  ((slice) >> 16)
 #define SLICE_SIZE(slice)    ((int)((slice) & 0xFFFF))
 #define NEW_SLICE(offset, size) (((uint64_t)(offset)) << 16 | (size))
@@ -251,6 +257,14 @@ static inline char *get_segment_base(long segment_num) {
     return stm_object_pages + segment_num * (NB_PAGES * 4096UL);
 }
 
+static inline long get_num_segment_containing_address(char *addr)
+{
+    uintptr_t delta = addr - stm_object_pages;
+    uintptr_t result = delta / (NB_PAGES * 4096UL);
+    assert(result < NB_SEGMENTS);
+    return result;
+}
+
 static inline
 struct stm_segment_info_s *get_segment(long segment_num) {
     return (struct stm_segment_info_s *)REAL_ADDRESS(
@@ -284,6 +298,17 @@ static void synchronize_objects_flush(void);
 
 static void _signal_handler(int sig, siginfo_t *siginfo, void *context);
 static bool _stm_validate();
+
+static inline bool was_read_remote(char *base, object_t *obj)
+{
+    uint8_t other_transaction_read_version =
+        ((struct stm_segment_info_s *)REAL_ADDRESS(base, STM_PSEGMENT))
+            ->transaction_read_version;
+    uint8_t rm = ((struct stm_read_marker_s *)
+                  (base + (((uintptr_t)obj) >> 4)))->rm;
+    assert(rm <= other_transaction_read_version);
+    return rm == other_transaction_read_version;
+}
 
 static inline void _duck(void) {
     /* put a call to _duck() between two instructions that set 0 into
