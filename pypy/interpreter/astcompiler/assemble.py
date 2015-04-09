@@ -9,6 +9,10 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool import stdlib_opcode as ops
 
 
+class StackDepthComputationError(Exception):
+    pass
+
+
 class Instruction(object):
     """Represents a single opcode."""
 
@@ -55,11 +59,13 @@ class Block(object):
     reaches the end of the block, it continues to next_block.
     """
 
+    marked = False
+    have_return = False
+    auto_inserted_return = False
+
     def __init__(self):
         self.instructions = []
         self.next_block = None
-        self.marked = False
-        self.have_return = False
 
     def _post_order_see(self, stack, nextblock):
         if nextblock.marked == 0:
@@ -384,7 +390,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         # look into a block when all the previous blocks have been done.
         self._max_depth = 0
         for block in blocks:
-            self._do_stack_depth_walk(block)
+            depth = self._do_stack_depth_walk(block)
+            if block.auto_inserted_return and depth != 0:
+                raise StackDepthComputationError   # fatal error
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):
@@ -421,6 +429,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     break
         if block.next_block and not done:
             self._next_stack_depth_walk(block.next_block, depth)
+        return depth
 
     def _build_lnotab(self, blocks):
         """Build the line number table for tracebacks and tracing."""
@@ -473,6 +482,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if self.add_none_to_final_return:
                 self.load_const(self.space.w_None)
             self.emit_op(ops.RETURN_VALUE)
+            self.current_block.auto_inserted_return = True
         # Set the first lineno if it is not already explicitly set.
         if self.first_lineno == -1:
             if self.first_block.instructions:
