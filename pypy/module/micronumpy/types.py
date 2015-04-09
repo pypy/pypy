@@ -1734,9 +1734,6 @@ class ObjectType(BaseType):
             return v1
         return v2
 
-    def arctan2(self, v1, v2):
-        raise oefmt(self.space.w_AttributeError, 'arctan2')
-
     @simple_unary_op
     def bool(self,v):
         return self._bool(v)
@@ -1800,22 +1797,39 @@ class ObjectType(BaseType):
         else:
             return zero
 
+    @simple_unary_op
+    def real(self, v):
+        return v
 
+    @simple_unary_op
+    def imag(self, v):
+        return 0
+
+    @simple_unary_op
+    def square(self, v):
+        return self.space.mul(v, v)
+
+def add_attributeerr_op(cls, op):
+    def func(self, *args):
+        raise oefmt(self.space.w_AttributeError, 
+            "%s", op)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+        
 def add_unsupported_op(cls, op):
     def func(self, *args):
         raise oefmt(self.space.w_TypeError, 
             "ufunc '%s' not supported for input types", op)
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
-        
 
-def add_unary_op(cls, op):
+def add_unary_op(cls, op, method):
     @simple_unary_op
     def func(self, w_v):
-        w_impl = self.space.lookup(w_v, op)
+        w_impl = getattr(w_v, method, None)
         if w_impl is None:
             raise oefmt(self.space.w_AttributeError, 'unknown op "%s" on object' % op)
-        return self.space.get_and_call_function(w_impl, w_v)
+        return w_impl(self.space)
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
 
@@ -1841,10 +1855,15 @@ def add_space_comp_op(cls, op):
     setattr(cls, op, func)
 
 for op in ('copysign', 'isfinite', 'isinf', 'isnan', 'logaddexp', 'logaddexp2',
-           'signbit',):
+           'signbit'):
     add_unsupported_op(ObjectType, op)
-for op in ('conj', 'real', 'imag', 'rint'):
-    add_unary_op(ObjectType, op)
+for op in ('arctan2', 'arccos', 'arccosh', 'arcsin', 'arcsinh', 'arctan',
+           'arctanh', 'ceil', 'floor', 'cos', 'sin', 'tan', 'cosh', 'sinh',
+           'tanh', 'radians', 'degrees', 'exp','exp2', 'expm1', 'fabs',
+           'log', 'log10', 'log1p', 'log2', 'sqrt', 'trunc'):
+    add_attributeerr_op(ObjectType, op)
+for op, method in (('conj', 'descr_conjugate'), ('rint', 'descr_rint')):
+    add_unary_op(ObjectType, op, method)
 for op in ('abs', 'neg', 'pos', 'invert'):
     add_space_unary_op(ObjectType, op)
 for op in ('add', 'floordiv', 'div', 'mod', 'mul', 'sub', 'lshift', 'rshift'):

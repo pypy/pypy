@@ -497,10 +497,13 @@ class W_Ufunc2(W_Ufunc):
                     out.set_scalar_value(arr)
                 else:
                     out.fill(space, arr)
-            elif calc_dtype.is_object():
-                out = arr.get_scalar_value()
+            elif isinstance(arr, res_dtype.itemtype.BoxType):
+                if res_dtype.is_object():
+                    out = arr.get_scalar_value()
+                else:
+                    out = arr
             else:
-                out = arr
+                out = space.wrap(arr)
             return out
         if isinstance(w_lhs, boxes.W_GenericBox):
             w_lhs = W_NDimArray.from_scalar(space, w_lhs)
@@ -1042,6 +1045,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
+    if dt.is_object():
+        return dt
     if promote_to_largest:
         if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
             if dt.elsize * 8 < LONG_BIT:
@@ -1128,6 +1133,9 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, nin, comparison_func,
         def impl(res_dtype, value):
             res = get_op(res_dtype)(value)
             if bool_result:
+                if res_dtype.is_object() and isinstance(res, W_Root):
+                    space = res_dtype.itemtype.space
+                    res = space.bool_w(res)
                 return dtype_cache.w_booldtype.box(res)
             return res
     elif nin == 2:

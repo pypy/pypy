@@ -414,6 +414,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         u(* [array] * u.nin)
                     except AttributeError:
                         pass
+                    except NotImplementedError:
+                        print s
+                        uncallable.add(s)
                     except TypeError:
                         assert s not in uncallable
                         uncallable.add(s)

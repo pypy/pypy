@@ -66,6 +66,20 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         b = np.maximum.reduce(a)
         assert b is not None
 
+    def test_complex_op(self):
+        import numpy as np
+        a = np.array(['abc', 'def'], dtype=object) 
+        b = np.array([1, 2, 3], dtype=object) 
+        c = np.array([complex(1, 1), complex(1, -1)], dtype=object)
+        for arg in (a,b,c):
+            assert (arg == np.real(arg)).all()
+            assert (0 == np.imag(arg)).all()
+        raises(AttributeError, np.conj, a)
+        res = np.conj(b)
+        assert (res == b).all()
+        res = np.conj(c)
+        assert res[0] == c[1] and res[1] == c[0]
+
     def test_keep_object_alive(self):
         # only translated does it really test the gc
         import numpy as np
