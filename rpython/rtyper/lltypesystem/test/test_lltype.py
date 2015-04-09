@@ -1,9 +1,11 @@
-from __future__ import with_statement
 import py
+import sys
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.identity_dict import identity_dict
 from rpython.tool import leakfinder
+from rpython.annotator.annrpython import RPythonAnnotator
+from rpython.rtyper.rtyper import RPythonTyper
 
 def isweak(p, T):
     try:
@@ -538,6 +540,24 @@ def test_adt_typemethod():
                       adtmeths={"h_newstruct": h_newstruct})
 
     assert S == Sprime
+
+class Frozen(object):
+    def _freeze_(self):
+        return True
+
+@py.test.mark.parametrize('x', [
+    1, sys.maxint, 1.5, 'a', 'abc', u'abc', None, [],
+    py.test.mark.xfail(lambda: None),
+    {1.23: 'abc'},
+    (1, 'x', [2, 3.],),
+    py.test.mark.xfail(Frozen()),])
+def test_typeOf_const(x):
+    a = RPythonAnnotator()
+    bk = a.bookkeeper
+    rtyper = RPythonTyper(a)
+    s_x = bk.immutablevalue(x)
+    r_x = rtyper.getrepr(s_x)
+    assert typeOf(r_x.convert_const(x)) == r_x.lowleveltype
 
 def test_cast_primitive():
     cases = [
