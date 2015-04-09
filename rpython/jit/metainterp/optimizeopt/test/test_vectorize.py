@@ -3,7 +3,8 @@ import pytest
 
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+    LLtypeMixin, FakeMetaInterpStaticData, convert_old_style_to_targets)
+from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt import optimize_trace
 import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
@@ -21,12 +22,14 @@ from rpython.rlib.rarithmetic import LONG_BIT
 class FakeJitDriverStaticData(object):
     vectorize=True
 
-class VecTestHelper(BaseTest):
+class VecTestHelper(DependencyBaseTest):
 
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unfold"
 
-
     jitdriver_sd = FakeJitDriverStaticData()
+
+    def setup_method(self, method):
+        self.test_name = method.__name__
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
@@ -50,85 +53,58 @@ class VecTestHelper(BaseTest):
         self._do_optimize_loop(loop, call_pure_results, export_state=True)
         self.assert_equal(loop, expected_loop)
 
-    def vec_optimizer(self, loop):
+    def vectoroptimizer(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, [])
         return opt
 
-    def vec_optimizer_unrolled(self, loop, unroll_factor = -1):
-        opt = self.vec_optimizer(loop)
-        opt._gather_trace_information(loop)
+    def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
+        opt = self.vectoroptimizer(loop)
+        opt.linear_find_smallest_type(loop)
+        if unroll_factor == -1 and opt.smallest_type_bytes == 0:
+            raise NotAVectorizeableLoop()
         if unroll_factor == -1:
             unroll_factor = opt.get_unroll_count()
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
+        opt.clear_newoperations()
+        opt.build_dependency_graph()
+        self.last_graph = opt.dependency_graph
         return opt
 
     def init_packset(self, loop, unroll_factor = -1):
-        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
-        opt.build_dependency_graph()
+        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs()
         return opt
 
     def extend_packset(self, loop, unroll_factor = -1):
-        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
-        opt.build_dependency_graph()
+        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
         self._write_dot_and_convert_to_svg(opt.dependency_graph, opt.loop.operations, 'extend_packset')
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         return opt
 
     def combine_packset(self, loop, unroll_factor = -1):
-        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
-        opt.build_dependency_graph()
+        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
         return opt
 
     def schedule(self, loop, unroll_factor = -1):
-        opt = self.vec_optimizer_unrolled(loop, unroll_factor)
-        self.debug_print_operations(opt.loop)
-        opt.build_dependency_graph()
+        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs()
-        self._write_dot_and_convert_to_svg(opt.dependency_graph, opt.loop.operations, 'test')
+        self._write_dot_and_convert_to_svg(opt.dependency_graph, opt.loop.operations, self.test_name)
         opt.extend_packset()
         opt.combine_packset()
         opt.schedule()
         return opt
 
-    def _write_dot_and_convert_to_svg(self, graph, ops, filename):
-        dot = graph.as_dot(ops)
-        with open('/home/rich/' + filename + '.dot', 'w') as fd:
-            fd.write(dot)
-        with open('/home/rich/'+filename+'.svg', 'w') as fd:
-            import subprocess
-            subprocess.Popen(['dot', '-Tsvg', '/home/rich/'+filename+'.dot'], stdout=fd).communicate()
-
     def assert_unroll_loop_equals(self, loop, expected_loop, \
                      unroll_factor = -1):
-        vec_optimizer = self.vec_optimizer_unrolled(loop, unroll_factor)
+        vectoroptimizer = self.vectoroptimizer_unrolled(loop, unroll_factor)
         self.assert_equal(loop, expected_loop)
-
-
-    def assert_memory_ref_adjacent(self, m1, m2):
-        assert m1.is_adjacent_to(m2)
-        assert m2.is_adjacent_to(m1)
-
-    def assert_memory_ref_not_adjacent(self, m1, m2):
-        assert not m1.is_adjacent_to(m2)
-        assert not m2.is_adjacent_to(m1)
-
-    def debug_print_operations(self, loop):
-        print('--- loop instr numbered ---')
-        for i,op in enumerate(loop.operations):
-            print "[",i,"]",op,
-            if op.is_guard():
-                print op.rd_snapshot.boxes
-            else:
-                print ""
-
 
     def assert_pack(self, pack, indices):
         assert len(pack.operations) == len(indices)
@@ -145,7 +121,6 @@ class VecTestHelper(BaseTest):
                 break
         else:
             pytest.fail("could not find a packset that points to %s" % str(opindices))
-
 
     def assert_packset_empty(self, packset, instr_count, exceptions):
         for a,b in exceptions:
@@ -173,29 +148,6 @@ class VecTestHelper(BaseTest):
         else:
             pytest.fail("can't find a pack set for indices {x},{y}" \
                             .format(x=x,y=y))
-
-    def assert_edges(self, graph, edge_list):
-        """ Check if all dependencies are met. for complex cases
-        adding None instead of a list of integers skips the test.
-        This checks both if a dependency forward and backward exists.
-        """
-        assert len(edge_list) == len(graph.adjacent_list)
-        for idx,edges in enumerate(edge_list):
-            if edges is None:
-                continue
-            dependencies = graph.adjacent_list[idx][:]
-            for edge in edges:
-                dependency = graph.instr_dependency(idx,edge)
-                if edge < idx:
-                    dependency = graph.instr_dependency(edge, idx)
-                assert dependency is not None, \
-                   " it is expected that instruction at index" + \
-                   " %d depends on instr on index %d but it does not.\n%s" \
-                        % (idx, edge, graph)
-                dependencies.remove(dependency)
-            assert dependencies == [], \
-                    "dependencies unexpected %s.\n%s" \
-                    % (dependencies,graph)
 
 class BaseTestVectorize(VecTestHelper):
 
@@ -291,8 +243,8 @@ class BaseTestVectorize(VecTestHelper):
         raw_load(p0,i0,descr=arraydescr2)
         jump(p0,i0)
         """
-        vopt = self.vec_optimizer(self.parse_loop(ops))
-        assert 0 == vopt.vec_info.smallest_type_bytes
+        vopt = self.vectoroptimizer(self.parse_loop(ops))
+        assert 0 == vopt.smallest_type_bytes
         assert 0 == vopt.get_unroll_count()
 
     def test_array_operation_indices_not_unrolled(self):
@@ -301,9 +253,10 @@ class BaseTestVectorize(VecTestHelper):
         raw_load(p0,i0,descr=arraydescr2)
         jump(p0,i0)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops))
-        assert 1 in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 1
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.build_dependency_graph()
+        assert 1 in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 1
 
     def test_array_operation_indices_unrolled_1(self):
         ops = """
@@ -311,10 +264,11 @@ class BaseTestVectorize(VecTestHelper):
         raw_load(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
-        assert 1 in vopt.vec_info.memory_refs
-        assert 2 in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 2
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
+        vopt.build_dependency_graph()
+        assert 1 in vopt.dependency_graph.memory_refs
+        assert 2 in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 2
 
     def test_array_operation_indices_unrolled_2(self):
         ops = """
@@ -323,18 +277,19 @@ class BaseTestVectorize(VecTestHelper):
         i4 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i3,i4)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        assert 1 in vopt.vec_info.memory_refs
-        assert 2 in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 2
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.build_dependency_graph()
+        assert 1 in vopt.dependency_graph.memory_refs
+        assert 2 in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 2
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
         for i in [1,2,3,4]:
-            assert i in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 4
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),3)
+            assert i in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 4
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),3)
         for i in [1,2,3,4,5,6,7,8]:
-            assert i in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 8
+            assert i in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 8
 
     def test_array_memory_ref_adjacent_1(self):
         ops = """
@@ -343,18 +298,17 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0,1)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
         self.assert_edges(vopt.dependency_graph,
                 [ [1,2,3,5], [0,5], [0,3,4], [0,2,5], [2,5], [0,4,1,3] ])
 
         vopt.find_adjacent_memory_refs()
-        assert 1 in vopt.vec_info.memory_refs
-        assert 3 in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 2
+        assert 1 in vopt.dependency_graph.memory_refs
+        assert 3 in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 2
 
-        mref1 = vopt.vec_info.memory_refs[1]
-        mref3 = vopt.vec_info.memory_refs[3]
+        mref1 = vopt.dependency_graph.memory_refs[1]
+        mref3 = vopt.dependency_graph.memory_refs[3]
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
 
@@ -367,13 +321,12 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[1]
+        mref1 = vopt.dependency_graph.memory_refs[1]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 1
-        assert mref1.constant == 0
+        assert mref1.index_var.coefficient_mul == 1
+        assert mref1.index_var.constant == 0
 
     def test_array_memory_ref_2(self):
         ops = """
@@ -382,13 +335,12 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[2]
+        mref1 = vopt.dependency_graph.memory_refs[2]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 1
-        assert mref1.constant == 1
+        assert mref1.index_var.coefficient_mul == 1
+        assert mref1.index_var.constant == 1
 
     def test_array_memory_ref_sub_index(self):
         ops = """
@@ -397,13 +349,12 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[2]
+        mref1 = vopt.dependency_graph.memory_refs[2]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 1
-        assert mref1.constant == -1
+        assert mref1.index_var.coefficient_mul == 1
+        assert mref1.index_var.constant == -1
 
     def test_array_memory_ref_add_mul_index(self):
         ops = """
@@ -413,13 +364,12 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i2,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[3]
+        mref1 = vopt.dependency_graph.memory_refs[3]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 3
-        assert mref1.constant == 3
+        assert mref1.index_var.coefficient_mul == 3
+        assert mref1.index_var.constant == 3
 
     def test_array_memory_ref_add_mul_index_interleaved(self):
         ops = """
@@ -431,13 +381,12 @@ class BaseTestVectorize(VecTestHelper):
         i5 = raw_load(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[5]
+        mref1 = vopt.dependency_graph.memory_refs[5]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 18
-        assert mref1.constant == 48
+        assert mref1.index_var.coefficient_mul == 18
+        assert mref1.index_var.constant == 48
 
         ops = """
         [p0,i0]
@@ -450,14 +399,13 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load(p0,i6,descr=chararraydescr)
         jump(p0,i6)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[7]
+        mref1 = vopt.dependency_graph.memory_refs[7]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 1026
-        assert mref1.coefficient_div == 1
-        assert mref1.constant == 57*(30) + 57*6*(5) + 57*6*3*(1)
+        assert mref1.index_var.coefficient_mul == 1026
+        assert mref1.index_var.coefficient_div == 1
+        assert mref1.index_var.constant == 57*(30) + 57*6*(5) + 57*6*3*(1)
 
     def test_array_memory_ref_sub_mul_index_interleaved(self):
         ops = """
@@ -469,14 +417,13 @@ class BaseTestVectorize(VecTestHelper):
         i5 = raw_load(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref1 = vopt.vec_info.memory_refs[5]
+        mref1 = vopt.dependency_graph.memory_refs[5]
         assert isinstance(mref1, MemoryRef)
-        assert mref1.coefficient_mul == 6
-        assert mref1.coefficient_div == 1
-        assert mref1.constant == 0
+        assert mref1.index_var.coefficient_mul == 6
+        assert mref1.index_var.coefficient_div == 1
+        assert mref1.index_var.constant == 0
 
     def test_array_memory_ref_not_adjacent_1(self):
         ops = """
@@ -500,8 +447,7 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i8,i7)
         """
 
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),1)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
         self.assert_edges(vopt.dependency_graph,
                 [ [1,2,3,4,5,7,9], 
                     [0,9], [0,5,6], [0,9], [0,7,8],
@@ -512,13 +458,13 @@ class BaseTestVectorize(VecTestHelper):
         vopt.find_adjacent_memory_refs()
 
         for i in [1,3,5,7]:
-            assert i in vopt.vec_info.memory_refs
-        assert len(vopt.vec_info.memory_refs) == 4
+            assert i in vopt.dependency_graph.memory_refs
+        assert len(vopt.dependency_graph.memory_refs) == 4
 
-        mref1 = vopt.vec_info.memory_refs[1]
-        mref3 = vopt.vec_info.memory_refs[3]
-        mref5 = vopt.vec_info.memory_refs[5]
-        mref7 = vopt.vec_info.memory_refs[7]
+        mref1 = vopt.dependency_graph.memory_refs[1]
+        mref3 = vopt.dependency_graph.memory_refs[3]
+        mref5 = vopt.dependency_graph.memory_refs[5]
+        mref7 = vopt.dependency_graph.memory_refs[7]
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
         assert isinstance(mref5, MemoryRef)
@@ -538,11 +484,10 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = vopt.vec_info.memory_refs[3]
-        assert mref.coefficient_div == 16
+        mref = vopt.dependency_graph.memory_refs[3]
+        assert mref.index_var.coefficient_div == 16
         ops = """
         [p0,i0]
         i1 = int_add(i0,8)
@@ -550,12 +495,11 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = vopt.vec_info.memory_refs[3]
-        assert mref.coefficient_div == 2
-        assert mref.constant == 4
+        mref = vopt.dependency_graph.memory_refs[3]
+        assert mref.index_var.coefficient_div == 2
+        assert mref.index_var.constant == 4
         ops = """
         [p0,i0]
         i1 = int_add(i0,8)
@@ -566,11 +510,10 @@ class BaseTestVectorize(VecTestHelper):
         i6 = raw_load(p0,i5,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = vopt.vec_info.memory_refs[3]
-        mref2 = vopt.vec_info.memory_refs[6]
+        mref = vopt.dependency_graph.memory_refs[3]
+        mref2 = vopt.dependency_graph.memory_refs[6]
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref != mref2
@@ -587,11 +530,10 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = vopt.vec_info.memory_refs[3]
-        mref2 = vopt.vec_info.memory_refs[7]
+        mref = vopt.dependency_graph.memory_refs[3]
+        mref2 = vopt.dependency_graph.memory_refs[7]
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref == mref2
@@ -608,11 +550,10 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vec_optimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = vopt.vec_info.memory_refs[3]
-        mref2 = vopt.vec_info.memory_refs[7]
+        mref = vopt.dependency_graph.memory_refs[3]
+        mref2 = vopt.dependency_graph.memory_refs[7]
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref != mref2
@@ -625,7 +566,7 @@ class BaseTestVectorize(VecTestHelper):
         jump()
         """
         loop = self.parse_loop(ops)
-        vopt = self.vec_optimizer_unrolled(loop,1)
+        vopt = self.vectoroptimizer_unrolled(loop,1)
         self.assert_equal(loop, self.parse_loop(ops))
 
     def test_packset_init_simple(self):
@@ -641,7 +582,7 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.init_packset(loop,1)
         assert vopt.dependency_graph.independent(1,5)
         assert vopt.packset is not None
-        assert len(vopt.vec_info.memory_refs) == 2
+        assert len(vopt.dependency_graph.memory_refs) == 2
         assert len(vopt.packset.packs) == 1
 
     def test_packset_init_raw_load_not_adjacent_and_adjacent(self):
@@ -652,7 +593,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.init_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.dependency_graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 0
         ops = """
         [p0,i0]
@@ -662,8 +603,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.init_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 4
-        print vopt.packset.packs
+        assert len(vopt.dependency_graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 3
         for i in range(3):
             x = (i+1)*2
@@ -682,19 +622,19 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.init_packset(loop,15)
-        assert len(vopt.vec_info.memory_refs) == 16
+        assert len(vopt.dependency_graph.memory_refs) == 16
         assert len(vopt.packset.packs) == 15
         # assure that memory refs are not adjacent for all
         for i in range(15):
             for j in range(15):
                 try:
                     if i-4 == j or i+4 == j:
-                        mref1 = vopt.vec_info.memory_refs[i]
-                        mref2 = vopt.vec_info.memory_refs[j]
+                        mref1 = vopt.dependency_graph.memory_refs[i]
+                        mref2 = vopt.dependency_graph.memory_refs[j]
                         assert mref1.is_adjacent_to(mref2)
                     else:
-                        mref1 = vopt.vec_info.memory_refs[i]
-                        mref2 = vopt.vec_info.memory_refs[j]
+                        mref1 = vopt.dependency_graph.memory_refs[i]
+                        mref2 = vopt.dependency_graph.memory_refs[j]
                         assert not mref1.is_adjacent_to(mref2)
                 except KeyError:
                     pass
@@ -739,7 +679,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.extend_packset(loop,1)
-        assert len(vopt.vec_info.memory_refs) == 2
+        assert len(vopt.dependency_graph.memory_refs) == 2
         assert vopt.dependency_graph.independent(5,10) == True
         assert len(vopt.packset.packs) == 2
         self.assert_packset_empty(vopt.packset, len(loop.operations),
@@ -758,7 +698,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.extend_packset(loop,1)
-        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.dependency_graph.memory_refs) == 4
         assert vopt.dependency_graph.independent(4,10)
         assert vopt.dependency_graph.independent(5,11)
         assert vopt.dependency_graph.independent(6,12)
@@ -776,7 +716,7 @@ class BaseTestVectorize(VecTestHelper):
         """.format(descr=descr)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.dependency_graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 1
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
         ops = """
@@ -787,7 +727,7 @@ class BaseTestVectorize(VecTestHelper):
         """.format(descr=descr)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.dependency_graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 1
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
 
@@ -804,10 +744,7 @@ class BaseTestVectorize(VecTestHelper):
         """.format(type=descr,stride=stride)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 8
-        print "---"
-        for p in vopt.packset.packs:
-            print p
+        assert len(vopt.dependency_graph.memory_refs) == 8
         assert len(vopt.packset.packs) == 1
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7,9,11,13,15))
 
@@ -822,7 +759,7 @@ class BaseTestVectorize(VecTestHelper):
         pytest.skip("loop unrolling must apply redundant loop unrolling")
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 4
+        assert len(vopt.dependency_graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 1
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
 
@@ -877,7 +814,7 @@ class BaseTestVectorize(VecTestHelper):
         """.format(op=op,descr=descr,stride=stride)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        assert len(vopt.vec_info.memory_refs) == 12
+        assert len(vopt.dependency_graph.memory_refs) == 12
         assert len(vopt.packset.packs) == 4
 
         for opindices in [(4,11,18,25),(5,12,19,26),
@@ -926,7 +863,6 @@ class BaseTestVectorize(VecTestHelper):
         """.format(op='vec_'+op,descr=descr,stride=1)
         loop = self.parse_loop(ops)
         vopt = self.schedule(loop,1)
-        self.debug_print_operations(vopt.loop)
         self.assert_equal(loop, self.parse_loop(vops))
 
     @pytest.mark.parametrize('unroll', range(1,16,2))
@@ -965,12 +901,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_future_condition() []
         jump(i16, i10, i12, i3, i4, i5, i13, i7)
         """
-        self.debug_print_operations(self.parse_loop(ops))
         vopt = self.schedule(self.parse_loop(ops),1)
-        print "_--" * 10
-        print vopt.vec_info.memory_refs
-        print "_--" * 10
-        self.debug_print_operations(vopt.loop)
 
     def test_123(self):
         ops = """
@@ -988,9 +919,8 @@ class BaseTestVectorize(VecTestHelper):
         label(i11, i1, i2, i3, i4)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
-        self.debug_print_operations(vopt.loop)
 
-    def test_111(self):
+    def test_schedule_vectorized_trace_1(self):
         ops = """
         [i0, i1, i2, i3, i4, i5, i6, i7]
         i8 = raw_load(i3, i0, descr=intarraydescr)
@@ -1002,10 +932,9 @@ class BaseTestVectorize(VecTestHelper):
         i15 = int_lt(i12, i14)
         guard_true(i15) [i7, i10, i5, i4, i3, i9, i8, i12]
         guard_future_condition() []
-        label(i12, i8, i9, i3, i4, i5, i10, i7)
+        jump(i12, i8, i9, i3, i4, i5, i10, i7)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
-        self.debug_print_operations(vopt.loop)
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

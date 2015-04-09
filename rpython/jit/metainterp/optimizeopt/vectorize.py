@@ -10,6 +10,7 @@ from rpython.jit.metainterp.resoperation import (rop, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.metainterp.jitexc import JitException
+from rpython.rlib.objectmodel import we_are_translated
 
 class NotAVectorizeableLoop(JitException):
     def __str__(self):
@@ -72,6 +73,27 @@ class VectorizingOptimizer(Optimizer):
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
+
+    def propagate_all_forward(self):
+        self.clear_newoperations()
+        self.linear_find_smallest_type(self.loop)
+        byte_count = self.smallest_type_bytes
+        if byte_count == 0:
+            # stop, there is no chance to vectorize this trace
+            raise NotAVectorizeableLoop()
+
+        # unroll
+        self.unroll_count = self.get_unroll_count()
+        self.unroll_loop_iterations(self.loop, self.unroll_count)
+        self.loop.operations = self.get_newoperations();
+        self.clear_newoperations();
+
+        # vectorize
+        self.build_dependency_graph()
+        self.find_adjacent_memory_refs()
+        self.extend_packset()
+        self.combine_packset()
+        self.schedule()
 
     def emit_operation(self, op):
         self._last_emitted_op = op
@@ -149,8 +171,18 @@ class VectorizingOptimizer(Optimizer):
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
-                    copied_op.rd_snapshot = \
-                        self.clone_snapshot(copied_op.rd_snapshot, rename_map)
+                    snapshot = self.clone_snapshot(copied_op.rd_snapshot, rename_map)
+                    copied_op.rd_snapshot = snapshot
+                    if not we_are_translated():
+                        # ensure that in a test case the renaming is correct
+                        args = copied_op.getfailargs()[:]
+                        for i,arg in enumerate(args):
+                            try:
+                                value = rename_map[arg]
+                                args[i] = value
+                            except KeyError:
+                                pass
+                        copied_op.setfailargs(args)
                 #
                 self.emit_unrolled_operation(copied_op)
                 #self.vec_info.index = len(self._newoperations)-1
@@ -182,9 +214,7 @@ class VectorizingOptimizer(Optimizer):
             try:
                 value = rename_map[box]
                 new_boxes[i] = value
-                print "box", box, "=>", value
             except KeyError:
-                print "FAIL:", i, box
                 pass
 
         snapshot = Snapshot(self.clone_snapshot(snapshot.prev, rename_map),
@@ -212,29 +242,9 @@ class VectorizingOptimizer(Optimizer):
         unroll_count = simd_vec_reg_bytes // byte_count
         return unroll_count-1 # it is already unrolled once
 
-    def propagate_all_forward(self):
-
-        self.clear_newoperations()
-
-        self.linear_find_smallest_type(self.loop)
-
-        byte_count = self.smallest_type_bytes
-        if byte_count == 0:
-            # stop, there is no chance to vectorize this trace
-            raise NotAVectorizeableLoop()
-
-        self.unroll_count = self.get_unroll_count()
-
-        self.unroll_loop_iterations(self.loop, self.unroll_count)
-
-        self.loop.operations = self.get_newoperations();
-        self.clear_newoperations();
-
-        self.build_dependency_graph()
-        self.find_adjacent_memory_refs()
-        self.extend_packset()
-        self.combine_packset()
-        self.schedule()
+    def build_dependency_graph(self):
+        self.dependency_graph = DependencyGraph(self.loop.operations)
+        self.relax_guard_dependencies()
 
     def relax_guard_dependencies(self):
         return
@@ -243,17 +253,7 @@ class VectorizingOptimizer(Optimizer):
             for dep in self.dependency_graph.depends(idx):
                 op = self.operations[dep.idx_from]
                 if op.returns_bool_result():
-                    for arg in op.getarglist():
-                        if isinstance(arg, Box):
-                            self._track_integral_modification(arg)
-
-    def _track_integral_modification(self, arg):
-        ref = MemoryRef(None, arg, None)
-
-    def build_dependency_graph(self):
-        self.dependency_graph = \
-            DependencyGraph(self.loop.operations)
-        self.relax_guard_dependencies()
+                    pass
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -267,8 +267,8 @@ class VectorizingOptimizer(Optimizer):
 
         self.packset = PackSet(self.dependency_graph, operations,
                                 self.unroll_count,
-                                self.vec_info.smallest_type_bytes)
-        memory_refs = self.vec_info.memory_refs.items()
+                                self.smallest_type_bytes)
+        memory_refs = self.dependency_graph.memory_refs.items()
         # initialize the pack set
         for a_opidx,a_memref in memory_refs:
             for b_opidx,b_memref in memory_refs:
@@ -339,7 +339,6 @@ class VectorizingOptimizer(Optimizer):
         end_ij = len(self.packset.packs)
         while True:
             len_before = len(self.packset.packs)
-            print "loop", len_before
             i = 0
             while i < end_ij:
                 while j < end_ij and i < end_ij:
@@ -529,15 +528,15 @@ class PackSet(object):
             return -1
 
         if not expand_forward:
-            print " backward savings", savings
+            #print " backward savings", savings
             if not must_unpack_result_to_exec(target_op, lop):
                 savings += 1
-            print " => backward savings", savings
+            #print " => backward savings", savings
         else:
-            print " forward savings", savings
+            #print " forward savings", savings
             if not must_unpack_result_to_exec(target_op, lop):
                 savings += 1
-            print " => forward savings", savings
+            #print " => forward savings", savings
 
         return savings
 

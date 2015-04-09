@@ -24,7 +24,7 @@ class IntWrapper(object):
     def __str__(self):
         return str(self.number)
 
-class DepTestHelper(BaseTest):
+class DependencyBaseTest(BaseTest):
 
     def build_dependency(self, ops, refs = False):
         loop = self.parse_loop(ops)
@@ -113,14 +113,31 @@ class DepTestHelper(BaseTest):
 
     def _write_dot_and_convert_to_svg(self, graph, ops, filename):
         dot = graph.as_dot(ops)
-        print"gogogogog"
         with open('/tmp/_'+filename+'.dot', 'w') as fd:
             fd.write(dot)
         with open('/tmp/'+filename+'.svg', 'w') as fd:
             import subprocess
             subprocess.Popen(['dot', '-Tsvg', '/tmp/_'+filename+'.dot'], stdout=fd).communicate()
 
-class BaseTestDependencyGraph(DepTestHelper):
+    def debug_print_operations(self, loop):
+        print('--- loop instr numbered ---')
+        for i,op in enumerate(loop.operations):
+            print "[",i,"]",op,
+            if op.is_guard():
+                print op.rd_snapshot.boxes
+            else:
+                print ""
+
+    def assert_memory_ref_adjacent(self, m1, m2):
+        assert m1.is_adjacent_to(m2)
+        assert m2.is_adjacent_to(m1)
+
+    def assert_memory_ref_not_adjacent(self, m1, m2):
+        assert not m1.is_adjacent_to(m2)
+        assert not m2.is_adjacent_to(m1)
+
+
+class BaseTestDependencyGraph(DependencyBaseTest):
     def test_dependency_empty(self):
         ops = """
         [] # 0: 1
@@ -299,7 +316,7 @@ class BaseTestDependencyGraph(DepTestHelper):
     def test_setarrayitem_depend_with_no_memref_info(self):
         ops="""
         [p0, i1] # 0: 1,2,3?,4?
-        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 3,4?
+        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 4?
         i2 = int_add(i1,1) # 2: 3
         setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) # 3: 4
         jump(p0, i1) # 4:

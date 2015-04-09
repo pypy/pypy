@@ -772,6 +772,8 @@ def invent_fail_descr_for_op(opnum, optimizer):
         resumedescr = ResumeGuardNotInvalidated()
     elif opnum == rop.GUARD_FUTURE_CONDITION:
         resumedescr = ResumeAtPositionDescr()
+    elif opnum == rop.GUARD_NO_EARLY_EXIT:
+        resumedescr = ResumeAtPositionDescr()
     elif opnum == rop.GUARD_VALUE:
         resumedescr = ResumeGuardValueDescr()
     elif opnum == rop.GUARD_NONNULL:

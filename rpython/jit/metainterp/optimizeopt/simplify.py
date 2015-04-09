@@ -65,6 +65,9 @@ class OptSimplify(Optimization):
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         pass
 
+    def optimize_GUARD_NO_EARLY_EXIT(self, op):
+        pass
+
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
         default=OptSimplify.emit_operation)
 OptSimplify.propagate_forward = dispatch_opt

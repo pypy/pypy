@@ -2133,6 +2133,7 @@ class MetaInterp(object):
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
         self.history.inputargs = original_boxes[num_green_args:]
         self.seen_loop_header_for_jdindex = -1
+        self.generate_guard(rop.GUARD_NO_EARLY_EXIT)
         try:
             self.interpret()
         except SwitchToBlackhole, stb:
