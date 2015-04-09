@@ -576,7 +576,7 @@ _static_opcode_stack_effects = {
     ops.DELETE_SLICE+2: -2,
     ops.DELETE_SLICE+3: -3,
 
-    ops.STORE_SUBSCR: -2,
+    ops.STORE_SUBSCR: -3,
     ops.DELETE_SUBSCR: -2,
 
     ops.GET_ITER: 0,
