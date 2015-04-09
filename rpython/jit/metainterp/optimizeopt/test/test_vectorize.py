@@ -923,6 +923,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_schedule_vectorized_trace_1(self):
         ops = """
         [i0, i1, i2, i3, i4, i5, i6, i7]
+        guard_no_early_exit() []
         i8 = raw_load(i3, i0, descr=intarraydescr)
         i9 = raw_load(i4, i0, descr=intarraydescr)
         i10 = int_add(i8, i9)
@@ -935,6 +936,7 @@ class BaseTestVectorize(VecTestHelper):
         jump(i12, i8, i9, i3, i4, i5, i10, i7)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
+        self.debug_print_operations(vopt.loop)
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

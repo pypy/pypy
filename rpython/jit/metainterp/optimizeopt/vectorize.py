@@ -61,6 +61,10 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
 
+class OpWrapper(object):
+    def __init__(self, op, opidx):
+        self.op = op
+
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
@@ -131,6 +135,8 @@ class VectorizingOptimizer(Optimizer):
 
         operations = []
         for i in range(1,op_count-1):
+            if loop.operations[i].getopnum() == rop.GUARD_FUTURE_CONDITION:
+                continue
             op = loop.operations[i].clone()
             operations.append(op)
             self.emit_unrolled_operation(op)
@@ -152,6 +158,8 @@ class VectorizingOptimizer(Optimizer):
                     rename_map[la] = ja
             #
             for op in operations:
+                if op.getopnum() in (rop.GUARD_NO_EARLY_EXIT, rop.GUARD_FUTURE_CONDITION):
+                    continue # do not unroll this operation twice
                 copied_op = op.clone()
                 if copied_op.result is not None:
                     # every result assigns a new box, thus creates an entry
@@ -245,15 +253,6 @@ class VectorizingOptimizer(Optimizer):
     def build_dependency_graph(self):
         self.dependency_graph = DependencyGraph(self.loop.operations)
         self.relax_guard_dependencies()
-
-    def relax_guard_dependencies(self):
-        return
-        for guard_idx in self.dependency_graph.guards:
-            guard = self.operations[guard_idx]
-            for dep in self.dependency_graph.depends(idx):
-                op = self.operations[dep.idx_from]
-                if op.returns_bool_result():
-                    pass
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -381,6 +380,59 @@ class VectorizingOptimizer(Optimizer):
             scheduler.schedule_all(opindices)
         else:
             scheduler.schedule_later(0)
+
+    def relax_guard_dependencies(self):
+        early_exit_idx = 1
+        operations = self.loop.operations
+        assert operations[early_exit_idx].getopnum() == \
+                rop.GUARD_NO_EARLY_EXIT
+        target_guard = operations[early_exit_idx]
+        for guard_idx in self.dependency_graph.guards:
+            if guard_idx == early_exit_idx:
+                continue
+            guard = operations[guard_idx]
+            if guard.getopnum() not in (rop.GUARD_TRUE,rop.GUARD_FALSE):
+                continue
+            self.dependency_graph.edge(early_exit_idx, guard_idx, early_exit_idx, label='EE')
+            print "put", guard_idx, "=>", early_exit_idx
+            del_deps = []
+            for path in self.dependency_graph.iterate_paths_backward(guard_idx, early_exit_idx):
+                op_idx = path.path[1]
+                print "path", path.path
+                op = operations[op_idx]
+                if fail_args_break_dependency(guard, guard_idx, target_guard, early_exit_idx, op, op_idx):
+                    print "  +>+>==> break", op_idx, "=>", guard_idx
+                    del_deps.append(op_idx)
+            for dep_idx in del_deps:
+                self.dependency_graph.remove_dependency_by_index(dep_idx, guard_idx)
+
+        del_deps = []
+        for dep in self.dependency_graph.provides(early_exit_idx):
+            del_deps.append(dep.idx_to)
+        for dep_idx in del_deps:
+            self.dependency_graph.remove_dependency_by_index(1, dep_idx)
+            self.dependency_graph.edge(dep_idx, 0, dep_idx)
+        last_idx = len(operations) - 1
+        self.dependency_graph.remove_dependency_by_index(0,1)
+        self.dependency_graph.edge(last_idx, early_exit_idx, last_idx)
+
+def fail_args_break_dependency(guard, guard_idx, target_guard, target_guard_idx, op, op_idx):
+    failargs = set(guard.getfailargs())
+    new_failargs = set(target_guard.getfailargs())
+
+    print " args:", [op.result] + op.getarglist()[:], " &&& ", failargs, " !!! ", new_failargs
+    if op.is_array_op():
+        return True
+    if op.result is not None:
+        arg = op.result
+        if arg not in failargs or \
+               arg in failargs and arg in new_failargs:
+            return False
+    for arg in op.getarglist():
+        if arg not in failargs or \
+               arg in failargs and arg in new_failargs:
+            return False
+    return True
 
 class VecScheduleData(SchedulerData):
     def __init__(self):
