@@ -1,5 +1,6 @@
 """Python control flow graph generation and bytecode assembly."""
 
+import os
 from rpython.rlib import rfloat
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -392,6 +393,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             depth = self._do_stack_depth_walk(block)
             if block.auto_inserted_return and depth != 0:
+                os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
+                    self.compile_info.filename, self.name, self.first_lineno))
                 raise StackDepthComputationError   # fatal error
         return self._max_depth
 
