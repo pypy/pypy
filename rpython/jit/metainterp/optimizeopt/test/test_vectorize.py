@@ -809,7 +809,11 @@ class BaseTestVectorize(VecTestHelper):
         """.format(op=op,descr=descr,stride=stride)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
+        self.debug_print_operations(loop)
         assert len(vopt.dependency_graph.memory_refs) == 12
+        if len(vopt.packset.packs) != 4:
+            for pack in vopt.packset.packs:
+                print vopt.packset.packs
         assert len(vopt.packset.packs) == 4
 
         for opindices in [(4,11,18,25),(5,12,19,26),

@@ -35,7 +35,7 @@ def debug_print_operations(self, loop):
 
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
-    if op.vector != -1:
+    if op.getoperation().vector != -1:
         return False
     return True
 
@@ -279,6 +279,7 @@ class VectorizingOptimizer(Optimizer):
                             self.packset.add_pair(node_a, node_b)
 
     def extend_packset(self):
+        print "extend_packset"
         pack_count = self.packset.pack_count()
         while True:
             for pack in self.packset.packs:
@@ -294,7 +295,7 @@ class VectorizingOptimizer(Optimizer):
             for rdep in pack.right.depends():
                 lnode = ldep.to
                 rnode = rdep.to
-                if lnode != rnode and self.packset.can_be_packed(lnode, rnode):
+                if lnode.is_before(rnode) and self.packset.can_be_packed(lnode, rnode):
                     savings = self.packset.estimate_savings(lnode, rnode, pack, False)
                     if savings >= 0:
                         self.packset.add_pair(lnode, rnode)
@@ -302,12 +303,12 @@ class VectorizingOptimizer(Optimizer):
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
         savings = -1
-        candidate = (-1,-1, None, None)
-        for ldep in pack.left.depends():
-            for rdep in pack.right.depends():
+        candidate = (-1,-1)
+        for ldep in pack.left.provides():
+            for rdep in pack.right.provides():
                 lnode = ldep.to
                 rnode = rdep.to
-                if lnode != rnode and \
+                if lnode.is_before(rnode) and \
                    self.packset.can_be_packed(lnode, rnode):
                     est_savings = \
                         self.packset.estimate_savings(lnode, rnode, pack, True)
@@ -535,6 +536,7 @@ class PackSet(object):
         return len(self.packs)
 
     def add_pair(self, l, r):
+        print "adds", l, r
         self.packs.append(Pair(l,r))
 
     def can_be_packed(self, lnode, rnode):
@@ -542,13 +544,13 @@ class PackSet(object):
             if lnode.independent(rnode):
                 for pack in self.packs:
                     # TODO save pack on Node
-                    if pack.left.opidx == lnode.getindex() or \
-                       pack.right.opidx == rnode.getindex():
+                    if pack.left.getindex()== lnode.getindex() or \
+                       pack.right.getindex() == rnode.getindex():
                         return False
                 return True
         return False
 
-    def estimate_savings(self, lopidx, ropidx, pack, expand_forward):
+    def estimate_savings(self, lnode, rnode, pack, expand_forward):
         """ Estimate the number of savings to add this pair.
         Zero is the minimum value returned. This should take
         into account the benefit of executing this instruction
@@ -557,20 +559,18 @@ class PackSet(object):
         savings = -1
 
         # without loss of generatlity: only check 'left' operation
-        lop = self.operations[lopidx]
-        target_op = self.operations[pack.left.opidx]
-
-        if prohibit_packing(lop, target_op):
+        lpacknode = pack.left
+        if prohibit_packing(lnode.getoperation(), lpacknode.getoperation()):
             return -1
 
         if not expand_forward:
             #print " backward savings", savings
-            if not must_unpack_result_to_exec(target_op, lop):
+            if not must_unpack_result_to_exec(lpacknode, lnode):
                 savings += 1
             #print " => backward savings", savings
         else:
             #print " forward savings", savings
-            if not must_unpack_result_to_exec(target_op, lop):
+            if not must_unpack_result_to_exec(lpacknode, lnode):
                 savings += 1
             #print " => forward savings", savings
 

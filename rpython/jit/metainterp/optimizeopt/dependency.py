@@ -159,6 +159,8 @@ class Node(object):
         while len(worklist) > 0:
             node = worklist.pop()
             for dep in node.provides():
+                if dep.to.is_after(other):
+                    continue
                 if dep.points_to(other):
                     # dependent. There is a path from self to other
                     return False
@@ -168,6 +170,8 @@ class Node(object):
         while len(worklist) > 0:
             node = worklist.pop()
             for dep in node.depends():
+                if dep.to.is_before(other):
+                    continue
                 if dep.points_to(other):
                     # dependent. There is a path from self to other
                     return False
@@ -218,9 +222,8 @@ class Node(object):
         return not self.__eq__(other)
 
     def __eq__(self, other):
-        if isinstance(other, Node):
-            return self.opidx == other.opidx
-        return False
+        assert isinstance(other, Node)
+        return self.opidx == other.opidx
 
 
 class Dependency(object):
