@@ -8,29 +8,17 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Depe
         IndexVar, MemoryRef)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 
-class IntWrapper(object):
-    def __init__(self,number):
-        self.transitive = False
-        number_s = str(number)
-        if number_s.endswith("?"):
-            self.transitive = True
-            self.number = int(number_s[:-1])
-        else:
-            self.number = int(number_s)
-    def clone(self):
-        iw = IntWrapper(self.number)
-        iw.transitive = self.transitive
-        return iw
-    def __str__(self):
-        return str(self.number)
-
 class DependencyBaseTest(BaseTest):
 
-    def build_dependency(self, ops, refs = False):
+    def setup_method(self, method):
+        self.test_name = method.__name__
+
+    def build_dependency(self, ops):
         loop = self.parse_loop(ops)
         self.last_graph = DependencyGraph(loop.operations)
-        for i in range(len(self.last_graph.adjacent_list)):
-            self.assert_independent(i,i)
+        self._write_dot_and_convert_to_svg(self.last_graph, self.test_name)
+        for node in self.last_graph.nodes:
+            assert node.independent(node)
         return self.last_graph
 
     def parse_loop(self, ops):
@@ -42,77 +30,70 @@ class DependencyBaseTest(BaseTest):
             loop.operations[-1].setdescr(token)
         return loop
 
-    def assert_edges(self, graph, edge_list):
+    def assert_edges(self, graph, edge_list, exceptions):
         """ Check if all dependencies are met. for complex cases
         adding None instead of a list of integers skips the test.
         This checks both if a dependency forward and backward exists.
         """
-        assert len(edge_list) == len(graph.adjacent_list)
+        assert len(edge_list) == len(graph.nodes)
         for idx,edges in enumerate(edge_list):
             if edges is None:
                 continue
-            dependencies = graph.adjacent_list[idx][:]
-            for edge in edges:
-                if isinstance(edge,int):
-                    edge = IntWrapper(edge)
-                dependency = graph.instr_dependency(idx,edge.number)
-                if edge < idx:
-                    dependency = graph.instr_dependency(edge.number, idx)
-                if dependency is None and not edge.transitive:
-                    self._write_dot_and_convert_to_svg(graph, graph.operations, 'except')
+            node_a = graph.getnode(idx)
+            dependencies = node_a.provides()[:]
+            for idx_b in edges:
+                node_b = graph.getnode(idx_b)
+                dependency = node_a.getedge_to(node_b)
+                if dependency is None and idx_b not in exceptions.setdefault(idx,[]):
+                    #self._write_dot_and_convert_to_svg(graph, graph.nodes, 'except')
                     assert dependency is not None, \
                        " it is expected that instruction at index" + \
                        " %s depends on instr on index %s but it does not.\n%s" \
-                            % (idx, edge, graph)
+                            % (node_a, node_b, graph)
                 elif dependency is not None:
                     dependencies.remove(dependency)
             assert dependencies == [], \
                     "dependencies unexpected %s.\n%s" \
                     % (dependencies,graph)
-    def assert_graph_equal(self, ga, gb):
-        assert len(ga.adjacent_list) == len(gb.adjacent_list)
-        for i in range(len(ga.adjacent_list)):
-            la = ga.adjacent_list[i]
-            lb = gb.adjacent_list[i]
-            assert len(la) == len(lb)
-            assert sorted([l.idx_to for l in la]) == \
-                   sorted([l.idx_to for l in lb])
-            assert sorted([l.idx_from for l in la]) == \
-                   sorted([l.idx_from for l in lb])
 
-    def assert_dependencies(self, ops, memref=False, full_check=True):
-        graph = self.build_dependency(ops, memref)
+    def assert_dependencies(self, ops, full_check=True):
+        graph = self.build_dependency(ops)
         import re
         deps = {}
+        exceptions = {}
         for i,line in enumerate(ops.splitlines()):
             dep_pattern = re.compile("#\s*(\d+):")
             dep_match = dep_pattern.search(line)
             if dep_match:
                 label = int(dep_match.group(1))
                 deps_list = []
-                deps[label] = [IntWrapper(d) for d in line[dep_match.end():].split(',') if len(d) > 0]
+                deps[label] = []
+                for to in [d for d in line[dep_match.end():].split(',') if len(d) > 0]:
+                    exception = to.endswith("?")
+                    if exception:
+                        to = to[:-1]
+                        exceptions.setdefault(label,[]).append(int(to))
+                    deps[label].append(int(to))
 
         if full_check:
             edges = [ None ] * len(deps)
             for k,l in deps.items():
                 edges[k] = l
-            for k,l in deps.items():
-                for rk in l:
-                    if rk.number > k:
-                        iw = IntWrapper(k)
-                        iw.transitive = rk.transitive
-                        edges[rk.number].append(iw)
-            self.assert_edges(graph, edges)
+            self.assert_edges(graph, edges, exceptions)
         return graph
 
     def assert_independent(self, a, b):
-        assert self.last_graph.independent(a,b), "{a} and {b} are dependent!".format(a=a,b=b)
+        a = self.last_graph.getnode(a)
+        b = self.last_graph.getnode(b)
+        assert a.independent(b), "{a} and {b} are dependent!".format(a=a,b=b)
 
     def assert_dependent(self, a, b):
-        assert not self.last_graph.independent(a,b), "{a} and {b} are independent!".format(a=a,b=b)
+        a = self.last_graph.getnode(a)
+        b = self.last_graph.getnode(b)
+        assert not a.independent(b), "{a} and {b} are independent!".format(a=a,b=b)
 
-    def _write_dot_and_convert_to_svg(self, graph, ops, filename):
-        dot = graph.as_dot(ops)
+    def _write_dot_and_convert_to_svg(self, graph, filename):
+        dot = graph.as_dot()
         with open('/tmp/_'+filename+'.dot', 'w') as fd:
             fd.write(dot)
         with open('/tmp/'+filename+'.svg', 'w') as fd:
@@ -135,6 +116,10 @@ class DependencyBaseTest(BaseTest):
     def assert_memory_ref_not_adjacent(self, m1, m2):
         assert not m1.is_adjacent_to(m2)
         assert not m2.is_adjacent_to(m1)
+
+    def getmemref(self, idx):
+        node = self.last_graph.getnode(idx)
+        return self.last_graph.memory_refs[node]
 
 
 class BaseTestDependencyGraph(DependencyBaseTest):
@@ -333,8 +318,8 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         setarrayitem_raw(p0, i2, 2, descr=chararraydescr) # 3: 4
         jump(p0, i1) # 4:
         """
-        self.assert_dependencies(ops, memref=True, full_check=True)
-        assert len(self.last_graph.adjacent_list[1]) > 1
+        self.assert_dependencies(ops, full_check=True)
+        assert self.last_graph.getnode(1).provides_count() == 1
         self.assert_independent(1,2)
         self.assert_independent(1,3) # they modify 2 different cells
 
@@ -363,7 +348,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         guard_true(i25) [i7, i22, i5, i4, i3, i21, i19, i24] # 20:
         jump(i24, i19, i21, i3, i4, i5, i22, i7) # 21:
         """
-        self.assert_dependencies(ops, memref=True, full_check=False)
+        self.assert_dependencies(ops, full_check=False)
         self.assert_dependent(2,12)
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):

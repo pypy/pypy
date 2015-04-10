@@ -2,7 +2,7 @@ import py
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box
+from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box, Const
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
@@ -38,16 +38,190 @@ class Path(object):
     def clone(self):
         return Path(self.path[:])
 
-class OpWrapper(object):
+class Node(object):
     def __init__(self, op, opidx):
         self.op = op
         self.opidx = opidx
+        self.adjacent_list = []
+        self.adjacent_list_back = []
+        self.memory_ref = None
+        self.pack = None
+
+    def getoperation(self):
+        return self.op
+    def getindex(self):
+        return self.opidx
+
+    def dependency_count(self):
+        return len(self.adjacent_list)
 
     def getopnum(self):
         return self.op.getopnum()
+    def getopname(self):
+        return self.op.getopname()
+
+    def edge_to(self, to, arg, label=None):
+        assert self != to
+        dep = self.depends_on(to)
+        if not dep:
+            #if force or self.independent(idx_from, idx_to):
+            dep = Dependency(self, to, arg)
+            self.adjacent_list.append(dep)
+            dep_back = Dependency(to, self, arg)
+            to.adjacent_list_back.append(dep_back)
+            if not we_are_translated():
+                if label is None:
+                    label = ''
+                dep.label = label
+        else:
+            if not dep.because_of(arg):
+                dep.add_dependency(self,to,arg)
+            if not we_are_translated() and label is not None:
+                _label = getattr(dep, 'label', '')
+                dep.label = _label + ", " + label
+
+    def depends_on(self, to):
+        """ Does there exist a dependency from the instruction to another?
+            Returns None if there is no dependency or the Dependency object in
+            any other case.
+        """
+        for edge in self.adjacent_list:
+            if edge.to == to:
+                return edge
+        return None 
+
+    def clear_dependencies(self):
+        self.adjacent_list.clear()
+        self.adjacent_list_back.clear()
 
     def is_guard_early_exit(self):
-        return self.op.getopnum() == rop.GUARD_NO_EARLY_EXIT:
+        return self.op.getopnum() == rop.GUARD_NO_EARLY_EXIT
+
+    def loads_from_complex_object(self):
+        return rop._ALWAYS_PURE_LAST <= self.op.getopnum() <= rop._MALLOC_FIRST
+
+    def modifies_complex_object(self):
+        return rop.SETARRAYITEM_GC <= self.op.getopnum() <= rop.UNICODESETITEM
+
+    def side_effect_arguments(self):
+        # if an item in array p0 is modified or a call contains an argument
+        # it can modify it is returned in the destroyed list.
+        args = []
+        op = self.op
+        if self.modifies_complex_object():
+            for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
+                if op.getopnum() == opnum:
+                    op_args = op.getarglist()
+                    if j == -1:
+                        args.append((op.getarg(i), None, True))
+                        for j in range(i+1,len(op_args)):
+                            args.append((op.getarg(j), None, False))
+                    else:
+                        args.append((op.getarg(i), op.getarg(j), True))
+                        for x in range(j+1,len(op_args)):
+                            args.append((op.getarg(x), None, False))
+                    break
+        else:
+            # assume this destroys every argument... can be enhanced by looking
+            # at the effect info of a call for instance
+            for arg in op.getarglist():
+                args.append((arg,None,True))
+        return args
+
+    def provides_count(self):
+        return len(self.adjacent_list)
+
+    def provides(self):
+        return self.adjacent_list
+
+    def depends_count(self, idx):
+        return len(self.adjacent_list_back)
+
+    def depends(self):
+        return self.adjacent_list_back
+
+    def dependencies(self):
+        return self.adjacent_list[:] + self.adjacent_list_back[:]
+
+    def is_after(self, other):
+        return self.opidx > other.opidx
+
+    def is_before(self, other):
+        return self.opidx < other.opidx
+
+    def independent(self, other):
+        """ An instruction depends on another if there is a path from
+        self to other. """
+        if self == other:
+            return True
+        # forward
+        worklist = [self]
+        while len(worklist) > 0:
+            node = worklist.pop()
+            for dep in node.provides():
+                if dep.points_to(other):
+                    # dependent. There is a path from self to other
+                    return False
+                worklist.append(dep.to)
+        # backward
+        worklist = [self]
+        while len(worklist) > 0:
+            node = worklist.pop()
+            for dep in node.depends():
+                if dep.points_to(other):
+                    # dependent. There is a path from self to other
+                    return False
+                worklist.append(dep.to)
+        return True
+
+    def iterate_paths_backward(self, ai, bi):
+        if ai == bi:
+            return
+        if ai > bi:
+            ai, bi = bi, ai
+        worklist = [(Path([bi]),bi)]
+        while len(worklist) > 0:
+            path,idx = worklist.pop()
+            for dep in self.depends(idx):
+                if ai > dep.idx_from or dep.points_backward():
+                    # this points above ai (thus unrelevant)
+                    continue
+                cloned_path = path.clone()
+                cloned_path.walk(dep.idx_from)
+                if dep.idx_from == ai:
+                    yield cloned_path
+                else:
+                    worklist.append((cloned_path,dep.idx_from))
+
+    def getedge_to(self, other):
+        for dep in self.adjacent_list:
+            if dep.to == other:
+                return dep
+        return None
+
+    def i_remove_dependency(self, idx_at, idx_to):
+        at = self.nodes[idx_at]
+        to = self.nodes[idx_to]
+        self.remove_dependency(at, to)
+    def remove_dependency(self, at, to):
+        """ Removes a all dependencies that point to 'to' """
+        self.adjacent_list[at] = \
+            [d for d in self.adjacent_list[at] if d.to != to]
+        self.adjacent_list[to] = \
+            [d for d in self.adjacent_list[to] if d.at != at]
+
+        return args
+    def __repr__(self):
+        return "Node(opidx: %d)"%self.opidx
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if isinstance(other, Node):
+            return self.opidx == other.opidx
+        return False
+
 
 class Dependency(object):
     def __init__(self, at, to, arg):
@@ -58,7 +232,33 @@ class Dependency(object):
         self.at = at
         self.to = to
 
-    def add_dependency(self, at, arg):
+    def because_of(self, var):
+        for arg in self.args:
+            if arg[1] == var:
+                return True
+        return False
+
+    def to_index(self):
+        return self.to.getindex()
+    def at_index(self):
+        return self.at.getindex()
+
+    def points_after_to(self, to):
+        return self.to.opidx < to.opidx
+    def points_above_at(self, at):
+        return self.at.opidx < at.opidx
+    def i_points_above_at(self, idx):
+        return self.at.opidx < idx
+
+    def points_to(self, to):
+        return self.to == to
+    def points_at(self, at):
+        return self.at == at
+    def i_points_at(self, idx):
+        # REM
+        return self.at.opidx == idx
+
+    def add_dependency(self, at, to, arg):
         self.args.append((at,arg))
 
     def reverse_direction(self, ref):
@@ -76,17 +276,17 @@ class DefTracker(object):
         self.graph = graph
         self.defs = {}
 
-    def define(self, arg, index, argcell=None):
+    def define(self, arg, node, argcell=None):
         if arg in self.defs:
-            self.defs[arg].append((index,argcell))
+            self.defs[arg].append((node,argcell))
         else:
-            self.defs[arg] = [(index,argcell)]
+            self.defs[arg] = [(node,argcell)]
 
     def redefintions(self, arg):
         for _def in self.defs[arg]:
             yield _def[0]
 
-    def definition_index(self, arg, index = -1, argcell=None):
+    def definition(self, arg, node=None, argcell=None):
         def_chain = self.defs[arg]
         if len(def_chain) == 1:
             return def_chain[0][0]
@@ -94,17 +294,17 @@ class DefTracker(object):
             if argcell == None:
                 return def_chain[-1][0]
             else:
-                assert index != -1
+                assert node is not None
                 i = len(def_chain)-1
                 try:
-                    mref = self.graph.memory_refs[index]
+                    mref = node.memory_ref
                     while i >= 0:
-                        def_index = def_chain[i][0]
-                        oref = self.graph.memory_refs.get(def_index)
+                        def_node = def_chain[i][0]
+                        oref = def_node.memory_ref
                         if oref is not None and mref.indices_can_alias(oref):
-                            return def_index
+                            return def_node
                         elif oref is None:
-                            return def_index
+                            return def_node
                         i -= 1
                 except KeyError:
                     # when a key error is raised, this means
@@ -114,11 +314,12 @@ class DefTracker(object):
 
     def depends_on_arg(self, arg, to, argcell=None):
         try:
-            idx_at = self.definition_index(arg, to.opidx, argcell)
-            at = self.graph.operations[idx_at]
-            graph.edge(at, to, arg)
+            at = self.definition(arg, to, argcell)
+            at.edge_to(to, arg)
         except KeyError:
-            assert False, "arg %s must be defined" % arg
+            if not we_are_translated():
+                if not isinstance(arg, Const):
+                    assert False, "arg %s must be defined" % arg
 
 
 class DependencyGraph(object):
@@ -141,13 +342,15 @@ class DependencyGraph(object):
         the same element.
     """
     def __init__(self, operations):
-        self.operations = [OpWrapper(op) for op in operations]
+        self.nodes = [ Node(op,i) for i,op in enumerate(operations) ]
         self.memory_refs = {}
-        self.adjacent_list = { op: [] for op in operations }
         self.schedulable_nodes = [0] # label is always scheduleable
         self.index_vars = {}
         self.guards = []
         self.build_dependencies()
+
+    def getnode(self, i):
+        return self.nodes[i]
 
     def build_dependencies(self):
         """ This is basically building the definition-use chain and saving this
@@ -161,54 +364,49 @@ class DependencyGraph(object):
         #
         intformod = IntegralForwardModification(self.memory_refs, self.index_vars)
         # pass 1
-        for i,opw in enumerate(self.operations):
-            op = opw.op
+        for i,node in enumerate(self.nodes):
+            op = node.op
             # the label operation defines all operations at the
             # beginning of the loop
             if op.getopnum() == rop.LABEL:
                 # TODO is it valid that a label occurs at the end of a trace?
-                s = 0
-                if self.operations[s+1].is_guard_early_exit():
-                    s = 1
-                    self.i_edge(0,1,label='L->EE')
+                ee_node = self.nodes[i+1]
+                if ee_node.is_guard_early_exit():
+                    node.edge_to(ee_node,None,label='L->EE')
+                    node = ee_node
                 for arg in op.getarglist():
-                    tracker.define(arg, s)
-                    #if isinstance(arg, BoxInt):
-                    #    assert arg not in self.index_vars
-                    #    self.index_vars[arg] = IndexVar(arg)
+                    tracker.define(arg, node)
                 continue # prevent adding edge to the label itself
-            intformod.inspect_operation(op, i)
+            intformod.inspect_operation(node)
             # definition of a new variable
             if op.result is not None:
                 # In SSA form. Modifications get a new variable
-                tracker.define(op.result, i)
+                tracker.define(op.result, node)
             # usage of defined variables
             if op.is_always_pure() or op.is_final():
                 # normal case every arguments definition is set
                 for arg in op.getarglist():
-                    tracker.depends_on_arg(arg, opw)
+                    tracker.depends_on_arg(arg, node)
             elif op.is_guard():
-                self.guards.append(i)
+                self.guards.append(node)
             else:
-                self._build_non_pure_dependencies(op, i, tracker)
+                self._build_non_pure_dependencies(node, tracker)
         # pass 2 correct guard dependencies
-        for guard_idx in self.guards:
-            self._build_guard_dependencies(guard_idx, op.getopnum(), tracker)
+        for guard_node in self.guards:
+            self._build_guard_dependencies(guard_node, op.getopnum(), tracker)
         # pass 3 find schedulable nodes
-        jump_pos = len(self.operations)-1
-        for i,op in enumerate(self.operations):
-            if len(self.adjacent_list[i]) == 0:
-                self.schedulable_nodes.append(i)
+        jump_pos = len(self.nodes)-1
+        jump_node = self.nodes[jump_pos]
+        for node in self.nodes:
+            if node.dependency_count() == 0:
+                self.schedulable_nodes.append(node.opidx)
             # every leaf instruction points to the jump_op. in theory every instruction
             # points to jump_op. this forces the jump/finish op to be the last operation
-            if i != jump_pos:
-                for dep in self.adjacent_list[i]:
-                    if dep.idx_to > i:
-                        break
-                else:
-                    self._put_edge(jump_pos, i, jump_pos, None)
+            if node != jump_node:
+                if node.provides_count() == 0:
+                    node.edge_to(jump_node, None, label='jump')
 
-    def _build_guard_dependencies(self, guard_idx, guard_opnum, tracker):
+    def _build_guard_dependencies(self, guard_node, guard_opnum, tracker):
         if guard_opnum >= rop.GUARD_NOT_INVALIDATED:
             # ignure invalidated & future condition guard
             return
@@ -219,14 +417,13 @@ class DependencyGraph(object):
         # 'GUARD_NONNULL/1d',
         # 'GUARD_ISNULL/1d',
         # 'GUARD_NONNULL_CLASS/2d',
-        guard_opw = self.operations[guard_idx]
-        guard_op = guard_opw.op
+        guard_op = guard_node.op
         for arg in guard_op.getarglist():
-            tracker.depends_on_arg(arg, guard_opw)
+            tracker.depends_on_arg(arg, guard_node)
 
         variables = []
-        for dep in self.depends(guard_opw):
-            op = dep.at.op
+        for dep in guard_node.depends():
+            op = dep.to.op
             for arg in op.getarglist():
                 if isinstance(arg, Box):
                     variables.append(arg)
@@ -235,66 +432,67 @@ class DependencyGraph(object):
         #
         for var in variables:
             try:
-                def_idx = tracker.definition_index(var)
-                for dep in self.provides(def_idx):
-                    if var in dep.args and dep.idx_to > guard_idx:
-                        self.edge(guard_opw, dep.to, var, label='prev('+str(var)+')')
+                def_node = tracker.definition(var)
+                for dep in def_node.provides():
+                    if guard_node.is_before(dep.to) and dep.because_of(var):
+                        guard_node.edge_to(dep.to, var, label='prev('+str(var)+')')
             except KeyError:
                 pass
         # handle fail args
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():
                 try:
-                    for def_idx in tracker.redefintions(arg):
-                        at = self.operations[def_idx]
-                        dep = self.edge(at, guard_opw, arg, label="fail")
+                    for at in tracker.redefintions(arg):
+                        # later redefinitions are prohibited
+                        if at.is_before(guard_node):
+                            at.edge_to(guard_node, arg, label="fail")
                 except KeyError:
                     assert False
         #
         # guards check overflow or raise are directly dependent
         # find the first non guard operation
-        prev_op_idx = guard_idx - 1
+        prev_op_idx = guard_node.opidx - 1
         while prev_op_idx > 0:
-            prev_op = self.operations[prev_op_idx].op
-            if prev_op.is_guard():
+            prev_node = self.nodes[prev_op_idx]
+            if prev_node.op.is_guard():
                 prev_op_idx -= 1
             else:
                 break
-        prev_op = self.operations[prev_op_idx].op
-        #
-        if op.is_guard_exception() and prev_op.can_raise():
-            self.i_guard_inhert(prev_op_idx, guard_idx)
-        elif op.is_guard_overflow() and prev_op.is_ovf():
-            self.i_guard_inhert(prev_op_idx, guard_idx)
-        elif op.getopnum() == rop.GUARD_NOT_FORCED and prev_op.can_raise():
-            self.i_guard_inhert(prev_op_idx, guard_idx)
-        elif op.getopnum() == rop.GUARD_NOT_FORCED_2 and prev_op.can_raise():
-            self.i_guard_inhert(prev_op_idx, guard_idx)
+        prev_node = self.nodes[prev_op_idx]
+        guard_op = guard_node.getoperation()
+        prev_op = prev_node.getoperation()
+        if guard_op.is_guard_exception() and prev_op.can_raise():
+            self.guard_inhert(prev_node, guard_node)
+        elif guard_op.is_guard_overflow() and prev_op.is_ovf():
+            self.guard_inhert(prev_node, guard_node)
+        elif guard_op.getopnum() == rop.GUARD_NOT_FORCED and prev_op.can_raise():
+            self.guard_inhert(prev_node, guard_node)
+        elif guard_op.getopnum() == rop.GUARD_NOT_FORCED_2 and prev_op.can_raise():
+            self.guard_inhert(prev_node, guard_node)
 
-    def i_guard_inhert(self, idx, guard_idx):
-        at = self.operation[idx]
-        dep = self.i_edge(idx, guard_idx, None, label='inhert')
-        for dep in self.provides(at):
-            if dep.to.opidx > guard_idx:
-                self.i_edge(guard_idx, dep.to.opidx, None, label='inhert')
+    def guard_inhert(self, at, to):
+        at.edge_to(to, None, label='inhert')
+        for dep in at.provides():
+            if to.is_before(dep.to):
+                to.edge_to(dep.to, None, label='inhert')
 
-    def _build_non_pure_dependencies(self, op, index, tracker):
-        # self._update_memory_ref(op, index, tracker)
-        if self.loads_from_complex_object(op):
+    def _build_non_pure_dependencies(self, node, tracker):
+        op = node.op
+        if node.loads_from_complex_object():
             # If this complex object load operation loads an index that has been
             # modified, the last modification should be used to put a def-use edge.
             for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
                 if opnum == op.getopnum():
                     cobj = op.getarg(i)
                     index_var = op.getarg(j)
-                    self._def_use(cobj, index, tracker, argcell=index_var)
-                    self._def_use(index_var, index, tracker)
+                    tracker.depends_on_arg(cobj, node, index_var)
+                    tracker.depends_on_arg(index_var, node)
         else:
-            for arg, argcell, destroyed in self._side_effect_argument(op):
+            for arg, argcell, destroyed in node.side_effect_arguments():
                 if argcell is not None:
                     # tracks the exact cell that is modified
-                    self._def_use(arg, index, tracker, argcell=argcell)
-                    self._def_use(argcell, index, tracker)
+                    tracker.depends_on_arg(arg, node, argcell)
+                    tracker.depends_on_arg(argcell, node)
                 else:
                     if destroyed:
                         # cannot be sure that only a one cell is modified
@@ -302,232 +500,47 @@ class DependencyGraph(object):
                         try:
                             # A trace is not entirely in SSA form. complex object
                             # modification introduces WAR/WAW dependencies
-                            def_idx = tracker.definition_index(arg)
-                            for dep in self.provides(def_idx):
-                                if dep.idx_to >= index:
-                                    break
-                                self._put_edge(index, dep.idx_to, index, argcell, label='war')
-                            self._put_edge(index, def_idx, index, argcell)
+                            def_node = tracker.definition(arg)
+                            for dep in def_node.provides():
+                                if dep.to != node:
+                                    dep.to.edge_to(node, argcell, label='war')
+                            def_node.edge_to(node, argcell)
                         except KeyError:
                             pass
                     else:
                         # not destroyed, just a normal use of arg
-                        self._def_use(arg, index, tracker)
+                        tracker.depends_on_arg(arg, node)
                 if destroyed:
-                    tracker.define(arg, index, argcell=argcell)
-
-    def _side_effect_argument(self, op):
-        # if an item in array p0 is modified or a call contains an argument
-        # it can modify it is returned in the destroyed list.
-        args = []
-        if self.modifies_complex_object(op):
-            for opnum, i, j in unrolling_iterable(MODIFY_COMPLEX_OBJ):
-                if op.getopnum() == opnum:
-                    op_args = op.getarglist()
-                    if j == -1:
-                        args.append((op.getarg(i), None, True))
-                        for j in range(i+1,len(op_args)):
-                            args.append((op.getarg(j), None, False))
-                    else:
-                        args.append((op.getarg(i), op.getarg(j), True))
-                        for x in range(j+1,len(op_args)):
-                            args.append((op.getarg(x), None, False))
-                    break
-        else:
-            # assume this destroys every argument... can be enhanced by looking
-            # at the effect info of a call for instance
-            for arg in op.getarglist():
-                args.append((arg,None,True))
-
-        return args
-
-    def _update_memory_ref(self, op, index, tracker):
-        # deprecated
-        if index not in self.memory_refs:
-            return
-        memref = self.memory_refs[index]
-        self.integral_mod.reset()
-        try:
-            curidx = tracker.definition_index(memref.origin)
-        except KeyError:
-            return
-        curop = self.operations[curidx]
-        while True:
-            self.integral_mod.inspect_operation(curop)
-            if self.integral_mod.is_const_mod:
-                self.integral_mod.update_memory_ref(memref)
-            else:
-                break # an operation that is not tractable
-            for dep in self.depends(curidx):
-                curop = self.operations[dep.idx_from]
-                if curop.result == memref.origin:
-                    curidx = dep.idx_from
-                    break
-            else:
-                break # cannot go further, this might be the label, or a constant
-
-    def i_edge(self, idx_at, idx_to, label=None):
-        self._i_edge(idx_at, idx_to, None, label=label)
-
-    def _edge(self, at, to, arg, label=None):
-        assert at != to
-        dep = self.i_directly_depends(idx_from, idx_to)
-        if not dep or dep.at != at:
-            #if force or self.independent(idx_from, idx_to):
-            dep = Dependency(at, to, arg)
-            self.adjacent_list.setdefault(at,[]).append(dep)
-            self.adjacent_list.setdefault(to,[]).append(dep)
-            if not we_are_translated() and label is not None:
-                dep.label = label
-        else:
-            if arg not in dep.args:
-                dep.add_dependency(at,to,arg)
-            if not we_are_translated() and label is not None:
-                l = getattr(dep,'label',None)
-                if l is None:
-                    l = ''
-                dep.label = l + ", " + label
-
-    def _i_edge(self, idx_at, idx_to, arg, label=None):
-        at = self.operations[idx_at]
-        to = self.operations[idx_to]
-        self._edge(at, to, arg, label)
-
-    def provides_count(self, idx):
-        # TODO
-        i = 0
-        for _ in self.provides(idx):
-            i += 1
-        return i
-
-    def provides(self, opw):
-        for dep in self.adjacent_list[opw]:
-            if opw.opidx < dep.to.opidx:
-                yield dep
-
-    def depends_count(self, idx):
-        i = 0
-        for _ in self.depends(idx):
-            i += 1
-        return i
-
-    def i_depends(self, idx):
-        opw = self.operations[idx]
-        return self.depends(opw)
-    def depends(self, opw):
-        for dep in self.adjacent_list[opw]:
-            if opw.opidx > dep.at.opidx:
-                yield dep
-
-    def dependencies(self, idx):
-        return self.adjacent_list[idx]
-
-    def independent(self, ai, bi):
-        """ An instruction depends on another if there is a dependency path from
-        A to B. It is not enough to check only if A depends on B, because
-        due to transitive relations.
-        """
-        if ai == bi:
-            return True
-        if ai > bi:
-            ai, bi = bi, ai
-        stmt_indices = [bi]
-        while len(stmt_indices) > 0:
-            idx = stmt_indices.pop()
-            for dep in self.depends(idx):
-                if ai > dep.idx_from:
-                    # this points above ai (thus unrelevant)
-                    continue
-
-                if dep.idx_from == ai:
-                    # dependent. There is a path from ai to bi
-                    return False
-                stmt_indices.append(dep.idx_from)
-        return True
-
-    def iterate_paths_backward(self, ai, bi):
-        if ai == bi:
-            return
-        if ai > bi:
-            ai, bi = bi, ai
-        worklist = [(Path([bi]),bi)]
-        while len(worklist) > 0:
-            path,idx = worklist.pop()
-            for dep in self.depends(idx):
-                if ai > dep.idx_from or dep.points_backward():
-                    # this points above ai (thus unrelevant)
-                    continue
-                cloned_path = path.clone()
-                cloned_path.walk(dep.idx_from)
-                if dep.idx_from == ai:
-                    yield cloned_path
-                else:
-                    worklist.append((cloned_path,dep.idx_from))
-
-    def directly_depends(self, from_idx, to_idx):
-        return self.instr_dependency(from_idx, to_idx)
-        """ Does there exist a dependency from the instruction to another?
-            Returns None if there is no dependency or the Dependency object in
-            any other case.
-        """
-        if from_instr_idx > to_instr_idx:
-            to_instr_idx, from_instr_idx = from_instr_idx, to_instr_idx
-        for edge in self.instr_dependencies(from_instr_idx):
-            if edge.idx_to == to_instr_idx:
-                return edge
-        return None 
-
-    def i_remove_dependency(self, idx_at, idx_to):
-        at = self.operations[idx_at]
-        to = self.operations[idx_to]
-        self.remove_dependency(at, to)
-    def remove_dependency(self, at, to):
-        """ Removes a all dependencies that point to 'to' """
-        self.adjacent_list[at] = \
-            [d for d in self.adjacent_list[at] if d.to != to]
-        self.adjacent_list[to] = \
-            [d for d in self.adjacent_list[to] if d.at != at]
+                    tracker.define(arg, node, argcell=argcell)
 
     def __repr__(self):
         graph = "graph([\n"
-        for i,l in enumerate(self.adjacent_list):
-            graph += "       " + str(i) + ": "
-            for d in l:
-                if i == d.idx_from:
-                    graph += str(d.idx_to) + ","
-                else:
-                    graph += str(d.idx_from) + ","
+        for node in self.nodes:
+            graph += "       " + str(node.opidx) + ": "
+            for dep in node.provides():
+                graph += "=>" + str(dep.to.opidx) + ","
+            graph += " | "
+            for dep in node.depends():
+                graph += "<=" + str(dep.to.opidx) + ","
             graph += "\n"
         return graph + "      ])"
 
-    def loads_from_complex_object(self, op):
-        return rop._ALWAYS_PURE_LAST <= op.getopnum() <= rop._MALLOC_FIRST
-
-    def modifies_complex_object(self, op):
-        return rop.SETARRAYITEM_GC <= op.getopnum() <= rop.UNICODESETITEM
-
-    def as_dot(self, operations):
+    def as_dot(self):
         if not we_are_translated():
             dot = "digraph dep_graph {\n"
-            for i in range(len(self.adjacent_list)):
-                op = operations[i]
+            for node in self.nodes:
+                op = node.getoperation()
                 op_str = str(op)
                 if op.is_guard():
                     op_str += " " + str(op.getfailargs())
-                dot += " n%d [label=\"[%d]: %s\"];\n" % (i,i,op_str)
+                dot += " n%d [label=\"[%d]: %s\"];\n" % (node.getindex(),node.getindex(),op_str)
             dot += "\n"
-            for i,alist in enumerate(self.adjacent_list):
-                for dep in alist:
-                    if dep.idx_to > i:
-                        label = ''
-                        if getattr(dep, 'label', None):
-                            label = '[label="%s"]' % dep.label
-                        dot += " n%d -> n%d %s;\n" % (i,dep.idx_to,label)
-                    elif dep.idx_to == i and dep.idx_from > i:
-                        label = ''
-                        if getattr(dep, 'label', None):
-                            label = '[label="%s"]' % dep.label
-                        dot += " n%d -> n%d %s;\n" % (dep.idx_from,dep.idx_to,label)
+            for node in self.nodes:
+                for dep in node.provides():
+                    label = ''
+                    if getattr(dep, 'label', None):
+                        label = '[label="%s"]' % dep.label
+                    dot += " n%d -> n%d %s;\n" % (node.getindex(),dep.to_index(),label)
             dot += "\n}\n"
             return dot
         raise NotImplementedError("dot cannot built at runtime")
@@ -562,6 +575,7 @@ class Scheduler(object):
 
     def schedule_all(self, opindices):
         while len(opindices) > 0:
+            print "sched"
             opidx = opindices.pop()
             for i,node in enumerate(self.schedulable_nodes):
                 if node == opidx:
@@ -586,7 +600,7 @@ class Scheduler(object):
         #
         # TODO for dep in self.graph.provides(node):
         #    candidate = dep.idx_to
-        self.graph.adjacent_list[node] = []
+        node.clear_dependencies()
 
     def is_schedulable(self, idx):
         print "is sched", idx, "count:", self.graph.depends_count(idx), self.graph.adjacent_list[idx]
@@ -610,7 +624,8 @@ class IntegralForwardModification(object):
         return var
 
     additive_func_source = """
-    def operation_{name}(self, op, index):
+    def operation_{name}(self, node):
+        op = node.op
         box_r = op.result
         if not box_r:
             return
@@ -638,7 +653,8 @@ class IntegralForwardModification(object):
     del additive_func_source
 
     multiplicative_func_source = """
-    def operation_{name}(self, op, index):
+    def operation_{name}(self, node):
+        op = node.op
         box_r = op.result
         if not box_r:
             return
@@ -670,10 +686,12 @@ class IntegralForwardModification(object):
     del multiplicative_func_source
 
     array_access_source = """
-    def operation_{name}(self, op, index):
+    def operation_{name}(self, node):
+        op = node.getoperation()
         descr = op.getdescr()
         idx_ref = self.get_or_create(op.getarg(1))
-        self.memory_refs[index] = MemoryRef(op, idx_ref, {raw_access})
+        node.memory_ref = MemoryRef(op, idx_ref, {raw_access})
+        self.memory_refs[node] = node.memory_ref
     """
     exec py.code.Source(array_access_source
            .format(name='RAW_LOAD',raw_access=True)).compile()

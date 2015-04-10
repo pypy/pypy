@@ -5,7 +5,7 @@ from rpython.jit.metainterp.history import ConstInt, VECTOR, BoxVector
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
-        MemoryRef, Scheduler, SchedulerData)
+        MemoryRef, Scheduler, SchedulerData, Node)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -60,10 +60,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
         # vectorization is not possible, propagate only normal optimizations
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
-
-class OpWrapper(object):
-    def __init__(self, op, opidx):
-        self.op = op
 
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
@@ -252,7 +248,7 @@ class VectorizingOptimizer(Optimizer):
 
     def build_dependency_graph(self):
         self.dependency_graph = DependencyGraph(self.loop.operations)
-        self.relax_guard_dependencies()
+        #self.relax_guard_dependencies()
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -269,20 +265,18 @@ class VectorizingOptimizer(Optimizer):
                                 self.smallest_type_bytes)
         memory_refs = self.dependency_graph.memory_refs.items()
         # initialize the pack set
-        for a_opidx,a_memref in memory_refs:
-            for b_opidx,b_memref in memory_refs:
+        for node_a,memref_a in memory_refs:
+            for node_b,memref_b in memory_refs:
                 # instead of compare every possible combination and
                 # exclue a_opidx == b_opidx only consider the ones
                 # that point forward:
-                if a_opidx < b_opidx:
-                    #print "point forward[", a_opidx, "]", a_memref, "[",b_opidx,"]", b_memref
-                    if a_memref.is_adjacent_to(b_memref):
-                        #print "  -> adjacent[", a_opidx, "]", a_memref, "[",b_opidx,"]", b_memref
-                        if self.packset.can_be_packed(a_opidx, b_opidx,
-                                                      a_memref, b_memref):
-                            #print "    =-=-> can be packed[", a_opidx, "]", a_memref, "[",b_opidx,"]", b_memref
-                            self.packset.add_pair(a_opidx, b_opidx,
-                                                  a_memref, b_memref)
+                if node_a.is_before(node_b):
+                    #print "point forward[", a_opidx, "]", memref_a, "[",b_opidx,"]", memref_b
+                    if memref_a.is_adjacent_to(memref_b):
+                        #print "  -> adjacent[", a_opidx, "]", memref_a, "[",b_opidx,"]", memref_b
+                        if self.packset.can_be_packed(node_a, node_b):
+                            #print "    =-=-> can be packed[", a_opidx, "]", memref_a, "[",b_opidx,"]", memref_b
+                            self.packset.add_pair(node_a, node_b)
 
     def extend_packset(self):
         pack_count = self.packset.pack_count()
@@ -296,36 +290,30 @@ class VectorizingOptimizer(Optimizer):
 
     def follow_use_defs(self, pack):
         assert isinstance(pack, Pair)
-        lref = pack.left.memref
-        rref = pack.right.memref
-        for ldef in self.dependency_graph.depends(pack.left.opidx):
-            for rdef in self.dependency_graph.depends(pack.right.opidx):
-                ldef_idx = ldef.idx_from
-                rdef_idx = rdef.idx_from
-                if ldef_idx != rdef_idx and \
-                   self.packset.can_be_packed(ldef_idx, rdef_idx, lref, rref):
-                    savings = self.packset.estimate_savings(ldef_idx, rdef_idx,
-                                                            pack, False)
+        for ldep in pack.left.depends():
+            for rdep in pack.right.depends():
+                lnode = ldep.to
+                rnode = rdep.to
+                if lnode != rnode and self.packset.can_be_packed(lnode, rnode):
+                    savings = self.packset.estimate_savings(lnode, rnode, pack, False)
                     if savings >= 0:
-                        self.packset.add_pair(ldef_idx, rdef_idx, lref, rref)
+                        self.packset.add_pair(lnode, rnode)
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
         savings = -1
         candidate = (-1,-1, None, None)
-        lref = pack.left.memref
-        rref = pack.right.memref
-        for luse in self.dependency_graph.provides(pack.left.opidx):
-            for ruse in self.dependency_graph.provides(pack.right.opidx):
-                luse_idx = luse.idx_to
-                ruse_idx = ruse.idx_to
-                if luse_idx != ruse_idx and \
-                   self.packset.can_be_packed(luse_idx, ruse_idx, lref, rref):
-                    est_savings = self.packset.estimate_savings(luse_idx, ruse_idx,
-                                                                pack, True)
+        for ldep in pack.left.depends():
+            for rdep in pack.right.depends():
+                lnode = ldep.to
+                rnode = rdep.to
+                if lnode != rnode and \
+                   self.packset.can_be_packed(lnode, rnode):
+                    est_savings = \
+                        self.packset.estimate_savings(lnode, rnode, pack, True)
                     if est_savings > savings:
                         savings = est_savings
-                        candidate = (luse_idx, ruse_idx, lref, rref)
+                        candidate = (lnode, rnode)
         #
         if savings >= 0:
             self.packset.add_pair(*candidate)
@@ -360,13 +348,12 @@ class VectorizingOptimizer(Optimizer):
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
         while scheduler.has_more_to_schedule():
-            candidate_index = scheduler.next_schedule_index()
-            candidate = self.loop.operations[candidate_index]
-            pack = self.packset.pack_for_operation(candidate, candidate_index)
+            candidate = scheduler.next_to_schedule()
+            pack = self.packset.pack_for_operation(candidate)
             if pack:
                 self._schedule_pack(scheduler, pack)
             else:
-                self.emit_operation(candidate)
+                self.emit_operation(candidate.getoperation())
                 scheduler.schedule(0)
 
         self.loop.operations = self._newoperations[:]
@@ -547,19 +534,16 @@ class PackSet(object):
     def pack_count(self):
         return len(self.packs)
 
-    def add_pair(self, lidx, ridx, lmemref=None, rmemref=None):
-        l = PackOpWrapper(lidx, lmemref)
-        r = PackOpWrapper(ridx, rmemref)
+    def add_pair(self, l, r):
         self.packs.append(Pair(l,r))
 
-    def can_be_packed(self, lop_idx, rop_idx, lmemref, rmemref):
-        l_op = self.operations[lop_idx]
-        r_op = self.operations[rop_idx]
-        if isomorphic(l_op, r_op):
-            if self.dependency_graph.independent(lop_idx, rop_idx):
+    def can_be_packed(self, lnode, rnode):
+        if isomorphic(lnode.getoperation(), rnode.getoperation()):
+            if lnode.independent(rnode):
                 for pack in self.packs:
-                    if pack.left.opidx == lop_idx or \
-                       pack.right.opidx == rop_idx:
+                    # TODO save pack on Node
+                    if pack.left.opidx == lnode.getindex() or \
+                       pack.right.opidx == rnode.getindex():
                         return False
                 return True
         return False
@@ -612,10 +596,10 @@ class PackSet(object):
             del self.packs[last_pos]
         return last_pos
 
-    def pack_for_operation(self, op, opidx):
+    def pack_for_operation(self, node):
         for pack in self.packs:
-            for op in pack.operations:
-                if op.getopidx() == opidx:
+            for node2 in pack.operations:
+                if node == node2:
                     return pack
         return None
 
@@ -640,8 +624,8 @@ class Pack(object):
 class Pair(Pack):
     """ A special Pack object with only two statements. """
     def __init__(self, left, right):
-        assert isinstance(left, PackOpWrapper)
-        assert isinstance(right, PackOpWrapper)
+        assert isinstance(left, Node)
+        assert isinstance(right, Node)
         self.left = left
         self.right = right
         Pack.__init__(self, [left, right])
@@ -650,20 +634,3 @@ class Pair(Pack):
         if isinstance(other, Pair):
             return self.left == other.left and \
                    self.right == other.right
-
-class PackOpWrapper(object):
-    def __init__(self, opidx, memref = None):
-        self.opidx = opidx
-        self.memref = memref
-
-    def getopidx(self):
-        return self.opidx
-
-    def __eq__(self, other):
-        if isinstance(other, PackOpWrapper):
-            return self.opidx == other.opidx and self.memref == other.memref
-        return False
-
-    def __repr__(self):
-        return "PackOpWrapper(%d, %r)" % (self.opidx, self.memref)
-
