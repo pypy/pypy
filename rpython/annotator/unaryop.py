@@ -501,12 +501,18 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.strip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_lstrip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.lstrip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_rstrip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.rstrip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_join(self, s_list):
