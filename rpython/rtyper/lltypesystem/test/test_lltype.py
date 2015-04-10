@@ -547,10 +547,10 @@ class Frozen(object):
 
 @py.test.mark.parametrize('x', [
     1, sys.maxint, 1.5, 'a', 'abc', u'abc', None, [],
-    py.test.mark.xfail(lambda: None),
+    lambda: None,
     {1.23: 'abc'},
     (1, 'x', [2, 3.],),
-    py.test.mark.xfail(Frozen()),])
+    Frozen(),])
 def test_typeOf_const(x):
     a = RPythonAnnotator()
     bk = a.bookkeeper
