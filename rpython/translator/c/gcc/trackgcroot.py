@@ -423,6 +423,7 @@ class FunctionGcRootTracker(object):
                 # the original value for gcmaptable.s.  That's a hack.
                 self.lines.insert(call.lineno+1, '%s=.+%d\n' % (label,
                                                                 self.OFFSET_LABELS))
+                self.lines.insert(call.lineno+1, '\t.hidden\t%s\n' % (label,))
                 self.lines.insert(call.lineno+1, '\t.globl\t%s\n' % (label,))
         call.global_label = label
 
