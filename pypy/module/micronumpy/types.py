@@ -149,8 +149,7 @@ class Primitive(object):
         return self.box(array[0])
 
     def unbox(self, box):
-        if isinstance(box, ObjectType.BoxType):
-            return box.w_obj
+        assert isinstance(box, self.BoxType)
         return box.value
 
     def coerce(self, space, dtype, w_item):
@@ -1255,25 +1254,25 @@ class ComplexFloating(object):
     def ge(self, v1, v2):
         return self._lt(v2, v1) or self._eq(v2, v1)
 
-    def _bool(self, v):
+    def _cbool(self, v):
         return bool(v[0]) or bool(v[1])
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return self._bool(v1) and self._bool(v2)
+        return self._cbool(v1) and self._cbool(v2)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return self._bool(v1) or self._bool(v2)
+        return self._cbool(v1) or self._cbool(v2)
 
     @raw_unary_op
     def logical_not(self, v):
-        return not self._bool(v)
+        return not self._cbool(v)
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        a = self._bool(v1)
-        b = self._bool(v2)
+        a = self._cbool(v1)
+        b = self._cbool(v2)
         return (not b and a) or (not a and b)
 
     def min(self, v1, v2):
@@ -1736,33 +1735,33 @@ class ObjectType(BaseType):
 
     @simple_unary_op
     def bool(self,v):
-        return self._bool(v)
+        return self._obool(v)
 
-    def _bool(self, v):
+    def _obool(self, v):
         if self.space.is_true(v):
             return True 
         return False
 
     @simple_binary_op
     def logical_and(self, v1, v2):
-        if self._bool(v1):
+        if self._obool(v1):
             return v2
         return v1
 
     @simple_binary_op
     def logical_or(self, v1, v2):
-        if self._bool(v1):
+        if self._obool(v1):
             return v1
         return v2
 
     @simple_unary_op
     def logical_not(self, v):
-        return not self._bool(v)
+        return not self._obool(v)
 
     @simple_binary_op
     def logical_xor(self, v1, v2):
-        a = self._bool(v1)
-        b = self._bool(v2)
+        a = self._obool(v1)
+        b = self._obool(v2)
         return (not b and a) or (not a and b)
 
     @simple_binary_op
