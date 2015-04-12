@@ -4,10 +4,10 @@ Setup.py script for RPython
 from setuptools import setup, find_packages
 # To use a consistent encoding
 from codecs import open
-from os import path
+import os
 
-here = path.abspath(path.dirname(__file__))
-with open(path.join(here, 'README-rpython.rst'), encoding='utf-8') as f:
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, 'README-rpython.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 long_description += """
@@ -20,7 +20,7 @@ RPython. Packaging issues are likely, feedback is welcome.
 
 setup(
     name='rpython',
-    version='0.1.2',
+    version='0.1.3',
     description='RPython',
     long_description=long_description,
 
@@ -43,4 +43,8 @@ setup(
     packages=find_packages(),  # MANIFEST.in filters out all the pypy stuff
     package_data={'rpython': ['translator/c/src/*.c', 'translator/c/src/*.h']},
     install_requires=['pytest'],
+    scripts=[
+        os.path.join("rpython", "bin", script)
+        for script in os.listdir("rpython/bin")
+    ],
 )
