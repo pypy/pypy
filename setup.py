@@ -45,7 +45,7 @@ setup(
     install_requires=['pytest'],
     entry_points={
         "console_scripts" : [
-            "rpython = rpython.translator.goal.translate:main",
+            "rpython = rpython.__main__:main",
         ],
     },
 )
