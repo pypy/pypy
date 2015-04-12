@@ -13,4 +13,6 @@ if len(sys.argv) == 1:
     sys.exit(1)
 
 from rpython.translator.goal.translate import main
-main()
+
+if __name__ == '__main__':
+    main()
