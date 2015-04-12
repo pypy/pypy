@@ -43,8 +43,9 @@ setup(
     packages=find_packages(),  # MANIFEST.in filters out all the pypy stuff
     package_data={'rpython': ['translator/c/src/*.c', 'translator/c/src/*.h']},
     install_requires=['pytest'],
-    scripts=[
-        os.path.join("rpython", "bin", script)
-        for script in os.listdir("rpython/bin")
-    ],
+    entry_points={
+        "console_scripts" : [
+            "rpython = rpython.translator.goal.translate:main",
+        ],
+    },
 )
