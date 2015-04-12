@@ -112,12 +112,13 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _immutable_fields_ = ['native', 'space']
+    _immutable_fields_ = ['native', 'space', 'T']
 
     def __init__(self, space, native=True):
         assert isinstance(space, ObjSpace)
         self.native = native
         self.space = space
+        self.T = self.T
 
     def __repr__(self):
         return self.__class__.__name__
