@@ -428,25 +428,29 @@ class Integer(Primitive):
     def default_fromstring(self, space):
         return self.box(0)
 
-    @simple_binary_op
-    def div(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def div(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
+            return self.box(0)
         if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
                 self.T is rffi.LONG or self.T is rffi.LONGLONG):
             if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
-                return 0
-        return v1 / v2
+                return self.box(0)
+        return self.box(v1 / v2)
 
-    @simple_binary_op
-    def floordiv(self, v1, v2):
+    @specialize.argtype(1, 2)
+    def floordiv(self, b1, b2):
+        v1 = self.for_computation(self.unbox(b1))
+        v2 = self.for_computation(self.unbox(b2))
         if v2 == 0:
-            return 0
+            return self.box(0)
         if (self.T is rffi.SIGNEDCHAR or self.T is rffi.SHORT or self.T is rffi.INT or
                 self.T is rffi.LONG or self.T is rffi.LONGLONG):
             if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
-                return 0
-        return v1 // v2
+                return self.box(0)
+        return self.box(v1 / v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -482,7 +486,7 @@ class Integer(Primitive):
         elif v < 0:
             return -1
         else:
-            #assert v == 0
+            assert v == 0
             return 0
 
     @raw_unary_op
@@ -1633,7 +1637,7 @@ elif boxes.long_double_size in (12, 16):
 
 _all_objs_for_tests = [] # for tests
 
-class ObjectType(BaseType):
+class ObjectType(Primitive, BaseType):
     T = lltype.Signed
     BoxType = boxes.W_ObjectBox
 
@@ -1687,6 +1691,8 @@ class ObjectType(BaseType):
     def box(self, w_obj):
         if isinstance(w_obj, W_Root):
             pass
+        elif isinstance(w_obj, bool):
+            w_obj = self.space.newbool(w_obj)
         elif isinstance(w_obj, int):
             w_obj = self.space.newint(w_obj)
         elif isinstance(w_obj, lltype.Number):
@@ -1809,6 +1815,26 @@ class ObjectType(BaseType):
     def square(self, v):
         return self.space.mul(v, v)
 
+    @simple_binary_op
+    def le(self, v1, v2):
+        return self.space.le(v1, v2)
+
+    @simple_binary_op
+    def ge(self, v1, v2):
+        return self.space.ge(v1, v2)
+
+    @simple_binary_op
+    def lt(self, v1, v2):
+        return self.space.lt(v1, v2)
+
+    @simple_binary_op
+    def gt(self, v1, v2):
+        return self.space.gt(v1, v2)
+
+    @simple_binary_op
+    def ne(self, v1, v2):
+        return self.space.ne(v1, v2)
+
 def add_attributeerr_op(cls, op):
     def func(self, *args):
         raise oefmt(self.space.w_AttributeError, 
@@ -1847,13 +1873,6 @@ def add_space_binary_op(cls, op):
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
 
-def add_space_comp_op(cls, op):
-    @raw_binary_op
-    def func(self, v1, v2):
-        return self.space.is_true(getattr(self.space, op)(v1, v2))
-    func.__name__ = 'object_' + op
-    setattr(cls, op, func)
-
 for op in ('copysign', 'isfinite', 'isinf', 'isnan', 'logaddexp', 'logaddexp2',
            'signbit'):
     add_unsupported_op(ObjectType, op)
@@ -1868,8 +1887,6 @@ for op in ('abs', 'neg', 'pos', 'invert'):
     add_space_unary_op(ObjectType, op)
 for op in ('add', 'floordiv', 'div', 'mod', 'mul', 'sub', 'lshift', 'rshift'):
     add_space_binary_op(ObjectType, op)
-for op in ('lt', 'gt', 'le', 'ge', 'ne'):
-    add_space_comp_op(ObjectType, op)
 
 ObjectType.fmax = ObjectType.max
 ObjectType.fmin = ObjectType.min
