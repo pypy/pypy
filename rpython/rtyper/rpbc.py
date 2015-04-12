@@ -383,6 +383,9 @@ class SingleFrozenPBCRepr(Repr):
         assert frozendesc is self.frozendesc
         return object()  # lowleveltype is Void
 
+    def convert_const(self, value):
+        return None
+
     def getstr(self):
         return str(self.frozendesc)
     getstr._annspecialcase_ = 'specialize:memo'
