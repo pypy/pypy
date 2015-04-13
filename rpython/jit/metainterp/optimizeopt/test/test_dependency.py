@@ -105,7 +105,10 @@ class DependencyBaseTest(BaseTest):
         for i,op in enumerate(loop.operations):
             print "[",i,"]",op,
             if op.is_guard():
-                print op.rd_snapshot.boxes
+                if op.rd_snapshot:
+                    print op.rd_snapshot.boxes
+                else:
+                    print op.getfailargs()
             else:
                 print ""
 

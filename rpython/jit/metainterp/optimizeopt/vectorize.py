@@ -33,18 +33,6 @@ def debug_print_operations(self, loop):
         else:
             print ""
 
-def must_unpack_result_to_exec(op, target_op):
-    # TODO either move to resop or util
-    if op.getoperation().vector != -1:
-        return False
-    return True
-
-def prohibit_packing(op1, op2):
-    if op2.is_array_op():
-        if op2.getarg(1) == op1.result:
-            return True
-    return False
-
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
     opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     try:
@@ -246,7 +234,7 @@ class VectorizingOptimizer(Optimizer):
 
     def build_dependency_graph(self):
         self.dependency_graph = DependencyGraph(self.loop.operations)
-        self.relax_guard_dependencies()
+        self.relax_index_guards()
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -341,14 +329,19 @@ class VectorizingOptimizer(Optimizer):
                 i += 1
             if len_before == len(self.packset.packs):
                 break
+        if not we_are_translated():
+            print "packs:"
+            for pack in self.packset.packs:
+                print " P:", pack
 
     def schedule(self):
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
         print "scheduling loop"
+        i = 100
         while scheduler.has_more():
             candidate = scheduler.next()
-            print "  candidate", candidate
+            print "  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack
             if candidate.pack:
                 pack = candidate.pack
                 if scheduler.schedulable(pack.operations):
@@ -360,12 +353,18 @@ class VectorizingOptimizer(Optimizer):
             else:
                 self.emit_operation(candidate.getoperation())
                 scheduler.schedule(0)
+            i += 1
+            if i > 200:
+                assert False
 
         self.loop.operations = self._newoperations[:]
+        if not we_are_translated():
+            for node in self.dependency_graph.nodes:
+                assert node.emitted
 
-    def relax_guard_dependencies(self):
-        early_exit_idx = 1
+    def relax_index_guards(self):
         label_idx = 0
+        early_exit_idx = 1
         label = self.dependency_graph.getnode(label_idx)
         ee_guard = self.dependency_graph.getnode(early_exit_idx)
         if not ee_guard.getopnum() == rop.GUARD_NO_EARLY_EXIT:
@@ -400,12 +399,27 @@ class VectorizingOptimizer(Optimizer):
             guard_node.edge_to(ee_guard, label='pullup')
             label.remove_edge_to(ee_guard)
 
+            guard_node.relax_guard_to(ee_guard)
+
+def must_unpack_result_to_exec(op, target_op):
+    # TODO either move to resop or util
+    if op.getoperation().vector != -1:
+        return False
+    return True
+
+def prohibit_packing(op1, op2):
+    if op1.is_array_op():
+        if op1.getarg(1) == op2.result:
+            print "prohibit", op1, op2
+            return True
+    return False
+
 def fail_args_break_dependency(guard, prev_op, target_guard):
     failargs = set(guard.getoperation().getfailargs())
     new_failargs = set(target_guard.getoperation().getfailargs())
 
     op = prev_op.getoperation()
-    if not op.has_no_side_effect():
+    if not op.is_always_pure(): # TODO has_no_side_effect():
         return True
     if op.result is not None:
         arg = op.result
@@ -544,21 +558,27 @@ class PackSet(object):
         """
         savings = -1
 
-        # without loss of generatlity: only check 'left' operation
         lpacknode = pack.left
-        if prohibit_packing(lnode.getoperation(), lpacknode.getoperation()):
+        if prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
+            return -1
+        rpacknode = pack.right
+        if prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
             return -1
 
         if not expand_forward:
             #print " backward savings", savings
-            if not must_unpack_result_to_exec(lpacknode, lnode):
+            if not must_unpack_result_to_exec(lpacknode, lnode) and \
+               not must_unpack_result_to_exec(rpacknode, rnode):
                 savings += 1
             #print " => backward savings", savings
         else:
             #print " forward savings", savings
-            if not must_unpack_result_to_exec(lpacknode, lnode):
+            if not must_unpack_result_to_exec(lpacknode, lnode) and \
+               not must_unpack_result_to_exec(rpacknode, rnode):
                 savings += 1
             #print " => forward savings", savings
+        if savings >= 0:
+            print "estimated " + str(savings) + " for lpack,lnode", lpacknode, lnode
 
         return savings
 
@@ -567,10 +587,14 @@ class PackSet(object):
         is not iterated when calling this method. """
         pack_i = self.packs[i]
         pack_j = self.packs[j]
+        pack_i.clear()
+        pack_j.clear()
         operations = pack_i.operations
         for op in pack_j.operations[1:]:
             operations.append(op)
         self.packs[i] = Pack(operations)
+
+
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
         # the last slot is freed. Order of packs doesn't matter
@@ -599,6 +623,10 @@ class Pack(object):
         self.savings = 0
         for node in self.operations:
             node.pack = self
+
+    def clear(self):
+        for node in self.operations:
+            node.pack = None
 
     def rightmost_match_leftmost(self, other):
         assert isinstance(other, Pack)

@@ -70,6 +70,7 @@ class Node(object):
         self.adjacent_list_back = []
         self.memory_ref = None
         self.pack = None
+        self.emitted = False
 
     def getoperation(self):
         return self.op
@@ -83,6 +84,17 @@ class Node(object):
         return self.op.getopnum()
     def getopname(self):
         return self.op.getopname()
+
+    def relax_guard_to(self, guard):
+        """ Relaxes a guard operation to an earlier guard. """
+        assert self.op.is_guard()
+        assert guard.op.is_guard()
+
+        my_op = self.getoperation()
+        op = guard.getoperation()
+        my_op.setdescr(op.getdescr())
+        my_op.setfailargs(op.getfailargs())
+        my_op.rd_snapshot = op.rd_snapshot
 
     def edge_to(self, to, arg=None, label=None):
         assert self != to
@@ -165,7 +177,7 @@ class Node(object):
         return self.adjacent_list_back
 
     def dependencies(self):
-        return self.adjacent_list[:] + self.adjacent_list_back[:]
+        return self.adjacent_list[:] + self.adjacent_list_back[:] # COPY
 
     def is_after(self, other):
         return self.opidx > other.opidx
@@ -441,7 +453,6 @@ class DependencyGraph(object):
                 # points to jump_op. this forces the jump/finish op to be the last operation
                 if node.provides_count() == 0:
                     node.edge_to(jump_node, None, label='jump')
-        print "\n\neee", self.schedulable_nodes
 
     def _build_guard_dependencies(self, guard_node, guard_opnum, tracker):
         if guard_opnum >= rop.GUARD_NOT_INVALIDATED:
@@ -600,12 +611,14 @@ class Scheduler(object):
     def schedulable(self, indices):
         for index in indices:
             if index not in self.schedulable_nodes:
+                print "pack", index, "not sched"
                 break
         else:
             return True
         return False
 
     def schedule_later(self, index):
+        assert len(self.schedulable_nodes) != 1, "not possible! " + str(self.schedulable_nodes[0].getoperation())
         node = self.schedulable_nodes[index]
         del self.schedulable_nodes[index]
         self.schedulable_nodes.append(node)
@@ -620,15 +633,17 @@ class Scheduler(object):
 
     def schedule(self, index):
         node = self.schedulable_nodes[index]
+        assert not node.emitted
         del self.schedulable_nodes[index]
         to_del = []
         print "  schedule", node.getoperation()
-        for dep in node.provides()[:]:
+        for dep in node.provides()[:]: # COPY
             node.remove_edge_to(dep.to)
             print "    >=X=>", node, dep.to, "count",dep.to.depends_count()
             if dep.to.depends_count() == 0:
                 self.schedulable_nodes.append(dep.to)
         node.clear_dependencies()
+        node.emitted = True
 
 class IntegralForwardModification(object):
     """ Calculates integral modifications on an integer box. """
