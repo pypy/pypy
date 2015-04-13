@@ -32,8 +32,32 @@ class Path(object):
     def __init__(self,path):
         self.path = path
 
-    def walk(self, idx):
-        self.path.append(idx)
+    def second(self):
+        if len(self.path) <= 1:
+            return None
+        return self.path[1]
+
+    def last_but_one(self):
+        if len(self.path) < 2:
+            return None
+        return self.path[len(self.path)-2]
+
+    def has_no_side_effects(self, exclude_first=False, exclude_last=False):
+        last = len(self.path)-1
+        count = len(self.path)
+        i = 0
+        if exclude_first:
+            i += 1
+        if exclude_last:
+            count -= 1
+        while i < count: 
+            if not self.path[i].op.has_no_side_effect():
+                return False
+            i += 1
+        return True
+
+    def walk(self, node):
+        self.path.append(node)
 
     def clone(self):
         return Path(self.path[:])
@@ -60,7 +84,7 @@ class Node(object):
     def getopname(self):
         return self.op.getopname()
 
-    def edge_to(self, to, arg, label=None):
+    def edge_to(self, to, arg=None, label=None):
         assert self != to
         dep = self.depends_on(to)
         if not dep:
@@ -91,8 +115,8 @@ class Node(object):
         return None 
 
     def clear_dependencies(self):
-        self.adjacent_list.clear()
-        self.adjacent_list_back.clear()
+        self.adjacent_list = []
+        self.adjacent_list_back = []
 
     def is_guard_early_exit(self):
         return self.op.getopnum() == rop.GUARD_NO_EARLY_EXIT
@@ -134,7 +158,7 @@ class Node(object):
     def provides(self):
         return self.adjacent_list
 
-    def depends_count(self, idx):
+    def depends_count(self):
         return len(self.adjacent_list_back)
 
     def depends(self):
@@ -178,24 +202,40 @@ class Node(object):
                 worklist.append(dep.to)
         return True
 
-    def iterate_paths_backward(self, ai, bi):
-        if ai == bi:
+    def iterate_paths(self, to, backwards=False):
+        """ yield all nodes from self leading to 'to' """
+        if self == to:
             return
-        if ai > bi:
-            ai, bi = bi, ai
-        worklist = [(Path([bi]),bi)]
+        worklist = [(Path([self]),self)]
         while len(worklist) > 0:
-            path,idx = worklist.pop()
-            for dep in self.depends(idx):
-                if ai > dep.idx_from or dep.points_backward():
-                    # this points above ai (thus unrelevant)
-                    continue
+            path,node = worklist.pop()
+            if backwards:
+                iterdir = node.depends()
+            else:
+                iterdir = node.provides()
+            for dep in iterdir:
                 cloned_path = path.clone()
-                cloned_path.walk(dep.idx_from)
-                if dep.idx_from == ai:
+                cloned_path.walk(dep.to)
+                if dep.to == to:
                     yield cloned_path
                 else:
-                    worklist.append((cloned_path,dep.idx_from))
+                    worklist.append((cloned_path,dep.to))
+
+    def remove_edge_to(self, node):
+        i = 0
+        while i < len(self.adjacent_list):
+            dep = self.adjacent_list[i]
+            if dep.to == node:
+                del self.adjacent_list[i]
+                break
+            i += 1
+        i = 0
+        while i < len(node.adjacent_list_back):
+            dep = node.adjacent_list_back[i]
+            if dep.to == self:
+                del node.adjacent_list_back[i]
+                break
+            i += 1
 
     def getedge_to(self, other):
         for dep in self.adjacent_list:
@@ -203,18 +243,6 @@ class Node(object):
                 return dep
         return None
 
-    def i_remove_dependency(self, idx_at, idx_to):
-        at = self.nodes[idx_at]
-        to = self.nodes[idx_to]
-        self.remove_dependency(at, to)
-    def remove_dependency(self, at, to):
-        """ Removes a all dependencies that point to 'to' """
-        self.adjacent_list[at] = \
-            [d for d in self.adjacent_list[at] if d.to != to]
-        self.adjacent_list[to] = \
-            [d for d in self.adjacent_list[to] if d.at != at]
-
-        return args
     def __repr__(self):
         return "Node(opidx: %d)"%self.opidx
 
@@ -222,6 +250,8 @@ class Node(object):
         return not self.__eq__(other)
 
     def __eq__(self, other):
+        if other is None:
+            return False
         assert isinstance(other, Node)
         return self.opidx == other.opidx
 
@@ -347,7 +377,7 @@ class DependencyGraph(object):
     def __init__(self, operations):
         self.nodes = [ Node(op,i) for i,op in enumerate(operations) ]
         self.memory_refs = {}
-        self.schedulable_nodes = [0] # label is always scheduleable
+        self.schedulable_nodes = []
         self.index_vars = {}
         self.guards = []
         self.build_dependencies()
@@ -365,13 +395,15 @@ class DependencyGraph(object):
         """
         tracker = DefTracker(self)
         #
+        label_pos = 0
+        jump_pos = len(self.nodes)-1
         intformod = IntegralForwardModification(self.memory_refs, self.index_vars)
         # pass 1
         for i,node in enumerate(self.nodes):
             op = node.op
             # the label operation defines all operations at the
             # beginning of the loop
-            if op.getopnum() == rop.LABEL:
+            if op.getopnum() == rop.LABEL and i != jump_pos:
                 # TODO is it valid that a label occurs at the end of a trace?
                 ee_node = self.nodes[i+1]
                 if ee_node.is_guard_early_exit():
@@ -398,16 +430,18 @@ class DependencyGraph(object):
         for guard_node in self.guards:
             self._build_guard_dependencies(guard_node, op.getopnum(), tracker)
         # pass 3 find schedulable nodes
-        jump_pos = len(self.nodes)-1
         jump_node = self.nodes[jump_pos]
+        label_node = self.nodes[label_pos]
+        self.schedulable_nodes.append(label_node)
         for node in self.nodes:
-            if node.dependency_count() == 0:
-                self.schedulable_nodes.append(node.opidx)
-            # every leaf instruction points to the jump_op. in theory every instruction
-            # points to jump_op. this forces the jump/finish op to be the last operation
             if node != jump_node:
+                if node.dependency_count() == 0:
+                    self.schedulable_nodes.append(node)
+                # every leaf instruction points to the jump_op. in theory every instruction
+                # points to jump_op. this forces the jump/finish op to be the last operation
                 if node.provides_count() == 0:
                     node.edge_to(jump_node, None, label='jump')
+        print "\n\neee", self.schedulable_nodes
 
     def _build_guard_dependencies(self, guard_node, guard_opnum, tracker):
         if guard_opnum >= rop.GUARD_NOT_INVALIDATED:
@@ -557,10 +591,10 @@ class Scheduler(object):
         self.schedulable_nodes = self.graph.schedulable_nodes
         self.sched_data = sched_data
 
-    def has_more_to_schedule(self):
+    def has_more(self):
         return len(self.schedulable_nodes) > 0
 
-    def next_schedule_index(self):
+    def next(self):
         return self.schedulable_nodes[0]
 
     def schedulable(self, indices):
@@ -578,36 +612,23 @@ class Scheduler(object):
 
     def schedule_all(self, opindices):
         while len(opindices) > 0:
-            print "sched"
             opidx = opindices.pop()
             for i,node in enumerate(self.schedulable_nodes):
                 if node == opidx:
+                    self.schedule(i)
                     break
-            else:
-                i = -1
-            if i != -1:
-                self.schedule(i)
 
     def schedule(self, index):
         node = self.schedulable_nodes[index]
         del self.schedulable_nodes[index]
         to_del = []
-        adj_list = self.graph.adjacent_list[node]
-        for dep in adj_list:
-            self.graph.remove_dependency_by_index(node, dep.idx_to)
-            self.graph.remove_dependency_by_index(dep.idx_to, node)
-            print "remove", node, "<=>", dep.idx_to
-            if self.is_schedulable(dep.idx_to):
-                print "sched", dep.idx_to
-                self.schedulable_nodes.append(dep.idx_to)
-        #
-        # TODO for dep in self.graph.provides(node):
-        #    candidate = dep.idx_to
+        print "  schedule", node.getoperation()
+        for dep in node.provides()[:]:
+            node.remove_edge_to(dep.to)
+            print "    >=X=>", node, dep.to, "count",dep.to.depends_count()
+            if dep.to.depends_count() == 0:
+                self.schedulable_nodes.append(dep.to)
         node.clear_dependencies()
-
-    def is_schedulable(self, idx):
-        print "is sched", idx, "count:", self.graph.depends_count(idx), self.graph.adjacent_list[idx]
-        return self.graph.depends_count(idx) == 0
 
 class IntegralForwardModification(object):
     """ Calculates integral modifications on an integer box. """

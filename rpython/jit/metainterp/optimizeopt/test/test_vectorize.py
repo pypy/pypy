@@ -809,7 +809,6 @@ class BaseTestVectorize(VecTestHelper):
         """.format(op=op,descr=descr,stride=stride)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        self.debug_print_operations(loop)
         assert len(vopt.dependency_graph.memory_refs) == 12
         if len(vopt.packset.packs) != 4:
             for pack in vopt.packset.packs:
@@ -905,6 +904,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_123(self):
         ops = """
         [i0, i1, i2, i3, i4]
+        guard_no_early_exit() []
         debug_merge_point(0, 0, '1')
         i6 = int_mul(i0, 8)
         i7 = raw_load(i2, i6, descr=intarraydescr)
@@ -915,9 +915,10 @@ class BaseTestVectorize(VecTestHelper):
         i12 = int_lt(i11, i1)
         guard_true(i12) [i4, i3, i2, i1, i11]
         debug_merge_point(0, 0, '2')
-        label(i11, i1, i2, i3, i4)
+        jump(i11, i1, i2, i3, i4)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
+        self.debug_print_operations(vopt.loop)
 
     def test_schedule_vectorized_trace_1(self):
         ops = """
@@ -936,7 +937,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.schedule(self.parse_loop(ops),1)
         self.debug_print_operations(vopt.loop)
-
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

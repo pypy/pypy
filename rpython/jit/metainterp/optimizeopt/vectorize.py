@@ -189,8 +189,6 @@ class VectorizingOptimizer(Optimizer):
                         copied_op.setfailargs(args)
                 #
                 self.emit_unrolled_operation(copied_op)
-                #self.vec_info.index = len(self._newoperations)-1
-                #self.vec_info.inspect_operation(copied_op)
 
         # the jump arguments have been changed
         # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
@@ -248,7 +246,7 @@ class VectorizingOptimizer(Optimizer):
 
     def build_dependency_graph(self):
         self.dependency_graph = DependencyGraph(self.loop.operations)
-        #self.relax_guard_dependencies()
+        self.relax_guard_dependencies()
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -279,7 +277,6 @@ class VectorizingOptimizer(Optimizer):
                             self.packset.add_pair(node_a, node_b)
 
     def extend_packset(self):
-        print "extend_packset"
         pack_count = self.packset.pack_count()
         while True:
             for pack in self.packset.packs:
@@ -348,68 +345,67 @@ class VectorizingOptimizer(Optimizer):
     def schedule(self):
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
-        while scheduler.has_more_to_schedule():
-            candidate = scheduler.next_to_schedule()
-            pack = self.packset.pack_for_operation(candidate)
-            if pack:
-                self._schedule_pack(scheduler, pack)
+        print "scheduling loop"
+        while scheduler.has_more():
+            candidate = scheduler.next()
+            print "  candidate", candidate
+            if candidate.pack:
+                pack = candidate.pack
+                if scheduler.schedulable(pack.operations):
+                    vop = scheduler.sched_data.as_vector_operation(pack)
+                    self.emit_operation(vop)
+                    scheduler.schedule_all(pack.operations)
+                else:
+                    scheduler.schedule_later(0)
             else:
                 self.emit_operation(candidate.getoperation())
                 scheduler.schedule(0)
 
         self.loop.operations = self._newoperations[:]
 
-    def _schedule_pack(self, scheduler, pack):
-        opindices = [ e.opidx for e in pack.operations ]
-        if scheduler.schedulable(opindices):
-            vop = scheduler.sched_data \
-                    .as_vector_operation(pack, self.loop.operations)
-            self.emit_operation(vop)
-            scheduler.schedule_all(opindices)
-        else:
-            scheduler.schedule_later(0)
-
     def relax_guard_dependencies(self):
         early_exit_idx = 1
-        operations = self.loop.operations
-        assert operations[early_exit_idx].getopnum() == \
-                rop.GUARD_NO_EARLY_EXIT
-        target_guard = operations[early_exit_idx]
-        for guard_idx in self.dependency_graph.guards:
-            if guard_idx == early_exit_idx:
+        label_idx = 0
+        label = self.dependency_graph.getnode(label_idx)
+        ee_guard = self.dependency_graph.getnode(early_exit_idx)
+        if not ee_guard.getopnum() == rop.GUARD_NO_EARLY_EXIT:
+            return # cannot relax
+
+        for guard_node in self.dependency_graph.guards:
+            if guard_node == ee_guard:
                 continue
-            guard = operations[guard_idx]
-            if guard.getopnum() not in (rop.GUARD_TRUE,rop.GUARD_FALSE):
+            if guard_node.getopnum() not in (rop.GUARD_TRUE,rop.GUARD_FALSE):
                 continue
-            self.dependency_graph.edge(early_exit_idx, guard_idx, early_exit_idx, label='EE')
-            print "put", guard_idx, "=>", early_exit_idx
             del_deps = []
-            for path in self.dependency_graph.iterate_paths_backward(guard_idx, early_exit_idx):
-                op_idx = path.path[1]
-                print "path", path.path
-                op = operations[op_idx]
-                if fail_args_break_dependency(guard, guard_idx, target_guard, early_exit_idx, op, op_idx):
-                    print "  +>+>==> break", op_idx, "=>", guard_idx
-                    del_deps.append(op_idx)
-            for dep_idx in del_deps:
-                self.dependency_graph.remove_dependency_by_index(dep_idx, guard_idx)
+            pullup = []
+            iterb = guard_node.iterate_paths(ee_guard, True)
+            last_prev_node = None
+            for path in iterb:
+                prev_node = path.second()
+                if fail_args_break_dependency(guard_node, prev_node, ee_guard):
+                    if prev_node == last_prev_node:
+                        continue
+                    print ">=XXX=> ", prev_node, "=>", guard_node
+                    del_deps.append((prev_node,guard_node))
+                else:
+                    pullup.append(path)
+                last_prev_node = prev_node
+            for a,b in del_deps:
+                a.remove_edge_to(b)
+            for candidate in pullup:
+                lbo = candidate.last_but_one()
+                if candidate.has_no_side_effects(exclude_first=True, exclude_last=True):
+                    ee_guard.remove_edge_to(lbo)
+                    label.edge_to(lbo, label='pullup')
+            guard_node.edge_to(ee_guard, label='pullup')
+            label.remove_edge_to(ee_guard)
 
-        del_deps = []
-        for dep in self.dependency_graph.provides(early_exit_idx):
-            del_deps.append(dep.idx_to)
-        for dep_idx in del_deps:
-            self.dependency_graph.remove_dependency_by_index(1, dep_idx)
-            self.dependency_graph.edge(dep_idx, 0, dep_idx)
-        last_idx = len(operations) - 1
-        self.dependency_graph.remove_dependency_by_index(0,1)
-        self.dependency_graph.edge(last_idx, early_exit_idx, last_idx)
+def fail_args_break_dependency(guard, prev_op, target_guard):
+    failargs = set(guard.getoperation().getfailargs())
+    new_failargs = set(target_guard.getoperation().getfailargs())
 
-def fail_args_break_dependency(guard, guard_idx, target_guard, target_guard_idx, op, op_idx):
-    failargs = set(guard.getfailargs())
-    new_failargs = set(target_guard.getfailargs())
-
-    print " args:", [op.result] + op.getarglist()[:], " &&& ", failargs, " !!! ", new_failargs
-    if op.is_array_op():
+    op = prev_op.getoperation()
+    if not op.has_no_side_effect():
         return True
     if op.result is not None:
         arg = op.result
@@ -420,28 +416,29 @@ def fail_args_break_dependency(guard, guard_idx, target_guard, target_guard_idx,
         if arg not in failargs or \
                arg in failargs and arg in new_failargs:
             return False
+    # THINK about: increased index in fail arg, but normal index on arglist
+    # this might be an indicator for edge removal
     return True
 
 class VecScheduleData(SchedulerData):
     def __init__(self):
         self.box_to_vbox = {}
 
-    def as_vector_operation(self, pack, operations):
+    def as_vector_operation(self, pack):
         assert len(pack.operations) > 1
         self.pack = pack
-        ops = [operations[w.opidx] for w in pack.operations]
-        op0 = operations[pack.operations[0].opidx]
+        op0 = pack.operations[0].getoperation()
         assert op0.vector != -1
         args = op0.getarglist()[:]
         if op0.vector in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
             args.append(ConstInt(0))
-        vopt = ResOperation(op0.vector, args,
+        vop = ResOperation(op0.vector, args,
                             op0.result, op0.getdescr())
-        self._inspect_operation(vopt,ops) # op0 is for dispatch only
+        self._inspect_operation(vop) # op0 is for dispatch only
         #if op0.vector not in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
         #    op_count = len(pack.operations)
         #    args.append(ConstInt(op_count))
-        return vopt
+        return vop
 
     def _pack_vector_arg(self, vop, op, i, vbox):
         arg = op.getarg(i)
@@ -463,11 +460,13 @@ class VecScheduleData(SchedulerData):
         return vbox
 
     bin_arith_trans = """
-    def _vectorize_{name}(self, vop, ops):
+    def _vectorize_{name}(self, vop):
         vbox_arg_0 = None
         vbox_arg_1 = None
         vbox_result = None
-        for i, op in enumerate(ops):
+        ops = self.pack.operations
+        for i, node in enumerate(ops):
+            op = node.getoperation()
             vbox_arg_0 = self._pack_vector_arg(vop, op, 0, vbox_arg_0)
             vbox_arg_1 = self._pack_vector_arg(vop, op, 1, vbox_arg_1)
             vbox_result= self._pack_vector_result(vop, op, vbox_result)
@@ -482,16 +481,20 @@ class VecScheduleData(SchedulerData):
     exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_SUB')).compile()
     del bin_arith_trans
 
-    def _vectorize_VEC_RAW_LOAD(self, vop, ops):
+    def _vectorize_VEC_RAW_LOAD(self, vop):
         vbox_result = None
-        for i, op in enumerate(ops):
+        ops = self.pack.operations
+        for i, node in enumerate(ops):
+            op = node.getoperation()
             vbox_result= self._pack_vector_result(vop, op, vbox_result)
         vbox_result.item_count = len(ops)
         vop.setarg(vop.numargs()-1,ConstInt(len(ops)))
 
-    def _vectorize_VEC_RAW_STORE(self, vop, ops):
+    def _vectorize_VEC_RAW_STORE(self, vop):
         vbox_arg_2 = None
-        for i, op in enumerate(ops):
+        ops = self.pack.operations
+        for i, node in enumerate(ops):
+            op = node.getoperation()
             vbox_arg_2 = self._pack_vector_arg(vop, op, 2, vbox_arg_2)
         vbox_arg_2.item_count = len(ops)
         vop.setarg(vop.numargs()-1,ConstInt(len(ops)))
@@ -499,28 +502,12 @@ class VecScheduleData(SchedulerData):
 VecScheduleData._inspect_operation = \
         make_dispatcher_method(VecScheduleData, '_vectorize_')
 
-
 def isomorphic(l_op, r_op):
-    """ Described in the paper ``Instruction-Isomorphism in Program Execution''.
-    I think this definition is to strict. TODO -> find another reference
-    For now it must have the same instruction type, the array parameter must be equal,
-    and it must be of the same type (both size in bytes and type of array).
+    """ Same instructions have the same operation name.
+    TODO what about parameters?
     """
     if l_op.getopnum() == r_op.getopnum():
         return True
-    # the stronger counterpart. TODO which structural equivalence is
-    # needed here?
-    #if l_op.getopnum() == r_op.getopnum() and \
-    #   l_op.getarg(0) == r_op.getarg(0):
-    #    l_d = l_op.getdescr()
-    #    r_d = r_op.getdescr()
-    #    if l_d is not None and r_d is not None:
-    #        if l_d.get_item_size_in_bytes() == r_d.get_item_size_in_bytes():
-    #            if l_d.getflag() == r_d.getflag():
-    #                return True
-    #    elif l_d is None and r_d is None:
-    #        return True
-    #return False
 
 class PackSet(object):
 
@@ -536,7 +523,6 @@ class PackSet(object):
         return len(self.packs)
 
     def add_pair(self, l, r):
-        print "adds", l, r
         self.packs.append(Pair(l,r))
 
     def can_be_packed(self, lnode, rnode):
@@ -611,6 +597,8 @@ class Pack(object):
     def __init__(self, ops):
         self.operations = ops
         self.savings = 0
+        for node in self.operations:
+            node.pack = self
 
     def rightmost_match_leftmost(self, other):
         assert isinstance(other, Pack)

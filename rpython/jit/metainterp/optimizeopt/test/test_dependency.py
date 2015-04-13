@@ -121,7 +121,6 @@ class DependencyBaseTest(BaseTest):
         node = self.last_graph.getnode(idx)
         return self.last_graph.memory_refs[node]
 
-
 class BaseTestDependencyGraph(DependencyBaseTest):
     def test_dependency_empty(self):
         ops = """
@@ -298,22 +297,10 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependent(1,2)
         self.assert_dependent(0,3)
 
-    def test_setarrayitem_depend_with_no_memref_info(self):
-        ops="""
-        [p0, i1] # 0: 1,2,3?,4?
-        setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 4?
-        i2 = int_add(i1,1) # 2: 3
-        setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) # 3: 4
-        jump(p0, i1) # 4:
-        """
-        self.assert_dependencies(ops, full_check=True)
-        self.assert_independent(1,2)
-        self.assert_independent(1,3)
-
     def test_setarrayitem_dont_depend_with_memref_info(self):
         ops="""
         [p0, i1] # 0: 1,2,3?,4?
-        setarrayitem_raw(p0, i1, 1, descr=chararraydescr) # 1: 3?,4?
+        setarrayitem_raw(p0, i1, 1, descr=chararraydescr) # 1: 4
         i2 = int_add(i1,1) # 2: 3
         setarrayitem_raw(p0, i2, 2, descr=chararraydescr) # 3: 4
         jump(p0, i1) # 4:
