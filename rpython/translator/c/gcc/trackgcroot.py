@@ -526,6 +526,8 @@ class FunctionGcRootTracker(object):
         'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
         # uh, this can occur with a 'call' on the following line...
         'rex64',
+        # movbe, converts from big-endian, so most probably not GC pointers
+        'movbe',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
