@@ -1,5 +1,8 @@
-import rpython.annotator.test.test_annrpython
-parent = rpython.annotator.test.test_annrpython.TestAnnotateTestCase
+import py
+
+
+from rpython.annotator.test.test_annrpython import graphof
+from rpython.annotator.test.test_annrpython import TestAnnotateTestCase as parent
 
 
 class TestAnnotateAndSimplifyTestCase(parent):
@@ -76,7 +79,6 @@ class TestAnnotateAndSimplifyTestCase(parent):
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
 
-        clsdef = a.bookkeeper.getuniqueclassdef
         bookkeeper = a.bookkeeper
 
         def getmdesc(bmeth):
@@ -100,14 +102,15 @@ class TestAnnotateAndSimplifyTestCase(parent):
         gfA_m = graphof(a, A.m.im_func)
         gfC_m = graphof(a, C.m.im_func)
 
-        assert famB_n.calltables == {(1, (), False): [{mdescB_n.funcdesc: gfB_n}] }
-        assert famA_m.calltables == {(1, (), False): [{mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }] }
+        assert famB_n.calltables == {(1, (), False): [{mdescB_n.funcdesc: gfB_n}]}
+        assert famA_m.calltables == {(1, (), False): [
+            {mdescA_m.funcdesc: gfA_m, mdescC_m.funcdesc: gfC_m }]}
 
         mdescCinit = getmdesc(C().__init__)
         famCinit = mdescCinit.getcallfamily()
         gfCinit = graphof(a, C.__init__.im_func)
 
-        assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
+        assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}]}
 
     def test_call_classes_with_noarg_init(self):
         class A:
