@@ -54,3 +54,17 @@ class AppTestBasic:
         assert len(d2) == 1
         assert d2[2] == 3
         assert d2[3] == 42
+
+    def test_no_dict(self):
+        import _collections
+        assert not hasattr(_collections.defaultdict(), '__dict__')
+
+    def test_no_setattr(self):
+        import _collections
+        class D(_collections.defaultdict):
+            def __setattr__(self, attr, name):
+                raise AssertionError
+        d = D(int)
+        assert d['5'] == 0
+        d['6'] += 3
+        assert d['6'] == 3
