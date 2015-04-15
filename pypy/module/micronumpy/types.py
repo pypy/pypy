@@ -1655,6 +1655,9 @@ class ObjectType(Primitive, BaseType):
     def read(self, arr, i, offset, dtype=None):
         return self.box(self._read(arr.storage, i, offset))
 
+    def byteswap(self, w_v):
+        return w_v
+
     @jit.dont_look_inside
     def _write(self, storage, i, offset, w_obj, gcstruct):
         # no GC anywhere in this function!
