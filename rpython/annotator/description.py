@@ -295,22 +295,23 @@ class FunctionDesc(Desc):
         else:
             return self.specializer(self, inputcells)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, op=None):
         inputcells = self.parse_arguments(args)
         result = self.specialize(inputcells, op)
         if isinstance(result, FunctionGraph):
             graph = result         # common case
+            annotator = self.bookkeeper.annotator
             # if that graph has a different signature, we need to re-parse
             # the arguments.
             # recreate the args object because inputcells may have been changed
             new_args = args.unmatch_signature(self.signature, inputcells)
             inputcells = self.parse_arguments(new_args, graph)
-            result = schedule(graph, inputcells)
+            result = annotator.recursivecall(graph, whence, inputcells)
             signature = getattr(self.pyobj, '_signature_', None)
             if signature:
                 sigresult = enforce_signature_return(self, signature[1], result)
                 if sigresult is not None:
-                    self.bookkeeper.annotator.addpendingblock(
+                    annotator.addpendingblock(
                         graph, graph.returnblock, [sigresult])
                     result = sigresult
         # Some specializations may break the invariant of returning
@@ -627,7 +628,7 @@ class ClassDesc(Desc):
                             "specialization" % (self.name,))
         return self.getclassdef(None)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, op=None):
         from rpython.annotator.model import SomeInstance, SomeImpossibleValue
         if self.specialize:
             if self.specialize == 'specialize:ctr_location':
@@ -902,9 +903,9 @@ class MethodDesc(Desc):
         s_instance = SomeInstance(self.selfclassdef, flags=self.flags)
         return args.prepend(s_instance)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, op=None):
         func_args = self.func_args(args)
-        return self.funcdesc.pycall(schedule, func_args, s_previous_result, op)
+        return self.funcdesc.pycall(whence, func_args, s_previous_result, op)
 
     def get_graph(self, args, op):
         func_args = self.func_args(args)
@@ -1082,9 +1083,9 @@ class MethodOfFrozenDesc(Desc):
         s_self = SomePBC([self.frozendesc])
         return args.prepend(s_self)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, op=None):
         func_args = self.func_args(args)
-        return self.funcdesc.pycall(schedule, func_args, s_previous_result, op)
+        return self.funcdesc.pycall(whence, func_args, s_previous_result, op)
 
     def get_graph(self, args, op):
         func_args = self.func_args(args)

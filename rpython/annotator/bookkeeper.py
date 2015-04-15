@@ -498,12 +498,9 @@ class Bookkeeper(object):
             op = None
             s_previous_result = s_ImpossibleValue
 
-        def schedule(graph, inputcells):
-            return self.annotator.recursivecall(graph, whence, inputcells)
-
         results = []
         for desc in pbc.descriptions:
-            results.append(desc.pycall(schedule, args, s_previous_result, op))
+            results.append(desc.pycall(whence, args, s_previous_result, op))
         s_result = unionof(*results)
         return s_result
 
