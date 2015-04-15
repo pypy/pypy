@@ -21,3 +21,5 @@ is introduced (`PYPY_GC_MAX_PINNED`) primarily for debugging purposes.
 Make `*`-unpacking in RPython function calls completely equivalent to passing
 the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves 
 exactly like `f(a, b)`.
+
+.. branch: issue2018
