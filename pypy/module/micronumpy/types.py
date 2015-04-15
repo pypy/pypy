@@ -112,13 +112,12 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _immutable_fields_ = ['native', 'space', 'T']
+    _immutable_fields_ = ['native', 'space']
 
     def __init__(self, space, native=True):
         assert isinstance(space, ObjSpace)
         self.native = native
         self.space = space
-        self.T = self.T
 
     def __repr__(self):
         return self.__class__.__name__
@@ -1746,7 +1745,7 @@ class ObjectType(Primitive, BaseType):
 
     def _obool(self, v):
         if self.space.is_true(v):
-            return True 
+            return True
         return False
 
     @simple_binary_op
@@ -1837,14 +1836,14 @@ class ObjectType(Primitive, BaseType):
 
 def add_attributeerr_op(cls, op):
     def func(self, *args):
-        raise oefmt(self.space.w_AttributeError, 
+        raise oefmt(self.space.w_AttributeError,
             "%s", op)
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
-        
+
 def add_unsupported_op(cls, op):
     def func(self, *args):
-        raise oefmt(self.space.w_TypeError, 
+        raise oefmt(self.space.w_TypeError,
             "ufunc '%s' not supported for input types", op)
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
