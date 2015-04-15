@@ -320,6 +320,10 @@ class FunctionDesc(Desc):
         result = unionof(result, s_previous_result)
         return result
 
+    def get_graph(self, args, op):
+        inputs_s = self.parse_arguments(args)
+        return self.specialize(inputs_s, op)
+
     def get_call_parameters(self, args_s):
         args = simple_args(args_s)
         inputcells = self.parse_arguments(args)
@@ -372,11 +376,9 @@ class FunctionDesc(Desc):
         # see comments in CallFamily
         row = {}
         for desc in descs:
-            def enlist(graph, ignore):
-                row[desc.rowkey()] = graph
-                return s_ImpossibleValue   # meaningless
-            desc.pycall(enlist, args, s_ImpossibleValue, op)
-            assert row
+            graph = desc.get_graph(args, op)
+            assert isinstance(graph, FunctionGraph)
+            row[desc.rowkey()] = graph
         return row
 
     def get_s_signatures(self, shape):
@@ -893,13 +895,20 @@ class MethodDesc(Desc):
     def getuniquegraph(self):
         return self.funcdesc.getuniquegraph()
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def func_args(self, args):
         from rpython.annotator.model import SomeInstance
         if self.selfclassdef is None:
             raise Exception("calling %r" % (self,))
         s_instance = SomeInstance(self.selfclassdef, flags=self.flags)
-        args = args.prepend(s_instance)
-        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
+        return args.prepend(s_instance)
+
+    def pycall(self, schedule, args, s_previous_result, op=None):
+        func_args = self.func_args(args)
+        return self.funcdesc.pycall(schedule, func_args, s_previous_result, op)
+
+    def get_graph(self, args, op):
+        func_args = self.func_args(args)
+        return self.funcdesc.get_graph(func_args, op)
 
     def bind_under(self, classdef, name):
         self.bookkeeper.warning("rebinding an already bound %r" % (self,))
@@ -1068,11 +1077,19 @@ class MethodOfFrozenDesc(Desc):
         return '<MethodOfFrozenDesc %r of %r>' % (self.funcdesc,
                                                   self.frozendesc)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def func_args(self, args):
         from rpython.annotator.model import SomePBC
         s_self = SomePBC([self.frozendesc])
-        args = args.prepend(s_self)
-        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
+        return args.prepend(s_self)
+
+    def pycall(self, schedule, args, s_previous_result, op=None):
+        func_args = self.func_args(args)
+        return self.funcdesc.pycall(schedule, func_args, s_previous_result, op)
+
+    def get_graph(self, args, op):
+        func_args = self.func_args(args)
+        return self.funcdesc.get_graph(func_args, op)
+
 
     @staticmethod
     def consider_call_site(descs, args, s_result, op):
