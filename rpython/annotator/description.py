@@ -361,11 +361,8 @@ class FunctionDesc(Desc):
     @staticmethod
     def variant_for_call_site(bookkeeper, family, descs, args, op):
         shape = rawshape(args)
-        bookkeeper.enter(None)
-        try:
+        with bookkeeper.at_position(None):
             row = FunctionDesc.row_to_consider(descs, args, op)
-        finally:
-            bookkeeper.leave()
         index = family.calltable_lookup_row(shape, row)
         return shape, index
 

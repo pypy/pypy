@@ -5,6 +5,7 @@ The Bookkeeper class.
 from __future__ import absolute_import
 
 import sys, types, inspect, weakref
+from contextlib import contextmanager
 
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (SomeOrderedDict,
@@ -87,11 +88,22 @@ class Bookkeeper(object):
         del TLS.bookkeeper
         del self.position_key
 
+    @contextmanager
+    def at_position(self, pos):
+        """A context manager calling `self.enter()` and `self.leave()`"""
+        if hasattr(self, 'position_key') and pos is None:
+            yield
+            return
+        self.enter(pos)
+        try:
+            yield
+        finally:
+            self.leave()
+
     def compute_at_fixpoint(self):
         # getbookkeeper() needs to work during this function, so provide
         # one with a dummy position
-        self.enter(None)
-        try:
+        with self.at_position(None):
             for call_op in self.annotator.call_sites():
                 self.consider_call_site(call_op)
 
@@ -99,8 +111,6 @@ class Bookkeeper(object):
                 args = simple_args(args_s)
                 pbc.consider_call_site(args, s_ImpossibleValue, None)
             self.emulated_pbc_calls = {}
-        finally:
-            self.leave()
 
     def check_no_flags_on_instances(self):
         # sanity check: no flags attached to heap stored instances
@@ -480,7 +490,6 @@ class Bookkeeper(object):
         """Analyse a call to a SomePBC() with the given args (list of
         annotations).
         """
-        descs = list(pbc.descriptions)
         if emulated is None:
             whence = self.position_key
             # fish the existing annotation for the result variable,
@@ -505,10 +514,7 @@ class Bookkeeper(object):
         return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
-        emulate_enter = not hasattr(self, 'position_key')
-        if emulate_enter:
-            self.enter(None)
-        try:
+        with self.at_position(None):
             emulated_pbc_calls = self.emulated_pbc_calls
             prev = [unique_key]
             prev.extend(replace)
@@ -523,9 +529,6 @@ class Bookkeeper(object):
             else:
                 emulated = callback
             return self.pbc_call(pbc, args, emulated=emulated)
-        finally:
-            if emulate_enter:
-                self.leave()
 
     def _find_current_op(self, opname=None, arity=None, pos=None, s_type=None):
         """ Find operation that is currently being annotated. Do some
