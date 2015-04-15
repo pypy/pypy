@@ -92,21 +92,7 @@ class Bookkeeper(object):
         # one with a dummy position
         self.enter(None)
         try:
-            def call_sites():
-                newblocks = self.annotator.added_blocks
-                if newblocks is None:
-                    newblocks = self.annotator.annotated  # all of them
-                annotation = self.annotator.annotation
-                for block in newblocks:
-                    for op in block.operations:
-                        if op.opname in ('simple_call', 'call_args'):
-                            yield op
-
-                        # some blocks are partially annotated
-                        if annotation(op.result) is None:
-                            break   # ignore the unannotated part
-
-            for call_op in call_sites():
+            for call_op in self.annotator.call_sites():
                 self.consider_call_site(call_op)
 
             for pbc, args_s in self.emulated_pbc_calls.itervalues():

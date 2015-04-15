@@ -290,6 +290,18 @@ class RPythonAnnotator(object):
         graph, block, index = position_key
         self.reflowpendingblock(graph, block)
 
+    def call_sites(self):
+        newblocks = self.added_blocks
+        if newblocks is None:
+            newblocks = self.annotated  # all of them
+        for block in newblocks:
+            for op in block.operations:
+                if op.opname in ('simple_call', 'call_args'):
+                    yield op
+
+                # some blocks are partially annotated
+                if op.result.annotation is None:
+                    break   # ignore the unannotated part
 
     #___ simplification (should be moved elsewhere?) _______
 
