@@ -1,6 +1,8 @@
 import types
 
-from rpython.annotator import model as annmodel, description
+from rpython.annotator import model as annmodel
+from rpython.annotator.description import (
+    FunctionDesc, ClassDesc, MethodDesc, FrozenDesc, MethodOfFrozenDesc)
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
@@ -16,7 +18,8 @@ def small_cand(rtyper, s_pbc):
     if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets:
         callfamily = s_pbc.any_description().getcallfamily()
         concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
-        if len(uniquerows) == 1 and (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of)):
+        if (len(uniquerows) == 1 and
+                (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of))):
             return True
     return False
 
@@ -25,7 +28,7 @@ class __extend__(annmodel.SomePBC):
         from rpython.rtyper.lltypesystem.rpbc import (
             FunctionsPBCRepr, SmallFunctionSetPBCRepr)
         kind = self.getKind()
-        if issubclass(kind, description.FunctionDesc):
+        if issubclass(kind, FunctionDesc):
             sample = self.any_description()
             callfamily = sample.querycallfamily()
             if callfamily and callfamily.total_calltable_size > 0:
@@ -34,14 +37,14 @@ class __extend__(annmodel.SomePBC):
                     getRepr = SmallFunctionSetPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
-        elif issubclass(kind, description.ClassDesc):
+        elif issubclass(kind, ClassDesc):
             # user classes
             getRepr = ClassesPBCRepr
-        elif issubclass(kind, description.MethodDesc):
+        elif issubclass(kind, MethodDesc):
             getRepr = MethodsPBCRepr
-        elif issubclass(kind, description.FrozenDesc):
+        elif issubclass(kind, FrozenDesc):
             getRepr = getFrozenPBCRepr
-        elif issubclass(kind, description.MethodOfFrozenDesc):
+        elif issubclass(kind, MethodOfFrozenDesc):
             getRepr = MethodOfFrozenPBCRepr
         else:
             raise TyperError("unexpected PBC kind %r" % (kind,))
@@ -55,7 +58,7 @@ class __extend__(annmodel.SomePBC):
             t = self.subset_of.rtyper_makekey()
         else:
             t = ()
-        return tuple([self.__class__, self.can_be_None]+lst)+t
+        return tuple([self.__class__, self.can_be_None] + lst) + t
 
 # ____________________________________________________________
 
@@ -111,8 +114,8 @@ def build_concrete_calltable(rtyper, callfamily):
                 llfn = rtyper.getcallable(graph)
                 concreterow[funcdesc] = llfn
             assert len(concreterow) > 0
-            concreterow.fntype = lltype.typeOf(llfn)# 'llfn' from the loop above
-                                         # (they should all have the same type)
+            # 'llfn' should be the same for all graphs
+            concreterow.fntype = lltype.typeOf(llfn)
             concreterows[shape, index] = concreterow
 
     for row in concreterows.values():
@@ -224,9 +227,9 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
 
     def convert_const(self, value):
         if isinstance(value, types.MethodType) and value.im_self is None:
-            value = value.im_func   # unbound method -> bare function
+            value = value.im_func  # unbound method -> bare function
         elif isinstance(value, staticmethod):
-            value = value.__get__(42) # hackish, get the function wrapped by staticmethod
+            value = value.__get__(42)  # hackish, get the function wrapped by staticmethod
         if self.lowleveltype is lltype.Void:
             return None
         if value is None:
@@ -280,7 +283,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         if not graphs:
             raise TyperError("cannot pass here a function that is not called")
         graph = graphs[0]
-        if graphs != [graph]*len(graphs):
+        if graphs != [graph] * len(graphs):
             raise TyperError("cannot pass a specialized function here")
         llfn = self.rtyper.getcallable(graph)
         return inputconst(lltype.typeOf(llfn), llfn)
@@ -288,7 +291,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
         descs = list(s_pbc.descriptions)
-        vfcs = description.FunctionDesc.variant_for_call_site
+        vfcs = FunctionDesc.variant_for_call_site
         args = simple_args(args_s)
         shape, index = vfcs(bk, self.callfamily, descs, args, op)
         funcdesc, = descs
@@ -308,7 +311,7 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
-        vfcs = description.FunctionDesc.variant_for_call_site
+        vfcs = FunctionDesc.variant_for_call_site
         shape, index = vfcs(bk, self.callfamily, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
@@ -319,10 +322,10 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         if isinstance(vlist[0], Constant):
-            v = hop.genop('direct_call', vlist, resulttype = rresult)
+            v = hop.genop('direct_call', vlist, resulttype=rresult)
         else:
             vlist.append(hop.inputconst(lltype.Void, row_of_graphs.values()))
-            v = hop.genop('indirect_call', vlist, resulttype = rresult)
+            v = hop.genop('indirect_call', vlist, resulttype=rresult)
         if hop.r_result is impossible_repr:
             return None      # see test_always_raising_methods
         else:
@@ -419,8 +422,6 @@ class AbstractMultipleUnrelatedFrozenPBCRepr(CanBeNull, Repr):
     def convert_const(self, pbc):
         if pbc is None:
             return self.null_instance()
-        if isinstance(pbc, types.MethodType) and pbc.im_self is None:
-            value = pbc.im_func   # unbound method -> bare function
         frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
         return self.convert_desc(frozendesc)
 
@@ -448,7 +449,7 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
 
     def convert_desc(self, frozendesc):
         if (self.access_set is not None and
-            frozendesc not in self.access_set.descs):
+                frozendesc not in self.access_set.descs):
             raise TyperError("not found in PBC access set: %r" % (frozendesc,))
         try:
             return self.pbc_cache[frozendesc]
@@ -523,7 +524,10 @@ class MethodOfFrozenPBCRepr(Repr):
 
         im_selves = []
         for desc in s_pbc.descriptions:
-            assert desc.funcdesc is self.funcdesc, "You can't mix a set of methods on a frozen PBC in RPython that are different underlaying functions"
+            if desc.funcdesc is not self.funcdesc:
+                raise TyperError(
+                    "You can't mix a set of methods on a frozen PBC in "
+                    "RPython that are different underlying functions")
             im_selves.append(desc.frozendesc)
 
         self.s_im_self = annmodel.SomePBC(im_selves)
