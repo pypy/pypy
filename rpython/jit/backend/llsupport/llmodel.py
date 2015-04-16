@@ -16,7 +16,7 @@ from rpython.jit.backend.llsupport.descr import (
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
 from rpython.jit.backend.llsupport.memcpy import memset_fn
-from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from rpython.jit.backend.llsupport import asmmemmgr
 from rpython.rlib.unroll import unrolling_iterable
 
 
@@ -48,7 +48,8 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_translated()
         else:
             self._setup_exception_handling_untranslated()
-        self.asmmemmgr = AsmMemoryManager()
+        self.asmmemmgr = asmmemmgr.AsmMemoryManager()
+        asmmemmgr._memmngr = self.asmmemmgr
         self._setup_frame_realloc(translate_support_code)
         ad = self.gc_ll_descr.getframedescrs(self).arraydescr
         self.signedarraydescr = ad
