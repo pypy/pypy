@@ -29,7 +29,7 @@ class TestARMCallingConvention(CallingConvTests):
         mc = InstrBuilder()
         mc.MOV_rr(r.r0.value, r.sp.value)
         mc.MOV_rr(r.pc.value, r.lr.value)
-        return mc.materialize(self.cpu.asmmemmgr, [])
+        return mc.materialize(self.cpu, [])
 
     def get_alignment_requirements(self):
         return 8

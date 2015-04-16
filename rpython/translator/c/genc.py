@@ -458,7 +458,7 @@ class CStandaloneBuilder(CBuilder):
             mk.rule('%.o %.gcmap', '%.asmgcc.s', [
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.asmgcc.s > $*.gctmp',
-	        '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
+                '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.asmgcc.lbl.s'])
             
