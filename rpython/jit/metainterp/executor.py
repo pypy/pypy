@@ -338,12 +338,14 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE,
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.LABEL,
+                         rop.VEC_RAW_LOAD,
+                         rop.VEC_RAW_STORE,
+                         rop.VEC_GETARRAYITEM_RAW,
+                         rop.VEC_SETARRAYITEM_RAW,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
-            # XXX this is temporary! after the algorithm works adjust the
-            # black hole interpreter!
-            if rop._VEC_ARITHMETIC_FIRST <= value <= rop._VEC_ARITHMETIC_LAST or \
-               value == rop.VEC_RAW_LOAD or value == rop.VEC_RAW_STORE:
+             # trace will generate such an op
+            if rop._VEC_ARITHMETIC_FIRST <= value <= rop._VEC_ARITHMETIC_LAST:
                 continue
 
             raise AssertionError("missing %r" % (key,))

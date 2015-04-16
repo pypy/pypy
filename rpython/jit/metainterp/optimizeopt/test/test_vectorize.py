@@ -556,7 +556,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_init_simple(self):
         ops = """
         [p0,i0]
-        i3 = getarrayitem_gc(p0, i0, descr=chararraydescr)
+        i3 = getarrayitem_raw(p0, i0, descr=chararraydescr)
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
@@ -601,7 +601,7 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
-        i3 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        i3 = getarrayitem_raw(p0, i1, descr=chararraydescr)
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
@@ -631,12 +631,12 @@ class BaseTestVectorize(VecTestHelper):
     def test_isomorphic_operations(self):
         ops_src = """
         [p1,p0,i0]
-        i3 = getarrayitem_gc(p0, i0, descr=chararraydescr)
+        i3 = getarrayitem_raw(p0, i0, descr=chararraydescr)
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
-        i4 = getarrayitem_gc(p0, i1, descr=chararraydescr)
-        i5 = getarrayitem_gc(p1, i1, descr=floatarraydescr)
-        i6 = getarrayitem_gc(p0, i1, descr=floatarraydescr)
+        i4 = getarrayitem_raw(p0, i1, descr=chararraydescr)
+        i5 = getarrayitem_raw(p1, i1, descr=floatarraydescr)
+        i6 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
         guard_true(i2) [p0, i0]
         jump(p1,p0,i1)
         """
@@ -657,7 +657,7 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
-        i3 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        i3 = getarrayitem_raw(p0, i1, descr=chararraydescr)
         i4 = int_add(i3, 1)
         jump(p0,i1)
         """
@@ -676,9 +676,9 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
-        i3 = getarrayitem_gc(p0, i1, descr=chararraydescr)
+        i3 = getarrayitem_raw(p0, i1, descr=chararraydescr)
         i4 = int_mul(i3, 2)
-        setarrayitem_gc(p0, i1, i4, descr=chararraydescr)
+        setarrayitem_raw(p0, i1, i4, descr=chararraydescr)
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
@@ -695,7 +695,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_combine_simple(self,descr):
         ops = """
         [p0,i0]
-        i3 = getarrayitem_gc(p0, i0, descr={descr}arraydescr)
+        i3 = getarrayitem_raw(p0, i0, descr={descr}arraydescr)
         i1 = int_add(i0,1)
         jump(p0,i1)
         """.format(descr=descr)
@@ -736,9 +736,9 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_combine_2_loads_one_redundant(self):
         ops = """
         [p0,i0]
-        i3 = getarrayitem_gc(p0, i0, descr=floatarraydescr)
+        i3 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
         i1 = int_add(i0,1)
-        i4 = getarrayitem_gc(p0, i1, descr=floatarraydescr)
+        i4 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
         jump(p0,i1)
         """
         pytest.skip("loop unrolling must apply redundant loop unrolling")
@@ -762,7 +762,7 @@ class BaseTestVectorize(VecTestHelper):
 
         ops = """
         [p0,i0]
-        i3 = getarrayitem_gc(p0, i0, descr=floatarraydescr)
+        i3 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
         jump(p0,i3)
         """
         try:
@@ -826,10 +826,10 @@ class BaseTestVectorize(VecTestHelper):
         guard_no_early_exit() []
         i10 = int_le(i0, 128)  # 1, 8, 15, 22
         guard_true(i10) [p0,p1,p2,i0] # 2, 9, 16, 23
-        i2 = getarrayitem_gc(p0, i0, descr={descr}arraydescr) # 3, 10, 17, 24
-        i3 = getarrayitem_gc(p1, i0, descr={descr}arraydescr) # 4, 11, 18, 25
+        i2 = getarrayitem_raw(p0, i0, descr={descr}arraydescr) # 3, 10, 17, 24
+        i3 = getarrayitem_raw(p1, i0, descr={descr}arraydescr) # 4, 11, 18, 25
         i4 = {op}(i2,i3) # 5, 12, 19, 26
-        setarrayitem_gc(p2, i0, i4, descr={descr}arraydescr) # 6, 13, 20, 27
+        setarrayitem_raw(p2, i0, i4, descr={descr}arraydescr) # 6, 13, 20, 27
         i1 = int_add(i0, {stride}) # 7, 14, 21, 28
         jump(p0,p1,p2,i1) # 29
         """.format(op=op,descr=descr,stride=1) # stride getarray is always 1
@@ -842,10 +842,10 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i11) []
         i12 = int_add(i1, {stride})
         guard_no_early_exit() []
-        v1 = vec_raw_load(p0, i0, 2, descr={descr}arraydescr)
-        v2 = vec_raw_load(p1, i0, 2, descr={descr}arraydescr)
+        v1 = vec_getarrayitem_raw(p0, i0, 2, descr={descr}arraydescr)
+        v2 = vec_getarrayitem_raw(p1, i0, 2, descr={descr}arraydescr)
         v3 = {op}(v1,v2,2)
-        vec_raw_store(p2, i0, v3, 2, descr={descr}arraydescr)
+        vec_setarrayitem_raw(p2, i0, v3, 2, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
         """.format(op='vec_'+op,descr=descr,stride=1)
         loop = self.parse_loop(ops)

@@ -684,6 +684,12 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_signext(self, vx, ext, count):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
+    def bh_vec_getarrayitem_raw(self, struct, offset, count, descr):
+        values = []
+        for i in range(count):
+            val = self.bh_getarrayitem_raw(struct, offset + i, descr)
+            values.append(val)
+        return values
     def bh_vec_raw_load(self, struct, offset, count, descr):
         values = []
         stride = descr.get_item_size_in_bytes()
@@ -696,6 +702,9 @@ class LLGraphCPU(model.AbstractCPU):
         stride = descr.get_item_size_in_bytes()
         for i in range(count):
             self.bh_raw_store(struct, offset + i*stride, newvalues[i], descr)
+    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, count, descr):
+        for i in range(count):
+            self.bh_setarrayitem_raw(struct, offset + i, newvalues[i], descr)
 
 
     def store_fail_descr(self, deadframe, descr):

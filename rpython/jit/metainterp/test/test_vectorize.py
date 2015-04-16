@@ -79,7 +79,7 @@ class VectorizeTest(object):
         assert res == 42
         self.check_trace_count(1)
 
-    @py.test.mark.parametrize('i',[8])
+    @py.test.mark.parametrize('i',[1,2,3,8,17,128,500])
     def test_vectorize_array_get_set(self,i):
         myjitdriver = JitDriver(greens = [],
                                 reds = ['i','d','va','vb','vc'],
@@ -112,7 +112,8 @@ class VectorizeTest(object):
             return res
         res = self.meta_interp(f, [i])
         assert res == f(i)
-        self.check_trace_count(1)
+        if i > 4:
+            self.check_trace_count(1)
 
 class TestLLtype(VectorizeTest, LLJitMixin):
     pass

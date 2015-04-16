@@ -497,8 +497,12 @@ class VecScheduleData(SchedulerData):
 
     def _vectorize_VEC_RAW_LOAD(self, vop):
         self.vector_result(vop)
+    def _vectorize_VEC_GETARRAYITEM_RAW(self, vop):
+        self.vector_result(vop)
 
     def _vectorize_VEC_RAW_STORE(self, vop):
+        self.vector_arg(vop, 2)
+    def _vectorize_VEC_SETARRAYITEM_RAW(self, vop):
         self.vector_arg(vop, 2)
 
 VecScheduleData._inspect_operation = \

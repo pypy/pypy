@@ -507,6 +507,7 @@ _oplist = [
 
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
+    'VEC_GETARRAYITEM_RAW/3d',
     'RAW_LOAD/2d',
     'VEC_RAW_LOAD/3d',
     'GETINTERIORFIELD_GC/2d',
@@ -530,6 +531,7 @@ _oplist = [
     'INCREMENT_DEBUG_COUNTER/1',
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
+    'VEC_SETARRAYITEM_RAW/4d',
     'RAW_STORE/3d',
     'VEC_RAW_STORE/4d',
     'SETINTERIORFIELD_GC/3d',
@@ -705,12 +707,10 @@ _opboolreflex = {
 }
 _opvector = {
     rop.RAW_LOAD:         rop.VEC_RAW_LOAD,
-    rop.GETARRAYITEM_RAW: rop.VEC_RAW_LOAD,
-    rop.GETARRAYITEM_GC:  rop.VEC_RAW_LOAD,
+    rop.GETARRAYITEM_RAW: rop.VEC_GETARRAYITEM_RAW,
 
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
-    rop.SETARRAYITEM_RAW: rop.VEC_RAW_STORE,
-    rop.SETARRAYITEM_GC:  rop.VEC_RAW_STORE,
+    rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
 
     rop.INT_ADD:   rop.VEC_INT_ADD,
     rop.INT_SUB:   rop.VEC_INT_SUB,
