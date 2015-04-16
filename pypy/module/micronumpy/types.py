@@ -1726,7 +1726,7 @@ class ObjectType(Primitive, BaseType):
     def for_computation(v):
         return v
 
-    @simple_binary_op
+    @raw_binary_op
     def eq(self, v1, v2):
         return self.space.eq_w(v1, v2)
 
@@ -1750,23 +1750,23 @@ class ObjectType(Primitive, BaseType):
             return True
         return False
 
-    @simple_binary_op
+    @raw_binary_op
     def logical_and(self, v1, v2):
         if self._obool(v1):
             return v2
         return v1
 
-    @simple_binary_op
+    @raw_binary_op
     def logical_or(self, v1, v2):
         if self._obool(v1):
             return v1
         return v2
 
-    @simple_unary_op
+    @raw_unary_op
     def logical_not(self, v):
         return not self._obool(v)
 
-    @simple_binary_op
+    @raw_binary_op
     def logical_xor(self, v1, v2):
         a = self._obool(v1)
         b = self._obool(v2)
@@ -1816,23 +1816,23 @@ class ObjectType(Primitive, BaseType):
     def square(self, v):
         return self.space.mul(v, v)
 
-    @simple_binary_op
+    @raw_binary_op
     def le(self, v1, v2):
         return self.space.le(v1, v2)
 
-    @simple_binary_op
+    @raw_binary_op
     def ge(self, v1, v2):
         return self.space.ge(v1, v2)
 
-    @simple_binary_op
+    @raw_binary_op
     def lt(self, v1, v2):
         return self.space.lt(v1, v2)
 
-    @simple_binary_op
+    @raw_binary_op
     def gt(self, v1, v2):
         return self.space.gt(v1, v2)
 
-    @simple_binary_op
+    @raw_binary_op
     def ne(self, v1, v2):
         return self.space.ne(v1, v2)
 
