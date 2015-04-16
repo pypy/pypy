@@ -553,17 +553,6 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref != mref2
 
-    def test_do_not_unroll_debug_merge_point(self):
-        ops = """
-        []
-        debug_merge_point(0, 0, 'loc 1')
-        debug_merge_point(0, 0, 'loc 1')
-        jump()
-        """
-        loop = self.parse_loop(ops)
-        vopt = self.vectoroptimizer_unrolled(loop,1)
-        self.assert_equal(loop, self.parse_loop(ops))
-
     def test_packset_init_simple(self):
         ops = """
         [p0,i0]
@@ -855,7 +844,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_no_early_exit() []
         v1 = vec_raw_load(p0, i0, 2, descr={descr}arraydescr)
         v2 = vec_raw_load(p1, i0, 2, descr={descr}arraydescr)
-        v3 = {op}(v1,v2)
+        v3 = {op}(v1,v2,2)
         vec_raw_store(p2, i0, v3, 2, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
         """.format(op='vec_'+op,descr=descr,stride=1)
@@ -930,7 +919,7 @@ class BaseTestVectorize(VecTestHelper):
         i6 = int_mul(i0, 8) 
         v19 = vec_raw_load(i2, i6, 2, descr=intarraydescr) 
         v20 = vec_raw_load(i3, i6, 2, descr=intarraydescr) 
-        v21 = vec_int_add(v19, v20) 
+        v21 = vec_int_add(v19, v20, 2) 
         vec_raw_store(i4, i6, v21, 2, descr=intarraydescr) 
         jump(i13, i1, i2, i3, i4)
         """

@@ -13,7 +13,7 @@ from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 
 class VectorizeTest(object):
-    enable_opts = ''
+    enable_opts = 'all'
 
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
