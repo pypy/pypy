@@ -205,12 +205,9 @@ class __extend__(W_NDimArray):
             w_res = self.getitem_filter(space, w_idx)
         else:
             try:
-                w_res = self.implementation.descr_getitem(space, self, w_idx)
+                return self.implementation.descr_getitem(space, self, w_idx)
             except ArrayArgumentException:
-                w_res = self.getitem_array_int(space, w_idx)
-        if w_res.is_scalar() and w_res.get_dtype(space).is_object():
-            return w_res.get_dtype(space).itemtype.unbox(w_res)
-        return w_res
+                return self.getitem_array_int(space, w_idx)
 
     def getitem(self, space, index_list):
         return self.implementation.getitem_index(space, index_list)
@@ -849,7 +846,7 @@ class __extend__(W_NDimArray):
                         "new type not compatible with array."))
                 # Strides, shape does not change
                 v = impl.astype(space, dtype)
-                return wrap_impl(space, w_type, self, v) 
+                return wrap_impl(space, w_type, self, v)
             strides = impl.get_strides()
             if dims == 1 or strides[0] <strides[-1]:
                 # Column-major, resize first dimension
@@ -895,7 +892,7 @@ class __extend__(W_NDimArray):
         iter, state = self.create_iter()
         w_val = iter.getitem(state)
         if self.get_dtype().is_object():
-            w_val = self.get_dtype().itemtype.unbox(w_val) 
+            w_val = self.get_dtype().itemtype.unbox(w_val)
         return space.wrap(space.is_true(w_val))
 
     def _binop_impl(ufunc_name):
@@ -1212,7 +1209,7 @@ class __extend__(W_NDimArray):
                         "improper dtype '%R'", dtype)
         self.implementation = W_NDimArray.from_shape_and_storage(
             space, [space.int_w(i) for i in space.listview(shape)],
-            rffi.str2charp(space.str_w(storage), track_allocation=False), 
+            rffi.str2charp(space.str_w(storage), track_allocation=False),
             dtype, storage_bytes=space.len_w(storage), owning=True).implementation
 
     def descr___array_finalize__(self, space, w_obj):
