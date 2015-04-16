@@ -1,7 +1,8 @@
 import sys
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.metainterp.history import ConstInt, VECTOR, BoxVector
+from rpython.jit.metainterp.history import (ConstInt, VECTOR, BoxVector,
+        TargetToken, JitCellToken)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
@@ -57,17 +58,24 @@ class VectorizingOptimizer(Optimizer):
         self.memory_refs = []
         self.dependency_graph = None
         self.first_debug_merge_point = False
-        self.last_debug_merge_point = None
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
 
     def propagate_all_forward(self):
         self.clear_newoperations()
+        label = self.loop.operations[0]
+        jump = self.loop.operations[-1]
+        if jump.getopnum() != rop.LABEL:
+            # compile_loop appends a additional label to all loops
+            # we cannot optimize normal traces
+            raise NotAVectorizeableLoop()
+
         self.linear_find_smallest_type(self.loop)
         byte_count = self.smallest_type_bytes
-        if byte_count == 0:
+        if byte_count == 0 or label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
+            # we cannot optimize normal traces (if there is no label)
             raise NotAVectorizeableLoop()
 
         # unroll
@@ -88,15 +96,8 @@ class VectorizingOptimizer(Optimizer):
         self._newoperations.append(op)
 
     def emit_unrolled_operation(self, op):
-        if op.getopnum() == rop.DEBUG_MERGE_POINT:
-            self.last_debug_merge_point = op
-            if not self.first_debug_merge_point:
-                self.first_debug_merge_point = True
-            else:
-                return False
         self._last_emitted_op = op
         self._newoperations.append(op)
-        return True
 
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count is an integral how
@@ -104,10 +105,12 @@ class VectorizingOptimizer(Optimizer):
         """
         op_count = len(loop.operations)
 
-        label_op = loop.operations[0]
-        jump_op = loop.operations[op_count-1]
+        label_op = loop.operations[0].clone()
+        jump_op = loop.operations[op_count-1].clone()
+        # use the target token of the label
+        jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, label_op.getdescr())
         assert label_op.getopnum() == rop.LABEL
-        assert jump_op.is_final() or jump_op.getopnum() == rop.LABEL
+        assert jump_op.is_final()
 
         # XXX self.vec_info.track_memory_refs = True
 
@@ -124,8 +127,6 @@ class VectorizingOptimizer(Optimizer):
             op = loop.operations[i].clone()
             operations.append(op)
             self.emit_unrolled_operation(op)
-            #self.vec_info.index = len(self._newoperations)-1
-            #self.vec_info.inspect_operation(op)
 
         orig_jump_args = jump_op.getarglist()[:]
         # it is assumed that #label_args == #jump_args
@@ -167,14 +168,15 @@ class VectorizingOptimizer(Optimizer):
                     copied_op.rd_snapshot = snapshot
                     if not we_are_translated():
                         # ensure that in a test case the renaming is correct
-                        args = copied_op.getfailargs()[:]
-                        for i,arg in enumerate(args):
-                            try:
-                                value = rename_map[arg]
-                                args[i] = value
-                            except KeyError:
-                                pass
-                        copied_op.setfailargs(args)
+                        if copied_op.getfailargs():
+                            args = copied_op.getfailargs()[:]
+                            for i,arg in enumerate(args):
+                                try:
+                                    value = rename_map[arg]
+                                    args[i] = value
+                                except KeyError:
+                                    pass
+                            copied_op.setfailargs(args)
                 #
                 self.emit_unrolled_operation(copied_op)
 
@@ -189,9 +191,6 @@ class VectorizingOptimizer(Optimizer):
             except KeyError:
                 pass
 
-        if self.last_debug_merge_point is not None:
-            self._last_emitted_op = self.last_debug_merge_point
-            self._newoperations.append(self.last_debug_merge_point)
         self.emit_unrolled_operation(jump_op)
 
     def clone_snapshot(self, snapshot, rename_map):
@@ -335,10 +334,10 @@ class VectorizingOptimizer(Optimizer):
                 print " P:", pack
 
     def schedule(self):
+        print self.dependency_graph.as_dot()
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
-        print "scheduling loop"
-        i = 100
+        print "scheduling loop. scheduleable are: " + str(scheduler.schedulable_nodes)
         while scheduler.has_more():
             candidate = scheduler.next()
             print "  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack
@@ -353,9 +352,6 @@ class VectorizingOptimizer(Optimizer):
             else:
                 self.emit_operation(candidate.getoperation())
                 scheduler.schedule(0)
-            i += 1
-            if i > 200:
-                assert False
 
         self.loop.operations = self._newoperations[:]
         if not we_are_translated():
@@ -415,8 +411,8 @@ def prohibit_packing(op1, op2):
     return False
 
 def fail_args_break_dependency(guard, prev_op, target_guard):
-    failargs = set(guard.getoperation().getfailargs())
-    new_failargs = set(target_guard.getoperation().getfailargs())
+    failargs = guard.getfailarg_set()
+    new_failargs = target_guard.getfailarg_set()
 
     op = prev_op.getoperation()
     if not op.is_always_pure(): # TODO has_no_side_effect():
@@ -439,53 +435,52 @@ class VecScheduleData(SchedulerData):
         self.box_to_vbox = {}
 
     def as_vector_operation(self, pack):
-        assert len(pack.operations) > 1
+        op_count = pack.operations
+        assert op_count > 1
         self.pack = pack
+        # properties that hold for the pack are:
+        # isomorphism (see func above)
         op0 = pack.operations[0].getoperation()
         assert op0.vector != -1
         args = op0.getarglist()[:]
-        if op0.vector in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
-            args.append(ConstInt(0))
-        vop = ResOperation(op0.vector, args,
-                            op0.result, op0.getdescr())
-        self._inspect_operation(vop) # op0 is for dispatch only
-        #if op0.vector not in (rop.VEC_RAW_LOAD, rop.VEC_RAW_STORE):
-        #    op_count = len(pack.operations)
-        #    args.append(ConstInt(op_count))
+        args.append(ConstInt(len(op_count)))
+        vop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
+        self._inspect_operation(vop)
         return vop
 
-    def _pack_vector_arg(self, vop, op, i, vbox):
-        arg = op.getarg(i)
-        if vbox is None:
-            try:
-                _, vbox = self.box_to_vbox[arg]
-            except KeyError:
-                vbox = BoxVector(arg.type, 4, 0, True)
-            vop.setarg(i, vbox)
-        self.box_to_vbox[arg] = (i,vbox)
-        return vbox
+    def get_vbox_for(self, arg):
+        try:
+            _, vbox = self.box_to_vbox[arg]
+            return vbox
+        except KeyError:
+            # if this is not the case, then load operations must
+            # be emitted
+            assert False, "vector box MUST be defined before"
 
-    def _pack_vector_result(self, vop, op, vbox):
-        result = op.result
-        if vbox is None:
-            vbox = BoxVector(result.type, 4, 0, True)
-            vop.result = vbox
-        self.box_to_vbox[result] = (-1,vbox)
-        return vbox
+    def vector_result(self, vop): 
+        ops = self.pack.operations
+        op0 = ops[0].getoperation()
+        result = op0.result
+        vbox = BoxVector(result.type, 4, 0, True)
+        vop.result = vbox
+        i = 0
+        vboxcount = vbox.item_count = len(ops)
+        while i < vboxcount:
+            op = ops[i].getoperation()
+            self.box_to_vbox[result] = (i, vbox)
+            i += 1
+
+    def vector_arg(self, vop, argidx):
+        ops = self.pack.operations
+        op0 = ops[0].getoperation()
+        vbox = self.get_vbox_for(op0.getarg(argidx))
+        vop.setarg(argidx, vbox)
 
     bin_arith_trans = """
     def _vectorize_{name}(self, vop):
-        vbox_arg_0 = None
-        vbox_arg_1 = None
-        vbox_result = None
-        ops = self.pack.operations
-        for i, node in enumerate(ops):
-            op = node.getoperation()
-            vbox_arg_0 = self._pack_vector_arg(vop, op, 0, vbox_arg_0)
-            vbox_arg_1 = self._pack_vector_arg(vop, op, 1, vbox_arg_1)
-            vbox_result= self._pack_vector_result(vop, op, vbox_result)
-        vbox_arg_0.item_count = vbox_arg_1.item_count = \
-                vbox_result.item_count = len(ops)
+        self.vector_arg(vop, 0)
+        self.vector_arg(vop, 1)
+        self.vector_result(vop)
     """
     exec py.code.Source(bin_arith_trans.format(name='VEC_INT_ADD')).compile()
     exec py.code.Source(bin_arith_trans.format(name='VEC_INT_MUL')).compile()
@@ -495,23 +490,16 @@ class VecScheduleData(SchedulerData):
     exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_SUB')).compile()
     del bin_arith_trans
 
+    def _vectorize_VEC_INT_SIGNEXT(self, vop):
+        self.vector_arg(vop, 0)
+        # arg 1 is a constant
+        self.vector_result(vop)
+
     def _vectorize_VEC_RAW_LOAD(self, vop):
-        vbox_result = None
-        ops = self.pack.operations
-        for i, node in enumerate(ops):
-            op = node.getoperation()
-            vbox_result= self._pack_vector_result(vop, op, vbox_result)
-        vbox_result.item_count = len(ops)
-        vop.setarg(vop.numargs()-1,ConstInt(len(ops)))
+        self.vector_result(vop)
 
     def _vectorize_VEC_RAW_STORE(self, vop):
-        vbox_arg_2 = None
-        ops = self.pack.operations
-        for i, node in enumerate(ops):
-            op = node.getoperation()
-            vbox_arg_2 = self._pack_vector_arg(vop, op, 2, vbox_arg_2)
-        vbox_arg_2.item_count = len(ops)
-        vop.setarg(vop.numargs()-1,ConstInt(len(ops)))
+        self.vector_arg(vop, 2)
 
 VecScheduleData._inspect_operation = \
         make_dispatcher_method(VecScheduleData, '_vectorize_')

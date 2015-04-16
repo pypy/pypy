@@ -1482,6 +1482,8 @@ class BlackholeInterpreter(object):
         #
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
+        elif opnum == rop.GUARD_NO_EARLY_EXIT:
+            self.position = 0
         elif opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.

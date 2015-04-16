@@ -1,4 +1,6 @@
 import py
+
+from rpython.jit.metainterp.compile import ResumeAtEarylExitDescr
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -77,13 +79,28 @@ class Node(object):
     def getindex(self):
         return self.opidx
 
-    def dependency_count(self):
-        return len(self.adjacent_list)
-
     def getopnum(self):
         return self.op.getopnum()
     def getopname(self):
         return self.op.getopname()
+
+    def getfailarg_set(self):
+        args = set()
+        op = self.getoperation()
+        if op.getfailargs():
+            for arg in op.getfailargs():
+                args.add(arg)
+            return args
+        elif op.rd_snapshot:
+            ss = op.rd_snapshot
+            while ss != None:
+                for box in ss.boxes:
+                    args.add(box)
+                ss = ss.prev
+
+        return args
+ #set(target_guard.getoperation().getfailargs())
+
 
     def relax_guard_to(self, guard):
         """ Relaxes a guard operation to an earlier guard. """
@@ -92,7 +109,8 @@ class Node(object):
 
         my_op = self.getoperation()
         op = guard.getoperation()
-        my_op.setdescr(op.getdescr())
+        my_op.setdescr(ResumeAtEarylExitDescr())
+        print "set ", my_op.getdescr(), "=>", op.getdescr()
         my_op.setfailargs(op.getfailargs())
         my_op.rd_snapshot = op.rd_snapshot
 
@@ -115,16 +133,6 @@ class Node(object):
             if not we_are_translated() and label is not None:
                 _label = getattr(dep, 'label', '')
                 dep.label = _label + ", " + label
-
-    def depends_on(self, to):
-        """ Does there exist a dependency from the instruction to another?
-            Returns None if there is no dependency or the Dependency object in
-            any other case.
-        """
-        for edge in self.adjacent_list:
-            if edge.to == to:
-                return edge
-        return None 
 
     def clear_dependencies(self):
         self.adjacent_list = []
@@ -175,6 +183,16 @@ class Node(object):
 
     def depends(self):
         return self.adjacent_list_back
+
+    def depends_on(self, to):
+        """ Does there exist a dependency from the instruction to another?
+            Returns None if there is no dependency or the Dependency object in
+            any other case.
+        """
+        for edge in self.adjacent_list:
+            if edge.to == to:
+                return edge
+        return None 
 
     def dependencies(self):
         return self.adjacent_list[:] + self.adjacent_list_back[:] # COPY
@@ -444,10 +462,9 @@ class DependencyGraph(object):
         # pass 3 find schedulable nodes
         jump_node = self.nodes[jump_pos]
         label_node = self.nodes[label_pos]
-        self.schedulable_nodes.append(label_node)
         for node in self.nodes:
             if node != jump_node:
-                if node.dependency_count() == 0:
+                if node.depends_count() == 0:
                     self.schedulable_nodes.append(node)
                 # every leaf instruction points to the jump_op. in theory every instruction
                 # points to jump_op. this forces the jump/finish op to be the last operation
@@ -633,15 +650,16 @@ class Scheduler(object):
 
     def schedule(self, index):
         node = self.schedulable_nodes[index]
-        assert not node.emitted
+        assert not node.emitted, "node " + str(node) + " cannot be emitted twice! op: " + str(node.getoperation())
         del self.schedulable_nodes[index]
         to_del = []
         print "  schedule", node.getoperation()
         for dep in node.provides()[:]: # COPY
-            node.remove_edge_to(dep.to)
-            print "    >=X=>", node, dep.to, "count",dep.to.depends_count()
-            if dep.to.depends_count() == 0:
-                self.schedulable_nodes.append(dep.to)
+            to = dep.to
+            node.remove_edge_to(to)
+            print "    >=X=>", node, to, "count",to.depends_count()
+            if not to.emitted and to.depends_count() == 0:
+                self.schedulable_nodes.append(to)
         node.clear_dependencies()
         node.emitted = True
 

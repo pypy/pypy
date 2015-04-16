@@ -21,63 +21,24 @@ class VectorizeTest(object):
                               CPUClass=self.CPUClass,
                               type_system=self.type_system)
 
-    def test_vectorize_simple_load_arith_store_mul(self):
-        myjitdriver = JitDriver(greens = [],
-                                reds = ['i','d','va','vb','vc'],
-                                vectorize=False)
-        def f(d):
-            va = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
-            vb = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
-            vc = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
-            for i in range(d):
-                raw_storage_setitem(va, i*rffi.sizeof(rffi.SIGNED),
-                                    rffi.cast(rffi.SIGNED,i))
-                raw_storage_setitem(vb, i*rffi.sizeof(rffi.SIGNED),
-                                    rffi.cast(rffi.SIGNED,i))
-            i = 0
-            while i < d:
-                myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc)
-                myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc)
-                pos = i*rffi.sizeof(rffi.SIGNED)
-                a = raw_storage_getitem(rffi.SIGNED,va,pos)
-                b = raw_storage_getitem(rffi.SIGNED,vb,pos)
-                c = a+b
-                raw_storage_setitem(vc, pos, rffi.cast(rffi.SIGNED,c))
-                i += 1
-            res = 0
-            for i in range(d):
-                res += raw_storage_getitem(rffi.SIGNED,vc,i*rffi.sizeof(rffi.SIGNED))
-
-            free_raw_storage(va)
-            free_raw_storage(vb)
-            free_raw_storage(vc)
-            return res
-        i = 32
-        res = self.meta_interp(f, [i])
-        assert res == f(i)
-        self.check_trace_count(1)
-        i = 31
-        res = self.meta_interp(f, [i])
-        assert res == f(i)
-
-    @py.test.mark.parametrize('i',range(0,32))
+    @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
     def test_vectorize_simple_load_arith_store_int_add_index(self,i):
         myjitdriver = JitDriver(greens = [],
-                                reds = ['i','d','va','vb','vc'],
+                                reds = ['i','d','bc','va','vb','vc'],
                                 vectorize=True)
         def f(d):
-            va = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
-            vb = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
-            vc = alloc_raw_storage(d*rffi.sizeof(rffi.SIGNED), zero=True)
+            bc = d*rffi.sizeof(rffi.SIGNED)
+            va = alloc_raw_storage(bc, zero=True)
+            vb = alloc_raw_storage(bc, zero=True)
+            vc = alloc_raw_storage(bc, zero=True)
             for i in range(d):
-                raw_storage_setitem(va, i*rffi.sizeof(rffi.SIGNED),
-                                    rffi.cast(rffi.SIGNED,i))
-                raw_storage_setitem(vb, i*rffi.sizeof(rffi.SIGNED),
-                                    rffi.cast(rffi.SIGNED,i))
+                j = i*rffi.sizeof(rffi.SIGNED)
+                raw_storage_setitem(va, j, rffi.cast(rffi.SIGNED,i))
+                raw_storage_setitem(vb, j, rffi.cast(rffi.SIGNED,i))
             i = 0
-            while i < d*8:
-                myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc)
-                myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc)
+            while i < bc:
+                myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc, bc=bc)
+                myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc, bc=bc)
                 a = raw_storage_getitem(rffi.SIGNED,va,i)
                 b = raw_storage_getitem(rffi.SIGNED,vb,i)
                 c = a+b
@@ -92,8 +53,9 @@ class VectorizeTest(object):
             free_raw_storage(vc)
             return res
         res = self.meta_interp(f, [i])
-        assert res == f(i) #sum(range(i)) * 2
-        self.check_trace_count(1)
+        assert res == f(i)
+        if i > 3:
+            self.check_trace_count(1)
 
     def test_guard(self):
         py.test.skip('abc')

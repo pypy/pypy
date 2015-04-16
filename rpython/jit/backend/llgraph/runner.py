@@ -563,14 +563,6 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
-    def bh_vec_raw_load(self, struct, offset, count, descr):
-        values = []
-        stride = descr.get_item_size_in_bytes()
-        for i in range(count):
-            val = self.bh_raw_load(struct, offset + i*stride, descr)
-            values.append(val)
-        return values
-
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
         p[0] += 1
@@ -602,11 +594,6 @@ class LLGraphCPU(model.AbstractCPU):
             self.bh_raw_store_f(struct, offset, newvalue, descr)
         else:
             self.bh_raw_store_i(struct, offset, newvalue, descr)
-
-    def bh_vec_raw_store(self, struct, offset, newvalues, count, descr):
-        stride = descr.get_item_size_in_bytes()
-        for i in range(count):
-            self.bh_raw_store(struct, offset + i*stride, newvalues[i], descr)
 
     def bh_newstr(self, length):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
@@ -677,6 +664,39 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_new_raw_buffer(self, size):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+
+    # vector operations
+    def bh_vec_int_add(self, vx, vy, count):
+        assert len(vx) == count
+        assert len(vy) == count
+        return [_vx + _vy for _vx,_vy in zip(vx,vy)]
+
+    def bh_vec_int_mul(self, vx, vy, count):
+        assert len(vx) == count
+        assert len(vy) == count
+        return [_vx * _vy for _vx,_vy in zip(vx,vy)]
+
+    def bh_vec_int_sub(self, vx, vy, count):
+        assert len(vx) == count
+        assert len(vy) == count
+        return [_vx - _vy for _vx,_vy in zip(vx,vy)]
+
+    def bh_vec_int_signext(self, vx, ext, count):
+        return [heaptracker.int_signext(_vx, ext) for _vx in vx]
+
+    def bh_vec_raw_load(self, struct, offset, count, descr):
+        values = []
+        stride = descr.get_item_size_in_bytes()
+        for i in range(count):
+            val = self.bh_raw_load(struct, offset + i*stride, descr)
+            values.append(val)
+        return values
+
+    def bh_vec_raw_store(self, struct, offset, newvalues, count, descr):
+        stride = descr.get_item_size_in_bytes()
+        for i in range(count):
+            self.bh_raw_store(struct, offset + i*stride, newvalues[i], descr)
+
 
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
@@ -826,6 +846,10 @@ class LLFrame(object):
         argboxes = self.current_op.getarglist()
         self.do_renaming(argboxes, args)
 
+    def execute_guard_no_early_exit(self, descr):
+        # TODO
+        pass
+
     def execute_guard_true(self, descr, arg):
         if not arg:
             self.fail_guard(descr)
@@ -929,15 +953,6 @@ class LLFrame(object):
     def execute_guard_overflow(self, descr):
         if not self.overflow_flag:
             self.fail_guard(descr)
-
-    def execute_vec_int_add(self, _, vx, vy):
-        return [_vx + _vy for _vx,_vy in zip(vx,vy)]
-
-    def execute_vec_int_mul(self, _, vx, vy):
-        return [_vx * _vy for _vx,_vy in zip(vx,vy)]
-
-    def execute_vec_int_sub(self, _, vx, vy):
-        return [_vx - _vy for _vx,_vy in zip(vx,vy)]
 
     def execute_jump(self, descr, *args):
         raise Jump(descr._llgraph_target, args)
