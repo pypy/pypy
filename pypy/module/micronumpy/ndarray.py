@@ -890,10 +890,7 @@ class __extend__(W_NDimArray):
                 "The truth value of an array with more than one element "
                 "is ambiguous. Use a.any() or a.all()"))
         iter, state = self.create_iter()
-        w_val = iter.getitem(state)
-        if self.get_dtype().is_object():
-            w_val = self.get_dtype().itemtype.unbox(w_val)
-        return space.wrap(space.is_true(w_val))
+        return space.wrap(space.is_true(iter.getitem(state)))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):

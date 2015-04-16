@@ -1128,17 +1128,12 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, nin, comparison_func,
         def impl(res_dtype, value):
             res = get_op(res_dtype)(value)
             if bool_result:
-                if res_dtype.is_object() and isinstance(res, W_Root):
-                    space = res_dtype.itemtype.space
-                    res = space.bool_w(res)
                 return dtype_cache.w_booldtype.box(res)
             return res
     elif nin == 2:
         def impl(res_dtype, lvalue, rvalue):
             res = get_op(res_dtype)(lvalue, rvalue)
             if comparison_func:
-                if res_dtype.is_object():
-                    return res
                 return dtype_cache.w_booldtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)

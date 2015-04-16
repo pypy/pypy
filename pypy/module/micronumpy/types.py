@@ -1718,6 +1718,10 @@ class ObjectType(Primitive, BaseType):
     def str_format(self, box):
         return self.space.str_w(self.space.repr(self.unbox(box)))
 
+    def runpack_str(self, space, s):
+        raise oefmt(space.w_NotImplementedError,
+                    "fromstring not implemented for object type")
+
     def to_builtin_type(self, space, box):
         assert isinstance(box, self.BoxType)
         return box.w_obj
@@ -1753,14 +1757,14 @@ class ObjectType(Primitive, BaseType):
     @raw_binary_op
     def logical_and(self, v1, v2):
         if self._obool(v1):
-            return v2
-        return v1
+            return self.space.bool_w(v2)
+        return self.space.bool_w(v1)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
         if self._obool(v1):
-            return v1
-        return v2
+            return self.space.bool_w(v1)
+        return self.space.bool_w(v2)
 
     @raw_unary_op
     def logical_not(self, v):
@@ -1818,23 +1822,23 @@ class ObjectType(Primitive, BaseType):
 
     @raw_binary_op
     def le(self, v1, v2):
-        return self.space.le(v1, v2)
+        return self.space.bool_w(self.space.le(v1, v2))
 
     @raw_binary_op
     def ge(self, v1, v2):
-        return self.space.ge(v1, v2)
+        return self.space.bool_w(self.space.ge(v1, v2))
 
     @raw_binary_op
     def lt(self, v1, v2):
-        return self.space.lt(v1, v2)
+        return self.space.bool_w(self.space.lt(v1, v2))
 
     @raw_binary_op
     def gt(self, v1, v2):
-        return self.space.gt(v1, v2)
+        return self.space.bool_w(self.space.gt(v1, v2))
 
     @raw_binary_op
     def ne(self, v1, v2):
-        return self.space.ne(v1, v2)
+        return self.space.bool_w(self.space.ne(v1, v2))
 
 def add_attributeerr_op(cls, op):
     def func(self, *args):
