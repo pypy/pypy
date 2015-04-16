@@ -110,7 +110,6 @@ class Node(object):
         my_op = self.getoperation()
         op = guard.getoperation()
         my_op.setdescr(ResumeAtEarylExitDescr())
-        print "set ", my_op.getdescr(), "=>", op.getdescr()
         my_op.setfailargs(op.getfailargs())
         my_op.rd_snapshot = op.rd_snapshot
 
@@ -628,14 +627,12 @@ class Scheduler(object):
     def schedulable(self, indices):
         for index in indices:
             if index not in self.schedulable_nodes:
-                print "pack", index, "not sched"
                 break
         else:
             return True
         return False
 
     def schedule_later(self, index):
-        assert len(self.schedulable_nodes) != 1, "not possible! " + str(self.schedulable_nodes[0].getoperation())
         node = self.schedulable_nodes[index]
         del self.schedulable_nodes[index]
         self.schedulable_nodes.append(node)
@@ -650,14 +647,11 @@ class Scheduler(object):
 
     def schedule(self, index):
         node = self.schedulable_nodes[index]
-        assert not node.emitted, "node " + str(node) + " cannot be emitted twice! op: " + str(node.getoperation())
         del self.schedulable_nodes[index]
         to_del = []
-        print "  schedule", node.getoperation()
         for dep in node.provides()[:]: # COPY
             to = dep.to
             node.remove_edge_to(to)
-            print "    >=X=>", node, to, "count",to.depends_count()
             if not to.emitted and to.depends_count() == 0:
                 self.schedulable_nodes.append(to)
         node.clear_dependencies()

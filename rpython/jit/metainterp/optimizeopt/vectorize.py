@@ -17,34 +17,37 @@ class NotAVectorizeableLoop(JitException):
     def __str__(self):
         return 'NotAVectorizeableLoop()'
 
-def debug_print_operations(self, loop):
-    # XXX
-    print('--- loop instr numbered ---')
-    def ps(snap):
-        if snap.prev is None:
-            return []
-        return ps(snap.prev) + snap.boxes[:]
-    for i,op in enumerate(loop.operations):
-        print "[",str(i).center(2," "),"]",op,
-        if op.is_guard():
-            if op.rd_snapshot is not None:
-                print ps(op.rd_snapshot)
+def dprint(*args):
+    if not we_are_translated():
+        for arg in args:
+            print arg,
+        print
+
+
+def debug_print_operations(loop):
+    if not we_are_translated():
+        print('--- loop instr numbered ---')
+        def ps(snap):
+            if snap.prev is None:
+                return []
+            return ps(snap.prev) + snap.boxes[:]
+        for i,op in enumerate(loop.operations):
+            print "[",str(i).center(2," "),"]",op,
+            if op.is_guard():
+                if op.rd_snapshot is not None:
+                    print ps(op.rd_snapshot)
+                else:
+                    print op.getfailargs()
             else:
-                print op.getfailargs()
-        else:
-            print ""
+                print ""
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
     opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     try:
         opt.propagate_all_forward()
-        # XXX
-        debug_print_operations(None, loop)
-        # TODO
+        debug_print_operations(loop)
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
-        # XXX
-        debug_print_operations(None, loop)
     except NotAVectorizeableLoop:
         # vectorization is not possible, propagate only normal optimizations
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
@@ -256,11 +259,8 @@ class VectorizingOptimizer(Optimizer):
                 # exclue a_opidx == b_opidx only consider the ones
                 # that point forward:
                 if node_a.is_before(node_b):
-                    #print "point forward[", a_opidx, "]", memref_a, "[",b_opidx,"]", memref_b
                     if memref_a.is_adjacent_to(memref_b):
-                        #print "  -> adjacent[", a_opidx, "]", memref_a, "[",b_opidx,"]", memref_b
                         if self.packset.can_be_packed(node_a, node_b):
-                            #print "    =-=-> can be packed[", a_opidx, "]", memref_a, "[",b_opidx,"]", memref_b
                             self.packset.add_pair(node_a, node_b)
 
     def extend_packset(self):
@@ -328,19 +328,15 @@ class VectorizingOptimizer(Optimizer):
                 i += 1
             if len_before == len(self.packset.packs):
                 break
-        if not we_are_translated():
-            print "packs:"
-            for pack in self.packset.packs:
-                print " P:", pack
 
     def schedule(self):
-        print self.dependency_graph.as_dot()
+        dprint(self.dependency_graph.as_dot())
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
-        print "scheduling loop. scheduleable are: " + str(scheduler.schedulable_nodes)
+        dprint("scheduling loop. scheduleable are: " + str(scheduler.schedulable_nodes))
         while scheduler.has_more():
             candidate = scheduler.next()
-            print "  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack
+            dprint("  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack)
             if candidate.pack:
                 pack = candidate.pack
                 if scheduler.schedulable(pack.operations):
@@ -380,7 +376,7 @@ class VectorizingOptimizer(Optimizer):
                 if fail_args_break_dependency(guard_node, prev_node, ee_guard):
                     if prev_node == last_prev_node:
                         continue
-                    print ">=XXX=> ", prev_node, "=>", guard_node
+                    dprint("relax) ", prev_node, "=>", guard_node)
                     del_deps.append((prev_node,guard_node))
                 else:
                     pullup.append(path)
@@ -406,7 +402,7 @@ def must_unpack_result_to_exec(op, target_op):
 def prohibit_packing(op1, op2):
     if op1.is_array_op():
         if op1.getarg(1) == op2.result:
-            print "prohibit", op1, op2
+            dprint("prohibit)", op1, op2)
             return True
     return False
 
@@ -558,19 +554,15 @@ class PackSet(object):
             return -1
 
         if not expand_forward:
-            #print " backward savings", savings
             if not must_unpack_result_to_exec(lpacknode, lnode) and \
                not must_unpack_result_to_exec(rpacknode, rnode):
                 savings += 1
-            #print " => backward savings", savings
         else:
-            #print " forward savings", savings
             if not must_unpack_result_to_exec(lpacknode, lnode) and \
                not must_unpack_result_to_exec(rpacknode, rnode):
                 savings += 1
-            #print " => forward savings", savings
         if savings >= 0:
-            print "estimated " + str(savings) + " for lpack,lnode", lpacknode, lnode
+            dprint("estimated " + str(savings) + " for lpack,lnode", lpacknode, lnode)
 
         return savings
 
