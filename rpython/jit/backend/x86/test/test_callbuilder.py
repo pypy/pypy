@@ -3,8 +3,7 @@ from rpython.jit.backend.x86.regloc import esi, edi, ebx, ecx, ImmedLoc
 
 
 class FakeAssembler:
-    class mc:
-        _frame_size = 42
+    mc = None
     class _regalloc:
         class rm:
             free_regs = [ebx]

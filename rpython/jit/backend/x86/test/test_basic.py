@@ -14,7 +14,7 @@ class Jit386Mixin(support.LLJitMixin):
 
 class TestBasic(Jit386Mixin, test_ajit.BaseLLtypeTests):
     # for the individual tests see
-    # ====> ../../../metainterp/test/test_ajit.py
+    # ====> ../../../metainterp/test/test_basic.py
     def test_bug(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
         class X(object):
