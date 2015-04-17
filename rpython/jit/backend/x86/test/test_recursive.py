@@ -1,8 +1,6 @@
 
-import cffi
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
-from rpython.jit.backend.llsupport import codemap
 from rpython.jit.backend.llsupport.codemap import unpack_traceback
 from rpython.jit.backend.x86.arch import WORD
 
