@@ -202,7 +202,7 @@ class __extend__(W_NDimArray):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and w_idx.ndims() > 0:
-            w_res = self.getitem_filter(space, w_idx)
+            return self.getitem_filter(space, w_idx)
         else:
             try:
                 return self.implementation.descr_getitem(space, self, w_idx)

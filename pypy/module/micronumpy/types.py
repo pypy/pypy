@@ -1857,10 +1857,11 @@ def add_unsupported_op(cls, op):
 def add_unary_op(cls, op, method):
     @simple_unary_op
     def func(self, w_v):
-        w_impl = getattr(w_v, method)
+        space = self.space
+        w_impl = space.lookup(w_v, method)
         if w_impl is None:
-            raise oefmt(self.space.w_AttributeError, 'unknown op "%s" on object' % op)
-        return w_impl(self.space)
+            raise oefmt(space.w_AttributeError, 'unknown op "%s" on object' % op)
+        return space.get_and_call_function(w_impl, w_v)
     func.__name__ = 'object_' + op
     setattr(cls, op, func)
 
@@ -1879,7 +1880,7 @@ def add_space_binary_op(cls, op):
     setattr(cls, op, func)
 
 for op in ('copysign', 'isfinite', 'isinf', 'isnan', 'logaddexp', 'logaddexp2',
-           'signbit', 'conj', 'rint'):
+           'signbit'):
     add_unsupported_op(ObjectType, op)
 for op in ('arctan2', 'arccos', 'arccosh', 'arcsin', 'arcsinh', 'arctan',
            'arctanh', 'ceil', 'floor', 'cos', 'sin', 'tan', 'cosh', 'sinh',
@@ -1888,6 +1889,8 @@ for op in ('arctan2', 'arccos', 'arccosh', 'arcsin', 'arcsinh', 'arctan',
     add_attributeerr_op(ObjectType, op)
 for op in ('abs', 'neg', 'pos', 'invert'):
     add_space_unary_op(ObjectType, op)
+for op, method in (('conj', 'descr_conjugate'), ('rint', 'descr_rint')):
+    add_unary_op(ObjectType, op, method)
 for op in ('add', 'floordiv', 'div', 'mod', 'mul', 'sub', 'lshift', 'rshift'):
     add_space_binary_op(ObjectType, op)
 
