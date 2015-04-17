@@ -1,46 +1,65 @@
 
-long pypy_jit_start_addr();
-long pypy_jit_end_addr();
-long pypy_jit_stack_depth_at_loc(long);
-long pypy_find_codemap_at_addr(long);
-long pypy_yield_codemap_at_addr(long, long, long*);
+extern volatile int pypy_codemap_currently_invalid;
+
+void *pypy_find_codemap_at_addr(long addr, long *start_addr);
+long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
+                                long *current_pos_addr);
+long pypy_jit_stack_depth_at_loc(long loc);
+
 
 void vmprof_set_tramp_range(void* start, void* end)
 {
 }
 
-static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, unw_cursor_t *cp) {
-	intptr_t ip_l = (intptr_t)ip;
+int custom_sanity_check()
+{
+    return !pypy_codemap_currently_invalid;
+}
 
-	if (ip_l < pypy_jit_start_addr() || ip_l > pypy_jit_end_addr()) {
-		return -1;
-	}
-	return (void*)pypy_jit_stack_depth_at_loc(ip_l);
+static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, void *cp) {
+    intptr_t ip_l = (intptr_t)ip;
+    return pypy_jit_stack_depth_at_loc(ip_l);
 }
 
 static long vmprof_write_header_for_jit_addr(void **result, long n,
-											 void *ip, int max_depth)
+                                             void *ip, int max_depth)
 {
-	long codemap_pos;
-	long current_pos = 0;
-	intptr_t id;
-	intptr_t addr = (intptr_t)ip;
+    void *codemap;
+    long current_pos = 0;
+    intptr_t id;
+    long start_addr = 0;
+    intptr_t addr = (intptr_t)ip;
+    int start, k;
+    void *tmp;
 
-	if (addr < pypy_jit_start_addr() || addr > pypy_jit_end_addr()) {
-		return n;
-	}
-	codemap_pos = pypy_find_codemap_at_addr(addr);
-	if (codemap_pos == -1) {
-		return n;
-	}
-	while (1) {
-		id = pypy_yield_codemap_at_addr(codemap_pos, addr, &current_pos);
-		if (id == 0) {
-			return n;
-		}
-		result[n++] = id;
-		if (n >= max_depth) {
-			return n;
-		}
-	}
+    codemap = pypy_find_codemap_at_addr(addr, &start_addr);
+    if (codemap == NULL)
+        // not a jit code at all
+        return n;
+
+    // modify the last entry to point to start address and not the random one
+    // in the middle
+    result[n - 1] = (void*)start_addr;
+    start = n;
+    while (n < max_depth) {
+        id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
+        if (id == 0)
+            // finish
+            break;
+        result[n++] = (void *)id;
+    }
+    // we strip the topmost part - the reason is that it's either
+    // represented in the jitted caller or it's not jitted (we have the
+    // same function essentially twice
+    k = 0;
+    while (k < (n - start) / 2) {
+        tmp = result[start + k];
+        result[start + k] = result[n - k - 1];
+        result[n - k - 1] = tmp;
+        k++;
+    }
+    if (n != max_depth) {
+        n--;
+    }
+    return n;
 }

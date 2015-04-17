@@ -105,7 +105,7 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             ofs = ops_offset.get(op, 0)
         if op.opnum == rop.DEBUG_MERGE_POINT:
             jd_sd = jitdrivers_sd[op.getarg(0).getint()]
-            greenkey = op.getarglist()[3:]
+            greenkey = op.getarglist()[4:]
             repr = jd_sd.warmstate.get_location_str(greenkey)
             w_greenkey = wrap_greenkey(space, jd_sd.jitdriver, greenkey, repr)
             l_w.append(DebugMergePoint(space, jit_hooks._cast_to_gcref(op),

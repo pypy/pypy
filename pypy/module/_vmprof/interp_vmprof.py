@@ -3,13 +3,15 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, cast_base_ptr_to_instance
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import jit, rposix, entrypoint
+from rpython.rlib import jit, rposix, rgc
+from rpython.rlib.rarithmetic import ovfcheck_float_to_int
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt, wrap_oserror, OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pycode import PyCode
 
 ROOT = py.path.local(__file__).join('..')
 SRC = ROOT.join('src')
@@ -28,14 +30,13 @@ eci_kwds = dict(
     libraries = ['unwind'],
     
     post_include_bits=["""
-        void* pypy_vmprof_get_virtual_ip(void*);
         void pypy_vmprof_init(void);
     """],
     
     separate_module_sources=["""
         void pypy_vmprof_init(void) {
             vmprof_set_mainloop(pypy_execute_frame_trampoline, 0,
-                                pypy_vmprof_get_virtual_ip);
+                                NULL);
         }
     """],
     )
@@ -56,7 +57,7 @@ platform.verify_eci(check_eci)
 
 pypy_execute_frame_trampoline = rffi.llexternal(
     "pypy_execute_frame_trampoline",
-    [llmemory.GCREF, llmemory.GCREF, llmemory.GCREF],
+    [llmemory.GCREF, llmemory.GCREF, llmemory.GCREF, lltype.Signed],
     llmemory.GCREF,
     compilation_info=eci,
     _nowrapper=True, sandboxsafe=True,
@@ -96,23 +97,15 @@ class __extend__(PyFrame):
             gc_frame = cast_instance_to_gcref(frame)
             gc_inputvalue = cast_instance_to_gcref(w_inputvalue)
             gc_operr = cast_instance_to_gcref(operr)
-            gc_result = pypy_execute_frame_trampoline(gc_frame, gc_inputvalue, gc_operr)
+            assert frame.pycode._unique_id & 3 == 0
+            unique_id = frame.pycode._unique_id | 1
+            gc_result = pypy_execute_frame_trampoline(gc_frame, gc_inputvalue,
+                                                      gc_operr, unique_id)
             return cast_base_ptr_to_instance(W_Root, gc_result)
         else:
             return original_execute_frame(frame, w_inputvalue, operr)
 
 
-@entrypoint.entrypoint_lowlevel('main', [llmemory.GCREF],
-                                'pypy_vmprof_get_virtual_ip', True)
-def get_virtual_ip(gc_frame):
-    frame = cast_base_ptr_to_instance(PyFrame, gc_frame)
-    if jit._get_virtualizable_token(frame):
-        return rffi.cast(rffi.VOIDP, 0)
-    virtual_ip = do_get_virtual_ip(frame)
-    return rffi.cast(rffi.VOIDP, virtual_ip)
-
-def do_get_virtual_ip(frame):
-    return frame.pycode._unique_id
 
 def write_long_to_string_builder(l, b):
     if sys.maxint == 2147483647:
@@ -130,31 +123,33 @@ def write_long_to_string_builder(l, b):
         b.append(chr((l >> 48) & 0xff))
         b.append(chr((l >> 56) & 0xff))
 
+def try_cast_to_pycode(gcref):
+    return rgc.try_cast_gcref_to_instance(PyCode, gcref)
+
+MAX_CODES = 1000
+
 class VMProf(object):
     def __init__(self):
         self.is_enabled = False
         self.ever_enabled = False
-        self.mapping_so_far = [] # stored mapping in between runs
         self.fileno = -1
+        self.current_codes = []
 
-    def enable(self, space, fileno, period):
+    def enable(self, space, fileno, period_usec):
         if self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof already enabled")
         self.fileno = fileno
         self.is_enabled = True
-        self.write_header(fileno, period)
+        self.write_header(fileno, period_usec)
         if not self.ever_enabled:
             if we_are_translated():
                 pypy_vmprof_init()
             self.ever_enabled = True
-        for weakcode in space.all_code_objs.get_all_handles():
-            code = weakcode()
-            if code:
-                self.register_code(space, code)
-        space.set_code_callback(vmprof_register_code)
+        self.gather_all_code_objs(space)
+        space.register_code_callback(vmprof_register_code)
         if we_are_translated():
             # does not work untranslated
-            res = vmprof_enable(fileno, period, 0,
+            res = vmprof_enable(fileno, period_usec, 0,
                                 lltype.nullptr(rffi.CCHARP.TO), 0)
         else:
             res = 0
@@ -162,42 +157,55 @@ class VMProf(object):
             raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.enable"))
 
-    def write_header(self, fileno, period):
-        if period == -1:
-            period_usec = 1000000 / 100 #  100hz
-        else:
-            period_usec = period
+    def gather_all_code_objs(self, space):
+        all_code_objs = rgc.do_get_objects(try_cast_to_pycode)
+        for code in all_code_objs:
+            self.register_code(space, code)
+
+    def write_header(self, fileno, period_usec):
+        assert period_usec > 0
         b = StringBuilder()
         write_long_to_string_builder(0, b)
         write_long_to_string_builder(3, b)
         write_long_to_string_builder(0, b)
         write_long_to_string_builder(period_usec, b)
         write_long_to_string_builder(0, b)
+        b.append('\x04') # interp name
+        b.append(chr(len('pypy')))
+        b.append('pypy')
         os.write(fileno, b.build())
 
     def register_code(self, space, code):
         if self.fileno == -1:
             raise OperationError(space.w_RuntimeError,
                                  space.wrap("vmprof not running"))
-        name = code._get_full_name()
+        self.current_codes.append(code)
+        if len(self.current_codes) >= MAX_CODES:
+            self._flush_codes(space)
+
+    def _flush_codes(self, space):
         b = StringBuilder()
-        b.append('\x02')
-        write_long_to_string_builder(code._unique_id, b)
-        write_long_to_string_builder(len(name), b)
-        b.append(name)
+        for code in self.current_codes:
+            name = code._get_full_name()
+            b.append('\x02')
+            write_long_to_string_builder(code._unique_id, b)
+            write_long_to_string_builder(len(name), b)
+            b.append(name)
         os.write(self.fileno, b.build())
+        self.current_codes = []
 
     def disable(self, space):
         if not self.is_enabled:
             raise oefmt(space.w_ValueError, "_vmprof not enabled")
         self.is_enabled = False
+        space.register_code_callback(None)
+        self._flush_codes(space)
         self.fileno = -1
         if we_are_translated():
            # does not work untranslated
             res = vmprof_disable()
         else:
             res = 0
-        space.set_code_callback(None)
         if res == -1:
             raise wrap_oserror(space, OSError(rposix.get_saved_errno(),
                                               "_vmprof.disable"))
@@ -207,13 +215,23 @@ def vmprof_register_code(space, code):
     mod_vmprof = space.getbuiltinmodule('_vmprof')
     assert isinstance(mod_vmprof, Module)
     mod_vmprof.vmprof.register_code(space, code)
-        
-@unwrap_spec(fileno=int, period=int)
-def enable(space, fileno, period=-1):
+
+@unwrap_spec(fileno=int, period=float)
+def enable(space, fileno, period=0.01):   # default 100 Hz
     from pypy.module._vmprof import Module
     mod_vmprof = space.getbuiltinmodule('_vmprof')
     assert isinstance(mod_vmprof, Module)
-    mod_vmprof.vmprof.enable(space, fileno, period)
+    #
+    try:
+        period_usec = ovfcheck_float_to_int(period * 1000000.0 + 0.5)
+        if period_usec <= 0 or period_usec >= 1e6:
+            # we don't want seconds here at all
+            raise ValueError
+    except (ValueError, OverflowError):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("'period' too large or non positive"))
+    #
+    mod_vmprof.vmprof.enable(space, fileno, period_usec)
 
 def disable(space):
     from pypy.module._vmprof import Module

@@ -55,7 +55,7 @@ class AppTestJitHook(object):
         oplist = parse("""
         [i1, i2, p2]
         i3 = int_add(i1, i2)
-        debug_merge_point(0, 0, 0, 0, 0, ConstPtr(ptr0))
+        debug_merge_point(0, 0, 0, 0, 0, 0, ConstPtr(ptr0))
         guard_nonnull(p2) []
         guard_true(i3) []
         """, namespace={'ptr0': code_gcref}).operations
