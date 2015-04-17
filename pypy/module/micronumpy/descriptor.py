@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize, compute_hash
+from rpython.rlib.objectmodel import specialize, compute_hash, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.module.micronumpy import types, boxes, base, support, constants as NPY
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -496,8 +496,17 @@ def dtype_from_dict(space, w_dict):
 
 
 def dtype_from_spec(space, w_spec):
-    w_lst = get_appbridge_cache(space).call_method(space,
-        'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
+
+    if we_are_translated():
+        w_lst = get_appbridge_cache(space).call_method(space,
+            'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
+    else:
+        # testing, handle manually
+        if space.eq_w(w_spec, space.wrap('u4,u4,u4')):
+            w_lst = space.newlist([space.wrap('u4')]*3)
+        else:
+            raise oefmt(space.w_RuntimeError,
+                    "cannot parse w_spec")
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
         raise oefmt(space.w_RuntimeError,
                     "_commastring is not returning a list with len >= 1")

@@ -92,3 +92,17 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         del fiveOs
         gc.collect()
         assert a[2].whatami() == 'an object'
+
+    def test_array_interface(self):
+        import numpy as np
+        class DummyArray(object):
+            def __init__(self, interface, base=None):
+                self.__array_interface__ = interface
+                self.base = base
+        a = np.array([(1, 2, 3)], dtype='u4,u4,u4')
+        b = np.array([(1, 2, 3), (4, 5, 6), (7, 8, 9)], dtype='u4,u4,u4')
+        interface = dict(a.__array_interface__)
+        interface['shape'] = tuple([3])
+        interface['strides'] = tuple([0])
+        c = np.array(DummyArray(interface, base=a))
+        assert (c == np.array([(1, 2, 3), (1, 2, 3), (1, 2, 3)], dtype='u4,u4,u4') ).all()
