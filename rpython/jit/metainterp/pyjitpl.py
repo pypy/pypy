@@ -1180,9 +1180,8 @@ class MIFrame(object):
         # Note: the logger hides the jd_index argument, so we see in the logs:
         #    debug_merge_point(portal_call_depth, current_call_id, 'location')
         #
-        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
         args = [ConstInt(jd_index), ConstInt(portal_call_depth),
-                ConstInt(current_call_id), ConstInt(unique_id)] + greenkey
+                ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
@@ -1772,17 +1771,22 @@ class MetaInterp(object):
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
-        f = self.newframe(jitcode, greenkey)
+        if greenkey is not None:
+            unique_id = jitcode.jitdriver_sd.warmstate.get_unique_id(greenkey)
+        else:
+            unique_id = -1
+        f = self.newframe(jitcode, greenkey, unique_id)
         f.setup_call(boxes)
         raise ChangeFrame
 
     def is_main_jitcode(self, jitcode):
         return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
-    def newframe(self, jitcode, greenkey=None):
+    def newframe(self, jitcode, greenkey=None, unique_id=-1):
         if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
+            self.enter_portal_frame(unique_id)
             self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -1795,11 +1799,20 @@ class MetaInterp(object):
         self.framestack.append(f)
         return f
 
+    def enter_portal_frame(self, unique_id):
+        self.history.record(rop.ENTER_PORTAL_FRAME,
+                            [ConstInt(unique_id)], None)
+
+    def leave_portal_frame(self):
+        self.history.record(rop.LEAVE_PORTAL_FRAME, [], None)
+
+
     def popframe(self):
         frame = self.framestack.pop()
         jitcode = frame.jitcode
         if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
+            self.leave_portal_frame()
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -2501,7 +2514,10 @@ class MetaInterp(object):
         # ----- make a new frame -----
         self.portal_call_depth = -1 # always one portal around
         self.framestack = []
-        f = self.newframe(self.jitdriver_sd.mainjitcode)
+        jitdriver_sd = self.jitdriver_sd
+        greenkey = original_boxes[:jitdriver_sd.num_green_args]
+        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
+        f = self.newframe(self.jitdriver_sd.mainjitcode, None, unique_id)
         f.setup_call(original_boxes)
         assert self.portal_call_depth == 0
         self.virtualref_boxes = []

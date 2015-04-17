@@ -1025,6 +1025,12 @@ class LLFrame(object):
         else:
             stats.add_merge_point_location(args[1:])
 
+    def execute_enter_portal_frame(self, descr, arg):
+        pass
+
+    def execute_leave_portal_frame(self, descr):
+        pass
+
     def execute_new_with_vtable(self, _, vtable):
         descr = heaptracker.vtable2descr(self.cpu, vtable)
         return self.cpu.bh_new_with_vtable(vtable, descr)
