@@ -7,6 +7,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.jit.metainterp.warmspot import get_stats
+from rpython.jit.backend.llsupport import codemap
 
 class RecursiveTests:
 
@@ -1297,27 +1298,38 @@ class RecursiveTests:
         self.check_trace_count_at_most(2)   # and not, e.g., 24
 
     def test_get_unique_id(self):
-        def get_unique_id(pc, code):
-            return (code + 1) * 2
+        lst = []
         
-        driver = JitDriver(greens=["pc", "code"], reds='auto',
-                           get_unique_id=get_unique_id)
+        def reg_codemap(self, (start, size, l)):
+            lst.append((start, size))
+            old_reg_codemap(self, (start, size, l))
+        
+        old_reg_codemap = codemap.CodemapStorage.register_codemap
+        try:
+            codemap.CodemapStorage.register_codemap = reg_codemap
+            def get_unique_id(pc, code):
+                return (code + 1) * 2
 
-        def f(pc, code):
-            i = 0
-            while i < 10:
-                driver.jit_merge_point(pc=pc, code=code)
-                pc += 1
-                if pc == 3:
-                    if code == 1:
-                        f(0, 0)
-                    pc = 0
-                i += 1
+            driver = JitDriver(greens=["pc", "code"], reds='auto',
+                               get_unique_id=get_unique_id)
 
-        self.meta_interp(f, [0, 1], inline=True)
-        self.check_get_unique_id() # overloaded on assembler backends
+            def f(pc, code):
+                i = 0
+                while i < 10:
+                    driver.jit_merge_point(pc=pc, code=code)
+                    pc += 1
+                    if pc == 3:
+                        if code == 1:
+                            f(0, 0)
+                        pc = 0
+                    i += 1
 
-    def check_get_unique_id(self):
+            self.meta_interp(f, [0, 1], inline=True)
+            self.check_get_unique_id(lst) # overloaded on assembler backends
+        finally:
+            codemap.CodemapStorage.register_codemap = old_reg_codemap
+
+    def check_get_unique_id(self, lst):
         pass
 
 class TestLLtype(RecursiveTests, LLJitMixin):
