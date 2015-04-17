@@ -1025,7 +1025,7 @@ class LLFrame(object):
         else:
             stats.add_merge_point_location(args[1:])
 
-    def execute_enter_portal_frame(self, descr, arg):
+    def execute_enter_portal_frame(self, descr, *args):
         pass
 
     def execute_leave_portal_frame(self, descr):

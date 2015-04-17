@@ -1771,22 +1771,23 @@ class MetaInterp(object):
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
-        if greenkey is not None:
-            unique_id = jitcode.jitdriver_sd.warmstate.get_unique_id(greenkey)
-        else:
-            unique_id = -1
-        f = self.newframe(jitcode, greenkey, unique_id)
+        f = self.newframe(jitcode, greenkey)
         f.setup_call(boxes)
         raise ChangeFrame
 
     def is_main_jitcode(self, jitcode):
         return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
-    def newframe(self, jitcode, greenkey=None, unique_id=-1):
+    def newframe(self, jitcode, greenkey=None):
         if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
-            self.enter_portal_frame(unique_id)
+            unique_id = -1
+            if greenkey is not None:
+                unique_id = jitcode.jitdriver_sd.warmstate.get_unique_id(
+                    greenkey)
+                jd_no = jitcode.jitdriver_sd.index
+                self.enter_portal_frame(jd_no, unique_id)
             self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -1799,9 +1800,9 @@ class MetaInterp(object):
         self.framestack.append(f)
         return f
 
-    def enter_portal_frame(self, unique_id):
+    def enter_portal_frame(self, jd_no, unique_id):
         self.history.record(rop.ENTER_PORTAL_FRAME,
-                            [ConstInt(unique_id)], None)
+                            [ConstInt(jd_no), ConstInt(unique_id)], None)
 
     def leave_portal_frame(self):
         self.history.record(rop.LEAVE_PORTAL_FRAME, [], None)
@@ -2514,10 +2515,7 @@ class MetaInterp(object):
         # ----- make a new frame -----
         self.portal_call_depth = -1 # always one portal around
         self.framestack = []
-        jitdriver_sd = self.jitdriver_sd
-        greenkey = original_boxes[:jitdriver_sd.num_green_args]
-        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
-        f = self.newframe(self.jitdriver_sd.mainjitcode, None, unique_id)
+        f = self.newframe(self.jitdriver_sd.mainjitcode)
         f.setup_call(original_boxes)
         assert self.portal_call_depth == 0
         self.virtualref_boxes = []

@@ -195,21 +195,24 @@ class MultipleJitDriversTests(object):
         driver = JitDriver(greens=["pc"], reds='auto',
                            get_unique_id=get_unique_id)
 
-        def f():
+        def f(arg):
             i = 0
             pc = 0
-            while i < 10:
+            while i < 30 and pc < 3:
                 driver.jit_merge_point(pc=pc)
                 pc += 1
-                if pc == 3:
+                if arg == 0 and pc == 3:
                     pc = 0
+                if arg == 0:
+                    f(1)
                 i += 1
 
-        self.meta_interp(f, [])
-        loop = get_stats().loops[0]
+        self.meta_interp(f, [0], inline=True)
+        loop = get_stats().loops[1]
         for op in loop.operations:
-            if op.getopname() == 'debug_merge_point':
-                assert op.getarg(3).getint() == op.getarg(4).getint() + 1
-
+            if op.getopname() == 'enter_portal_frame':
+                assert op.getarg(0).getint() == 0
+                assert op.getarg(1).getint() == 1
+                
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass
