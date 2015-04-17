@@ -92,11 +92,6 @@ class AbstractX86CPU(AbstractLLCPU):
         lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True,
-                     name='', logger=None):
-        return self.assembler.assemble_loop(inputargs, operations, looptoken, log,
-                                            name, logger)
-
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token

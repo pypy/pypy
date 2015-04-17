@@ -1323,8 +1323,11 @@ class RegAlloc(BaseRegalloc):
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
 
-    def consider_debug_merge_point(self, op):
-        self.assembler.debug_merge_point(op)
+    def consider_enter_portal_frame(self, op):
+        self.assembler.enter_portal_frame(op)
+
+    def consider_leave_portal_frame(self, op):
+        self.assembler.leave_portal_frame(op)
 
     def consider_jit_debug(self, op):
         pass

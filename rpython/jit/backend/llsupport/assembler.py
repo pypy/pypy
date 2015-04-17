@@ -199,10 +199,14 @@ class BaseAssembler(object):
         guardtok.faildescr.rd_locs = positions
         return fail_descr, target
 
-    def debug_merge_point(self, op):
-        self.codemap_builder.debug_merge_point(op.getarg(1).getint(),
-                                               op.getarg(3).getint(),
+    def enter_portal_frame(self, op):
+        self.codemap_builder.debug_merge_point(op.getarg(0).getint(),
+                                               op.getarg(1).getint(),
                                                self.mc.get_relative_pos())
+
+    def leave_portal_frame(self, op):
+        self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
+                                                self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)

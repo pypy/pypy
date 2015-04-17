@@ -145,29 +145,21 @@ class CodemapBuilder(object):
         self.patch_position = []
         self.last_call_depth = -1
 
-    def debug_merge_point(self, call_depth, unique_id, pos):
-        if call_depth != self.last_call_depth:
-            if unique_id == 0: # uninteresting case
-                return
-            assert unique_id & 1 == 0
-            if call_depth > self.last_call_depth:
-                assert call_depth == self.last_call_depth + 1
-                # ^^^ It should never be the case that we see
-                # debug_merge_points that suddenly go more than *one*
-                # call deeper than the previous one (unless we're at
-                # the start of a bridge, handled by
-                # inherit_code_from_position()).
-                self.l.append(unique_id)
-                self.l.append(pos) # <- this is a relative pos
-                self.patch_position.append(len(self.l))
-                self.l.append(0) # marker
-                self.l.append(0) # second marker
-            else:
-                for i in range(self.last_call_depth - call_depth):
-                    to_patch = self.patch_position.pop()
-                    self.l[to_patch] = pos
-                    self.l[to_patch + 1] = len(self.l)
-            self.last_call_depth = call_depth
+    def enter_portal_frame(self, jd_id, unique_id, relpos):
+        if jd_id != 0:
+            return
+        self.l.append(unique_id)
+        self.l.append(relpos)
+        self.patch_position.append(len(self.l))
+        self.l.append(0) # marker
+        self.l.append(0) # second marker
+
+    def leave_portal_frame(self, jd_id, relpos):
+        if jd_id != 0:
+            return
+        to_patch = self.patch_position.pop()
+        self.l[to_patch] = relpos
+        self.l[to_patch + 1] = len(self.l)
 
     def inherit_code_from_position(self, pos):
         lst = unpack_traceback(pos)

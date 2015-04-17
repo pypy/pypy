@@ -1804,8 +1804,8 @@ class MetaInterp(object):
         self.history.record(rop.ENTER_PORTAL_FRAME,
                             [ConstInt(jd_no), ConstInt(unique_id)], None)
 
-    def leave_portal_frame(self):
-        self.history.record(rop.LEAVE_PORTAL_FRAME, [], None)
+    def leave_portal_frame(self, jd_no):
+        self.history.record(rop.LEAVE_PORTAL_FRAME, [ConstInt(jd_no)], None)
 
 
     def popframe(self):
@@ -1813,7 +1813,7 @@ class MetaInterp(object):
         jitcode = frame.jitcode
         if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
-            self.leave_portal_frame()
+            self.leave_portal_frame(jitcode.jitdriver_sd.index)
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(

@@ -82,6 +82,12 @@ class AbstractLLCPU(AbstractCPU):
     def finish_once(self):
         self.codemap.finish_once()
 
+    def compile_loop(self, jd_id, unique_id, inputargs, operations, looptoken,
+                     log=True, name='', logger=None):
+        return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
+                                            inputargs, operations,
+                                            looptoken, log=log)
+
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
                                              llmemory.GCREF))

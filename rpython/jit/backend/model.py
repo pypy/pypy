@@ -51,7 +51,7 @@ class AbstractCPU(object):
         """
         return False
 
-    def compile_loop(self, inputargs, operations, looptoken,
+    def compile_loop(self, jd_id, unique_id, inputargs, operations, looptoken,
                      log=True, name='', logger=None):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
