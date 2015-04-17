@@ -200,9 +200,9 @@ class BaseAssembler(object):
         return fail_descr, target
 
     def enter_portal_frame(self, op):
-        self.codemap_builder.debug_merge_point(op.getarg(0).getint(),
-                                               op.getarg(1).getint(),
-                                               self.mc.get_relative_pos())
+        self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
+                                                op.getarg(1).getint(),
+                                                self.mc.get_relative_pos())
 
     def leave_portal_frame(self, op):
         self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
