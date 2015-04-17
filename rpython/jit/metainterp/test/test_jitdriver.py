@@ -188,6 +188,28 @@ class MultipleJitDriversTests(object):
                          listops=True, inline=True)
         self.check_resops(call_assembler=0)
 
+    def test_get_unique_id(self):
+        def get_unique_id(pc):
+            return pc + 1
+        
+        driver = JitDriver(greens=["pc"], reds='auto',
+                           get_unique_id=get_unique_id)
+
+        def f():
+            i = 0
+            pc = 0
+            while i < 10:
+                driver.jit_merge_point(pc=pc)
+                pc += 1
+                if pc == 3:
+                    pc = 0
+                i += 1
+
+        self.meta_interp(f, [])
+        loop = get_stats().loops[0]
+        for op in loop.operations:
+            if op.getopname() == 'debug_merge_point':
+                assert op.getarg(3).getint() == op.getarg(4).getint() + 1
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass
