@@ -1793,7 +1793,7 @@ class BaseBackendTest(Runner):
         c_box = self.alloc_string("hi there").constbox()
         c_nest = ConstInt(0)
         c_id = ConstInt(0)
-        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest, c_id, c_nest], 'void')
+        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest, c_id], 'void')
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
 

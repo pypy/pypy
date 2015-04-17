@@ -1,7 +1,7 @@
 
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
-from rpython.jit.backend.llsupport import codemap
+from rpython.jit.backend.llsupport import asmmemmgr
 from rpython.jit.backend.llsupport.codemap import unpack_traceback
 from rpython.jit.backend.x86.arch import WORD
 
@@ -11,11 +11,9 @@ class TestRecursive(Jit386Mixin, RecursiveTests):
     def check_get_unique_id(self):
         if WORD == 4:
             return # this is 64 bit only check
-        jit_codemap = codemap._codemap.jit_codemap
-        codemaps = [(jit_codemap[i].addr, jit_codemap[i].machine_code_size)
-                    for i in range(3)]
-        assert codemap._codemap.jit_codemap_used == 3
-        codemaps.sort(lambda a, b: cmp(a[1], b[1]))
+        codemaps = asmmemmgr._memmngr.jit_codemap[:] # ups, sorting later
+        assert len(codemaps) == 3
+        codemaps.sort(lambda arg0, arg1: cmp(arg0[1], arg1[1]))
         # biggest is the big loop, smallest is the bridge
         assert unpack_traceback(codemaps[1][0]) == []
         # XXX very specific ASM addresses, very fragile test, but what we can

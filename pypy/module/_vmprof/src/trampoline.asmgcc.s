@@ -6,10 +6,11 @@
 	.type	pypy_execute_frame_trampoline, @function
 pypy_execute_frame_trampoline:
 	.cfi_startproc
-	pushq	%rcx
+	pushq	%rdi
 	.cfi_def_cfa_offset 16
 	call pypy_pyframe_execute_frame@PLT
-	popq	%rcx
+	/* GCROOT 0(%rsp) */
+	popq	%rdi
 	.cfi_def_cfa_offset 8
 	ret
 	.cfi_endproc

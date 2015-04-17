@@ -67,7 +67,6 @@ class AbstractX86CPU(AbstractLLCPU):
     @rgc.no_release_gil
     def setup_once(self):
         self.profile_agent.startup()
-        self.codemap.setup()
         self.assembler.setup_once()
 
     @rgc.no_release_gil

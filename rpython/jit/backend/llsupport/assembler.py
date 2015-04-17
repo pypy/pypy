@@ -130,7 +130,7 @@ class BaseAssembler(object):
         self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
-        self.codemap_builder = CodemapBuilder()
+        self.codemap = CodemapBuilder()
         self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def set_debug(self, v):
@@ -200,9 +200,7 @@ class BaseAssembler(object):
         return fail_descr, target
 
     def debug_merge_point(self, op):
-        self.codemap_builder.debug_merge_point(op.getarg(1).getint(),
-                                               op.getarg(3).getint(),
-                                               self.mc.get_relative_pos())
+        self.codemap.debug_merge_point(op, self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)

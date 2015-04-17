@@ -9,129 +9,79 @@
 
 """
 
-import os
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.entrypoint import jit_entrypoint
-from rpython.rlib.rbisect import bisect_right, bisect_right_addr
-from rpython.rlib.rbisect import bisect_left, bisect_left_addr
+from rpython.jit.backend.llsupport import asmmemmgr
+from rpython.rlib.rbisect import bisect, bisect_tuple
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.translator import cdir
 
+@jit_entrypoint([lltype.Signed], lltype.Signed,
+                c_name='pypy_jit_stack_depth_at_loc')
+@rgc.no_collect
+def stack_depth_at_loc(loc):
+    _memmngr = asmmemmgr._memmngr
 
-INT_LIST_PTR = rffi.CArrayPtr(lltype.Signed)
+    pos = bisect(_memmngr.jit_addr_map, loc)
+    if pos == 0 or pos == len(_memmngr.jit_addr_map):
+        return -1
+    return _memmngr.jit_frame_depth_map[pos-1]
 
+@jit_entrypoint([], lltype.Signed, c_name='pypy_jit_start_addr')
+def jit_start_addr():
+    _memmngr = asmmemmgr._memmngr
 
-srcdir = os.path.join(os.path.dirname(__file__), 'src')
+    return _memmngr.jit_addr_map[0]
 
-eci = ExternalCompilationInfo(post_include_bits=["""
-#include <stdint.h>
-RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
-                                     unsigned int machine_code_size,
-                                     long *bytecode_info,
-                                     unsigned int bytecode_info_size);
-RPY_EXTERN long *pypy_jit_codemap_del(uintptr_t addr);
-RPY_EXTERN uintptr_t pypy_jit_codemap_firstkey(void);
-RPY_EXTERN void *pypy_find_codemap_at_addr(long addr, long* start_addr);
-RPY_EXTERN long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
-                                           long *current_pos_addr);
+@jit_entrypoint([], lltype.Signed, c_name='pypy_jit_end_addr')
+def jit_end_addr():
+    _memmngr = asmmemmgr._memmngr
 
-RPY_EXTERN long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
-                                      unsigned int stackdepth);
-RPY_EXTERN void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size);
+    return _memmngr.jit_addr_map[-1]
 
-"""], separate_module_sources=[
-    open(os.path.join(srcdir, 'skiplist.c'), 'r').read() +
-    open(os.path.join(srcdir, 'codemap.c'), 'r').read()
-], include_dirs=[cdir])
+@jit_entrypoint([lltype.Signed], lltype.Signed,
+                c_name='pypy_find_codemap_at_addr')
+def find_codemap_at_addr(addr):
+    _memmngr = asmmemmgr._memmngr
 
-def llexternal(name, args, res):
-    return rffi.llexternal(name, args, res, compilation_info=eci,
-                           releasegil=False)
+    res = bisect_tuple(_memmngr.jit_codemap, addr) - 1
+    if res == len(_memmngr.jit_codemap):
+        return -1
+    return res
 
-pypy_jit_codemap_add = llexternal('pypy_jit_codemap_add',
-                                  [lltype.Signed, lltype.Signed,
-                                   INT_LIST_PTR, lltype.Signed],
-                                  lltype.Signed)
-pypy_jit_codemap_del = llexternal('pypy_jit_codemap_del',
-                                  [lltype.Signed], INT_LIST_PTR)
-pypy_jit_codemap_firstkey = llexternal('pypy_jit_codemap_firstkey',
-                                       [], lltype.Signed)
-
-pypy_jit_depthmap_add = llexternal('pypy_jit_depthmap_add',
-                                   [lltype.Signed, lltype.Signed,
-                                    lltype.Signed], lltype.Signed)
-pypy_jit_depthmap_clear = llexternal('pypy_jit_depthmap_clear',
-                                     [lltype.Signed, lltype.Signed],
-                                     lltype.Void)
-
-stack_depth_at_loc = llexternal('pypy_jit_stack_depth_at_loc',
-                                [lltype.Signed], lltype.Signed)
-find_codemap_at_addr = llexternal('pypy_find_codemap_at_addr',
-                                  [lltype.Signed, rffi.CArrayPtr(lltype.Signed)], lltype.Signed)
-yield_bytecode_at_addr = llexternal('pypy_yield_codemap_at_addr',
-                                    [lltype.Signed, lltype.Signed,
-                                     rffi.CArrayPtr(lltype.Signed)],
-                                     lltype.Signed)
-
-
-class CodemapStorage(object):
-    """ An immortal wrapper around underlaying jit codemap data
+@jit_entrypoint([lltype.Signed, lltype.Signed,
+                 rffi.CArrayPtr(lltype.Signed)], lltype.Signed,
+                 c_name='pypy_yield_codemap_at_addr')
+def yield_bytecode_at_addr(codemap_no, addr, current_pos_addr):
+    """ will return consecutive unique_ids from codemap, starting from position
+    `pos` until addr
     """
-    def setup(self):
-        if not we_are_translated():
-             # in case someone failed to call free(), in tests only anyway
-             self.free()
+    _memmngr = asmmemmgr._memmngr
 
-    def free(self):
-        while True:
-            key = pypy_jit_codemap_firstkey()
-            if not key:
-                break
-            items = pypy_jit_codemap_del(key)
-            lltype.free(items, flavor='raw', track_allocation=False)
-
-    def free_asm_block(self, start, stop):
-        items = pypy_jit_codemap_del(start)
-        if items:
-            lltype.free(items, flavor='raw', track_allocation=False)
-        pypy_jit_depthmap_clear(start, stop - start)
-
-    def register_frame_depth_map(self, rawstart, rawstop, frame_positions,
-                                 frame_assignments):
-        if not frame_positions:
-            return
-        assert len(frame_positions) == len(frame_assignments)
-        for i in range(len(frame_positions)-1, -1, -1):
-            pos = rawstart + frame_positions[i]
-            length = rawstop - pos
-            if length > 0:
-                #print "ADD:", pos, length, frame_assignments[i]
-                pypy_jit_depthmap_add(pos, length, frame_assignments[i])
-            rawstop = pos
-
-    def register_codemap(self, (start, size, l)):
-        items = lltype.malloc(INT_LIST_PTR.TO, len(l), flavor='raw',
-                              track_allocation=False)
-        for i in range(len(l)):
-            items[i] = l[i]
-        if pypy_jit_codemap_add(start, size, items, len(l)) < 0:
-            lltype.free(items, flavor='raw', track_allocation=False)
-
-    def finish_once(self):
-        self.free()
+    codemap = _memmngr.jit_codemap[codemap_no]
+    current_pos = current_pos_addr[0]
+    start_addr = codemap[0]
+    rel_addr = addr - start_addr
+    while True:
+        if current_pos >= len(codemap[2]):
+            return 0
+        next_start = codemap[2][current_pos + 1]
+        if next_start > rel_addr:
+            return 0
+        next_stop = codemap[2][current_pos + 2]
+        if next_stop > rel_addr:
+            current_pos_addr[0] = current_pos + 4
+            return codemap[2][current_pos]
+        # we need to skip potentially more than one
+        current_pos = codemap[2][current_pos + 3]
 
 def unpack_traceback(addr):
-    codemap_raw = find_codemap_at_addr(addr,
-                                lltype.nullptr(rffi.CArray(lltype.Signed)))
-    if not codemap_raw:
-        return [] # no codemap for that position
+    codemap_pos = find_codemap_at_addr(addr)
+    assert codemap_pos >= 0
     storage = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
     storage[0] = 0
     res = []
     while True:
-        item = yield_bytecode_at_addr(codemap_raw, addr, storage)
+        item = yield_bytecode_at_addr(codemap_pos, addr, storage)
         if item == 0:
             break
         res.append(item)
@@ -145,18 +95,14 @@ class CodemapBuilder(object):
         self.patch_position = []
         self.last_call_depth = -1
 
-    def debug_merge_point(self, call_depth, unique_id, pos):
+    def debug_merge_point(self, op, pos):
+        call_depth = op.getarg(1).getint()
         if call_depth != self.last_call_depth:
+            unique_id = op.getarg(3).getint()
             if unique_id == 0: # uninteresting case
                 return
             assert unique_id & 1 == 0
             if call_depth > self.last_call_depth:
-                assert call_depth == self.last_call_depth + 1
-                # ^^^ It should never be the case that we see
-                # debug_merge_points that suddenly go more than *one*
-                # call deeper than the previous one (unless we're at
-                # the start of a bridge, handled by
-                # inherit_code_from_position()).
                 self.l.append(unique_id)
                 self.l.append(pos) # <- this is a relative pos
                 self.patch_position.append(len(self.l))
@@ -193,3 +139,4 @@ class CodemapBuilder(object):
             item = self.l[i * 4 + 3] # end in l
             assert item > 0
         return (addr, size, self.l) # XXX compact self.l
+
