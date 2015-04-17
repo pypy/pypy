@@ -883,7 +883,7 @@ class AssemblerARM(ResOpAssembler):
         size = self.mc.get_relative_pos() 
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        self.cpu.asmmemmgr.register_codemap(
+        self.cpu.codemap.register_codemap(
             self.codemap.get_final_bytecode(res, size))
         return res
 
