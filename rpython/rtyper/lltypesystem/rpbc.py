@@ -105,9 +105,8 @@ class SmallFunctionSetPBCRepr(Repr):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
         self.callfamily = s_pbc.any_description().getcallfamily()
-        concretetable, uniquerows = get_concrete_calltable(self.rtyper,
-                                                           self.callfamily)
-        assert len(uniquerows) == 1
+        llct = get_concrete_calltable(self.rtyper, self.callfamily)
+        assert len(llct.uniquerows) == 1
         self.lowleveltype = Char
         self.pointer_repr = FunctionsPBCRepr(rtyper, s_pbc)
         self._conversion_tables = {}

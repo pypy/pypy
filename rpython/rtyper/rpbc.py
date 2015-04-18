@@ -17,8 +17,8 @@ from rpython.tool.pairtype import pair, pairtype
 def small_cand(rtyper, s_pbc):
     if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets:
         callfamily = s_pbc.any_description().getcallfamily()
-        concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
-        if (len(uniquerows) == 1 and
+        llct = get_concrete_calltable(rtyper, callfamily)
+        if (len(llct.uniquerows) == 1 and
                 (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of))):
             return True
     return False
@@ -65,12 +65,18 @@ class __extend__(annmodel.SomePBC):
 class ConcreteCallTableRow(dict):
     """A row in a concrete call table."""
 
+class LLCallTable(object):
+    """A call table of a call family with low-level functions."""
+    def __init__(self, table, uniquerows):
+        self.table = table  # (shape,index): row, maybe with duplicates
+        self.uniquerows = uniquerows  # list of rows, without duplicates
+
 def build_concrete_calltable(rtyper, callfamily):
     """Build a complete call table of a call family
     with concrete low-level function objs.
     """
-    concretetable = {}   # (shape,index): row, maybe with duplicates
-    uniquerows = []      # list of rows, without duplicates
+    concretetable = {}
+    uniquerows = []
 
     def lookuprow(row):
         # a 'matching' row is one that has the same llfn, expect
@@ -133,7 +139,7 @@ def build_concrete_calltable(rtyper, callfamily):
         for finalindex, row in enumerate(uniquerows):
             row.attrname = 'variant%d' % finalindex
 
-    return concretetable, uniquerows
+    return LLCallTable(concretetable, uniquerows)
 
 def get_concrete_calltable(rtyper, callfamily):
     """Get a complete call table of a call family
@@ -143,14 +149,14 @@ def get_concrete_calltable(rtyper, callfamily):
     try:
         cached = rtyper.concrete_calltables[callfamily]
     except KeyError:
-        concretetable, uniquerows = build_concrete_calltable(rtyper, callfamily)
-        cached = concretetable, uniquerows, callfamily.total_calltable_size
+        llct = build_concrete_calltable(rtyper, callfamily)
+        cached = llct, callfamily.total_calltable_size
         rtyper.concrete_calltables[callfamily] = cached
     else:
-        concretetable, uniquerows, oldsize = cached
+        llct, oldsize = cached
         if oldsize != callfamily.total_calltable_size:
             raise TyperError("call table was unexpectedly extended")
-    return concretetable, uniquerows
+    return llct
 
 
 class AbstractFunctionsPBCRepr(CanBeNull, Repr):
@@ -164,12 +170,11 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
             # a single function
             self.lowleveltype = lltype.Void
         else:
-            concretetable, uniquerows = get_concrete_calltable(self.rtyper,
-                                                               self.callfamily)
-            self.concretetable = concretetable
-            self.uniquerows = uniquerows
-            if len(uniquerows) == 1:
-                row = uniquerows[0]
+            llct = get_concrete_calltable(self.rtyper, self.callfamily)
+            self.concretetable = llct.table
+            self.uniquerows = llct.uniquerows
+            if len(llct.uniquerows) == 1:
+                row = llct.uniquerows[0]
                 self.lowleveltype = row.fntype
             else:
                 # several functions, each with several specialized variants.
