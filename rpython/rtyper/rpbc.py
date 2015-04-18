@@ -71,17 +71,10 @@ class LLCallTable(object):
         self.table = table  # (shape,index): row, maybe with duplicates
         self.uniquerows = uniquerows  # list of rows, without duplicates
 
-def build_concrete_calltable(rtyper, callfamily):
-    """Build a complete call table of a call family
-    with concrete low-level function objs.
-    """
-    concretetable = {}
-    uniquerows = []
-
-    def lookuprow(row):
-        # a 'matching' row is one that has the same llfn, expect
-        # that it may have more or less 'holes'
-        for existingindex, existingrow in enumerate(uniquerows):
+    def lookup(self, row):
+        """A 'matching' row is one that has the same llfn, except
+        that it may have more or less 'holes'."""
+        for existingindex, existingrow in enumerate(self.uniquerows):
             if row.fntype != existingrow.fntype:
                 continue   # not the same pointer type, cannot match
             for funcdesc, llfn in row.items():
@@ -99,18 +92,28 @@ def build_concrete_calltable(rtyper, callfamily):
                     return existingindex, merged
         raise LookupError
 
-    def addrow(row):
-        # add a row to the table, potentially merging it with an existing row
+    def add(self, row):
+        """Add a row to the table, potentially merging it with an existing row
+        """
         try:
-            index, merged = lookuprow(row)
+            index, merged = self.lookup(row)
         except LookupError:
-            uniquerows.append(row)   # new row
+            self.uniquerows.append(row)   # new row
         else:
-            if merged == uniquerows[index]:
+            if merged == self.uniquerows[index]:
                 pass    # already exactly in the table
             else:
-                del uniquerows[index]
-                addrow(merged)   # add the potentially larger merged row
+                del self.uniquerows[index]
+                self.add(merged)   # add the potentially larger merged row
+
+
+def build_concrete_calltable(rtyper, callfamily):
+    """Build a complete call table of a call family
+    with concrete low-level function objs.
+    """
+    concretetable = {}
+    uniquerows = []
+    llct = LLCallTable(concretetable, uniquerows)
 
     concreterows = {}
     for shape, rows in callfamily.calltables.items():
@@ -125,21 +128,21 @@ def build_concrete_calltable(rtyper, callfamily):
             concreterows[shape, index] = concreterow
 
     for row in concreterows.values():
-        addrow(row)
+        llct.add(row)
 
     for (shape, index), row in concreterows.items():
-        existingindex, biggerrow = lookuprow(row)
-        row = uniquerows[existingindex]
-        assert biggerrow == row   # otherwise, addrow() is broken
-        concretetable[shape, index] = row
+        existingindex, biggerrow = llct.lookup(row)
+        row = llct.uniquerows[existingindex]
+        assert biggerrow == row
+        llct.table[shape, index] = row
 
-    if len(uniquerows) == 1:
-        uniquerows[0].attrname = None
+    if len(llct.uniquerows) == 1:
+        llct.uniquerows[0].attrname = None
     else:
-        for finalindex, row in enumerate(uniquerows):
+        for finalindex, row in enumerate(llct.uniquerows):
             row.attrname = 'variant%d' % finalindex
 
-    return LLCallTable(concretetable, uniquerows)
+    return llct
 
 def get_concrete_calltable(rtyper, callfamily):
     """Get a complete call table of a call family
