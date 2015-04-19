@@ -12,14 +12,19 @@ class TestRecursive(Jit386Mixin, RecursiveTests):
             return # this is 64 bit only check
 
         assert len(codemaps) == 3
+        # we want to create a map of differences, so unpacking the tracebacks
+        # byte by byte
         codemaps.sort(lambda a, b: cmp(a[1], b[1]))
         # biggest is the big loop, smallest is the bridge
-        assert unpack_traceback(codemaps[1][0]) == [2]
-        # XXX very specific ASM addresses, very fragile test, but what we can
-        #     do, really? 64bit only so far
-        assert unpack_traceback(codemaps[0][0]) == [2]
-        assert unpack_traceback(codemaps[1][0] + 100) == [2]
-        assert unpack_traceback(codemaps[2][0] + 100) == [4]
-        assert unpack_traceback(codemaps[2][0] + 200) == [4, 2]
-        assert unpack_traceback(codemaps[2][0] + 500) == [4, 2]
-        assert unpack_traceback(codemaps[2][0] + 380) == [4]
+        def get_ranges(c):
+            ranges = []
+            prev_traceback = None
+            for b in range(c[0], c[0] + c[1]):
+                tb = unpack_traceback(b)
+                if tb != prev_traceback:
+                    ranges.append(tb)
+                    prev_traceback = tb
+            return ranges
+        assert get_ranges(codemaps[2]) == [[4], [4, 2], [4], [4, 2], [4]]
+        assert get_ranges(codemaps[1]) == [[2]]
+        assert get_ranges(codemaps[0]) == [[2], []]

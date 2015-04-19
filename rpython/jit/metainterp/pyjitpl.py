@@ -1163,12 +1163,15 @@ class MIFrame(object):
             # itself, which has no result at all.
             assert len(self.metainterp.framestack) >= 2
             try:
-                self.metainterp.finishframe(None)
+                old_frame = self.metainterp.framestack[-1]
+                self.metainterp.finishframe(None, leave_portal_frame=False)
             except ChangeFrame:
                 pass
             frame = self.metainterp.framestack[-1]
             frame.do_recursive_call(jitdriver_sd, greenboxes + redboxes, orgpc,
                                     assembler_call=True)
+            jd_no = old_frame.jitcode.jitdriver_sd.index
+            self.metainterp.leave_portal_frame(jd_no)
             raise ChangeFrame
 
     def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, current_call_id, greenkey):
@@ -1808,12 +1811,13 @@ class MetaInterp(object):
         self.history.record(rop.LEAVE_PORTAL_FRAME, [ConstInt(jd_no)], None)
 
 
-    def popframe(self):
+    def popframe(self, leave_portal_frame=True):
         frame = self.framestack.pop()
         jitcode = frame.jitcode
         if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
-            self.leave_portal_frame(jitcode.jitdriver_sd.index)
+            if leave_portal_frame:
+                self.leave_portal_frame(jitcode.jitdriver_sd.index)
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -1824,10 +1828,10 @@ class MetaInterp(object):
         frame.cleanup_registers()
         self.free_frames_list.append(frame)
 
-    def finishframe(self, resultbox):
+    def finishframe(self, resultbox, leave_portal_frame=True):
         # handle a non-exceptional return from the current frame
         self.last_exc_value_box = None
-        self.popframe()
+        self.popframe(leave_portal_frame=leave_portal_frame)
         if self.framestack:
             if resultbox is not None:
                 self.framestack[-1].make_result_of_lastop(resultbox)
