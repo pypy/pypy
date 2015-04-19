@@ -146,8 +146,6 @@ class CodemapBuilder(object):
         self.last_call_depth = -1
 
     def enter_portal_frame(self, jd_id, unique_id, relpos):
-        if jd_id != 0:
-            return
         self.l.append(unique_id)
         self.l.append(relpos)
         self.patch_position.append(len(self.l))
@@ -155,8 +153,6 @@ class CodemapBuilder(object):
         self.l.append(0) # second marker
 
     def leave_portal_frame(self, jd_id, relpos):
-        if jd_id != 0:
-            return
         to_patch = self.patch_position.pop()
         self.l[to_patch] = relpos
         self.l[to_patch + 1] = len(self.l)

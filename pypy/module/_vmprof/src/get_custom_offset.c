@@ -40,17 +40,18 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
     // modify the last entry to point to start address and not the random one
     // in the middle
     result[n - 1] = (void*)start_addr;
+    result[n] = (void*)2;
+    n++;
     start = n;
     while (n < max_depth) {
         id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
         if (id == -1)
             // finish
             break;
+        if (id == 0)
+            continue; // not main codemap
         result[n++] = (void *)id;
     }
-    // we strip the topmost part - the reason is that it's either
-    // represented in the jitted caller or it's not jitted (we have the
-    // same function essentially twice
     k = 0;
     while (k < (n - start) / 2) {
         tmp = result[start + k];
@@ -58,8 +59,8 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
         result[n - k - 1] = tmp;
         k++;
     }
-    if (n != max_depth) {
-        n--;
+    if (n < max_depth) {
+        result[n++] = (void*)3;
     }
     return n;
 }
