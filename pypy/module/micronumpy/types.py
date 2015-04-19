@@ -1686,9 +1686,12 @@ class ObjectType(Primitive, BaseType):
             self._write(storage, i, offset, value, gcstruct)
 
     def unbox(self, box):
-        assert isinstance(box, self.BoxType)
-        return box.w_obj
-
+        if isinstance(box, self.BoxType):
+            return box.w_obj
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "object dtype cannot unbox %s", str(box))
+            
     @specialize.argtype(1)
     def box(self, w_obj):
         if isinstance(w_obj, W_Root):
