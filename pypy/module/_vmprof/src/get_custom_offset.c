@@ -43,7 +43,7 @@ static long vmprof_write_header_for_jit_addr(void **result, long n,
     start = n;
     while (n < max_depth) {
         id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
-        if (id == 0)
+        if (id == -1)
             // finish
             break;
         result[n++] = (void *)id;

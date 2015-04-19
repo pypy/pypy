@@ -115,10 +115,10 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 
     while (1) {
         if (current_pos >= data->bytecode_info_size)
-            return 0;
+            return -1;
         next_start = data->bytecode_info[current_pos + 1];
         if (next_start > rel_addr)
-            return 0;
+            return -1;
         next_stop = data->bytecode_info[current_pos + 2];
         if (next_stop > rel_addr) {
             *current_pos_addr = current_pos + 4;

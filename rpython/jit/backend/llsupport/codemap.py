@@ -132,7 +132,7 @@ def unpack_traceback(addr):
     res = []
     while True:
         item = yield_bytecode_at_addr(codemap_raw, addr, storage)
-        if item == 0:
+        if item == -1:
             break
         res.append(item)
     lltype.free(storage, flavor='raw')
