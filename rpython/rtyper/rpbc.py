@@ -1,5 +1,6 @@
 import types
 
+from rpython.flowspace.model import FunctionGraph, Link, Block, SpaceOperation
 from rpython.annotator import model as annmodel
 from rpython.annotator.description import (
     FunctionDesc, ClassDesc, MethodDesc, FrozenDesc, MethodOfFrozenDesc)
