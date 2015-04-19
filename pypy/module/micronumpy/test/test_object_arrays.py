@@ -107,4 +107,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         interface['shape'] = tuple([3])
         interface['strides'] = tuple([0])
         c = np.array(DummyArray(interface, base=a))
+        c.dtype = a.dtype
+        #print c
         assert (c == np.array([(1, 2, 3), (1, 2, 3), (1, 2, 3)], dtype='u4,u4,u4') ).all()

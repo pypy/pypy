@@ -551,6 +551,7 @@ class __extend__(W_NDimArray):
             else:
                 strides = self.descr_get_strides(space)
             space.setitem_str(w_d, 'strides', strides)
+            space.setitem_str(w_d, 'version', space.wrap(3))
             return w_d
 
     w_pypy_data = None
