@@ -35,6 +35,8 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         assert b == complex(1, -1)
         b = np.array(complex(1, -1)) and a
         assert (b == a).all()
+        c = np.array([1, 2, 3])
+        assert (a[0] != c[0])
 
     def test_logical_ufunc(self):
         import numpy as np

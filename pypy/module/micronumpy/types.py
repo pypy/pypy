@@ -1746,6 +1746,7 @@ class ObjectType(Primitive, BaseType):
             return v1
         return v2
 
+    @raw_unary_op
     def bool(self,v):
         return self._obool(v)
 
