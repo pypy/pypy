@@ -1162,8 +1162,8 @@ class MIFrame(object):
             # it must be the call to 'self', and not the jit_merge_point
             # itself, which has no result at all.
             assert len(self.metainterp.framestack) >= 2
+            old_frame = self.metainterp.framestack[-1]
             try:
-                old_frame = self.metainterp.framestack[-1]
                 self.metainterp.finishframe(None, leave_portal_frame=False)
             except ChangeFrame:
                 pass
