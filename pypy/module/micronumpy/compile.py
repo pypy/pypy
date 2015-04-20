@@ -89,7 +89,8 @@ class FakeSpace(ObjSpace):
         return self.wrap(len(w_obj.items))
 
     def getattr(self, w_obj, w_attr):
-        return StringObject(NonConstant('foo'))
+        assert isinstance(w_attr, StringObject)
+        return w_obj.getdictvalue(self, w_attr.v)
 
     def isinstance_w(self, w_obj, w_tp):
         try:

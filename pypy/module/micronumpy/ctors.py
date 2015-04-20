@@ -45,6 +45,9 @@ def try_interface_method(space, w_object):
         if e.match(space, space.w_AttributeError):
             return None
         raise
+    if w_interface is None:
+        # happens from compile.py
+        return None
     version = space.int_w(space.finditem(w_interface, space.wrap("version")))
     if version < 3:
         raise oefmt(space.w_NotImplementedError,
