@@ -73,15 +73,20 @@ class RPyType(Command):
 
     def invoke(self, arg, from_tty):
         # some magic code to automatically reload the python file while developing
-        from pypy.tool import gdb_pypy
         try:
-            reload(gdb_pypy)
+            from pypy.tool import gdb_pypy
+            try:
+                reload(gdb_pypy)
+            except:
+                import imp
+                imp.reload(gdb_pypy)
+            gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
+            self.__class__ = gdb_pypy.RPyType
+            print (self.do_invoke(arg, from_tty).decode('latin-1'))
         except:
-            import imp
-            imp.reload(gdb_pypy)
-        gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
-        self.__class__ = gdb_pypy.RPyType
-        print (self.do_invoke(arg, from_tty).decode('latin-1'))
+            import traceback
+            traceback.print_exc()
+            raise
 
     def do_invoke(self, arg, from_tty):
         try:
