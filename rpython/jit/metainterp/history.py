@@ -927,6 +927,8 @@ class Stats(object):
         insns = {}
         for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns, omit_finish=omit_finish)
+        if 'guard_early_exit' in insns: # XXX
+            del insns['guard_early_exit']
         return self._check_insns(insns, expected, check)
 
     def _check_insns(self, insns, expected, check):

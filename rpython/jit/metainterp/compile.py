@@ -685,8 +685,8 @@ class ResumeGuardNotInvalidated(ResumeGuardDescr):
 class ResumeAtPositionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_FUTURE_CONDITION
 
-class ResumeAtEarylExitDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NO_EARLY_EXIT
+class ResumeAtLoopHeaderDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_EARLY_EXIT
 
 class AllVirtuals:
     llopaque = True
@@ -775,8 +775,8 @@ def invent_fail_descr_for_op(opnum, optimizer):
         resumedescr = ResumeGuardNotInvalidated()
     elif opnum == rop.GUARD_FUTURE_CONDITION:
         resumedescr = ResumeAtPositionDescr()
-    elif opnum == rop.GUARD_NO_EARLY_EXIT:
-        resumedescr = ResumeAtEarylExitDescr()
+    elif opnum == rop.GUARD_EARLY_EXIT:
+        resumedescr = ResumeAtLoopHeaderDescr()
     elif opnum == rop.GUARD_VALUE:
         resumedescr = ResumeGuardValueDescr()
     elif opnum == rop.GUARD_NONNULL:

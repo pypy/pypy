@@ -1,5 +1,6 @@
 import sys
 import py
+from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, BoxVector,
         TargetToken, JitCellToken)
@@ -64,6 +65,8 @@ class VectorizingOptimizer(Optimizer):
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
+        self.early_exit = None
+        self.future_condition = None
 
     def propagate_all_forward(self):
         self.clear_newoperations()
@@ -95,6 +98,8 @@ class VectorizingOptimizer(Optimizer):
         self.schedule()
 
     def emit_operation(self, op):
+        if op.getopnum() == rop.GUARD_EARLY_EXIT:
+            return
         self._last_emitted_op = op
         self._newoperations.append(op)
 
@@ -115,19 +120,18 @@ class VectorizingOptimizer(Optimizer):
         assert label_op.getopnum() == rop.LABEL
         assert jump_op.is_final()
 
-        # XXX self.vec_info.track_memory_refs = True
-
         self.emit_unrolled_operation(label_op)
-
-        # TODO use the new optimizer structure (branch of fijal)
-        #label_op_args = [self.getvalue(box).get_key_box() for box in label_op.getarglist()]
-        #values = [self.getvalue(box) for box in label_op.getarglist()]
+        #guard_ee_op = ResOperation(rop.GUARD_EARLY_EXIT, [], None, ResumeAtLoopHeaderDescr())
+        #guard_ee_op.rd_snapshot = Snapshot(None, loop.inputargs[:])
+        #self.emit_unrolled_operation(guard_ee_op)
 
         operations = []
         for i in range(1,op_count-1):
-            if loop.operations[i].getopnum() == rop.GUARD_FUTURE_CONDITION:
-                continue
             op = loop.operations[i].clone()
+            if loop.operations[i].getopnum() == rop.GUARD_FUTURE_CONDITION:
+                pass
+            if loop.operations[i].getopnum() == rop.GUARD_EARLY_EXIT:
+                self.future_condition = op
             operations.append(op)
             self.emit_unrolled_operation(op)
 
@@ -146,7 +150,9 @@ class VectorizingOptimizer(Optimizer):
                     rename_map[la] = ja
             #
             for op in operations:
-                if op.getopnum() in (rop.GUARD_NO_EARLY_EXIT, rop.GUARD_FUTURE_CONDITION):
+                if op.getopnum() == rop.GUARD_FUTURE_CONDITION:
+                    continue # do not unroll this operation twice
+                if op.getopnum() == rop.GUARD_EARLY_EXIT:
                     continue # do not unroll this operation twice
                 copied_op = op.clone()
                 if copied_op.result is not None:
@@ -359,8 +365,10 @@ class VectorizingOptimizer(Optimizer):
         early_exit_idx = 1
         label = self.dependency_graph.getnode(label_idx)
         ee_guard = self.dependency_graph.getnode(early_exit_idx)
-        if not ee_guard.getopnum() == rop.GUARD_NO_EARLY_EXIT:
+        if not ee_guard.is_guard_early_exit():
             return # cannot relax
+
+        #self.early_exit = ee_guard
 
         for guard_node in self.dependency_graph.guards:
             if guard_node == ee_guard:
@@ -391,7 +399,7 @@ class VectorizingOptimizer(Optimizer):
             guard_node.edge_to(ee_guard, label='pullup')
             label.remove_edge_to(ee_guard)
 
-            guard_node.relax_guard_to(ee_guard)
+            guard_node.relax_guard_to(self.future_condition)
 
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util

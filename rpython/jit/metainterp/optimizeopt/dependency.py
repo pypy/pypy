@@ -1,6 +1,6 @@
 import py
 
-from rpython.jit.metainterp.compile import ResumeAtEarylExitDescr
+from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -105,13 +105,17 @@ class Node(object):
     def relax_guard_to(self, guard):
         """ Relaxes a guard operation to an earlier guard. """
         assert self.op.is_guard()
-        assert guard.op.is_guard()
+        assert guard.is_guard()
 
-        my_op = self.getoperation()
-        op = guard.getoperation()
-        my_op.setdescr(ResumeAtEarylExitDescr())
-        my_op.setfailargs(op.getfailargs())
-        my_op.rd_snapshot = op.rd_snapshot
+        tgt_op = self.getoperation()
+        op = guard
+        #descr = compile.ResumeAtLoopHeaderDescr()
+        descr = compile.ResumeAtLoopHeaderDescr()
+        tgt_op.setdescr(descr)
+        if not we_are_translated():
+            tgt_op.setfailargs(op.getfailargs())
+        tgt_op.rd_snapshot = op.rd_snapshot
+        tgt_op.rd_frame_info_list = op.rd_frame_info_list
 
     def edge_to(self, to, arg=None, label=None):
         assert self != to
@@ -138,7 +142,7 @@ class Node(object):
         self.adjacent_list_back = []
 
     def is_guard_early_exit(self):
-        return self.op.getopnum() == rop.GUARD_NO_EARLY_EXIT
+        return self.op.getopnum() == rop.GUARD_EARLY_EXIT
 
     def loads_from_complex_object(self):
         return rop._ALWAYS_PURE_LAST <= self.op.getopnum() <= rop._MALLOC_FIRST

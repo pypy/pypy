@@ -186,13 +186,11 @@ class BaseTestVectorize(VecTestHelper):
         it is unrolled 16 times. (it is the smallest type in the trace) """
         ops = """
         [p0,i0]
-        guard_no_early_exit() []
         raw_load(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
         opt_ops = """
         [p0,i0]
-        guard_no_early_exit() []
         {}
         jump(p0,i0)
         """.format(('\n' + ' ' *8).join(['raw_load(p0,i0,descr=chararraydescr)'] * 16))
@@ -672,7 +670,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_extend_load_modify_store(self):
         ops = """
         [p0,i0]
-        guard_no_early_exit() []
+        guard_early_exit() []
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
@@ -823,7 +821,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_schedule_vector_operation(self, op, descr, stride):
         ops = """
         [p0,p1,p2,i0] # 0
-        guard_no_early_exit() []
+        guard_early_exit() []
         i10 = int_le(i0, 128)  # 1, 8, 15, 22
         guard_true(i10) [p0,p1,p2,i0] # 2, 9, 16, 23
         i2 = getarrayitem_raw(p0, i0, descr={descr}arraydescr) # 3, 10, 17, 24
@@ -841,7 +839,6 @@ class BaseTestVectorize(VecTestHelper):
         i11 = int_le(i1, 128)
         guard_true(i11) []
         i12 = int_add(i1, {stride})
-        guard_no_early_exit() []
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr={descr}arraydescr)
         v2 = vec_getarrayitem_raw(p1, i0, 2, descr={descr}arraydescr)
         v3 = {op}(v1,v2,2)
@@ -876,7 +873,7 @@ class BaseTestVectorize(VecTestHelper):
         pytest.skip("")
         ops = """
         [i0, i1, i2, i3, i4, i5, i6, i7]
-        guard_no_early_exit() []
+        guard_early_exit() []
         i9 = int_mul(i0, 8)
         i10 = raw_load(i3, i9, descr=intarraydescr)
         i11 = int_mul(i0, 8)
@@ -895,7 +892,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_vschedule_trace_1(self):
         ops = """
         [i0, i1, i2, i3, i4]
-        guard_no_early_exit() []
+        guard_early_exit() []
         i6 = int_mul(i0, 8)
         i7 = raw_load(i2, i6, descr=intarraydescr)
         i8 = raw_load(i3, i6, descr=intarraydescr)
@@ -915,7 +912,6 @@ class BaseTestVectorize(VecTestHelper):
         i13 = int_add(i11, 1) 
         i18 = int_lt(i13, i1) 
         guard_true(i18) []
-        guard_no_early_exit() []
         i6 = int_mul(i0, 8) 
         v19 = vec_raw_load(i2, i6, 2, descr=intarraydescr) 
         v20 = vec_raw_load(i3, i6, 2, descr=intarraydescr) 
@@ -930,7 +926,7 @@ class BaseTestVectorize(VecTestHelper):
         pytest.skip()
         ops = """
         [i0, i1, i2, i3, i4, i5, i6, i7]
-        guard_no_early_exit() []
+        guard_early_exit() []
         i8 = raw_load(i3, i0, descr=intarraydescr)
         i9 = raw_load(i4, i0, descr=intarraydescr)
         i10 = int_add(i8, i9)
@@ -952,7 +948,6 @@ class BaseTestVectorize(VecTestHelper):
         i16 = int_add(i12, 8) 
         i21 = int_lt(i16, i20) 
         guard_true(i21) []
-        guard_no_early_exit() []
         v22 = vec_raw_load(i3, i0, 2, descr=intarraydescr) 
         v23 = vec_raw_load(i4, i0, 2, descr=intarraydescr) 
         v24 = vec_int_add(v22, v23) 

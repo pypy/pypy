@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 
-class VectorizeTests(object):
+class VectorizeTests:
     enable_opts = 'all'
 
     def meta_interp(self, f, args, policy=None):
@@ -115,5 +115,8 @@ class VectorizeTests(object):
         if i > 4:
             self.check_trace_count(1)
 
-class TestLLtype(VectorizeTests, LLJitMixin):
+class VectorizeLLtypeTests(VectorizeTests):
+    pass
+
+class TestLLtype(VectorizeLLtypeTests, LLJitMixin):
     pass

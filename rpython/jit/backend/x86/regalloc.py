@@ -22,7 +22,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
+    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, VECTOR, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
@@ -61,7 +61,7 @@ class X86_64_RegisterManager(X86RegisterManager):
 
 class X86XMMRegisterManager(RegisterManager):
 
-    box_types = [FLOAT]
+    box_types = [FLOAT, VECTOR]
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
     # we never need lower byte I hope
     save_around_call_regs = all_regs
@@ -208,7 +208,7 @@ class RegAlloc(BaseRegalloc):
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
-        if var.type == FLOAT:
+        if var.type == FLOAT or var.type == VECTOR:
             return self.xrm.force_allocate_reg(var, forbidden_vars,
                                                selected_reg, need_lower_byte)
         else:
@@ -1456,6 +1456,23 @@ class RegAlloc(BaseRegalloc):
                 [dstaddr_loc, imm0, length_loc])
             self.rm.possibly_free_var(length_box)
             self.rm.possibly_free_var(dstaddr_box)
+
+    # vector operations
+    def consider_vec_raw_load(self, op):
+        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        result_loc = self.force_allocate_reg(op.result)
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
+                          sign_loc], result_loc)
+
+    def consider_guard_early_exit(self, op):
+        pass
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

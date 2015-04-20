@@ -855,8 +855,7 @@ class LLFrame(object):
         argboxes = self.current_op.getarglist()
         self.do_renaming(argboxes, args)
 
-    def execute_guard_no_early_exit(self, descr):
-        # TODO
+    def execute_guard_early_exit(self, descr):
         pass
 
     def execute_guard_true(self, descr, arg):

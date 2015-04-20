@@ -2414,6 +2414,16 @@ class Assembler386(BaseAssembler):
                 self.save_into_mem(addr, imm0, imm(current))
             i += current
 
+    # vector operations
+    def genop_vec_raw_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
+        assert isinstance(ofs, ImmedLoc)
+        assert isinstance(size_loc, ImmedLoc)
+        scale = get_scale(size_loc.value)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        assert False
+        #self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
+
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST

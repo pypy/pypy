@@ -797,7 +797,7 @@ class Optimizer(Optimization):
         if op.getdescr() is not None:
             descr = op.getdescr()
             assert isinstance(descr, compile.ResumeAtPositionDescr) or \
-                   isinstance(descr, compile.ResumeAtEarylExitDescr)
+                   isinstance(descr, compile.ResumeAtLoopHeaderDescr)
 
         else:
             descr = compile.invent_fail_descr_for_op(op.getopnum(), self)
