@@ -82,11 +82,13 @@ class RPyType(Command):
                 imp.reload(gdb_pypy)
             gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
             self.__class__ = gdb_pypy.RPyType
-            print (self.do_invoke(arg, from_tty).decode('latin-1'))
+            result = self.do_invoke(arg, from_tty)
+            if not isinstance(result, str):
+                result = result.decode('latin-1')
+            print(result)
         except:
             import traceback
             traceback.print_exc()
-            raise
 
     def do_invoke(self, arg, from_tty):
         try:
@@ -107,7 +109,7 @@ class RPyType(Command):
         if offset in typeids:
             return typeids[offset]
         else:
-            return 'Cannot find the type with offset %d' % offset
+            return 'Cannot find the type with offset 0x%x' % offset
 
     def get_typeids(self):
         try:
