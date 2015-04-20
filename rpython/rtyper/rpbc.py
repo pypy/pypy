@@ -321,9 +321,8 @@ class FunctionsPBCRepr(CanBeNull, Repr):
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
         descs = list(s_pbc.descriptions)
-        vfcs = FunctionDesc.variant_for_call_site
         args = simple_args(args_s)
-        shape, index = vfcs(bk, self.callfamily, descs, args, op)
+        shape, index = self.callfamily.find_row(bk, descs, args, op)
         funcdesc, = descs
         row_of_one_graph = self.callfamily.calltables[shape][index]
         graph = row_of_one_graph[funcdesc]
@@ -341,8 +340,7 @@ class FunctionsPBCRepr(CanBeNull, Repr):
         args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
-        vfcs = FunctionDesc.variant_for_call_site
-        shape, index = vfcs(bk, self.callfamily, descs, args, hop.spaceop)
+        shape, index = self.callfamily.find_row(bk, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         vfn = hop.inputarg(self, arg=0)
@@ -475,8 +473,7 @@ class SmallFunctionSetPBCRepr(Repr):
         args = hop.spaceop.build_args(hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
-        vfcs = FunctionDesc.variant_for_call_site
-        shape, index = vfcs(bk, self.callfamily, descs, args, hop.spaceop)
+        shape, index = self.callfamily.find_row(bk, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         vlist = [hop.inputarg(self, arg=0)]

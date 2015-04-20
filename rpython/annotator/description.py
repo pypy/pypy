@@ -53,6 +53,22 @@ class CallFamily(object):
             table.append(row)
             self.total_calltable_size += 1
 
+    def find_row(self, bookkeeper, descs, args, op):
+        shape = rawshape(args)
+        with bookkeeper.at_position(None):
+            row = build_calltable_row(descs, args, op)
+        index = self.calltable_lookup_row(shape, row)
+        return shape, index
+
+def build_calltable_row(descs, args, op):
+    # see comments in CallFamily
+    row = {}
+    for desc in descs:
+        graph = desc.get_graph(args, op)
+        assert isinstance(graph, FunctionGraph)
+        row[desc.rowkey()] = graph
+    return row
+
 
 class FrozenAttrFamily(object):
     """A family of FrozenDesc objects that have any common 'getattr' sites.
@@ -352,32 +368,14 @@ class FunctionDesc(Desc):
 
     @staticmethod
     def consider_call_site(descs, args, s_result, op):
-        shape = rawshape(args)
-        row = FunctionDesc.row_to_consider(descs, args, op)
         family = descs[0].getcallfamily()
+        shape = rawshape(args)
+        row = build_calltable_row(descs, args, op)
         family.calltable_add_row(shape, row)
         descs[0].mergecallfamilies(*descs[1:])
 
-    @staticmethod
-    def variant_for_call_site(bookkeeper, family, descs, args, op):
-        shape = rawshape(args)
-        with bookkeeper.at_position(None):
-            row = FunctionDesc.row_to_consider(descs, args, op)
-        index = family.calltable_lookup_row(shape, row)
-        return shape, index
-
     def rowkey(self):
         return self
-
-    @staticmethod
-    def row_to_consider(descs, args, op):
-        # see comments in CallFamily
-        row = {}
-        for desc in descs:
-            graph = desc.get_graph(args, op)
-            assert isinstance(graph, FunctionGraph)
-            row[desc.rowkey()] = graph
-        return row
 
     def get_s_signatures(self, shape):
         family = self.getcallfamily()
@@ -923,7 +921,7 @@ class MethodDesc(Desc):
     def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
-        row = FunctionDesc.row_to_consider(descs, args, op)
+        row = build_calltable_row(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
         descs[0].mergecallfamilies(*descs[1:])
@@ -1093,7 +1091,7 @@ class MethodOfFrozenDesc(Desc):
     def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
-        row = FunctionDesc.row_to_consider(descs, args, op)
+        row = build_calltable_row(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
         descs[0].mergecallfamilies(*descs[1:])
