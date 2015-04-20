@@ -134,7 +134,7 @@ class RPyType(Command):
         try:
             self.gdb.execute('dump binary memory %s %s %s+%d' %
                              (fname, vstart, vstart, length))
-            with open(fname, 'rt') as fobj:
+            with open(fname, 'rb') as fobj:
                 data = fobj.read()
             return TypeIdsMap(zlib.decompress(data).splitlines(True), self.gdb)
         finally:
