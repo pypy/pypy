@@ -1648,6 +1648,10 @@ class ObjectType(Primitive, BaseType):
             return w_item
         return boxes.W_ObjectBox(w_item)
 
+    def coerce_subtype(self, space, w_subtype, w_item):
+        # return the item itself
+        return self.unbox(self.box(w_item))
+
     def store(self, arr, i, offset, box):
         self._write(arr.storage, i, offset, self.unbox(box),
                     arr.gcstruct)
@@ -1704,6 +1708,8 @@ class ObjectType(Primitive, BaseType):
             w_obj = self.space.newint(w_obj)
         elif isinstance(w_obj, float):
             w_obj = self.space.newfloat(w_obj)
+        elif w_obj is None:
+            w_obj = self.space.w_None
         else:
             raise oefmt(self.space.w_NotImplementedError,
                 "cannot create object array/scalar from lltype")

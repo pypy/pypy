@@ -110,3 +110,19 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         c.dtype = a.dtype
         #print c
         assert (c == np.array([(1, 2, 3), (1, 2, 3), (1, 2, 3)], dtype='u4,u4,u4') ).all()
+
+    def test_for_object_scalar_creation(self):
+        import numpy as np
+        a = np.object_()
+        b = np.object_(3)
+        b2 = np.object_(3.0)
+        c = np.object_([4, 5])
+        d = np.object_([None, {}, []])
+        print type(a)
+        assert a is None
+        assert type(b) is int
+        assert type(b2) is float
+        assert type(c) is np.ndarray
+        assert c.dtype == object
+        assert d.dtype == object
+
