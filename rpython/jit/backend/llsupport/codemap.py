@@ -31,7 +31,7 @@ RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
                                      unsigned int machine_code_size,
                                      long *bytecode_info,
                                      unsigned int bytecode_info_size);
-RPY_EXTERN long *pypy_jit_codemap_del(uintptr_t addr);
+RPY_EXTERN long *pypy_jit_codemap_del(uintptr_t addr, unsigned int size);
 RPY_EXTERN uintptr_t pypy_jit_codemap_firstkey(void);
 RPY_EXTERN void *pypy_find_codemap_at_addr(long addr, long* start_addr);
 RPY_EXTERN long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
@@ -55,7 +55,7 @@ pypy_jit_codemap_add = llexternal('pypy_jit_codemap_add',
                                    INT_LIST_PTR, lltype.Signed],
                                   lltype.Signed)
 pypy_jit_codemap_del = llexternal('pypy_jit_codemap_del',
-                                  [lltype.Signed], INT_LIST_PTR)
+                                  [lltype.Signed, lltype.Signed], INT_LIST_PTR)
 pypy_jit_codemap_firstkey = llexternal('pypy_jit_codemap_firstkey',
                                        [], lltype.Signed)
 
@@ -89,11 +89,11 @@ class CodemapStorage(object):
             key = pypy_jit_codemap_firstkey()
             if not key:
                 break
-            items = pypy_jit_codemap_del(key)
+            items = pypy_jit_codemap_del(key, 1)
             lltype.free(items, flavor='raw', track_allocation=False)
 
     def free_asm_block(self, start, stop):
-        items = pypy_jit_codemap_del(start)
+        items = pypy_jit_codemap_del(start, stop - start)
         if items:
             lltype.free(items, flavor='raw', track_allocation=False)
         pypy_jit_depthmap_clear(start, stop - start)

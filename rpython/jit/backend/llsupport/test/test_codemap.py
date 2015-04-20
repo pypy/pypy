@@ -91,3 +91,17 @@ def test_codemaps():
     codemap.free_asm_block(200, 300)
     assert unpack_traceback(225) == []
     codemap.free()
+
+def test_free_with_alignment():
+    codemap = CodemapStorage()
+    codemap.setup()
+    builder = CodemapBuilder()
+    builder.enter_portal_frame(23, 34, 0)
+    builder.enter_portal_frame(45, 56, 20)
+    codemap.register_codemap(builder.get_final_bytecode(200, 100))
+    assert unpack_traceback(215) == [34]
+    assert unpack_traceback(225) == [34, 56]
+    codemap.free_asm_block(190, 310)   # a bit larger
+    assert unpack_traceback(215) == []
+    assert unpack_traceback(225) == []
+    codemap.free()

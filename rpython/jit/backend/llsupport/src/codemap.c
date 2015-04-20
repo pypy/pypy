@@ -1,4 +1,5 @@
 #include "src/precommondefs.h"
+#include <assert.h>
 
 #ifndef HAS_SKIPLIST
 # error "skiplist.c needs to be included before"
@@ -51,17 +52,26 @@ long pypy_jit_codemap_add(uintptr_t addr, unsigned int machine_code_size,
 }
 
 RPY_EXTERN
-long *pypy_jit_codemap_del(uintptr_t addr)
+long *pypy_jit_codemap_del(uintptr_t addr, unsigned int size)
 {
+    uintptr_t search_key = addr + size - 1;
     long *result;
     skipnode_t *node;
 
+    /* There should be either zero or one codemap entry in the range.
+       In theory it should take the complete range, but for alignment
+       reasons the [addr, addr+size] range can be slightly bigger. */
+    node = skiplist_search(&jit_codemap_head, search_key);
+    if (node->key < addr)
+        return NULL;
+
     pypy_codemap_invalid_set(1);
-    node = skiplist_remove(&jit_codemap_head, addr);
+    skiplist_remove(&jit_codemap_head, node->key);
     pypy_codemap_invalid_set(0);
 
-    if (node == NULL)
-        return NULL;
+    /* there should be at most one */
+    assert(skiplist_search(&jit_codemap_head, search_key)->key < addr);
+
     result = ((codemap_data_t *)node->data)->bytecode_info;
     free(node);
     return result;
