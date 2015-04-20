@@ -438,6 +438,13 @@ class SmallFunctionSetPBCRepr(Repr):
         key = shape, index, tuple(argtypes), resulttype
         if key in self._dispatch_cache:
             return self._dispatch_cache[key]
+        graph = self.make_dispatcher(shape, index, argtypes, resulttype)
+        self.rtyper.annotator.translator.graphs.append(graph)
+        ll_ret = getfunctionptr(graph)
+        c_ret = self._dispatch_cache[key] = inputconst(typeOf(ll_ret), ll_ret)
+        return c_ret
+
+    def make_dispatcher(self, shape, index, argtypes, resulttype):
         inputargs = [varoftype(t) for t in [Char] + argtypes]
         startblock = Block(inputargs)
         startblock.exitswitch = inputargs[0]
@@ -462,11 +469,7 @@ class SmallFunctionSetPBCRepr(Repr):
             links.append(Link(inputargs[1:], b, chr(i)))
             links[-1].llexitcase = chr(i)
         startblock.closeblock(*links)
-        self.rtyper.annotator.translator.graphs.append(graph)
-        ll_ret = getfunctionptr(graph)
-        #FTYPE = FuncType
-        c_ret = self._dispatch_cache[key] = inputconst(typeOf(ll_ret), ll_ret)
-        return c_ret
+        return graph
 
     def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper
