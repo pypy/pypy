@@ -210,6 +210,16 @@ def test_pprint_array():
     printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
     assert printer.to_string() == 'r[20, 21, 22] (len=3)'
 
+def test_pprint_null_list():
+    mylist = PtrValue({}, type_tag='pypy_list1')
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r(null_list)'
+
+def test_pprint_null_array():
+    mylist = PtrValue({}, type_tag='pypy_array1')
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r(null_array)'
+
 def test_typeidsmap():
     gdb = FakeGdb('', {exprmember(1): 111,
                        exprmember(2): 222,

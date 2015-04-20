@@ -264,12 +264,15 @@ class RPyListPrinter(object):
 
     def to_string(self):
         t = self.val.type
-        print(t)
         if t.target().tag.startswith(r'pypy_array'):
+            if not self.val:
+                return 'r(null_array)'
             length = int(self.val['length'])
             items = self.val['items']
             allocstr = ''
         else:
+            if not self.val:
+                return 'r(null_list)'
             length = int(self.val['l_length'])
             array = self.val['l_items']
             allocated = int(array['length'])
