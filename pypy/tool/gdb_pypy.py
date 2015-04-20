@@ -258,29 +258,37 @@ class RPyListPrinter(object):
     def lookup(cls, val, gdb=None):
         t = val.type
         if (is_ptr(t, gdb) and t.target().tag is not None and
-            re.match(r'pypy_list\d*', t.target().tag)):
+            re.match(r'pypy_(list|array)\d*', t.target().tag)):
             return cls(val)
         return None
 
     def to_string(self):
-        length = int(self.val['l_length'])
-        array = self.val['l_items']
-        allocated = int(array['length'])
-        items = array['items']
+        t = self.val.type
+        print(t)
+        if t.target().tag.startswith(r'pypy_array'):
+            length = int(self.val['length'])
+            items = self.val['items']
+            allocstr = ''
+        else:
+            length = int(self.val['l_length'])
+            array = self.val['l_items']
+            allocated = int(array['length'])
+            items = array['items']
+            allocstr = ', alloc=%d' % allocated
         itemlist = []
         for i in range(length):
             item = items[i]
             itemlist.append(str(item))
         str_items = ', '.join(itemlist)
-        return 'r[%s] (len=%d, alloc=%d)' % (str_items, length, allocated)
+        return 'r[%s] (len=%d%s)' % (str_items, length, allocstr)
 
 
 try:
     import gdb
     RPyType() # side effects
-    gdb.pretty_printers += [
+    gdb.pretty_printers = [
         RPyStringPrinter.lookup,
         RPyListPrinter.lookup
-        ]
+        ] + gdb.pretty_printers
 except ImportError:
     pass
