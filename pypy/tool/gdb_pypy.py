@@ -251,6 +251,8 @@ class RPyListPrinter(object):
     fields
     """
 
+    recursive = False
+
     def __init__(self, val):
         self.val = val
 
@@ -278,11 +280,18 @@ class RPyListPrinter(object):
             allocated = int(array['length'])
             items = array['items']
             allocstr = ', alloc=%d' % allocated
-        itemlist = []
-        for i in range(length):
-            item = items[i]
-            itemlist.append(str(item))
-        str_items = ', '.join(itemlist)
+        if RPyListPrinter.recursive:
+            str_items = '...'
+        else:
+            RPyListPrinter.recursive = True
+            try:
+                itemlist = []
+                for i in range(length):
+                    item = items[i]
+                    itemlist.append(str(item))    # may recurse here
+                str_items = ', '.join(itemlist)
+            finally:
+                RPyListPrinter.recursive = False
         return 'r[%s] (len=%d%s)' % (str_items, length, allocstr)
 
 
