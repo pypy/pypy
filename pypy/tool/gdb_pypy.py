@@ -5,7 +5,7 @@ Some convenience macros for gdb.  If you have pypy in your path, you can simply 
 
 Or, alternatively:
 
-(gdb) python execfile('/path/to/gdb_pypy.py')
+(gdb) python exec(open('/path/to/gdb_pypy.py').read())
 """
 
 import re
