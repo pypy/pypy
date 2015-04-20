@@ -70,6 +70,17 @@ class __extend__(annmodel.SomePBC):
 
 class ConcreteCallTableRow(dict):
     """A row in a concrete call table."""
+    @classmethod
+    def from_row(cls, rtyper, row):
+        concreterow = cls()
+        for funcdesc, graph in row.items():
+            llfn = rtyper.getcallable(graph)
+            concreterow[funcdesc] = llfn
+        assert len(concreterow) > 0
+        # 'typeOf(llfn)' should be the same for all graphs
+        concreterow.fntype = typeOf(llfn)
+        return concreterow
+
 
 class LLCallTable(object):
     """A call table of a call family with low-level functions."""
@@ -124,17 +135,9 @@ def build_concrete_calltable(rtyper, callfamily):
     concreterows = {}
     for shape, rows in callfamily.calltables.items():
         for index, row in enumerate(rows):
-            concreterow = ConcreteCallTableRow()
-            for funcdesc, graph in row.items():
-                llfn = rtyper.getcallable(graph)
-                concreterow[funcdesc] = llfn
-            assert len(concreterow) > 0
-            # 'llfn' should be the same for all graphs
-            concreterow.fntype = typeOf(llfn)
+            concreterow = ConcreteCallTableRow.from_row(rtyper, row)
             concreterows[shape, index] = concreterow
-
-    for row in concreterows.values():
-        llct.add(row)
+            llct.add(concreterow)
 
     for (shape, index), row in concreterows.items():
         existingindex, biggerrow = llct.lookup(row)
