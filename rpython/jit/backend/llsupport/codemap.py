@@ -143,7 +143,6 @@ class CodemapBuilder(object):
     def __init__(self):
         self.l = []
         self.patch_position = []
-        self.last_call_depth = -1
 
     def enter_portal_frame(self, jd_id, unique_id, relpos):
         self.l.append(unique_id)
@@ -159,7 +158,6 @@ class CodemapBuilder(object):
 
     def inherit_code_from_position(self, pos):
         lst = unpack_traceback(pos)
-        self.last_call_depth = len(lst) - 1
         for item in lst:
             self.l.append(item)
             self.l.append(0)

@@ -194,7 +194,7 @@ long pypy_jit_stack_depth_at_loc(long loc)
         return -1;
 
     rel_addr = (uintptr_t)loc - depthmap->key;
-    data = (codemap_data_t *)depthmap->data;
+    data = (depthmap_data_t *)depthmap->data;
     if (rel_addr >= data->block_size)
         return -1;
 
