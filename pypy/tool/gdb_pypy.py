@@ -55,10 +55,10 @@ def lookup(val, suffix):
 
 class RPyType(Command):
     """
-    Prints the RPython type of the expression (remember to dereference it!)
+    Prints the RPython type of the expression.
     E.g.:
 
-    (gdb) rpy_type *l_v123
+    (gdb) rpy_type l_v123
     GcStruct pypy.foo.Bar { super, inst_xxx, inst_yyy }
     """
 
@@ -88,6 +88,8 @@ class RPyType(Command):
             offset = int(arg)
         except ValueError:
             obj = self.gdb.parse_and_eval(arg)
+            if obj.type.code == self.gdb.TYPE_CODE_PTR:
+                obj = obj.dereference()
             hdr = lookup(obj, '_gcheader')
             tid = hdr['h_tid']
             if sys.maxsize < 2**32:
