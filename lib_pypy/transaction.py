@@ -128,6 +128,19 @@ class TransactionQueue(object):
         #   thread-local list.
         self._pending.append((f, args, kwds))
 
+    def add_generator(self, generator_iterator):
+        """Register N new transactions to be done by a generator-iterator
+        object.  Each 'yield' marks the limit of transactions.
+        """
+        def transact_until_yield():
+            # Ask for the next item in this transaction.  If we get it,
+            # then the 'for' loop below adds this function again and
+            # returns.
+            for ignored_yielded_value in generator_iterator:
+                self.add(transact_until_yield)
+                return
+        self.add(transact_until_yield)
+
     def run(self, nb_segments=0):
         """Run all transactions, and all transactions started by these
         ones, recursively, until the queue is empty.  If one transaction
