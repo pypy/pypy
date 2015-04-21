@@ -55,43 +55,6 @@ def test_find_jit_frame_depth():
     assert stack_depth_at_loc(10) == 9
     codemap.free()
 
-def test_codemaps():
-    builder = CodemapBuilder()
-    builder.debug_merge_point(0, 102, 0)
-    builder.debug_merge_point(0, 102, 13)
-    builder.debug_merge_point(1, 104, 15)
-    builder.debug_merge_point(1, 104, 16)
-    builder.debug_merge_point(2, 106, 20)
-    builder.debug_merge_point(2, 106, 25)
-    builder.debug_merge_point(1, 104, 30)
-    builder.debug_merge_point(0, 102, 35)
-    codemap = CodemapStorage()
-    codemap.setup()
-    codemap.register_codemap(builder.get_final_bytecode(100, 40))
-    builder = CodemapBuilder()
-    builder.debug_merge_point(0, 202, 0)
-    builder.debug_merge_point(0, 202, 10)
-    builder.debug_merge_point(1, 204, 20)
-    builder.debug_merge_point(1, 204, 30)
-    builder.debug_merge_point(2, 206, 40)
-    builder.debug_merge_point(2, 206, 50)
-    builder.debug_merge_point(1, 204, 60)
-    builder.debug_merge_point(0, 202, 70)
-    codemap.register_codemap(builder.get_final_bytecode(200, 100))
-    assert unpack_traceback(110) == [102]
-    assert unpack_traceback(117) == [102, 104]
-    assert unpack_traceback(121) == [102, 104, 106]
-    assert unpack_traceback(131) == [102, 104]
-    assert unpack_traceback(137) == [102]
-    assert unpack_traceback(205) == [202]
-    assert unpack_traceback(225) == [202, 204]
-    assert unpack_traceback(245) == [202, 204, 206]
-    assert unpack_traceback(265) == [202, 204]
-    assert unpack_traceback(275) == [202]
-    codemap.free_asm_block(200, 300)
-    assert unpack_traceback(225) == []
-    codemap.free()
-
 def test_free_with_alignment():
     codemap = CodemapStorage()
     codemap.setup()
