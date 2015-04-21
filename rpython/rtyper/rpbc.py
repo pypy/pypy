@@ -320,12 +320,10 @@ class FunctionsPBCRepr(CanBeNull, Repr):
 
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
-        descs = list(s_pbc.descriptions)
+        funcdesc, = s_pbc.descriptions
         args = simple_args(args_s)
-        shape, index = self.callfamily.find_row(bk, descs, args, op)
-        funcdesc, = descs
-        row_of_one_graph = self.callfamily.calltables[shape][index]
-        graph = row_of_one_graph[funcdesc]
+        with bk.at_position(None):
+            graph = funcdesc.get_graph(args, op)
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
 
