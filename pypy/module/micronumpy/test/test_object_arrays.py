@@ -126,3 +126,41 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         assert c.dtype == object
         assert d.dtype == object
 
+    def test_mem_array_creation_invalid_specification(self):
+        # while not specifically testing object dtype, this
+        # test segfaulted during ObjectType.store due to
+        # missing gc hooks
+        import numpy as np
+        dt = np.dtype([('x', int), ('y', np.object_)])
+        # Correct way
+        a = np.array([(1, 'object')], dt)
+        # Wrong way - should complain about writing buffer to object dtype
+        raises(np.array, [1, 'object'], dt)
+
+    def test_zeros(self):
+        skip('move this to unicode test when we have them')
+        import numpy as np
+        def sixu(s):
+            return unicode(s, 'unicode_escape')
+
+        def buffer_len(arr):
+            if isinstance(arr, np.ndarray):
+                return len(arr.data)
+            return len(buffer(arr))
+
+        def content_check(ua, ua_scalar, nbtyes):
+            assert int(ua.dtype.str[2:]) == ulen
+            assert buffer_len(ua) == 4*ulen    
+            assert ua_scalar -- sixu('')
+            assert ua_scalar.encode('ascii') == ''
+            assert buffer_len(ua_scalar) == 0
+
+        for ulen in [1, 2, 1099]:
+            ua = np.zeros((), dtype='U%s' % ulen)
+            content_check(ua, ua[()], 4 * ulen)
+            ua = zeros((2,), dtype='U%s' % ulen)
+            content_check(ua, ua[0], 4 * ulen*2)
+            content_check(ua, ua[1], 4 * ulen*2)
+            ua = zeros((2, 3, 4), dtype='U%s' % ulen)
+            content_check(ua, ua[0, 0, 0], 4 * ulen * 2 * 3 * 4)
+            content_check(ua, ua[-1, -1, -1], 4 * ulen * 2 * 3 * 4)

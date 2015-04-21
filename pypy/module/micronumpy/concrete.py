@@ -344,6 +344,8 @@ offset_of_storage = llmemory.offsetof(OBJECTSTORE, 'storage')
 offset_of_length = llmemory.offsetof(OBJECTSTORE, 'length')
 offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
 
+V_OBJECTSTORE = lltype.nullptr(OBJECTSTORE)
+
 def customtrace(gc, obj, callback, arg):
     #debug_print('in customtrace w/obj', obj)
     length = (obj + offset_of_length).signed[0]
@@ -385,7 +387,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
         self.start = start
-        self.gcstruct = lltype.nullptr(OBJECTSTORE)
+        self.gcstruct = V_OBJECTSTORE
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
@@ -416,7 +418,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
 class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
-        gcstruct = lltype.nullptr(OBJECTSTORE)
+        gcstruct = V_OBJECTSTORE
         if storage == lltype.nullptr(RAW_STORAGE):
             length = support.product(shape) 
             if dtype.num == NPY.OBJECT:
@@ -527,7 +529,7 @@ class NonWritableSliceArray(SliceArray):
 class VoidBoxStorage(BaseConcreteArray):
     def __init__(self, size, dtype):
         self.storage = alloc_raw_storage(size)
-        self.gcstruct = lltype.nullptr(OBJECTSTORE)
+        self.gcstruct = V_OBJECTSTORE
         self.dtype = dtype
         self.size = size
 

@@ -20,7 +20,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref,\
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes
-from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
+from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage, V_OBJECTSTORE
 from pypy.module.micronumpy.strides import calc_strides
 
 degToRad = math.pi / 180.0
@@ -1653,6 +1653,9 @@ class ObjectType(Primitive, BaseType):
         return self.unbox(self.box(w_item))
 
     def store(self, arr, i, offset, box):
+        if arr.gcstruct is V_OBJECTSTORE:
+            raise oefmt(self.space.w_NotImplementedError,
+                "cannot store object in array with no gc hook")
         self._write(arr.storage, i, offset, self.unbox(box),
                     arr.gcstruct)
 
@@ -2054,6 +2057,57 @@ class UnicodeType(FlexibleType):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "coerce (probably from set_item) not implemented for unicode type"))
 
+    def store(self, arr, i, offset, box):
+        assert isinstance(box, boxes.W_UnicodeBox)
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def read(self, arr, i, offset, dtype=None):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def str_format(self, item):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def to_builtin_type(self, space, box):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def eq(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def ne(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def lt(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def le(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def gt(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def ge(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def logical_and(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def logical_or(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def logical_not(self, v):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    @str_binary_op
+    def logical_xor(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def bool(self, v):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+
 class VoidType(FlexibleType):
     T = lltype.Char
 
@@ -2161,6 +2215,9 @@ class RecordType(FlexibleType):
                 items_w = space.fixedview(w_item)
             elif isinstance(w_item, W_NDimArray) and w_item.is_scalar():
                 items_w = space.fixedview(w_item.get_scalar_value())
+            elif space.isinstance_w(w_item, space.w_list):
+                raise oefmt(space.w_TypeError,
+                            "expected a readable buffer object")
             else:
                 # XXX support initializing from readable buffers
                 items_w = [w_item] * len(dtype.fields)
