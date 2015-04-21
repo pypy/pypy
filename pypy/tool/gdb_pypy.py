@@ -99,6 +99,8 @@ class RPyType(Command):
                 obj = obj.dereference()
             hdr = lookup(obj, '_gcheader')
             tid = hdr['h_tid']
+            if tid == -42:      # forwarded?
+                return 'Forwarded'
             if sys.maxsize < 2**32:
                 offset = tid & 0xFFFF     # 32bit
             else:
