@@ -19,7 +19,8 @@ class FakeCPU(object):
     ts = typesystem.llhelper
     def __init__(self):
         self.seen = []
-    def compile_loop(self, inputargs, operations, token, log=True, name='',
+    def compile_loop(self, inputargs, operations, token, jd_id=0,
+                     unique_id=0, log=True, name='',
                      logger=None):
         token.compiled_loop_token = self.Storage()
         self.seen.append((inputargs, operations, token))
@@ -37,6 +38,9 @@ class FakeState(object):
 
     def attach_unoptimized_bridge_from_interp(*args):
         pass
+
+    def get_unique_id(*args):
+        return 0
 
     def get_location_str(self, args):
         return 'location'
@@ -59,6 +63,7 @@ class FakeMetaInterpStaticData(object):
 class FakeMetaInterp:
     call_pure_results = {}
     class jitdriver_sd:
+        index = 0
         warmstate = FakeState()
         virtualizable_info = None
 
