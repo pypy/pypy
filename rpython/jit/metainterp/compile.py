@@ -307,8 +307,9 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(jd_id, unique_id, inputargs,
+    return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
+                                          jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
                                           logger=metainterp_sd.logger_ops)
 

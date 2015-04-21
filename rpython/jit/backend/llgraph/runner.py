@@ -245,8 +245,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, jd_id, unique_id, inputargs, operations, looptoken,
-                     log=True, name='', logger=None):
+    def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
+                     unique_id=0, log=True, name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
