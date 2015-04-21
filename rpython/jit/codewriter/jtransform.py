@@ -1972,7 +1972,10 @@ class Transformer(object):
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables
         vinfo = self.get_vinfo(op.args[0])
-        assert vinfo is not None
+        assert vinfo is not None, (
+            "%r is a class with _virtualizable_, but no jitdriver was found"
+            " with a 'virtualizable' argument naming a variable of that class"
+            % op.args[0].concretetype)
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
 
