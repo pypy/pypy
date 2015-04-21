@@ -26,9 +26,8 @@ static char *debug_prefix = NULL;
 static char *debug_filename = NULL;
 static char *debug_filename_with_fork = NULL;
 
-static void pypy_debug_open(void)
+static void _pypy_debug_open(char *filename)
 {
-  char *filename = getenv("PYPYLOG");
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');
@@ -75,6 +74,11 @@ static void pypy_debug_open(void)
     putenv("PYPYLOG=");    /* don't pass it to subprocesses */
 #endif
   debug_ready = 1;
+}
+
+static void pypy_debug_open(void)
+{
+    _pypy_debug_open(getenv("PYPYLOG"));
 }
 
 long pypy_debug_offset(void)

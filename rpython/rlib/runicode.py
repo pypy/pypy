@@ -4,6 +4,7 @@ from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import jit
 
 
 if rffi.sizeof(lltype.UniChar) == 4:
@@ -1053,10 +1054,12 @@ def unicode_encode_ucs1_helper(p, size, errors,
 
     return result.build()
 
+@specialize.arg_or_var(3)
 def unicode_encode_latin_1(p, size, errors, errorhandler=None):
     res = unicode_encode_ucs1_helper(p, size, errors, errorhandler, 256)
     return res
 
+@specialize.arg_or_var(3)
 def unicode_encode_ascii(p, size, errors, errorhandler=None):
     res = unicode_encode_ucs1_helper(p, size, errors, errorhandler, 128)
     return res

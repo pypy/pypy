@@ -1395,18 +1395,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.INT_real], PyObject)
-def PyLong_FromUnicode(space, u, length, base):
-    """Convert a sequence of Unicode digits to a Python long integer value.  The first
-    parameter, u, points to the first character of the Unicode string, length
-    gives the number of characters, and base is the radix for the conversion.  The
-    radix must be in the range [2, 36]; if it is out of range, ValueError
-    will be raised.
-
-    This function used an int for length. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyMapping_DelItemString(space, o, key):
     """Remove the mapping for object key from the object o. Return -1 on

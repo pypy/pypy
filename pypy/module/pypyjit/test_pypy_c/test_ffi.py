@@ -35,7 +35,7 @@ class Test__ffi(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i17 = force_token()
             setfield_gc(p0, i17, descr=<.* .*PyFrame.vable_token .*>)
-            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<Callf 8 ff EF=6>)
+            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<Callf 8 ff EF=7>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """ % pow_addr)
@@ -202,7 +202,7 @@ class Test__ffi(BaseTestPyPyC):
         assert loop.match_by_id('cfficall', """
             p96 = force_token()
             setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
-            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=7 OS=62>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """, ignore_ops=['guard_not_invalidated'])
@@ -266,7 +266,7 @@ class Test__ffi(BaseTestPyPyC):
         loop, = log.loops_by_id('cfficall')
         assert loop.match_by_id('cfficall', """
             ...
-            f1 = call_release_gil(..., descr=<Calli 4 ii EF=6 OS=62>)
+            f1 = call_release_gil(..., descr=<Calli 4 ii EF=7 OS=62>)
             ...
         """)
 
@@ -330,14 +330,14 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p165, ConstPtr(ptr70), descr=...)
         p166 = getfield_gc(p165, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .+>)
         guard_value(p166, ConstPtr(ptr72), descr=...)
-        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
+        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=5>)
         guard_no_exception(descr=...)
         i112 = int_signext(i160, 2)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
         --TICK--
-        i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
+        i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=5 OS=110>)
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)
         raw_store(i119, 4, i160, descr=<ArrayS 2>)

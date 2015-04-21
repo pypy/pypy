@@ -129,7 +129,8 @@ class DescrOperation(object):
     # This is meant to be a *mixin*.
 
     def is_data_descr(space, w_obj):
-        return space.lookup(w_obj, '__set__') is not None
+        return (space.lookup(w_obj, '__set__') is not None or
+                space.lookup(w_obj, '__delete__') is not None)
 
     def get_and_call_args(space, w_descr, w_obj, args):
         # a special case for performance and to avoid infinite recursion

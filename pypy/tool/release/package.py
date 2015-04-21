@@ -65,6 +65,12 @@ You can either install development headers package or
 add --without-{0} option to skip packaging binary CFFI extension.""".format(module)
             raise MissingDependenciesError(module)
 
+def pypy_runs(pypy_c, quiet=False):
+    kwds = {}
+    if quiet:
+        kwds['stderr'] = subprocess.PIPE
+    return subprocess.call([str(pypy_c), '-c', 'pass'], **kwds) == 0
+
 def create_package(basedir, options):
     retval = 0
     name = options.name
@@ -87,6 +93,8 @@ def create_package(basedir, options):
             ' Please compile pypy first, using translate.py,'
             ' or check that you gave the correct path'
             ' with --override_pypy_c' % pypy_c)
+    if not pypy_runs(pypy_c):
+        raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
         try:
             create_cffi_import_libraries(pypy_c, options)
@@ -100,6 +108,15 @@ def create_package(basedir, options):
     libpypy_name = 'libpypy-c.so' if not sys.platform.startswith('darwin') else 'libpypy-c.dylib'
     libpypy_c = pypy_c.new(basename=libpypy_name)
     if libpypy_c.check():
+        # check that this libpypy_c is really needed
+        os.rename(str(libpypy_c), str(libpypy_c) + '~')
+        try:
+            if pypy_runs(pypy_c, quiet=True):
+                raise Exception("It seems that %r runs without needing %r.  "
+                                "Please check and remove the latter" %
+                                (str(pypy_c), str(libpypy_c)))
+        finally:
+            os.rename(str(libpypy_c) + '~', str(libpypy_c))
         binaries.append((libpypy_c, libpypy_name))
     #
     builddir = options.builddir
