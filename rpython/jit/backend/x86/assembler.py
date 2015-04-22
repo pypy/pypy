@@ -2475,6 +2475,9 @@ class Assembler386(BaseAssembler):
         else:
             raise NotImplementedError
 
+    def genop_vec_int_signext(self, op):
+        pass
+
     # ________________________________________
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

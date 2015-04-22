@@ -351,7 +351,7 @@ class RegAlloc(BaseRegalloc):
     def loc(self, v):
         if v is None: # xxx kludgy
             return None
-        if v.type == FLOAT:
+        if v.type == FLOAT or v.type == VECTOR:
             return self.xrm.loc(v)
         return self.rm.loc(v)
 
@@ -1500,6 +1500,14 @@ class RegAlloc(BaseRegalloc):
         loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [loc0, loc1, itemsize], loc0)
+
+    def consider_vec_int_signext(self, op):
+        # there is not much we can do in this case. arithmetic is
+        # done on the vector register, if there is a wrap around,
+        # it is lost, because the register does not have enough bits
+        # to save it.
+        argloc = self.loc(op.getarg(0))
+        self.force_allocate_reg(op.result, selected_reg=argloc)
 
     def consider_guard_early_exit(self, op):
         pass
