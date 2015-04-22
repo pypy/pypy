@@ -134,7 +134,8 @@ class TraceWithIds(Function):
 
     def _ops_for_chunk(self, chunk, include_guard_not_invalidated):
         for op in chunk.operations:
-            if op.name != 'debug_merge_point' and \
+            if op.name not in ('debug_merge_point', 'enter_portal_frame',
+                               'leave_portal_frame') and \
                 (op.name != 'guard_not_invalidated' or include_guard_not_invalidated):
                 yield op
 
