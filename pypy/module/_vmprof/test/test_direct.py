@@ -29,7 +29,7 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 {
     long c = *current_pos_addr;
     if (c >= 5)
-        return 0;
+        return -1;
     *current_pos_addr = c + 1;
     return *((long*)codemap_raw + c);
 }
@@ -57,10 +57,11 @@ class TestDirect(object):
         lib.buffer[2] = 12
         lib.buffer[3] = 16
         lib.buffer[4] = 0
-        buf = ffi.new("long[5]", [0] * 5)
+        buf = ffi.new("long[10]", [0] * 10)
         result = ffi.cast("void**", buf)
         res = lib.vmprof_write_header_for_jit_addr(result, 0, ffi.NULL, 100)
-        assert res == 3
-        assert buf[0] == 16
-        assert buf[1] == 12
-        assert buf[2] == 8
+        assert res == 6
+        assert buf[0] == 2
+        assert buf[1] == 16
+        assert buf[2] == 12
+        assert buf[3] == 8
