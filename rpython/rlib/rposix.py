@@ -13,7 +13,7 @@ WIN32 = os.name == "nt"
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
-        includes=['sys/stat.h', 
+        includes=['sys/stat.h',
                   'unistd.h',
                   'fcntl.h'],
     )
