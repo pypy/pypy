@@ -117,14 +117,15 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         b = np.object_(3)
         b2 = np.object_(3.0)
         c = np.object_([4, 5])
-        d = np.object_([None, {}, []])
-        print type(a)
+        d = np.array([None])[0]
         assert a is None
         assert type(b) is int
         assert type(b2) is float
         assert type(c) is np.ndarray
         assert c.dtype == object
-        assert d.dtype == object
+        assert type(d) is type(None)
+        e = np.object_([None, {}, []])
+        assert e.dtype == object
 
     def test_mem_array_creation_invalid_specification(self):
         # while not specifically testing object dtype, this
