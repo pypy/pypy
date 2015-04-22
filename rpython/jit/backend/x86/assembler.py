@@ -2415,15 +2415,67 @@ class Assembler386(BaseAssembler):
             i += current
 
     # vector operations
-    def genop_vec_raw_load(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
-        assert isinstance(size_loc, ImmedLoc)
+    # ________________________________________
+
+    def genop_vec_getarrayitem_raw(self, op, arglocs, resloc):
+        # considers item scale (raw_load does not)
+        base_loc, ofs_loc, size_loc, ofs, sign, integer, aligned = arglocs
         scale = get_scale(size_loc.value)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
-        assert False
-        #self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
+        self._vec_load(resloc, src_addr, integer, aligned)
 
+    def genop_vec_raw_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, ofs, sign, integer, aligned = arglocs
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+        self._vec_load(resloc, src_addr, integer, aligned)
+
+    def _vec_load(self, resloc, src_addr, integer, aligned):
+        if integer:
+            if aligned:
+                raise NotImplementedError
+                self.mc.MOVDQA(resloc, src_addr)
+            else:
+                self.mc.MOVDQU(resloc, src_addr)
+        else:
+            if size == 8: # TODO is there a constant for double floating point size?
+                self.mc.MOVSD(resloc, source_addr)
+            else:
+                raise NotImplementedError
+
+    def genop_discard_vec_setarrayitem_raw(self, op, arglocs):
+        # considers item scale (raw_store does not)
+        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer, aligned = arglocs
+        scale = get_scale(size_loc.value)
+        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
+        self._vec_store(dest_loc, value_loc, integer, aligned)
+
+    def genop_discard_vec_raw_store(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, size_loc, baseofs, integer, aligned = arglocs
+        dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, 0)
+        self._vec_store(dest_loc, value_loc, integer, aligned)
+
+    def _vec_store(self, dest_loc, value_loc, integer, aligned):
+        if integer:
+            if aligned:
+                raise NotImplementedError
+            else:
+                self.mc.MOVDQU(dest_loc, value_loc)
+        else:
+            if size == 8: # TODO is there a constant for double floating point size?
+                self.mc.MOVSD(dest_loc, value_loc)
+            else:
+                raise NotImplementedError
+
+    def genop_vec_int_add(self, op, arglocs, resloc):
+        loc0, loc1, itemsize = arglocs
+        if itemsize == 4:
+            self.mc.PADDD(loc0, loc1)
+        elif itemsize == 8:
+            self.mc.PADDQ(loc0, loc1)
+        else:
+            raise NotImplementedError
+
+    # ________________________________________
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST

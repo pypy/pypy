@@ -31,6 +31,7 @@ class VectorizeTests:
             va = alloc_raw_storage(bc, zero=True)
             vb = alloc_raw_storage(bc, zero=True)
             vc = alloc_raw_storage(bc, zero=True)
+            x = 1
             for i in range(d):
                 j = i*rffi.sizeof(rffi.SIGNED)
                 raw_storage_setitem(va, j, rffi.cast(rffi.SIGNED,i))
@@ -57,29 +58,7 @@ class VectorizeTests:
         if i > 3:
             self.check_trace_count(1)
 
-    def test_guard(self):
-        py.test.skip('abc')
-        myjitdriver = JitDriver(greens = [],
-                                reds = ['a','b','c'],
-                                vectorize=True)
-        def f(a,c):
-            b = 0
-            while b < c:
-                myjitdriver.can_enter_jit(a=a, b=b, c=c)
-                myjitdriver.jit_merge_point(a=a, b=b, c=c)
-
-                if a:
-                    a = not a
-                b += 1
-
-            return 42
-
-        i = 32
-        res = self.meta_interp(f, [True,i])
-        assert res == 42
-        self.check_trace_count(1)
-
-    @py.test.mark.parametrize('i',[1,2,3,8,17,128,500])
+    @py.test.mark.parametrize('i',[1,2,3,8,17,128,500,501,502,1300])
     def test_vectorize_array_get_set(self,i):
         myjitdriver = JitDriver(greens = [],
                                 reds = ['i','d','va','vb','vc'],

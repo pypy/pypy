@@ -177,7 +177,7 @@ class RegAlloc(BaseRegalloc):
         return self.fm.get_frame_depth()
 
     def possibly_free_var(self, var):
-        if var.type == FLOAT:
+        if var.type == FLOAT or var.type == VECTOR:
             self.xrm.possibly_free_var(var)
         else:
             self.rm.possibly_free_var(var)
@@ -197,7 +197,7 @@ class RegAlloc(BaseRegalloc):
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
-        if var.type == FLOAT:
+        if var.type == FLOAT or var.type == VECTOR:
             if isinstance(var, ConstFloat):
                 return FloatImmedLoc(var.getfloatstorage())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
@@ -1458,21 +1458,53 @@ class RegAlloc(BaseRegalloc):
             self.rm.possibly_free_var(dstaddr_box)
 
     # vector operations
-    def consider_vec_raw_load(self, op):
-        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+    # ________________________________________
+
+    def consider_vec_getarrayitem_raw(self, op):
+        descr = op.getdescr()
+        assert not descr.is_array_of_pointers() and \
+               not descr.is_array_of_structs()
+        itemsize, ofs, sign = unpack_arraydescr(descr)
+        integer = not descr.is_array_of_floats()
+        aligned = False
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         result_loc = self.force_allocate_reg(op.result)
-        if sign:
-            sign_loc = imm1
-        else:
-            sign_loc = imm0
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          sign_loc], result_loc)
+                          sign, integer, aligned], result_loc)
+
+    consider_vec_raw_load = consider_vec_getarrayitem_raw
+
+    def consider_vec_setarrayitem_raw(self, op):
+        descr = op.getdescr()
+        assert not descr.is_array_of_pointers() and \
+               not descr.is_array_of_structs()
+        itemsize, ofs, sign = unpack_arraydescr(descr)
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+
+        integer = not descr.is_array_of_floats()
+        aligned = False
+        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
+                                 imm(itemsize), imm(ofs), integer, aligned])
+
+    consider_vec_raw_store = consider_vec_setarrayitem_raw
+
+    def consider_vec_int_add(self, op):
+        count = op.getarg(2)
+        itemsize = 16 // count.value
+        args = op.getarglist()
+        loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
+        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        self.perform(op, [loc0, loc1, itemsize], loc0)
 
     def consider_guard_early_exit(self, op):
         pass
+
+    # ________________________________________
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

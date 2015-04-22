@@ -656,6 +656,7 @@ class LocationCodeBuilder(object):
 
     MOVSD = _binaryop('MOVSD')
     MOVAPD = _binaryop('MOVAPD')
+    MOVDQU = _binaryop('MOVDQU')
     ADDSD = _binaryop('ADDSD')
     ADDPD = _binaryop('ADDPD')
     SUBSD = _binaryop('SUBSD')
@@ -673,6 +674,7 @@ class LocationCodeBuilder(object):
     XORPD = _binaryop('XORPD')
 
     PADDQ = _binaryop('PADDQ')
+    PADDD = _binaryop('PADDD')
     PSUBQ = _binaryop('PSUBQ')
     PAND  = _binaryop('PAND')
     POR   = _binaryop('POR')
