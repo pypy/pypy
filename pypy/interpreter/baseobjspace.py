@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction)
+    UserDelAction, CodeUniqueIds)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
@@ -388,6 +388,7 @@ class ObjSpace(object):
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
+        self.code_unique_ids = CodeUniqueIds()
         self._code_of_sys_exc_info = None
 
         # can be overridden to a subclass
@@ -667,15 +668,15 @@ class ObjSpace(object):
             return ec
 
     def register_code_callback(self, callback):
-        ec = self.getexecutioncontext()
-        ec._code_callback = callback
+        cui = self.code_unique_ids
+        cui.code_callback = callback
 
     def register_code_object(self, pycode):
-        ec = self.getexecutioncontext()
-        if ec._code_callback is None:
+        cui = self.code_unique_ids
+        if cui.code_callback is None:
             return
-        ec._code_callback(self, pycode)
-    
+        cui.code_callback(self, pycode)
+
     def _freeze_(self):
         return True
 

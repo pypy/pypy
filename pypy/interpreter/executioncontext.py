@@ -2,7 +2,6 @@ import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
 
 TICK_COUNTER_STEP = 100
 
@@ -34,16 +33,6 @@ class ExecutionContext(object):
         self.profilefunc = None
         self.w_profilefuncarg = None
         self.thread_disappeared = False   # might be set to True after os.fork()
-
-        if sys.maxint == 2147483647:
-            self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
-        else:
-            if we_are_translated():
-                self._code_unique_id = 0x7000000000000000
-            else:
-                self._code_unique_id = 0x7700000000000000
-                # should be enough code objects
-        self._code_callback = None
 
     @staticmethod
     def _mark_thread_disappeared(space):
@@ -590,3 +579,11 @@ class UserDelAction(AsyncAction):
         # there is no list of length n: if n is large, then the GC
         # will run several times while walking the list, but it will
         # see lower and lower memory usage, with no lower bound of n.
+
+class CodeUniqueIds(object):
+    def __init__(self):
+        if sys.maxint == 2147483647:
+            self.code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
+        else:
+            self.code_unique_id = 0x7000000000000000
+        self.code_callback = None

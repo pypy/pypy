@@ -127,9 +127,9 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-        ec = self.space.getexecutioncontext()
-        self._unique_id = ec._code_unique_id
-        ec._code_unique_id += 4 # so we have two bits that we can mark stuff
+        cui = self.space.code_unique_ids
+        self._unique_id = cui.code_unique_id
+        cui.code_unique_id += 4  # so we have two bits that we can mark stuff
         # with
 
     def _get_full_name(self):
