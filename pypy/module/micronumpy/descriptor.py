@@ -545,6 +545,8 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
                        space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size)
 
+    if space.isinstance_w(w_dtype, space.w_unicode):
+        w_dtype = space.wrap(space.str_w(w_dtype)) # may raise if invalid
     if space.is_none(w_dtype):
         return cache.w_float64dtype
     elif space.isinstance_w(w_dtype, w_subtype):
