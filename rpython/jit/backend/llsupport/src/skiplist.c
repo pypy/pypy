@@ -1,5 +1,25 @@
 #include <stdlib.h>
+#if defined _MSC_VER
+ #if _MSC_VER < 1600
+  #include <intrin.h>
+  int __sync_lock_test_and_set(int * i, int j)
+  {
+    return _interlockedbittestandreset(i, j);
+  }
+  int __sync_lock_release(int *i)
+  {
+    return _interlockedbittestandreset(i, 0);
+  }
+  #ifdef _WIN32
+   typedef unsigned int uintptr_t;
+  #else
+   typedef usigned long uintptr_t;
+  #endif
+ #endif
+#else
 #include <stdint.h>
+#endif
+
 
 #define HAS_SKIPLIST
 #define SKIPLIST_HEIGHT   8

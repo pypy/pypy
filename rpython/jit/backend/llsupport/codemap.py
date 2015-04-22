@@ -26,7 +26,16 @@ INT_LIST_PTR = rffi.CArrayPtr(lltype.Signed)
 srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 eci = ExternalCompilationInfo(post_include_bits=["""
+#if defined _MSC_VER && _MSC_VER < 1600
+#ifdef _WIN32
+typedef unsigned int uintptr_t;
+#else
+typedef usigned long uintptr_t;
+#endif
+#else
 #include <stdint.h>
+#endif
+
 RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
                                      unsigned int machine_code_size,
                                      long *bytecode_info,
