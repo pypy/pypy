@@ -473,11 +473,13 @@ class AppTestDtypes(BaseAppTestDtypes):
         class O(object):
             pass
         for o in [object, O]:
-            if '__pypy__' not in sys.builtin_module_names:
+            print np.dtype(o).byteorder
+            if self.ptr_size == 4:
+                assert np.dtype(o).str == '|O4'
+            elif self.ptr_size == 8:
                 assert np.dtype(o).str == '|O8'
             else:
-                exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
+                assert False,'self._ptr_size unknown'
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -1349,15 +1351,4 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
 
-class AppTestObjectDtypes(BaseNumpyAppTest):
-    def test_scalar_from_object(self):
-        from numpy import array
-        import sys
-        class Polynomial(object):
-            pass
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(NotImplementedError, array, Polynomial())
-            assert exc.value.message.find('unable to create dtype from objects') >= 0
-        else:
-            a = array(Polynomial())
-            assert a.shape == ()
+

@@ -3,8 +3,9 @@ import math
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from rpython.rlib import clibffi, jit, rfloat, rcomplex
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
     most_neg_value_of, LONG_BIT
 from rpython.rlib.rawstorage import (alloc_raw_storage,
@@ -14,10 +15,12 @@ from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, unpack_float,
                                        pack_float80, unpack_float80)
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 from rpython.rlib.rstruct.runpack import runpack
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref,\
+     cast_gcref_to_instance
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes
-from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage
+from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage, V_OBJECTSTORE
 from pypy.module.micronumpy.strides import calc_strides
 
 degToRad = math.pi / 180.0
@@ -109,10 +112,12 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _immutable_fields_ = ['native']
+    _immutable_fields_ = ['native', 'space']
 
-    def __init__(self, native=True):
+    def __init__(self, space, native=True):
+        assert isinstance(space, ObjSpace)
         self.native = native
+        self.space = space
 
     def __repr__(self):
         return self.__class__.__name__
@@ -191,7 +196,7 @@ class Primitive(object):
         with arr as storage:
             self._write(storage, i, offset, self.unbox(box))
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
@@ -306,7 +311,7 @@ class Primitive(object):
 
     @raw_unary_op
     def rint(self, v):
-        float64 = Float64()
+        float64 = Float64(self.space)
         return float64.rint(float64.box(v))
 
 class Bool(BaseType, Primitive):
@@ -399,7 +404,7 @@ class Bool(BaseType, Primitive):
     def round(self, v, decimals=0):
         if decimals != 0:
             return v
-        return Float64().box(self.unbox(v))
+        return Float64(self.space).box(self.unbox(v))
 
 class Integer(Primitive):
     _mixin_ = True
@@ -444,7 +449,7 @@ class Integer(Primitive):
                 self.T is rffi.LONG or self.T is rffi.LONGLONG):
             if v2 == -1 and v1 == self.for_computation(most_neg_value_of(self.T)):
                 return self.box(0)
-        return self.box(v1 // v2)
+        return self.box(v1 / v2)
 
     @simple_binary_op
     def mod(self, v1, v2):
@@ -1152,7 +1157,7 @@ class ComplexFloating(object):
         with arr as storage:
             self._write(storage, i, offset, self.unbox(box))
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value)
@@ -1253,25 +1258,25 @@ class ComplexFloating(object):
     def ge(self, v1, v2):
         return self._lt(v2, v1) or self._eq(v2, v1)
 
-    def _bool(self, v):
+    def _cbool(self, v):
         return bool(v[0]) or bool(v[1])
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return self._bool(v1) and self._bool(v2)
+        return self._cbool(v1) and self._cbool(v2)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return self._bool(v1) or self._bool(v2)
+        return self._cbool(v1) or self._cbool(v2)
 
     @raw_unary_op
     def logical_not(self, v):
-        return not self._bool(v)
+        return not self._cbool(v)
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        a = self._bool(v1)
-        b = self._bool(v2)
+        a = self._cbool(v1)
+        b = self._cbool(v2)
         return (not b and a) or (not a and b)
 
     def min(self, v1, v2):
@@ -1629,6 +1634,283 @@ elif boxes.long_double_size in (12, 16):
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
 
+_all_objs_for_tests = [] # for tests
+
+class ObjectType(Primitive, BaseType):
+    T = lltype.Signed
+    BoxType = boxes.W_ObjectBox
+
+    def get_element_size(self):
+        return rffi.sizeof(lltype.Signed)
+
+    def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, boxes.W_ObjectBox):
+            return w_item
+        return boxes.W_ObjectBox(w_item)
+
+    def coerce_subtype(self, space, w_subtype, w_item):
+        # return the item itself
+        return self.unbox(self.box(w_item))
+
+    def store(self, arr, i, offset, box):
+        if arr.gcstruct is V_OBJECTSTORE:
+            raise oefmt(self.space.w_NotImplementedError,
+                "cannot store object in array with no gc hook")
+        self._write(arr.storage, i, offset, self.unbox(box),
+                    arr.gcstruct)
+
+    def read(self, arr, i, offset, dtype=None):
+        return self.box(self._read(arr.storage, i, offset))
+
+    def byteswap(self, w_v):
+        return w_v
+
+    @jit.dont_look_inside
+    def _write(self, storage, i, offset, w_obj, gcstruct):
+        # no GC anywhere in this function!
+        if we_are_translated():
+            from rpython.rlib import rgc
+            rgc.ll_writebarrier(gcstruct)
+            value = rffi.cast(lltype.Signed, cast_instance_to_gcref(w_obj))
+        else:
+            value = len(_all_objs_for_tests)
+            _all_objs_for_tests.append(w_obj)
+        raw_storage_setitem_unaligned(storage, i + offset, value)
+
+    @jit.dont_look_inside
+    def _read(self, storage, i, offset):
+        res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
+        if we_are_translated():
+            gcref = rffi.cast(llmemory.GCREF, res)
+            w_obj = cast_gcref_to_instance(W_Root, gcref)
+        else:
+            w_obj = _all_objs_for_tests[res]
+        return w_obj
+
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+        value = self.unbox(box)
+        for i in xrange(start, stop, width):
+            self._write(storage, i, offset, value, gcstruct)
+
+    def unbox(self, box):
+        if isinstance(box, self.BoxType):
+            return box.w_obj
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "object dtype cannot unbox %s", str(box))
+            
+    @specialize.argtype(1)
+    def box(self, w_obj):
+        if isinstance(w_obj, W_Root):
+            pass
+        elif isinstance(w_obj, bool):
+            w_obj = self.space.newbool(w_obj)
+        elif isinstance(w_obj, int):
+            w_obj = self.space.newint(w_obj)
+        elif isinstance(w_obj, lltype.Number):
+            w_obj = self.space.newint(w_obj)
+        elif isinstance(w_obj, float):
+            w_obj = self.space.newfloat(w_obj)
+        elif w_obj is None:
+            w_obj = self.space.w_None
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "cannot create object array/scalar from lltype")
+        return self.BoxType(w_obj)
+
+    @specialize.argtype(1, 2)
+    def box_complex(self, real, imag):
+        if isinstance(real, rffi.r_singlefloat):
+            real = rffi.cast(rffi.DOUBLE, real)
+        if isinstance(imag, rffi.r_singlefloat):
+            imag = rffi.cast(rffi.DOUBLE, imag)
+        w_obj = self.space.newcomplex(real, imag)
+        return self.BoxType(w_obj)
+
+    def str_format(self, box):
+        return self.space.str_w(self.space.repr(self.unbox(box)))
+
+    def runpack_str(self, space, s):
+        raise oefmt(space.w_NotImplementedError,
+                    "fromstring not implemented for object type")
+
+    def to_builtin_type(self, space, box):
+        assert isinstance(box, self.BoxType)
+        return box.w_obj
+
+    @staticmethod
+    def for_computation(v):
+        return v
+
+    @raw_binary_op
+    def eq(self, v1, v2):
+        return self.space.eq_w(v1, v2)
+
+    @simple_binary_op
+    def max(self, v1, v2):
+        if self.space.is_true(self.space.ge(v1, v2)):
+            return v1
+        return v2
+
+    @simple_binary_op
+    def min(self, v1, v2):
+        if self.space.is_true(self.space.le(v1, v2)):
+            return v1
+        return v2
+
+    @raw_unary_op
+    def bool(self,v):
+        return self._obool(v)
+
+    def _obool(self, v):
+        if self.space.is_true(v):
+            return True
+        return False
+
+    @raw_binary_op
+    def logical_and(self, v1, v2):
+        if self._obool(v1):
+            return self.space.bool_w(v2)
+        return self.space.bool_w(v1)
+
+    @raw_binary_op
+    def logical_or(self, v1, v2):
+        if self._obool(v1):
+            return self.space.bool_w(v1)
+        return self.space.bool_w(v2)
+
+    @raw_unary_op
+    def logical_not(self, v):
+        return not self._obool(v)
+
+    @raw_binary_op
+    def logical_xor(self, v1, v2):
+        a = self._obool(v1)
+        b = self._obool(v2)
+        return (not b and a) or (not a and b)
+
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return self.space.and_(v1, v2)
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return self.space.or_(v1, v2)
+
+    @simple_binary_op
+    def bitwise_xor(self, v1, v2):
+        return self.space.xor(v1, v2)
+
+    @simple_binary_op
+    def pow(self, v1, v2):
+        return self.space.pow(v1, v2, self.space.wrap(1))
+
+    @simple_unary_op
+    def reciprocal(self, v1):
+        return self.space.div(self.space.wrap(1.0), v1)
+
+    @simple_unary_op
+    def sign(self, v):
+        zero = self.space.wrap(0)
+        one = self.space.wrap(1)
+        m_one = self.space.wrap(-1)
+        if self.space.is_true(self.space.gt(v, zero)):
+            return one
+        elif self.space.is_true(self.space.lt(v, zero)):
+            return m_one
+        else:
+            return zero
+
+    @simple_unary_op
+    def real(self, v):
+        return v
+
+    @simple_unary_op
+    def imag(self, v):
+        return 0
+
+    @simple_unary_op
+    def square(self, v):
+        return self.space.mul(v, v)
+
+    @raw_binary_op
+    def le(self, v1, v2):
+        return self.space.bool_w(self.space.le(v1, v2))
+
+    @raw_binary_op
+    def ge(self, v1, v2):
+        return self.space.bool_w(self.space.ge(v1, v2))
+
+    @raw_binary_op
+    def lt(self, v1, v2):
+        return self.space.bool_w(self.space.lt(v1, v2))
+
+    @raw_binary_op
+    def gt(self, v1, v2):
+        return self.space.bool_w(self.space.gt(v1, v2))
+
+    @raw_binary_op
+    def ne(self, v1, v2):
+        return self.space.bool_w(self.space.ne(v1, v2))
+
+def add_attributeerr_op(cls, op):
+    def func(self, *args):
+        raise oefmt(self.space.w_AttributeError,
+            "%s", op)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_unsupported_op(cls, op):
+    def func(self, *args):
+        raise oefmt(self.space.w_TypeError,
+            "ufunc '%s' not supported for input types", op)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_unary_op(cls, op, method):
+    @simple_unary_op
+    def func(self, w_v):
+        space = self.space
+        w_impl = space.lookup(w_v, method)
+        if w_impl is None:
+            raise oefmt(space.w_AttributeError, 'unknown op "%s" on object' % op)
+        return space.get_and_call_function(w_impl, w_v)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_space_unary_op(cls, op):
+    @simple_unary_op
+    def func(self, v):
+        return getattr(self.space, op)(v)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+def add_space_binary_op(cls, op):
+    @simple_binary_op
+    def func(self, v1, v2):
+        return getattr(self.space, op)(v1, v2)
+    func.__name__ = 'object_' + op
+    setattr(cls, op, func)
+
+for op in ('copysign', 'isfinite', 'isinf', 'isnan', 'logaddexp', 'logaddexp2',
+           'signbit'):
+    add_unsupported_op(ObjectType, op)
+for op in ('arctan2', 'arccos', 'arccosh', 'arcsin', 'arcsinh', 'arctan',
+           'arctanh', 'ceil', 'floor', 'cos', 'sin', 'tan', 'cosh', 'sinh',
+           'tanh', 'radians', 'degrees', 'exp','exp2', 'expm1', 'fabs',
+           'log', 'log10', 'log1p', 'log2', 'sqrt', 'trunc'):
+    add_attributeerr_op(ObjectType, op)
+for op in ('abs', 'neg', 'pos', 'invert'):
+    add_space_unary_op(ObjectType, op)
+for op, method in (('conj', 'descr_conjugate'), ('rint', 'descr_rint')):
+    add_unary_op(ObjectType, op, method)
+for op in ('add', 'floordiv', 'div', 'mod', 'mul', 'sub', 'lshift', 'rshift'):
+    add_space_binary_op(ObjectType, op)
+
+ObjectType.fmax = ObjectType.max
+ObjectType.fmin = ObjectType.min
+ObjectType.fmod = ObjectType.mod
+
 class FlexibleType(BaseType):
     def get_element_size(self):
         return rffi.sizeof(self.T)
@@ -1758,7 +2040,7 @@ class StringType(FlexibleType):
     def bool(self, v):
         return bool(self.to_str(v))
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
 
@@ -1774,6 +2056,57 @@ class UnicodeType(FlexibleType):
             return w_item
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "coerce (probably from set_item) not implemented for unicode type"))
+
+    def store(self, arr, i, offset, box):
+        assert isinstance(box, boxes.W_UnicodeBox)
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def read(self, arr, i, offset, dtype=None):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def str_format(self, item):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def to_builtin_type(self, space, box):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def eq(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def ne(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def lt(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def le(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def gt(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def ge(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def logical_and(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def logical_or(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def logical_not(self, v):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    @str_binary_op
+    def logical_xor(self, v1, v2):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def bool(self, v):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+
 
 class VoidType(FlexibleType):
     T = lltype.Char
@@ -1882,6 +2215,9 @@ class RecordType(FlexibleType):
                 items_w = space.fixedview(w_item)
             elif isinstance(w_item, W_NDimArray) and w_item.is_scalar():
                 items_w = space.fixedview(w_item.get_scalar_value())
+            elif space.isinstance_w(w_item, space.w_list):
+                raise oefmt(space.w_TypeError,
+                            "expected a readable buffer object")
             else:
                 # XXX support initializing from readable buffers
                 items_w = [w_item] * len(dtype.fields)
@@ -1913,7 +2249,7 @@ class RecordType(FlexibleType):
             for k in range(size):
                 storage[k + i + ofs] = box_storage[k + box.ofs]
 
-    def fill(self, storage, width, box, start, stop, offset):
+    def fill(self, storage, width, box, start, stop, offset, gcstruct):
         assert isinstance(box, boxes.W_VoidBox)
         assert width == box.dtype.elsize
         for i in xrange(start, stop, width):

@@ -17,6 +17,7 @@ class MockDtype(object):
     def __init__(self):
         self.base = self
         self.elsize = 1
+        self.num = 0
 
 
 def create_slice(space, a, chunks):
@@ -2182,7 +2183,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.dtype == 'bool'
 
         a = arange(6, dtype='f4').reshape(2,3)
-        b = a.astype('i4')
+        b = a.T.astype('i4')
+        assert (a.T.strides == b.strides)
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
@@ -3150,11 +3152,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[35] == 200
         b[[slice(25, 30)]] = range(5)
         assert all(a[:5] == range(5))
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            raises(TypeError, 'b[[[slice(25, 125)]]]')
-        else:
-            raises(NotImplementedError, 'b[[[slice(25, 125)]]]')
+        raises(IndexError, 'b[[[slice(25, 125)]]]')
 
     def test_cumsum(self):
         from numpy import arange

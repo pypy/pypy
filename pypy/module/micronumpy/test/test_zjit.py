@@ -9,6 +9,7 @@ from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
 
+py.test.skip('move these to pypyjit/test_pypy_c/test_micronumpy')
 
 class TestNumpyJit(LLJitMixin):
     graph = None
