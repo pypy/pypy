@@ -484,13 +484,13 @@ def _mk_w_return_val(method_name):
 def _chtype(ch):
     return int(ffi.cast("chtype", ch))
 
-def _texttype(text):
-    if isinstance(text, str):
+def _bytestype(text):
+    if isinstance(text, bytes):
         return text
-    elif isinstance(text, unicode):
-        return str(text)   # default encoding
+    elif isinstance(text, str):
+        return text.encode()
     else:
-        raise TypeError("str or unicode expected, got a '%s' object"
+        raise TypeError("bytes or str expected, got a '%s' object"
                         % (type(text).__name__,))
 
 
@@ -606,7 +606,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def addstr(self, y, x, text, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -620,7 +620,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def addnstr(self, y, x, text, n, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -799,7 +799,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def insstr(self, y, x, text, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -813,7 +813,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def insnstr(self, y, x, text, n, attr=None):
-        text = _texttype(text)
+        text = _bytestype(text)
         if attr is not None:
             attr_old = lib.getattrs(self._win)
             lib.wattrset(self._win, attr)
@@ -1221,7 +1221,7 @@ def pair_number(pairvalue):
 
 
 def putp(text):
-    text = _texttype(text)
+    text = _bytestype(text)
     return _check_ERR(lib.putp(text), "putp")
 
 
@@ -1347,17 +1347,17 @@ def start_color():
 
 def tigetflag(capname):
     _ensure_initialised_setupterm()
-    return lib.tigetflag(capname)
+    return lib.tigetflag(capname.encode())
 
 
 def tigetnum(capname):
     _ensure_initialised_setupterm()
-    return lib.tigetnum(capname)
+    return lib.tigetnum(capname.encode())
 
 
 def tigetstr(capname):
     _ensure_initialised_setupterm()
-    val = lib.tigetstr(capname)
+    val = lib.tigetstr(capname.encode())
     if int(ffi.cast("intptr_t", val)) in (0, -1):
         return None
     return ffi.string(val)
