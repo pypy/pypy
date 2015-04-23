@@ -218,6 +218,7 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_sort_objects(self):
         # test object array sorts.
+        skip('object type not supported yet')
         from numpy import empty
         try:
             a = empty((101,), dtype=object)
