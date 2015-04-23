@@ -302,7 +302,10 @@ def result_type(space, __args__):
 
 @unwrap_spec(casting=str)
 def can_cast(space, w_from, w_totype, casting='safe'):
-    return space.w_True
+    target = as_dtype(space, w_totype)
+    origin = as_dtype(space, w_from)  # XXX
+    return space.wrap(origin.can_cast_to(target))
+
 
 def as_dtype(space, w_arg):
     # roughly equivalent to CNumPy's PyArray_DescrConverter2

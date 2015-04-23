@@ -87,6 +87,9 @@ class W_Dtype(W_Root):
     def box_complex(self, real, imag):
         return self.itemtype.box_complex(real, imag)
 
+    def can_cast_to(self, other):
+        return True
+
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 
