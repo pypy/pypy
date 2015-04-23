@@ -224,7 +224,7 @@ class RegAlloc(BaseRegalloc):
     def load_xmm_aligned_16_bytes(self, var, forbidden_vars=[]):
         # Load 'var' in a register; but if it is a constant, we can return
         # a 16-bytes-aligned ConstFloatLoc.
-        if isinstance(var, Const):
+        if isinstance(var, ConstInt):
             return self.xrm.convert_to_imm_16bytes_align(var)
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
@@ -1464,7 +1464,7 @@ class RegAlloc(BaseRegalloc):
         descr = op.getdescr()
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
-        itemsize, ofs, sign = unpack_arraydescr(descr)
+        itemsize, ofs, _ = unpack_arraydescr(descr)
         integer = not descr.is_array_of_floats()
         aligned = False
         args = op.getarglist()
@@ -1472,7 +1472,7 @@ class RegAlloc(BaseRegalloc):
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         result_loc = self.force_allocate_reg(op.result)
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          sign, integer, aligned], result_loc)
+                          imm(integer), imm(aligned)], result_loc)
 
     consider_vec_raw_load = consider_vec_getarrayitem_raw
 
@@ -1480,7 +1480,7 @@ class RegAlloc(BaseRegalloc):
         descr = op.getdescr()
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
-        itemsize, ofs, sign = unpack_arraydescr(descr)
+        itemsize, ofs, _ = unpack_arraydescr(descr)
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
@@ -1489,17 +1489,18 @@ class RegAlloc(BaseRegalloc):
         integer = not descr.is_array_of_floats()
         aligned = False
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs), integer, aligned])
+                                 imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
 
     consider_vec_raw_store = consider_vec_setarrayitem_raw
 
     def consider_vec_int_add(self, op):
         count = op.getarg(2)
+        assert isinstance(count, ConstInt)
         itemsize = 16 // count.value
         args = op.getarglist()
         loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [loc0, loc1, itemsize], loc0)
+        self.perform(op, [loc0, loc1, imm(itemsize)], loc0)
 
     def consider_vec_int_signext(self, op):
         # there is not much we can do in this case. arithmetic is

@@ -48,18 +48,26 @@ def build_opt_chain(metainterp_sd, enable_opts):
 
     return optimizations, unroll
 
-def optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
+def optimize_trace(metainterp_sd, jitdriver_sd, loop, warmstate,
                    inline_short_preamble=True, start_state=None,
-                   export_state=True):
+                   export_state=True, try_disabling_unroll=False):
     """Optimize loop.operations to remove internal overheadish operations.
     """
 
     debug_start("jit-optimize")
+
+    enable_opts = warmstate.enable_opts
+    if try_disabling_unroll:
+        if 'unroll' not in enable_opts:
+            return None
+        enable_opts = enable_opts.copy()
+        del enable_opts['unroll']
+
     try:
         loop.logops = metainterp_sd.logger_noopt.log_loop(loop.inputargs,
                                                           loop.operations)
         optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
-        if jitdriver_sd.vectorize:
+        if warmstate.vectorize and jitdriver_sd.vectorize:
             optimize_vector(metainterp_sd, jitdriver_sd, loop,
                                    optimizations)
         elif unroll:

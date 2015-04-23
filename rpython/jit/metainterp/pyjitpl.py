@@ -2135,7 +2135,7 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         # can only emit early exit if liveness is present
         # TODO think of a better way later
-        if self.framestack[-1].jitcode.liveness.get(0):
+        if self.framestack[-1].jitcode.liveness.get(0, None):
             self.generate_guard(rop.GUARD_EARLY_EXIT)
         try:
             self.interpret()

@@ -115,13 +115,7 @@ def compile_loop(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
-
-    enable_opts = jitdriver_sd.warmstate.enable_opts
-    if try_disabling_unroll:
-        if 'unroll' not in enable_opts:
-            return None
-        enable_opts = enable_opts.copy()
-        del enable_opts['unroll']
+    warmstate = jitdriver_sd.warmstate
 
     jitcell_token = make_jitcell_token(jitdriver_sd)
     part = create_empty_loop(metainterp)
@@ -134,7 +128,8 @@ def compile_loop(metainterp, greenkey, start,
 
     try:
         start_state = optimize_trace(metainterp_sd, jitdriver_sd, part,
-                                     enable_opts, export_state=True)
+                                     warmstate, export_state=True,
+                                     try_disabling_unroll=try_disabling_unroll)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -161,8 +156,9 @@ def compile_loop(metainterp, greenkey, start,
         jumpargs = part.operations[-1].getarglist()
 
         try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-                           start_state=start_state, export_state=False)
+            optimize_trace(metainterp_sd, jitdriver_sd, part, warmstate,
+                           start_state=start_state, export_state=False,
+                           try_disabling_unroll=try_disabling_unroll)
         except InvalidLoop:
             return None
 
@@ -213,9 +209,9 @@ def compile_retrace(metainterp, greenkey, start,
     label = part.operations[0]
     orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
+    warmstate = jitdriver_sd.warmstate
     try:
-        optimize_trace(metainterp_sd, jitdriver_sd, part,
-                       jitdriver_sd.warmstate.enable_opts,
+        optimize_trace(metainterp_sd, jitdriver_sd, part, warmstate,
                        start_state=start_state, export_state=False)
     except InvalidLoop:
         # Fall back on jumping to preamble
@@ -225,8 +221,7 @@ def compile_retrace(metainterp, greenkey, start,
                           [ResOperation(rop.JUMP, inputargs[:],
                                         None, descr=loop_jitcell_token)]
         try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part,
-                           jitdriver_sd.warmstate.enable_opts,
+            optimize_trace(metainterp_sd, jitdriver_sd, part, warmstate,
                            inline_short_preamble=False, start_state=start_state,
                            export_state=False)
         except InvalidLoop:
@@ -847,8 +842,7 @@ def compile_trace(metainterp, resumekey):
     else:
         inline_short_preamble = True
     try:
-        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace,
-                               state.enable_opts,
+        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace, state,
                                inline_short_preamble, export_state=True)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
