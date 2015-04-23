@@ -310,3 +310,7 @@ def result_type(space, __args__):
                 space.call_function(space.gettypefor(descriptor.W_Dtype), w_arg))
         result = ufuncs.find_binop_result_dtype(space, result, dtype)
     return result
+
+@unwrap_spec(casting=str)
+def can_cast(space, w_from, w_totype, casting='safe'):
+    return space.w_True

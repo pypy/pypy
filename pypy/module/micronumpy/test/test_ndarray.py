@@ -1817,7 +1817,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         s[...] = 2
         v = s.view(x.__class__)
         assert (v == 2).all()
-    
+
     def test_tolist_scalar(self):
         from numpy import dtype
         int32 = dtype('int32').type
@@ -3973,3 +3973,80 @@ class AppTestPyPy(BaseNumpyAppTest):
         a = ndarray._from_shape_and_storage((2,), addr, int, sz,
                                            strides=[2 * base.strides[0]])
         assert a[1] == 3
+
+    def test_can_cast(self):
+        import numpy as np
+
+        assert np.can_cast(np.int32, np.int64)
+        assert np.can_cast(np.float64, complex)
+        assert not np.can_cast(np.complex64, float)
+
+        assert np.can_cast('i8', 'f8')
+        assert not np.can_cast('i8', 'f4')
+        assert np.can_cast('i4', 'S11')
+
+        assert np.can_cast('i8', 'i8', 'no')
+        assert not np.can_cast('<i8', '>i8', 'no')
+
+        assert np.can_cast('<i8', '>i8', 'equiv')
+        assert not np.can_cast('<i4', '>i8', 'equiv')
+
+        assert np.can_cast('<i4', '>i8', 'safe')
+        assert not np.can_cast('<i8', '>i4', 'safe')
+
+        assert np.can_cast('<i8', '>i4', 'same_kind')
+        assert not np.can_cast('<i8', '>u4', 'same_kind')
+
+        assert np.can_cast('<i8', '>u4', 'unsafe')
+
+        assert np.can_cast('bool', 'S5')
+        assert not np.can_cast('bool', 'S4')
+
+        assert np.can_cast('b', 'S4')
+        assert not np.can_cast('b', 'S3')
+
+        assert np.can_cast('u1', 'S3')
+        assert not np.can_cast('u1', 'S2')
+        assert np.can_cast('u2', 'S5')
+        assert not np.can_cast('u2', 'S4')
+        assert np.can_cast('u4', 'S10')
+        assert not np.can_cast('u4', 'S9')
+        assert np.can_cast('u8', 'S20')
+        assert not np.can_cast('u8', 'S19')
+
+        assert np.can_cast('i1', 'S4')
+        assert not np.can_cast('i1', 'S3')
+        assert np.can_cast('i2', 'S6')
+        assert not np.can_cast('i2', 'S5')
+        assert np.can_cast('i4', 'S11')
+        assert not np.can_cast('i4', 'S10')
+        assert np.can_cast('i8', 'S21')
+        assert not np.can_cast('i8', 'S20')
+
+        assert np.can_cast('bool', 'S5')
+        assert not np.can_cast('bool', 'S4')
+
+        assert np.can_cast('b', 'U4')
+        assert not np.can_cast('b', 'U3')
+
+        assert np.can_cast('u1', 'U3')
+        assert not np.can_cast('u1', 'U2')
+        assert np.can_cast('u2', 'U5')
+        assert not np.can_cast('u2', 'U4')
+        assert np.can_cast('u4', 'U10')
+        assert not np.can_cast('u4', 'U9')
+        assert np.can_cast('u8', 'U20')
+        assert not np.can_cast('u8', 'U19')
+
+        assert np.can_cast('i1', 'U4')
+        assert not np.can_cast('i1', 'U3')
+        assert np.can_cast('i2', 'U6')
+        assert not np.can_cast('i2', 'U5')
+        assert np.can_cast('i4', 'U11')
+        assert not np.can_cast('i4', 'U10')
+        assert np.can_cast('i8', 'U21')
+        assert not np.can_cast('i8', 'U20')
+
+        raises(TypeError, np.can_cast, 'i4', None)
+        raises(TypeError, np.can_cast, None, 'i4')
+

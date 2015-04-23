@@ -21,6 +21,7 @@ class MultiArrayModule(MixedModule):
         'count_nonzero': 'arrayops.count_nonzero',
         'dot': 'arrayops.dot',
         'result_type': 'arrayops.result_type',
+        'can_cast': 'arrayops.can_cast',
         'where': 'arrayops.where',
 
         'set_string_function': 'appbridge.set_string_function',
