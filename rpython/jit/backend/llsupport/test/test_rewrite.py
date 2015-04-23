@@ -1031,3 +1031,21 @@ class TestFramework(RewriteTests):
             guard_false(i1, descr=guarddescr) []
             jump()
         """)
+
+    def test_zero_ptr_field_before_getfield(self):
+        # This case may need to be fixed in the metainterp/optimizeopt
+        # already so that it no longer occurs for rewrite.py.  But anyway
+        # it's a good idea to make sure rewrite.py is correct on its own.
+        self.check_rewrite("""
+            []
+            p0 = new(descr=tdescr)
+            p1 = getfield_gc(p0, descr=tdescr)
+            jump(p1)
+        """, """
+            []
+            p0 = call_malloc_nursery(%(tdescr.size)d)
+            setfield_gc(p0, 5678, descr=tiddescr)
+            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            p1 = getfield_gc(p0, descr=tdescr)
+            jump(p1)
+        """)

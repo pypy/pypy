@@ -559,9 +559,11 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
 
     if space.is_none(w_dtype):
         return cache.w_float64dtype
-    elif space.isinstance_w(w_dtype, w_subtype):
+    if space.isinstance_w(w_dtype, w_subtype):
         return w_dtype
-    elif space.isinstance_w(w_dtype, space.w_str):
+    if space.isinstance_w(w_dtype, space.w_unicode):
+        w_dtype = space.wrap(space.str_w(w_dtype))  # may raise if invalid
+    if space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
         if _check_for_commastring(name):
             return dtype_from_spec(space, w_dtype)

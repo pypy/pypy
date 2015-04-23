@@ -58,6 +58,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert exc.value[0] == "there are no fields defined"
 
         assert dtype('int8').num == 1
+        assert dtype(u'int8').num == 1
         assert dtype('int8').name == 'int8'
         assert dtype('void').name == 'void'
         assert dtype(int).fields is None
