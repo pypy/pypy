@@ -12,14 +12,11 @@ class AppTestSorting(BaseNumpyAppTest):
             exp = sorted(range(len(exp)), key=exp.__getitem__)
             c = a.copy()
             res = a.argsort()
-            assert (res == exp).all(), '%r\n%r\n%r' % (a,res,exp)
+            assert (res == exp).all(), 'Failed sortng %r\na=%r\nres=%r\nexp=%r' % (dtype,a,res,exp)
             assert (a == c).all() # not modified
 
             a = arange(100, dtype=dtype)
             assert (a.argsort() == a).all()
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, 'arange(10,dtype="float16").argsort()')
 
     def test_argsort_ndim(self):
         from numpy import array
@@ -63,14 +60,13 @@ class AppTestSorting(BaseNumpyAppTest):
                       'i2', complex]:
             a = array([6, 4, -1, 3, 8, 3, 256+20, 100, 101], dtype=dtype)
             exp = sorted(list(a))
-            res = a.copy()
-            res.sort()
-            assert (res == exp).all(), '%r\n%r\n%r' % (a,res,exp)
+            a.sort()
+            assert (a == exp).all(), 'Failed sorting %r\n%r\n%r' % (dtype, a, exp)
 
             a = arange(100, dtype=dtype)
             c = a.copy()
             a.sort()
-            assert (a == c).all()
+            assert (a == c).all(), 'Failed sortng %r\na=%r\nc=%r' % (dtype,a,c)
 
     def test_sort_nonnative(self):
         from numpy import array
@@ -222,6 +218,7 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_sort_objects(self):
         # test object array sorts.
+        skip('object type not supported yet')
         from numpy import empty
         try:
             a = empty((101,), dtype=object)

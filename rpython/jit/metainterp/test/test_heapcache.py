@@ -22,10 +22,11 @@ class FakeEffectinfo(object):
     EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
-    EF_ELIDABLE_CAN_RAISE              = 3 #elidable function (but can raise)
-    EF_CAN_RAISE                       = 4 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
-    EF_RANDOM_EFFECTS                  = 6 #can do whatever
+    EF_ELIDABLE_OR_MEMORYERROR         = 3
+    EF_ELIDABLE_CAN_RAISE              = 4 #elidable function (but can raise)
+    EF_CAN_RAISE                       = 5 #normal function (can raise)
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 6 #can raise and force virtualizables
+    EF_RANDOM_EFFECTS                  = 7 #can do whatever
 
     OS_ARRAYCOPY = 0
 
@@ -600,7 +601,8 @@ class TestHeapCache(object):
             extraeffect = 5
             EF_LOOPINVARIANT = 1
             EF_ELIDABLE_CANNOT_RAISE = 2
-            EF_ELIDABLE_CAN_RAISE = 3
+            EF_ELIDABLE_OR_MEMORYERROR = 3
+            EF_ELIDABLE_CAN_RAISE = 4
         descr.get_extra_info = XTra
         h.invalidate_caches(rop.CALL, descr, [])
         assert h.is_unescaped(box1)

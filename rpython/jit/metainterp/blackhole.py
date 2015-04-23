@@ -1624,7 +1624,7 @@ def _run_forever(blackholeinterp, current_exc):
 
 def _handle_jitexception(blackholeinterp, exc):
     # See comments in _handle_jitexception_in_portal().
-    while not blackholeinterp.jitcode.is_portal:
+    while blackholeinterp.jitcode.jitdriver_sd is None:
         blackholeinterp.builder.release_interp(blackholeinterp)
         blackholeinterp = blackholeinterp.nextblackholeinterp
     if blackholeinterp.nextblackholeinterp is None:

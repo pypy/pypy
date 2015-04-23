@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 from rpython.flowspace.operation import op
 from rpython.flowspace.model import const, Constant
+from rpython.flowspace.argument import CallSpec
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
@@ -47,11 +48,35 @@ contains_SomeObject.can_only_throw = []
 
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
-    return annotator.annotation(func).call(simple_args([annotator.annotation(arg) for arg in args]))
+    return annotator.annotation(func).call(
+        simple_args([annotator.annotation(arg) for arg in args]))
+
+@op.call_args.register_transform(SomeObject)
+def transform_varargs(annotator, v_func, v_shape, *data_v):
+    callspec = CallSpec.fromshape(v_shape.value, list(data_v))
+    v_vararg = callspec.w_stararg
+    if callspec.w_stararg:
+        s_vararg = annotator.annotation(callspec.w_stararg)
+        if not isinstance(s_vararg, SomeTuple):
+            raise AnnotatorError(
+                "Calls like f(..., *arg) require 'arg' to be a tuple")
+        n_items = len(s_vararg.items)
+        ops = [op.getitem(v_vararg, const(i)) for i in range(n_items)]
+        new_args = callspec.arguments_w + [hlop.result for hlop in ops]
+        if callspec.keywords:
+            newspec = CallSpec(new_args, callspec.keywords)
+            shape, data_v = newspec.flatten()
+            call_op = op.call_args(v_func, const(shape), *data_v)
+        else:
+            call_op = op.simple_call(v_func, *new_args)
+        ops.append(call_op)
+        return ops
+
 
 @op.call_args.register(SomeObject)
-def call_args(annotator, func, *args):
-    return annotator.annotation(func).call(complex_args([annotator.annotation(arg) for arg in args]))
+def call_args(annotator, func, *args_v):
+    callspec = complex_args([annotator.annotation(v_arg) for v_arg in args_v])
+    return annotator.annotation(func).call(callspec)
 
 class __extend__(SomeObject):
 
@@ -476,12 +501,18 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.strip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_lstrip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.lstrip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_rstrip(self, chr=None):
+        if chr is None and isinstance(self, SomeUnicodeString):
+            raise AnnotatorError("unicode.rstrip() with no arg is not RPython")
         return self.basestringclass(no_nul=self.no_nul)
 
     def method_join(self, s_list):
@@ -722,7 +753,7 @@ def _find_property_meth(s_obj, attr, meth):
         if attr not in dct:
             continue
         obj = dct[attr]
-        if (not isinstance(obj, Constant) or 
+        if (not isinstance(obj, Constant) or
                 not isinstance(obj.value, property)):
             return
         result.append(getattr(obj.value, meth))

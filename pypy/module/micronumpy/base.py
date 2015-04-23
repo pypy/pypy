@@ -34,11 +34,13 @@ class W_NDimArray(W_NumpyObject):
 
     @staticmethod
     def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
-        from pypy.module.micronumpy import concrete
+        from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides, zero=zero)
+        if dtype == descriptor.get_dtype_cache(space).w_objectdtype:
+            impl.fill(space, boxes.W_ObjectBox(space.w_None))
         if w_instance:
             return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
@@ -123,7 +125,7 @@ class W_NDimArray(W_NumpyObject):
     def get_shape(self):
         return self.implementation.get_shape()
 
-    def get_dtype(self):
+    def get_dtype(self, space=None):
         return self.implementation.dtype
 
     def get_order(self):

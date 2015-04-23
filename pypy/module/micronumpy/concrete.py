@@ -1,11 +1,11 @@
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.micronumpy import support, loop
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from pypy.module.micronumpy import support, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException
 from pypy.module.micronumpy.iterators import ArrayIter
@@ -13,11 +13,13 @@ from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides)
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+from pypy.interpreter.baseobjspace import W_Root
 
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
-                          'strides[*]', 'backstrides[*]', 'order']
+                          'strides[*]', 'backstrides[*]', 'order', 'gcstruct']
     start = 0
     parent = None
     flags = 0
@@ -326,12 +328,53 @@ class BaseConcreteArray(object):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        strides, backstrides = calc_strides(self.get_shape(), dtype,
-                                                    self.order)
+        # we want to create a new array, but must respect the strides
+        # in self. So find a factor of the itemtype.elsize, and use this
+        factor = float(dtype.elsize) / self.dtype.elsize
+        strides = [int(factor*s) for s in self.get_strides()]
+        backstrides = [int(factor*s) for s in self.get_backstrides()]
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
+
+OBJECTSTORE = lltype.GcStruct('ObjectStore',
+                              ('length', lltype.Signed),
+                              ('step', lltype.Signed),
+                              ('storage', llmemory.Address),
+                              rtti=True)
+offset_of_storage = llmemory.offsetof(OBJECTSTORE, 'storage')
+offset_of_length = llmemory.offsetof(OBJECTSTORE, 'length')
+offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
+
+V_OBJECTSTORE = lltype.nullptr(OBJECTSTORE)
+
+def customtrace(gc, obj, callback, arg):
+    #debug_print('in customtrace w/obj', obj)
+    length = (obj + offset_of_length).signed[0]
+    step = (obj + offset_of_step).signed[0]
+    storage = (obj + offset_of_storage).address[0]
+    #debug_print('tracing', length, 'objects in ndarray.storage')
+    i = 0
+    while i < length:
+        gc._trace_callback(callback, arg, storage)
+        storage += step
+        i += 1
+    
+lambda_customtrace = lambda: customtrace
+
+def _setup():
+    rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
+
+@jit.dont_look_inside
+def _create_objectstore(storage, length, elsize):
+    gcstruct = lltype.malloc(OBJECTSTORE)
+    # JIT does not support cast_ptr_to_adr
+    gcstruct.storage = llmemory.cast_ptr_to_adr(storage)
+    #print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
+    gcstruct.length = length
+    gcstruct.step = elsize
+    return gcstruct
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
@@ -347,10 +390,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
         self.start = start
+        self.gcstruct = V_OBJECTSTORE
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
-                                 box, 0, self.size, 0)
+                                 box, 0, self.size, 0, self.gcstruct)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,
@@ -374,17 +418,24 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def base(self):
         return None
 
-
 class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
+        gcstruct = V_OBJECTSTORE
         if storage == lltype.nullptr(RAW_STORAGE):
-            storage = dtype.itemtype.malloc(support.product(shape) *
-                                            dtype.elsize, zero=zero)
+            length = support.product(shape) 
+            if dtype.num == NPY.OBJECT:
+                storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
+                gcstruct = _create_objectstore(storage, length, dtype.elsize)
+            else:
+                storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage)
+        self.gcstruct = gcstruct
 
     def __del__(self):
+        if self.gcstruct:
+            self.gcstruct.length = 0
         free_raw_storage(self.storage, track_allocation=False)
 
 
@@ -423,6 +474,7 @@ class SliceArray(BaseConcreteArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
+        self.gcstruct = parent.gcstruct
         self.order = parent.order
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.elsize
@@ -480,6 +532,7 @@ class NonWritableSliceArray(SliceArray):
 class VoidBoxStorage(BaseConcreteArray):
     def __init__(self, size, dtype):
         self.storage = alloc_raw_storage(size)
+        self.gcstruct = V_OBJECTSTORE
         self.dtype = dtype
         self.size = size
 

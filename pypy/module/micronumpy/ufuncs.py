@@ -349,7 +349,7 @@ class W_Ufunc1(W_Ufunc):
         if dtype.is_flexible():
             raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
-        if (self.int_only and not dtype.is_int() or
+        if (self.int_only and not (dtype.is_int() or dtype.is_object()) or
                 not self.allow_bool and dtype.is_bool() or
                 not self.allow_complex and dtype.is_complex()):
             raise oefmt(space.w_TypeError,
@@ -378,6 +378,8 @@ class W_Ufunc1(W_Ufunc):
             w_val = self.func(calc_dtype,
                               w_obj.get_scalar_value().convert_to(space, calc_dtype))
             if out is None:
+                if res_dtype.is_object():
+                    w_val = w_obj.get_scalar_value()
                 return w_val
             w_val = res_dtype.coerce(space, w_val)
             if out.is_scalar():
@@ -434,11 +436,20 @@ class W_Ufunc2(W_Ufunc):
         w_rhs = numpify(space, w_rhs)
         w_ldtype = _get_dtype(space, w_lhs)
         w_rdtype = _get_dtype(space, w_rhs)
-        if w_ldtype.is_str() and w_rdtype.is_str() and \
+        if w_ldtype.is_object() or w_rdtype.is_object():
+            pass
+        elif w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.comparison_func:
             pass
-        elif (w_ldtype.is_str() or w_rdtype.is_str()) and \
+        elif (w_ldtype.is_str()) and \
                 self.comparison_func and w_out is None:
+            if self.name in ('equal', 'less_equal', 'less'):
+               return space.wrap(False)
+            return space.wrap(True) 
+        elif (w_rdtype.is_str()) and \
+                self.comparison_func and w_out is None:
+            if self.name in ('not_equal','less', 'less_equal'):
+               return space.wrap(True)
             return space.wrap(False)
         elif w_ldtype.is_flexible() or w_rdtype.is_flexible():
             if self.comparison_func:
@@ -463,9 +474,9 @@ class W_Ufunc2(W_Ufunc):
             w_ldtype, w_rdtype,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools)
-        if (self.int_only and (not w_ldtype.is_int() or
-                               not w_rdtype.is_int() or
-                               not calc_dtype.is_int()) or
+        if (self.int_only and (not (w_ldtype.is_int() or w_ldtype.is_object()) or
+                               not (w_rdtype.is_int() or w_rdtype.is_object()) or
+                               not (calc_dtype.is_int() or calc_dtype.is_object())) or
                 not self.allow_bool and (w_ldtype.is_bool() or
                                          w_rdtype.is_bool()) or
                 not self.allow_complex and (w_ldtype.is_complex() or
@@ -643,7 +654,7 @@ class W_UfuncGeneric(W_Ufunc):
             # from frompyfunc
             pass
         # mimic NpyIter_AdvancedNew with a nditer
-        w_itershape = space.newlist([space.wrap(i) for i in iter_shape]) 
+        w_itershape = space.newlist([space.wrap(i) for i in iter_shape])
         nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                       w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                       w_itershape)
@@ -749,7 +760,7 @@ class W_UfuncGeneric(W_Ufunc):
                 else:
                     raise oefmt(space.w_TypeError, "a type-string for %s " \
                         "requires 1 typecode or %d typecode(s) before and %d" \
-                        " after the -> sign, not '%s'", self.name, self.nin, 
+                        " after the -> sign, not '%s'", self.name, self.nin,
                         self.nout, type_tup)
             except KeyError:
                 raise oefmt(space.w_ValueError, "unknown typecode in" \
@@ -773,11 +784,11 @@ class W_UfuncGeneric(W_Ufunc):
             for j in range(self.nargs):
                 if dtypes[j] is not None and dtypes[j] != _dtypes[i+j]:
                     allok = False
-            if allok:    
+            if allok:
                 break
         else:
             if len(self.funcs) > 1:
-                
+
                 dtypesstr = ''
                 for d in dtypes:
                     if d is None:
@@ -787,7 +798,7 @@ class W_UfuncGeneric(W_Ufunc):
                 _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
                                 for d in _dtypes])
                 raise oefmt(space.w_TypeError,
-                     "input dtype [%s] did not match any known dtypes [%s] ", 
+                     "input dtype [%s] did not match any known dtypes [%s] ",
                      dtypesstr,_dtypesstr)
             i = 0
         # Fill in empty dtypes
@@ -807,7 +818,7 @@ class W_UfuncGeneric(W_Ufunc):
             assert isinstance(curarg, W_NDimArray)
             if len(arg_shapes[i]) != curarg.ndims():
                 # reshape
-                
+
                 sz = product(curarg.get_shape()) * curarg.get_dtype().elsize
                 with curarg.implementation as storage:
                     inargs[i] = W_NDimArray.from_shape_and_storage(
@@ -865,7 +876,7 @@ class W_UfuncGeneric(W_Ufunc):
                             "%s of gufunc was not specified",
                              self.name, name, _i, core_dim_index, self.signature)
                     target_dims.append(v)
-                arg_shapes.append(iter_shape + target_dims) 
+                arg_shapes.append(iter_shape + target_dims)
                 continue
             n = len(curarg.get_shape()) - num_dims
             if n < 0:
@@ -907,7 +918,7 @@ class W_UfuncGeneric(W_Ufunc):
                     raise oefmt(space.w_ValueError, "%s: %s operand %d has a "
                         "mismatch in its core dimension %d, with gufunc "
                         "signature %s (expected %d, got %d)",
-                         self.name, name, _i, j, 
+                         self.name, name, _i, j,
                          self.signature, matched_dims[core_dim_index],
                          dims_to_match[core_dim_index])
             #print 'adding',iter_shape,'+',dims_to_match,'to arg_shapes'
@@ -950,6 +961,10 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return dt1
     if dt1 is None:
         return dt2
+
+    if dt1.num == NPY.OBJECT or dt2.num == NPY.OBJECT:
+        return get_dtype_cache(space).w_objectdtype
+
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
@@ -1032,6 +1047,8 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
+    if dt.is_object():
+        return dt
     if promote_to_largest:
         if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
             if dt.elsize * 8 < LONG_BIT:
@@ -1064,6 +1081,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     uint64_dtype = get_dtype_cache(space).w_uint64dtype
     complex_dtype = get_dtype_cache(space).w_complex128dtype
     float_dtype = get_dtype_cache(space).w_float64dtype
+    object_dtype = get_dtype_cache(space).w_objectdtype
     if isinstance(w_obj, boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         return find_binop_result_dtype(space, dtype, current_guess)
@@ -1097,9 +1115,10 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
                 return variable_dtype(space,
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
-    raise oefmt(space.w_NotImplementedError,
-                'unable to create dtype from objects, "%T" instance not '
-                'supported', w_obj)
+    return object_dtype
+    #raise oefmt(space.w_NotImplementedError,
+    #            'unable to create dtype from objects, "%T" instance not '
+    #            'supported', w_obj)
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, nin, comparison_func,
@@ -1263,7 +1282,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
      w_identity=None, name='', doc='', stack_inputs=False):
     ''' frompyfunc(func, nin, nout) #cpython numpy compatible
         frompyfunc(func, nin, nout, dtypes=None, signature='',
-                   identity=None, name='', doc='', 
+                   identity=None, name='', doc='',
                    stack_inputs=False)
 
     Takes an arbitrary Python function and returns a ufunc.
@@ -1282,7 +1301,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     dtypes: None or [dtype, ...] of the input, output args for each function,
          or 'match' to force output to exactly match input dtype
          Note that 'match' is a pypy-only extension to allow non-object
-         return dtypes      
+         return dtypes
     signature*: str, default=''
          The mapping of input args to output args, defining the
          inner-loop indexing. If it is empty, the func operates on scalars
@@ -1293,7 +1312,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     stack_inputs*: boolean, whether the function is of the form
             out = func(*in)  False
             or
-            func(*[in + out])    True 
+            func(*[in + out])    True
 
     only one of out_dtype or signature may be specified
 

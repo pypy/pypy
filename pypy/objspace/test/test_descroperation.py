@@ -607,6 +607,18 @@ class AppTest_Descroperation:
 
         raises(AttributeError, lambda: A().a)
 
+    def test_delete_descriptor(self):
+        class Prop(object):
+            def __get__(self, obj, cls):
+                return 42
+            def __delete__(self, obj):
+                obj.deleted = True
+        class C(object):
+            x = Prop()
+        obj = C()
+        del obj.x
+        assert obj.deleted
+
     def test_non_callable(self):
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)
