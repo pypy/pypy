@@ -296,21 +296,25 @@ def result_type(space, __args__):
         raise oefmt(space.w_ValueError, "at least one array or dtype is required")
     result = None
     for w_arg in args_w:
-        if isinstance(w_arg, W_NDimArray):
-            dtype = w_arg.get_dtype()
-        elif isinstance(w_arg, W_GenericBox) or (
-                space.isinstance_w(w_arg, space.w_int) or
-                space.isinstance_w(w_arg, space.w_float) or
-                space.isinstance_w(w_arg, space.w_complex) or
-                space.isinstance_w(w_arg, space.w_long) or
-                space.isinstance_w(w_arg, space.w_bool)):
-            dtype = ufuncs.find_dtype_for_scalar(space, w_arg)
-        else:
-            dtype = space.interp_w(descriptor.W_Dtype,
-                space.call_function(space.gettypefor(descriptor.W_Dtype), w_arg))
+        dtype = as_dtype(space, w_arg)
         result = ufuncs.find_binop_result_dtype(space, result, dtype)
     return result
 
 @unwrap_spec(casting=str)
 def can_cast(space, w_from, w_totype, casting='safe'):
     return space.w_True
+
+def as_dtype(space, w_arg):
+    # roughly equivalent to CNumPy's PyArray_DescrConverter2
+    if isinstance(w_arg, W_NDimArray):
+        return w_arg.get_dtype()
+    elif isinstance(w_arg, W_GenericBox) or (
+            space.isinstance_w(w_arg, space.w_int) or
+            space.isinstance_w(w_arg, space.w_float) or
+            space.isinstance_w(w_arg, space.w_complex) or
+            space.isinstance_w(w_arg, space.w_long) or
+            space.isinstance_w(w_arg, space.w_bool)):
+        return ufuncs.find_dtype_for_scalar(space, w_arg)
+    else:
+        return space.interp_w(descriptor.W_Dtype,
+            space.call_function(space.gettypefor(descriptor.W_Dtype), w_arg))

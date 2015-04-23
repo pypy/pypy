@@ -4049,4 +4049,3 @@ class AppTestPyPy(BaseNumpyAppTest):
 
         raises(TypeError, np.can_cast, 'i4', None)
         raises(TypeError, np.can_cast, None, 'i4')
-
