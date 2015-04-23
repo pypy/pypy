@@ -397,11 +397,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
 
-    def test_scalar(self):
+    def test_all_available(self):
         # tests that by calling all available ufuncs on scalars, none will
         # raise uncaught interp-level exceptions, (and crash the test)
         # and those that are uncallable can be accounted for.
-        # test on the four base-class dtypes: int, bool, float, complex
+        # test on the base-class dtypes: int, bool, float, complex, object
         # We need this test since they have no common base class.
         import numpy as np
         def find_uncallable_ufuncs(dtype):
@@ -412,6 +412,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if isinstance(u, np.ufunc):
                     try:
                         u(* [array] * u.nin)
+                    except AttributeError:
+                        pass
+                    except NotImplementedError:
+                        print s
+                        uncallable.add(s)
                     except TypeError:
                         assert s not in uncallable
                         uncallable.add(s)
@@ -427,6 +432,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                  'fabs', 'fmod', 'invert', 'mod',
                  'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
                  'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
+        assert find_uncallable_ufuncs('object') == set(
+                ['isnan', 'logaddexp2', 'copysign', 'isfinite', 'signbit',
+                 'isinf', 'logaddexp'])
 
     def test_int_only(self):
         from numpy import bitwise_and, array
