@@ -979,7 +979,7 @@ def liststr2charpp(l):
     array[len(l)] = lltype.nullptr(CCHARP.TO)
     return array
 liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
-# Make a copy for the ll_os.py module
+# Make a copy for rposix.py
 ll_liststr2charpp = func_with_new_name(liststr2charpp, 'll_liststr2charpp')
 
 def free_charpp(ref):
