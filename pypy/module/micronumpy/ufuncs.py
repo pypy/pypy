@@ -441,8 +441,15 @@ class W_Ufunc2(W_Ufunc):
         elif w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.comparison_func:
             pass
-        elif (w_ldtype.is_str() or w_rdtype.is_str()) and \
+        elif (w_ldtype.is_str()) and \
                 self.comparison_func and w_out is None:
+            if self.name in ('equal', 'less_equal', 'less'):
+               return space.wrap(False)
+            return space.wrap(True) 
+        elif (w_rdtype.is_str()) and \
+                self.comparison_func and w_out is None:
+            if self.name in ('not_equal','less', 'less_equal'):
+               return space.wrap(True)
             return space.wrap(False)
         elif w_ldtype.is_flexible() or w_rdtype.is_flexible():
             if self.comparison_func:

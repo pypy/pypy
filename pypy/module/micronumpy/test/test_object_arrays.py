@@ -37,6 +37,11 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         assert (b == a).all()
         c = np.array([1, 2, 3])
         assert (a[0] != c[0])
+        assert (c[0] != a[0])
+        assert (a[0] > c[0])
+        assert (not a[0] < c[0])
+        assert (c[0] < a[0])
+        assert (not c[0] > a[0])
 
     def test_logical_ufunc(self):
         import numpy as np
