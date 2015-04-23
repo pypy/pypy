@@ -64,3 +64,6 @@ Allow prebuilt rpython dict with function values
 
 .. branch: vmprof
 .. Merged but then backed out, hopefully it will return as vmprof2
+
+.. branch: object-dtype2
+Extend numpy dtypes to allow using objects with associated garbage collection hook
