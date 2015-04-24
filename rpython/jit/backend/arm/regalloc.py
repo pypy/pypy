@@ -373,6 +373,12 @@ class Regalloc(BaseRegalloc):
         return gcmap
 
     # ------------------------------------------------------------
+    def perform_enter_portal_frame(self, op):
+        self.assembler.enter_portal_frame(op)
+
+    def perform_leave_portal_frame(self, op):
+        self.assembler.leave_portal_frame(op)
+
     def perform_extra(self, op, args, fcond):
         return self.assembler.regalloc_emit_extra(op, args, fcond, self)
 

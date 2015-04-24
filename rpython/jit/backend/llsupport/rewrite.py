@@ -17,8 +17,6 @@ FLAG_UNICODE = 2
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
 
-     - Remove the DEBUG_MERGE_POINTs.
-
      - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
        followed by SETFIELDs in order to initialize their GC fields.  The
        two advantages of CALL_MALLOC_NURSERY is that it inlines the common
@@ -75,6 +73,8 @@ class GcRewriterAssembler(object):
                 self.emit_pending_zeros()
             elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
+            elif op.getopnum() == rop.DEBUG_MERGE_POINT:
+                continue # ignore debug_merge_points
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
                 self.known_lengths.clear()

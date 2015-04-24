@@ -5,11 +5,22 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import we_are_translated
 
+annotated_jit_entrypoints = []
 
 def export_symbol(func):
     func.exported_symbol = True
     return func
 
+all_jit_entrypoints = []
+
+def jit_entrypoint(argtypes, restype, c_name):
+    def deco(func):
+        func.c_name = c_name
+        func.relax_sig_check = True
+        export_symbol(func)
+        all_jit_entrypoints.append((func, argtypes, restype))
+        return func
+    return deco
 
 def entrypoint_lowlevel(key, argtypes, c_name=None, relax=False):
     """ Note: entrypoint should call llop.gc_stack_bottom on it's own.

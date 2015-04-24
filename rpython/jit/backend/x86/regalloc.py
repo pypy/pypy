@@ -12,7 +12,7 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      valid_addressing_size)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
-    IS_X86_64)
+    IS_X86_64, DEFAULT_FRAME_BYTES)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
@@ -314,6 +314,7 @@ class RegAlloc(BaseRegalloc):
         while i < len(operations):
             op = operations[i]
             self.assembler.mc.mark_op(op)
+            assert self.assembler.mc._frame_size == DEFAULT_FRAME_BYTES
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
@@ -1322,8 +1323,11 @@ class RegAlloc(BaseRegalloc):
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
 
-    def consider_debug_merge_point(self, op):
-        pass
+    def consider_enter_portal_frame(self, op):
+        self.assembler.enter_portal_frame(op)
+
+    def consider_leave_portal_frame(self, op):
+        self.assembler.leave_portal_frame(op)
 
     def consider_jit_debug(self, op):
         pass

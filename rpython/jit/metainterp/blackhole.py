@@ -1657,6 +1657,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
         resumedescr.guard_opnum, deadframe)
 
     _run_forever(blackholeinterp, current_exc)
+resume_in_blackhole._dont_inline_ = True
 
 def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     # Get a chain of blackhole interpreters and fill them by copying
@@ -1680,3 +1681,4 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         current_exc = lltype.nullptr(rclass.OBJECTPTR.TO)
     #
     _run_forever(firstbh, current_exc)
+convert_and_run_from_pyjitpl._dont_inline_ = True
