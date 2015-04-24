@@ -22,6 +22,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage, V_OBJECTSTORE
 from pypy.module.micronumpy.strides import calc_strides
+from . import constants as NPY
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
@@ -316,6 +317,9 @@ class Primitive(object):
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
+    num = NPY.BOOL
+    kind = NPY.GENBOOLLTR
+    char = NPY.BOOLLTR
     BoxType = boxes.W_BoolBox
     format_code = "?"
 
@@ -551,31 +555,49 @@ class Integer(Primitive):
 
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
+    num = NPY.BYTE
+    kind = NPY.SIGNEDLTR
+    char = NPY.BYTELTR
     BoxType = boxes.W_Int8Box
     format_code = "b"
 
 class UInt8(BaseType, Integer):
     T = rffi.UCHAR
+    num = NPY.UBYTE
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.UBYTELTR
     BoxType = boxes.W_UInt8Box
     format_code = "B"
 
 class Int16(BaseType, Integer):
     T = rffi.SHORT
+    num = NPY.SHORT
+    kind = NPY.SIGNEDLTR
+    char = NPY.SHORTLTR
     BoxType = boxes.W_Int16Box
     format_code = "h"
 
 class UInt16(BaseType, Integer):
     T = rffi.USHORT
+    num = NPY.USHORT
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.USHORTLTR
     BoxType = boxes.W_UInt16Box
     format_code = "H"
 
 class Int32(BaseType, Integer):
     T = rffi.INT
+    num = NPY.INT
+    kind = NPY.SIGNEDLTR
+    char = NPY.INTLTR
     BoxType = boxes.W_Int32Box
     format_code = "i"
 
 class UInt32(BaseType, Integer):
     T = rffi.UINT
+    num = NPY.UINT
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.UINTLTR
     BoxType = boxes.W_UInt32Box
     format_code = "I"
 
@@ -594,6 +616,9 @@ def _int64_coerce(self, space, w_item):
 
 class Int64(BaseType, Integer):
     T = rffi.LONGLONG
+    num = NPY.LONGLONG
+    kind = NPY.SIGNEDLTR
+    char = NPY.LONGLONGLTR
     BoxType = boxes.W_Int64Box
     format_code = "q"
 
@@ -615,6 +640,9 @@ def _uint64_coerce(self, space, w_item):
 
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
+    num = NPY.ULONGLONG
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.ULONGLONGLTR
     BoxType = boxes.W_UInt64Box
     format_code = "Q"
 
@@ -622,6 +650,9 @@ class UInt64(BaseType, Integer):
 
 class Long(BaseType, Integer):
     T = rffi.LONG
+    num = NPY.LONG
+    kind = NPY.SIGNEDLTR
+    char = NPY.LONGLTR
     BoxType = boxes.W_LongBox
     format_code = "l"
 
@@ -640,6 +671,9 @@ def _ulong_coerce(self, space, w_item):
 
 class ULong(BaseType, Integer):
     T = rffi.ULONG
+    num = NPY.ULONG
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.ULONGLTR
     BoxType = boxes.W_ULongBox
     format_code = "L"
 
@@ -974,6 +1008,9 @@ class Float(Primitive):
 class Float16(BaseType, Float):
     _STORAGE_T = rffi.USHORT
     T = rffi.SHORT
+    num = NPY.HALF
+    kind = NPY.FLOATINGLTR
+    char = NPY.HALFLTR
     BoxType = boxes.W_Float16Box
 
     @specialize.argtype(1)
@@ -1014,11 +1051,17 @@ class Float16(BaseType, Float):
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
+    num = NPY.FLOAT
+    kind = NPY.FLOATINGLTR
+    char = NPY.FLOATLTR
     BoxType = boxes.W_Float32Box
     format_code = "f"
 
 class Float64(BaseType, Float):
     T = rffi.DOUBLE
+    num = NPY.DOUBLE
+    kind = NPY.FLOATINGLTR
+    char = NPY.DOUBLELTR
     BoxType = boxes.W_Float64Box
     format_code = "d"
 
@@ -1592,28 +1635,43 @@ class ComplexFloating(object):
 
 class Complex64(ComplexFloating, BaseType):
     T = rffi.FLOAT
+    num = NPY.CFLOAT
+    kind = NPY.COMPLEXLTR
+    char = NPY.CFLOATLTR
     BoxType = boxes.W_Complex64Box
     ComponentBoxType = boxes.W_Float32Box
 
 class Complex128(ComplexFloating, BaseType):
     T = rffi.DOUBLE
+    num = NPY.CDOUBLE
+    kind = NPY.COMPLEXLTR
+    char = NPY.CDOUBLELTR
     BoxType = boxes.W_Complex128Box
     ComponentBoxType = boxes.W_Float64Box
 
 if boxes.long_double_size == 8:
     class FloatLong(BaseType, Float):
         T = rffi.DOUBLE
+        num = NPY.LONGDOUBLE
+        kind = NPY.FLOATINGLTR
+        char = NPY.LONGDOUBLELTR
         BoxType = boxes.W_FloatLongBox
         format_code = "d"
 
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.DOUBLE
+        num = NPY.CLONGDOUBLE
+        kind = NPY.COMPLEXLTR
+        char = NPY.CLONGDOUBLELTR
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
 
 elif boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
         T = rffi.LONGDOUBLE
+        num = NPY.LONGDOUBLE
+        kind = NPY.FLOATINGLTR
+        char = NPY.LONGDOUBLELTR
         BoxType = boxes.W_FloatLongBox
 
         def runpack_str(self, space, s):
@@ -1631,6 +1689,9 @@ elif boxes.long_double_size in (12, 16):
 
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.LONGDOUBLE
+        num = NPY.CLONGDOUBLE
+        kind = NPY.COMPLEXLTR
+        char = NPY.CLONGDOUBLELTR
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
 
@@ -1638,6 +1699,9 @@ _all_objs_for_tests = [] # for tests
 
 class ObjectType(Primitive, BaseType):
     T = lltype.Signed
+    num = NPY.OBJECT
+    kind = NPY.OBJECTLTR
+    char = NPY.OBJECTLTR
     BoxType = boxes.W_ObjectBox
 
     def get_element_size(self):
@@ -1698,7 +1762,7 @@ class ObjectType(Primitive, BaseType):
         else:
             raise oefmt(self.space.w_NotImplementedError,
                 "object dtype cannot unbox %s", str(box))
-            
+
     @specialize.argtype(1)
     def box(self, w_obj):
         if isinstance(w_obj, W_Root):
@@ -1949,6 +2013,9 @@ def str_binary_op(func):
 
 class StringType(FlexibleType):
     T = lltype.Char
+    num = NPY.STRING
+    kind = NPY.STRINGLTR
+    char = NPY.STRINGLTR
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
@@ -2046,6 +2113,9 @@ class StringType(FlexibleType):
 
 class UnicodeType(FlexibleType):
     T = lltype.Char
+    num = NPY.UNICODE
+    kind = NPY.UNICODELTR
+    char = NPY.UNICODELTR
 
     def get_element_size(self):
         return 4  # always UTF-32
@@ -2110,6 +2180,9 @@ class UnicodeType(FlexibleType):
 
 class VoidType(FlexibleType):
     T = lltype.Char
+    num = NPY.VOID
+    kind = NPY.VOIDLTR
+    char = NPY.VOIDLTR
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
@@ -2196,6 +2269,9 @@ class VoidType(FlexibleType):
 
 class RecordType(FlexibleType):
     T = lltype.Char
+    num = NPY.VOID
+    kind = NPY.VOIDLTR
+    char = NPY.VOIDLTR
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
