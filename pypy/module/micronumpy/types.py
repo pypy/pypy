@@ -2267,6 +2267,9 @@ class VoidType(FlexibleType):
                     "item() for Void aray with no fields not implemented"))
         return space.newtuple(ret_unwrapped)
 
+class CharType(StringType):
+    char = NPY.CHARLTR
+
 class RecordType(FlexibleType):
     T = lltype.Char
     num = NPY.VOID
