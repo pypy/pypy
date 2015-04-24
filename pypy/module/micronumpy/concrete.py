@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calc_backstrides)
+    calculate_broadcast_strides, calc_backstrides, calc_start)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.baseobjspace import W_Root
@@ -328,8 +328,11 @@ class BaseConcreteArray(object):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        strides, backstrides = calc_strides(self.get_shape(), dtype,
-                                                    self.order)
+        # we want to create a new array, but must respect the strides
+        # in self. So find a factor of the itemtype.elsize, and use this
+        factor = float(dtype.elsize) / self.dtype.elsize
+        strides = [int(factor*s) for s in self.get_strides()]
+        backstrides = [int(factor*s) for s in self.get_backstrides()]
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
@@ -426,8 +429,9 @@ class ConcreteArray(ConcreteArrayNotOwning):
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
             else:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
+        start = calc_start(shape, strides)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
-                                        storage)
+                                        storage, start=start)
         self.gcstruct = gcstruct
 
     def __del__(self):

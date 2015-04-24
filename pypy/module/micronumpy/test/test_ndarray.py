@@ -2169,6 +2169,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_astype(self):
         from numpy import array, arange
+        import gc
         b = array(1).astype(float)
         assert b == 1
         assert b.dtype == float
@@ -2182,8 +2183,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [False, True, True]).all()
         assert b.dtype == 'bool'
 
+        a = arange(11)[::-1]
+        b = a.astype('int32')
+        assert (b == a).all()
+        del b
+        gc.collect() 
+
         a = arange(6, dtype='f4').reshape(2,3)
-        b = a.astype('i4')
+        b = a.T.astype('i4')
+        assert (a.T.strides == b.strides)
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3
