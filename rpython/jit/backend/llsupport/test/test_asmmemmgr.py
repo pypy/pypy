@@ -173,6 +173,7 @@ class TestAsmMemoryManager:
         #
         gcrootmap = FakeGcRootMap()
         allblocks = []
+        self.HAS_CODEMAP = False
         rawstart = mc.materialize(self, allblocks, gcrootmap)
         p = rffi.cast(rffi.CArrayPtr(lltype.Char), rawstart)
         assert p[0] == 'X'
