@@ -328,11 +328,8 @@ class BaseConcreteArray(object):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        # we want to create a new array, but must respect the strides
-        # in self. So find a factor of the itemtype.elsize, and use this
-        factor = float(dtype.elsize) / self.dtype.elsize
-        strides = [int(factor*s) for s in self.get_strides()]
-        backstrides = [int(factor*s) for s in self.get_backstrides()]
+        strides, backstrides = calc_strides(self.get_shape(), dtype,
+                                                    self.order)
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
