@@ -67,7 +67,8 @@ class AbstractX86CPU(AbstractLLCPU):
     @rgc.no_release_gil
     def setup_once(self):
         self.profile_agent.startup()
-        self.codemap.setup()
+        if self.HAS_CODEMAP:
+            self.codemap.setup()
         self.assembler.setup_once()
 
     @rgc.no_release_gil
@@ -158,5 +159,6 @@ class CPU_X86_64(AbstractX86CPU):
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
 
     IS_64_BIT = True
+    HAS_CODEMAP = True
 
 CPU = CPU386

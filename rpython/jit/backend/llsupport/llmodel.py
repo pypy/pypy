@@ -23,6 +23,8 @@ from rpython.rlib.unroll import unrolling_iterable
 class AbstractLLCPU(AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
 
+    HAS_CODEMAP = False
+
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool
@@ -49,7 +51,8 @@ class AbstractLLCPU(AbstractCPU):
         else:
             self._setup_exception_handling_untranslated()
         self.asmmemmgr = asmmemmgr.AsmMemoryManager()
-        self.codemap = codemap.CodemapStorage()
+        if self.HAS_CODEMAP:
+            self.codemap = codemap.CodemapStorage()
         self._setup_frame_realloc(translate_support_code)
         ad = self.gc_ll_descr.getframedescrs(self).arraydescr
         self.signedarraydescr = ad
@@ -80,7 +83,8 @@ class AbstractLLCPU(AbstractCPU):
         pass
 
     def finish_once(self):
-        self.codemap.finish_once()
+        if self.HAS_CODEMAP:
+            self.codemap.finish_once()
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -222,7 +226,8 @@ class AbstractLLCPU(AbstractCPU):
             for rawstart, rawstop in blocks:
                 self.gc_ll_descr.freeing_block(rawstart, rawstop)
                 self.asmmemmgr.free(rawstart, rawstop)
-                self.codemap.free_asm_block(rawstart, rawstop)
+                if self.HAS_CODEMAP:
+                    self.codemap.free_asm_block(rawstart, rawstop)
 
     def force(self, addr_of_force_token):
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)

@@ -457,8 +457,9 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-        self.codemap_builder.enter_portal_frame(jd_id, unique_id,
-                                                self.mc.get_relative_pos())
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+                                                    self.mc.get_relative_pos())
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
@@ -526,8 +527,9 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        self.codemap_builder.inherit_code_from_position(
-            faildescr.adr_jump_offset)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.inherit_code_from_position(
+                faildescr.adr_jump_offset)
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
         if log:
@@ -692,8 +694,9 @@ class Assembler386(BaseAssembler):
         size = self.mc.get_relative_pos()
         res = self.mc.materialize(self.cpu, allblocks,
                                   self.cpu.gc_ll_descr.gcrootmap)
-        self.cpu.codemap.register_codemap(
-            self.codemap_builder.get_final_bytecode(res, size))
+        if self.cpu.HAS_CODEMAP:
+            self.cpu.codemap.register_codemap(
+                self.codemap_builder.get_final_bytecode(res, size))
         return res
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):

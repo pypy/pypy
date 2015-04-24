@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import rffi
+from rpython.jit.backend.x86.arch import IS_X86_64
 
 BYTE_REG_FLAG = 0x20
 NO_BASE_REGISTER = -1
@@ -489,9 +490,10 @@ class AbstractX86CodeBuilder(object):
         assert self._frame_size >= self.WORD
 
     def check_stack_size_at_ret(self):
-        assert self._frame_size == self.WORD
-        if not we_are_translated():
-            self._frame_size = None
+        if IS_X86_64:
+            assert self._frame_size == self.WORD
+            if not we_are_translated():
+                self._frame_size = None
 
     # ------------------------------ MOV ------------------------------
 

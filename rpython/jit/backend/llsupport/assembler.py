@@ -130,7 +130,8 @@ class BaseAssembler(object):
         self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
-        self.codemap_builder = CodemapBuilder()
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder = CodemapBuilder()
         self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def set_debug(self, v):
@@ -200,13 +201,15 @@ class BaseAssembler(object):
         return fail_descr, target
 
     def enter_portal_frame(self, op):
-        self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
-                                                op.getarg(1).getint(),
-                                                self.mc.get_relative_pos())
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
+                                                    op.getarg(1).getint(),
+                                                    self.mc.get_relative_pos())
 
     def leave_portal_frame(self, op):
-        self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
-                                                self.mc.get_relative_pos())
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
+                                                    self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)

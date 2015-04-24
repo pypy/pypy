@@ -586,8 +586,8 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-        self.codemap_builder.enter_portal_frame(jd_id, unique_id,
-                                        self.mc.get_relative_pos())
+        #self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+        #                                self.mc.get_relative_pos())
 
 
         frame_info = self.datablockwrapper.malloc_aligned(
@@ -662,7 +662,7 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
+        #self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
@@ -886,8 +886,8 @@ class AssemblerARM(ResOpAssembler):
         size = self.mc.get_relative_pos() 
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        self.cpu.codemap.register_codemap(
-            self.codemap.get_final_bytecode(res, size))
+        #self.cpu.codemap.register_codemap(
+        #    self.codemap.get_final_bytecode(res, size))
         return res
 
     def update_frame_depth(self, frame_depth):
