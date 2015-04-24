@@ -1347,15 +1347,17 @@ class ComplexFloating(object):
         sign of complex number could be either the point closest to the unit circle
         or {-1,0,1}, for compatability with numpy we choose the latter
         '''
+        if rfloat.isnan(v[0]) or rfloat.isnan(v[1]):
+            return rfloat.NAN, 0
         if v[0] == 0.0:
             if v[1] == 0:
-                return 0,0
+                return 0, 0
             if v[1] > 0:
-                return 1,0
-            return -1,0
+                return 1, 0
+            return -1, 0
         if v[0] > 0:
-            return 1,0
-        return -1,0
+            return 1, 0
+        return -1, 0
 
     def fmax(self, v1, v2):
         if self.ge(v1, v2) or self.isnan(v2):

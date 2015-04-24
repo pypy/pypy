@@ -331,6 +331,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, True, True, False, False]).all()
 
+    def test_sign_for_complex_nan(self):
+        from numpy import array, nan, sign, isnan
+        C = array([nan], dtype=complex)
+        res = sign(C)
+        assert isnan(res.real)
+        assert res.imag == 0+0j
 
     def test_square(self):
         from numpy import square
