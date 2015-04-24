@@ -1,40 +1,19 @@
 #include <stdlib.h>
-#if defined _MSC_VER
- #include <intrin.h>
- int __sync_lock_test_and_set(int * i, int j)
- {
-   return _interlockedbittestandreset(i, j);
- }
- int __sync_lock_release(int *i)
- {
-   return _interlockedbittestandreset(i, 0);
- }
- #if _MSC_VER < 1600
-  #ifdef _WIN32
-   typedef unsigned int uintptr_t;
-  #else
-   typedef usigned long uintptr_t;
-  #endif
- #endif
-#else
-#include <stdint.h>
-#endif
-
 
 #define HAS_SKIPLIST
 #define SKIPLIST_HEIGHT   8
 
 typedef struct skipnode_s {
-    uintptr_t key;
+    unsigned long key;
     char *data;
     struct skipnode_s *next[SKIPLIST_HEIGHT];   /* may be smaller */
 } skipnode_t;
 
-static skipnode_t *skiplist_malloc(uintptr_t datasize)
+static skipnode_t *skiplist_malloc(unsigned long datasize)
 {
     char *result;
-    uintptr_t basesize;
-    uintptr_t length = 1;
+    unsigned long basesize;
+    unsigned long length = 1;
     while (length < SKIPLIST_HEIGHT && (rand() & 3) == 0)
         length++;
     basesize = sizeof(skipnode_t) -
@@ -46,12 +25,12 @@ static skipnode_t *skiplist_malloc(uintptr_t datasize)
     return (skipnode_t *)result;
 }
 
-static skipnode_t *skiplist_search(skipnode_t *head, uintptr_t searchkey)
+static skipnode_t *skiplist_search(skipnode_t *head, unsigned long searchkey)
 {
     /* Returns the skipnode with key closest (but <=) searchkey.
        Note that if there is no item with key <= searchkey in the list,
        this will return the head node. */
-    uintptr_t level = SKIPLIST_HEIGHT - 1;
+    unsigned long level = SKIPLIST_HEIGHT - 1;
     while (1) {
         skipnode_t *next = head->next[level];
         if (next != NULL && next->key <= searchkey) {
@@ -68,13 +47,13 @@ static skipnode_t *skiplist_search(skipnode_t *head, uintptr_t searchkey)
 
 static void skiplist_insert(skipnode_t *head, skipnode_t *new)
 {
-    uintptr_t size0 = sizeof(skipnode_t) -
-                      SKIPLIST_HEIGHT * sizeof(skipnode_t *);
-    uintptr_t height_of_new = (new->data - ((char *)new + size0)) /
-                              sizeof(skipnode_t *);
+    unsigned long size0 = sizeof(skipnode_t) -
+                          SKIPLIST_HEIGHT * sizeof(skipnode_t *);
+    unsigned long height_of_new = (new->data - ((char *)new + size0)) /
+                                  sizeof(skipnode_t *);
 
-    uintptr_t level = SKIPLIST_HEIGHT - 1;
-    uintptr_t searchkey = new->key;
+    unsigned long level = SKIPLIST_HEIGHT - 1;
+    unsigned long searchkey = new->key;
     while (1) {
         skipnode_t *next = head->next[level];
         if (next != NULL && next->key <= searchkey) {
@@ -92,9 +71,9 @@ static void skiplist_insert(skipnode_t *head, skipnode_t *new)
     }
 }
 
-static skipnode_t *skiplist_remove(skipnode_t *head, uintptr_t exact_key)
+static skipnode_t *skiplist_remove(skipnode_t *head, unsigned long exact_key)
 {
-    uintptr_t level = SKIPLIST_HEIGHT - 1;
+    unsigned long level = SKIPLIST_HEIGHT - 1;
     while (1) {
         skipnode_t *next = head->next[level];
         if (next != NULL && next->key <= exact_key) {
@@ -115,7 +94,7 @@ static skipnode_t *skiplist_remove(skipnode_t *head, uintptr_t exact_key)
     }
 }
 
-static uintptr_t skiplist_firstkey(skipnode_t *head)
+static unsigned long skiplist_firstkey(skipnode_t *head)
 {
     if (head->next[0] == NULL)
         return 0;

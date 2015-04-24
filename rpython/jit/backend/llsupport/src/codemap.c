@@ -9,10 +9,15 @@ volatile int pypy_codemap_currently_invalid = 0;
 
 void pypy_codemap_invalid_set(int value)
 {
+#ifndef _MSC_VER
     if (value)
         __sync_lock_test_and_set(&pypy_codemap_currently_invalid, 1);
     else
         __sync_lock_release(&pypy_codemap_currently_invalid);
+#else
+    InterlockedExchange((long volatile *)&pypy_codemap_currently_invalid,
+                        (long)value);
+#endif
 }
 
 
@@ -31,7 +36,7 @@ static skipnode_t jit_codemap_head;
 /*** interface used from codemap.py ***/
 
 RPY_EXTERN
-long pypy_jit_codemap_add(uintptr_t addr, unsigned int machine_code_size,
+long pypy_jit_codemap_add(unsigned long addr, unsigned int machine_code_size,
                           long *bytecode_info, unsigned int bytecode_info_size)
 {
     skipnode_t *new = skiplist_malloc(sizeof(codemap_data_t));
@@ -52,9 +57,9 @@ long pypy_jit_codemap_add(uintptr_t addr, unsigned int machine_code_size,
 }
 
 RPY_EXTERN
-long *pypy_jit_codemap_del(uintptr_t addr, unsigned int size)
+long *pypy_jit_codemap_del(unsigned long addr, unsigned int size)
 {
-    uintptr_t search_key = addr + size - 1;
+    unsigned long search_key = addr + size - 1;
     long *result;
     skipnode_t *node;
 
@@ -78,7 +83,7 @@ long *pypy_jit_codemap_del(uintptr_t addr, unsigned int size)
 }
 
 RPY_EXTERN
-uintptr_t pypy_jit_codemap_firstkey(void)
+unsigned long pypy_jit_codemap_firstkey(void)
 {
     return skiplist_firstkey(&jit_codemap_head);
 }
@@ -90,7 +95,7 @@ void *pypy_find_codemap_at_addr(long addr, long* start_addr)
 {
     skipnode_t *codemap = skiplist_search(&jit_codemap_head, addr);
     codemap_data_t *data;
-    uintptr_t rel_addr;
+    unsigned long rel_addr;
 
     if (codemap == &jit_codemap_head) {
         if (start_addr)
@@ -98,7 +103,7 @@ void *pypy_find_codemap_at_addr(long addr, long* start_addr)
         return NULL;
     }
 
-    rel_addr = (uintptr_t)addr - codemap->key;
+    rel_addr = (unsigned long)addr - codemap->key;
     data = (codemap_data_t *)codemap->data;
     if (rel_addr >= data->machine_code_size) {
         if (start_addr)
@@ -153,7 +158,7 @@ static skipnode_t jit_depthmap_head;
 /*** interface used from codemap.py ***/
 
 RPY_EXTERN
-long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
+long pypy_jit_depthmap_add(unsigned long addr, unsigned int size,
                            unsigned int stackdepth)
 {
     skipnode_t *new = skiplist_malloc(sizeof(depthmap_data_t));
@@ -173,9 +178,9 @@ long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
 }
 
 RPY_EXTERN
-void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
+void pypy_jit_depthmap_clear(unsigned long addr, unsigned int size)
 {
-    uintptr_t search_key = addr + size - 1;
+    unsigned long search_key = addr + size - 1;
     if (size == 0)
         return;
 
@@ -196,14 +201,15 @@ void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size)
 RPY_EXTERN
 long pypy_jit_stack_depth_at_loc(long loc)
 {
-    skipnode_t *depthmap = skiplist_search(&jit_depthmap_head, (uintptr_t)loc);
+    skipnode_t *depthmap = skiplist_search(&jit_depthmap_head,
+                                           (unsigned long)loc);
     depthmap_data_t *data;
-    uintptr_t rel_addr;
+    unsigned long rel_addr;
 
     if (depthmap == &jit_depthmap_head)
         return -1;
 
-    rel_addr = (uintptr_t)loc - depthmap->key;
+    rel_addr = (unsigned long)loc - depthmap->key;
     data = (depthmap_data_t *)depthmap->data;
     if (rel_addr >= data->block_size)
         return -1;

@@ -5,16 +5,16 @@ ffi = cffi.FFI()
 
 ffi.cdef("""
 typedef struct {
-    uintptr_t key;
+    unsigned long key;
     char *data;
     ...;
 } skipnode_t;
 
-skipnode_t *skiplist_malloc(uintptr_t datasize);
-skipnode_t *skiplist_search(skipnode_t *head, uintptr_t searchkey);
+skipnode_t *skiplist_malloc(unsigned long datasize);
+skipnode_t *skiplist_search(skipnode_t *head, unsigned long searchkey);
 void skiplist_insert(skipnode_t *head, skipnode_t *new);
-skipnode_t *skiplist_remove(skipnode_t *head, uintptr_t exact_key);
-uintptr_t skiplist_firstkey(skipnode_t *head);
+skipnode_t *skiplist_remove(skipnode_t *head, unsigned long exact_key);
+unsigned long skiplist_firstkey(skipnode_t *head);
 """)
 
 filename = os.path.join(os.path.dirname(__file__), '..', 'src', 'skiplist.c')

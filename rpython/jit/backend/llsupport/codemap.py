@@ -26,29 +26,19 @@ INT_LIST_PTR = rffi.CArrayPtr(lltype.Signed)
 srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 eci = ExternalCompilationInfo(post_include_bits=["""
-#if defined _MSC_VER && _MSC_VER < 1600
-#ifdef _WIN32
-typedef unsigned int uintptr_t;
-#else
-typedef usigned long uintptr_t;
-#endif
-#else
-#include <stdint.h>
-#endif
-
-RPY_EXTERN long pypy_jit_codemap_add(uintptr_t addr,
+RPY_EXTERN long pypy_jit_codemap_add(unsigned long addr,
                                      unsigned int machine_code_size,
                                      long *bytecode_info,
                                      unsigned int bytecode_info_size);
-RPY_EXTERN long *pypy_jit_codemap_del(uintptr_t addr, unsigned int size);
-RPY_EXTERN uintptr_t pypy_jit_codemap_firstkey(void);
+RPY_EXTERN long *pypy_jit_codemap_del(unsigned long addr, unsigned int size);
+RPY_EXTERN unsigned long pypy_jit_codemap_firstkey(void);
 RPY_EXTERN void *pypy_find_codemap_at_addr(long addr, long* start_addr);
 RPY_EXTERN long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                            long *current_pos_addr);
 
-RPY_EXTERN long pypy_jit_depthmap_add(uintptr_t addr, unsigned int size,
+RPY_EXTERN long pypy_jit_depthmap_add(unsigned long addr, unsigned int size,
                                       unsigned int stackdepth);
-RPY_EXTERN void pypy_jit_depthmap_clear(uintptr_t addr, unsigned int size);
+RPY_EXTERN void pypy_jit_depthmap_clear(unsigned long addr, unsigned int size);
 
 """], separate_module_sources=[
     open(os.path.join(srcdir, 'skiplist.c'), 'r').read() +
