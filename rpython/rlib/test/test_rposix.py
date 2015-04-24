@@ -39,24 +39,6 @@ class TestPosixFunction:
         data = rposix.getlogin()
         assert data == expected
 
-    def test_statvfs(self):
-        if not hasattr(os, 'statvfs'):
-            py.test.skip('posix specific function')
-        try:
-            os.statvfs('.')
-        except OSError, e:
-            py.test.skip("the underlying os.statvfs() failed: %s" % e)
-        rposix_stat.statvfs('.')
-
-    def test_fstatvfs(self):
-        if not hasattr(os, 'fstatvfs'):
-            py.test.skip('posix specific function')
-        try:
-            os.fstatvfs(0)
-        except OSError, e:
-            py.test.skip("the underlying os.fstatvfs() failed: %s" % e)
-        rposix_stat.fstatvfs(0)
-
     def test_utimes(self):
         if os.name != 'nt':
             py.test.skip('Windows specific feature')
