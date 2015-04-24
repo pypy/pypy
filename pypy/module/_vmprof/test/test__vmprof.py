@@ -27,6 +27,10 @@ class AppTestVMProf(object):
             i += 1 # length
             i += len('pypy')
             while i < len(s):
+                if s[i] == '\x03':
+                    break
+                if s[i] == '\x01':
+                    xxx
                 assert s[i] == '\x02'
                 i += 1
                 _, size = struct.unpack("ll", s[i:i + 2 * WORD])
