@@ -853,20 +853,6 @@ class DtypeCache(object):
             char=NPY.HALFLTR,
             w_box_type=space.gettypefor(boxes.W_Float16Box),
         )
-        self.w_intpdtype = W_Dtype(
-            types.Long(space),
-            num=NPY.LONG,
-            kind=NPY.SIGNEDLTR,
-            char=NPY.INTPLTR,
-            w_box_type=space.gettypefor(boxes.W_LongBox),
-        )
-        self.w_uintpdtype = W_Dtype(
-            types.ULong(space),
-            num=NPY.ULONG,
-            kind=NPY.UNSIGNEDLTR,
-            char=NPY.UINTPLTR,
-            w_box_type=space.gettypefor(boxes.W_ULongBox),
-        )
         self.w_objectdtype = W_Dtype(
             types.ObjectType(space),
             num=NPY.OBJECT,
@@ -932,7 +918,7 @@ class DtypeCache(object):
             self.w_int64dtype, self.w_uint64dtype,
             ] + float_dtypes + complex_dtypes + [
             self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
-            self.w_intpdtype, self.w_uintpdtype, self.w_objectdtype,
+            self.w_objectdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.elsize, dtype)
@@ -973,8 +959,7 @@ class DtypeCache(object):
             'CLONGDOUBLE': self.w_complexlongdtype,
             #'DATETIME',
             'UINT': self.w_uint32dtype,
-            'INTP': self.w_intpdtype,
-            'UINTP': self.w_uintpdtype,
+            'INTP': self.w_longdtype,
             'HALF': self.w_float16dtype,
             'BYTE': self.w_int8dtype,
             #'TIMEDELTA',
