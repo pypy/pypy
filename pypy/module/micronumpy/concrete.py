@@ -323,7 +323,7 @@ class BaseConcreteArray(object):
 
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
-        
+
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
