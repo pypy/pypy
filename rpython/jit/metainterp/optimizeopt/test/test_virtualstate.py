@@ -779,6 +779,8 @@ class BaseTestBridges(BaseTest):
     def _do_optimize_bridge(self, bridge, call_pure_results):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
+        from rpython.jit.metainterp.optimizeopt.test_util import (FakeWarmState,
+                FakeJitDriverSD)
 
         self.bridge = bridge
         bridge.call_pure_results = args_dict()
@@ -791,9 +793,8 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        class FakeJitDriverSD(object):
-            vectorize = False
-        optimize_trace(metainterp_sd, FakeJitDriverSD(), bridge, self.enable_opts)
+        warmstate = FakeWarmState(self.enable_opts)
+        optimize_trace(metainterp_sd, FakeJitDriverSD(), bridge, warmstate)
 
         
     def optimize_bridge(self, loops, bridge, expected, expected_target='Loop', **boxvalues):

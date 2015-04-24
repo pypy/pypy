@@ -1466,7 +1466,7 @@ class RegAlloc(BaseRegalloc):
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
         integer = not descr.is_array_of_floats()
-        aligned = False
+        aligned = True
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
@@ -1487,7 +1487,7 @@ class RegAlloc(BaseRegalloc):
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
 
         integer = not descr.is_array_of_floats()
-        aligned = False
+        aligned = True
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
 

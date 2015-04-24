@@ -2434,7 +2434,6 @@ class Assembler386(BaseAssembler):
     def _vec_load(self, resloc, src_addr, integer, itemsize, aligned):
         if integer:
             if aligned:
-                raise NotImplementedError
                 self.mc.MOVDQA(resloc, src_addr)
             else:
                 self.mc.MOVDQU(resloc, src_addr)
@@ -2461,7 +2460,7 @@ class Assembler386(BaseAssembler):
     def _vec_store(self, dest_loc, value_loc, integer, itemsize, aligned):
         if integer:
             if aligned:
-                raise NotImplementedError
+                self.mc.MOVDQA(dest_loc, value_loc)
             else:
                 self.mc.MOVDQU(dest_loc, value_loc)
         else:
@@ -2473,7 +2472,11 @@ class Assembler386(BaseAssembler):
     def genop_vec_int_add(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
-        if itemsize == 4:
+        if itemsize == 1:
+            self.mc.PADDB(loc0, loc1)
+        elif itemsize == 2:
+            self.mc.PADDW(loc0, loc1)
+        elif itemsize == 4:
             self.mc.PADDD(loc0, loc1)
         elif itemsize == 8:
             self.mc.PADDQ(loc0, loc1)

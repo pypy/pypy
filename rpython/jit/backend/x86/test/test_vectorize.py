@@ -26,14 +26,13 @@ class TestAssembler(BaseTestAssembler):
         ptr[1] = rffi.r_int(b)
         ptr[2] = rffi.r_int(c)
         ptr[3] = rffi.r_int(d)
-        return ConstAddressLoc(adr,4)
+        return adr
 
     def test_simple_4_int_load_sum_x86_64(self):
         def callback(asm):
             if asm.mc.WORD != 8:
                 py.test.skip()
-            loc = self.imm_4_int32(123,543,0,0)
-            adr = loc.value
+            adr = self.imm_4_int32(123,543,0,0)
             asm.mc.MOV_ri(r8.value,adr)
             asm.mc.MOVDQU_xm(xmm7.value, (r8.value, 0))
             asm.mc.PADDD_xm(xmm7.value, (r8.value, 0))
@@ -55,12 +54,26 @@ class TestAssembler(BaseTestAssembler):
 
     def test_vector_store(self):
         def callback(asm):
-            loc = self.imm_4_int32(11,12,13,14)
-            asm.mov(ImmedLoc(loc.value), ecx)
+            addr = self.imm_4_int32(11,12,13,14)
+            asm.mov(ImmedLoc(addr), ecx)
             asm.mc.MOVDQU_xm(xmm6.value, (ecx.value,0))
             asm.mc.PADDD_xm(xmm6.value, (ecx.value,0))
             asm.mc.MOVDQU(AddressLoc(ecx,ImmedLoc(0)), xmm6)
             asm.mc.MOVDQU(xmm6, AddressLoc(ecx,ImmedLoc(0)))
+            asm.mc.MOVDQ_rx(eax.value, xmm6.value)
+
+        res = self.do_test(callback) & 0xffffffff
+        assert res == 22
+
+
+    def test_vector_store_aligned(self):
+        def callback(asm):
+            addr = self.imm_4_int32(11,12,13,14)
+            asm.mov(ImmedLoc(addr), ecx)
+            asm.mc.MOVDQA(xmm6, AddressLoc(ecx,ImmedLoc(0)))
+            asm.mc.PADDD_xm(xmm6.value, (ecx.value,0))
+            asm.mc.MOVDQA(AddressLoc(ecx,ImmedLoc(0)), xmm6)
+            asm.mc.MOVDQA(xmm6, AddressLoc(ecx,ImmedLoc(0)))
             asm.mc.MOVDQ_rx(eax.value, xmm6.value)
 
         res = self.do_test(callback) & 0xffffffff

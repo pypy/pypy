@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
         MemoryRef, Scheduler, SchedulerData, Node)
-from rpython.jit.metainterp.resoperation import (rop, ResOperation)
+from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.metainterp.jitexc import JitException
@@ -23,7 +23,6 @@ def dprint(*args):
         for arg in args:
             print arg,
         print
-
 
 def debug_print_operations(loop):
     if not we_are_translated():
@@ -46,7 +45,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
     opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     try:
         opt.propagate_all_forward()
-        debug_print_operations(loop)
+        #debug_print_operations(loop)
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
     except NotAVectorizeableLoop:
@@ -68,7 +67,7 @@ class VectorizingOptimizer(Optimizer):
         self.early_exit = None
         self.future_condition = None
 
-    def propagate_all_forward(self):
+    def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
         label = self.loop.operations[0]
         jump = self.loop.operations[-1]
@@ -173,6 +172,7 @@ class VectorizingOptimizer(Optimizer):
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
+                    assert isinstance(copied_op, GuardResOp)
                     snapshot = self.clone_snapshot(copied_op.rd_snapshot, rename_map)
                     copied_op.rd_snapshot = snapshot
                     if not we_are_translated():
@@ -293,7 +293,7 @@ class VectorizingOptimizer(Optimizer):
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
         savings = -1
-        candidate = (-1,-1)
+        candidate = (None,None)
         for ldep in pack.left.provides():
             for rdep in pack.right.provides():
                 lnode = ldep.to
@@ -307,6 +307,8 @@ class VectorizingOptimizer(Optimizer):
                         candidate = (lnode, rnode)
         #
         if savings >= 0:
+            assert candidate[0] is not None
+            assert candidate[1] is not None
             self.packset.add_pair(*candidate)
 
     def combine_packset(self):
@@ -336,13 +338,12 @@ class VectorizingOptimizer(Optimizer):
                 break
 
     def schedule(self):
-        dprint(self.dependency_graph.as_dot())
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
-        dprint("scheduling loop. scheduleable are: " + str(scheduler.schedulable_nodes))
+        #dprint("scheduling loop. scheduleable are: " + str(scheduler.schedulable_nodes))
         while scheduler.has_more():
             candidate = scheduler.next()
-            dprint("  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack)
+            #dprint("  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack)
             if candidate.pack:
                 pack = candidate.pack
                 if scheduler.schedulable(pack.operations):
@@ -439,7 +440,7 @@ class VecScheduleData(SchedulerData):
         self.box_to_vbox = {}
 
     def as_vector_operation(self, pack):
-        op_count = pack.operations
+        op_count = len(pack.operations)
         assert op_count > 1
         self.pack = pack
         # properties that hold for the pack are:
@@ -447,7 +448,7 @@ class VecScheduleData(SchedulerData):
         op0 = pack.operations[0].getoperation()
         assert op0.vector != -1
         args = op0.getarglist()[:]
-        args.append(ConstInt(len(op_count)))
+        args.append(ConstInt(op_count))
         vop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
         self._inspect_operation(vop)
         return vop
@@ -518,6 +519,7 @@ def isomorphic(l_op, r_op):
     """
     if l_op.getopnum() == r_op.getopnum():
         return True
+    return False
 
 class PackSet(object):
 
@@ -569,8 +571,6 @@ class PackSet(object):
             if not must_unpack_result_to_exec(lpacknode, lnode) and \
                not must_unpack_result_to_exec(rpacknode, rnode):
                 savings += 1
-        if savings >= 0:
-            dprint("estimated " + str(savings) + " for lpack,lnode", lpacknode, lnode)
 
         return savings
 

@@ -2,7 +2,8 @@ import py
 
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import (rop, GuardResOp)
+from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box, Const
 from rpython.rtyper.lltypesystem import llmemory
@@ -85,30 +86,30 @@ class Node(object):
         return self.op.getopname()
 
     def getfailarg_set(self):
-        args = set()
         op = self.getoperation()
+        assert isinstance(op, GuardResOp)
+        args = []
         if op.getfailargs():
             for arg in op.getfailargs():
-                args.add(arg)
+                args.append(arg)
             return args
         elif op.rd_snapshot:
             ss = op.rd_snapshot
-            while ss != None:
+            assert isinstance(ss, Snapshot)
+            while ss:
                 for box in ss.boxes:
-                    args.add(box)
+                    args.append(box)
                 ss = ss.prev
 
         return args
- #set(target_guard.getoperation().getfailargs())
 
 
     def relax_guard_to(self, guard):
         """ Relaxes a guard operation to an earlier guard. """
-        assert self.op.is_guard()
-        assert guard.is_guard()
-
         tgt_op = self.getoperation()
         op = guard
+        assert isinstance(tgt_op, GuardResOp)
+        assert isinstance(op, GuardResOp)
         #descr = compile.ResumeAtLoopHeaderDescr()
         descr = compile.ResumeAtLoopHeaderDescr()
         tgt_op.setdescr(descr)
@@ -357,7 +358,7 @@ class DefTracker(object):
         if len(def_chain) == 1:
             return def_chain[0][0]
         else:
-            if argcell == None:
+            if not argcell:
                 return def_chain[-1][0]
             else:
                 assert node is not None
@@ -445,7 +446,7 @@ class DependencyGraph(object):
                 for arg in op.getarglist():
                     tracker.define(arg, node)
                 continue # prevent adding edge to the label itself
-            intformod.inspect_operation(node)
+            intformod.inspect_operation(op,node)
             # definition of a new variable
             if op.result is not None:
                 # In SSA form. Modifications get a new variable
@@ -461,6 +462,7 @@ class DependencyGraph(object):
                 self._build_non_pure_dependencies(node, tracker)
         # pass 2 correct guard dependencies
         for guard_node in self.guards:
+            op = guard_node.getoperation()
             self._build_guard_dependencies(guard_node, op.getopnum(), tracker)
         # pass 3 find schedulable nodes
         jump_node = self.nodes[jump_pos]
@@ -673,14 +675,13 @@ class IntegralForwardModification(object):
         return False
 
     def get_or_create(self, arg):
-        var = self.index_vars.get(arg)
+        var = self.index_vars.get(arg, None)
         if not var:
             var = self.index_vars[arg] = IndexVar(arg)
         return var
 
     additive_func_source = """
-    def operation_{name}(self, node):
-        op = node.op
+    def operation_{name}(self, op, node):
         box_r = op.result
         if not box_r:
             return
@@ -708,8 +709,7 @@ class IntegralForwardModification(object):
     del additive_func_source
 
     multiplicative_func_source = """
-    def operation_{name}(self, node):
-        op = node.op
+    def operation_{name}(self, op, node):
         box_r = op.result
         if not box_r:
             return
@@ -741,8 +741,7 @@ class IntegralForwardModification(object):
     del multiplicative_func_source
 
     array_access_source = """
-    def operation_{name}(self, node):
-        op = node.getoperation()
+    def operation_{name}(self, op, node):
         descr = op.getdescr()
         idx_ref = self.get_or_create(op.getarg(1))
         node.memory_ref = MemoryRef(op, idx_ref, {raw_access})
@@ -752,10 +751,6 @@ class IntegralForwardModification(object):
            .format(name='RAW_LOAD',raw_access=True)).compile()
     exec py.code.Source(array_access_source
            .format(name='RAW_STORE',raw_access=True)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_GC',raw_access=False)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='SETARRAYITEM_GC',raw_access=False)).compile()
     exec py.code.Source(array_access_source
            .format(name='GETARRAYITEM_RAW',raw_access=False)).compile()
     exec py.code.Source(array_access_source

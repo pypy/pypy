@@ -314,6 +314,13 @@ class Fake(object):
     failargs_limit = 1000
     storedebug = None
 
+class FakeWarmState(object):
+    vectorize = True # default is on
+    def __init__(self, enable_opts):
+        self.enable_opts = enable_opts
+
+class FakeJitDriverStaticData(object):
+    vectorize = False
 
 class FakeMetaInterpStaticData(object):
 
@@ -364,9 +371,6 @@ final_descr = BasicFinalDescr()
 
 class BaseTest(object):
 
-    class DefaultFakeJitDriverStaticData(object):
-        vectorize = False
-
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
                                boxkinds,
@@ -410,12 +414,12 @@ class BaseTest(object):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
-        jitdriver_sd = BaseTest.DefaultFakeJitDriverStaticData()
+        jitdriver_sd = FakeJitDriverStaticData()
         if hasattr(self, 'jitdriver_sd'):
             jitdriver_sd = self.jitdriver_sd
+        warmstate = FakeWarmState(self.enable_opts)
         #
-        return optimize_trace(metainterp_sd, jitdriver_sd, loop,
-                              self.enable_opts,
+        return optimize_trace(metainterp_sd, jitdriver_sd, loop, warmstate,
                               start_state=start_state,
                               export_state=export_state)
 
