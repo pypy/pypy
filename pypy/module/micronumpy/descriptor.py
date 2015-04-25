@@ -40,6 +40,8 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     return out
 
 
+_REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
+
 class W_Dtype(W_Root):
     _immutable_fields_ = [
         "itemtype?", "w_box_type", "byteorder?", "names?", "fields?",
@@ -94,7 +96,37 @@ class W_Dtype(W_Root):
         return self.itemtype.box_complex(real, imag)
 
     def can_cast_to(self, other):
-        return self.itemtype.can_cast_to(other.itemtype)
+        result = self.itemtype.can_cast_to(other.itemtype)
+        if result:
+            if self.num == NPY.STRING:
+                if other.num == NPY.STRING:
+                    return self.elsize <= other.elsize
+                elif other.num == NPY.UNICODE:
+                    return self.elsize * 4 <= other.elsize
+            elif self.num == NPY.UNICODE and other.num == NPY.UNICODE:
+                return self.elsize <= other.elsize
+            elif other.num in (NPY.STRING, NPY.UNICODE):
+                if other.num == NPY.STRING:
+                    char_size = 1
+                else:  # NPY.UNICODE
+                    char_size = 4
+                if other.elsize == 0:
+                    return True
+                if self.is_bool():
+                    return other.elsize >= 5 * char_size
+                elif self.is_unsigned():
+                    if self.elsize > 8 or self.elsize < 0:
+                        return False
+                    else:
+                        return (other.elsize >=
+                                _REQ_STRLEN[self.elsize] * char_size)
+                elif self.is_signed():
+                    if self.elsize > 8 or self.elsize < 0:
+                        return False
+                    else:
+                        return (other.elsize >=
+                                (_REQ_STRLEN[self.elsize] + 1) * char_size)
+        return result
 
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
