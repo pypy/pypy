@@ -5,9 +5,11 @@ from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
     constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
-from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
-    shape_agreement_multiple
+from pypy.module.micronumpy.strides import (
+    Chunk, Chunks, shape_agreement, shape_agreement_multiple)
 from .boxes import W_GenericBox
+from .types import (
+    Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType)
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -306,11 +308,25 @@ def can_cast(space, w_from, w_totype, casting='safe'):
     origin = as_dtype(space, w_from)  # XXX
     return space.wrap(can_cast_type(space, origin, target, casting))
 
+kind_ordering = {
+    Bool.kind: 0, ULong.kind: 1, Long.kind: 2,
+    Float64.kind: 4, Complex64.kind: 5,
+    NPY.STRINGLTR: 6, NPY.STRINGLTR2: 6,
+    UnicodeType.kind: 7, VoidType.kind: 8, ObjectType.kind: 9}
+
 def can_cast_type(space, origin, target, casting):
     if casting == 'no':
         return origin.eq(space, target)
     elif casting == 'equiv':
         return origin.num == target.num and origin.elsize == target.elsize
+    elif casting == 'unsafe':
+        return True
+    elif casting == 'same_kind':
+        if origin.can_cast_to(target):
+            return True
+        if origin.kind in kind_ordering and target.kind in kind_ordering:
+            return kind_ordering[origin.kind] <= kind_ordering[target.kind]
+        return False
     else:
         return origin.can_cast_to(target)
 
