@@ -129,6 +129,13 @@ class BaseType(object):
         else:
             return alloc_raw_storage(size, track_allocation=False, zero=False)
 
+    @classmethod
+    def basesize(cls):
+        return rffi.sizeof(cls.T)
+
+    def can_cast_to(self, other):
+        return casting_table[self.num][other.num]
+
 class Primitive(object):
     _mixin_ = True
 
@@ -412,6 +419,7 @@ class Bool(BaseType, Primitive):
 
 class Integer(Primitive):
     _mixin_ = True
+    signed = True
 
     def _base_coerce(self, space, w_item):
         if w_item is None:
@@ -568,6 +576,7 @@ class UInt8(BaseType, Integer):
     char = NPY.UBYTELTR
     BoxType = boxes.W_UInt8Box
     format_code = "B"
+    signed = False
 
 class Int16(BaseType, Integer):
     T = rffi.SHORT
@@ -584,6 +593,7 @@ class UInt16(BaseType, Integer):
     char = NPY.USHORTLTR
     BoxType = boxes.W_UInt16Box
     format_code = "H"
+    signed = False
 
 class Int32(BaseType, Integer):
     T = rffi.INT
@@ -600,6 +610,7 @@ class UInt32(BaseType, Integer):
     char = NPY.UINTLTR
     BoxType = boxes.W_UInt32Box
     format_code = "I"
+    signed = False
 
 def _int64_coerce(self, space, w_item):
     try:
@@ -645,6 +656,7 @@ class UInt64(BaseType, Integer):
     char = NPY.ULONGLONGLTR
     BoxType = boxes.W_UInt64Box
     format_code = "Q"
+    signed = False
 
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
@@ -676,6 +688,7 @@ class ULong(BaseType, Integer):
     char = NPY.ULONGLTR
     BoxType = boxes.W_ULongBox
     format_code = "L"
+    signed = False
 
     _coerce = func_with_new_name(_ulong_coerce, '_coerce')
 
@@ -2392,8 +2405,11 @@ for tp in [UInt32, UInt64]:
 del tp
 
 all_float_types = []
+float_types = []
 all_int_types = []
+int_types = []
 all_complex_types = []
+complex_types = []
 
 def _setup():
     # compute alignment
@@ -2402,9 +2418,57 @@ def _setup():
             tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
             if issubclass(tp, Float):
                 all_float_types.append((tp, 'float'))
+                float_types.append(tp)
             if issubclass(tp, Integer):
                 all_int_types.append((tp, 'int'))
+                int_types.append(tp)
             if issubclass(tp, ComplexFloating):
                 all_complex_types.append((tp, 'complex'))
+                complex_types.append(tp)
 _setup()
 del _setup
+
+casting_table = [[False] * NPY.NTYPES for _ in range(NPY.NTYPES)]
+number_types = int_types + float_types + complex_types
+all_types = number_types + [ObjectType, StringType, UnicodeType, VoidType]
+
+def enable_cast(type1, type2):
+    casting_table[type1.num][type2.num] = True
+
+for tp in all_types:
+    enable_cast(tp, tp)
+    if tp.num != NPY.DATETIME:
+        enable_cast(Bool, tp)
+    enable_cast(tp, ObjectType)
+    enable_cast(tp, VoidType)
+enable_cast(StringType, UnicodeType)
+#enable_cast(Bool, TimeDelta)
+
+for tp in number_types:
+    enable_cast(tp, StringType)
+    enable_cast(tp, UnicodeType)
+
+for tp1 in int_types:
+    for tp2 in int_types:
+        if tp1.signed:
+            if tp2.signed and tp1.basesize() <= tp2.basesize():
+                enable_cast(tp1, tp2)
+        else:
+            if tp2.signed and tp1.basesize() < tp2.basesize():
+                enable_cast(tp1, tp2)
+            elif not tp2.signed and tp1.basesize() <= tp2.basesize():
+                enable_cast(tp1, tp2)
+for tp1 in int_types:
+    for tp2 in float_types + complex_types:
+        size1 = tp1.basesize()
+        size2 = tp2.basesize()
+        if (size1 < 8 and size2 > size1) or (size1 >= 8 and size2 >= size1):
+            enable_cast(tp1, tp2)
+for tp1 in float_types:
+    for tp2 in float_types + complex_types:
+        if tp1.basesize() <= tp2.basesize():
+            enable_cast(tp1, tp2)
+for tp1 in complex_types:
+    for tp2 in complex_types:
+        if tp1.basesize() <= tp2.basesize():
+            enable_cast(tp1, tp2)
