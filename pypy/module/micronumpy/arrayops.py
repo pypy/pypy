@@ -304,7 +304,15 @@ def result_type(space, __args__):
 def can_cast(space, w_from, w_totype, casting='safe'):
     target = as_dtype(space, w_totype)
     origin = as_dtype(space, w_from)  # XXX
-    return space.wrap(origin.can_cast_to(target))
+    return space.wrap(can_cast_type(space, origin, target, casting))
+
+def can_cast_type(space, origin, target, casting):
+    if casting == 'no':
+        return origin.eq(space, target)
+    elif casting == 'equiv':
+        return origin.num == target.num and origin.elsize == target.elsize
+    else:
+        return origin.can_cast_to(target)
 
 
 def as_dtype(space, w_arg):
