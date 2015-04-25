@@ -15,7 +15,7 @@ void pypy_codemap_invalid_set(int value)
     else
         __sync_lock_release(&pypy_codemap_currently_invalid);
 #else
-    InterlockedExchange((long volatile *)&pypy_codemap_currently_invalid,
+    _InterlockedExchange((long volatile *)&pypy_codemap_currently_invalid,
                         (long)value);
 #endif
 }

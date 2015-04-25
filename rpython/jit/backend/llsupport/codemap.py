@@ -25,6 +25,10 @@ INT_LIST_PTR = rffi.CArrayPtr(lltype.Signed)
 
 srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
+libraries = []
+if os.name == 'nt':
+    libraries.append('Kernel32')
+
 eci = ExternalCompilationInfo(post_include_bits=["""
 RPY_EXTERN long pypy_jit_codemap_add(unsigned long addr,
                                      unsigned int machine_code_size,
@@ -43,7 +47,7 @@ RPY_EXTERN void pypy_jit_depthmap_clear(unsigned long addr, unsigned int size);
 """], separate_module_sources=[
     open(os.path.join(srcdir, 'skiplist.c'), 'r').read() +
     open(os.path.join(srcdir, 'codemap.c'), 'r').read()
-], include_dirs=[cdir])
+], include_dirs=[cdir], libraries=libraries)
 
 def llexternal(name, args, res):
     return rffi.llexternal(name, args, res, compilation_info=eci,
