@@ -304,8 +304,12 @@ def result_type(space, __args__):
 
 @unwrap_spec(casting=str)
 def can_cast(space, w_from, w_totype, casting='safe'):
-    target = as_dtype(space, w_totype)
-    origin = as_dtype(space, w_from)  # XXX
+    try:
+        target = as_dtype(space, w_totype, allow_None=False)
+        origin = as_dtype(space, w_from, allow_None=False)  # XXX
+    except TypeError:
+        raise oefmt(space.w_TypeError,
+            "did not understand one of the types; 'None' not accepted")
     return space.wrap(can_cast_type(space, origin, target, casting))
 
 kind_ordering = {
@@ -331,8 +335,10 @@ def can_cast_type(space, origin, target, casting):
         return origin.can_cast_to(target)
 
 
-def as_dtype(space, w_arg):
+def as_dtype(space, w_arg, allow_None=True):
     # roughly equivalent to CNumPy's PyArray_DescrConverter2
+    if not allow_None and space.is_none(w_arg):
+        raise TypeError("Cannot create dtype from None here")
     if isinstance(w_arg, W_NDimArray):
         return w_arg.get_dtype()
     elif isinstance(w_arg, W_GenericBox) or (
