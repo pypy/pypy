@@ -95,12 +95,12 @@ static void signal_setflag_handler(int signum)
 #endif
 	if (wakeup_with_nul_byte)
 	{
-	    res = write(wakeup_fd, "\0", 1);	
+	    res = write(wakeup_fd, "\0", 1);
 	} else {
 	    unsigned char byte = (unsigned char)signum;
-	    res = write(wakeup_fd, &byte, 1);	
+	    res = write(wakeup_fd, &byte, 1);
 	}
-        
+
         /* the return value is ignored here */
       }
 }
