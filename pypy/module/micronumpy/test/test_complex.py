@@ -486,12 +486,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == max(a[i], b[i])
 
 
-    def test_abs_overflow(self):
-        from numpy import array, absolute, isinf
+    def test_complex_overflow(self):
+        from numpy import array, absolute, isinf, complex128, floor_divide
         a = array(complex(1.5e308,1.5e308))
         # Prints a RuntimeWarning, but does not raise
         b = absolute(a)
         assert isinf(b)
+        c = array([1.e+110, 1.e-110], dtype=complex128)
+        d = floor_divide(c**2, c)
+        assert (d == [1.e+110, 0]).all()
+        
         
 
     def test_basic(self):
@@ -598,7 +602,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             # but numpy.raises a TypeError
             if '__pypy__' in sys.builtin_module_names:
                 exct, excm = TypeError, 'readonly attribute'
-            else:
+            else :
                 exct, excm = AttributeError, 'is not writable'
             exc = raises(exct, 'c2.real = 10.')
             assert excm in exc.value[0]
