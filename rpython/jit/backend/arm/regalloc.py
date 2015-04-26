@@ -1155,6 +1155,8 @@ class Regalloc(BaseRegalloc):
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
     prepare_op_keepalive = void
+    prepare_op_enter_portal_frame = void
+    prepare_op_leave_portal_frame = void
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
