@@ -1,5 +1,9 @@
 import random, os
-import cffi
+try:
+    import cffi
+except ImportError:
+    import py
+    py.test.skip("cffi not installed")
 
 ffi = cffi.FFI()
 
