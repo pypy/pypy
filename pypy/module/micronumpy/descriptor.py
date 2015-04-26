@@ -150,6 +150,9 @@ class W_Dtype(W_Root):
     def is_complex(self):
         return self.kind == NPY.COMPLEXLTR
 
+    def is_number(self):
+        return self.is_int() or self.is_float() or self.is_complex()
+
     def is_str(self):
         return self.num == NPY.STRING
 

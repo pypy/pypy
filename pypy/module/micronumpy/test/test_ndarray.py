@@ -4047,3 +4047,9 @@ class AppTestPyPy(BaseNumpyAppTest):
 
         raises(TypeError, np.can_cast, 'i4', None)
         raises(TypeError, np.can_cast, None, 'i4')
+
+    def test_can_cast_scalar(self):
+        import numpy as np
+        assert np.can_cast(127, np.int8)
+        assert not np.can_cast(128, np.int8)
+        assert np.can_cast(128, np.int16)

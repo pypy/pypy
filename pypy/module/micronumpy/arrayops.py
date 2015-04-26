@@ -306,7 +306,18 @@ def result_type(space, __args__):
 def can_cast(space, w_from, w_totype, casting='safe'):
     try:
         target = as_dtype(space, w_totype, allow_None=False)
-        origin = as_dtype(space, w_from, allow_None=False)  # XXX
+    except TypeError:
+        raise oefmt(space.w_TypeError,
+            "did not understand one of the types; 'None' not accepted")
+    if isinstance(w_from, W_NDimArray):
+        return space.wrap(can_cast_array(space, w_from, target, casting))
+    elif is_scalar_w(space, w_from):
+        w_scalar = as_scalar(space, w_from)
+        w_arr = W_NDimArray.from_scalar(space, w_scalar)
+        return space.wrap(can_cast_array(space, w_arr, target, casting))
+
+    try:
+        origin = as_dtype(space, w_from, allow_None=False)
     except TypeError:
         raise oefmt(space.w_TypeError,
             "did not understand one of the types; 'None' not accepted")
@@ -334,6 +345,30 @@ def can_cast_type(space, origin, target, casting):
     else:
         return origin.can_cast_to(target)
 
+def can_cast_array(space, w_from, target, casting):
+    origin = w_from.get_dtype()
+    if w_from.is_scalar():
+        return can_cast_scalar(
+            space, origin, w_from.get_scalar_value(), target, casting)
+    else:
+        return can_cast_type(space, origin, target, casting)
+
+def can_cast_scalar(space, from_type, value, target, casting):
+    if from_type == target or casting == 'unsafe':
+        return True
+    if not from_type.is_number() or casting in ('no', 'equiv'):
+        return can_cast_type(space, from_type, target, casting)
+    if not from_type.is_native():
+        value = value.descr_byteswap(space)
+    return can_cast_type(space, from_type, target, casting)  # XXX: stub impl
+
+def is_scalar_w(space, w_arg):
+    return (isinstance(w_arg, W_GenericBox) or
+            space.isinstance_w(w_arg, space.w_int) or
+            space.isinstance_w(w_arg, space.w_float) or
+            space.isinstance_w(w_arg, space.w_complex) or
+            space.isinstance_w(w_arg, space.w_long) or
+            space.isinstance_w(w_arg, space.w_bool))
 
 def as_dtype(space, w_arg, allow_None=True):
     # roughly equivalent to CNumPy's PyArray_DescrConverter2
@@ -341,13 +376,12 @@ def as_dtype(space, w_arg, allow_None=True):
         raise TypeError("Cannot create dtype from None here")
     if isinstance(w_arg, W_NDimArray):
         return w_arg.get_dtype()
-    elif isinstance(w_arg, W_GenericBox) or (
-            space.isinstance_w(w_arg, space.w_int) or
-            space.isinstance_w(w_arg, space.w_float) or
-            space.isinstance_w(w_arg, space.w_complex) or
-            space.isinstance_w(w_arg, space.w_long) or
-            space.isinstance_w(w_arg, space.w_bool)):
+    elif is_scalar_w(space, w_arg):
         return ufuncs.find_dtype_for_scalar(space, w_arg)
     else:
         return space.interp_w(descriptor.W_Dtype,
             space.call_function(space.gettypefor(descriptor.W_Dtype), w_arg))
+
+def as_scalar(space, w_obj):
+    dtype = ufuncs.find_dtype_for_scalar(space, w_obj)
+    return dtype.coerce(space, w_obj)
