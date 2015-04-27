@@ -722,6 +722,8 @@ class Float(Primitive):
     def sign(self, v):
         if v == 0.0:
             return 0.0
+        if rfloat.isnan(v):
+            return rfloat.NAN
         return rfloat.copysign(1.0, v)
 
     @raw_unary_op
