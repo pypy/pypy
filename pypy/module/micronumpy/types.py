@@ -1305,12 +1305,30 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def floordiv(self, v1, v2):
-        try:
-            ab = v1[0]*v2[0] + v1[1]*v2[1]
-            bb = v2[0]*v2[0] + v2[1]*v2[1]
-            return math.floor(ab/bb), 0.
-        except ZeroDivisionError:
-            return rfloat.NAN, 0.
+        (r1, i1), (r2, i2) = v1, v2
+        if r2 < 0:
+            abs_r2 = -r2
+        else:
+            abs_r2 = r2
+        if i2 < 0:
+            abs_i2 = -i2
+        else:
+            abs_i2 = i2
+        if abs_r2 >= abs_i2:
+            if abs_r2 == 0.0:
+                return rfloat.NAN, 0.
+            else:
+                ratio = i2 / r2
+                denom = r2 + i2 * ratio
+                rr = (r1 + i1 * ratio) / denom
+        elif rfloat.isnan(r2):
+            rr = rfloat.NAN
+        else:
+            ratio = r2 / i2
+            denom = r2 * ratio + i2
+            assert i2 != 0.0
+            rr = (r1 * ratio + i1) / denom
+        return math.floor(rr), 0.
 
     #complex mod does not exist in numpy
     #@simple_binary_op
