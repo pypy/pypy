@@ -1,5 +1,6 @@
 import functools
 import math
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
@@ -2472,3 +2473,56 @@ for tp1 in complex_types:
     for tp2 in complex_types:
         if tp1.basesize() <= tp2.basesize():
             enable_cast(tp1, tp2)
+
+_int_types = [(Int8, UInt8), (Int16, UInt16), (Int32, UInt32),
+        (Int64, UInt64), (Long, ULong)]
+for Int_t, UInt_t in _int_types:
+    Int_t.Unsigned = UInt_t
+    UInt_t.Signed = Int_t
+    size = rffi.sizeof(Int_t.T)
+    Int_t.min_value = rffi.cast(Int_t.T, -1) << (8*size - 1)
+    Int_t.max_value = ~Int_t.min_value
+    UInt_t.max_value = ~rffi.cast(UInt_t.T, 0)
+
+
+signed_types = [Int8, Int16, Int32, Int64, Long]
+
+for Int_t in signed_types:
+    UInt_t = Int_t.Unsigned
+    smaller_types = [tp for tp in signed_types
+            if rffi.sizeof(tp.T) < rffi.sizeof(Int_t.T)]
+    smaller_types = unrolling_iterable(
+            [(tp, tp.Unsigned) for tp in smaller_types])
+    def min_dtype(self):
+        for Small, USmall in smaller_types:
+            signed_max = rffi.cast(UInt_t.T, Small.max_value)
+            unsigned_max = rffi.cast(UInt_t.T, USmall.max_value)
+            if self.value <= unsigned_max:
+                if self.value <= signed_max:
+                    return Small.num, USmall.num
+                else:
+                    return USmall.num, USmall.num
+        if self.value <= rffi.cast(UInt_t.T, Int_t.max_value):
+            return Int_t.num, UInt_t.num
+        else:
+            return UInt_t.num, UInt_t.num
+    UInt_t.BoxType.min_dtype = min_dtype
+
+    def min_dtype(self):
+        if self.value >= 0:
+            for Small, USmall in smaller_types:
+                signed_max = rffi.cast(UInt_t.T, Small.max_value)
+                unsigned_max = rffi.cast(UInt_t.T, USmall.max_value)
+                if self.value <= unsigned_max:
+                    if self.value <= signed_max:
+                        return Small.num, USmall.num
+                    else:
+                        return USmall.num, USmall.num
+            return Int_t.num, UInt_t.num
+        else:
+            for Small, USmall in smaller_types:
+                signed_min = rffi.cast(UInt_t.T, Small.min_value)
+                if self.value >= signed_max:
+                        return Small.num, Small.num
+            return Int_t.num, Int_t.num
+    Int_t.BoxType.min_dtype = min_dtype

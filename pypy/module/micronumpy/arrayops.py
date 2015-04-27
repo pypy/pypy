@@ -10,6 +10,7 @@ from pypy.module.micronumpy.strides import (
 from .boxes import W_GenericBox
 from .types import (
     Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType)
+from .descriptor import get_dtype_cache
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -360,7 +361,11 @@ def can_cast_scalar(space, from_type, value, target, casting):
         return can_cast_type(space, from_type, target, casting)
     if not from_type.is_native():
         value = value.descr_byteswap(space)
-    return can_cast_type(space, from_type, target, casting)  # XXX: stub impl
+    dtypenum, altnum = value.min_dtype()
+    if target.is_unsigned():
+        dtypenum = altnum
+    dtype = get_dtype_cache(space).dtypes_by_num[dtypenum]
+    return can_cast_type(space, dtype, target, casting)  # XXX: stub impl
 
 def is_scalar_w(space, w_arg):
     return (isinstance(w_arg, W_GenericBox) or
