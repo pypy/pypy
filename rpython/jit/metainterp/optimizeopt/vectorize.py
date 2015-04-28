@@ -97,8 +97,6 @@ class VectorizingOptimizer(Optimizer):
         self.schedule()
 
     def emit_operation(self, op):
-        if op.getopnum() == rop.GUARD_EARLY_EXIT:
-            return
         self._last_emitted_op = op
         self._newoperations.append(op)
 
@@ -356,10 +354,10 @@ class VectorizingOptimizer(Optimizer):
                 self.emit_operation(candidate.getoperation())
                 scheduler.schedule(0)
 
-        self.loop.operations = self._newoperations[:]
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
                 assert node.emitted
+        self.loop.operations = self.collapse_index_guards()
 
     def relax_index_guards(self):
         label_idx = 0
@@ -401,6 +399,27 @@ class VectorizingOptimizer(Optimizer):
             label.remove_edge_to(ee_guard)
 
             guard_node.relax_guard_to(self.future_condition)
+
+    def collapse_index_guards(self):
+        final_ops = []
+        last_guard = None
+        is_after_relax = False
+        for op in self._newoperations:
+            if op.getopnum() == rop.GUARD_EARLY_EXIT:
+                assert last_guard is not None
+                final_ops.append(last_guard)
+                is_after_relax = True
+                continue
+            if not is_after_relax:
+                if op.is_guard():
+                    last_guard = op
+                else:
+                    final_ops.append(op)
+            else:
+                final_ops.append(op)
+        assert is_after_relax
+        return final_ops
+
 
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
