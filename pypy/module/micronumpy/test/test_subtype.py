@@ -72,7 +72,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_subtype_view(self):
         from numpy import ndarray, array
-        class matrix(ndarray):
+        class matrix(ndarray, object):
             def __new__(subtype, data, dtype=None, copy=True):
                 if isinstance(data, matrix):
                     return data
@@ -86,6 +86,11 @@ class AppTestSupport(BaseNumpyAppTest):
             b = a.view(s)
             assert b == a
             assert type(b) is type(a)
+        a = matrix(array(range(5)))
+        for s in [matrix, ndarray]:
+            b = ndarray.view(a, s)
+            assert (b == a).all()
+            assert type(b) is s
 
     def test_subtype_like_matrix(self):
         import numpy as np

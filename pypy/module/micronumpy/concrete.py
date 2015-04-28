@@ -90,9 +90,13 @@ class BaseConcreteArray(object):
                               new_shape, self, orig_array)
         return None
 
-    def get_view(self, space, orig_array, dtype, new_shape):
-        strides, backstrides = calc_strides(new_shape, dtype,
+    def get_view(self, space, orig_array, dtype, new_shape, reuse_strides=False):
+        if not reuse_strides:
+            strides, backstrides = calc_strides(new_shape, dtype,
                                                     self.order)
+        else:
+            strides = self.get_strides()
+            backstrides = self.get_backstrides()
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
 
@@ -328,11 +332,7 @@ class BaseConcreteArray(object):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        # we want to create a new array, but must respect the strides
-        # in self. So find a factor of the itemtype.elsize, and use this
-        factor = float(dtype.elsize) / self.dtype.elsize
-        strides = [int(factor*s) for s in self.get_strides()]
-        backstrides = [int(factor*s) for s in self.get_backstrides()]
+        strides, backstrides = calc_strides(self.get_shape(), dtype, self.order)
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)

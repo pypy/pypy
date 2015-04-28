@@ -1817,6 +1817,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == 'new type not compatible with array.'
         s[...] = 2
         v = s.view(x.__class__)
+        assert v.strides == s.strides
+        assert v.base is s.base
         assert (v == 2).all()
     
     def test_tolist_scalar(self):
@@ -2169,7 +2171,6 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_astype(self):
         from numpy import array, arange
-        import gc
         b = array(1).astype(float)
         assert b == 1
         assert b.dtype == float
@@ -2186,8 +2187,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(11)[::-1]
         b = a.astype('int32')
         assert (b == a).all()
-        del b
-        gc.collect() 
 
         a = arange(6, dtype='f4').reshape(2,3)
         b = a.T.astype('i4')

@@ -34,15 +34,20 @@ if not we_are_translated():
     _raw_storage_getitem_unaligned = raw_storage_getitem_unaligned
     def raw_storage_setitem_unaligned(storage, offset, value):
         assert offset >=0
-        assert offset < storage._obj.getlength()
+        try:
+            assert offset < storage._obj.getlength()
+        except AttributeError:
+            pass
         return _raw_storage_setitem_unaligned(storage, offset, value) 
 
     def raw_storage_getitem_unaligned(T, storage, offset):
         assert offset >=0
-        assert offset < storage._obj.getlength()
+        try:
+            assert offset < storage._obj.getlength()
+        except AttributeError:
+            pass
         return _raw_storage_getitem_unaligned(T, storage, offset) 
 '''
-
 def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)

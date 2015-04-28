@@ -850,7 +850,15 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 # Strides, shape does not change
-                v = impl.astype(space, dtype)
+                if dtype.is_object() != impl.dtype.is_object():
+                    raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
+                        ' target dtype %r but self.dtype %r',dtype, impl.dtype)
+                
+                base = impl.base()
+                if base is None:
+                    base = self
+                v = impl.get_view(space, base, dtype, self.get_shape(),
+                        reuse_strides=True)
                 return wrap_impl(space, w_type, self, v)
             strides = impl.get_strides()
             if dims == 1 or strides[0] <strides[-1]:
