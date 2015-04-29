@@ -405,7 +405,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_setstate_no_version(self):
         # Some subclasses of ndarray, like MaskedArray, do not use
-        # version in __setstare__
+        # version in __setstate__
         from numpy import ndarray, array
         from pickle import loads, dumps
         import sys, new

@@ -1820,6 +1820,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert v.strides == s.strides
         assert v.base is s.base
         assert (v == 2).all()
+        y = empty([6,6], 'uint32')
+        s = y.swapaxes(0, 1)
+        v = s.view(y.__class__)
+        assert v.strides == (4, 24)
     
     def test_tolist_scalar(self):
         from numpy import dtype

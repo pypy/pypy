@@ -852,7 +852,7 @@ class __extend__(W_NDimArray):
                 # Strides, shape does not change
                 if dtype.is_object() != impl.dtype.is_object():
                     raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
-                        ' target dtype %r but self.dtype %r',dtype, impl.dtype)
+                        ' one of target dtype or dtype is object dtype')
                 
                 base = impl.base()
                 if base is None:
