@@ -90,13 +90,10 @@ class BaseConcreteArray(object):
                               new_shape, self, orig_array)
         return None
 
-    def get_view(self, space, orig_array, dtype, new_shape, reuse_strides=False):
-        if not reuse_strides:
+    def get_view(self, space, orig_array, dtype, new_shape, strides=None, backstrides=None):
+        if not strides:
             strides, backstrides = calc_strides(new_shape, dtype,
                                                     self.order)
-        else:
-            strides = self.get_strides()
-            backstrides = self.get_backstrides()
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
 

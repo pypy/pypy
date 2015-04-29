@@ -844,36 +844,35 @@ class __extend__(W_NDimArray):
             if old_itemsize != new_itemsize:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array."))
+            strides = None
+            backstrides = None
+            base = self
         else:
-            if not is_c_contiguous(impl) and not is_f_contiguous(impl):
-                if old_itemsize != new_itemsize:
+            base = impl.base()
+            if base is None:
+                base = self
+            strides = impl.get_strides()[:]
+            backstrides = impl.get_backstrides()[:]
+            if old_itemsize != new_itemsize:
+                if not is_c_contiguous(impl) and not is_f_contiguous(impl):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
-                # Strides, shape does not change
-                if dtype.is_object() != impl.dtype.is_object():
-                    raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
-                        ' one of target dtype or dtype is object dtype')
-                
-                base = impl.base()
-                if base is None:
-                    base = self
-                v = impl.get_view(space, base, dtype, self.get_shape(),
-                        reuse_strides=True)
-                return wrap_impl(space, w_type, self, v)
-            strides = impl.get_strides()
-            if dims == 1 or strides[0] <strides[-1]:
-                # Column-major, resize first dimension
-                if new_shape[0] * old_itemsize % new_itemsize != 0:
+                # Adapt the smallest dim to the new itemsize
+                minstride = strides[0]
+                mini = 0
+                for i in range(len(strides)):
+                    if strides[i] < minstride:
+                        minstride = strides[i]
+                        mini = i
+                if new_shape[mini] * old_itemsize % new_itemsize != 0:
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
-                new_shape[0] = new_shape[0] * old_itemsize / new_itemsize
-            else:
-                # Row-major, resize last dimension
-                if new_shape[-1] * old_itemsize % new_itemsize != 0:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "new type not compatible with array."))
-                new_shape[-1] = new_shape[-1] * old_itemsize / new_itemsize
-        v = impl.get_view(space, self, dtype, new_shape)
+                new_shape[mini] = new_shape[mini] * old_itemsize / new_itemsize
+                strides[mini] = strides[mini] * new_itemsize / old_itemsize    
+        if dtype.is_object() != impl.dtype.is_object():
+            raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
+                ' one of target dtype or dtype is object dtype')
+        v = impl.get_view(space, base, dtype, new_shape, strides, backstrides)
         w_ret = wrap_impl(space, w_type, self, v)
         return w_ret
 
