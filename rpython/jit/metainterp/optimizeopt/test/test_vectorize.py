@@ -12,7 +12,7 @@ import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 from rpython.jit.metainterp.optimizeopt.vectorize import (VectorizingOptimizer, MemoryRef,
-        isomorphic, Pair, NotAVectorizeableLoop)
+        isomorphic, Pair, NotAVectorizeableLoop, NotAVectorizeableLoop)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
@@ -21,6 +21,8 @@ from rpython.rlib.rarithmetic import LONG_BIT
 
 class FakeJitDriverStaticData(object):
     vectorize=True
+
+ARCH_VEC_REG_SIZE = 16
 
 class VecTestHelper(DependencyBaseTest):
 
@@ -54,7 +56,7 @@ class VecTestHelper(DependencyBaseTest):
         if unroll_factor == -1 and opt.smallest_type_bytes == 0:
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
-            unroll_factor = opt.get_unroll_count()
+            unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
         opt.clear_newoperations()
@@ -164,6 +166,18 @@ class BaseTestVectorize(VecTestHelper):
         """
         self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(ops), 2)
 
+    def test_vectorize_empty_with_early_exit(self):
+        ops = """
+        []
+        guard_early_exit() []
+        jump()
+        """
+        try:
+            self.schedule(self.parse_loop(ops),1)
+            py.test.fail("empty loop with no memory references is not vectorizable")
+        except NotAVectorizeableLoop:
+            pass
+
     def test_unroll_empty_stays_empty_parameter(self):
         """ same as test_unroll_empty_stays_empty but with a parameter """
         ops = """
@@ -238,7 +252,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectoroptimizer(self.parse_loop(ops))
         assert 0 == vopt.smallest_type_bytes
-        assert 0 == vopt.get_unroll_count()
+        assert 0 == vopt.get_unroll_count(ARCH_VEC_REG_SIZE)
 
     def test_array_operation_indices_not_unrolled(self):
         ops = """

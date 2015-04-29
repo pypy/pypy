@@ -2135,8 +2135,10 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         # can only emit early exit if liveness is present
         # TODO think of a better way later
-        if self.framestack[-1].jitcode.liveness.get(0, None):
+        if self.framestack[-1].jitcode.liveness.get(0, None) \
+           and self.jitdriver_sd.vectorize:
             self.generate_guard(rop.GUARD_EARLY_EXIT)
+            #self.history.record(rop.GUARD_EARLY_EXIT, [], None)
         try:
             self.interpret()
         except SwitchToBlackhole, stb:

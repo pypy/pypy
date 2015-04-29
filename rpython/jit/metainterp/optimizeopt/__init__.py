@@ -67,13 +67,13 @@ def optimize_trace(metainterp_sd, jitdriver_sd, loop, warmstate,
         loop.logops = metainterp_sd.logger_noopt.log_loop(loop.inputargs,
                                                           loop.operations)
         optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
-
-        if jitdriver_sd.vectorize:
-            optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations)
-        elif unroll:
-            return optimize_unroll(metainterp_sd, jitdriver_sd, loop,
-                                   optimizations, inline_short_preamble,
-                                   start_state, export_state)
+        if unroll:
+            if not export_state and warmstate.vectorize and jitdriver_sd.vectorize:
+                optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations)
+            else:
+                return optimize_unroll(metainterp_sd, jitdriver_sd, loop,
+                                       optimizations, inline_short_preamble,
+                                       start_state, export_state)
         else:
             optimizer = Optimizer(metainterp_sd, jitdriver_sd, loop,
                                   optimizations)

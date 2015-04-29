@@ -1301,6 +1301,7 @@ class RegAlloc(BaseRegalloc):
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
+
         # Do we have a temp var?
         if IS_X86_64:
             tmpreg = X86_64_SCRATCH_REG
@@ -1466,7 +1467,7 @@ class RegAlloc(BaseRegalloc):
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
         integer = not descr.is_array_of_floats()
-        aligned = True
+        aligned = False
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
@@ -1487,7 +1488,7 @@ class RegAlloc(BaseRegalloc):
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
 
         integer = not descr.is_array_of_floats()
-        aligned = True
+        aligned = False
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
 

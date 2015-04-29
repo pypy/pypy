@@ -13,13 +13,14 @@ from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 
 class VectorizeTests:
-    enable_opts = 'all'
+    enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,
                               CPUClass=self.CPUClass,
-                              type_system=self.type_system)
+                              type_system=self.type_system,
+                              vectorize=1)
 
     @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
     def test_vectorize_simple_load_arith_store_int_add_index(self,i):

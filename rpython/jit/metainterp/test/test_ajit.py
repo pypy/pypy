@@ -2764,9 +2764,13 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, loop, warmstate,
                               *args, **kwds):
-            seen.append('unroll' in enable_opts)
+            if 'try_disabling_unroll' in kwds and \
+               kwds['try_disabling_unroll']:
+                seen.append(False)
+            else:
+                seen.append('unroll' in warmstate.enable_opts)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace
         optimizeopt.optimize_trace = my_optimize_trace

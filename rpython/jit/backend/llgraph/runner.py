@@ -242,6 +242,8 @@ class LLGraphCPU(model.AbstractCPU):
     translate_support_code = False
     is_llgraph = True
 
+    vector_register_size = 16
+
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper

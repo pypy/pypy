@@ -24,6 +24,8 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
+    vector_register_size = 0 # in bytes
+
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
     gen_regs = gpr_reg_mgr_cls.all_regs
@@ -148,6 +150,8 @@ class CPU386(AbstractX86CPU):
 
     IS_64_BIT = False
 
+    vector_register_size = 16
+
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**31 - 1)
         super(CPU386, self).__init__(*args, **kwargs)
@@ -162,5 +166,7 @@ class CPU_X86_64(AbstractX86CPU):
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
 
     IS_64_BIT = True
+
+    vector_register_size = 16
 
 CPU = CPU386

@@ -71,20 +71,22 @@ class VectorizingOptimizer(Optimizer):
         self.clear_newoperations()
         label = self.loop.operations[0]
         jump = self.loop.operations[-1]
-        if jump.getopnum() != rop.LABEL:
+        if jump.getopnum() not in (rop.LABEL, rop.JUMP):
             # compile_loop appends a additional label to all loops
             # we cannot optimize normal traces
+            assert False
             raise NotAVectorizeableLoop()
 
         self.linear_find_smallest_type(self.loop)
         byte_count = self.smallest_type_bytes
-        if byte_count == 0 or label.getopnum() != rop.LABEL:
+        vsize = self.metainterp_sd.cpu.vector_register_size
+        if vsize == 0 or byte_count == 0 or label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
             raise NotAVectorizeableLoop()
 
         # unroll
-        self.unroll_count = self.get_unroll_count()
+        self.unroll_count = self.get_unroll_count(vsize)
         self.unroll_loop_iterations(self.loop, self.unroll_count)
         self.loop.operations = self.get_newoperations();
         self.clear_newoperations();
@@ -97,6 +99,8 @@ class VectorizingOptimizer(Optimizer):
         self.schedule()
 
     def emit_operation(self, op):
+        if op.getopnum() == rop.GUARD_EARLY_EXIT:
+            return
         self._last_emitted_op = op
         self._newoperations.append(op)
 
@@ -111,10 +115,15 @@ class VectorizingOptimizer(Optimizer):
         op_count = len(loop.operations)
 
         label_op = loop.operations[0].clone()
-        jump_op = loop.operations[op_count-1].clone()
-        # use the target token of the label
-        jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, label_op.getdescr())
         assert label_op.getopnum() == rop.LABEL
+        jump_op = loop.operations[op_count-1]
+        # use the target token of the label
+        assert jump_op.getopnum() in (rop.LABEL, rop.JUMP)
+        if jump_op.getopnum() == rop.LABEL:
+            jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, label_op.getdescr())
+        else:
+            jump_op = jump_op.clone()
+            jump_op.setdescr(label_op.getdescr())
         assert jump_op.is_final()
 
         self.emit_unrolled_operation(label_op)
@@ -228,13 +237,12 @@ class VectorizingOptimizer(Optimizer):
                        or byte_count < self.smallest_type_bytes:
                         self.smallest_type_bytes = byte_count
 
-    def get_unroll_count(self):
+    def get_unroll_count(self, simd_vec_reg_bytes):
         """ This is an estimated number of further unrolls """
         # this optimization is not opaque, and needs info about the CPU
         byte_count = self.smallest_type_bytes
         if byte_count == 0:
             return 0
-        simd_vec_reg_bytes = 16 # TODO get from cpu
         unroll_count = simd_vec_reg_bytes // byte_count
         return unroll_count-1 # it is already unrolled once
 
@@ -357,7 +365,9 @@ class VectorizingOptimizer(Optimizer):
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
                 assert node.emitted
-        self.loop.operations = self.collapse_index_guards()
+        self.loop.operations = self._newoperations[:]
+        #self.collapse_index_guards()
+        #self.clear_newoperations()
 
     def relax_index_guards(self):
         label_idx = 0
