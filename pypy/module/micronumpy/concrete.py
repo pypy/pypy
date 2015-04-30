@@ -329,7 +329,11 @@ class BaseConcreteArray(object):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        strides, backstrides = calc_strides(self.get_shape(), dtype, self.order)
+        s_elsize = self.dtype.elsize
+        t_elsize = dtype.elsize
+        strides = [s*t_elsize/s_elsize for s in self.get_strides()]
+        backstrides = calc_backstrides(strides, self.get_shape())
+        #strides, backstrides = calc_strides(self.get_shape(), dtype, self.order)
         impl = ConcreteArray(self.get_shape(), dtype, self.order,
                              strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
