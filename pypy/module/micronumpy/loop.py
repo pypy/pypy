@@ -209,7 +209,7 @@ def _setslice(space, shape, target, source):
     while not target_iter.done(target_state):
         setslice_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
         val = source_iter.getitem(source_state)
-        if dtype.is_str_or_unicode():
+        if dtype.is_str_or_unicode() or dtype.is_record():
             val = dtype.coerce(space, val)
         else:
             val = val.convert_to(space, dtype)

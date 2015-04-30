@@ -3838,6 +3838,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
                    ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
+        
+        mdtype = dtype([('a', bool), ('b', bool), ('c', bool)])
+        a = array([0, 0, 0, 1, 1])
+        # this creates a value of (x, x, x) in b for each x in a
+        b = array(a, dtype=mdtype)
+        assert b.shape == a.shape
+        c = array([(x, x, x) for x in [0, 0, 0, 1, 1]], dtype=mdtype)
+        assert (b == c).all()
 
     def test_3d_record(self):
         from numpy import dtype, array
