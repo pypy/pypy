@@ -2494,35 +2494,37 @@ for Int_t in signed_types:
     smaller_types = unrolling_iterable(
             [(tp, tp.Unsigned) for tp in smaller_types])
     def min_dtype(self):
+        value = rffi.cast(UInt64.T, self.value)
         for Small, USmall in smaller_types:
-            signed_max = rffi.cast(UInt_t.T, Small.max_value)
-            unsigned_max = rffi.cast(UInt_t.T, USmall.max_value)
-            if self.value <= unsigned_max:
-                if self.value <= signed_max:
+            signed_max = rffi.cast(UInt64.T, Small.max_value)
+            unsigned_max = rffi.cast(UInt64.T, USmall.max_value)
+            if value <= unsigned_max:
+                if value <= signed_max:
                     return Small.num, USmall.num
                 else:
                     return USmall.num, USmall.num
-        if self.value <= rffi.cast(UInt_t.T, Int_t.max_value):
+        if value <= rffi.cast(UInt64.T, Int_t.max_value):
             return Int_t.num, UInt_t.num
         else:
             return UInt_t.num, UInt_t.num
     UInt_t.BoxType.min_dtype = min_dtype
 
     def min_dtype(self):
-        if self.value >= 0:
+        value = rffi.cast(Int64.T, self.value)
+        if value >= 0:
             for Small, USmall in smaller_types:
-                signed_max = rffi.cast(UInt_t.T, Small.max_value)
-                unsigned_max = rffi.cast(UInt_t.T, USmall.max_value)
-                if self.value <= unsigned_max:
-                    if self.value <= signed_max:
+                signed_max = rffi.cast(Int64.T, Small.max_value)
+                unsigned_max = rffi.cast(Int64.T, USmall.max_value)
+                if value <= unsigned_max:
+                    if value <= signed_max:
                         return Small.num, USmall.num
                     else:
                         return USmall.num, USmall.num
             return Int_t.num, UInt_t.num
         else:
             for Small, USmall in smaller_types:
-                signed_min = rffi.cast(UInt_t.T, Small.min_value)
-                if self.value >= signed_max:
+                signed_min = rffi.cast(Int64.T, Small.min_value)
+                if value >= signed_min:
                         return Small.num, Small.num
             return Int_t.num, Int_t.num
     Int_t.BoxType.min_dtype = min_dtype
