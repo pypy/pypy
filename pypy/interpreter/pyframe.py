@@ -65,12 +65,18 @@ class PyFrame(W_Root):
     locals_stack_w = None # the list of all locals and valuestack
     valuestackdepth = -1 # number of items on valuestack
     lastblock = None
-    builtin = None # builtin cache, only if honor__builtins__ is True,
     # default to False
     f_lineno = -1 # current lineno
     cells = None # cells
 
+    # other fields:
+    
+    # builtin - builtin cache, only if honor__builtins__ is True,
+
     # there is also self.space which is removed by the annotator
+
+    # additionally JIT uses vable_token field that is representing
+    # frame current virtualizable state as seen by the JIT
 
     def __init__(self, space, code, w_globals, outer_func):
         if not we_are_translated():
