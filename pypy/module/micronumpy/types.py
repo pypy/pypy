@@ -1026,6 +1026,7 @@ class Float16(BaseType, Float):
     kind = NPY.FLOATINGLTR
     char = NPY.HALFLTR
     BoxType = boxes.W_Float16Box
+    max_value = 65000.
 
     @specialize.argtype(1)
     def box(self, value):
@@ -1070,6 +1071,7 @@ class Float32(BaseType, Float):
     char = NPY.FLOATLTR
     BoxType = boxes.W_Float32Box
     format_code = "f"
+    max_value = 3.4e38
 
 class Float64(BaseType, Float):
     T = rffi.DOUBLE
@@ -1078,6 +1080,7 @@ class Float64(BaseType, Float):
     char = NPY.DOUBLELTR
     BoxType = boxes.W_Float64Box
     format_code = "d"
+    max_value = 1.7e308
 
 class ComplexFloating(object):
     _mixin_ = True
@@ -2487,8 +2490,7 @@ for Int_t, UInt_t in _int_types:
 
 signed_types = [Int8, Int16, Int32, Int64, Long]
 
-for Int_t in signed_types:
-    UInt_t = Int_t.Unsigned
+def make_integer_min_dtype(Int_t, UInt_t):
     smaller_types = [tp for tp in signed_types
             if rffi.sizeof(tp.T) < rffi.sizeof(Int_t.T)]
     smaller_types = unrolling_iterable(
@@ -2528,3 +2530,32 @@ for Int_t in signed_types:
                         return Small.num, Small.num
             return Int_t.num, Int_t.num
     Int_t.BoxType.min_dtype = min_dtype
+
+for Int_t in signed_types:
+    UInt_t = Int_t.Unsigned
+    make_integer_min_dtype(Int_t, UInt_t)
+
+
+smaller_float_types = {
+        Float16: [], Float32: [Float16], Float64: [Float16, Float32],
+        FloatLong: [Float16, Float32, Float64]}
+
+def make_float_min_dtype(Float_t):
+    smaller_types = unrolling_iterable(smaller_float_types[Float_t])
+    smallest_type = Float16
+    def min_dtype(self):
+        value = float(self.value)
+        if not rfloat.isfinite(value):
+            tp = smallest_type
+        else:
+            for SmallFloat in smaller_types:
+                if -SmallFloat.max_value < value < SmallFloat.max_value:
+                    tp = SmallFloat
+                    break
+            else:
+                tp = Float_t
+        return tp.num, tp.num
+    Float_t.BoxType.min_dtype = min_dtype
+
+for Float_t in float_types:
+    make_float_min_dtype(Float_t)
