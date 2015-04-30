@@ -237,7 +237,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert np.WRAP is 1
         assert np.RAISE is 2
 
-    def test_ndarray(self):
+    def test_creation(self):
         from numpy import ndarray, array, dtype, flatiter
 
         assert type(ndarray) is type
@@ -268,6 +268,12 @@ class AppTestNumArray(BaseNumpyAppTest):
             else:
                 assert a.flags['C']
                 assert not a.flags['F']
+
+        x = array([[0, 2], [1, 1], [2, 0]])
+        y = array(x.T, dtype=float)
+        assert (y == x.T).all()
+        y = array(x.T, copy=False)
+        assert (y == x.T).all()
 
     def test_ndmin(self):
         from numpy import array
