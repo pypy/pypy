@@ -74,6 +74,7 @@ class Node(object):
         self.memory_ref = None
         self.pack = None
         self.emitted = False
+        self.schedule_position = -1
 
     def getoperation(self):
         return self.op
@@ -643,16 +644,17 @@ class Scheduler(object):
         del self.schedulable_nodes[index]
         self.schedulable_nodes.append(node)
 
-    def schedule_all(self, opindices):
+    def schedule_all(self, opindices, position):
         while len(opindices) > 0:
             opidx = opindices.pop()
             for i,node in enumerate(self.schedulable_nodes):
                 if node == opidx:
-                    self.schedule(i)
+                    self.schedule(i, position)
                     break
 
-    def schedule(self, index):
+    def schedule(self, index, position):
         node = self.schedulable_nodes[index]
+        node.schedule_position = position
         del self.schedulable_nodes[index]
         to_del = []
         for dep in node.provides()[:]: # COPY

@@ -1497,7 +1497,7 @@ class RegAlloc(BaseRegalloc):
     def consider_vec_int_add(self, op):
         count = op.getarg(2)
         assert isinstance(count, ConstInt)
-        itemsize = 16 // count.value
+        itemsize = self.assembler.cpu.vector_register_size // count.value
         args = op.getarglist()
         loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
@@ -1508,8 +1508,10 @@ class RegAlloc(BaseRegalloc):
         # done on the vector register, if there is a wrap around,
         # it is lost, because the register does not have enough bits
         # to save it.
-        argloc = self.loc(op.getarg(0))
-        self.force_allocate_reg(op.result, selected_reg=argloc)
+        #argloc = self.loc(op.getarg(0))
+        self.xrm.force_result_in_reg(op.result, op.getarg(0))
+        if op.getarg(1).value != op.getarg(2).value:
+            raise NotImplementedError("signext not implemented")
 
     def consider_guard_early_exit(self, op):
         pass

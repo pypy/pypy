@@ -96,10 +96,12 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
         self.extend_packset()
         self.combine_packset()
+        self.collapse_index_guards()
         self.schedule()
 
     def emit_operation(self, op):
-        if op.getopnum() == rop.GUARD_EARLY_EXIT:
+        if op.getopnum() == rop.GUARD_EARLY_EXIT or \
+           op.getopnum() == rop.DEBUG_MERGE_POINT:
             return
         self._last_emitted_op = op
         self._newoperations.append(op)
@@ -261,8 +263,8 @@ class VectorizingOptimizer(Optimizer):
         operations = loop.operations
 
         self.packset = PackSet(self.dependency_graph, operations,
-                                self.unroll_count,
-                                self.smallest_type_bytes)
+                               self.unroll_count,
+                               self.smallest_type_bytes)
         memory_refs = self.dependency_graph.memory_refs.items()
         # initialize the pack set
         for node_a,memref_a in memory_refs:
@@ -354,20 +356,22 @@ class VectorizingOptimizer(Optimizer):
                 pack = candidate.pack
                 if scheduler.schedulable(pack.operations):
                     vop = scheduler.sched_data.as_vector_operation(pack)
+                    position = len(self._newoperations)
                     self.emit_operation(vop)
-                    scheduler.schedule_all(pack.operations)
+                    scheduler.schedule_all(pack.operations, position)
                 else:
                     scheduler.schedule_later(0)
             else:
+                if candidate.getopnum() == rop.GUARD_EARLY_EXIT:
+                    pass
+                position = len(self._newoperations)
                 self.emit_operation(candidate.getoperation())
-                scheduler.schedule(0)
+                scheduler.schedule(0, position)
 
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
                 assert node.emitted
         self.loop.operations = self._newoperations[:]
-        #self.collapse_index_guards()
-        #self.clear_newoperations()
 
     def relax_index_guards(self):
         label_idx = 0
@@ -411,24 +415,25 @@ class VectorizingOptimizer(Optimizer):
             guard_node.relax_guard_to(self.future_condition)
 
     def collapse_index_guards(self):
-        final_ops = []
-        last_guard = None
-        is_after_relax = False
-        for op in self._newoperations:
-            if op.getopnum() == rop.GUARD_EARLY_EXIT:
-                assert last_guard is not None
-                final_ops.append(last_guard)
-                is_after_relax = True
-                continue
-            if not is_after_relax:
-                if op.is_guard():
-                    last_guard = op
-                else:
-                    final_ops.append(op)
-            else:
-                final_ops.append(op)
-        assert is_after_relax
-        return final_ops
+        pass
+        #final_ops = []
+        #last_guard = None
+        #is_after_relax = False
+        #for op in self._newoperations:
+        #    if op.getopnum() == rop.GUARD_EARLY_EXIT:
+        #        assert last_guard is not None
+        #        final_ops.append(last_guard)
+        #        is_after_relax = True
+        #        continue
+        #    if not is_after_relax:
+        #        if op.is_guard():
+        #            last_guard = op
+        #        else:
+        #            final_ops.append(op)
+        #    else:
+        #        final_ops.append(op)
+        #assert is_after_relax
+        #return final_ops
 
 
 def must_unpack_result_to_exec(op, target_op):

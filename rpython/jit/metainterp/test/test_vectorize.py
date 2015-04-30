@@ -64,23 +64,23 @@ class VectorizeTests:
         myjitdriver = JitDriver(greens = [],
                                 reds = ['i','d','va','vb','vc'],
                                 vectorize=True)
-        ET = rffi.SIGNED
-        T = lltype.Array(ET, hints={'nolength': True})
+        T = lltype.Array(rffi.INT, hints={'nolength': True})
         def f(d):
             i = 0
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             vb = lltype.malloc(T, d, flavor='raw', zero=True)
             vc = lltype.malloc(T, d, flavor='raw', zero=True)
             for j in range(d):
-                va[j] = j
-                vb[j] = j
+                va[j] = rffi.r_int(j)
+                vb[j] = rffi.r_int(j)
             while i < d:
                 myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc)
                 myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc)
 
                 a = va[i]
                 b = vb[i]
-                vc[i] = a+b
+                ec = intmask(a)+intmask(b)
+                vc[i] = rffi.r_int(ec)
 
                 i += 1
             res = 0

@@ -973,5 +973,27 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.schedule(self.parse_loop(ops),1)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
+    def test_collapse_index_guard_1(self):
+        ops = """
+        [p0,i0]
+        guard_early_exit() []
+        i1 = getarrayitem_raw(p0, i0, descr=intarraydescr)
+        i2 = int_add(i0, 1)
+        i3 = int_lt(i2, 102)
+        guard_true(i3) [p0,i0]
+        jump(p0,i2)
+        """
+        opt="""
+        [p0,i0]
+        i2 = int_add(i0, 16)
+        i3 = int_lt(i2, 102)
+        guard_true(i3) [p0,i0]
+        i1 = vec_getarrayitem_raw(p0, i0, 16, descr=intarraydescr)
+        jump(p0,i2)
+        """
+        vopt = self.schedule(self.parse_loop(ops),15)
+        self.assert_equal(vopt.loop, self.parse_loop(opt))
+
+
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass
