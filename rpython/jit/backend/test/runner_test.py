@@ -3160,7 +3160,6 @@ class LLtypeBackendTest(BaseBackendTest):
         for saveerr in [rffi.RFFI_READSAVED_LASTERROR,
                         rffi.RFFI_READSAVED_LASTERROR | rffi.RFFI_ALT_ERRNO,
                        ]:
-            use_alt_errno = saveerr & rffi.RFFI_ALT_ERRNO
             faildescr = BasicFailDescr(1)
             inputargs = [BoxInt() for i in range(7)]
             i1 = BoxInt()
@@ -3242,7 +3241,6 @@ class LLtypeBackendTest(BaseBackendTest):
         for saveerr in [rffi.RFFI_ERR_ALL,
                         rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO, 
                        ]:
-            use_alt_errno = saveerr & rffi.RFFI_ALT_ERRNO
             faildescr = BasicFailDescr(1)
             inputargs = [BoxInt() for i in range(7)]
             i1 = BoxInt()
@@ -3258,7 +3256,7 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
-            if use_alt_errno:
+            if saveerr & rffi.RFFI_ALT_ERRNO:
                 llerrno.set_debug_saved_alterrno(self.cpu, 8)
             else:
                 llerrno.set_debug_saved_errno(self.cpu, 8)
