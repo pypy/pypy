@@ -185,7 +185,7 @@ class W_FloatObject(W_Root):
         from pypy.objspace.std.util import IDTAG_FLOAT as tag
         val = float2longlong(space.float_w(self))
         b = rbigint.fromrarith_int(val)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
+        b = b.lshift(3).int_or_(tag)
         return space.newlong_from_rbigint(b)
 
     def __repr__(self):

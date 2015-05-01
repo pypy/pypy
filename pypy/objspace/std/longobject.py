@@ -45,7 +45,7 @@ class W_AbstractLongObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(IDTAG_LONG))
+        b = b.lshift(3).int_or_(IDTAG_LONG)
         return space.newlong_from_rbigint(b)
 
     def unwrap(self, space):
