@@ -36,10 +36,10 @@ def elidable(func):
     is handled like a normal function call (this decorator is ignored).
 
     Note also that this optimisation will only take effect if the arguments
-    to the function are "provably constant". By this we mean each argument
+    to the function are proven constant. By this we mean each argument
     is either:
 
-      1) literally constant in the RPython source
+      1) a constant from the RPython source code (e.g. "x = 2")
       2) easily shown to be constant by the tracer
       3) a promoted variable (see @jit.promote)
 
