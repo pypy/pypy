@@ -7,7 +7,6 @@ from rpython.rtyper.extfunc import register_external
 
 import math
 from rpython.rtyper.lltypesystem.module import ll_math
-from rpython.rtyper.module import ll_time
 from rpython.rlib import rfloat
 
 # the following functions all take one float, return one float

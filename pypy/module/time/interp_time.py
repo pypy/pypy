@@ -4,6 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rtime  # Register functions
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import os
@@ -481,13 +482,6 @@ def time(space):
 
     secs = pytime.time()
     return space.wrap(secs)
-
-if _WIN:
-    class PCCache:
-        pass
-    pccache = PCCache()
-    pccache.divisor = 0.0
-    pccache.ctrStart = 0
 
 def clock(space):
     """clock() -> floating point number
