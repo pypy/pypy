@@ -167,3 +167,10 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         # Wrong way - should complain about writing buffer to object dtype
         raises(ValueError, np.array, [1, 'object'], dt)
 
+    def test_astype(self):
+        import numpy as np
+        a = np.arange(5, dtype=complex)
+        b = a.real
+        c = b.astype("O")
+        assert c.shape == b.shape
+        assert c.strides == (8,)
