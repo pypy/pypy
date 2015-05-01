@@ -3106,15 +3106,22 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            llerrno.set_debug_saved_altlasterror(self.cpu, 25)
             deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
             original_result = self.cpu.get_int_value(deadframe, 0)
             result = llerrno.get_debug_saved_lasterror(self.cpu)
-            print 'saveerr =', saveerr, ': got result =', result
+            altresult = llerrno.get_debug_saved_altlasterror(self.cpu)
+            print 'saveerr =', saveerr, ': got result =', result,
+            print 'and altresult =', altresult
             #
-            if saveerr == rffi.RFFI_SAVE_LASTERROR:
-                assert result == 42      # from the C code
+            if saveerr & rffi.RFFI_SAVE_LASTERROR:
+                # one from the C code, the other not touched
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert (result, altresult) == (24, 42)
+                else:
+                    assert (result, altresult) == (42, 25)
             else:
-                assert result == 24      # not touched
+                assert (result, altresult) == (24, 25)      # not touched
             assert original_result == 3456789
 
     def test_call_release_gil_readsaved_lasterror(self):
@@ -3153,6 +3160,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for saveerr in [rffi.RFFI_READSAVED_LASTERROR,
                         rffi.RFFI_READSAVED_LASTERROR | rffi.RFFI_ALT_ERRNO,
                        ]:
+            use_alt_errno = saveerr & rffi.RFFI_ALT_ERRNO
             faildescr = BasicFailDescr(1)
             inputargs = [BoxInt() for i in range(7)]
             i1 = BoxInt()
@@ -3169,11 +3177,17 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            llerrno.set_debug_saved_altlasterror(self.cpu, 25)
             deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
             result = self.cpu.get_int_value(deadframe, 0)
             assert llerrno.get_debug_saved_lasterror(self.cpu) == 24
+            assert llerrno.get_debug_saved_altlasterror(self.cpu) == 25
             #
-            assert result == 24 + 345678900
+            if saveerr & rffi.RFFI_ALT_ERRNO:
+                expected_lasterror = 25
+            else:
+                expected_lasterror = 24
+            assert result == expected_lasterror + 345678900
 
     def test_call_release_gil_err_all(self):
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
