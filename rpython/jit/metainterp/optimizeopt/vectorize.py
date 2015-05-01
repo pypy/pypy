@@ -132,7 +132,8 @@ class VectorizingOptimizer(Optimizer):
         # use the target token of the label
         assert jump_op.getopnum() in (rop.LABEL, rop.JUMP)
         target_token = label_op.getdescr()
-        target_token.assumed_classes = {}
+        if not we_are_translated():
+            target_token.assumed_classes = {}
         if jump_op.getopnum() == rop.LABEL:
             jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, target_token)
         else:
@@ -427,6 +428,7 @@ class VectorizingOptimizer(Optimizer):
         strongest_guards = {}
         strongest_guards_var = {}
         index_vars = self.dependency_graph.index_vars
+        comparison_vars = self.dependency_graph.comparison_vars
         operations = self.loop.operations
         var_for_guard = {}
         for i in range(len(operations)-1, -1, -1):
@@ -435,8 +437,10 @@ class VectorizingOptimizer(Optimizer):
                 for arg in op.getarglist():
                     var_for_guard[arg] = True
                     try:
-                        comparison = index_vars[arg]
-                        for index_var in comparison.getindex_vars():
+                        comparison = comparison_vars[arg]
+                        for index_var in list(comparison.getindex_vars()):
+                            if not index_var:
+                                continue
                             var = index_var.getvariable()
                             strongest_known = strongest_guards_var.get(var, None)
                             if not strongest_known:

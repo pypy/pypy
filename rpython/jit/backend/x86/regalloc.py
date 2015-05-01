@@ -1510,8 +1510,8 @@ class RegAlloc(BaseRegalloc):
         # to save it.
         #argloc = self.loc(op.getarg(0))
         self.xrm.force_result_in_reg(op.result, op.getarg(0))
-        if op.getarg(1).value != op.getarg(2).value:
-            raise NotImplementedError("signext not implemented")
+        #if op.getarg(1).value != op.getarg(2).value:
+        #    raise NotImplementedError("signext not implemented")
 
     def consider_guard_early_exit(self, op):
         pass

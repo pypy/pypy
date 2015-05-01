@@ -429,6 +429,7 @@ class DependencyGraph(object):
         self.memory_refs = {}
         self.schedulable_nodes = []
         self.index_vars = {}
+        self.comparison_vars = {}
         self.guards = []
         self.build_dependencies()
 
@@ -447,7 +448,7 @@ class DependencyGraph(object):
         #
         label_pos = 0
         jump_pos = len(self.nodes)-1
-        intformod = IntegralForwardModification(self.memory_refs, self.index_vars)
+        intformod = IntegralForwardModification(self.memory_refs, self.index_vars, self.comparison_vars)
         # pass 1
         for i,node in enumerate(self.nodes):
             op = node.op
@@ -685,8 +686,9 @@ class Scheduler(object):
 
 class IntegralForwardModification(object):
     """ Calculates integral modifications on an integer box. """
-    def __init__(self, memory_refs, index_vars):
+    def __init__(self, memory_refs, index_vars, comparison_vars):
         self.index_vars = index_vars
+        self.comparison_vars = comparison_vars
         self.memory_refs = memory_refs
 
     def is_const_integral(self, box):
@@ -710,7 +712,7 @@ class IntegralForwardModification(object):
         if not self.is_const_integral(box_a1):
             right = self.get_or_create(box_a1)
         box_r = op.result
-        self.index_vars[box_r] = IndexGuard(op.getopnum(), left, right)
+        self.comparison_vars[box_r] = IndexGuard(op.getopnum(), left, right)
 
     additive_func_source = """
     def operation_{name}(self, op, node):
@@ -802,11 +804,11 @@ class IndexGuard(object):
         if self.lindex_var and self.rindex_var:
             return (self.lindex_var, self.rindex_var)
         elif self.lindex_var:
-            return (self.lindex_var,)
+            return (self.lindex_var, None)
         elif self.rindex_var:
-            return (self.rindex_var,)
+            return (self.rindex_var, None)
         else:
-            assert False, "integer comparison must have left or right index"
+            return (None, None)
 
     def adapt_operation(self, op):
         pass
@@ -832,6 +834,7 @@ class IndexVar(object):
     def less(self, other):
         if self.same_variable(other):
             return self.diff(other) < 0
+        return False
 
     def clone(self):
         c = IndexVar(self.var)
