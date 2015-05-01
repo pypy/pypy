@@ -5,7 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 import os
 import errno
 
-from rpython.rtyper.module.ll_os_environ import make_env_impls
+from rpython.rlib.rposix_environ import make_env_impls
 from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
