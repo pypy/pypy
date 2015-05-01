@@ -20,9 +20,9 @@ class MultiArrayModule(MixedModule):
         'concatenate': 'arrayops.concatenate',
         'count_nonzero': 'arrayops.count_nonzero',
         'dot': 'arrayops.dot',
-        'result_type': 'arrayops.result_type',
-        'can_cast': 'arrayops.can_cast',
         'where': 'arrayops.where',
+        'result_type': 'casting.result_type',
+        'can_cast': 'casting.can_cast',
 
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
