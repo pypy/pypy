@@ -4050,6 +4050,9 @@ class AppTestPyPy(BaseNumpyAppTest):
 
     def test_can_cast_scalar(self):
         import numpy as np
+        assert np.can_cast(True, np.bool_)
+        assert np.can_cast(True, np.int8)
+        assert not np.can_cast(0, np.bool_)
         assert np.can_cast(127, np.int8)
         assert not np.can_cast(128, np.int8)
         assert np.can_cast(128, np.int16)

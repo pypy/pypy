@@ -2587,3 +2587,7 @@ def make_complex_min_dtype(Complex_t):
 
 for Complex_t in complex_types:
     make_complex_min_dtype(Complex_t)
+
+def min_dtype(self):
+    return Bool.num, Bool.num
+Bool.BoxType.min_dtype = min_dtype
