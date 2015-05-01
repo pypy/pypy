@@ -134,11 +134,10 @@ def time():
         if result != -1:
             return result
     else: # assume using ftime(3)
-        t = lltype.malloc(TIMEB, flavor='raw')
-        c_ftime(t)
-        result = (float(intmask(t.c_time)) +
-                  float(intmask(t.c_millitm)) * 0.001)
-        lltype.free(t, flavor='raw')
+        with lltype.scoped_alloc(TIMEB) as t:
+            c_ftime(t)
+            result = (float(intmask(t.c_time)) +
+                      float(intmask(t.c_millitm)) * 0.001)
         return result
     return float(c_time(void))
 
@@ -152,7 +151,7 @@ if _WIN32:
     QueryPerformanceCounter = external(
         'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void,
         releasegil=False)
-    QueryPerformanceFrequency = self.llexternal(
+    QueryPerformanceFrequency = external(
         'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT,
         releasegil=False)
     class State(object):
@@ -168,12 +167,12 @@ elif CLOCK_PROCESS_CPUTIME_ID is not None:
                                [lltype.Signed, lltype.Ptr(TIMESPEC)],
                                rffi.INT, releasegil=False)
 else:
-    RUSAGE = self.RUSAGE
-    RUSAGE_SELF = self.RUSAGE_SELF or 0
-    c_getrusage = self.llexternal('getrusage', 
-                                  [rffi.INT, lltype.Ptr(RUSAGE)],
-                                  lltype.Void,
-                                  releasegil=False)
+    RUSAGE = RUSAGE
+    RUSAGE_SELF = RUSAGE_SELF or 0
+    c_getrusage = external('getrusage', 
+                           [rffi.INT, lltype.Ptr(RUSAGE)],
+                           lltype.Void,
+                           releasegil=False)
 
 @replace_time_function('clock')
 def clock():
