@@ -4058,3 +4058,8 @@ class AppTestPyPy(BaseNumpyAppTest):
         assert np.can_cast(float('inf'), np.float32)  # XXX: False in CNumPy?!
         assert np.can_cast(3.3e38, np.float32)
         assert not np.can_cast(3.4e38, np.float32)
+
+        assert np.can_cast(1 + 2j, np.complex64)
+        assert not np.can_cast(1 + 1e50j, np.complex64)
+        assert np.can_cast(1., np.complex64)
+        assert not np.can_cast(1e50, np.complex64)

@@ -1657,6 +1657,7 @@ class Complex64(ComplexFloating, BaseType):
     char = NPY.CFLOATLTR
     BoxType = boxes.W_Complex64Box
     ComponentBoxType = boxes.W_Float32Box
+    ComponentType = Float32
 
 class Complex128(ComplexFloating, BaseType):
     T = rffi.DOUBLE
@@ -1665,6 +1666,7 @@ class Complex128(ComplexFloating, BaseType):
     char = NPY.CDOUBLELTR
     BoxType = boxes.W_Complex128Box
     ComponentBoxType = boxes.W_Float64Box
+    ComponentType = Float64
 
 if boxes.long_double_size == 8:
     class FloatLong(BaseType, Float):
@@ -1682,6 +1684,7 @@ if boxes.long_double_size == 8:
         char = NPY.CLONGDOUBLELTR
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
+        ComponentType = FloatLong
 
 elif boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
@@ -1711,6 +1714,7 @@ elif boxes.long_double_size in (12, 16):
         char = NPY.CLONGDOUBLELTR
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
+        ComponentType = FloatLong
 
 _all_objs_for_tests = [] # for tests
 
@@ -2537,12 +2541,13 @@ for Int_t in signed_types:
 
 
 smaller_float_types = {
-        Float16: [], Float32: [Float16], Float64: [Float16, Float32],
-        FloatLong: [Float16, Float32, Float64]}
+    Float16: [], Float32: [Float16], Float64: [Float16, Float32],
+    FloatLong: [Float16, Float32, Float64]}
 
 def make_float_min_dtype(Float_t):
     smaller_types = unrolling_iterable(smaller_float_types[Float_t])
     smallest_type = Float16
+
     def min_dtype(self):
         value = float(self.value)
         if not rfloat.isfinite(value):
@@ -2559,3 +2564,26 @@ def make_float_min_dtype(Float_t):
 
 for Float_t in float_types:
     make_float_min_dtype(Float_t)
+
+smaller_complex_types = {
+    Complex64: [], Complex128: [Complex64],
+    ComplexLong: [Complex64, Complex128]}
+
+def make_complex_min_dtype(Complex_t):
+    smaller_types = unrolling_iterable(smaller_complex_types[Complex_t])
+
+    def min_dtype(self):
+        real, imag = float(self.real), float(self.imag)
+        for CSmall in smaller_types:
+            max_value = CSmall.ComponentType.max_value
+
+            if -max_value < real < max_value and -max_value < imag < max_value:
+                tp = CSmall
+                break
+        else:
+            tp = Complex_t
+        return tp.num, tp.num
+    Complex_t.BoxType.min_dtype = min_dtype
+
+for Complex_t in complex_types:
+    make_complex_min_dtype(Complex_t)
