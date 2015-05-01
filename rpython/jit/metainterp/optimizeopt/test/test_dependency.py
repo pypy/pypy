@@ -45,7 +45,7 @@ class DependencyBaseTest(BaseTest):
                 node_b = graph.getnode(idx_b)
                 dependency = node_a.getedge_to(node_b)
                 if dependency is None and idx_b not in exceptions.setdefault(idx,[]):
-                    #self._write_dot_and_convert_to_svg(graph, graph.nodes, 'except')
+                    self._write_dot_and_convert_to_svg(graph, 'except')
                     assert dependency is not None, \
                        " it is expected that instruction at index" + \
                        " %s depends on instr on index %s but it does not.\n%s" \

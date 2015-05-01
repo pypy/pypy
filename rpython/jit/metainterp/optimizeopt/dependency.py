@@ -54,13 +54,18 @@ class Path(object):
         if exclude_last:
             count -= 1
         while i < count: 
-            if not self.path[i].op.has_no_side_effect():
+            op = self.path[i].getoperation()
+            if not op.has_no_side_effect() \
+               and op.getopnum() != rop.GUARD_EARLY_EXIT:
                 return False
             i += 1
         return True
 
     def walk(self, node):
         self.path.append(node)
+
+    def cut_off_at(self, index):
+        self.path = self.path[:index]
 
     def clone(self):
         return Path(self.path[:])
@@ -89,26 +94,26 @@ class Node(object):
     def getfailarg_set(self):
         op = self.getoperation()
         assert isinstance(op, GuardResOp)
-        args = []
+        args = {}
         if op.getfailargs():
             for arg in op.getfailargs():
-                args.append(arg)
-            return args
+                args[arg] = None
+            return args.keys()
         elif op.rd_snapshot:
             ss = op.rd_snapshot
             assert isinstance(ss, Snapshot)
             while ss:
                 for box in ss.boxes:
-                    args.append(box)
+                    args[box] = None
                 ss = ss.prev
 
-        return args
+        return args.keys()
 
 
     def relax_guard_to(self, guard):
         """ Relaxes a guard operation to an earlier guard. """
         tgt_op = self.getoperation()
-        op = guard
+        op = guard.getoperation()
         assert isinstance(tgt_op, GuardResOp)
         assert isinstance(op, GuardResOp)
         #descr = compile.ResumeAtLoopHeaderDescr()
@@ -237,24 +242,34 @@ class Node(object):
                 worklist.append(dep.to)
         return True
 
-    def iterate_paths(self, to, backwards=False):
+    def iterate_paths(self, to, backwards=False, path_max_len=-1):
         """ yield all nodes from self leading to 'to' """
         if self == to:
             return
-        worklist = [(Path([self]),self)]
+        path = Path([self])
+        worklist = [(0, self, 1)]
         while len(worklist) > 0:
-            path,node = worklist.pop()
+            index,node,pathlen = worklist.pop()
             if backwards:
                 iterdir = node.depends()
             else:
                 iterdir = node.provides()
-            for dep in iterdir:
-                cloned_path = path.clone()
-                cloned_path.walk(dep.to)
-                if dep.to == to:
-                    yield cloned_path
+            if index >= len(iterdir):
+                continue
+            else:
+                next_dep = iterdir[index]
+                next_node = next_dep.to
+                index += 1
+                if index < len(iterdir):
+                    worklist.append((index, node, pathlen))
+                path.cut_off_at(pathlen)
+                path.walk(next_node)
+                pathlen += 1
+
+                if next_node is to or (path_max_len > 0 and pathlen >= path_max_len):
+                    yield path
                 else:
-                    worklist.append((cloned_path,dep.to))
+                    worklist.append((0, next_node, pathlen))
 
     def remove_edge_to(self, node):
         i = 0
@@ -661,7 +676,10 @@ class Scheduler(object):
             to = dep.to
             node.remove_edge_to(to)
             if not to.emitted and to.depends_count() == 0:
-                self.schedulable_nodes.append(to)
+                if to.pack:
+                    self.schedulable_nodes.append(to)
+                else:
+                    self.schedulable_nodes.insert(0, to)
         node.clear_dependencies()
         node.emitted = True
 
@@ -681,6 +699,18 @@ class IntegralForwardModification(object):
         if not var:
             var = self.index_vars[arg] = IndexVar(arg)
         return var
+
+    def operation_INT_LT(self, op, node):
+        box_a0 = op.getarg(0)
+        box_a1 = op.getarg(1)
+        left = None
+        right = None
+        if not self.is_const_integral(box_a0):
+            left = self.get_or_create(box_a0)
+        if not self.is_const_integral(box_a1):
+            right = self.get_or_create(box_a1)
+        box_r = op.result
+        self.index_vars[box_r] = IndexGuard(op.getopnum(), left, right)
 
     additive_func_source = """
     def operation_{name}(self, op, node):
@@ -762,12 +792,34 @@ integral_dispatch_opt = make_dispatcher_method(IntegralForwardModification, 'ope
 IntegralForwardModification.inspect_operation = integral_dispatch_opt
 del integral_dispatch_opt
 
+class IndexGuard(object):
+    def __init__(self, opnum, lindex_var, rindex_var):
+        self.opnum = opnum
+        self.lindex_var = lindex_var
+        self.rindex_var = rindex_var
+
+    def getindex_vars(self):
+        if self.lindex_var and self.rindex_var:
+            return (self.lindex_var, self.rindex_var)
+        elif self.lindex_var:
+            return (self.lindex_var,)
+        elif self.rindex_var:
+            return (self.rindex_var,)
+        else:
+            assert False, "integer comparison must have left or right index"
+
+    def adapt_operation(self, op):
+        pass
+
 class IndexVar(object):
     def __init__(self, var):
         self.var = var
         self.coefficient_mul = 1
         self.coefficient_div = 1
         self.constant = 0
+
+    def getvariable(self):
+        return self.var
 
     def __eq__(self, other):
         if self.same_variable(other):
@@ -776,6 +828,10 @@ class IndexVar(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def less(self, other):
+        if self.same_variable(other):
+            return self.diff(other) < 0
 
     def clone(self):
         c = IndexVar(self.var)
@@ -798,6 +854,18 @@ class IndexVar(object):
     def __repr__(self):
         return 'IndexVar(%s*(%s/%s)+%s)' % (self.var, self.coefficient_mul,
                                             self.coefficient_div, self.constant)
+
+    def adapt_operation(self, op):
+        # TODO
+        if self.coefficient_mul == 1 and \
+           self.coefficient_div == 1 and \
+           op.getopnum() == rop.INT_ADD:
+           if isinstance(op.getarg(0), Box) and isinstance(op.getarg(1), Const):
+               op.setarg(0, self.var)
+               op.setarg(1, ConstInt(self.constant))
+           elif isinstance(op.getarg(1), Box) and isinstance(op.getarg(0), Const):
+               op.setarg(1, self.var)
+               op.setarg(0, ConstInt(self.constant))
 
 class MemoryRef(object):
     """ a memory reference to an array object. IntegralForwardModification is able

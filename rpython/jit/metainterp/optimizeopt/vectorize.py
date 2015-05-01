@@ -53,19 +53,22 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
         def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         def_opt.propagate_all_forward()
 
+#class CollapseGuardOptimization(Optimization):
+#    def __init__(self, index_vars = None):
+#        self.index_vars = index_vars or {}
+#
+#    def propagate_forward(
+
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, optimizations)
-        self.memory_refs = []
         self.dependency_graph = None
-        self.first_debug_merge_point = False
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
-        self.early_exit = None
-        self.future_condition = None
+        self.early_exit_idx = -1
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
@@ -74,7 +77,6 @@ class VectorizingOptimizer(Optimizer):
         if jump.getopnum() not in (rop.LABEL, rop.JUMP):
             # compile_loop appends a additional label to all loops
             # we cannot optimize normal traces
-            assert False
             raise NotAVectorizeableLoop()
 
         self.linear_find_smallest_type(self.loop)
@@ -84,6 +86,12 @@ class VectorizingOptimizer(Optimizer):
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
             raise NotAVectorizeableLoop()
+
+        # find index guards and move to the earliest position
+        self.analyse_index_calculations()
+        if self.dependency_graph is not None:
+            self.schedule() # reorder the trace
+
 
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
@@ -96,12 +104,13 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
         self.extend_packset()
         self.combine_packset()
-        self.collapse_index_guards()
         self.schedule()
 
+        self.collapse_index_guards()
+
     def emit_operation(self, op):
-        if op.getopnum() == rop.GUARD_EARLY_EXIT or \
-           op.getopnum() == rop.DEBUG_MERGE_POINT:
+        #if op.getopnum() == rop.GUARD_EARLY_EXIT or \
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
             return
         self._last_emitted_op = op
         self._newoperations.append(op)
@@ -114,6 +123,7 @@ class VectorizingOptimizer(Optimizer):
         """ Unroll the loop X times. unroll_count is an integral how
         often to further unroll the loop.
         """
+
         op_count = len(loop.operations)
 
         label_op = loop.operations[0].clone()
@@ -125,7 +135,7 @@ class VectorizingOptimizer(Optimizer):
             jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, label_op.getdescr())
         else:
             jump_op = jump_op.clone()
-            jump_op.setdescr(label_op.getdescr())
+            #jump_op.setdescr(label_op.getdescr())
         assert jump_op.is_final()
 
         self.emit_unrolled_operation(label_op)
@@ -134,12 +144,11 @@ class VectorizingOptimizer(Optimizer):
         #self.emit_unrolled_operation(guard_ee_op)
 
         operations = []
+        start_index = 1
         for i in range(1,op_count-1):
             op = loop.operations[i].clone()
-            if loop.operations[i].getopnum() == rop.GUARD_FUTURE_CONDITION:
-                pass
             if loop.operations[i].getopnum() == rop.GUARD_EARLY_EXIT:
-                self.future_condition = op
+                continue
             operations.append(op)
             self.emit_unrolled_operation(op)
 
@@ -157,11 +166,13 @@ class VectorizingOptimizer(Optimizer):
                 if la != ja:
                     rename_map[la] = ja
             #
+            emitted_ee = False
             for op in operations:
                 if op.getopnum() == rop.GUARD_FUTURE_CONDITION:
                     continue # do not unroll this operation twice
                 if op.getopnum() == rop.GUARD_EARLY_EXIT:
-                    continue # do not unroll this operation twice
+                    emitted_ee = True
+                    pass # do not unroll this operation twice
                 copied_op = op.clone()
                 if copied_op.result is not None:
                     # every result assigns a new box, thus creates an entry
@@ -180,7 +191,7 @@ class VectorizingOptimizer(Optimizer):
                 # not only the arguments, but also the fail args need
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
-                if copied_op.is_guard():
+                if copied_op.is_guard() and emitted_ee:
                     assert isinstance(copied_op, GuardResOp)
                     snapshot = self.clone_snapshot(copied_op.rd_snapshot, rename_map)
                     copied_op.rd_snapshot = snapshot
@@ -231,6 +242,8 @@ class VectorizingOptimizer(Optimizer):
     def linear_find_smallest_type(self, loop):
         # O(#operations)
         for i,op in enumerate(loop.operations):
+            if op.getopnum() == rop.GUARD_EARLY_EXIT:
+                self.early_exit_idx = i
             if op.is_array_op():
                 descr = op.getdescr()
                 if not descr.is_array_of_pointers():
@@ -250,7 +263,6 @@ class VectorizingOptimizer(Optimizer):
 
     def build_dependency_graph(self):
         self.dependency_graph = DependencyGraph(self.loop.operations)
-        self.relax_index_guards()
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -346,12 +358,11 @@ class VectorizingOptimizer(Optimizer):
                 break
 
     def schedule(self):
+        self.guard_early_exit = -1
         self.clear_newoperations()
         scheduler = Scheduler(self.dependency_graph, VecScheduleData())
-        #dprint("scheduling loop. scheduleable are: " + str(scheduler.schedulable_nodes))
         while scheduler.has_more():
             candidate = scheduler.next()
-            #dprint("  candidate", candidate, "has pack?", candidate.pack != None, "pack", candidate.pack)
             if candidate.pack:
                 pack = candidate.pack
                 if scheduler.schedulable(pack.operations):
@@ -362,8 +373,6 @@ class VectorizingOptimizer(Optimizer):
                 else:
                     scheduler.schedule_later(0)
             else:
-                if candidate.getopnum() == rop.GUARD_EARLY_EXIT:
-                    pass
                 position = len(self._newoperations)
                 self.emit_operation(candidate.getoperation())
                 scheduler.schedule(0, position)
@@ -372,69 +381,90 @@ class VectorizingOptimizer(Optimizer):
             for node in self.dependency_graph.nodes:
                 assert node.emitted
         self.loop.operations = self._newoperations[:]
+        self.clear_newoperations()
 
-    def relax_index_guards(self):
-        label_idx = 0
-        early_exit_idx = 1
-        label = self.dependency_graph.getnode(label_idx)
-        ee_guard = self.dependency_graph.getnode(early_exit_idx)
-        if not ee_guard.is_guard_early_exit():
-            return # cannot relax
+    def analyse_index_calculations(self):
+        if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
+            return
 
-        #self.early_exit = ee_guard
+        self.dependency_graph = dependencies = DependencyGraph(self.loop.operations)
 
-        for guard_node in self.dependency_graph.guards:
-            if guard_node == ee_guard:
-                continue
-            if guard_node.getopnum() not in (rop.GUARD_TRUE,rop.GUARD_FALSE):
+        label_node = dependencies.getnode(0)
+        ee_guard_node = dependencies.getnode(self.early_exit_idx)
+        guards = dependencies.guards
+        fail_args = []
+        for guard_node in guards:
+            if guard_node is ee_guard_node:
                 continue
             del_deps = []
             pullup = []
-            iterb = guard_node.iterate_paths(ee_guard, True)
             last_prev_node = None
-            for path in iterb:
+            for path in guard_node.iterate_paths(ee_guard_node, True):
                 prev_node = path.second()
-                if fail_args_break_dependency(guard_node, prev_node, ee_guard):
+                if fail_args_break_dependency(guard_node, prev_node, ee_guard_node):
                     if prev_node == last_prev_node:
                         continue
-                    dprint("relax) ", prev_node, "=>", guard_node)
-                    del_deps.append((prev_node,guard_node))
+                    del_deps.append((prev_node, guard_node))
                 else:
-                    pullup.append(path)
+                    if path.has_no_side_effects(exclude_first=True, exclude_last=True):
+                        #index_guards[guard.getindex()] = IndexGuard(guard, path.path[:])
+                        pullup.append(path.last_but_one())
                 last_prev_node = prev_node
             for a,b in del_deps:
                 a.remove_edge_to(b)
-            for candidate in pullup:
-                lbo = candidate.last_but_one()
-                if candidate.has_no_side_effects(exclude_first=True, exclude_last=True):
-                    ee_guard.remove_edge_to(lbo)
-                    label.edge_to(lbo, label='pullup')
-            guard_node.edge_to(ee_guard, label='pullup')
-            label.remove_edge_to(ee_guard)
-
-            guard_node.relax_guard_to(self.future_condition)
+            for lbo in pullup:
+                if lbo is ee_guard_node:
+                    continue
+                ee_guard_node.remove_edge_to(lbo)
+                label_node.edge_to(lbo, label='pullup')
+            # only the last guard needs a connection
+            guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
+            guard_node.relax_guard_to(ee_guard_node)
 
     def collapse_index_guards(self):
-        pass
-        #final_ops = []
-        #last_guard = None
-        #is_after_relax = False
-        #for op in self._newoperations:
-        #    if op.getopnum() == rop.GUARD_EARLY_EXIT:
-        #        assert last_guard is not None
-        #        final_ops.append(last_guard)
-        #        is_after_relax = True
-        #        continue
-        #    if not is_after_relax:
-        #        if op.is_guard():
-        #            last_guard = op
-        #        else:
-        #            final_ops.append(op)
-        #    else:
-        #        final_ops.append(op)
-        #assert is_after_relax
-        #return final_ops
+        strongest_guards = {}
+        strongest_guards_var = {}
+        index_vars = self.dependency_graph.index_vars
+        operations = self.loop.operations
+        var_for_guard = {}
+        for i in range(len(operations)-1, -1, -1):
+            op = operations[i]
+            if op.is_guard():
+                for arg in op.getarglist():
+                    var_for_guard[arg] = True
+                    try:
+                        comparison = index_vars[arg]
+                        for index_var in comparison.getindex_vars():
+                            var = index_var.getvariable()
+                            strongest_known = strongest_guards_var.get(var, None)
+                            if not strongest_known:
+                                strongest_guards_var[var] = index_var
+                                continue
+                            if index_var.less(strongest_known):
+                                strongest_guards_var[var] = strongest_known
+                                strongest_guards[op] = strongest_known
+                    except KeyError:
+                        pass
 
+        last_op_idx = len(operations)-1
+        for op in operations:
+            if op.is_guard():
+                stronger_guard = strongest_guards.get(op, None)
+                if stronger_guard:
+                    # there is a stronger guard
+                    continue
+                else:
+                    self.emit_operation(op)
+                    continue
+            if op.is_always_pure() and op.result:
+                try:
+                    var_index = index_vars[op.result]
+                    var_index.adapt_operation(op)
+                except KeyError:
+                    pass
+            self.emit_operation(op)
+
+        self.loop.operations = self._newoperations[:]
 
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
@@ -445,7 +475,6 @@ def must_unpack_result_to_exec(op, target_op):
 def prohibit_packing(op1, op2):
     if op1.is_array_op():
         if op1.getarg(1) == op2.result:
-            dprint("prohibit)", op1, op2)
             return True
     return False
 
