@@ -116,6 +116,10 @@ def promote(x):
     Overpromotion is characterised by a cascade of bridges branching from
     very similar guard_value opcodes, each guarding the same variable under
     a different value.
+
+    Note that promoting a string with @jit.promote will promote by pointer.
+    To promote a string by value, see @jit.promote_string.
+
     """
     return hint(x, promote=True)
 
