@@ -109,8 +109,8 @@ class VectorizingOptimizer(Optimizer):
         self.collapse_index_guards()
 
     def emit_operation(self, op):
-        #if op.getopnum() == rop.GUARD_EARLY_EXIT or \
-        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+        if op.getopnum() == rop.GUARD_EARLY_EXIT or \
+           op.getopnum() == rop.DEBUG_MERGE_POINT:
             return
         self._last_emitted_op = op
         self._newoperations.append(op)
@@ -131,11 +131,13 @@ class VectorizingOptimizer(Optimizer):
         jump_op = loop.operations[op_count-1]
         # use the target token of the label
         assert jump_op.getopnum() in (rop.LABEL, rop.JUMP)
+        target_token = label_op.getdescr()
+        target_token.assumed_classes = {}
         if jump_op.getopnum() == rop.LABEL:
-            jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, label_op.getdescr())
+            jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, target_token)
         else:
             jump_op = jump_op.clone()
-            #jump_op.setdescr(label_op.getdescr())
+            jump_op.setdescr(target_token)
         assert jump_op.is_final()
 
         self.emit_unrolled_operation(label_op)

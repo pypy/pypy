@@ -2317,6 +2317,10 @@ class MetaInterp(object):
         frame = self.framestack[-1]
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
+        elif opnum == rop.GUARD_EARLY_EXIT:
+            # prevents it from building a bridge
+            # TODO
+            self.resumekey_original_loop_token = None
         elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
             frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;

@@ -15,6 +15,9 @@ from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
 class VectorizeTests:
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
+    def setup_method(self, method):
+        print "RUNNING", method.__name__
+
     def meta_interp(self, f, args, policy=None):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,
@@ -92,7 +95,7 @@ class VectorizeTests:
             return res
         res = self.meta_interp(f, [i])
         assert res == f(i)
-        if i > 4:
+        if 4 < i:
             self.check_trace_count(1)
 
 class VectorizeLLtypeTests(VectorizeTests):

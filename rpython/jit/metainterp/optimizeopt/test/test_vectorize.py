@@ -102,7 +102,6 @@ class VecTestHelper(DependencyBaseTest):
         opt.combine_packset()
         opt.schedule()
         opt.collapse_index_guards()
-        self._do_optimize_loop(loop, {}, export_state=False)
         return opt
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
