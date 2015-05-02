@@ -52,8 +52,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         import numpy as np
         import sys
 
-        if '__pypy__' in sys.builtin_module_names:
-            skip('need to refactor use of raw_xxx_op in types to make this work')
         a = np.array(["foo"], dtype=object)
         b = np.array([1], dtype=object)
         d = np.array([complex(1, 10)], dtype=object)

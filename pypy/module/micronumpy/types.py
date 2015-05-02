@@ -298,13 +298,17 @@ class Primitive(object):
     def ge(self, v1, v2):
         return v1 >= v2
 
-    @raw_binary_op
+    @simple_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
-    @raw_binary_op
+    @simple_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_unary_op
     def logical_not(self, v):
@@ -1282,13 +1286,17 @@ class ComplexFloating(object):
     def _cbool(self, v):
         return bool(v[0]) or bool(v[1])
 
-    @raw_binary_op
+    @simple_binary_op
     def logical_and(self, v1, v2):
-        return self._cbool(v1) and self._cbool(v2)
+        if self._cbool(v1) and self._cbool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return self._cbool(v1) or self._cbool(v2)
+        if self._cbool(v1) or self._cbool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_unary_op
     def logical_not(self, v):
@@ -1811,14 +1819,14 @@ class ObjectType(Primitive, BaseType):
     @raw_binary_op
     def logical_and(self, v1, v2):
         if self._obool(v1):
-            return self.space.bool_w(v2)
-        return self.space.bool_w(v1)
+            return self.box(v2)
+        return self.box(v1)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
         if self._obool(v1):
-            return self.space.bool_w(v1)
-        return self.space.bool_w(v2)
+            return self.box(v1)
+        return self.box(v2)
 
     @raw_unary_op
     def logical_not(self, v):
@@ -2062,11 +2070,15 @@ class StringType(FlexibleType):
 
     @str_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
     @str_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     @str_unary_op
     def logical_not(self, v):
