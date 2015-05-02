@@ -25,7 +25,7 @@ class AppTestFFIObj:
 
     def test_ffi_no_argument(self):
         import _cffi_backend as _cffi1_backend
-        py.test.raises(TypeError, _cffi1_backend.FFI, 42)
+        raises(TypeError, _cffi1_backend.FFI, 42)
 
     def test_ffi_cache_type(self):
         import _cffi_backend as _cffi1_backend
