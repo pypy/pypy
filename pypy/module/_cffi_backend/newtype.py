@@ -191,6 +191,7 @@ def _new_array_type(space, w_ctptr, length):
         raise oefmt(space.w_ValueError, "array item of unknown size: '%s'",
                     ctitem.name)
     if length < 0:
+        assert length == -1
         arraysize = -1
         extra = '[]'
     else:

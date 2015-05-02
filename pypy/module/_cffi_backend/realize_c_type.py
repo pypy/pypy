@@ -78,6 +78,11 @@ def get_primitive_type(space, num):
         realize_cache.all_primitives[num] = w_ctype
     return w_ctype
 
+def get_array_type(ffi, opcodes, itemindex, length):
+    w_ctitem = realize_c_type(ffi, opcodes, itemindex)
+    w_ctitemptr = newtype.new_pointer_type(ffi.space, w_ctitem)
+    return newtype._new_array_type(ffi.space, w_ctitemptr, length)
+
 
 def realize_c_type(ffi, opcodes, index):
     """Interpret an opcodes[] array.  If opcodes == ffi.ctxobj.ctx.c_types,
@@ -97,14 +102,24 @@ def _realize_c_type_or_func(ffi, opcodes, index):
     #...
 
     case = getop(op)
+
     if case == cffi_opcode.OP_PRIMITIVE:
         x = get_primitive_type(ffi.space, getarg(op))
+
     elif case == cffi_opcode.OP_POINTER:
         y = _realize_c_type_or_func(ffi, opcodes, getarg(op))
         if isinstance(y, W_CType):
             x = newtype.new_pointer_type(ffi.space, y)
         else:
             yyyyyyyyy
+
+    elif case == cffi_opcode.OP_ARRAY:
+        x = get_array_type(ffi, opcodes, getarg(op),
+                           rffi.cast(rffi.SIGNED, opcodes[index + 1]))
+
+    elif case == cffi_opcode.OP_OPEN_ARRAY:
+        x = get_array_type(ffi, opcodes, getarg(op), -1)
+
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
 
