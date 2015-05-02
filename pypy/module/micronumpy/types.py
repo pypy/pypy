@@ -298,13 +298,13 @@ class Primitive(object):
     def ge(self, v1, v2):
         return v1 >= v2
 
-    @simple_binary_op
+    @raw_binary_op
     def logical_and(self, v1, v2):
         if bool(v1) and bool(v2):
             return Bool._True
         return Bool._False
 
-    @simple_binary_op
+    @raw_binary_op
     def logical_or(self, v1, v2):
         if bool(v1) or bool(v2):
             return Bool._True
@@ -1286,7 +1286,7 @@ class ComplexFloating(object):
     def _cbool(self, v):
         return bool(v[0]) or bool(v[1])
 
-    @simple_binary_op
+    @raw_binary_op
     def logical_and(self, v1, v2):
         if self._cbool(v1) and self._cbool(v2):
             return Bool._True
