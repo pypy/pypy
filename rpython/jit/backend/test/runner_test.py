@@ -3239,7 +3239,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                                           types.slong)
         #
         for saveerr in [rffi.RFFI_ERR_ALL,
-                        rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO, 
+                        rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO,
                        ]:
             faildescr = BasicFailDescr(1)
             inputargs = [BoxInt() for i in range(7)]
@@ -3256,19 +3256,34 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
-            if saveerr & rffi.RFFI_ALT_ERRNO:
-                llerrno.set_debug_saved_alterrno(self.cpu, 8)
-            else:
-                llerrno.set_debug_saved_errno(self.cpu, 8)
+            llerrno.set_debug_saved_errno(self.cpu, 8)
+            llerrno.set_debug_saved_alterrno(self.cpu, 5)
             llerrno.set_debug_saved_lasterror(self.cpu, 9)
+            llerrno.set_debug_saved_altlasterror(self.cpu, 4)
             deadframe = self.cpu.execute_token(looptoken, 1, 2, 3, 4, 5, 6, 7)
             result = self.cpu.get_int_value(deadframe, 0)
-            assert llerrno.get_debug_saved_errno(self.cpu) == 42
-            if sys.platform != 'win32':
-                assert result == 765432108
+            got_errno = llerrno.get_debug_saved_errno(self.cpu)
+            got_alter = llerrno.get_debug_saved_alterrno(self.cpu)
+            if saveerr & rffi.RFFI_ALT_ERRNO:
+                assert (got_errno, got_alter) == (8, 42)
             else:
-                assert llerrno.get_debug_saved_lasterror(self.cpu) == 43
-                assert result == 765432198
+                assert (got_errno, got_alter) == (42, 5)
+            if sys.platform != 'win32':
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert result == 765432105
+                else:
+                    assert result == 765432108
+            else:
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert result == 765432145
+                else:
+                    assert result == 765432198
+                got_lasterror = llerrno.get_debug_saved_lasterror(self.cpu)
+                got_altlaster = llerrno.get_debug_saved_altlasterror(self.cpu)
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert (got_lasterror, got_altlaster) == (9, 43)
+                else:
+                    assert (got_lasterror, got_altlaster) == (43, 4)
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu
