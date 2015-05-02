@@ -77,6 +77,16 @@ class W_FFIObject(W_Root):
         cerrno.set_errno(space, space.c_int_w(errno))
 
 
+    def descr_alignof(self, w_arg):
+        """\
+Return the natural alignment size in bytes of the argument.
+It can be a string naming a C type, or a 'cdata' instance."""
+        #
+        w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
+        align = w_ctype.alignof()
+        return self.space.wrap(align)
+
+
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_new(self, w_arg, w_init):
         """\
@@ -125,6 +135,22 @@ string, or 'NUMBER' if the value is out of range."""
         return w_cdata.ctype.string(w_cdata, maxlen)
 
 
+    def descr_sizeof(self, w_arg):
+        """\
+Return the size in bytes of the argument.
+It can be a string naming a C type, or a 'cdata' instance."""
+        #
+        if isinstance(w_arg, W_CData):
+            size = w_arg._sizeof()
+        else:
+            w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
+            size = w_ctype.size
+            if size < 0:
+                raise oefmt(self.w_FFIError,
+                            "don't know the size of ctype '%s'", w_ctype.name)
+        return self.space.wrap(size)
+
+
     def descr_typeof(self, w_arg):
         """\
 Parse the C type given as a string and return the
@@ -147,7 +173,9 @@ W_FFIObject.typedef = TypeDef(
                                      W_FFIObject.set_errno,
                                      doc=W_FFIObject.doc_errno,
                                      cls=W_FFIObject),
+        alignof     = interp2app(W_FFIObject.descr_alignof),
         new         = interp2app(W_FFIObject.descr_new),
+        sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),
         )
