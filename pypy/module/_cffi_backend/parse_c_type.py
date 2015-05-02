@@ -17,7 +17,11 @@ def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
 
 
-GLOBAL_S = rffi.CStruct('struct _cffi_global_s')
+GLOBAL_S = rffi.CStruct('struct _cffi_global_s',
+                       ('name', rffi.CCHARP),
+                       ('address', rffi.VOIDP),
+                       ('type_op', rffi.SIGNED),
+                       ('size', rffi.SIZE_T))
 STRUCT_UNION_S = rffi.CStruct('struct _cffi_struct_union_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT),
@@ -32,7 +36,9 @@ ENUM_S = rffi.CStruct('struct _cffi_enum_s',
                        ('type_index', rffi.INT),
                        ('type_prim', rffi.INT),
                        ('enumerators', rffi.CCHARP))
-TYPENAME_S = rffi.CStruct('struct _cffi_typename_s')
+TYPENAME_S = rffi.CStruct('struct _cffi_typename_s',
+                       ('name', rffi.CCHARP),
+                       ('type_index', rffi.INT))
 
 PCTX = rffi.CStructPtr('struct _cffi_type_context_s',
                        ('types', rffi.VOIDPP),
