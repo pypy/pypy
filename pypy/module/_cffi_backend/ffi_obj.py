@@ -1,3 +1,4 @@
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -26,6 +27,8 @@ class W_FFIObject(W_Root):
             self.cached_types = [None] * parse_c_type.get_num_types(src_ctx)
         else:
             self.cached_types = None
+        w_ffitype = space.gettypefor(W_FFIObject)
+        self.w_FFIError = w_ffitype.getdictvalue(space, 'error')
 
     @rgc.must_be_light_finalizer
     def __del__(self):
@@ -185,3 +188,5 @@ def _startup(space):
     w_NULL = ctvoidp.cast(space.wrap(0))
     w_ffitype = space.gettypefor(W_FFIObject)
     w_ffitype.dict_w['NULL'] = w_NULL
+    w_ffitype.dict_w['error'] = space.appexec([], """():
+        return type('error', (Exception,), {'__module__': 'ffi'})""")
