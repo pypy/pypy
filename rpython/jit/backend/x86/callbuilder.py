@@ -221,6 +221,7 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.CALL(imm(follow_jump(SetLastError_addr)))
             # restore the stack position without assuming a particular
             # calling convention of _SetLastError()
+            self.mc.stack_frame_size_delta(-WORD)
             self.mc.MOV(esp, self.saved_stack_position_reg)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
