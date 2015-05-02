@@ -42,6 +42,9 @@ def _func_key_hash((fargs, w_fresult, ellipsis)):
         x = intmask((1000003 * x) ^ y)
     return x
 
+def _clean_cache(space):
+    space.fromcache(UniqueCache).__init__(space)
+
 # ____________________________________________________________
 
 

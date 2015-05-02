@@ -1,6 +1,10 @@
+from pypy.module._cffi_backend.newtype import _clean_cache
 
 class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', ))
+
+    def teardown_method(self, meth):
+        _clean_cache(self.space)
 
     def test_ffi_new(self):
         import _cffi_backend as _cffi1_backend
