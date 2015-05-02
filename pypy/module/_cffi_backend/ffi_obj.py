@@ -1,10 +1,10 @@
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
-from pypy.module._cffi_backend import newtype
+from pypy.module._cffi_backend import newtype, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -54,11 +54,28 @@ class W_FFIObject(W_Root):
             return w_x
         if (accept & ACCEPT_CDATA) and isinstance(w_x, W_CData):
             return w_x.ctype
-        yyyy
+        #
+        m1 = "string" if accept & ACCEPT_STRING else ""
+        m2 = "ctype object" if accept & ACCEPT_CTYPE else ""
+        m3 = "cdata object" if accept & ACCEPT_CDATA else ""
+        s12 = " or " if m1 and (m2 or m3) else ""
+        s23 = " or " if m2 and m3 else ""
+        raise oefmt(space.w_TypeError, "expected a %s%s%s%s%s, got '%T'",
+                    m1, s12, m2, s23, m3, w_x)
 
 
     def descr_init(self):
         pass       # if any argument is passed, gets a TypeError
+
+
+    doc_errno = "the value of 'errno' from/to the C calls"
+
+    def get_errno(self, space):
+        return cerrno.get_errno(space)
+
+    def set_errno(self, space, errno):
+        cerrno.set_errno(space, space.c_int_w(errno))
+
 
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_new(self, w_arg, w_init):
@@ -87,6 +104,27 @@ pointer to the memory somewhere else, e.g. into another structure."""
         return w_ctype.newp(w_init)
 
 
+    @unwrap_spec(w_cdata=W_CData, maxlen=int)
+    def descr_string(self, w_cdata, maxlen=-1):
+        """\
+Return a Python string (or unicode string) from the 'cdata'.  If
+'cdata' is a pointer or array of characters or bytes, returns the
+null-terminated string.  The returned string extends until the first
+null character, or at most 'maxlen' characters.  If 'cdata' is an
+array then 'maxlen' defaults to its length.
+
+If 'cdata' is a pointer or array of wchar_t, returns a unicode string
+following the same rules.
+
+If 'cdata' is a single character or byte or a wchar_t, returns it as a
+string or unicode string.
+
+If 'cdata' is an enum, returns the value of the enumerator as a
+string, or 'NUMBER' if the value is out of range."""
+        #
+        return w_cdata.ctype.string(w_cdata, maxlen)
+
+
     def descr_typeof(self, w_arg):
         """\
 Parse the C type given as a string and return the
@@ -103,10 +141,15 @@ def W_FFIObject___new__(space, w_subtype, __args__):
 
 W_FFIObject.typedef = TypeDef(
         'CompiledFFI',
-        __new__ = interp2app(W_FFIObject___new__),
-        __init__ = interp2app(W_FFIObject.descr_init),
-        new = interp2app(W_FFIObject.descr_new),
-        typeof = interp2app(W_FFIObject.descr_typeof),
+        __new__     = interp2app(W_FFIObject___new__),
+        __init__    = interp2app(W_FFIObject.descr_init),
+        errno       = GetSetProperty(W_FFIObject.get_errno,
+                                     W_FFIObject.set_errno,
+                                     doc=W_FFIObject.doc_errno,
+                                     cls=W_FFIObject),
+        new         = interp2app(W_FFIObject.descr_new),
+        string      = interp2app(W_FFIObject.descr_string),
+        typeof      = interp2app(W_FFIObject.descr_typeof),
         )
 
 def _startup(space):
