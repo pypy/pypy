@@ -7,6 +7,8 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.interactive import Translation
 from rpython.translator.sandbox.sandlib import read_message, write_message
 from rpython.translator.sandbox.sandlib import write_exception
+from rpython.rlib import rposix_stat  # For side-effects
+from rpython.rlib import rtime  # For side-effects
 
 def expect(f, g, fnname, args, result, resulttype=None):
     msg = read_message(f, timeout=10.0)
