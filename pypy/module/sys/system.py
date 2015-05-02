@@ -1,5 +1,6 @@
 """Information about the current system."""
 import sys
+import os
 
 from pypy.objspace.std.complexobject import HASH_IMAG
 from pypy.objspace.std.floatobject import HASH_INF, HASH_NAN
@@ -91,10 +92,21 @@ def get_thread_info(space):
     # every field
     if not space.config.objspace.usemodules.thread:
         return None
+    from rpython.rlib import rthread
+    if rthread.RPYTHREAD_NAME == "pthread":
+        w_lock = space.wrap("semaphore" if rthread.USE_SEMAPHORES
+                            else "mutex+cond")
+        if rthread.CS_GNU_LIBPTHREAD_VERSION is not None:
+            w_version = space.wrap(
+                os.confstr(rthread.CS_GNU_LIBPTHREAD_VERSION))
+        else:
+            w_version = space.w_None
+    else:
+        w_lock = space.w_None
+        w_version = space.w_None
     info_w = [
-        space.wrap(space.w_None),
-        space.wrap(space.w_None),
-        space.wrap(space.w_None),
+        space.wrap(rthread.RPYTHREAD_NAME),
+        w_lock, w_version,
     ]
     w_thread_info = app.wget(space, "thread_info")
     return space.call_function(w_thread_info, space.newtuple(info_w))

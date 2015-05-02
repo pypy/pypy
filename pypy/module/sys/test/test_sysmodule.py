@@ -38,6 +38,9 @@ def test_stdout_flush_at_shutdown(space):
         space.setattr(w_sys, space.wrap('stderr'), w_sys.get('__stderr__'))
 
 class AppTestAppSysTests:
+    spaceconfig = {
+        "usemodules": ["thread"],
+    }
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
@@ -200,6 +203,13 @@ class AppTestAppSysTests:
 
         exc = raises(SystemExit, sys.exit, (1, 2, 3))
         assert exc.value.code == (1, 2, 3)
+
+    def test_sys_thread_info(self):
+        import sys
+        info = sys.thread_info
+        assert isinstance(info.name, str)
+        assert isinstance(info.lock, (str, type(None)))
+        assert isinstance(info.version, (str, type(None)))
 
 
 class AppTestSysModulePortedFromCPython:
