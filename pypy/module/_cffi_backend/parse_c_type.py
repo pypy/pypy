@@ -2,6 +2,7 @@ import py, os
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.objectmodel import specialize
 
 
 src_dir = py.path.local(os.path.dirname(__file__)) / 'src'
@@ -51,7 +52,8 @@ PCTX = rffi.CStructPtr('struct _cffi_type_context_s',
                        ('num_struct_unions', rffi.INT),
                        ('num_enums', rffi.INT),
                        ('num_typenames', rffi.INT),
-                       ('includes', rffi.CCHARPP))
+                       ('includes', rffi.CCHARPP),
+                       ('num_types', rffi.INT))
 
 PINFO = rffi.CStructPtr('struct _cffi_parse_info_s',
                         ('ctx', PCTX),
@@ -60,4 +62,37 @@ PINFO = rffi.CStructPtr('struct _cffi_parse_info_s',
                         ('error_location', rffi.SIZE_T),
                         ('error_message', rffi.CCHARP))
 
-parse_c_type = llexternal('parse_c_type', [PINFO, rffi.CCHARP], rffi.INT)
+ll_parse_c_type = llexternal('parse_c_type', [PINFO, rffi.CCHARP], rffi.INT)
+
+def parse_c_type(info, input):
+    p_input = rffi.str2charp(input)
+    try:
+        res = ll_parse_c_type(info, p_input)
+    finally:
+        rffi.free_charp(p_input)
+    return rffi.cast(lltype.Signed, res)
+
+NULL_CTX = lltype.nullptr(PCTX.TO)
+FFI_COMPLEXITY_OUTPUT = 1200     # xxx should grow as needed
+internal_output = lltype.malloc(rffi.VOIDPP.TO, FFI_COMPLEXITY_OUTPUT,
+                                flavor='raw', zero=True, immortal=True)
+PCTXOBJ = lltype.Ptr(lltype.Struct('cffi_ctxobj',
+                                   ('ctx', PCTX.TO),
+                                   ('info', PINFO.TO)))
+
+def allocate_ctxobj(src_ctx):
+    p = lltype.malloc(PCTXOBJ.TO, flavor='raw', zero=True)
+    if src_ctx:
+        rffi.c_memcpy(rffi.cast(rffi.VOIDP, p.ctx),
+                      rffi.cast(rffi.VOIDP, src_ctx),
+                      rffi.cast(rffi.SIZE_T, rffi.sizeof(PCTX.TO)))
+    p.info.c_ctx = p.ctx
+    p.info.c_output = internal_output
+    rffi.setintfield(p.info, 'c_output_size', FFI_COMPLEXITY_OUTPUT)
+    return p
+
+def free_ctxobj(p):
+    lltype.free(p, flavor='raw')
+
+def get_num_types(src_ctx):
+    return rffi.getintfield(src_ctx, 'c_num_types')

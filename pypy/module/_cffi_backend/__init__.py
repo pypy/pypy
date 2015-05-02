@@ -46,6 +46,9 @@ class Module(MixedModule):
 
         'FFI_DEFAULT_ABI': 'ctypefunc._get_abi(space, "FFI_DEFAULT_ABI")',
         'FFI_CDECL': 'ctypefunc._get_abi(space,"FFI_DEFAULT_ABI")',#win32 name
+
+        # CFFI 1.0
+        'FFI': 'ffi_obj.W_FFIObject',
         }
     if sys.platform == 'win32':
         interpleveldefs['getwinerror'] = 'cerrno.getwinerror'

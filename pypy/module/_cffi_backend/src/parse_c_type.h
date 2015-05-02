@@ -130,6 +130,7 @@ struct _cffi_type_context_s {
     int num_enums;
     int num_typenames;
     const char *const *includes;
+    int num_types;
 };
 
 struct _cffi_parse_info_s {
