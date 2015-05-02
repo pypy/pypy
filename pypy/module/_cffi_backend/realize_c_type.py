@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype
 
@@ -84,6 +85,12 @@ def get_array_type(ffi, opcodes, itemindex, length):
     return newtype._new_array_type(ffi.space, w_ctitemptr, length)
 
 
+class W_RawFuncType(W_Root):
+    """Temporary: represents a C function type (not a function pointer)"""
+    def __init__(self, w_ctfuncptr):
+        self.w_ctfuncptr = w_ctfuncptr
+
+
 def realize_c_type(ffi, opcodes, index):
     """Interpret an opcodes[] array.  If opcodes == ffi.ctxobj.ctx.c_types,
     store all the intermediate types back in the opcodes[].
@@ -110,8 +117,10 @@ def _realize_c_type_or_func(ffi, opcodes, index):
         y = _realize_c_type_or_func(ffi, opcodes, getarg(op))
         if isinstance(y, W_CType):
             x = newtype.new_pointer_type(ffi.space, y)
+        elif isinstance(y, W_RawFuncType):
+            x = y.w_ctfuncptr
         else:
-            yyyyyyyyy
+            raise NotImplementedError
 
     elif case == cffi_opcode.OP_ARRAY:
         x = get_array_type(ffi, opcodes, getarg(op),
@@ -119,6 +128,22 @@ def _realize_c_type_or_func(ffi, opcodes, index):
 
     elif case == cffi_opcode.OP_OPEN_ARRAY:
         x = get_array_type(ffi, opcodes, getarg(op), -1)
+
+    elif case == cffi_opcode.OP_FUNCTION:
+        y = realize_c_type(ffi, opcodes, getarg(op))
+        base_index = index + 1
+        num_args = 0
+        OP_FUNCTION_END = cffi_opcode.OP_FUNCTION_END
+        while getop(opcodes[base_index + num_args]) != OP_FUNCTION_END:
+            num_args += 1
+        ellipsis = (getarg(opcodes[base_index + num_args]) & 1) != 0
+        fargs = [realize_c_type(ffi, opcodes, base_index + i)
+                 for i in range(num_args)]
+        w_ctfuncptr = newtype._new_function_type(ffi.space, fargs, y, ellipsis)
+        x = W_RawFuncType(w_ctfuncptr)
+
+    elif case == cffi_opcode.OP_NOOP:
+        x = _realize_c_type_or_func(ffi, opcodes, getarg(op))
 
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)

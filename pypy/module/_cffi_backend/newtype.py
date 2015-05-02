@@ -552,7 +552,7 @@ def _new_function_type(space, fargs, w_fresult, ellipsis=False):
     unique_cache = space.fromcache(UniqueCache)
     unique_key = (fargs, w_fresult, ellipsis)
     try:
-        return self.functions[unique_key]
+        return unique_cache.functions[unique_key]
     except KeyError:
         pass
     #
@@ -568,5 +568,5 @@ def _new_function_type(space, fargs, w_fresult, ellipsis=False):
                         "invalid result type: '%s'", w_fresult.name)
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, w_fresult, ellipsis)
-    self.functions[unique_key] = fct
+    unique_cache.functions[unique_key] = fct
     return fct
