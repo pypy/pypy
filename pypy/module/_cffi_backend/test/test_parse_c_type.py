@@ -6,33 +6,39 @@ from pypy.module._cffi_backend import parse_c_type, cffi_opcode
 class ParseError(Exception):
     pass
 
-## struct_names = ["bar_s", "foo", "foo_", "foo_s", "foo_s1", "foo_s12"]
-## assert struct_names == sorted(struct_names)
+struct_names = ["bar_s", "foo", "foo_", "foo_s", "foo_s1", "foo_s12"]
+assert struct_names == sorted(struct_names)
 
-## enum_names = ["ebar_s", "efoo", "efoo_", "efoo_s", "efoo_s1", "efoo_s12"]
-## assert enum_names == sorted(enum_names)
+enum_names = ["ebar_s", "efoo", "efoo_", "efoo_s", "efoo_s1", "efoo_s12"]
+assert enum_names == sorted(enum_names)
 
-## identifier_names = ["id", "id0", "id05", "id05b", "tail"]
-## assert identifier_names == sorted(identifier_names)
+identifier_names = ["id", "id0", "id05", "id05b", "tail"]
+assert identifier_names == sorted(identifier_names)
 
-## global_names = ["FIVE", "NEG", "ZERO"]
-## assert global_names == sorted(global_names)
+global_names = ["FIVE", "NEG", "ZERO"]
+assert global_names == sorted(global_names)
 
-## ctx = ffi.new("struct _cffi_type_context_s *")
-## c_struct_names = [ffi.new("char[]", _n.encode('ascii')) for _n in struct_names]
-## ctx_structs = ffi.new("struct _cffi_struct_union_s[]", len(struct_names))
-## for _i in range(len(struct_names)):
-##     ctx_structs[_i].name = c_struct_names[_i]
-## ctx_structs[3].flags = lib._CFFI_F_UNION
-## ctx.struct_unions = ctx_structs
-## ctx.num_struct_unions = len(struct_names)
+ctx = lltype.malloc(parse_c_type.PCTX.TO, flavor='raw', zero=True,
+                    track_allocation=False)
 
-## c_enum_names = [ffi.new("char[]", _n.encode('ascii')) for _n in enum_names]
-## ctx_enums = ffi.new("struct _cffi_enum_s[]", len(enum_names))
-## for _i in range(len(enum_names)):
-##     ctx_enums[_i].name = c_enum_names[_i]
-## ctx.enums = ctx_enums
-## ctx.num_enums = len(enum_names)
+c_struct_names = [rffi.str2charp(_n.encode('ascii')) for _n in struct_names]
+ctx_structs = lltype.malloc(rffi.CArray(parse_c_type.STRUCT_UNION_S),
+                            len(struct_names), flavor='raw', zero=True,
+                            track_allocation=False)
+for _i in range(len(struct_names)):
+    ctx_structs[_i].c_name = c_struct_names[_i]
+rffi.setintfield(ctx_structs[3], 'c_flags', cffi_opcode.F_UNION)
+ctx.c_struct_unions = ctx_structs
+rffi.setintfield(ctx, 'c_num_struct_unions', len(struct_names))
+
+c_enum_names = [rffi.str2charp(_n.encode('ascii')) for _n in enum_names]
+ctx_enums = lltype.malloc(rffi.CArray(parse_c_type.ENUM_S),
+                            len(enum_names), flavor='raw', zero=True,
+                            track_allocation=False)
+for _i in range(len(enum_names)):
+    ctx_enums[_i].c_name = c_enum_names[_i]
+ctx.c_enums = ctx_enums
+rffi.setintfield(ctx, 'c_num_enums', len(enum_names))
 
 ## c_identifier_names = [ffi.new("char[]", _n.encode('ascii'))
 ##                       for _n in identifier_names]
@@ -69,15 +75,12 @@ class ParseError(Exception):
 ## ctx.globals = ctx_globals
 ## ctx.num_globals = len(global_names)
 
-ctx = lltype.malloc(parse_c_type.PCTX.TO, flavor='raw', zero=True,
-                    track_allocation=False)
-
 
 def parse(input):
     OUTPUT_SIZE = 100
     out = lltype.malloc(rffi.VOIDPP.TO, OUTPUT_SIZE, flavor='raw',
                         track_allocation=False)
-    info = lltype.malloc(parse_c_type.PINFO.TO, flavor='raw',
+    info = lltype.malloc(parse_c_type.PINFO.TO, flavor='raw', zero=True,
                         track_allocation=False)
     info.c_ctx = ctx
     info.c_output = out
