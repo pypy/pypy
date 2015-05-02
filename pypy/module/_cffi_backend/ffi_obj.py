@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
+from pypy.module._cffi_backend import newtype
 
 
 ACCEPT_STRING   = 1
@@ -101,3 +102,9 @@ W_FFIObject.typedef = TypeDef(
         new = interp2app(W_FFIObject.descr_new),
         typeof = interp2app(W_FFIObject.descr_typeof),
         )
+
+def _startup(space):
+    ctvoidp = newtype.new_pointer_type(space, newtype.new_void_type(space))
+    w_NULL = ctvoidp.cast(space.wrap(0))
+    w_ffitype = space.gettypefor(W_FFIObject)
+    w_ffitype.dict_w['NULL'] = w_NULL

@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload
 
-VERSION = "0.9.2"
+VERSION = "1.0.0"
 
 
 class Module(MixedModule):
@@ -52,6 +52,10 @@ class Module(MixedModule):
         }
     if sys.platform == 'win32':
         interpleveldefs['getwinerror'] = 'cerrno.getwinerror'
+
+    def startup(self, space):
+        from pypy.module._cffi_backend import ffi_obj
+        ffi_obj._startup(space)
 
 for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
               "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:

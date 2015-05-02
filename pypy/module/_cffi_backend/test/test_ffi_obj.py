@@ -38,6 +38,7 @@ class AppTestFFIObj:
         assert ffi.typeof("int(*)()") is ffi.typeof("int(*)()")
 
     def test_ffi_cache_type_globally(self):
+        import _cffi_backend as _cffi1_backend
         ffi1 = _cffi1_backend.FFI()
         ffi2 = _cffi1_backend.FFI()
         t1 = ffi1.typeof("int *")
@@ -45,11 +46,13 @@ class AppTestFFIObj:
         assert t1 is t2
 
     def test_ffi_invalid(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         # array of 10 times an "int[]" is invalid
-        py.test.raises(ValueError, ffi.typeof, "int[10][]")
+        raises(ValueError, ffi.typeof, "int[10][]")
 
     def test_ffi_docstrings(self):
+        import _cffi_backend as _cffi1_backend
         # check that all methods of the FFI class have a docstring.
         check_type = type(_cffi1_backend.FFI.new)
         for methname in dir(_cffi1_backend.FFI):
@@ -60,21 +63,32 @@ class AppTestFFIObj:
                         methname,)
 
     def test_ffi_NULL(self):
+        import _cffi_backend as _cffi1_backend
         NULL = _cffi1_backend.FFI.NULL
         assert _cffi1_backend.FFI().typeof(NULL).cname == "void *"
 
+    def test_ffi_no_attr(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(AttributeError, "ffi.no_such_name")
+        raises(AttributeError, "ffi.no_such_name = 42")
+        raises(AttributeError, "del ffi.no_such_name")
+
     def test_ffi_string(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         p = ffi.new("char[]", b"foobar\x00baz")
         assert ffi.string(p) == b"foobar"
 
     def test_ffi_errno(self):
+        import _cffi_backend as _cffi1_backend
         # xxx not really checking errno, just checking that we can read/write it
         ffi = _cffi1_backend.FFI()
         ffi.errno = 42
         assert ffi.errno == 42
 
     def test_ffi_alignof(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         assert ffi.alignof("int") == 4
         assert ffi.alignof("int[]") == 4
@@ -84,14 +98,16 @@ class AppTestFFIObj:
         assert ffi.alignof(ffi.new("int[]", 41)) == 4
 
     def test_ffi_sizeof(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         assert ffi.sizeof("int") == 4
-        py.test.raises(ffi.error, ffi.sizeof, "int[]")
+        raises(ffi.error, ffi.sizeof, "int[]")
         assert ffi.sizeof("int[41]") == 41 * 4
         assert ffi.sizeof(ffi.new("int[41]")) == 41 * 4
         assert ffi.sizeof(ffi.new("int[]", 41)) == 41 * 4
 
     def test_ffi_callback(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         assert ffi.callback("int(int)", lambda x: x + 42)(10) == 52
         assert ffi.callback("int(*)(int)", lambda x: x + 42)(10) == 52
@@ -99,6 +115,7 @@ class AppTestFFIObj:
         assert ffi.callback("int(int)", lambda x: x + "", error=-66)(10) == -66
 
     def test_ffi_callback_decorator(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         assert ffi.callback(ffi.typeof("int(*)(int)"))(lambda x: x + 42)(10) == 52
         deco = ffi.callback("int(int)", error=-66)
@@ -106,6 +123,7 @@ class AppTestFFIObj:
         assert deco(lambda x: x + 42)(10) == 52
 
     def test_ffi_getctype(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         assert ffi.getctype("int") == "int"
         assert ffi.getctype("int", 'x') == "int x"
@@ -124,6 +142,7 @@ class AppTestFFIObj:
         assert ffi.getctype("int[5]", ' ** foo ') == "int(** foo)[5]"
 
     def test_addressof(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         a = ffi.new("int[10]")
         b = ffi.addressof(a, 5)
@@ -131,6 +150,7 @@ class AppTestFFIObj:
         assert a[7] == -123
 
     def test_handle(self):
+        import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         x = [2, 4, 6]
         xp = ffi.new_handle(x)
