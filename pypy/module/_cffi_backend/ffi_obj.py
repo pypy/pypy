@@ -5,6 +5,8 @@ from rpython.rlib import jit, rgc
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype
+from pypy.module._cffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend.cdataobj import W_CData
 
 
 ACCEPT_STRING   = 1
@@ -48,6 +50,10 @@ class W_FFIObject(W_Root):
         space = self.space
         if (accept & ACCEPT_STRING) and space.isinstance_w(w_x, space.w_str):
             return self.parse_string_to_type(space.str_w(w_x))
+        if (accept & ACCEPT_CTYPE) and isinstance(w_x, W_CType):
+            return w_x
+        if (accept & ACCEPT_CDATA) and isinstance(w_x, W_CData):
+            return w_x.ctype
         yyyy
 
 
