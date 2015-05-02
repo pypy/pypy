@@ -30,12 +30,13 @@ class W_CTypeFunc(W_CTypePtrBase):
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def __init__(self, space, fargs, fresult, ellipsis):
+        assert isinstance(ellipsis, bool)
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
         size = rffi.sizeof(rffi.VOIDP)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, fresult,
                                 could_cast_anything=False)
         self.fargs = fargs
-        self.ellipsis = bool(ellipsis)
+        self.ellipsis = ellipsis
         # fresult is stored in self.ctitem
 
         if not ellipsis:

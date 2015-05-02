@@ -2,8 +2,8 @@ import sys
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
-from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import specialize, r_dict, compute_identity_hash
+from rpython.rlib.rarithmetic import ovfcheck, intmask
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
@@ -17,6 +17,30 @@ def alignment(TYPE):
     return rffi.offsetof(S, 'y')
 
 alignment_of_pointer = alignment(rffi.CCHARP)
+
+# ____________________________________________________________
+
+class UniqueCache:
+    def __init__(self, space):
+        self.ctvoid = None      # There can be only one
+        self.primitives = {}    # Keys: name
+        self.pointers = {}      # Keys: base_ctype
+        self.arrays = {}        # Keys: (ptr_ctype, length_or_-1)
+        self.functions = r_dict(# Keys: (fargs, w_fresult, ellipsis)
+            _func_key_eq, _func_key_hash)
+
+def _func_key_eq((fargs1, w_fresult1, ellipsis1),
+                 (fargs2, w_fresult2, ellipsis2)):
+    return (fargs1 == fargs2 and      # list equality here
+            w_fresult1 is w_fresult2 and
+            ellipsis1 == ellipsis2)
+
+def _func_key_hash((fargs, w_fresult, ellipsis)):
+    x = compute_identity_hash(w_fresult) ^ ellipsis
+    for w_arg in fargs:
+        y = compute_identity_hash(w_arg)
+        x = intmask((1000003 * x) ^ y)
+    return x
 
 # ____________________________________________________________
 
@@ -112,24 +136,53 @@ else:
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
+    unique_cache = space.fromcache(UniqueCache)
+    try:
+        return unique_cache.primitives[name]
+    except KeyError:
+        pass
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
         raise OperationError(space.w_KeyError, space.wrap(name))
     ctype = ctypecls(space, size, name, len(name), align)
+    unique_cache.primitives[name] = ctype
     return ctype
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def new_pointer_type(space, w_ctype):
+    unique_cache = space.fromcache(UniqueCache)
+    try:
+        return unique_cache.pointers[w_ctype]
+    except KeyError:
+        pass
     ctypepointer = ctypeptr.W_CTypePointer(space, w_ctype)
+    unique_cache.pointers[w_ctype] = ctypepointer
     return ctypepointer
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctptr=ctypeobj.W_CType)
 def new_array_type(space, w_ctptr, w_length):
+    if space.is_w(w_length, space.w_None):
+        length = -1
+    else:
+        length = space.getindex_w(w_length, space.w_OverflowError)
+        if length < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative array length"))
+    return _new_array_type(space, w_ctptr, length)
+
+def _new_array_type(space, w_ctptr, length):
+    unique_cache = space.fromcache(UniqueCache)
+    unique_key = (w_ctptr, length)
+    try:
+        return unique_cache.arrays[unique_key]
+    except KeyError:
+        pass
+    #
     if not isinstance(w_ctptr, ctypeptr.W_CTypePointer):
         raise OperationError(space.w_TypeError,
                              space.wrap("first arg must be a pointer ctype"))
@@ -137,15 +190,10 @@ def new_array_type(space, w_ctptr, w_length):
     if ctitem.size < 0:
         raise oefmt(space.w_ValueError, "array item of unknown size: '%s'",
                     ctitem.name)
-    if space.is_w(w_length, space.w_None):
-        length = -1
+    if length < 0:
         arraysize = -1
         extra = '[]'
     else:
-        length = space.getindex_w(w_length, space.w_OverflowError)
-        if length < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative array length"))
         try:
             arraysize = ovfcheck(length * ctitem.size)
         except OverflowError:
@@ -154,6 +202,7 @@ def new_array_type(space, w_ctptr, w_length):
         extra = '[%d]' % length
     #
     ctype = ctypearray.W_CTypeArray(space, w_ctptr, length, arraysize, extra)
+    unique_cache.arrays[unique_key] = ctype
     return ctype
 
 # ____________________________________________________________
@@ -441,8 +490,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 # ____________________________________________________________
 
 def new_void_type(space):
-    ctype = ctypevoid.W_CTypeVoid(space)
-    return ctype
+    unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.ctvoid is None:
+        unique_cache.ctvoid = ctypevoid.W_CTypeVoid(space)
+    return unique_cache.ctvoid
 
 # ____________________________________________________________
 
@@ -484,7 +535,6 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 @unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
 def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
-    from pypy.module._cffi_backend import ctypefunc
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):
@@ -493,6 +543,17 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         if isinstance(w_farg, ctypearray.W_CTypeArray):
             w_farg = w_farg.ctptr
         fargs.append(w_farg)
+    return _new_function_type(space, fargs, w_fresult, bool(ellipsis))
+
+def _new_function_type(space, fargs, w_fresult, ellipsis=False):
+    from pypy.module._cffi_backend import ctypefunc
+    #
+    unique_cache = space.fromcache(UniqueCache)
+    unique_key = (fargs, w_fresult, ellipsis)
+    try:
+        return self.functions[unique_key]
+    except KeyError:
+        pass
     #
     if ((w_fresult.size < 0 and
          not isinstance(w_fresult, ctypevoid.W_CTypeVoid))
@@ -506,4 +567,5 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
                         "invalid result type: '%s'", w_fresult.name)
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, w_fresult, ellipsis)
+    self.functions[unique_key] = fct
     return fct
