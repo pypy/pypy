@@ -14,8 +14,8 @@ eci = ExternalCompilationInfo(
 )
 
 def llexternal(name, args, result, **kwds):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
-
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           _nowrapper=True, **kwds)
 
 GLOBAL_S = rffi.CStruct('struct _cffi_global_s',
                        ('name', rffi.CCHARP),

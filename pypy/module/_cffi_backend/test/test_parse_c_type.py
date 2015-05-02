@@ -92,7 +92,9 @@ def parse(input):
     rffi.setintfield(info, 'c_output_size', OUTPUT_SIZE)
     for j in range(OUTPUT_SIZE):
         out[j] = rffi.cast(rffi.VOIDP, -424242)
-    res = parse_c_type.parse_c_type(info, input.encode('ascii'))
+    p_input = rffi.str2charp(input.encode('ascii'))
+    res = parse_c_type.parse_c_type(info, p_input)
+    rffi.free_charp(p_input)
     if res < 0:
         raise ParseError(rffi.charp2str(info.c_error_message).decode('ascii'),
                          rffi.getintfield(info, 'c_error_location'))
