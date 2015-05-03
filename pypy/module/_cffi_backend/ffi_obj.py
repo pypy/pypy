@@ -3,9 +3,11 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
+from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
+from pypy.module._cffi_backend import ctypestruct, ctypeptr
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -83,6 +85,38 @@ class W_FFIObject(W_Root):
 
     def set_errno(self, space, errno):
         cerrno.set_errno(space, space.c_int_w(errno))
+
+
+    def descr_addressof(self, w_arg, args_w):
+        """\
+With a single arg, return the address of a <cdata 'struct-or-union'>.
+If 'fields_or_indexes' are given, returns the address of that field or
+array item in the structure or array, recursively in case of nested
+structures."""
+        #
+        w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
+        space = self.space
+        offset = 0
+        if len(args_w) == 0:
+            if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion) and
+                not isinstance(w_ctype, ctypearray.W_CTypeArray)):
+                raise oefmt(space.w_TypeError,
+                            "expected a cdata struct/union/array object")
+        else:
+            if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion) and
+                not isinstance(w_ctype, ctypearray.W_CTypeArray) and
+                not isinstance(w_ctype, ctypeptr.W_CTypePointer)):
+                raise oefmt(space.w_TypeError,
+                        "expected a cdata struct/union/array/pointer object")
+            for i in range(len(args_w)):
+                w_ctype, ofs1 = w_ctype.direct_typeoffsetof(args_w[i], i > 0)
+                offset += ofs1
+        #
+        assert isinstance(w_arg, W_CData)
+        cdata = w_arg.unsafe_escaping_ptr()
+        cdata = rffi.ptradd(cdata, offset)
+        w_ctypeptr = newtype.new_pointer_type(space, w_ctype)
+        return W_CData(space, cdata, w_ctypeptr)
 
 
     def descr_alignof(self, w_arg):
@@ -236,6 +270,7 @@ W_FFIObject.typedef = TypeDef(
                                      W_FFIObject.set_errno,
                                      doc=W_FFIObject.doc_errno,
                                      cls=W_FFIObject),
+        addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         callback    = interp2app(W_FFIObject.descr_callback),
         getctype    = interp2app(W_FFIObject.descr_getctype),
