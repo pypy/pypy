@@ -71,7 +71,7 @@ def get_primitive_type(space, num):
     w_ctype = realize_cache.all_primitives[num]
     if w_ctype is None:
         if num == cffi_opcode.PRIM_VOID:
-            w_ctype = newtype.new_void_type()
+            w_ctype = newtype.new_void_type(space)
         elif 0 <= num < len(RealizeCache.NAMES) and RealizeCache.NAMES[num]:
             w_ctype = newtype.new_primitive_type(space, RealizeCache.NAMES[num])
         else:

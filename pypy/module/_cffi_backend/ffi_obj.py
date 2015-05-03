@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
-from pypy.module._cffi_backend import ctypestruct, ctypeptr
+from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -154,6 +154,17 @@ kept alive for as long as the callback may be invoked from the C code."""
                     _cffi_backend.callback(ctype, python_callable, error))""")
 
 
+    @unwrap_spec(w_arg=W_CData)
+    def descr_from_handle(self, w_arg):
+        """\
+Cast a 'void *' back to a Python object.  Must be used *only* on the
+pointers returned by new_handle(), and *only* as long as the exact
+cdata object returned by new_handle() is still alive (somewhere else
+in the program).  Failure to follow these rules will crash."""
+        #
+        return handle.from_handle(self.space, w_arg)
+
+
     @unwrap_spec(replace_with=str)
     def descr_getctype(self, w_cdecl, replace_with=''):
         """\
@@ -209,6 +220,17 @@ pointer to the memory somewhere else, e.g. into another structure."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CTYPE)
         return w_ctype.newp(w_init)
+
+
+    def descr_new_handle(self, w_arg):
+        """\
+Return a non-NULL cdata of type 'void *' that contains an opaque
+reference to the argument, which can be any Python object.  To cast it
+back to the original object, use from_handle().  You must keep alive
+the cdata object returned by new_handle()!"""
+        #
+        space = self.space
+        return handle._newp_handle(space, newtype.new_voidp_type(space), w_arg)
 
 
     @unwrap_spec(w_cdata=W_CData, maxlen=int)
@@ -273,15 +295,17 @@ W_FFIObject.typedef = TypeDef(
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         callback    = interp2app(W_FFIObject.descr_callback),
+        from_handle = interp2app(W_FFIObject.descr_from_handle),
         getctype    = interp2app(W_FFIObject.descr_getctype),
         new         = interp2app(W_FFIObject.descr_new),
+        new_handle  = interp2app(W_FFIObject.descr_new_handle),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),
         )
 
 def _startup(space):
-    ctvoidp = newtype.new_pointer_type(space, newtype.new_void_type(space))
+    ctvoidp = newtype.new_voidp_type(space)
     w_NULL = ctvoidp.cast(space.wrap(0))
     w_ffitype = space.gettypefor(W_FFIObject)
     w_ffitype.dict_w['NULL'] = w_NULL

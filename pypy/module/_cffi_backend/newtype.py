@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib.objectmodel import specialize, r_dict, compute_identity_hash
 from rpython.rlib.rarithmetic import ovfcheck, intmask
+from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
@@ -23,6 +24,7 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 class UniqueCache:
     def __init__(self, space):
         self.ctvoid = None      # There can be only one
+        self.ctvoidp = None     # Cache for self.pointers[self.ctvoid]
         self.primitives = {}    # Keys: name
         self.pointers = {}      # Keys: base_ctype
         self.arrays = {}        # Keys: (ptr_ctype, length_or_-1)
@@ -137,6 +139,7 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
+@jit.elidable
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
     unique_cache = space.fromcache(UniqueCache)
@@ -154,6 +157,7 @@ def new_primitive_type(space, name):
 
 # ____________________________________________________________
 
+@jit.elidable
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def new_pointer_type(space, w_ctype):
     unique_cache = space.fromcache(UniqueCache)
@@ -167,6 +171,7 @@ def new_pointer_type(space, w_ctype):
 
 # ____________________________________________________________
 
+@jit.elidable
 @unwrap_spec(w_ctptr=ctypeobj.W_CType)
 def new_array_type(space, w_ctptr, w_length):
     if space.is_w(w_length, space.w_None):
@@ -178,6 +183,7 @@ def new_array_type(space, w_ctptr, w_length):
                                  space.wrap("negative array length"))
     return _new_array_type(space, w_ctptr, length)
 
+@jit.elidable
 def _new_array_type(space, w_ctptr, length):
     unique_cache = space.fromcache(UniqueCache)
     unique_key = (w_ctptr, length)
@@ -493,11 +499,19 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
 # ____________________________________________________________
 
+@jit.elidable
 def new_void_type(space):
     unique_cache = space.fromcache(UniqueCache)
     if unique_cache.ctvoid is None:
         unique_cache.ctvoid = ctypevoid.W_CTypeVoid(space)
     return unique_cache.ctvoid
+
+@jit.elidable
+def new_voidp_type(space):
+    unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.ctvoidp is None:
+        unique_cache.ctvoidp = new_pointer_type(space, new_void_type(space))
+    return unique_cache.ctvoidp
 
 # ____________________________________________________________
 
@@ -537,6 +551,7 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 # ____________________________________________________________
 
+@jit.elidable
 @unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
 def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
     fargs = []
@@ -549,6 +564,7 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         fargs.append(w_farg)
     return _new_function_type(space, fargs, w_fresult, bool(ellipsis))
 
+@jit.elidable
 def _new_function_type(space, fargs, w_fresult, ellipsis=False):
     from pypy.module._cffi_backend import ctypefunc
     #
