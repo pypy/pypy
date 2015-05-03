@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
-from pypy.module._cffi_backend import newtype, cerrno, ccallback
+from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -120,6 +120,36 @@ kept alive for as long as the callback may be invoked from the C code."""
                     _cffi_backend.callback(ctype, python_callable, error))""")
 
 
+    @unwrap_spec(replace_with=str)
+    def descr_getctype(self, w_cdecl, replace_with=''):
+        """\
+Return a string giving the C type 'cdecl', which may be itself a
+string or a <ctype> object.  If 'replace_with' is given, it gives
+extra text to append (or insert for more complicated C types), like a
+variable name, or '*' to get actually the C type 'pointer-to-cdecl'."""
+        #
+        w_ctype = self.ffi_type(w_cdecl, ACCEPT_STRING | ACCEPT_CTYPE)
+        replace_with = replace_with.strip(' ')
+        if len(replace_with) == 0:
+            result = w_ctype.name
+        else:
+            add_paren = (replace_with[0] == '*' and
+                         isinstance(w_ctype, ctypearray.W_CTypeArray))
+            add_space = (not add_paren and replace_with[0] != '['
+                                       and replace_with[0] != '(')
+            #
+            result = w_ctype.name[:w_ctype.name_position]
+            if add_paren:
+                result += '('
+            if add_space:
+                result += ' '
+            result += replace_with
+            if add_paren:
+                result += ')'
+            result += w_ctype.name[w_ctype.name_position:]
+        return self.space.wrap(result)
+
+
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_new(self, w_arg, w_init):
         """\
@@ -208,6 +238,7 @@ W_FFIObject.typedef = TypeDef(
                                      cls=W_FFIObject),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         callback    = interp2app(W_FFIObject.descr_callback),
+        getctype    = interp2app(W_FFIObject.descr_getctype),
         new         = interp2app(W_FFIObject.descr_new),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
