@@ -154,6 +154,16 @@ kept alive for as long as the callback may be invoked from the C code."""
                     _cffi_backend.callback(ctype, python_callable, error))""")
 
 
+    def descr_cast(self, w_arg, w_ob):
+        """\
+Similar to a C cast: returns an instance of the named C
+type initialized with the given 'source'.  The source is
+casted between integers or pointers of any type."""
+        #
+        w_ctype = self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CTYPE)
+        return w_ctype.cast(w_ob)
+
+
     @unwrap_spec(w_arg=W_CData)
     def descr_from_handle(self, w_arg):
         """\
@@ -295,6 +305,7 @@ W_FFIObject.typedef = TypeDef(
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         callback    = interp2app(W_FFIObject.descr_callback),
+        cast        = interp2app(W_FFIObject.descr_cast),
         from_handle = interp2app(W_FFIObject.descr_from_handle),
         getctype    = interp2app(W_FFIObject.descr_getctype),
         new         = interp2app(W_FFIObject.descr_new),
