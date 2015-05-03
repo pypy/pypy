@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
-from pypy.module._cffi_backend import newtype, cerrno
+from pypy.module._cffi_backend import newtype, cerrno, ccallback
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -35,24 +35,29 @@ class W_FFIObject(W_Root):
         parse_c_type.free_ctxobj(self.ctxobj)
 
     @jit.elidable
-    def parse_string_to_type(self, x):
+    def parse_string_to_type(self, string, flags):
         try:
-            return self.types_dict[x]
+            x = self.types_dict[string]
         except KeyError:
-            pass
+            index = parse_c_type.parse_c_type(self.ctxobj.info, string)
+            if index < 0:
+                xxxx
+            x = realize_c_type.realize_c_type_or_func(
+                self, self.ctxobj.info.c_output, index)
+            self.types_dict[string] = x
 
-        index = parse_c_type.parse_c_type(self.ctxobj.info, x)
-        if index < 0:
-            xxxx
-        ct = realize_c_type.realize_c_type(self, self.ctxobj.info.c_output,
-                                           index)
-        self.types_dict[x] = ct
-        return ct
+        if isinstance(x, W_CType):
+            return x
+        elif flags & CONSIDER_FN_AS_FNPTR:
+            return realize_c_type.unwrap_fn_as_fnptr(x)
+        else:
+            return realize_c_type.unexpected_fn_type(self, x)
 
     def ffi_type(self, w_x, accept):
         space = self.space
         if (accept & ACCEPT_STRING) and space.isinstance_w(w_x, space.w_str):
-            return self.parse_string_to_type(space.str_w(w_x))
+            return self.parse_string_to_type(space.str_w(w_x),
+                                             accept & CONSIDER_FN_AS_FNPTR)
         if (accept & ACCEPT_CTYPE) and isinstance(w_x, W_CType):
             return w_x
         if (accept & ACCEPT_CDATA) and isinstance(w_x, W_CData):
@@ -88,6 +93,31 @@ It can be a string naming a C type, or a 'cdata' instance."""
         w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
         align = w_ctype.alignof()
         return self.space.wrap(align)
+
+
+    @unwrap_spec(w_python_callable=WrappedDefault(None),
+                 w_error=WrappedDefault(None))
+    def descr_callback(self, w_cdecl, w_python_callable, w_error):
+        """\
+Return a callback object or a decorator making such a callback object.
+'cdecl' must name a C function pointer type.  The callback invokes the
+specified 'python_callable' (which may be provided either directly or
+via a decorator).  Important: the callback object must be manually
+kept alive for as long as the callback may be invoked from the C code."""
+        #
+        w_ctype = self.ffi_type(w_cdecl, ACCEPT_STRING | ACCEPT_CTYPE |
+                                         CONSIDER_FN_AS_FNPTR)
+        space = self.space
+        if not space.is_none(w_python_callable):
+            return ccallback.W_CDataCallback(space, w_ctype,
+                                             w_python_callable, w_error)
+        else:
+            # decorator mode: returns a single-argument function
+            return space.appexec([w_ctype, w_error],
+            """(ctype, error):
+                import _cffi_backend
+                return lambda python_callable: (
+                    _cffi_backend.callback(ctype, python_callable, error))""")
 
 
     @unwrap_spec(w_init=WrappedDefault(None))
@@ -177,6 +207,7 @@ W_FFIObject.typedef = TypeDef(
                                      doc=W_FFIObject.doc_errno,
                                      cls=W_FFIObject),
         alignof     = interp2app(W_FFIObject.descr_alignof),
+        callback    = interp2app(W_FFIObject.descr_callback),
         new         = interp2app(W_FFIObject.descr_new),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),

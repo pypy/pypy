@@ -158,3 +158,10 @@ class AppTestFFIObj:
         assert ffi.from_handle(xp) is x
         yp = ffi.new_handle([6, 4, 2])
         assert ffi.from_handle(yp) == [6, 4, 2]
+
+    def test_ffi_cast(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        assert ffi.cast("int(*)(int)", 0) == ffi.NULL
+        ffi.callback("int(int)")      # side-effect of registering this string
+        raises(ffi.error, ffi.cast, "int(int)", 0)

@@ -91,18 +91,34 @@ class W_RawFuncType(W_Root):
         self.w_ctfuncptr = w_ctfuncptr
 
 
+
+def unwrap_fn_as_fnptr(x):
+    assert isinstance(x, W_RawFuncType)
+    return x.w_ctfuncptr
+
+def unexpected_fn_type(ffi, x):
+    x = unwrap_fn_as_fnptr(x)
+    # here, x.name is for example 'int(*)(int)'
+    #                                   ^
+    j = x.name_position - 2
+    assert j >= 0
+    text1 = x.name[:j]
+    text2 = x.name[x.name_position+1:]
+    raise oefmt(ffi.w_FFIError, "the type '%s%s' is a function type, not a "
+                                "pointer-to-function type", text1, text2)
+
+
 def realize_c_type(ffi, opcodes, index):
     """Interpret an opcodes[] array.  If opcodes == ffi.ctxobj.ctx.c_types,
     store all the intermediate types back in the opcodes[].
     """
-    x = _realize_c_type_or_func(ffi, opcodes, index)
-    if isinstance(x, W_CType):
-        return x
-    else:
-        xxxx
+    x = realize_c_type_or_func(ffi, opcodes, index)
+    if not isinstance(x, W_CType):
+        unexpected_fn_type(ffi, x)
+    return x
 
 
-def _realize_c_type_or_func(ffi, opcodes, index):
+def realize_c_type_or_func(ffi, opcodes, index):
     op = opcodes[index]
 
     from_ffi = False
@@ -114,7 +130,7 @@ def _realize_c_type_or_func(ffi, opcodes, index):
         x = get_primitive_type(ffi.space, getarg(op))
 
     elif case == cffi_opcode.OP_POINTER:
-        y = _realize_c_type_or_func(ffi, opcodes, getarg(op))
+        y = realize_c_type_or_func(ffi, opcodes, getarg(op))
         if isinstance(y, W_CType):
             x = newtype.new_pointer_type(ffi.space, y)
         elif isinstance(y, W_RawFuncType):
@@ -143,7 +159,7 @@ def _realize_c_type_or_func(ffi, opcodes, index):
         x = W_RawFuncType(w_ctfuncptr)
 
     elif case == cffi_opcode.OP_NOOP:
-        x = _realize_c_type_or_func(ffi, opcodes, getarg(op))
+        x = realize_c_type_or_func(ffi, opcodes, getarg(op))
 
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
