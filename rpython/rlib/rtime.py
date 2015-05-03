@@ -9,6 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import register_replacement_for
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
