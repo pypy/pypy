@@ -1,5 +1,9 @@
 
-import cffi, py
+import py
+try:
+    import cffi
+except ImportError:
+    py.test.skip('cffi required')
 
 srcdir = py.path.local(__file__).join("..", "..", "src")
 
