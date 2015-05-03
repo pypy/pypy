@@ -1,7 +1,12 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import option
 
 
 class AppTestObjectDtypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+
     def test_scalar_from_object(self):
         from numpy import array
         import sys
@@ -109,6 +114,8 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
 
     def test_array_interface(self):
         import numpy as np
+        if self.runappdirect:
+            skip('requires numpy.core, test with numpy test suite instead')
         import sys
         class DummyArray(object):
             def __init__(self, interface, base=None):

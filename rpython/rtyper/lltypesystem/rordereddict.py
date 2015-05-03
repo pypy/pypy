@@ -3,7 +3,8 @@ from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib import objectmodel, jit, rgc
+from rpython.rlib import objectmodel, jit, rgc, types
+from rpython.rlib.signature import signature
 from rpython.rlib.objectmodel import specialize, likely
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -515,9 +516,11 @@ def ll_mark_deleted_in_value(entries, i):
     dummy = ENTRIES.dummy_obj.ll_dummy_value
     entries[i].value = dummy
 
+@signature(types.any(), types.int(), returns=types.any())
 def ll_hash_from_cache(entries, i):
     return entries[i].f_hash
 
+@signature(types.any(), types.int(), returns=types.any())
 def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)

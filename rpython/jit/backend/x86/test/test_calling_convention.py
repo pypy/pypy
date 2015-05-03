@@ -10,7 +10,7 @@ class TestCallingConv(CallingConvTests):
         mc.MOV(eax, esp)
         mc.ADD_ri(eax.value, WORD)
         mc.RET()
-        return mc.materialize(self.cpu.asmmemmgr, [])
+        return mc.materialize(self.cpu, [])
 
     def get_alignment_requirements(self):
         return 16

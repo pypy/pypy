@@ -58,7 +58,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.fnloc_is_immediate = False
             self.fnloc = None
             self.arglocs = arglocs + [fnloc]
-        self.current_esp = 0     # 0 or (usually) negative, counted in bytes
+        self.start_frame_size = self.mc._frame_size
 
     def select_call_release_gil_mode(self):
         AbstractCallBuilder.select_call_release_gil_mode(self)
@@ -70,13 +70,15 @@ class CallBuilderX86(AbstractCallBuilder):
     def subtract_esp_aligned(self, count):
         if count > 0:
             align = align_stack_words(count)
-            self.current_esp -= align * WORD
             self.mc.SUB_ri(esp.value, align * WORD)
 
+    def get_current_esp(self):
+        return self.start_frame_size - self.mc._frame_size
+
     def restore_stack_pointer(self, target_esp=0):
-        if self.current_esp != target_esp:
-            self.mc.ADD_ri(esp.value, target_esp - self.current_esp)
-            self.current_esp = target_esp
+        current_esp = self.get_current_esp()
+        if current_esp != target_esp:
+            self.mc.ADD_ri(esp.value, target_esp - current_esp)
 
     def load_result(self):
         """Overridden in CallBuilder32 and CallBuilder64"""
@@ -99,9 +101,10 @@ class CallBuilderX86(AbstractCallBuilder):
         # after the rearrangements done just before, ignoring the return
         # value eax, if necessary
         assert not self.is_call_release_gil
-        self.change_extra_stack_depth = (self.current_esp != 0)
+        current_esp = self.get_current_esp()
+        self.change_extra_stack_depth = (current_esp != 0)
         if self.change_extra_stack_depth:
-            self.asm.set_extra_stack_depth(self.mc, -self.current_esp)
+            self.asm.set_extra_stack_depth(self.mc, -current_esp)
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
         gcmap = self.asm._regalloc.get_gcmap([eax], noregs=noregs)
         self.asm.push_gcmap(self.mc, gcmap, store=True)
@@ -142,7 +145,7 @@ class CallBuilderX86(AbstractCallBuilder):
             # and 5/7 words as described for asmgcroot.ASM_FRAMEDATA, for a
             # total size of JIT_USE_WORDS.  This structure is found at
             # [ESP+css].
-            css = -self.current_esp + (
+            css = -self.get_current_esp() + (
                 WORD * (PASS_ON_MY_FRAME - asmgcroot.JIT_USE_WORDS))
             assert css >= 2 * WORD
             # Save ebp
@@ -178,7 +181,7 @@ class CallBuilderX86(AbstractCallBuilder):
             else:
                 self.tlofs_reg = r12
             self.mc.MOV_rs(self.tlofs_reg.value,
-                           THREADLOCAL_OFS - self.current_esp)
+                           THREADLOCAL_OFS - self.get_current_esp())
             if self.asm._is_asmgcc():
                 self.mc.AND_ri(self.tlofs_reg.value, ~1)
         return self.tlofs_reg
@@ -218,6 +221,7 @@ class CallBuilderX86(AbstractCallBuilder):
             mc.CALL(imm(follow_jump(SetLastError_addr)))
             # restore the stack position without assuming a particular
             # calling convention of _SetLastError()
+            self.mc.stack_frame_size_delta(-WORD)
             self.mc.MOV(esp, self.saved_stack_position_reg)
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
@@ -451,7 +455,10 @@ class CallBuilder32(CallBuilderX86):
         else:
             self.mc.CALL(self.fnloc)
             if self.callconv != FFI_DEFAULT_ABI:
-                self.current_esp += self._fix_stdcall(self.callconv)
+                # in the STDCALL ABI, the CALL above has an effect on
+                # the stack depth.  Adjust 'mc._frame_size'.
+                delta = self._fix_stdcall(self.callconv)
+                self.mc.stack_frame_size_delta(-delta)
 
     def _fix_stdcall(self, callconv):
         from rpython.rlib.clibffi import FFI_STDCALL
