@@ -1,6 +1,5 @@
 
 from rpython.rtyper.test.tool import BaseRtypingTest
-from rpython.rlib import rtime  # Register functions
 
 import time, sys
 

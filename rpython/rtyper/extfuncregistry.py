@@ -2,6 +2,10 @@
 
 from rpython.rtyper.extfunc import register_external
 
+# Register replacement functions for builtin functions
+from rpython.rlib import rposix, rposix_stat, rposix_environ
+from rpython.rlib import rtime
+
 # ___________________________
 # math functions
 
@@ -52,4 +56,3 @@ for module, methods in _register:
                           export_name='ll_math.%s' % method_name,
                           sandboxsafe=True,
                           llimpl=getattr(ll_math, method_name))
-
