@@ -1,7 +1,9 @@
-import sys
 import py
+
+from rpython.jit.metainterp.resume import Snapshot
+from rpython.jit.metainterp.jitexc import JitException
+from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
-from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, BoxVector,
         TargetToken, JitCellToken)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
@@ -9,10 +11,9 @@ from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
         MemoryRef, Scheduler, SchedulerData, Node)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
-from rpython.jit.metainterp.resume import Snapshot
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-from rpython.jit.metainterp.jitexc import JitException
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 class NotAVectorizeableLoop(JitException):
     def __str__(self):
@@ -41,17 +42,16 @@ def debug_print_operations(loop):
             else:
                 print ""
 
-def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations):
-    opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
+def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
+                    inline_short_preamble, start_state):
+    optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
+                    inline_short_preamble, start_state, False)
     try:
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
-        #debug_print_operations(loop)
-        def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
-        def_opt.propagate_all_forward()
     except NotAVectorizeableLoop:
         # vectorization is not possible, propagate only normal optimizations
-        def_opt = Optimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
-        def_opt.propagate_all_forward()
+        pass
 
 #class CollapseGuardOptimization(Optimization):
 #    def __init__(self, index_vars = None):
@@ -99,6 +99,7 @@ class VectorizingOptimizer(Optimizer):
         self.loop.operations = self.get_newoperations();
         self.clear_newoperations();
 
+        debug_print_operations(self.loop)
         # vectorize
         self.build_dependency_graph()
         self.find_adjacent_memory_refs()
@@ -265,7 +266,7 @@ class VectorizingOptimizer(Optimizer):
         return unroll_count-1 # it is already unrolled once
 
     def build_dependency_graph(self):
-        self.dependency_graph = DependencyGraph(self.loop.operations)
+        self.dependency_graph = DependencyGraph(self.loop)
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
@@ -390,7 +391,7 @@ class VectorizingOptimizer(Optimizer):
         if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
             return
 
-        self.dependency_graph = dependencies = DependencyGraph(self.loop.operations)
+        self.dependency_graph = dependencies = DependencyGraph(self.loop)
 
         label_node = dependencies.getnode(0)
         ee_guard_node = dependencies.getnode(self.early_exit_idx)

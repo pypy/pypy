@@ -1122,6 +1122,8 @@ class MIFrame(object):
 
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
+                if jitdriver_sd.vectorize:
+                    self.metainterp.generate_guard(rop.GUARD_EARLY_EXIT)
                 return
             if self.metainterp.portal_call_depth or not self.metainterp.get_procedure_token(greenboxes, True):
                 if not jitdriver_sd.no_loop_header:
@@ -2133,12 +2135,6 @@ class MetaInterp(object):
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
         self.history.inputargs = original_boxes[num_green_args:]
         self.seen_loop_header_for_jdindex = -1
-        # can only emit early exit if liveness is present
-        # TODO think of a better way later
-        if self.framestack[-1].jitcode.liveness.get(0, None) \
-           and self.jitdriver_sd.vectorize:
-            self.generate_guard(rop.GUARD_EARLY_EXIT)
-            #self.history.record(rop.GUARD_EARLY_EXIT, [], None)
         try:
             self.interpret()
         except SwitchToBlackhole, stb:
@@ -2318,9 +2314,7 @@ class MetaInterp(object):
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
         elif opnum == rop.GUARD_EARLY_EXIT:
-            # prevents it from building a bridge
-            # TODO
-            self.resumekey_original_loop_token = None
+            pass
         elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
             frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;

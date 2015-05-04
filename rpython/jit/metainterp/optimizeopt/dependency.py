@@ -116,13 +116,19 @@ class Node(object):
         op = guard.getoperation()
         assert isinstance(tgt_op, GuardResOp)
         assert isinstance(op, GuardResOp)
-        #descr = compile.ResumeAtLoopHeaderDescr()
+        olddescr = tgt_op.getdescr()
         descr = compile.ResumeAtLoopHeaderDescr()
+        descr.rd_consts = olddescr.rd_consts 
+        descr.rd_pendingfields = olddescr.rd_pendingfields
+        descr.rd_virtuals = olddescr.rd_virtuals
+        descr.rd_numb = olddescr.rd_numb
+        descr.rd_count = olddescr.rd_count
+        descr.rd_frame_info_list = olddescr.rd_frame_info_list
+        #
         tgt_op.setdescr(descr)
-        if not we_are_translated():
-            tgt_op.setfailargs(op.getfailargs())
         tgt_op.rd_snapshot = op.rd_snapshot
-        tgt_op.rd_frame_info_list = op.rd_frame_info_list
+        #if not we_are_translated():
+        tgt_op.setfailargs(op.getfailargs())
 
     def edge_to(self, to, arg=None, label=None):
         assert self != to
@@ -360,12 +366,14 @@ class DefTracker(object):
         self.defs = {}
 
     def define(self, arg, node, argcell=None):
+        if isinstance(arg, Const):
+            return
         if arg in self.defs:
             self.defs[arg].append((node,argcell))
         else:
             self.defs[arg] = [(node,argcell)]
 
-    def redefintions(self, arg):
+    def redefinitions(self, arg):
         for _def in self.defs[arg]:
             yield _def[0]
 
@@ -424,8 +432,9 @@ class DependencyGraph(object):
         modifications of one array even if the indices can never point to
         the same element.
     """
-    def __init__(self, operations):
-        self.nodes = [ Node(op,i) for i,op in enumerate(operations) ]
+    def __init__(self, loop):
+        self.loop = loop
+        self.nodes = [ Node(op,i) for i,op in enumerate(loop.operations) ]
         self.memory_refs = {}
         self.schedulable_nodes = []
         self.index_vars = {}
@@ -455,14 +464,16 @@ class DependencyGraph(object):
             # the label operation defines all operations at the
             # beginning of the loop
             if op.getopnum() == rop.LABEL and i != jump_pos:
-                # TODO is it valid that a label occurs at the end of a trace?
-                ee_node = self.nodes[i+1]
-                if ee_node.is_guard_early_exit():
-                    node.edge_to(ee_node,None,label='L->EE')
-                    node = ee_node
+                label_pos = i
                 for arg in op.getarglist():
                     tracker.define(arg, node)
                 continue # prevent adding edge to the label itself
+            elif node.is_guard_early_exit():
+                label_node = self.nodes[label_pos]
+                label_node.edge_to(node,None,label='L->EE')
+                for arg in label_node.getoperation().getarglist():
+                    tracker.define(arg, node)
+                continue
             intformod.inspect_operation(op,node)
             # definition of a new variable
             if op.result is not None:
@@ -529,9 +540,11 @@ class DependencyGraph(object):
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():
                 try:
-                    for at in tracker.redefintions(arg):
+                    for at in tracker.redefinitions(arg):
                         # later redefinitions are prohibited
-                        if at.is_before(guard_node):
+                        descr = guard_op.getdescr()
+                        if at.is_before(guard_node) and \
+                           not isinstance(descr, compile.ResumeAtLoopHeaderDescr):
                             at.edge_to(guard_node, arg, label="fail")
                 except KeyError:
                     assert False
@@ -619,7 +632,7 @@ class DependencyGraph(object):
                 op = node.getoperation()
                 op_str = str(op)
                 if op.is_guard():
-                    op_str += " " + str(op.getfailargs())
+                    op_str += " " + ','.join([str(arg) for arg in op.getfailargs()])
                 dot += " n%d [label=\"[%d]: %s\"];\n" % (node.getindex(),node.getindex(),op_str)
             dot += "\n"
             for node in self.nodes:

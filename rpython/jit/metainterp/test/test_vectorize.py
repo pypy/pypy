@@ -28,7 +28,7 @@ class VectorizeTests:
     @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
     def test_vectorize_simple_load_arith_store_int_add_index(self,i):
         myjitdriver = JitDriver(greens = [],
-                                reds = ['i','d','bc','va','vb','vc'],
+                                reds = 'auto',
                                 vectorize=True)
         def f(d):
             bc = d*rffi.sizeof(rffi.SIGNED)
@@ -42,8 +42,7 @@ class VectorizeTests:
                 raw_storage_setitem(vb, j, rffi.cast(rffi.SIGNED,i))
             i = 0
             while i < bc:
-                myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc, bc=bc)
-                myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc, bc=bc)
+                myjitdriver.jit_merge_point()
                 a = raw_storage_getitem(rffi.SIGNED,va,i)
                 b = raw_storage_getitem(rffi.SIGNED,vb,i)
                 c = a+b
@@ -62,7 +61,7 @@ class VectorizeTests:
         if i > 3:
             self.check_trace_count(1)
 
-    @py.test.mark.parametrize('i',[1,2,3,8,17,128,500,501,502,1300])
+    @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,500,501,502,1300])
     def test_vectorize_array_get_set(self,i):
         myjitdriver = JitDriver(greens = [],
                                 reds = ['i','d','va','vb','vc'],
@@ -95,8 +94,40 @@ class VectorizeTests:
             return res
         res = self.meta_interp(f, [i])
         assert res == f(i)
-        if 4 < i:
-            self.check_trace_count(1)
+        #if 4 < i:
+        #    self.check_trace_count(1)
+
+    @py.test.mark.parametrize('i,k',[(9,3)])
+    def test_vector_register_too_small_vector(self, i, k):
+        myjitdriver = JitDriver(greens = [],
+                                reds = 'auto',
+                                vectorize=True)
+        T = lltype.Array(rffi.SHORT, hints={'nolength': True})
+        def f(d,v):
+            i = 0
+            va = lltype.malloc(T, v, flavor='raw', zero=True)
+            vb = lltype.malloc(T, v, flavor='raw', zero=True)
+            for j in range(v):
+                va[j] = rffi.r_short(1)
+                vb[j] = rffi.r_short(2)
+            while i < d:
+                myjitdriver.jit_merge_point()
+                j = 0
+                while j < v:
+                    a = va[j]
+                    b = vb[j]
+                    ec = intmask(a) + intmask(b)
+                    va[j] = rffi.r_short(ec)
+                    j += 1
+
+                i += 1
+            res = intmask(va[v-1])
+            lltype.free(va, flavor='raw')
+            lltype.free(vb, flavor='raw')
+            return res
+        res = self.meta_interp(f, [i,k])
+        assert res == f(i,k)
+
 
 class VectorizeLLtypeTests(VectorizeTests):
     pass

@@ -836,13 +836,14 @@ def compile_trace(metainterp, resumekey):
     new_trace.operations = metainterp.history.operations[:]
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
-    state = jitdriver_sd.warmstate
-    if isinstance(resumekey, ResumeAtPositionDescr):
+    warmstate = jitdriver_sd.warmstate
+    if isinstance(resumekey, ResumeAtPositionDescr) or \
+       isinstance(resumekey, ResumeAtLoopHeaderDescr):
         inline_short_preamble = False
     else:
         inline_short_preamble = True
     try:
-        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace, state,
+        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace, warmstate,
                                inline_short_preamble, export_state=True)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")

@@ -15,7 +15,7 @@ class DependencyBaseTest(BaseTest):
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
-        self.last_graph = DependencyGraph(loop.operations)
+        self.last_graph = DependencyGraph(loop)
         self._write_dot_and_convert_to_svg(self.last_graph, self.test_name)
         for node in self.last_graph.nodes:
             assert node.independent(node)
