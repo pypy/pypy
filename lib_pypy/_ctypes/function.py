@@ -308,6 +308,8 @@ class CFuncPtr(_CData):
                 res = self.callable(*newargs)
             except:
                 exc_info = sys.exc_info()
+                if issubclass(exc_info[0], SystemExit):
+                    exc_info = handle_system_exit(exc_info)
                 traceback.print_tb(exc_info[2], file=sys.stderr)
                 print >>sys.stderr, "%s: %s" % (exc_info[0].__name__, exc_info[1])
                 return 0
@@ -715,3 +717,26 @@ def make_fastpath_subclass(CFuncPtr):
     make_fastpath_subclass.memo[CFuncPtr] = CFuncPtrFast
     return CFuncPtrFast
 make_fastpath_subclass.memo = {}
+
+
+def handle_system_exit(exc_info):
+    # issue #1194: if we get SystemExit here, then exit the interpreter.
+    # Highly obscure imho but some people seem to depend on it.
+    try:
+        if sys.flags.inspect:
+            return exc_info   # Don't exit if -i flag was given.
+
+        code = exc_info[1].code
+        if isinstance(code, int):
+            exitcode = code
+        else:
+            f = getattr(sys, 'stderr', None)
+            if f is None:
+                f = sys.__stderr__
+            print >> f, code
+            exitcode = 1
+
+        _rawffi.exit(exitcode)
+
+    except:
+        return sys.exc_info()
