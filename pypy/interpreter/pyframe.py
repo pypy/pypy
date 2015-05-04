@@ -32,6 +32,7 @@ class FrameDebugData(object):
     instr_prev_plus_one      = 0
     f_lineno = -1 # current lineno
     is_being_profiled        = False
+    w_locals                 = None
 
 class PyFrame(W_Root):
     """Represents a frame for a regular Python function
@@ -40,7 +41,8 @@ class PyFrame(W_Root):
     Public fields:
      * 'space' is the object space this frame is running in
      * 'code' is the PyCode object this frame runs
-     * 'w_locals' is the locals dictionary to use
+     * 'w_locals' is the locals dictionary to use, if needed, stored on a
+       debug object
      * 'w_globals' is the attached globals dictionary
      * 'builtin' is the attached built-in module
      * 'valuestack_w', 'blockstack', control the interpretation
@@ -63,7 +65,6 @@ class PyFrame(W_Root):
     debugdata                = None
 
     w_globals = None
-    w_locals = None # dict containing locals, if forced or necessary
     pycode = None # code object executed by that frame
     locals_stack_w = None # the list of all locals and valuestack
     valuestackdepth = 0 # number of items on valuestack
@@ -118,7 +119,13 @@ class PyFrame(W_Root):
         d = self.getdebug()
         if d is None:
             return False
-        return d.is_being_profiled        
+        return d.is_being_profiled
+
+    def get_w_locals(self):
+        d = self.getdebug()
+        if d is None:
+            return None
+        return d.w_locals
 
     def __repr__(self):
         # NOT_RPYTHON: useful in tracebacks
@@ -182,10 +189,10 @@ class PyFrame(W_Root):
         flags = code.co_flags
         if not (flags & pycode.CO_OPTIMIZED):
             if flags & pycode.CO_NEWLOCALS:
-                self.w_locals = self.space.newdict(module=True)
+                self.getorcreatedebug().w_locals = self.space.newdict(module=True)
             else:
                 assert self.w_globals is not None
-                self.w_locals = self.w_globals
+                self.getorcreatedebug().w_locals = self.w_globals
 
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
@@ -545,30 +552,31 @@ class PyFrame(W_Root):
         Get the locals as a dictionary
         """
         self.fast2locals()
-        return self.w_locals
+        return self.debugdata.w_locals
 
     def setdictscope(self, w_locals):
         """
         Initialize the locals from a dictionary.
         """
-        self.w_locals = w_locals
+        self.getorcreatedebug().w_locals = w_locals
         self.locals2fast()
 
     @jit.unroll_safe
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
-        if self.w_locals is None:
-            self.w_locals = self.space.newdict()
+        d = self.getorcreatedebug()
+        if d.w_locals is None:
+            d.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_stack_w[i]
             if w_value is not None:
-                self.space.setitem_str(self.w_locals, name, w_value)
+                self.space.setitem_str(d.w_locals, name, w_value)
             else:
                 w_name = self.space.wrap(name)
                 try:
-                    self.space.delitem(self.w_locals, w_name)
+                    self.space.delitem(d.w_locals, w_name)
                 except OperationError as e:
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
@@ -587,13 +595,14 @@ class PyFrame(W_Root):
             except ValueError:
                 pass
             else:
-                self.space.setitem_str(self.w_locals, name, w_value)
+                self.space.setitem_str(d.w_locals, name, w_value)
 
 
     @jit.unroll_safe
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
-        assert self.w_locals is not None
+        w_locals = self.getorcreatedebug().w_locals
+        assert w_locals is not None
         varnames = self.getcode().getvarnames()
         numlocals = self.getcode().co_nlocals
 
@@ -601,7 +610,7 @@ class PyFrame(W_Root):
 
         for i in range(min(len(varnames), numlocals)):
             name = varnames[i]
-            w_value = self.space.finditem_str(self.w_locals, name)
+            w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
                 new_fastlocals_w[i] = w_value
 
@@ -620,7 +629,7 @@ class PyFrame(W_Root):
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
-            w_value = self.space.finditem_str(self.w_locals, name)
+            w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
                 cell.set(w_value)
 
