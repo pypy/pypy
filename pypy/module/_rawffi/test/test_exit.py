@@ -3,9 +3,10 @@ class AppTestFfi:
     spaceconfig = dict(usemodules=['_rawffi', 'posix'])
 
     def test_exit(self):
-        import posix, _rawffi
-        if not hasattr(posix, 'fork'):
-            skip("requires fork() to test")
+        try:
+            import posix, _rawffi
+        except ImportError:
+            skip("requires posix.fork() to test")
         #
         pid = posix.fork()
         if pid == 0:
