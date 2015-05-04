@@ -109,14 +109,14 @@ class __extend__(pyframe.PyFrame):
                 # dispatch_bytecode(), causing the real exception to be
                 # raised after the exception handler block was popped.
                 try:
-                    trace = self.w_f_trace
+                    trace = self.get_w_f_trace()
                     if trace is not None:
-                        self.w_f_trace = None
+                        self.getorcreatedebug().w_f_trace = None
                     try:
                         ec.bytecode_trace_after_exception(self)
                     finally:
                         if trace is not None:
-                            self.w_f_trace = trace
+                            self.getorcreatedebug().w_f_trace = trace
                 except OperationError, e:
                     operr = e
             pytraceback.record_application_traceback(
@@ -1185,7 +1185,7 @@ class __extend__(pyframe.PyFrame):
         args = self.argument_factory(arguments, keywords, keywords_w, w_star,
                                      w_starstar)
         w_function  = self.popvalue()
-        if self.is_being_profiled and function.is_builtin_code(w_function):
+        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
                                                           args)
         else:
