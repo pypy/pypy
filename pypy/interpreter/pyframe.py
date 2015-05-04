@@ -117,7 +117,7 @@ class PyFrame(W_Root):
     def get_is_being_profiled(self):
         d = self.getdebug()
         if d is None:
-            return None
+            return False
         return d.is_being_profiled        
 
     def __repr__(self):
