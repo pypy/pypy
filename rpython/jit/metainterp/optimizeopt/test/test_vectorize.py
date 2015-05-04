@@ -1012,6 +1012,47 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(self.parse_loop(ops),15)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
+    def test_too_small_vector(self):
+        ops = """
+        [p0,i0]
+        guard_early_exit() [p0,i0]
+        i1 = getarrayitem_raw(p0, 0, descr=chararraydescr) # constant index
+        i2 = getarrayitem_raw(p0, 1, descr=chararraydescr) # constant index
+        i4 = int_add(i1, i2)
+        i3 = int_add(i0,1)
+        i5 = int_lt(i3, 10)
+        guard_true(i5) [p0, i0]
+        jump(p0,i1)
+        """
+        try:
+            self.vectorize(self.parse_loop(ops))
+            py.test.fail("loop is not vectorizable")
+        except NotAVectorizeableLoop:
+            pass
+
+    def test_constant_expansion(self):
+        ops = """
+        [p0,i0]
+        guard_early_exit() [p0,i0]
+        i1 = getarrayitem_raw(p0, i0, descr=floatarraydescr) # constant index
+        i4 = int_mul(i1, 2)
+        i3 = int_add(i0,1)
+        i5 = int_lt(i3, 10)
+        guard_true(i5) [p0, i0]
+        jump(p0,i3)
+        """
+        opt="""
+        [p0,i0]
+        i2 = int_add(i0, 4)
+        i3 = int_lt(i2, 10)
+        guard_true(i3) [p0,i0]
+        v1 = vec_getarrayitem_raw(p0, i0, 4, descr=floatarraydescr)
+        v2 = int_mul(v1, 2)
+        jump(p0,i2)
+        """
+        vopt = self.vectorize(self.parse_loop(ops),3)
+        self.assert_equal(vopt.loop, self.parse_loop(opt))
+
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

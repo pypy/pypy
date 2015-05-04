@@ -97,37 +97,40 @@ class VectorizeTests:
         #if 4 < i:
         #    self.check_trace_count(1)
 
-    @py.test.mark.parametrize('i,k',[(9,3)])
-    def test_vector_register_too_small_vector(self, i, k):
+    @py.test.mark.parametrize('i',[1,2,3,4,9])
+    def test_vector_register_too_small_vector(self, i):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
                                 vectorize=True)
         T = lltype.Array(rffi.SHORT, hints={'nolength': True})
-        def f(d,v):
+
+        def g(d, va, vb):
             i = 0
-            va = lltype.malloc(T, v, flavor='raw', zero=True)
-            vb = lltype.malloc(T, v, flavor='raw', zero=True)
-            for j in range(v):
-                va[j] = rffi.r_short(1)
-                vb[j] = rffi.r_short(2)
             while i < d:
                 myjitdriver.jit_merge_point()
-                j = 0
-                while j < v:
-                    a = va[j]
-                    b = vb[j]
-                    ec = intmask(a) + intmask(b)
-                    va[j] = rffi.r_short(ec)
-                    j += 1
-
+                a = va[i]
+                b = vb[i]
+                ec = intmask(a) + intmask(b)
+                va[i] = rffi.r_short(ec)
                 i += 1
-            res = intmask(va[v-1])
+
+        def f(d):
+            i = 0
+            va = lltype.malloc(T, d+100, flavor='raw', zero=True)
+            vb = lltype.malloc(T, d+100, flavor='raw', zero=True)
+            for j in range(d+100):
+                va[j] = rffi.r_short(1)
+                vb[j] = rffi.r_short(2)
+
+            g(d+100, va, vb)
+            g(d, va, vb) # this iteration might not fit into the vector register
+
+            res = intmask(va[d])
             lltype.free(va, flavor='raw')
             lltype.free(vb, flavor='raw')
             return res
-        res = self.meta_interp(f, [i,k])
-        assert res == f(i,k)
-
+        res = self.meta_interp(f, [i])
+        assert res == f(i) == 3
 
 class VectorizeLLtypeTests(VectorizeTests):
     pass
