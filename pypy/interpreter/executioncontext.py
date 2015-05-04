@@ -96,7 +96,7 @@ class ExecutionContext(object):
 
     def _c_call_return_trace(self, frame, w_func, args, event):
         if self.profilefunc is None:
-            frame.is_being_profiled = False
+            frame.getorcreatedebug().is_being_profiled = False
         else:
             # undo the effect of the CALL_METHOD bytecode, which would be
             # that even on a built-in method call like '[].append()',
@@ -114,7 +114,7 @@ class ExecutionContext(object):
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."
         if self.profilefunc is None:
-            frame.is_being_profiled = False
+            frame.getorcreatedebug().is_being_profiled = False
         else:
             self._trace(frame, 'c_exception', w_exc)
 
@@ -123,7 +123,7 @@ class ExecutionContext(object):
         if self.gettrace() is not None or self.profilefunc is not None:
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
-                frame.is_being_profiled = True
+                frame.getorcreatedebug().is_being_profiled = True
 
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
@@ -289,7 +289,7 @@ class ExecutionContext(object):
         frame = self.gettopframe_nohidden()
         while frame:
             if is_being_profiled:
-                frame.is_being_profiled = True
+                frame.getorcreatedebug().is_being_profiled = True
             frame = self.getnextframe_nohidden(frame)
 
     def call_tracing(self, w_func, w_args):

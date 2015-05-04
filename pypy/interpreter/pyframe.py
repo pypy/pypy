@@ -410,7 +410,7 @@ class PyFrame(W_Root):
         if self.get_w_f_trace() is None:
             f_lineno = self.get_last_lineno()
         else:
-            f_lineno = self.f_lineno
+            f_lineno = self.getorcreatedebug().f_lineno
 
         nlocals = self.pycode.co_nlocals
         values_w = self.locals_stack_w[nlocals:self.valuestackdepth]
@@ -426,6 +426,7 @@ class PyFrame(W_Root):
             w_exc_value = self.last_exception.get_w_value(space)
             w_tb = w(self.last_exception.get_traceback())
 
+        d = self.getorcreatedebug()
         tup_state = [
             w(self.f_backref()),
             w(self.get_builtin()),
@@ -442,11 +443,11 @@ class PyFrame(W_Root):
             space.w_None,           #XXX placeholder for f_locals
 
             #f_restricted requires no additional data!
-            space.w_None, ## self.w_f_trace,  ignore for now
+            space.w_None,
 
-            w(self.instr_lb), #do we need these three (that are for tracing)
-            w(self.instr_ub),
-            w(self.instr_prev_plus_one),
+            w(d.instr_lb),
+            w(d.instr_ub),
+            w(d.instr_prev_plus_one),
             w_cells,
             ]
         return nt(tup_state)
@@ -504,20 +505,19 @@ class PyFrame(W_Root):
                                                       )
         new_frame.last_instr = space.int_w(w_last_instr)
         new_frame.frame_finished_execution = space.is_true(w_finished)
-        xxx
-        new_frame.f_lineno = space.int_w(w_f_lineno)
+        d = new_frame.getorcreatedebug()
+        d.f_lineno = space.int_w(w_f_lineno)
         fastlocals_w = maker.slp_from_tuple_with_nulls(space, w_fastlocals)
         new_frame.locals_stack_w[:len(fastlocals_w)] = fastlocals_w
-        xxx
 
         if space.is_w(w_f_trace, space.w_None):
-            new_frame.w_f_trace = None
+            d.w_f_trace = None
         else:
-            new_frame.w_f_trace = w_f_trace
+            d.w_f_trace = w_f_trace
 
-        new_frame.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
-        new_frame.instr_ub = space.int_w(w_instr_ub)
-        new_frame.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
+        d.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
+        d.instr_ub = space.int_w(w_instr_ub)
+        d.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
 
         self._setcellvars(cellvars)
 
