@@ -569,6 +569,11 @@ class __extend__(W_NDimArray):
     def fdel___pypy_data__(self, space):
         self.w_pypy_data = None
 
+    __array_priority__ = 0.0
+
+    def descr___array_priority__(self, space):
+        return space.wrap(self.__array_priority__)
+
     def descr_argsort(self, space, w_axis=None, w_kind=None, w_order=None):
         # happily ignore the kind
         # create a contiguous copy of the array
@@ -934,7 +939,8 @@ class __extend__(W_NDimArray):
             try:
                 return ufunc(self, space, w_other, w_out)
             except OperationError, e:
-                if e.match(space, space.w_ValueError):
+                if e.match(space, space.w_ValueError) and \
+                   'operands could not be broadcast together' in str(e.get_w_value(space)):
                     return space.w_False
                 raise e
 
@@ -1506,6 +1512,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     __array_finalize__ = interp2app(W_NDimArray.descr___array_finalize__),
     __array_prepare__ = interp2app(W_NDimArray.descr___array_prepare__),
     __array_wrap__ = interp2app(W_NDimArray.descr___array_wrap__),
+    __array_priority__ = GetSetProperty(W_NDimArray.descr___array_priority__),
     __array__         = interp2app(W_NDimArray.descr___array__),
 )
 

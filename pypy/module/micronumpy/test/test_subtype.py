@@ -72,7 +72,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_subtype_view(self):
         from numpy import ndarray, array
-        class matrix(ndarray, object):
+        class matrix(ndarray):
             def __new__(subtype, data, dtype=None, copy=True):
                 if isinstance(data, matrix):
                     return data
@@ -80,6 +80,7 @@ class AppTestSupport(BaseNumpyAppTest):
         a = array(range(5))
         b = matrix(a)
         assert isinstance(b, matrix)
+        assert b.__array_priority__ == 0.0
         assert (b == a).all()
         a = array(5)[()]
         for s in [matrix, ndarray]:
@@ -96,6 +97,7 @@ class AppTestSupport(BaseNumpyAppTest):
         import numpy as np
         arr = np.array([1,2,3])
         ret = np.ndarray.__new__(np.ndarray, arr.shape, arr.dtype, buffer=arr)
+        assert ret.__array_priority__ == 0.0
         assert (arr == ret).all()
 
     def test_finalize(self):
@@ -281,7 +283,11 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_array_of_subtype(self):
         import numpy as N
-        # numpy's matrix class caused an infinite loop
+        # this part of numpy's matrix class causes an infinite loop
+        # on cpython
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('does not pass on cpython')
         class matrix(N.ndarray):
             def __new__(subtype, data, dtype=None, copy=True):
                 print('matrix __new__')
@@ -331,7 +337,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 return ret
 
             def __array_finalize__(self, obj):
-                print('matrix __array_finalize__')
+                print('matrix __array_finalize__',obj)
                 self._getitem = False
                 if (isinstance(obj, matrix) and obj._getitem): return
                 ndim = self.ndim
@@ -354,7 +360,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 return
 
             def __getitem__(self, index):
-                print('matrix __getitem__')
+                print('matrix __getitem__',index)
                 self._getitem = True
 
                 try:

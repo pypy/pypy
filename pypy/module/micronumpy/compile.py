@@ -203,6 +203,9 @@ class FakeSpace(ObjSpace):
         assert isinstance(w_obj, BoolObject)
         return bool(w_obj.intval)
 
+    def lt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) < self.int_w(w_rhs))
+
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
