@@ -49,13 +49,34 @@ class PyFrame(W_Root):
     last_instr               = -1
     last_exception           = None
     f_backref                = jit.vref_None
-    w_f_trace                = None
     # For tracing
+    w_f_trace                = None
     instr_lb                 = 0
     instr_ub                 = 0
     instr_prev_plus_one      = 0
+    # end of tracing
+    
     is_being_profiled        = False
     escaped                  = False  # see mark_as_escaped()
+
+    w_globals = None
+    w_locals = None # dict containing locals, if forced or necessary
+    pycode = None # code object executed by that frame
+    locals_stack_w = None # the list of all locals and valuestack
+    valuestackdepth = 0 # number of items on valuestack
+    lastblock = None
+    # default to False
+    f_lineno = 0 # current lineno
+    cells = None # cells
+
+    # other fields:
+    
+    # builtin - builtin cache, only if honor__builtins__ is True,
+
+    # there is also self.space which is removed by the annotator
+
+    # additionally JIT uses vable_token field that is representing
+    # frame current virtualizable state as seen by the JIT
 
     def __init__(self, space, code, w_globals, outer_func):
         if not we_are_translated():
@@ -65,11 +86,9 @@ class PyFrame(W_Root):
         assert isinstance(code, pycode.PyCode)
         self.space = space
         self.w_globals = w_globals
-        self.w_locals = None
         self.pycode = code
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
-        self.lastblock = None
         make_sure_not_resized(self.locals_stack_w)
         check_nonneg(self.valuestackdepth)
         #
