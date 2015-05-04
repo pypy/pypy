@@ -449,7 +449,7 @@ class __extend__(pyframe.PyFrame):
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)
-        self.frame_finished_execution = True  # for generators
+        self.last_instr = -2  # makes frame_finished_execution return True
         return None
 
     def unrollstack_and_jump(self, unroller):
