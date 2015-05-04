@@ -66,7 +66,7 @@ class PyFrame(W_Root):
     w_locals = None # dict containing locals, if forced or necessary
     pycode = None # code object executed by that frame
     locals_stack_w = None # the list of all locals and valuestack
-    valuestackdepth = -1 # number of items on valuestack
+    valuestackdepth = 0 # number of items on valuestack
     lastblock = None
     cells = None # cells
 
