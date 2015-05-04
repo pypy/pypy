@@ -532,7 +532,9 @@ class Bookkeeper(object):
         Can be called in various contexts, but from compute_annotation()
         or compute_result_annotation() of an ExtRegistryEntry, call it
         with both "unique_key" and "callback" set to
-        "self.bookkeeper.position_key".
+        "self.bookkeeper.position_key".  If there are several calls from
+        the same operation, they need their own "unique_key", like
+        (position_key, "first") and (position_key, "second").
 
         In general, "unique_key" should somehow uniquely identify where
         the call is in the source code, and "callback" can be either a
