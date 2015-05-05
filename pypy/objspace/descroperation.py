@@ -181,14 +181,14 @@ class DescrOperation(object):
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
         if w_set is None:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a descriptor with set", w_descr)
         return space.get_and_call_function(w_set, w_descr, w_obj, w_val)
 
     def delete(space, w_descr, w_obj):
         w_delete = space.lookup(w_descr, '__delete__')
         if w_delete is None:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a descriptor with delete", w_descr)
         return space.get_and_call_function(w_delete, w_descr, w_obj)
 
