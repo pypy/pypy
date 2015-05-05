@@ -454,6 +454,7 @@ class Connection(object):
         self.__cursors_counter = 0
         self.__statements = []
         self.__statements_counter = 0
+        self.__rawstatements = set()
         self._statement_cache = _StatementCache(self, cached_statements)
 
         self.__func_cache = {}
@@ -482,6 +483,14 @@ class Connection(object):
         self._check_thread()
 
         self.__do_all_statements(Statement._finalize, True)
+
+        # depending on when this close() is called, the statements' weakrefs
+        # may be already dead, even though Statement.__del__() was not called
+        # yet.  In this case, self.__rawstatements is not empty.
+        if self.__rawstatements is not None:
+            for stmt in list(self.__rawstatements):
+                self._finalize_raw_statement(stmt)
+            self.__rawstatements = None
 
         if self._db:
             ret = _lib.sqlite3_close(self._db)
@@ -562,12 +571,18 @@ class Connection(object):
         self.__cursors = [r for r in self.__cursors if r() is not None]
 
     def _remember_statement(self, statement):
+        self.__rawstatements.add(statement._statement)
         self.__statements.append(weakref.ref(statement))
         self.__statements_counter += 1
         if self.__statements_counter < 200:
             return
         self.__statements_counter = 0
         self.__statements = [r for r in self.__statements if r() is not None]
+
+    def _finalize_raw_statement(self, _statement):
+        if self.__rawstatements is not None:
+            self.__rawstatements.remove(_statement)
+            _lib.sqlite3_finalize(_statement)
 
     def __do_all_statements(self, action, reset_cursors):
         for weakref in self.__statements:
@@ -1199,7 +1214,6 @@ class Statement(object):
 
     def __init__(self, connection, sql):
         self.__con = connection
-        self.__con._remember_statement(self)
 
         self._in_use = False
 
@@ -1244,17 +1258,19 @@ class Statement(object):
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
 
+        self.__con._remember_statement(self)
+
         tail = _ffi.string(next_char[0]).decode('utf-8')
         if _check_remaining_sql(tail):
             raise Warning("You can only execute one statement at a time.")
 
     def __del__(self):
         if self._statement:
-            _lib.sqlite3_finalize(self._statement)
+            self.__con._finalize_raw_statement(self._statement)
 
     def _finalize(self):
         if self._statement:
-            _lib.sqlite3_finalize(self._statement)
+            self.__con._finalize_raw_statement(self._statement)
             self._statement = None
         self._in_use = False
 

@@ -202,11 +202,16 @@ class __extend__(W_NDimArray):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and w_idx.ndims() > 0:
-            return self.getitem_filter(space, w_idx)
-        try:
-            return self.implementation.descr_getitem(space, self, w_idx)
-        except ArrayArgumentException:
-            return self.getitem_array_int(space, w_idx)
+            w_ret = self.getitem_filter(space, w_idx)
+        else:
+            try:
+                w_ret = self.implementation.descr_getitem(space, self, w_idx)
+            except ArrayArgumentException:
+                w_ret = self.getitem_array_int(space, w_idx)
+        if isinstance(w_ret, boxes.W_ObjectBox):
+            #return the W_Root object, not a scalar
+            w_ret = w_ret.w_obj
+        return w_ret
 
     def getitem(self, space, index_list):
         return self.implementation.getitem_index(space, index_list)
@@ -532,20 +537,26 @@ class __extend__(W_NDimArray):
             self.get_dtype(), storage_bytes=sz, w_base=self)
 
     def descr_array_iface(self, space):
-        addr = self.implementation.get_storage_as_int(space)
-        # will explode if it can't
-        w_d = space.newdict()
-        space.setitem_str(w_d, 'data',
-                          space.newtuple([space.wrap(addr), space.w_False]))
-        space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
-        space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
-        if self.implementation.order == 'C':
-            # Array is contiguous, no strides in the interface.
-            strides = space.w_None
-        else:
-            strides = self.descr_get_strides(space)
-        space.setitem_str(w_d, 'strides', strides)
-        return w_d
+        '''
+        Note: arr.__array__.data[0] is a pointer so arr must be kept alive
+              while it is in use
+        '''
+        with self.implementation as storage:
+            addr = support.get_storage_as_int(storage, self.get_start())
+            # will explode if it can't
+            w_d = space.newdict()
+            space.setitem_str(w_d, 'data',
+                              space.newtuple([space.wrap(addr), space.w_False]))
+            space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
+            space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
+            if self.implementation.order == 'C':
+                # Array is contiguous, no strides in the interface.
+                strides = space.w_None
+            else:
+                strides = self.descr_get_strides(space)
+            space.setitem_str(w_d, 'strides', strides)
+            space.setitem_str(w_d, 'version', space.wrap(3))
+            return w_d
 
     w_pypy_data = None
 
@@ -840,7 +851,7 @@ class __extend__(W_NDimArray):
                         "new type not compatible with array."))
                 # Strides, shape does not change
                 v = impl.astype(space, dtype)
-                return wrap_impl(space, w_type, self, v) 
+                return wrap_impl(space, w_type, self, v)
             strides = impl.get_strides()
             if dims == 1 or strides[0] <strides[-1]:
                 # Column-major, resize first dimension
@@ -1165,7 +1176,8 @@ class __extend__(W_NDimArray):
                 builder.append(box.raw_str())
                 state = iter.next(state)
         else:
-            builder.append_charpsize(self.implementation.get_storage(),
+            with self.implementation as storage:
+                builder.append_charpsize(storage,
                                      self.implementation.get_storage_size())
 
         state = space.newtuple([
@@ -1199,7 +1211,7 @@ class __extend__(W_NDimArray):
                         "improper dtype '%R'", dtype)
         self.implementation = W_NDimArray.from_shape_and_storage(
             space, [space.int_w(i) for i in space.listview(shape)],
-            rffi.str2charp(space.str_w(storage), track_allocation=False), 
+            rffi.str2charp(space.str_w(storage), track_allocation=False),
             dtype, storage_bytes=space.len_w(storage), owning=True).implementation
 
     def descr___array_finalize__(self, space, w_obj):
@@ -1456,6 +1468,7 @@ W_NDimArray.typedef = TypeDef("numpy.ndarray",
     imag = GetSetProperty(W_NDimArray.descr_get_imag,
                           W_NDimArray.descr_set_imag),
     conj = interp2app(W_NDimArray.descr_conj),
+    conjugate = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     sort  = interp2app(W_NDimArray.descr_sort),

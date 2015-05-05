@@ -180,3 +180,16 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert module.from_bytearray(False, False) == 0xBC9A
         assert module.from_bytearray(False, True) == -0x4365
 
+    def test_fromunicode(self):
+        module = self.import_extension('foo', [
+            ("from_unicode", "METH_O",
+             """
+                 Py_UNICODE* u = PyUnicode_AsUnicode(args);
+                 return Py_BuildValue("NN",
+                     PyLong_FromUnicode(u, 6, 10),
+                     PyLong_FromUnicode(u, 6, 16));
+             """),
+            ])
+        # A string with arabic digits. 'BAD' is after the 6th character.
+        assert module.from_unicode(u'  1\u0662\u0663\u0664BAD') == (1234, 4660)
+

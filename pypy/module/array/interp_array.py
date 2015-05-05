@@ -1,4 +1,4 @@
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
@@ -698,11 +698,10 @@ def make_array(mytype):
                                          self.space.wrap(msg))
             return result
 
+        @rgc.must_be_light_finalizer
         def __del__(self):
-            # note that we don't call clear_all_weakrefs here because
-            # an array with freed buffer is ok to see - it's just empty with 0
-            # length
-            self.setlen(0)
+            if self.buffer:
+                lltype.free(self.buffer, flavor='raw')
 
         def setlen(self, size, zero=False, overallocate=True):
             if size > 0:

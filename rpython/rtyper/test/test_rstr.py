@@ -116,6 +116,16 @@ class AbstractTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [1])
         assert res == 1 + ord('a') + 10000
 
+    def test_str_iterator_reversed_unsupported(self):
+        const = self.const
+        def fn():
+            total = 0
+            t = const('foo')
+            for x in reversed(t):
+                total += ord(x)
+            return total
+        py.test.raises(TyperError, self.interpret, fn, [])
+
     def test_char_constant(self):
         const = self.const
         def fn(s):

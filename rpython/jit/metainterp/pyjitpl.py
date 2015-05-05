@@ -1164,13 +1164,16 @@ class MIFrame(object):
             # it must be the call to 'self', and not the jit_merge_point
             # itself, which has no result at all.
             assert len(self.metainterp.framestack) >= 2
+            old_frame = self.metainterp.framestack[-1]
             try:
-                self.metainterp.finishframe(None)
+                self.metainterp.finishframe(None, leave_portal_frame=False)
             except ChangeFrame:
                 pass
             frame = self.metainterp.framestack[-1]
             frame.do_recursive_call(jitdriver_sd, greenboxes + redboxes, orgpc,
                                     assembler_call=True)
+            jd_no = old_frame.jitcode.jitdriver_sd.index
+            self.metainterp.leave_portal_frame(jd_no)
             raise ChangeFrame
 
     def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, current_call_id, greenkey):
@@ -1178,7 +1181,12 @@ class MIFrame(object):
         if have_debug_prints():
             loc = jitdriver_sd.warmstate.get_location_str(greenkey)
             debug_print(loc)
-        args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
+        #
+        # Note: the logger hides the jd_index argument, so we see in the logs:
+        #    debug_merge_point(portal_call_depth, current_call_id, 'location')
+        #
+        args = [ConstInt(jd_index), ConstInt(portal_call_depth),
+                ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
@@ -1776,9 +1784,15 @@ class MetaInterp(object):
         return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
     def newframe(self, jitcode, greenkey=None):
-        if jitcode.is_portal:
+        if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
+            unique_id = -1
+            if greenkey is not None:
+                unique_id = jitcode.jitdriver_sd.warmstate.get_unique_id(
+                    greenkey)
+                jd_no = jitcode.jitdriver_sd.index
+                self.enter_portal_frame(jd_no, unique_id)
             self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -1791,11 +1805,21 @@ class MetaInterp(object):
         self.framestack.append(f)
         return f
 
-    def popframe(self):
+    def enter_portal_frame(self, jd_no, unique_id):
+        self.history.record(rop.ENTER_PORTAL_FRAME,
+                            [ConstInt(jd_no), ConstInt(unique_id)], None)
+
+    def leave_portal_frame(self, jd_no):
+        self.history.record(rop.LEAVE_PORTAL_FRAME, [ConstInt(jd_no)], None)
+
+
+    def popframe(self, leave_portal_frame=True):
         frame = self.framestack.pop()
         jitcode = frame.jitcode
-        if jitcode.is_portal:
+        if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
+            if leave_portal_frame:
+                self.leave_portal_frame(jitcode.jitdriver_sd.index)
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
@@ -1806,10 +1830,10 @@ class MetaInterp(object):
         frame.cleanup_registers()
         self.free_frames_list.append(frame)
 
-    def finishframe(self, resultbox):
+    def finishframe(self, resultbox, leave_portal_frame=True):
         # handle a non-exceptional return from the current frame
         self.last_exc_value_box = None
-        self.popframe()
+        self.popframe(leave_portal_frame=leave_portal_frame)
         if self.framestack:
             if resultbox is not None:
                 self.framestack[-1].make_result_of_lastop(resultbox)
@@ -1858,17 +1882,14 @@ class MetaInterp(object):
         portal_call_depth = -1
         for frame in self.framestack:
             jitcode = frame.jitcode
-            assert jitcode.is_portal == len([
-                jd for jd in self.staticdata.jitdrivers_sd
-                   if jd.mainjitcode is jitcode])
-            if jitcode.is_portal:
+            if jitcode.jitdriver_sd:
                 portal_call_depth += 1
         if portal_call_depth != self.portal_call_depth:
             print "portal_call_depth problem!!!"
             print portal_call_depth, self.portal_call_depth
             for frame in self.framestack:
                 jitcode = frame.jitcode
-                if jitcode.is_portal:
+                if jitcode.jitdriver_sd:
                     print "P",
                 else:
                     print " ",
@@ -2195,7 +2216,8 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes):
-        self.heapcache.reset(reset_virtuals=False)
+        self.heapcache.reset() #reset_virtuals=False)
+        #self.heapcache.reset_keep_likely_virtuals()
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),

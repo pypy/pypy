@@ -9,7 +9,7 @@ import time
 
 try:
     from rpython.rlib import rzlib
-except ImportError, e:
+except CompilationError as e:
     py.test.skip("zlib not installed: %s " % (e, ))
 
 class BaseTestRZipFile(BaseRtypingTest):

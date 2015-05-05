@@ -6,6 +6,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rlib import jit
 from rpython.jit.codewriter import support, call
 from rpython.jit.codewriter.call import CallControl
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 
 class FakePolicy:
@@ -279,3 +280,39 @@ def test_no_random_effects_for_rotateLeft():
     call_descr = cc.getcalldescr(op)
     assert not call_descr.extrainfo.has_random_effects()
     assert call_descr.extrainfo.check_is_elidable()
+
+def test_elidable_kinds():
+    from rpython.jit.backend.llgraph.runner import LLGraphCPU
+
+    @jit.elidable
+    def f1(n, m):
+        return n + m
+    @jit.elidable
+    def f2(n, m):
+        return [n, m]    # may raise MemoryError
+    @jit.elidable
+    def f3(n, m):
+        if n > m:
+            raise ValueError
+        return n + m
+
+    def f(n, m):
+        a = f1(n, m)
+        b = f2(n, m)
+        c = f3(n, m)
+        return a + len(b) + c
+
+    rtyper = support.annotate(f, [7, 9])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLGraphCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+    [f_graph] = [x for x in res if x.func is f]
+
+    for index, expected in [
+            (0, EffectInfo.EF_ELIDABLE_CANNOT_RAISE),
+            (1, EffectInfo.EF_ELIDABLE_OR_MEMORYERROR),
+            (2, EffectInfo.EF_ELIDABLE_CAN_RAISE)]:
+        call_op = f_graph.startblock.operations[index]
+        assert call_op.opname == 'direct_call'
+        call_descr = cc.getcalldescr(call_op)
+        assert call_descr.extrainfo.extraeffect == expected

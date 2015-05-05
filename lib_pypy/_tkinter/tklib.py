@@ -1,7 +1,7 @@
 # C bindings with libtcl and libtk.
 
 from cffi import FFI
-import sys
+import sys, os
 
 tkffi = FFI()
 
@@ -135,9 +135,12 @@ elif sys.platform == 'darwin':
     linklibs = ['tcl', 'tk']
     libdirs = []
 else:
-    incdirs=['/usr/include/tcl']
-    linklibs=['tcl', 'tk']
-    libdirs = []
+    for _ver in ['', '8.6', '8.5', '']:
+        incdirs = ['/usr/include/tcl' + _ver]
+        linklibs = ['tcl' + _ver, 'tk' + _ver]
+        libdirs = []
+        if os.path.isdir(incdirs[0]):
+            break
 
 tklib = tkffi.verify("""
 #include <tcl.h>

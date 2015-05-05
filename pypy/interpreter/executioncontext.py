@@ -96,7 +96,7 @@ class ExecutionContext(object):
 
     def _c_call_return_trace(self, frame, w_func, args, event):
         if self.profilefunc is None:
-            frame.is_being_profiled = False
+            frame.getorcreatedebug().is_being_profiled = False
         else:
             # undo the effect of the CALL_METHOD bytecode, which would be
             # that even on a built-in method call like '[].append()',
@@ -114,7 +114,7 @@ class ExecutionContext(object):
     def c_exception_trace(self, frame, w_exc):
         "Profile function called upon OperationError."
         if self.profilefunc is None:
-            frame.is_being_profiled = False
+            frame.getorcreatedebug().is_being_profiled = False
         else:
             self._trace(frame, 'c_exception', w_exc)
 
@@ -123,7 +123,7 @@ class ExecutionContext(object):
         if self.gettrace() is not None or self.profilefunc is not None:
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
-                frame.is_being_profiled = True
+                frame.getorcreatedebug().is_being_profiled = True
 
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
@@ -145,7 +145,7 @@ class ExecutionContext(object):
         Like bytecode_trace() but doesn't invoke any other events besides the
         trace function.
         """
-        if (frame.w_f_trace is None or self.is_tracing or
+        if (frame.get_w_f_trace() is None or self.is_tracing or
             self.gettrace() is None):
             return
         self.run_trace_func(frame)
@@ -154,8 +154,9 @@ class ExecutionContext(object):
     @jit.unroll_safe
     def run_trace_func(self, frame):
         code = frame.pycode
-        if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            if frame.last_instr < frame.instr_prev_plus_one:
+        d = frame.getorcreatedebug()
+        if d.instr_lb <= frame.last_instr < d.instr_ub:
+            if frame.last_instr < d.instr_prev_plus_one:
                 # We jumped backwards in the same line.
                 self._trace(frame, 'line', self.space.w_None)
         else:
@@ -170,7 +171,7 @@ class ExecutionContext(object):
                     break
                 addr += c
                 if c:
-                    frame.instr_lb = addr
+                    d.instr_lb = addr
 
                 line += ord(lineno[p + 1])
                 p += 2
@@ -185,15 +186,15 @@ class ExecutionContext(object):
                     if ord(lineno[p + 1]):
                         break
                     p += 2
-                frame.instr_ub = addr
+                d.instr_ub = addr
             else:
-                frame.instr_ub = sys.maxint
+                d.instr_ub = sys.maxint
 
-            if frame.instr_lb == frame.last_instr: # At start of line!
-                frame.f_lineno = line
+            if d.instr_lb == frame.last_instr: # At start of line!
+                d.f_lineno = line
                 self._trace(frame, 'line', self.space.w_None)
 
-        frame.instr_prev_plus_one = frame.last_instr + 1
+        d.instr_prev_plus_one = frame.last_instr + 1
 
     def bytecode_trace_after_exception(self, frame):
         "Like bytecode_trace(), but without increasing the ticker."
@@ -288,7 +289,7 @@ class ExecutionContext(object):
         frame = self.gettopframe_nohidden()
         while frame:
             if is_being_profiled:
-                frame.is_being_profiled = True
+                frame.getorcreatedebug().is_being_profiled = True
             frame = self.getnextframe_nohidden(frame)
 
     def call_tracing(self, w_func, w_args):
@@ -309,7 +310,7 @@ class ExecutionContext(object):
         if event == 'call':
             w_callback = self.gettrace()
         else:
-            w_callback = frame.w_f_trace
+            w_callback = frame.get_w_f_trace()
 
         if w_callback is not None and event != "leaveframe":
             if operr is not None:
@@ -320,15 +321,16 @@ class ExecutionContext(object):
             frame.fast2locals()
             self.is_tracing += 1
             try:
+                d = frame.getorcreatedebug()
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
                     if space.is_w(w_result, space.w_None):
-                        frame.w_f_trace = None
+                        d.w_f_trace = None
                     else:
-                        frame.w_f_trace = w_result
+                        d.w_f_trace = w_result
                 except:
                     self.settrace(space.w_None)
-                    frame.w_f_trace = None
+                    d.w_f_trace = None
                     raise
             finally:
                 self.is_tracing -= 1
@@ -579,3 +581,11 @@ class UserDelAction(AsyncAction):
         # there is no list of length n: if n is large, then the GC
         # will run several times while walking the list, but it will
         # see lower and lower memory usage, with no lower bound of n.
+
+class CodeUniqueIds(object):
+    def __init__(self):
+        if sys.maxint == 2147483647:
+            self.code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
+        else:
+            self.code_unique_id = 0x7000000000000000
+        self.code_callback = None

@@ -12,7 +12,7 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      valid_addressing_size)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
-    IS_X86_64)
+    IS_X86_64, DEFAULT_FRAME_BYTES)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
@@ -314,6 +314,7 @@ class RegAlloc(BaseRegalloc):
         while i < len(operations):
             op = operations[i]
             self.assembler.mc.mark_op(op)
+            assert self.assembler.mc._frame_size == DEFAULT_FRAME_BYTES
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
@@ -339,14 +340,21 @@ class RegAlloc(BaseRegalloc):
             self.possibly_free_var(arg)
 
     def flush_loop(self):
+        # Force the code to be aligned to a multiple of 16.  Also,
         # rare case: if the loop is too short, or if we are just after
-        # a GUARD_NOT_INVALIDATED, pad with NOPs.  Important!  This must
-        # be called to ensure that there are enough bytes produced,
-        # because GUARD_NOT_INVALIDATED or redirect_call_assembler()
-        # will maybe overwrite them.
+        # a GUARD_NOT_INVALIDATED, we need to make sure we insert enough
+        # NOPs.  This is important to ensure that there are enough bytes
+        # produced, because GUARD_NOT_INVALIDATED or
+        # redirect_call_assembler() will maybe overwrite them.  (In that
+        # rare case we don't worry too much about alignment.)
         mc = self.assembler.mc
-        while mc.get_relative_pos() < self.min_bytes_before_label:
-            mc.NOP()
+        current_pos = mc.get_relative_pos()
+        target_pos = (current_pos + 15) & ~15
+        target_pos = max(target_pos, self.min_bytes_before_label)
+        insert_nops = target_pos - current_pos
+        assert 0 <= insert_nops <= 15
+        for c in mc.MULTIBYTE_NOPs[insert_nops]:
+            mc.writechar(c)
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -1316,8 +1324,11 @@ class RegAlloc(BaseRegalloc):
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
 
-    def consider_debug_merge_point(self, op):
-        pass
+    def consider_enter_portal_frame(self, op):
+        self.assembler.enter_portal_frame(op)
+
+    def consider_leave_portal_frame(self, op):
+        self.assembler.leave_portal_frame(op)
 
     def consider_jit_debug(self, op):
         pass

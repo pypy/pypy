@@ -39,8 +39,6 @@ class Module(MixedModule):
         'error':         'space.fromcache(interp_pyexpat.Cache).w_error',
 
         '__version__':   'space.wrap("85819")',
-        'EXPAT_VERSION': 'interp_pyexpat.get_expat_version(space)',
-        'version_info':  'interp_pyexpat.get_expat_version_info(space)',
         }
 
     submodules = {
@@ -53,3 +51,9 @@ class Module(MixedModule):
                  'XML_PARAM_ENTITY_PARSING_ALWAYS']:
         interpleveldefs[name] = 'space.wrap(interp_pyexpat.%s)' % (name,)
 
+    def startup(self, space):
+        from pypy.module.pyexpat import interp_pyexpat
+        w_ver = interp_pyexpat.get_expat_version(space)
+        space.setattr(self, space.wrap("EXPAT_VERSION"), w_ver)
+        w_ver = interp_pyexpat.get_expat_version_info(space)
+        space.setattr(self, space.wrap("version_info"), w_ver)

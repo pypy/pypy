@@ -46,7 +46,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
+        b = b.lshift(3).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     def int(self, space):

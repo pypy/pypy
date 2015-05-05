@@ -262,3 +262,11 @@ def g():
         """]
         for c in code:
             compile(c, "<code>", "exec")
+
+    def test_exec_tuple(self):
+        # note: this is VERY different than testing exec("a = 42", d), because
+        # this specific case is handled specially by the AST compiler
+        d = {}
+        x = ("a = 42", d)
+        exec x
+        assert d['a'] == 42

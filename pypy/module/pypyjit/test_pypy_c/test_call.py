@@ -355,7 +355,7 @@ class TestCall(BaseTestPyPyC):
             i17 = arraylen_gc(p15, descr=<ArrayS .>)
             i18 = int_lt(i17, i15)
             # a cond call to _ll_list_resize_hint_really_look_inside_iff
-            cond_call(i18, _, p8, i15, 1, descr=<Callv 0 rii EF=4>)
+            cond_call(i18, _, p8, i15, 1, descr=<Callv 0 rii EF=5>)
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<FieldP list.items .*>)
             setarrayitem_gc(p17, i13, i12, descr=<ArrayS .>)
@@ -395,7 +395,7 @@ class TestCall(BaseTestPyPyC):
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
             setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
             }}}
-            p32 = call_may_force(_, p18, p22, descr=<Callr . rr EF=6>)
+            p32 = call_may_force(_, p18, p22, descr=<Callr . rr EF=7>)
             ...
         """)
 

@@ -516,10 +516,7 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
-                        # This is for CALL or JMP only.  If target is
-                        # immediately starting with another JMP instruction,
-                        # follow it now.
-                        val = self._follow_jump_instructions(val)
+                        # This is for CALL or JMP only.
                         if self.WORD == 4:
                             _rx86_getattr(self, name + "_l")(val)
                             self.add_pending_relocation()
@@ -536,17 +533,6 @@ class LocationCodeBuilder(object):
                         _rx86_getattr(self, methname)(val)
 
         return func_with_new_name(INSN, "INSN_" + name)
-
-    _do_follow_jump_instructions = True
-
-    def _follow_jump_instructions(self, addr):
-        if not self._do_follow_jump_instructions or addr == 0:   # for tests
-            return addr
-        # 'addr' is an absolute address here
-        while rffi.cast(rffi.CCHARP, addr)[0] == '\xE9':    # JMP <4 bytes>
-            addr += 5
-            addr += intmask(rffi.cast(rffi.INTP, addr - 4)[0])
-        return addr
 
     def _addr_as_reg_offset(self, addr):
         # Encodes a (64-bit) address as an offset from the scratch register.

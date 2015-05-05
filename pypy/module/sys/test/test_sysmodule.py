@@ -500,7 +500,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.builtin_module_names, tuple)
         assert isinstance(sys.copyright, basestring)
         #assert isinstance(sys.exec_prefix, basestring) -- not present!
-        assert isinstance(sys.executable, basestring)
+        #assert isinstance(sys.executable, basestring) -- not present!
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxint, int)
         assert isinstance(sys.maxsize, int)
@@ -518,6 +518,14 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+
+    def test_reload_doesnt_override_sys_executable(self):
+        import sys
+        if not hasattr(sys, 'executable'):    # if not translated
+            sys.executable = 'from_test_sysmodule'
+        previous = sys.executable
+        reload(sys)
+        assert sys.executable == previous
 
     def test_settrace(self):
         import sys
@@ -634,7 +642,7 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 
         thread_id = thread.get_ident()
         def other_thread():
-            print "thread started"
+            #print "thread started"
             lock2.release()
             lock1.acquire()
         lock1 = thread.allocate_lock()

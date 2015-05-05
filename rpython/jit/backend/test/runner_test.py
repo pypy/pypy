@@ -47,6 +47,7 @@ class Runner(object):
 
     add_loop_instructions = ['overload for a specific cpu']
     bridge_loop_instructions = ['overload for a specific cpu']
+    bridge_loop_instructions_alternative = None   # or another possible answer
 
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
@@ -1792,7 +1793,7 @@ class BaseBackendTest(Runner):
         c_box = self.alloc_string("hi there").constbox()
         c_nest = ConstInt(0)
         c_id = ConstInt(0)
-        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest, c_id], 'void')
+        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest, c_id, c_nest], 'void')
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
 
@@ -3105,15 +3106,22 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            llerrno.set_debug_saved_altlasterror(self.cpu, 25)
             deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
             original_result = self.cpu.get_int_value(deadframe, 0)
             result = llerrno.get_debug_saved_lasterror(self.cpu)
-            print 'saveerr =', saveerr, ': got result =', result
+            altresult = llerrno.get_debug_saved_altlasterror(self.cpu)
+            print 'saveerr =', saveerr, ': got result =', result,
+            print 'and altresult =', altresult
             #
-            if saveerr == rffi.RFFI_SAVE_LASTERROR:
-                assert result == 42      # from the C code
+            if saveerr & rffi.RFFI_SAVE_LASTERROR:
+                # one from the C code, the other not touched
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert (result, altresult) == (24, 42)
+                else:
+                    assert (result, altresult) == (42, 25)
             else:
-                assert result == 24      # not touched
+                assert (result, altresult) == (24, 25)      # not touched
             assert original_result == 3456789
 
     def test_call_release_gil_readsaved_lasterror(self):
@@ -3168,11 +3176,17 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
             llerrno.set_debug_saved_lasterror(self.cpu, 24)
+            llerrno.set_debug_saved_altlasterror(self.cpu, 25)
             deadframe = self.cpu.execute_token(looptoken, 9, 8, 7, 6, 5, 4, 3)
             result = self.cpu.get_int_value(deadframe, 0)
             assert llerrno.get_debug_saved_lasterror(self.cpu) == 24
+            assert llerrno.get_debug_saved_altlasterror(self.cpu) == 25
             #
-            assert result == 24 + 345678900
+            if saveerr & rffi.RFFI_ALT_ERRNO:
+                expected_lasterror = 25
+            else:
+                expected_lasterror = 24
+            assert result == expected_lasterror + 345678900
 
     def test_call_release_gil_err_all(self):
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -3225,9 +3239,8 @@ class LLtypeBackendTest(BaseBackendTest):
                                                           types.slong)
         #
         for saveerr in [rffi.RFFI_ERR_ALL,
-                        rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO, 
+                        rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO,
                        ]:
-            use_alt_errno = saveerr & rffi.RFFI_ALT_ERRNO
             faildescr = BasicFailDescr(1)
             inputargs = [BoxInt() for i in range(7)]
             i1 = BoxInt()
@@ -3243,19 +3256,34 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)
             #
-            if use_alt_errno:
-                llerrno.set_debug_saved_alterrno(self.cpu, 8)
-            else:
-                llerrno.set_debug_saved_errno(self.cpu, 8)
+            llerrno.set_debug_saved_errno(self.cpu, 8)
+            llerrno.set_debug_saved_alterrno(self.cpu, 5)
             llerrno.set_debug_saved_lasterror(self.cpu, 9)
+            llerrno.set_debug_saved_altlasterror(self.cpu, 4)
             deadframe = self.cpu.execute_token(looptoken, 1, 2, 3, 4, 5, 6, 7)
             result = self.cpu.get_int_value(deadframe, 0)
-            assert llerrno.get_debug_saved_errno(self.cpu) == 42
-            if sys.platform != 'win32':
-                assert result == 765432108
+            got_errno = llerrno.get_debug_saved_errno(self.cpu)
+            got_alter = llerrno.get_debug_saved_alterrno(self.cpu)
+            if saveerr & rffi.RFFI_ALT_ERRNO:
+                assert (got_errno, got_alter) == (8, 42)
             else:
-                assert llerrno.get_debug_saved_lasterror(self.cpu) == 43
-                assert result == 765432198
+                assert (got_errno, got_alter) == (42, 5)
+            if sys.platform != 'win32':
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert result == 765432105
+                else:
+                    assert result == 765432108
+            else:
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert result == 765432145
+                else:
+                    assert result == 765432198
+                got_lasterror = llerrno.get_debug_saved_lasterror(self.cpu)
+                got_altlaster = llerrno.get_debug_saved_altlasterror(self.cpu)
+                if saveerr & rffi.RFFI_ALT_ERRNO:
+                    assert (got_lasterror, got_altlaster) == (9, 43)
+                else:
+                    assert (got_lasterror, got_altlaster) == (43, 4)
 
     def test_guard_not_invalidated(self):
         cpu = self.cpu
@@ -4284,7 +4312,9 @@ class LLtypeBackendTest(BaseBackendTest):
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 
-        def checkops(mc, ops):
+        def checkops(mc, ops, alt_ops=None):
+            if len(mc) != len(ops) and alt_ops is not None:
+                ops = alt_ops
             assert len(mc) == len(ops)
             for i in range(len(mc)):
                 if ops[i] == '*':
@@ -4299,7 +4329,8 @@ class LLtypeBackendTest(BaseBackendTest):
             data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
             mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
             lines = [line for line in mc if line.count('\t') >= 2]
-            checkops(lines, self.bridge_loop_instructions)
+            checkops(lines, self.bridge_loop_instructions,
+                            self.bridge_loop_instructions_alternative)
         except ObjdumpNotFound:
             py.test.skip("requires (g)objdump")
 
