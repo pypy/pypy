@@ -117,9 +117,9 @@ class Node(object):
         assert isinstance(tgt_op, GuardResOp)
         assert isinstance(op, GuardResOp)
         olddescr = tgt_op.getdescr()
-        assert isinstance(olddescr, compile.ResumeGuardDescr)
         descr = compile.ResumeAtLoopHeaderDescr()
         if olddescr:
+            assert isinstance(olddescr, compile.ResumeGuardDescr)
             descr.rd_consts = olddescr.rd_consts 
             descr.rd_pendingfields = olddescr.rd_pendingfields
             descr.rd_virtuals = olddescr.rd_virtuals
