@@ -464,7 +464,7 @@ PARAMETER_DOCS = {
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
-    'vectorize': 'try to vectorize loops instead of unrolling them. This only works if the cpu model has the sse2 instruction set. default on',
+    'vectorize': 'turn on the vectorization optimization. default off. requirement: (sse2)',
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -479,7 +479,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'max_unroll_loops': 0,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
-              'vectorize': 1,
+              'vectorize': 0,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
