@@ -647,6 +647,8 @@ class AbstractX86CodeBuilder(object):
     MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
     MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
+    PSRLDQ_xi = xmminsn('\x66\x0F\x73', orbyte(0xd8), mem_reg_plus_const(1))
+    # SSE4.1 PEXTRDD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1,8), register(2), immediate(3,'b'))
     # ------------------------------------------------------------
 
 Conditions = {
@@ -765,6 +767,15 @@ define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)],
 define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
                    regtype='XMM')
 
+define_modrm_modes('MOVDQA_x*', ['\x66', rex_nw, '\x0F\x6F', register(1, 8)],
+                   regtype='XMM')
+define_modrm_modes('MOVDQA_*x', ['\x66', rex_nw, '\x0F\x7F', register(2, 8)],
+                   regtype='XMM')
+define_modrm_modes('MOVDQU_x*', ['\xF3', rex_nw, '\x0F\x6F', register(1, 8)],
+                   regtype='XMM')
+define_modrm_modes('MOVDQU_*x', ['\xF3', rex_nw, '\x0F\x7F', register(2, 8)],
+                   regtype='XMM')
+
 define_modrm_modes('SQRTSD_x*', ['\xF2', rex_nw, '\x0F\x51', register(1,8)], regtype='XMM')
 
 define_modrm_modes('XCHG_r*', [rex_w, '\x87', register(1, 8)])
@@ -793,6 +804,9 @@ def define_pxmm_insn(insnname_template, insn_char):
     add_insn('m', mem_reg_plus_const(2))
 
 define_pxmm_insn('PADDQ_x*',     '\xD4')
+define_pxmm_insn('PADDD_x*',     '\xFE')
+define_pxmm_insn('PADDW_x*',     '\xFD')
+define_pxmm_insn('PADDB_x*',     '\xFC')
 define_pxmm_insn('PSUBQ_x*',     '\xFB')
 define_pxmm_insn('PAND_x*',      '\xDB')
 define_pxmm_insn('POR_x*',       '\xEB')

@@ -58,8 +58,6 @@ class VectorizeTests:
             return res
         res = self.meta_interp(f, [i])
         assert res == f(i)
-        if i > 3:
-            self.check_trace_count(1)
 
     @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,500,501,502,1300])
     def test_vectorize_array_get_set(self,i):
@@ -94,8 +92,6 @@ class VectorizeTests:
             return res
         res = self.meta_interp(f, [i])
         assert res == f(i)
-        #if 4 < i:
-        #    self.check_trace_count(1)
 
     @py.test.mark.parametrize('i',[1,2,3,4,9])
     def test_vector_register_too_small_vector(self, i):

@@ -99,7 +99,6 @@ class VectorizingOptimizer(Optimizer):
         self.loop.operations = self.get_newoperations();
         self.clear_newoperations();
 
-        debug_print_operations(self.loop)
         # vectorize
         self.build_dependency_graph()
         self.find_adjacent_memory_refs()
