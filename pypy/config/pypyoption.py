@@ -38,6 +38,10 @@ working_modules.update([
     "_csv", "cppyy", "_pypyjson"
 ])
 
+if sys.platform.startswith('linux') and sys.maxint > 2147483647:
+  if 0:     # XXX disabled until we fix the absurd .so mess
+    working_modules.add('_vmprof')
+
 translation_modules = default_modules.copy()
 translation_modules.update([
     "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct", "_md5",
@@ -99,6 +103,7 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
+    "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
     }
 
 def get_module_validator(modname):

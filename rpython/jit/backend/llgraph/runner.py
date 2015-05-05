@@ -245,8 +245,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True,
-                     name='', logger=None):
+    def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
+                     unique_id=0, log=True, name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
@@ -1024,6 +1024,12 @@ class LLFrame(object):
             pass
         else:
             stats.add_merge_point_location(args[1:])
+
+    def execute_enter_portal_frame(self, descr, *args):
+        pass
+
+    def execute_leave_portal_frame(self, descr, *args):
+        pass
 
     def execute_new_with_vtable(self, _, vtable):
         descr = heaptracker.vtable2descr(self.cpu, vtable)

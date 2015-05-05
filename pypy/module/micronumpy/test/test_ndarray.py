@@ -2183,8 +2183,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.dtype == 'bool'
 
         a = arange(6, dtype='f4').reshape(2,3)
-        b = a.T.astype('i4')
-        assert (a.T.strides == b.strides)
+        b = a.astype('i4')
 
         a = array('x').astype('S3').dtype
         assert a.itemsize == 3

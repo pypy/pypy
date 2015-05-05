@@ -473,7 +473,7 @@ class TestX86(LLtypeBackendTest):
                 mc.RET()
             else:
                 mc.RET16_i(40)
-            rawstart = mc.materialize(cpu.asmmemmgr, [])
+            rawstart = mc.materialize(cpu, [])
             #
             calldescr = cpu._calldescr_dynamic_for_tests([types.slong] * 10,
                                                          types.slong)

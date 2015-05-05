@@ -1072,6 +1072,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_leaq = FunctionGcRootTracker._visit_lea
 
     visit_xorq = FunctionGcRootTracker.binary_insn
+    visit_xchgl = FunctionGcRootTracker._visit_xchg
     visit_xchgq = FunctionGcRootTracker._visit_xchg
     visit_testq = FunctionGcRootTracker._visit_test
 

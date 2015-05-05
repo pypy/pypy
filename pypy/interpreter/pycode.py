@@ -14,9 +14,10 @@ from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import jit
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
 
 class BytecodeCorruption(Exception):
@@ -54,8 +55,9 @@ class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
-
+                          "co_freevars[*]", "co_cellvars[*]",
+                          "_args_as_cellvars[*]"]
+    
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -83,6 +85,7 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
+        space.register_code_object(self)
 
     def _initialize(self):
         if self.co_cellvars:
@@ -123,6 +126,15 @@ class PyCode(eval.Code):
         if self.space.config.objspace.std.withmapdict:
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
+
+        cui = self.space.code_unique_ids
+        self._unique_id = cui.code_unique_id
+        cui.code_unique_id += 4  # so we have two bits that we can mark stuff
+        # with
+
+    def _get_full_name(self):
+        return "py:%s:%d:%s" % (self.co_name, self.co_firstlineno,
+                                self.co_filename)
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and
