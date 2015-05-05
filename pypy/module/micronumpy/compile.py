@@ -12,6 +12,10 @@ from pypy.module.micronumpy.arrayops import where
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache
+from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
+from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
+    UserDelAction, CodeUniqueIds)
+from pypy.interpreter.pyframe import PyFrame
 
 
 class BogusBytecode(Exception):
@@ -54,6 +58,8 @@ class FakeSpace(ObjSpace):
     w_OverflowError = W_TypeObject("OverflowError")
     w_NotImplementedError = W_TypeObject("NotImplementedError")
     w_AttributeError = W_TypeObject("AttributeError")
+    w_StopIteration = W_TypeObject("StopIteration")
+    w_KeyError = W_TypeObject("KeyError")
     w_None = None
 
     w_bool = W_TypeObject("bool")
@@ -69,11 +75,24 @@ class FakeSpace(ObjSpace):
     w_dict = W_TypeObject("dict")
     w_object = W_TypeObject("object")
 
-    def __init__(self):
+    def __init__(self, config=None):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.w_Ellipsis = special.Ellipsis()
         self.w_NotImplemented = special.NotImplemented()
+
+        if config is None:
+            from pypy.config.pypyoption import get_pypy_config
+            config = get_pypy_config(translating=False)
+        self.config = config
+
+        self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
+        self.code_unique_ids = CodeUniqueIds()
+        self.builtin = DictObject({})
+        self.FrameClass = PyFrame
+        self.threadlocals = ThreadLocals()
+        self.actionflag = ActionFlag()    # changed by the signal module
+        self.check_signal_action = None   # changed by the signal module
 
     def _freeze_(self):
         return True
@@ -85,18 +104,41 @@ class FakeSpace(ObjSpace):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 
     def len(self, w_obj):
-        assert isinstance(w_obj, ListObject)
-        return self.wrap(len(w_obj.items))
+        if isinstance(w_obj, ListObject):
+            return self.wrap(len(w_obj.items))
+        elif isinstance(w_obj, DictObject):
+            return self.wrap(len(w_obj.items))
+        raise NotImplementedError
 
     def getattr(self, w_obj, w_attr):
         assert isinstance(w_attr, StringObject)
-        return w_obj.getdictvalue(self, w_attr.v)
+        if isinstance(w_obj, boxes.W_GenericBox):
+            assert False
+            raise OperationError(self.w_AttributeError, self.wrap('aa'))
+        assert isinstance(w_obj, DictObject)
+        return w_obj.getdictvalue(self, w_attr)
 
     def isinstance_w(self, w_obj, w_tp):
         try:
             return w_obj.tp == w_tp
         except AttributeError:
             return False
+
+    def iter(self, w_iter):
+        if isinstance(w_iter, ListObject):
+            raise NotImplementedError
+            #return IterObject(space, w_iter.items)
+        elif isinstance(w_iter, DictObject):
+            return IterDictObject(self, w_iter)
+
+    def next(self, w_iter):
+        return w_iter.next()
+
+    def contains(self, w_iter, w_key):
+        if isinstance(w_iter, DictObject):
+            return self.wrap(w_key in w_iter.items)
+
+        raise NotImplementedError
 
     def decode_index4(self, w_idx, size):
         if isinstance(w_idx, IntObject):
@@ -141,7 +183,53 @@ class FakeSpace(ObjSpace):
     def newcomplex(self, r, i):
         return ComplexObject(r, i)
 
+    def newfloat(self, f):
+        return self.float(f)
+
+    def le(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox) 
+        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        return w_obj1.descr_le(self, w_obj2)
+
+    def lt(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox) 
+        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        return w_obj1.descr_lt(self, w_obj2)
+
+    def ge(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox) 
+        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        return w_obj1.descr_ge(self, w_obj2)
+
+    def add(self, w_obj1, w_obj2):
+        assert isinstance(w_obj1, boxes.W_GenericBox) 
+        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        return w_obj1.descr_add(self, w_obj2)
+
+    def sub(self, w_obj1, w_obj2):
+        return self.wrap(1)
+
+    def mul(self, w_obj1, w_obj2):
+        return self.wrap(1)
+
+    def pow(self, w_obj1, w_obj2, _):
+        return self.wrap(1)
+
+    def neg(self, w_obj1):
+        return self.wrap(0)
+
+    def repr(self, w_obj1):
+        return self.wrap('fake')
+
     def getitem(self, obj, index):
+        if isinstance(obj, DictObject):
+            w_dict = obj.getdict(self)
+            if w_dict is not None:
+                try:
+                    return w_dict[index]
+                except KeyError, e:
+                    raise OperationError(self.w_KeyError, self.wrap("key error"))
+
         assert isinstance(obj, ListObject)
         assert isinstance(index, IntObject)
         return obj.items[index.intval]
@@ -193,6 +281,12 @@ class FakeSpace(ObjSpace):
         assert isinstance(w_obj, boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
 
+    def long(self, w_obj):
+        if isinstance(w_obj, LongObject):
+            return w_obj
+        assert isinstance(w_obj, boxes.W_GenericBox)
+        return self.int(w_obj.descr_long(self))
+
     def str(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj
@@ -230,7 +324,7 @@ class FakeSpace(ObjSpace):
     def gettypefor(self, w_obj):
         return W_TypeObject(w_obj.typedef.name)
 
-    def call_function(self, tp, w_dtype):
+    def call_function(self, tp, w_dtype, *args):
         return w_dtype
 
     def call_method(self, w_obj, s, *args):
@@ -249,21 +343,21 @@ class FakeSpace(ObjSpace):
     def newtuple(self, list_w):
         return ListObject(list_w)
 
-    def newdict(self):
-        return {}
+    def newdict(self, module=True):
+        return DictObject({})
 
-    def setitem(self, dict, item, value):
-        dict[item] = value
+    def newint(self, i):
+        if isinstance(i, IntObject):
+            return i
+        return IntObject(i)
 
-    def len_w(self, w_obj):
-        if isinstance(w_obj, ListObject):
-            return len(w_obj.items)
-        # XXX array probably
-        assert False
+    def setitem(self, obj, index, value):
+        obj.items[index] = value
 
     def exception_match(self, w_exc_type, w_check_class):
-        # Good enough for now
-        raise NotImplementedError
+        assert isinstance(w_exc_type, W_TypeObject)
+        assert isinstance(w_check_class, W_TypeObject)
+        return w_exc_type.name == w_check_class.name
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float
@@ -274,6 +368,9 @@ class BoolObject(W_Root):
     tp = FakeSpace.w_bool
     def __init__(self, boolval):
         self.intval = boolval
+FakeSpace.w_True = BoolObject(True)
+FakeSpace.w_False = BoolObject(False)
+
 
 class IntObject(W_Root):
     tp = FakeSpace.w_int
@@ -289,6 +386,33 @@ class ListObject(W_Root):
     tp = FakeSpace.w_list
     def __init__(self, items):
         self.items = items
+
+class DictObject(W_Root):
+    tp = FakeSpace.w_dict
+    def __init__(self, items):
+        self.items = items
+
+    def getdict(self, space):
+        return self.items
+
+    def getdictvalue(self, space, key):
+        return self.items[key]
+
+class IterDictObject(W_Root):
+    def __init__(self, space, w_dict):
+        self.space = space
+        self.items = w_dict.items.items()
+        self.i = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        space = self.space
+        if self.i >= len(self.items):
+            raise OperationError(space.w_StopIteration, space.wrap("stop iteration"))
+        self.i += 1
+        return self.items[self.i-1][0]
 
 class SliceObject(W_Root):
     tp = FakeSpace.w_slice
