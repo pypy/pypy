@@ -639,8 +639,26 @@ class AppTestSysSettracePortedFromCpython(object):
             sys._getframe().f_back.f_trace = tracefunc
         def settrace_and_return(tracefunc):
             _settrace_and_return(tracefunc)
+
+
+        def _settrace_and_raise(tracefunc):
+            sys.settrace(tracefunc)
+            sys._getframe().f_back.f_trace = tracefunc
+            raise RuntimeError
+        def settrace_and_raise(tracefunc):
+            try:
+                _settrace_and_raise(tracefunc)
+            except RuntimeError, exc:
+                pass
+
+        settrace_and_raise.events = [(2, 'exception'),
+                                     (3, 'line'),
+                                     (4, 'line'),
+                                     (4, 'return')]
+
         settrace_and_return.events = [(1, 'return')]
         run_test2(settrace_and_return)
+        run_test2(settrace_and_raise)
 
 
 class AppTestCurrentFrames:
