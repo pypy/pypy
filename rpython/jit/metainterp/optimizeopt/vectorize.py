@@ -53,12 +53,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         # vectorization is not possible, propagate only normal optimizations
         pass
 
-#class CollapseGuardOptimization(Optimization):
-#    def __init__(self, index_vars = None):
-#        self.index_vars = index_vars or {}
-#
-#    def propagate_forward(
-
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
