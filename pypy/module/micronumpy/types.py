@@ -135,6 +135,7 @@ class BaseType(object):
         return rffi.sizeof(cls.T)
 
     def can_cast_to(self, other):
+        # equivalent to PyArray_CanCastSafely
         return casting_table[self.num][other.num]
 
 class Primitive(object):

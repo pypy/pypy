@@ -96,6 +96,7 @@ class W_Dtype(W_Root):
         return self.itemtype.box_complex(real, imag)
 
     def can_cast_to(self, other):
+        # equivalent to PyArray_CanCastTo
         result = self.itemtype.can_cast_to(other.itemtype)
         if result:
             if self.num == NPY.STRING:

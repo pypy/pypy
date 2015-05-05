@@ -56,6 +56,7 @@ kind_ordering = {
     UnicodeType.kind: 7, VoidType.kind: 8, ObjectType.kind: 9}
 
 def can_cast_type(space, origin, target, casting):
+    # equivalent to PyArray_CanCastTypeTo
     if casting == 'no':
         return origin.eq(space, target)
     elif casting == 'equiv':
@@ -72,6 +73,7 @@ def can_cast_type(space, origin, target, casting):
         return origin.can_cast_to(target)
 
 def can_cast_array(space, w_from, target, casting):
+    # equivalent to PyArray_CanCastArrayTo
     origin = w_from.get_dtype()
     if w_from.is_scalar():
         return can_cast_scalar(
@@ -80,6 +82,7 @@ def can_cast_array(space, w_from, target, casting):
         return can_cast_type(space, origin, target, casting)
 
 def can_cast_scalar(space, from_type, value, target, casting):
+    # equivalent to CNumPy's can_cast_scalar_to
     if from_type == target or casting == 'unsafe':
         return True
     if not from_type.is_number() or casting in ('no', 'equiv'):
@@ -90,7 +93,7 @@ def can_cast_scalar(space, from_type, value, target, casting):
     if target.is_unsigned():
         dtypenum = altnum
     dtype = get_dtype_cache(space).dtypes_by_num[dtypenum]
-    return can_cast_type(space, dtype, target, casting)  # XXX: stub impl
+    return can_cast_type(space, dtype, target, casting)
 
 def is_scalar_w(space, w_arg):
     return (isinstance(w_arg, W_GenericBox) or
