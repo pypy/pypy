@@ -99,7 +99,27 @@ class AppTestSupport(BaseNumpyAppTest):
         ret = np.ndarray.__new__(np.ndarray, arr.shape, arr.dtype, buffer=arr)
         assert ret.__array_priority__ == 0.0
         assert (arr == ret).all()
+    
+    def test_priority(self):
+        from numpy import ndarray, arange, add
+        class DoReflected(object):
+            __array_priority__ = 10
+            def __radd__(self, other):
+                return 42
 
+        class A(object):
+            def __add__(self, other):
+                return NotImplemented
+
+
+        a = arange(10)
+        b = DoReflected()
+        c = A()
+        assert c + b == 42
+        assert a.__add__(b) is NotImplemented # not an exception
+        assert b.__radd__(a) == 42
+        assert a + b == 42
+        
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
         import numpy as np

@@ -322,6 +322,32 @@ def get_extobj(space):
         extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
         return extobj_w
 
+def _has_reflected_op(space, w_obj, op):
+    refops ={ 'add': 'radd',
+            'subtract': 'rsub',
+            'multiply': 'rmul',
+            'divide': 'rdiv',
+            'true_divide': 'rtruediv',
+            'floor_divide': 'rfloordiv',
+            'remainder': 'rmod',
+            'power': 'rpow',
+            'left_shift': 'rlshift',
+            'right_shift': 'rrshift',
+            'bitwise_and': 'rand',
+            'bitwise_xor': 'rxor',
+            'bitwise_or': 'ror',
+            #/* Comparisons */
+            'equal': 'eq',
+            'not_equal': 'ne',
+            'greater': 'lt',
+            'less': 'gt',
+            'greater_equal': 'le',
+            'less_equal': 'ge',
+        }
+    if op not in refops:
+        return False
+    return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
+
 class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "bool_result"]
     nin = 1
@@ -432,6 +458,19 @@ class W_Ufunc2(W_Ufunc):
         else:
             [w_lhs, w_rhs] = args_w
             w_out = None
+        if not isinstance(w_rhs, W_NDimArray):
+            # numpy implementation detail, useful for things like numpy.Polynomial
+            # FAIL with NotImplemented if the other object has
+            # the __r<op>__ method and has __array_priority__ as
+            # an attribute (signalling it can handle ndarray's)
+            # and is not already an ndarray or a subtype of the same type.
+            w_zero = space.wrap(0.0)
+            w_priority_l = space.findattr(w_lhs, space.wrap('__array_priority__')) or w_zero
+            w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
+            # XXX what is better, unwrapping values or space.gt?
+            r_greater = space.is_true(space.gt(w_priority_r, w_priority_l))
+            if r_greater and _has_reflected_op(space, w_rhs, self.name):
+                return space.w_NotImplemented
         w_lhs = numpify(space, w_lhs)
         w_rhs = numpify(space, w_rhs)
         w_ldtype = _get_dtype(space, w_lhs)
