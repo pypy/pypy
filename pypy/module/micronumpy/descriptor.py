@@ -982,7 +982,11 @@ class DtypeCache(object):
             space.setitem(w_typeinfo, space.wrap(k), space.gettypefor(v))
         for k, dtype in typeinfo_full.iteritems():
             itembits = dtype.elsize * 8
-            items_w = [space.wrap(dtype.char),
+            if k in ('INTP', 'UINTP'):
+                char = getattr(NPY, k + 'LTR')
+            else:
+                char = dtype.char
+            items_w = [space.wrap(char),
                        space.wrap(dtype.num),
                        space.wrap(itembits),
                        space.wrap(dtype.itemtype.get_element_size())]
