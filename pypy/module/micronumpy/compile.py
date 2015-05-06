@@ -112,11 +112,9 @@ class FakeSpace(ObjSpace):
 
     def getattr(self, w_obj, w_attr):
         assert isinstance(w_attr, StringObject)
-        if isinstance(w_obj, boxes.W_GenericBox):
-            assert False
-            raise OperationError(self.w_AttributeError, self.wrap('aa'))
-        assert isinstance(w_obj, DictObject)
-        return w_obj.getdictvalue(self, w_attr)
+        if isinstance(w_obj, DictObject):
+            return w_obj.getdictvalue(self, w_attr)
+        return None
 
     def isinstance_w(self, w_obj, w_tp):
         try:

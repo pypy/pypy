@@ -65,7 +65,8 @@ class TestNumpyJit(LLJitMixin):
                                              listops=True,
                                              listcomp=True,
                                              backendopt=True,
-                                             graph_and_interp_only=True)
+                                             graph_and_interp_only=True,
+                                             vectorize=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
 
@@ -85,11 +86,6 @@ class TestNumpyJit(LLJitMixin):
 
     def test_add(self):
         result = self.run("add")
-        py.test.skip("don't run for now")
-        self.check_simple_loop({'raw_load': 2, 'float_add': 1,
-                                'raw_store': 1, 'int_add': 1,
-                                'int_ge': 1, 'guard_false': 1, 'jump': 1,
-                                'arraylen_gc': 1})
         assert result == 3 + 3
 
     def define_float_add():

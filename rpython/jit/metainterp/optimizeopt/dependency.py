@@ -112,7 +112,11 @@ class Node(object):
 
     def relax_guard_to(self, guard):
         """ Relaxes a guard operation to an earlier guard. """
-        tgt_op = self.getoperation()
+        # clone this operation object. if the vectorizer is
+        # not able to relax guards, it won't leave behind a modified operation
+        tgt_op = self.getoperation().clone()
+        op = tgt_op
+
         op = guard.getoperation()
         assert isinstance(tgt_op, GuardResOp)
         assert isinstance(op, GuardResOp)
@@ -541,6 +545,8 @@ class DependencyGraph(object):
         # handle fail args
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():
+                if arg is None:
+                    continue
                 try:
                     for at in tracker.redefinitions(arg):
                         # later redefinitions are prohibited
@@ -717,7 +723,8 @@ class IntegralForwardModification(object):
             var = self.index_vars[arg] = IndexVar(arg)
         return var
 
-    def operation_INT_LT(self, op, node):
+    bool_func_source = """
+    def operation_{name}(self, op, node):
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
         left = None
@@ -727,7 +734,13 @@ class IntegralForwardModification(object):
         if not self.is_const_integral(box_a1):
             right = self.get_or_create(box_a1)
         box_r = op.result
-        self.comparison_vars[box_r] = IndexGuard(op.getopnum(), left, right)
+        self.comparison_vars[box_r] = CompareOperation(op.getopnum(), left, right)
+    """
+    for name in ['INT_LT', 'INT_LE', 'INT_EQ', 'INT_NE', 'INT_NE',
+                 'INT_GT', 'INT_GE', 'UINT_LT', 'UINT_LE', 'UINT_GT',
+                 'UINT_GE']:
+        exec py.code.Source(bool_func_source.format(name=name)).compile()
+    del bool_func_source
 
     additive_func_source = """
     def operation_{name}(self, op, node):
@@ -809,7 +822,7 @@ integral_dispatch_opt = make_dispatcher_method(IntegralForwardModification, 'ope
 IntegralForwardModification.inspect_operation = integral_dispatch_opt
 del integral_dispatch_opt
 
-class IndexGuard(object):
+class CompareOperation(object):
     def __init__(self, opnum, lindex_var, rindex_var):
         self.opnum = opnum
         self.lindex_var = lindex_var

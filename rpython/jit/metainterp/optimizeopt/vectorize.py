@@ -46,10 +46,12 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state):
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
+    orig_ops = loop.operations
     try:
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
     except NotAVectorizeableLoop:
+        loop.operations = orig_ops
         # vectorization is not possible, propagate only normal optimizations
         pass
 
