@@ -714,6 +714,25 @@ def register_custom_light_finalizer(TP, lambda_func):
     reasons.
     """
 
+@specialize.arg(0)
+def do_get_objects(callback):
+    """ Get all the objects that satisfy callback(gcref) -> obj
+    """
+    roots = [gcref for gcref in get_rpy_roots() if gcref]
+    pending = roots[:]
+    result_w = []
+    while pending:
+        gcref = pending.pop()
+        if not get_gcflag_extra(gcref):
+            toggle_gcflag_extra(gcref)
+            w_obj = callback(gcref)
+            if w_obj is not None:
+                result_w.append(w_obj)
+            pending.extend(get_rpy_referents(gcref))
+    clear_gcflag_extra(roots)
+    assert_no_more_gcflags()
+    return result_w
+
 class RegisterCustomLightFinalizer(ExtRegistryEntry):
     _about_ = register_custom_light_finalizer
 
@@ -729,3 +748,11 @@ class RegisterCustomLightFinalizer(ExtRegistryEntry):
         funcptr = hop.rtyper.annotate_helper_fn(ll_func, args_s)
         hop.exception_cannot_occur()
         lltype.attachRuntimeTypeInfo(TP, destrptr=funcptr)
+
+def clear_gcflag_extra(fromlist):
+    pending = fromlist[:]
+    while pending:
+        gcref = pending.pop()
+        if get_gcflag_extra(gcref):
+            toggle_gcflag_extra(gcref)
+            pending.extend(get_rpy_referents(gcref))

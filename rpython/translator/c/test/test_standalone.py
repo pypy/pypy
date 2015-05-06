@@ -22,13 +22,14 @@ def setup_module(module):
         # Do not open dreaded dialog box on segfault
         import ctypes
         SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
-        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
-        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
-        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        module.old_err_mode = old_err_mode
+        if hasattr(ctypes.windll.kernel32, 'GetErrorMode'):
+            old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+            new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+            ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+            module.old_err_mode = old_err_mode
 
 def teardown_module(module):
-    if os.name == 'nt':
+    if os.name == 'nt' and hasattr(module, 'old_err_mode'):
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
@@ -36,7 +37,7 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None):
+                stackcheck=False, entrypoints=None, local_icon=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -53,6 +54,9 @@ class StandaloneTests(object):
             insert_ll_stackcheck(t)
 
         t.config.translation.shared = shared
+        if local_icon:
+            t.config.translation.icon = os.path.join(os.path.dirname(__file__),
+                                                     local_icon)
 
         if entrypoints is not None:
             kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
@@ -110,7 +114,7 @@ class TestStandalone(StandaloneTests):
                 os.write(1, "   '" + str(s) + "'\n")
             return 0
 
-        t, cbuilder = self.compile(entry_point)
+        t, cbuilder = self.compile(entry_point, local_icon='red.ico')
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
@@ -1407,7 +1411,7 @@ class TestShared(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point, shared=True,
-                                   entrypoints=[f])
+                                   entrypoints=[f], local_icon='red.ico')
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'

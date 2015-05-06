@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -128,6 +129,11 @@ class BaseAssembler(object):
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
 
+    def setup(self, looptoken):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder = CodemapBuilder()
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
+
     def set_debug(self, v):
         r = self._debug
         self._debug = v
@@ -193,6 +199,17 @@ class BaseAssembler(object):
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         return fail_descr, target
+
+    def enter_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
+                                                    op.getarg(1).getint(),
+                                                    self.mc.get_relative_pos())
+
+    def leave_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
+                                                    self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)
@@ -276,6 +293,9 @@ class BaseAssembler(object):
         # YYY very minor leak -- we need the counters to stay alive
         # forever, just because we want to report them at the end
         # of the process
+
+        # XXX the numbers here are ALMOST unique, but not quite, use a counter
+        #     or something
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                track_allocation=False)
         struct.i = 0

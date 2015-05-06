@@ -44,30 +44,6 @@ def missing_operation(space):
     return OperationError(space.w_NotImplementedError,
                           space.wrap("operation not implemented by this GC"))
 
-# ____________________________________________________________
-
-def clear_gcflag_extra(fromlist):
-    pending = fromlist[:]
-    while pending:
-        gcref = pending.pop()
-        if rgc.get_gcflag_extra(gcref):
-            rgc.toggle_gcflag_extra(gcref)
-            pending.extend(rgc.get_rpy_referents(gcref))
-
-def do_get_objects():
-    roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
-    pending = roots[:]
-    result_w = []
-    while pending:
-        gcref = pending.pop()
-        if not rgc.get_gcflag_extra(gcref):
-            rgc.toggle_gcflag_extra(gcref)
-            w_obj = try_cast_gcref_to_w_root(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
-            pending.extend(rgc.get_rpy_referents(gcref))
-    clear_gcflag_extra(roots)
-    return result_w
 
 # ____________________________________________________________
 
@@ -116,8 +92,8 @@ def do_get_referrers(w_arg):
                 break
     # done.  Clear flags carefully
     rgc.toggle_gcflag_extra(gcarg)
-    clear_gcflag_extra(roots)
-    clear_gcflag_extra([gcarg])
+    rgc.clear_gcflag_extra(roots)
+    rgc.clear_gcflag_extra([gcarg])
     return result_w
 
 # ____________________________________________________________
@@ -189,8 +165,7 @@ def get_objects(space):
     """Return a list of all app-level objects."""
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
-    result_w = do_get_objects()
-    rgc.assert_no_more_gcflags()
+    result_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     return space.newlist(result_w)
 
 def get_referents(space, args_w):

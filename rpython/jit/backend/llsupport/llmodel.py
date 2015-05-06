@@ -16,12 +16,14 @@ from rpython.jit.backend.llsupport.descr import (
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
 from rpython.jit.backend.llsupport.memcpy import memset_fn
-from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from rpython.jit.backend.llsupport import asmmemmgr, codemap
 from rpython.rlib.unroll import unrolling_iterable
 
 
 class AbstractLLCPU(AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
+
+    HAS_CODEMAP = False
 
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
@@ -48,7 +50,9 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_translated()
         else:
             self._setup_exception_handling_untranslated()
-        self.asmmemmgr = AsmMemoryManager()
+        self.asmmemmgr = asmmemmgr.AsmMemoryManager()
+        if self.HAS_CODEMAP:
+            self.codemap = codemap.CodemapStorage()
         self._setup_frame_realloc(translate_support_code)
         ad = self.gc_ll_descr.getframedescrs(self).arraydescr
         self.signedarraydescr = ad
@@ -77,6 +81,16 @@ class AbstractLLCPU(AbstractCPU):
 
     def setup(self):
         pass
+
+    def finish_once(self):
+        if self.HAS_CODEMAP:
+            self.codemap.finish_once()
+
+    def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
+                     unique_id=0, log=True, name='', logger=None):
+        return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
+                                            inputargs, operations,
+                                            looptoken, log=log)
 
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
@@ -212,6 +226,8 @@ class AbstractLLCPU(AbstractCPU):
             for rawstart, rawstop in blocks:
                 self.gc_ll_descr.freeing_block(rawstart, rawstop)
                 self.asmmemmgr.free(rawstart, rawstop)
+                if self.HAS_CODEMAP:
+                    self.codemap.free_asm_block(rawstart, rawstop)
 
     def force(self, addr_of_force_token):
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
