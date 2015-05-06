@@ -245,7 +245,6 @@ class PyFrame(W_Root):
         executioncontext.enter(self)
         got_exception = True
         w_exitvalue = self.space.w_None
-        assert not self.frame_finished_execution()
         try:
             executioncontext.call_trace(self)
             #
