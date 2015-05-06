@@ -74,3 +74,7 @@ to linux64, see client at https://vmprof.readthedocs.org
 
 .. branch: jit_hint_docs
 Add more detail to @jit.elidable and @jit.promote in rpython/rlib/jit.py
+
+.. branch: remove-frame-debug-attrs
+Remove the debug attributes from frames only used for tracing and replace
+them with a debug object that is created on-demand
