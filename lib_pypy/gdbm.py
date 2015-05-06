@@ -112,7 +112,7 @@ class gdbm(object):
 
     def __setitem__(self, key, value):
         self._check_closed()
-        self._size = -1
+        self.size = -1
         r = lib.gdbm_store(self.ll_dbm, _fromstr(key), _fromstr(value),
                            lib.GDBM_REPLACE)
         if r < 0:
@@ -120,6 +120,7 @@ class gdbm(object):
 
     def __delitem__(self, key):
         self._check_closed()
+        self.size = -1
         res = lib.gdbm_delete(self.ll_dbm, _fromstr(key))
         if res < 0:
             raise KeyError(key)
