@@ -97,7 +97,7 @@ return next yielded value or raise StopIteration."""
                 self.frame = None
                 raise
             # if the frame is now marked as finished, it was RETURNed from
-            if frame.frame_finished_execution():
+            if frame.frame_finished_execution:
                 self.frame = None
                 raise OperationError(space.w_StopIteration, space.w_None)
             else:
@@ -149,7 +149,7 @@ return next yielded value or raise StopIteration."""
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
 
     def descr_gi_frame(self, space):
-        if self.frame is not None and not self.frame.frame_finished_execution():
+        if self.frame is not None and not self.frame.frame_finished_execution:
             return self.frame
         else:
             return space.w_None
@@ -193,7 +193,7 @@ return next yielded value or raise StopIteration."""
                             raise
                         break
                     # if the frame is now marked as finished, it was RETURNed from
-                    if frame.frame_finished_execution():
+                    if frame.frame_finished_execution:
                         break
                     results.append(w_result)     # YIELDed
             finally:
