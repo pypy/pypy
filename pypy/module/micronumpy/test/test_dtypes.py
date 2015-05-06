@@ -112,6 +112,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
 
+    def test_dtype_cmp(self):
+        from numpy import dtype
+        assert dtype('int8') <= dtype('int8')
+        assert not (dtype('int8') < dtype('int8'))
+
     def test_dtype_aliases(self):
         from numpy import dtype
         assert dtype('bool8') is dtype('bool')
@@ -1287,7 +1292,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, 
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None,
                      ('x', 'y', 'z', 'value'),
                      {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0),
                       'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12),

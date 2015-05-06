@@ -11,7 +11,7 @@ from pypy.module.micronumpy.ufuncs import (
 from .boxes import W_GenericBox
 from .types import (
     Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType)
-from .descriptor import get_dtype_cache, W_Dtype
+from .descriptor import get_dtype_cache, as_dtype, is_scalar_w
 
 @jit.unroll_safe
 def result_type(space, __args__):
@@ -94,26 +94,6 @@ def can_cast_scalar(space, from_type, value, target, casting):
         dtypenum = altnum
     dtype = get_dtype_cache(space).dtypes_by_num[dtypenum]
     return can_cast_type(space, dtype, target, casting)
-
-def is_scalar_w(space, w_arg):
-    return (isinstance(w_arg, W_GenericBox) or
-            space.isinstance_w(w_arg, space.w_int) or
-            space.isinstance_w(w_arg, space.w_float) or
-            space.isinstance_w(w_arg, space.w_complex) or
-            space.isinstance_w(w_arg, space.w_long) or
-            space.isinstance_w(w_arg, space.w_bool))
-
-def as_dtype(space, w_arg, allow_None=True):
-    # roughly equivalent to CNumPy's PyArray_DescrConverter2
-    if not allow_None and space.is_none(w_arg):
-        raise TypeError("Cannot create dtype from None here")
-    if isinstance(w_arg, W_NDimArray):
-        return w_arg.get_dtype()
-    elif is_scalar_w(space, w_arg):
-        return find_dtype_for_scalar(space, w_arg)
-    else:
-        return space.interp_w(W_Dtype,
-            space.call_function(space.gettypefor(W_Dtype), w_arg))
 
 def as_scalar(space, w_obj):
     dtype = find_dtype_for_scalar(space, w_obj)
