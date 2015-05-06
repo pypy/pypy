@@ -939,8 +939,8 @@ class __extend__(W_NDimArray):
             try:
                 return ufunc(self, space, w_other, w_out)
             except OperationError, e:
-                if e.match(space, space.w_ValueError) and \
-                   'operands could not be broadcast together' in str(e.get_w_value(space)):
+                if e.match(space, space.w_ValueError):
+                    # and 'operands could not be broadcast together' in str(e.get_w_value(space)):
                     return space.w_False
                 raise e
 

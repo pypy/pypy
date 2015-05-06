@@ -2220,6 +2220,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         exc = raises(ValueError, a.astype, 'i8')
         assert exc.value.message.startswith('invalid literal for int()')
 
+        a = arange(5, dtype=complex)
+        b = a.real
+        c = b.astype("int64")
+        assert c.shape == b.shape
+        assert c.strides == (8,)
+
     def test_base(self):
         from numpy import array
         assert array(1).base is None
