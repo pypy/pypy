@@ -1701,6 +1701,42 @@ class ImplicitVirtualizableTests(object):
         res = self.meta_interp(f, [], listops=True)
         assert res == 0
 
+    def test_tracing_sees_nonstandard_vable_twice(self):
+        # This test might fall we try to remove heapcache.clear_caches()'s
+        # call to reset_keep_likely_virtuals() for CALL_MAY_FORCE, and doing
+        # so, we forget to clean up the "nonstandard_virtualizable" fields.
+
+        class A:
+            _virtualizable_ = ['x']
+            @dont_look_inside
+            def __init__(self, x):
+                self.x = x
+            def check(self, expected_x):
+                if self.x != expected_x:
+                    raise ValueError
+
+        driver1 = JitDriver(greens=[], reds=['a'], virtualizables=['a'])
+        driver2 = JitDriver(greens=[], reds=['i'])
+
+        def f(a):
+            while a.x > 0:
+                driver1.jit_merge_point(a=a)
+                a.x -= 1
+
+        def main():
+            i = 10
+            while i > 0:
+                driver2.jit_merge_point(i=i)
+                a = A(10)
+                a.check(10)    # first time, 'a' has got no vable_token
+                f(a)
+                a.check(0)     # second time, the same 'a' has got one!
+                i -= 1
+            return 42
+
+        res = self.meta_interp(main, [], listops=True)
+        assert res == 42
+
 
 class TestLLtype(ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
