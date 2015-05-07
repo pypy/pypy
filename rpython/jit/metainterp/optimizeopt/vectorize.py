@@ -532,6 +532,8 @@ def fail_args_break_dependency(guard, prev_op, target_guard):
 class VecScheduleData(SchedulerData):
     def __init__(self):
         self.box_to_vbox = {}
+        self.preamble_ops = None
+        self.expansion_byte_count = -1
 
     def as_vector_operation(self, pack):
         op_count = len(pack.operations)
@@ -544,43 +546,64 @@ class VecScheduleData(SchedulerData):
         args = op0.getarglist()[:]
         args.append(ConstInt(op_count))
         vop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
+        self.preamble_ops = []
         self._inspect_operation(vop)
-        return [vop]
+        self.preamble_ops.append(vop)
+        return self.preamble_ops
 
     def get_vbox_for(self, arg):
         try:
             _, vbox = self.box_to_vbox[arg]
             return vbox
         except KeyError:
-            # if this is not the case, then load operations must
-            # be emitted
-            assert False, "vector box MUST be defined before"
+            return None
 
-    def vector_result(self, vop, bytecount, signed):
+    def vector_result(self, vop):
         ops = self.pack.operations
-        op0 = ops[0].getoperation()
-        result = op0.result
-        vboxcount = len(ops)
-        vbox = BoxVector(result.type, vboxcount, bytecount, signed)
+        result = vop.result
+        vbox = BoxVector(result.type, len(ops))
         vop.result = vbox
         i = 0
-        while i < vboxcount:
+        while i < len(ops):
             op = ops[i].getoperation()
             self.box_to_vbox[op.result] = (i, vbox)
             i += 1
 
-    def vector_arg(self, vop, argidx):
+    def vector_arg(self, vop, argidx, expand=True):
         ops = self.pack.operations
-        op0 = ops[0].getoperation()
-        vbox = self.get_vbox_for(op0.getarg(argidx))
+        vbox = self.get_vbox_for(vop.getarg(argidx))
+        if not vbox:
+            if expand:
+                vbox = self.expand_box_to_vector_box(vop, argidx)
+            else:
+                assert False, "not allowed to expand" \
+                              ", but do not have a vector box as arg"
         vop.setarg(argidx, vbox)
         return vbox
+
+    def expand_box_to_vector_box(self, vop, argidx):
+        arg = vop.getarg(argidx)
+        all_same_box = True
+        ops = self.pack.operations
+        for i in range(len(ops)):
+            op = ops[i]
+            if arg is not op.getoperation().getarg(argidx):
+                all_same_box = False
+                break
+
+        if all_same_box:
+            vbox = BoxVector(arg.type, len(ops))
+            expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(len(ops))], vbox)
+            self.preamble_ops.append(expand_op)
+            return vbox
+        else:
+            assert False, "not yet handled"
 
     bin_arith_trans = """
     def _vectorize_{name}(self, vop):
         vbox = self.vector_arg(vop, 0)
         self.vector_arg(vop, 1)
-        self.vector_result(vop, vbox.byte_count, vbox.signed)
+        self.vector_result(vop)
     """
     exec py.code.Source(bin_arith_trans.format(name='VEC_INT_ADD')).compile()
     exec py.code.Source(bin_arith_trans.format(name='VEC_INT_MUL')).compile()
@@ -591,20 +614,16 @@ class VecScheduleData(SchedulerData):
     del bin_arith_trans
 
     def _vectorize_VEC_INT_SIGNEXT(self, vop):
-        vbox = self.vector_arg(vop, 0)
+        self.vector_arg(vop, 0)
         # arg 1 is a constant
-        self.vector_result(vop, vbox.byte_count, vbox.signed)
+        self.vector_result(vop)
 
     def _vectorize_VEC_RAW_LOAD(self, vop):
         descr = vop.getdescr()
-        byte_count = descr.get_item_size_in_bytes()
-        signed = descr.is_item_signed()
-        self.vector_result(vop, byte_count, signed)
+        self.vector_result(vop)
     def _vectorize_VEC_GETARRAYITEM_RAW(self, vop):
         descr = vop.getdescr()
-        byte_count = descr.get_item_size_in_bytes()
-        signed = descr.is_item_signed()
-        self.vector_result(vop, byte_count, signed)
+        self.vector_result(vop)
 
     def _vectorize_VEC_RAW_STORE(self, vop):
         self.vector_arg(vop, 2)

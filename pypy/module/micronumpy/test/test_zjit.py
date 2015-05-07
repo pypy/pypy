@@ -88,15 +88,15 @@ class TestNumpyJit(LLJitMixin):
         result = self.run("add")
         assert result == 3 + 3
 
-    def define_float_add():
+    def define_add_const():
         return """
         a = |30| + 3
-        a -> 3
+        a -> 29
         """
 
-    def test_float_add(self):
-        result = self.run("float_add")
-        assert result == 3 + 3
+    def test_add_const(self):
+        result = self.run("add_const")
+        assert result == 29 + 3
         self.check_trace_count(1)
         self.check_simple_loop({
             'float_add': 1,

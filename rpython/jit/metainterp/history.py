@@ -514,14 +514,12 @@ NULLBOX = BoxPtr()
 
 class BoxVector(Box):
     type = VECTOR
-    _attrs_ = ('item_type','byte_count','item_count','signed')
+    _attrs_ = ('item_type','item_count')
     _extended_display = False
 
-    def __init__(self, item_type=FLOAT, item_count=8, bytecount=2, signed=True):
+    def __init__(self, item_type=FLOAT, item_count=2):
         self.item_type = item_type
         self.item_count = item_count
-        self.byte_count = bytecount
-        self.signed = signed
 
     def forget_value(self):
         raise NotImplementedError("cannot forget value of vector")

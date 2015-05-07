@@ -982,12 +982,11 @@ class BaseTestVectorize(VecTestHelper):
             pass
 
     def test_constant_expansion(self):
-        py.test.skip()
         ops = """
         [p0,i0]
         guard_early_exit() [p0,i0]
         i1 = getarrayitem_raw(p0, i0, descr=floatarraydescr) # constant index
-        i4 = int_mul(i1, 2)
+        i4 = int_mul(i1, 42)
         i3 = int_add(i0,1)
         i5 = int_lt(i3, 10)
         guard_true(i5) [p0, i0]
@@ -995,14 +994,18 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0]
-        i2 = int_add(i0, 4)
+        guard_early_exit() [p0,i0]
+        i20 = int_add(i0, 1)
+        i30 = int_lt(i20, 10)
+        i2 = int_add(i0, 2)
         i3 = int_lt(i2, 10)
         guard_true(i3) [p0,i0]
-        v1 = vec_getarrayitem_raw(p0, i0, 4, descr=floatarraydescr)
-        v2 = int_mul(v1, 2)
+        v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
+        v3 = vec_expand(42, 2)
+        v2 = vec_int_mul(v1, v3, 2)
         jump(p0,i2)
         """
-        vopt = self.vectorize(self.parse_loop(ops),3)
+        vopt = self.vectorize(self.parse_loop(ops),1)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
     def test_element_f45_in_guard_failargs(self):

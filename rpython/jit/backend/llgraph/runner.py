@@ -687,6 +687,9 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_box_unpack(self, vx, index):
         return vx[index]
 
+    def bh_vec_expand(self, x, count):
+        return [x] * count
+
     def bh_vec_int_signext(self, vx, ext, count):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 

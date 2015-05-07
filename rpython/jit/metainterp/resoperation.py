@@ -462,6 +462,7 @@ _oplist = [
     '_VEC_ARITHMETIC_LAST',
     'VEC_BOX_UNPACK/2',
     'VEC_BOX_PACK/3',
+    'VEC_EXPAND/2',
     #
     'INT_LT/2b',
     'INT_LE/2b',
