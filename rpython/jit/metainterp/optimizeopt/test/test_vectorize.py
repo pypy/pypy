@@ -61,10 +61,8 @@ class VecTestHelper(DependencyBaseTest):
         if opt.dependency_graph is not None:
             self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
             opt.schedule()
-            self.debug_print_operations(opt.loop)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
-        self.debug_print_operations(opt.loop)
         opt.clear_newoperations()
         opt.build_dependency_graph()
         self.last_graph = opt.dependency_graph
@@ -711,12 +709,12 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.extend_packset(loop,1)
         assert len(vopt.dependency_graph.memory_refs) == 4
-        self.assert_independent(4,10)
         self.assert_independent(5,11)
         self.assert_independent(6,12)
+        self.assert_independent(7,13)
         assert len(vopt.packset.packs) == 3
         self.assert_packset_empty(vopt.packset, len(loop.operations),
-                                  [(5,11), (4,10), (6,12)])
+                                  [(6,12), (5,11), (7,13)])
 
     @pytest.mark.parametrize("descr", ['char','float','int','singlefloat'])
     def test_packset_combine_simple(self,descr):
@@ -761,6 +759,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7,9,11,13,15))
 
     def test_packset_combine_2_loads_one_redundant(self):
+        py.test.skip("apply redundant load elimination?")
         ops = """
         [p0,i0]
         i3 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
@@ -768,12 +767,12 @@ class BaseTestVectorize(VecTestHelper):
         i4 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
         jump(p0,i1)
         """
-        pytest.skip("loop unrolling must apply redundant loop unrolling")
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 4
-        assert len(vopt.packset.packs) == 1
-        self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
+        assert len(vopt.dependency_graph.memory_refs) == 8
+        assert len(vopt.packset.packs) == 2
+        self.assert_pack(vopt.packset.packs[0], (1,5,9))
+        self.assert_pack(vopt.packset.packs[1], (3,7,11))
 
     def test_packset_combine_no_candidates_packset_empty(self):
         ops = """
@@ -862,14 +861,15 @@ class BaseTestVectorize(VecTestHelper):
         """.format(op=op,descr=descr,stride=1) # stride getarray is always 1
         vops = """
         [p0,p1,p2,i0]
+        guard_early_exit() []
         i10 = int_le(i0, 128)
         guard_true(i10) []
         i1 = int_add(i0, {stride})
         i11 = int_le(i1, 128)
         guard_true(i11) []
         i12 = int_add(i1, {stride})
-        v2 = vec_getarrayitem_raw(p1, i0, 2, descr={descr}arraydescr)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr={descr}arraydescr)
+        v2 = vec_getarrayitem_raw(p1, i0, 2, descr={descr}arraydescr)
         v3 = {op}(v1,v2,2)
         vec_setarrayitem_raw(p2, i0, v3, 2, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
@@ -878,45 +878,29 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.schedule(loop,1)
         self.assert_equal(loop, self.parse_loop(vops))
 
-    @pytest.mark.parametrize('unroll', range(1,16,2))
+    @pytest.mark.parametrize('unroll', range(2,16,3))
     def test_vectorize_index_variable_combination(self, unroll):
-        pytest.skip("implement index variable combination")
         ops = """
         [p0,i0]
+        guard_early_exit() []
         i1 = raw_load(p0, i0, descr=floatarraydescr)
-        i2 = int_add(i0,1)
+        i2 = int_add(i0,8)
         jump(p0,i2)
         """
         vops = """
         [p0,i0]
-        v1 = vec_raw_load(p0, i0, {count}, descr=floatarraydescr)
-        i1 = int_add(i0,{count})
+        guard_early_exit() []
+        """ + '\n        '.join(["i{x} = int_add(i0,{i})".format(i=8*(i+1),x=i+100) for i in range(unroll) ]) + \
+        """
+        i1 = int_add(i0, {count})
+        v1 = vec_raw_load(p0, i0, {elems}, descr=floatarraydescr)
         jump(p0,i1)
-        """.format(count=unroll+1)
+        """.format(count=(unroll+1)*8,elems=unroll+1)
+        print vops
         loop = self.parse_loop(ops)
-        vopt = self.schedule(loop,unroll)
+        vopt = self.vectorize(loop,unroll)
         self.assert_equal(loop, self.parse_loop(vops))
 
-
-    def test_vectorize_raw_load_mul_index(self):
-        pytest.skip("")
-        ops = """
-        [i0, i1, i2, i3, i4, i5, i6, i7]
-        guard_early_exit() []
-        i9 = int_mul(i0, 8)
-        i10 = raw_load(i3, i9, descr=intarraydescr)
-        i11 = int_mul(i0, 8)
-        i12 = raw_load(i3, i11, descr=intarraydescr)
-        i13 = int_add(i10, i12)
-        i14 = int_mul(i0, 8)
-        raw_store(i5, i14, i13, descr=intarraydescr)
-        i16 = int_add(i0, 1)
-        i17 = int_lt(i16, i7)
-        guard_true(i17) [i7, i13, i5, i4, i3, i12, i10, i16]
-        guard_future_condition() []
-        jump(i16, i10, i12, i3, i4, i5, i13, i7)
-        """
-        vopt = self.schedule(self.parse_loop(ops),1)
 
     def test_vschedule_trace_1(self):
         ops = """
@@ -934,56 +918,20 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [i0, i1, i2, i3, i4]
-        i6 = int_mul(i0, 8) 
+        guard_early_exit() []
         i11 = int_add(i0, 1) 
+        i6 = int_mul(i0, 8) 
         i12 = int_lt(i11, i1) 
         guard_true(i12) []
-        i14 = int_mul(i11, 8) 
         i13 = int_add(i11, 1) 
+        i14 = int_mul(i11, 8) 
         i18 = int_lt(i13, i1) 
         guard_true(i18) []
-        v20 = vec_raw_load(i3, i6, 2, descr=intarraydescr) 
         v19 = vec_raw_load(i2, i6, 2, descr=intarraydescr) 
+        v20 = vec_raw_load(i3, i6, 2, descr=intarraydescr) 
         v21 = vec_int_add(v19, v20, 2) 
         vec_raw_store(i4, i6, v21, 2, descr=intarraydescr) 
         jump(i13, i1, i2, i3, i4)
-        """
-        vopt = self.schedule(self.parse_loop(ops),1)
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
-
-    def test_vschedule_trace_2(self):
-        pytest.skip()
-        ops = """
-        [i0, i1, i2, i3, i4, i5, i6, i7]
-        guard_early_exit() []
-        i8 = raw_load(i3, i0, descr=intarraydescr)
-        i9 = raw_load(i4, i0, descr=intarraydescr)
-        i10 = int_add(i8, i9)
-        raw_store(i5, i0, i10, descr=intarraydescr)
-        i12 = int_add(i0, 8)
-        i14 = int_mul(i7, 8)
-        i15 = int_lt(i12, i14)
-        guard_true(i15) [i7, i10, i5, i4, i3, i9, i8, i12]
-        guard_future_condition() []
-        jump(i12, i8, i9, i3, i4, i5, i10, i7)
-        """
-        opt = """
-        [i0, i1, i2, i3, i4, i5, i6, i7]
-        i12 = int_add(i0, 8) 
-        i14 = int_mul(i7, 8) 
-        i20 = int_mul(i7, 8) 
-        i15 = int_lt(i12, i14) 
-        guard_true(i15) []
-        i16 = int_add(i12, 8) 
-        i21 = int_lt(i16, i20) 
-        guard_true(i21) []
-        v22 = vec_raw_load(i3, i0, 2, descr=intarraydescr) 
-        v23 = vec_raw_load(i4, i0, 2, descr=intarraydescr) 
-        v24 = vec_int_add(v22, v23) 
-        vec_raw_store(i5, i0, v24, 2, descr=intarraydescr) 
-        i17 = vec_unpack(v22, 0)
-        i18 = vec_unpack(v22, 1)
-        jump(i16, i17, i18, i3, i4, i5, i19, i7)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
@@ -1004,6 +952,7 @@ class BaseTestVectorize(VecTestHelper):
           for i in range(0,15)])
         opt="""
         [p0,i0]
+        guard_early_exit() [p0,i0]
         {dead_code}
         i2 = int_add(i0, 16)
         i3 = int_lt(i2, 102)
@@ -1056,29 +1005,6 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(self.parse_loop(ops),3)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
-    def test_guard_invalidate(self):
-        py.test.skip()
-        ops = """
-        [p52, i51, p4, i56, p1, f15, p19, i17, p8, i23, p34, i32, i38, f30, p7, i14, i22, i29, i37, i45, i55, i57]
-        debug_merge_point(0, 0, '(numpy_call2: no get_printable_location)')
-        guard_early_exit() [p8, p7, p4, p1, i51, p34, f15, i56, i32, p52, i23, i38, p19, i17, f30]
-        f59 = raw_load(i14, i23, descr=floatarraydescr)
-        guard_not_invalidated() [p8, p7, p4, p1, f59, i51, p34, None, i56, i32, p52, i23, i38, p19, i17, f30]
-        i60 = int_add(i23, i22)
-        f61 = raw_load(i29, i38, descr=floatarraydescr)
-        i62 = int_add(i38, i37)
-        f63 = float_add(f59, f61)
-        raw_store(i45, i56, f63, descr=floatarraydescr)
-        i64 = int_add(i51, 1)
-        i65 = int_add(i56, i55)
-        i66 = int_ge(i64, i57)
-        guard_false(i66) [p8, p7, p4, p1, f59, i62, i60, i65, i64, f61, None, p34, None, None, i32, p52, None, None, p19, i17, None]
-        debug_merge_point(0, 0, '(numpy_call2: no get_printable_location)')
-        jump(p52, i64, p4, i65, p1, f59, p19, i17, p8, i60, p34, i32, i62, f61, p7, i14, i22, i29, i37, i45, i55, i57)
-        """
-        vopt = self.vectorize(self.parse_loop(ops))
-        self.debug_print_operations(vopt.loop)
-
     def test_element_f45_in_guard_failargs(self):
         ops = """
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
@@ -1120,7 +1046,6 @@ class BaseTestVectorize(VecTestHelper):
         jump(p36, i53, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
         """
         vopt = self.vectorize(self.parse_loop(ops))
-        self.debug_print_operations(vopt.loop)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
 
