@@ -273,7 +273,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         i4 = call(i5, i3, descr=nonwritedescr) # 2: 3,4,5?
         guard_no_exception() [i2] # 3: 4,5?
         p2 = getarrayitem_gc(p1,i3,descr=chararraydescr) # 4: 5
-        jump(p2, p1, i3) # 5:
+        jump(p2, p1, i3, i5) # 5:
         """
         self.assert_dependencies(ops, full_check=True)
 

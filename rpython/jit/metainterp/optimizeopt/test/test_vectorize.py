@@ -61,8 +61,10 @@ class VecTestHelper(DependencyBaseTest):
         if opt.dependency_graph is not None:
             self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
             opt.schedule()
+            self.debug_print_operations(opt.loop)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
+        self.debug_print_operations(opt.loop)
         opt.clear_newoperations()
         opt.build_dependency_graph()
         self.last_graph = opt.dependency_graph
@@ -1031,6 +1033,7 @@ class BaseTestVectorize(VecTestHelper):
             pass
 
     def test_constant_expansion(self):
+        py.test.skip()
         ops = """
         [p0,i0]
         guard_early_exit() [p0,i0]
@@ -1052,6 +1055,74 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectorize(self.parse_loop(ops),3)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
+
+    def test_guard_invalidate(self):
+        py.test.skip()
+        ops = """
+        [p52, i51, p4, i56, p1, f15, p19, i17, p8, i23, p34, i32, i38, f30, p7, i14, i22, i29, i37, i45, i55, i57]
+        debug_merge_point(0, 0, '(numpy_call2: no get_printable_location)')
+        guard_early_exit() [p8, p7, p4, p1, i51, p34, f15, i56, i32, p52, i23, i38, p19, i17, f30]
+        f59 = raw_load(i14, i23, descr=floatarraydescr)
+        guard_not_invalidated() [p8, p7, p4, p1, f59, i51, p34, None, i56, i32, p52, i23, i38, p19, i17, f30]
+        i60 = int_add(i23, i22)
+        f61 = raw_load(i29, i38, descr=floatarraydescr)
+        i62 = int_add(i38, i37)
+        f63 = float_add(f59, f61)
+        raw_store(i45, i56, f63, descr=floatarraydescr)
+        i64 = int_add(i51, 1)
+        i65 = int_add(i56, i55)
+        i66 = int_ge(i64, i57)
+        guard_false(i66) [p8, p7, p4, p1, f59, i62, i60, i65, i64, f61, None, p34, None, None, i32, p52, None, None, p19, i17, None]
+        debug_merge_point(0, 0, '(numpy_call2: no get_printable_location)')
+        jump(p52, i64, p4, i65, p1, f59, p19, i17, p8, i60, p34, i32, i62, f61, p7, i14, i22, i29, i37, i45, i55, i57)
+        """
+        vopt = self.vectorize(self.parse_loop(ops))
+        self.debug_print_operations(vopt.loop)
+
+    def test_element_f45_in_guard_failargs(self):
+        ops = """
+        [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
+        guard_early_exit() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        f45 = raw_load(i21, i44, descr=floatarraydescr) 
+        guard_not_invalidated() [p38, p12, p9, p14, f45, p39, i37, i44, f35, i40, p42, i43, None, i28, p36, i41]
+        i46 = int_add(i44, 8) 
+        f47 = raw_load(i4, i41, descr=floatarraydescr) 
+        i48 = int_add(i41, 8) 
+        f49 = float_add(f45, f47)
+        raw_store(i0, i37, f49, descr=floatarraydescr)
+        i50 = int_add(i28, 1)
+        i51 = int_add(i37, 8)
+        i52 = int_ge(i50, i18) 
+        guard_false(i52) [p38, p12, p9, p14, i48, i46, f47, i51, i50, f45, p39, None, None, None, i40, p42, i43, None, None, p36, None]
+        jump(p36, i50, p9, i51, p14, f45, p12, p38, f47, p39, i40, i48, p42, i43, i46, i21, i4, i0, i18)
+        """
+        opt = """
+        [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
+        guard_not_invalidated() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        guard_early_exit() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        i50 = int_add(i28, 1) 
+        i48 = int_add(i41, 8) 
+        i46 = int_add(i44, 8) 
+        i51 = int_add(i37, 8) 
+        i52 = int_ge(i50, i18) 
+        i54 = int_add(i41, 16) 
+        i55 = int_add(i44, 16) 
+        i56 = int_add(i37, 16) 
+        i53 = int_add(i28, 2) 
+        i57 = int_ge(i53, i18) 
+        guard_false(i57) [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        v61 = vec_raw_load(i21, i44, 2, descr=floatarraydescr) 
+        v62 = vec_raw_load(i4, i41, 2, descr=floatarraydescr) 
+        v63 = vec_float_add(v61, v62, 2) 
+        vec_raw_store(i0, i37, v63, 2, descr=floatarraydescr) 
+        f100 = vec_box_unpack(v61, 1)
+        f101 = vec_box_unpack(v62, 1)
+        jump(p36, i53, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
+        """
+        vopt = self.vectorize(self.parse_loop(ops))
+        self.debug_print_operations(vopt.loop)
+        self.assert_equal(vopt.loop, self.parse_loop(opt))
+
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

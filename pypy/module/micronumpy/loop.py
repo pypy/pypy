@@ -16,7 +16,7 @@ from pypy.interpreter.argument import Arguments
 call2_driver = jit.JitDriver(
     name='numpy_call2',
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
-    reds='auto', vectorize=True)
+    reds='auto')
 
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     # handle array_priority
@@ -81,7 +81,7 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
 call1_driver = jit.JitDriver(
     name='numpy_call1',
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
-    reds='auto', vectorize=True)
+    reds='auto')
 
 def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
     obj_iter, obj_state = w_obj.create_iter(shape)

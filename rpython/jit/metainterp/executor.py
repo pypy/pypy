@@ -342,6 +342,8 @@ def _make_execute_list():
                          rop.LABEL,
                          rop.VEC_RAW_LOAD,
                          rop.VEC_RAW_STORE,
+                         rop.VEC_BOX_PACK,
+                         rop.VEC_BOX_UNPACK,
                          rop.VEC_GETARRAYITEM_RAW,
                          rop.VEC_SETARRAYITEM_RAW,
                          ):      # list of opcodes never executed by pyjitpl

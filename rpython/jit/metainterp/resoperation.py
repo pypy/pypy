@@ -460,6 +460,8 @@ _oplist = [
     'VEC_FLOAT_MUL/3',
     'VEC_INT_SIGNEXT/3',
     '_VEC_ARITHMETIC_LAST',
+    'VEC_BOX_UNPACK/2',
+    'VEC_BOX_PACK/3',
     #
     'INT_LT/2b',
     'INT_LE/2b',

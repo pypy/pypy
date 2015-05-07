@@ -590,7 +590,7 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True, vectorize=False,
+                 name='jitdriver', check_untranslated=True, vectorize=True,
                  get_unique_id=None):
         if greens is not None:
             self.greens = greens

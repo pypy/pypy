@@ -61,6 +61,10 @@ class Path(object):
             i += 1
         return True
 
+    def set_schedule_priority(self, p):
+        for node in self.path:
+            node.priority = p
+
     def walk(self, node):
         self.path.append(node)
 
@@ -80,6 +84,7 @@ class Node(object):
         self.pack = None
         self.emitted = False
         self.schedule_position = -1
+        self.priority = 0
 
     def getoperation(self):
         return self.op
@@ -115,7 +120,7 @@ class Node(object):
         # clone this operation object. if the vectorizer is
         # not able to relax guards, it won't leave behind a modified operation
         tgt_op = self.getoperation().clone()
-        op = tgt_op
+        self.op = tgt_op
 
         op = guard.getoperation()
         assert isinstance(tgt_op, GuardResOp)
@@ -441,6 +446,8 @@ class DependencyGraph(object):
     def __init__(self, loop):
         self.loop = loop
         self.nodes = [ Node(op,i) for i,op in enumerate(loop.operations) ]
+        self.invariant_vars = {}
+        self.update_invariant_vars()
         self.memory_refs = {}
         self.schedulable_nodes = []
         self.index_vars = {}
@@ -450,6 +457,19 @@ class DependencyGraph(object):
 
     def getnode(self, i):
         return self.nodes[i]
+
+    def update_invariant_vars(self):
+        label_op = self.nodes[0].getoperation()
+        jump_op = self.nodes[-1].getoperation()
+        assert label_op.numargs() == jump_op.numargs()
+        for i in range(label_op.numargs()):
+            label_box = label_op.getarg(i)
+            jump_box = jump_op.getarg(i)
+            if label_box == jump_box:
+                self.invariant_vars[label_box] = None
+
+    def box_is_invariant(self, box):
+        return box in self.invariant_vars
 
     def build_dependencies(self):
         """ This is basically building the definition-use chain and saving this
@@ -463,13 +483,19 @@ class DependencyGraph(object):
         #
         label_pos = 0
         jump_pos = len(self.nodes)-1
-        intformod = IntegralForwardModification(self.memory_refs, self.index_vars, self.comparison_vars)
+        intformod = IntegralForwardModification(self.memory_refs, self.index_vars,
+                                                self.comparison_vars, self.invariant_vars)
         # pass 1
         for i,node in enumerate(self.nodes):
             op = node.op
+            if op.is_always_pure():
+                node.priority = 1
+            if op.is_guard():
+                node.priority = 2
             # the label operation defines all operations at the
             # beginning of the loop
             if op.getopnum() == rop.LABEL and i != jump_pos:
+                node.priority = 100
                 label_pos = i
                 for arg in op.getarglist():
                     tracker.define(arg, node)
@@ -504,7 +530,7 @@ class DependencyGraph(object):
         for node in self.nodes:
             if node != jump_node:
                 if node.depends_count() == 0:
-                    self.schedulable_nodes.append(node)
+                    self.schedulable_nodes.insert(0, node)
                 # every leaf instruction points to the jump_op. in theory every instruction
                 # points to jump_op. this forces the jump/finish op to be the last operation
                 if node.provides_count() == 0:
@@ -665,52 +691,74 @@ class Scheduler(object):
     def has_more(self):
         return len(self.schedulable_nodes) > 0
 
-    def next(self):
-        return self.schedulable_nodes[0]
+    def next(self, position):
+        i = self._next(self.schedulable_nodes)
+        if i >= 0:
+            candidate = self.schedulable_nodes[i]
+            del self.schedulable_nodes[i]
+            return self.schedule(candidate, position)
 
-    def schedulable(self, indices):
-        for index in indices:
-            if index not in self.schedulable_nodes:
-                break
+        raise RuntimeError("schedule failed cannot continue")
+
+    def _next(self, candidate_list):
+        i = len(candidate_list)-1
+        while i >= 0:
+            candidate = candidate_list[i]
+            if candidate.emitted:
+                del candidate_list[i]
+                i -= 1
+                continue
+            if self.schedulable(candidate):
+                return i
+            i -= 1
+        return -1
+
+    def schedulable(self, candidate):
+        if candidate.pack:
+            for node in candidate.pack.operations:
+                if node.depends_count() > 0:
+                    return False
+        return candidate.depends_count() == 0
+
+    def schedule(self, candidate, position):
+        if candidate.pack:
+            pack = candidate.pack
+            vops = self.sched_data.as_vector_operation(pack)
+            for node in pack.operations:
+                self.scheduled(node, position)
+            return vops
         else:
-            return True
-        return False
+            self.scheduled(candidate, position)
+            return [candidate.getoperation()]
 
-    def schedule_later(self, index):
-        node = self.schedulable_nodes[index]
-        del self.schedulable_nodes[index]
-        self.schedulable_nodes.append(node)
-
-    def schedule_all(self, opindices, position):
-        while len(opindices) > 0:
-            opidx = opindices.pop()
-            for i,node in enumerate(self.schedulable_nodes):
-                if node == opidx:
-                    self.schedule(i, position)
-                    break
-
-    def schedule(self, index, position):
-        node = self.schedulable_nodes[index]
-        node.schedule_position = position
-        del self.schedulable_nodes[index]
-        to_del = []
+    def scheduled(self, node, position):
+        node.position = position
         for dep in node.provides()[:]: # COPY
             to = dep.to
             node.remove_edge_to(to)
             if not to.emitted and to.depends_count() == 0:
-                if to.pack:
-                    self.schedulable_nodes.append(to)
+                # sorts them by priority
+                nodes = self.schedulable_nodes
+                i = len(nodes)-1
+                while i >= 0:
+                    itnode = nodes[i]
+                    if itnode.priority < to.priority:
+                        nodes.insert(i+1, to)
+                        break
+                    i -= 1
                 else:
-                    self.schedulable_nodes.insert(0, to)
+                    nodes.insert(0, to)
         node.clear_dependencies()
         node.emitted = True
 
+
 class IntegralForwardModification(object):
     """ Calculates integral modifications on an integer box. """
-    def __init__(self, memory_refs, index_vars, comparison_vars):
+    def __init__(self, memory_refs, index_vars, comparison_vars, invariant_vars):
         self.index_vars = index_vars
         self.comparison_vars = comparison_vars
         self.memory_refs = memory_refs
+        self.invariant_vars = invariant_vars
 
     def is_const_integral(self, box):
         if isinstance(box, ConstInt):
@@ -727,12 +775,8 @@ class IntegralForwardModification(object):
     def operation_{name}(self, op, node):
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
-        left = None
-        right = None
-        if not self.is_const_integral(box_a0):
-            left = self.get_or_create(box_a0)
-        if not self.is_const_integral(box_a1):
-            right = self.get_or_create(box_a1)
+        left = self.index_vars.get(box_a0, None)
+        right = self.index_vars.get(box_a1, None)
         box_r = op.result
         self.comparison_vars[box_r] = CompareOperation(op.getopnum(), left, right)
     """
@@ -769,6 +813,34 @@ class IntegralForwardModification(object):
     exec py.code.Source(additive_func_source
             .format(name='INT_SUB', op='-')).compile()
     del additive_func_source
+
+    #def operation_INT_ADD(self, op, node):
+    #    box_r = op.result
+    #    if not box_r:
+    #        return
+    #    box_a0 = op.getarg(0)
+    #    box_a1 = op.getarg(1)
+    #    if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
+    #        idx_ref = IndexVar(box_r)
+    #        idx_ref.constant = box_a0.getint() + box_a1.getint()
+    #        self.index_vars[box_r] = idx_ref 
+    #    elif self.is_const_integral(box_a0):
+    #        idx_ref = self.get_or_create(box_a1)
+    #        idx_ref = idx_ref.clone()
+    #        idx_ref.constant {op}= box_a0.getint()
+    #        self.index_vars[box_r] = idx_ref
+    #    elif self.is_const_integral(box_a1):
+    #        idx_ref = self.get_or_create(box_a0)
+    #        idx_ref = idx_ref.clone()
+    #        idx_ref.add_const(box_a1.getint())
+    #        self.index_vars[box_r] = idx_ref
+    #    else:
+    #        # both variables are boxes
+    #        if box_a1 in self.invariant_vars:
+    #            idx_var = self.get_or_create(box_a0)
+    #            idx_var = idx_var.clone()
+    #            idx_var.set_next_nonconst_mod(BoxedIndexVar(box_a1, op.getopnum(), box_a0))
+    #            self.index_vars[box_r] = idx_var
 
     multiplicative_func_source = """
     def operation_{name}(self, op, node):
@@ -847,9 +919,40 @@ class IndexVar(object):
         self.coefficient_mul = 1
         self.coefficient_div = 1
         self.constant = 0
+        # saves the next modification that uses a variable
+        self.next_nonconst = None
+        self.current_end = None
+        self.opnum = 0
+
+    def stride_const(self):
+        return self.next_nonconst is None
+
+    def add_const(self, number):
+        if self.current_end is None:
+            self.constant += number
+        else:
+            self.current_end.constant += number
+
+    def set_next_nonconst_mod(self, idxvar):
+        if self.current_end is None:
+            self.next_nonconst = idxvar
+        else:
+            self.current_end.next_nonconst = idxvar
+        self.current_end = idxvar
+
+    def is_adjacent_with_runtime_check(self, other, graph):
+        return self.next_nonconst is not None and \
+               self.next_nonconst is self.current_end and \
+               self.next_nonconst.opnum == rop.INT_ADD and \
+               self.next_nonconst.is_identity()
 
     def getvariable(self):
         return self.var
+
+    def is_identity(self):
+        return self.coefficient_mul == 1 and \
+               self.coefficient_div == 1 and \
+               self.constant == 0
 
     def __eq__(self, other):
         if self.same_variable(other):
@@ -883,8 +986,12 @@ class IndexVar(object):
         return mycoeff + self.constant - (othercoeff + other.constant)
 
     def __repr__(self):
-        return 'IndexVar(%s*(%s/%s)+%s)' % (self.var, self.coefficient_mul,
-                                            self.coefficient_div, self.constant)
+        if self.is_identity():
+            return 'IndexVar(%s+%s)' % (self.var, repr(self.next_nonconst))
+
+        return 'IndexVar((%s*(%s/%s)+%s) + %s)' % (self.var, self.coefficient_mul,
+                                            self.coefficient_div, self.constant,
+                                            repr(self.next_nonconst))
 
     def adapt_operation(self, op):
         # TODO
@@ -921,6 +1028,15 @@ class MemoryRef(object):
         stride = self.stride()
         if self.match(other):
             return abs(self.index_var.diff(other.index_var)) - stride == 0
+        return False
+
+    def is_adjacent_with_runtime_check(self, other, graph):
+        """there are many cases where the stride is variable
+           it is a priori not known if two unrolled memory accesses are
+           tightly packed"""
+        assert isinstance(other, MemoryRef)
+        if self.array == other.array and self.descr == other.descr:
+            return self.index_var.is_adjacent_with_runtime_check(other.index_var, graph)
         return False
 
     def match(self, other):

@@ -517,10 +517,10 @@ class BoxVector(Box):
     _attrs_ = ('item_type','byte_count','item_count','signed')
     _extended_display = False
 
-    def __init__(self, item_type=INT, byte_count=4, item_count=4, signed=True):
+    def __init__(self, item_type, item_count, bytecount, signed):
         self.item_type = item_type
-        self.byte_count = byte_count
         self.item_count = item_count
+        self.byte_count = bytecount
         self.signed = signed
 
     def forget_value(self):

@@ -141,7 +141,9 @@ class ArrayIter(object):
         indices = state._indices
         offset = state.offset
         if self.contiguous:
-            offset += self.array.dtype.elsize
+            elsize = self.array.dtype.elsize
+            jit.promote(elsize)
+            offset += elsize
         elif self.ndim_m1 == 0:
             offset += self.strides[0]
         else:
