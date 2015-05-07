@@ -18,10 +18,11 @@ def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            _nowrapper=True, **kwds)
 
+_CFFI_OPCODE_T = rffi.VOIDP
 GLOBAL_S = rffi.CStruct('struct _cffi_global_s',
                        ('name', rffi.CCHARP),
                        ('address', rffi.VOIDP),
-                       ('type_op', rffi.SIGNED),
+                       ('type_op', _CFFI_OPCODE_T),
                        ('size', rffi.SIZE_T))
 STRUCT_UNION_S = rffi.CStruct('struct _cffi_struct_union_s',
                        ('name', rffi.CCHARP),
@@ -31,7 +32,12 @@ STRUCT_UNION_S = rffi.CStruct('struct _cffi_struct_union_s',
                        ('alignment', rffi.INT),
                        ('first_field_index', rffi.INT),
                        ('num_fields', rffi.INT))
-FIELD_S = rffi.CStruct('struct _cffi_field_s')
+FIELD_S = rffi.CStruct('struct _cffi_field_s',
+    ## const char *name;
+    ## size_t field_offset;
+    ## size_t field_size;
+    ## _cffi_opcode_t field_type_op;
+    )
 ENUM_S = rffi.CStruct('struct _cffi_enum_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT),
@@ -62,7 +68,11 @@ PINFO = rffi.CStructPtr('struct _cffi_parse_info_s',
                         ('error_location', rffi.SIZE_T),
                         ('error_message', rffi.CCHARP))
 
-ll_parse_c_type = llexternal('parse_c_type', [PINFO, rffi.CCHARP], rffi.INT)
+ll_parse_c_type = llexternal('pypy_parse_c_type', [PINFO, rffi.CCHARP],
+                             rffi.INT)
+ll_search_in_globals = llexternal('pypy_search_in_globals',
+                                  [PCTX, rffi.CCHARP, rffi.SIZE_T],
+                                  rffi.INT)
 
 def parse_c_type(info, input):
     p_input = rffi.str2charp(input)
@@ -96,3 +106,10 @@ def free_ctxobj(p):
 
 def get_num_types(src_ctx):
     return rffi.getintfield(src_ctx, 'c_num_types')
+
+def search_in_globals(ctx, name):
+    c_name = rffi.str2charp(name)
+    result = ll_search_in_globals(ctx, c_name,
+                                  rffi.cast(rffi.SIZE_T, len(name)))
+    rffi.free_charp(c_name)
+    return rffi.cast(lltype.Signed, result)

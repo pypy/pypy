@@ -7,6 +7,10 @@
 #define _CFFI_INTERNAL
 #include "src/precommondefs.h"
 #include "parse_c_type.h"
+#define search_in_globals       pypy_search_in_globals
+#define search_in_struct_unions pypy_search_in_struct_unions
+#define search_in_typenames     pypy_search_in_typenames
+#define search_in_enums         pypy_search_in_enums
 
 
 enum token_e {
@@ -408,8 +412,8 @@ static int parse_sequel(token_t *tok, int outer)
 
 
 #define MAKE_SEARCH_FUNC(FIELD)                                 \
-  static                                                        \
-  int search_in_##FIELD(const struct _cffi_type_context_s *ctx, \
+  RPY_EXTERN int                                                \
+  pypy_search_in_##FIELD(const struct _cffi_type_context_s *ctx,\
                         const char *search, size_t search_len)  \
   {                                                             \
       int left = 0, right = ctx->num_##FIELD;                   \
@@ -734,7 +738,7 @@ static int parse_complete(token_t *tok)
 
 
 RPY_EXTERN
-int parse_c_type(struct _cffi_parse_info_s *info, const char *input)
+int pypy_parse_c_type(struct _cffi_parse_info_s *info, const char *input)
 {
     int result;
     token_t token;
