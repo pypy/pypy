@@ -44,7 +44,7 @@ class W_CTypeStructOrUnion(W_CType):
             raise oefmt(w_errorcls or space.w_TypeError,
                         "'%s' is opaque or not completed yet", self.name)
 
-    def force_lazy_struct(self, w_errorcls=None):
+    def force_lazy_struct(self):
         # Force a "lazy" struct to become "forced"; complain if we are "opaque".
         if self._fields_list is None:
             self.check_complete()
