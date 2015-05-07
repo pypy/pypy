@@ -58,6 +58,7 @@ class W_FFIObject(W_Root):
     def ffi_type(self, w_x, accept):
         space = self.space
         if (accept & ACCEPT_STRING) and space.isinstance_w(w_x, space.w_str):
+            self = jit.promote(self)
             return self.parse_string_to_type(space.str_w(w_x),
                                              accept & CONSIDER_FN_AS_FNPTR)
         if (accept & ACCEPT_CTYPE) and isinstance(w_x, W_CType):
