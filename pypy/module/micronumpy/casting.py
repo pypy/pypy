@@ -4,11 +4,10 @@ from rpython.rlib import jit
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
 
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.ufuncs import (
     find_binop_result_dtype, find_dtype_for_scalar)
-from .boxes import W_GenericBox
 from .types import (
     Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType)
 from .descriptor import get_dtype_cache, as_dtype, is_scalar_w
@@ -98,3 +97,12 @@ def can_cast_scalar(space, from_type, value, target, casting):
 def as_scalar(space, w_obj):
     dtype = find_dtype_for_scalar(space, w_obj)
     return dtype.coerce(space, w_obj)
+
+def min_scalar_type(space, w_a):
+    w_array = convert_to_array(space, w_a)
+    dtype = w_array.get_dtype()
+    if w_array.is_scalar() and dtype.is_number():
+        num, alt_num = w_array.get_scalar_value().min_dtype()
+        return get_dtype_cache(space).dtypes_by_num[num]
+    else:
+        return dtype

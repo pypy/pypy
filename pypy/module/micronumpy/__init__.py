@@ -23,6 +23,7 @@ class MultiArrayModule(MixedModule):
         'where': 'arrayops.where',
         'result_type': 'casting.result_type',
         'can_cast': 'casting.can_cast',
+        'min_scalar_type': 'casting.min_scalar_type',
 
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',

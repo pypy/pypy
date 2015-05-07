@@ -112,3 +112,10 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert not np.can_cast(1 + 1e50j, np.complex64)
         assert np.can_cast(1., np.complex64)
         assert not np.can_cast(1e50, np.complex64)
+
+    def test_min_scalar_type(self):
+        import numpy as np
+        assert np.min_scalar_type(2**8 - 1) == np.dtype('uint8')
+        assert np.min_scalar_type(2**64 - 1) == np.dtype('uint64')
+        # XXX: np.asarray(2**64) fails with OverflowError
+        # assert np.min_scalar_type(2**64) == np.dtype('O')
