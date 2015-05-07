@@ -288,7 +288,6 @@ class ExecutionContext(object):
         # field of all frames, during the loop below.)
         frame = self.gettopframe_nohidden()
         while frame:
-            frame.getorcreatedebug().f_lineno = frame.get_last_lineno()
             if is_being_profiled:
                 frame.getorcreatedebug().is_being_profiled = True
             frame = self.getnextframe_nohidden(frame)

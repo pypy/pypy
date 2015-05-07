@@ -34,6 +34,9 @@ class FrameDebugData(object):
     is_being_profiled        = False
     w_locals                 = None
 
+    def __init__(self, pycode):
+        self.f_lineno = pycode.co_firstlineno
+
 class PyFrame(W_Root):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
@@ -106,7 +109,7 @@ class PyFrame(W_Root):
 
     def getorcreatedebug(self):
         if self.debugdata is None:
-            self.debugdata = FrameDebugData()
+            self.debugdata = FrameDebugData(self.pycode)
         return self.debugdata
 
     def get_w_f_trace(self):
@@ -822,7 +825,7 @@ class PyFrame(W_Root):
         else:
             d = self.getorcreatedebug()
             d.w_f_trace = w_trace
-            d = self.get_last_lineno()
+            d.f_lineno = self.get_last_lineno()
 
     def fdel_f_trace(self, space):
         self.getorcreatedebug().w_f_trace = None
