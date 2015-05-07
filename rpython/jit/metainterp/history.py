@@ -517,7 +517,7 @@ class BoxVector(Box):
     _attrs_ = ('item_type','byte_count','item_count','signed')
     _extended_display = False
 
-    def __init__(self, item_type, item_count, bytecount, signed):
+    def __init__(self, item_type=FLOAT, item_count=8, bytecount=2, signed=True):
         self.item_type = item_type
         self.item_count = item_count
         self.byte_count = bytecount

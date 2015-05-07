@@ -668,20 +668,24 @@ class LLGraphCPU(model.AbstractCPU):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
 
     # vector operations
-    def bh_vec_int_add(self, vx, vy, count):
+    vector_arith_code = """
+    def bh_vec_{0}_{1}(self, vx, vy, count):
         assert len(vx) == count
         assert len(vy) == count
-        return [_vx + _vy for _vx,_vy in zip(vx,vy)]
+        return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
+    """
+    exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
+    exec py.code.Source(vector_arith_code.format('int','sub','-')).compile()
+    exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
+    exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
+    exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
+    exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
 
-    def bh_vec_int_mul(self, vx, vy, count):
-        assert len(vx) == count
-        assert len(vy) == count
-        return [_vx * _vy for _vx,_vy in zip(vx,vy)]
+    def bh_vec_box_pack(self, vx, index, y):
+        vx[index] = y
 
-    def bh_vec_int_sub(self, vx, vy, count):
-        assert len(vx) == count
-        assert len(vy) == count
-        return [_vx - _vy for _vx,_vy in zip(vx,vy)]
+    def bh_vec_box_unpack(self, vx, index):
+        return vx[index]
 
     def bh_vec_int_signext(self, vx, ext, count):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]

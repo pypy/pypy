@@ -125,7 +125,7 @@ class Node(object):
         op = guard.getoperation()
         assert isinstance(tgt_op, GuardResOp)
         assert isinstance(op, GuardResOp)
-        olddescr = tgt_op.getdescr()
+        olddescr = op.getdescr()
         descr = compile.ResumeAtLoopHeaderDescr()
         if olddescr:
             assert isinstance(olddescr, compile.ResumeGuardDescr)
