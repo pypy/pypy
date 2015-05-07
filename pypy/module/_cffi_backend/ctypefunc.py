@@ -292,7 +292,8 @@ class CifDescrBuilder(object):
         # here, so better safe (and forbid it) than sorry (and maybe
         # crash).
         space = self.space
-        if ctype.custom_field_pos:
+        ctype.force_lazy_struct()
+        if ctype._custom_field_pos:
             raise OperationError(space.w_TypeError,
                                  space.wrap(
                "cannot pass as an argument a struct that was completed "
@@ -302,7 +303,7 @@ class CifDescrBuilder(object):
         # walk the fields, expanding arrays into repetitions; first,
         # only count how many flattened fields there are
         nflat = 0
-        for i, cf in enumerate(ctype.fields_list):
+        for i, cf in enumerate(ctype._fields_list):
             if cf.is_bitfield():
                 raise oefmt(space.w_NotImplementedError,
                     "ctype '%s' not supported as argument or return value"
@@ -334,7 +335,7 @@ class CifDescrBuilder(object):
 
         # fill it with the ffi types of the fields
         nflat = 0
-        for i, cf in enumerate(ctype.fields_list):
+        for i, cf in enumerate(ctype._fields_list):
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):

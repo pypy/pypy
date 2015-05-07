@@ -349,9 +349,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
                 # a nested anonymous struct or union
                 srcfield2names = {}
-                for name, srcfld in ftype.fields_dict.items():
+                ftype.force_lazy_struct()
+                for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
-                for srcfld in ftype.fields_list:
+                for srcfld in ftype._fields_list:
                     fld = srcfld.make_shifted(boffset // 8)
                     fields_list.append(fld)
                     try:
@@ -492,10 +493,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
     w_ctype.size = totalsize
     w_ctype.alignment = totalalignment
-    w_ctype.fields_list = fields_list[:]
-    w_ctype.fields_dict = fields_dict
-    w_ctype.custom_field_pos = custom_field_pos
-    w_ctype.with_var_array = with_var_array
+    w_ctype._fields_list = fields_list[:]
+    w_ctype._fields_dict = fields_dict
+    w_ctype._custom_field_pos = custom_field_pos
+    w_ctype._with_var_array = with_var_array
 
 # ____________________________________________________________
 
