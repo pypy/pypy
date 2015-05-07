@@ -1110,7 +1110,6 @@ def setup_library(space):
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
-initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
 @unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
@@ -1143,7 +1142,8 @@ def load_extension_module(space, path, name):
             pass
         else:
             from pypy.module._cffi_backend.cffi1_module import load_cffi1_module
-            return load_cffi1_module(space, name, dll, initptr)
+            load_cffi1_module(space, name, path, dll, initptr)
+            return
     #
     if space.config.objspace.usemodules.cpyext:
         also_look_for = 'init%s' % (basename,)
@@ -1152,7 +1152,8 @@ def load_extension_module(space, path, name):
         except KeyError:
             pass
         else:
-            return load_cpyext_module(space, name, dll, initptr)
+            load_cpyext_module(space, name, path, dll, initptr)
+            return
         if look_for is not None:
             look_for += ' or ' + also_look_for
         else:
@@ -1161,8 +1162,9 @@ def load_extension_module(space, path, name):
     raise oefmt(space.w_ImportError,
                 "function %s not found in library %s", look_for, path)
 
+initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-def load_cpyext_module(space, name, dll, initptr):
+def load_cpyext_module(space, name, path, dll, initptr):
     from rpython.rlib import rdynload
 
     space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
