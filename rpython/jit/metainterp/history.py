@@ -525,7 +525,7 @@ class BoxVector(Box):
         raise NotImplementedError("cannot forget value of vector")
 
     def clonebox(self):
-        return BoxVector(self.item_type, self.byte_count, self.item_count, self.signed)
+        return BoxVector(self.item_type, self.item_count)
 
     def constbox(self):
         raise NotImplementedError("not possible to have a constant vector box")

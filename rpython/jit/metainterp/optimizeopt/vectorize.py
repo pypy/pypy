@@ -4,8 +4,8 @@ from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
-from rpython.jit.metainterp.history import (ConstInt, VECTOR, BoxVector,
-        TargetToken, JitCellToken)
+from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
+        BoxVector, TargetToken, JitCellToken, Box)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
@@ -396,26 +396,48 @@ class VectorizingOptimizer(Optimizer):
     def unpack_from_vector(self, op, sched_data):
         box_to_vbox = sched_data.box_to_vbox
         for i, arg in enumerate(op.getarglist()):
-            (i, vbox) = box_to_vbox.get(arg, (-1, None))
-            if vbox:
-                unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, ConstInt(i)], arg)
-                self.emit_operation(unpack_op)
+            if isinstance(arg, Box):
+                arg = sched_data.unpack_rename(arg)
+                op.setarg(i, arg)
+                (j, vbox) = box_to_vbox.get(arg, (-1, None))
+                if vbox:
+                    arg_cloned = arg.clonebox()
+                    unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, ConstInt(j)], arg_cloned)
+                    self.emit_operation(unpack_op)
+                    sched_data.rename_unpacked(arg, arg_cloned)
+                    op.setarg(i, arg_cloned)
+        if op.is_guard():
+            fail_args = op.getfailargs()
+            for i, arg in enumerate(fail_args):
+                if arg and isinstance(arg, Box):
+                    arg = sched_data.unpack_rename(arg)
+                    fail_args[i] = arg
+                    (j, vbox) = box_to_vbox.get(arg, (-1, None))
+                    if vbox:
+                        arg_cloned = arg.clonebox()
+                        unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, ConstInt(j)], arg_cloned)
+                        self.emit_operation(unpack_op)
+                        sched_data.rename_unpacked(arg, arg_cloned)
+                        fail_args[i] = arg_cloned
+
+
 
     def analyse_index_calculations(self):
         if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
             return
 
-        self.dependency_graph = dependencies = DependencyGraph(self.loop)
+        self.dependency_graph = graph = DependencyGraph(self.loop)
 
-        label_node = dependencies.getnode(0)
-        ee_guard_node = dependencies.getnode(self.early_exit_idx)
-        guards = dependencies.guards
+        label_node = graph.getnode(0)
+        ee_guard_node = graph.getnode(self.early_exit_idx)
+        guards = graph.guards
         fail_args = []
         for guard_node in guards:
             if guard_node is ee_guard_node:
                 continue
             del_deps = []
             pullup = []
+            valid_trans = True
             last_prev_node = None
             for path in guard_node.iterate_paths(ee_guard_node, True):
                 prev_node = path.second()
@@ -428,17 +450,21 @@ class VectorizingOptimizer(Optimizer):
                         #index_guards[guard.getindex()] = IndexGuard(guard, path.path[:])
                         path.set_schedule_priority(10)
                         pullup.append(path.last_but_one())
+                    else:
+                        valid_trans = False
+                        break
                 last_prev_node = prev_node
-            for a,b in del_deps:
-                a.remove_edge_to(b)
-            for lbo in pullup:
-                if lbo is ee_guard_node:
-                    continue
-                ee_guard_node.remove_edge_to(lbo)
-                label_node.edge_to(lbo, label='pullup')
-            # only the last guard needs a connection
-            guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
-            guard_node.relax_guard_to(ee_guard_node)
+            if valid_trans:
+                for a,b in del_deps:
+                    a.remove_edge_to(b)
+                for lbo in pullup:
+                    if lbo is ee_guard_node:
+                        continue
+                    ee_guard_node.remove_edge_to(lbo)
+                    label_node.edge_to(lbo, label='pullup')
+                # only the last guard needs a connection
+                guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
+                guard_node.relax_guard_to(ee_guard_node)
 
     def collapse_index_guards(self):
         strongest_guards = {}
@@ -503,12 +529,6 @@ def must_unpack_result_to_exec(op, target_op):
         return False
     return True
 
-def prohibit_packing(op1, op2):
-    if op1.is_array_op():
-        if op1.getarg(1) == op2.result:
-            return True
-    return False
-
 def fail_args_break_dependency(guard, prev_op, target_guard):
     failargs = guard.getfailarg_set()
     new_failargs = target_guard.getfailarg_set()
@@ -532,8 +552,15 @@ def fail_args_break_dependency(guard, prev_op, target_guard):
 class VecScheduleData(SchedulerData):
     def __init__(self):
         self.box_to_vbox = {}
+        self.unpack_rename_map = {}
         self.preamble_ops = None
         self.expansion_byte_count = -1
+
+    def unpack_rename(self, arg):
+        return self.unpack_rename_map.get(arg, arg)
+
+    def rename_unpacked(self, arg, argdest):
+        self.unpack_rename_map[arg] = argdest
 
     def as_vector_operation(self, pack):
         op_count = len(pack.operations)
@@ -558,10 +585,10 @@ class VecScheduleData(SchedulerData):
         except KeyError:
             return None
 
-    def vector_result(self, vop):
+    def vector_result(self, vop, type):
         ops = self.pack.operations
         result = vop.result
-        vbox = BoxVector(result.type, len(ops))
+        vbox = BoxVector(type, len(ops))
         vop.result = vbox
         i = 0
         while i < len(ops):
@@ -591,39 +618,48 @@ class VecScheduleData(SchedulerData):
                 all_same_box = False
                 break
 
+        vbox = BoxVector(arg.type, len(ops))
         if all_same_box:
-            vbox = BoxVector(arg.type, len(ops))
             expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(len(ops))], vbox)
             self.preamble_ops.append(expand_op)
-            return vbox
         else:
-            assert False, "not yet handled"
+            resop = ResOperation(rop.VEC_BOX, [ConstInt(len(ops))], vbox)
+            self.preamble_ops.append(resop)
+            for i,op in enumerate(ops):
+                arg = op.getoperation().getarg(argidx)
+                resop = ResOperation(rop.VEC_BOX_PACK,
+                                     [vbox,ConstInt(i),arg], None)
+                self.preamble_ops.append(resop)
+        return vbox
 
     bin_arith_trans = """
     def _vectorize_{name}(self, vop):
-        vbox = self.vector_arg(vop, 0)
+        self.vector_arg(vop, 0)
         self.vector_arg(vop, 1)
-        self.vector_result(vop)
+        self.vector_result(vop, vop.result.type)
     """
-    exec py.code.Source(bin_arith_trans.format(name='VEC_INT_ADD')).compile()
-    exec py.code.Source(bin_arith_trans.format(name='VEC_INT_MUL')).compile()
-    exec py.code.Source(bin_arith_trans.format(name='VEC_INT_SUB')).compile()
-    exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_ADD')).compile()
-    exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_MUL')).compile()
-    exec py.code.Source(bin_arith_trans.format(name='VEC_FLOAT_SUB')).compile()
+    for name in ['VEC_FLOAT_SUB','VEC_FLOAT_MUL','VEC_FLOAT_ADD',
+                 'VEC_INT_ADD','VEC_INT_MUL', 'VEC_INT_SUB',
+                ]:
+        exec py.code.Source(bin_arith_trans.format(name=name)).compile()
     del bin_arith_trans
+
+    def _vectorize_VEC_FLOAT_EQ(self, vop):
+        self.vector_arg(vop, 0)
+        self.vector_arg(vop, 1)
+        self.vector_result(vop, INT)
 
     def _vectorize_VEC_INT_SIGNEXT(self, vop):
         self.vector_arg(vop, 0)
         # arg 1 is a constant
-        self.vector_result(vop)
+        self.vector_result(vop, vop.result.type)
 
     def _vectorize_VEC_RAW_LOAD(self, vop):
         descr = vop.getdescr()
-        self.vector_result(vop)
+        self.vector_result(vop, vop.result.type)
     def _vectorize_VEC_GETARRAYITEM_RAW(self, vop):
         descr = vop.getdescr()
-        self.vector_result(vop)
+        self.vector_result(vop, vop.result.type)
 
     def _vectorize_VEC_RAW_STORE(self, vop):
         self.vector_arg(vop, 2)
@@ -655,15 +691,16 @@ class PackSet(object):
         return len(self.packs)
 
     def add_pair(self, l, r):
+        if l.op.is_guard():
+            assert False
         self.packs.append(Pair(l,r))
 
     def can_be_packed(self, lnode, rnode):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
                 for pack in self.packs:
-                    # TODO save pack on Node
-                    if pack.left.getindex()== lnode.getindex() or \
-                       pack.right.getindex() == rnode.getindex():
+                    if pack.left == lnode or \
+                       pack.right == rnode:
                         return False
                 return True
         return False
@@ -677,10 +714,10 @@ class PackSet(object):
         savings = -1
 
         lpacknode = pack.left
-        if prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
+        if self.prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
             return -1
         rpacknode = pack.right
-        if prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
+        if self.prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
             return -1
 
         if not expand_forward:
@@ -693,6 +730,15 @@ class PackSet(object):
                 savings += 1
 
         return savings
+
+    def prohibit_packing(self, packed, inquestion):
+        if inquestion.vector == -1:
+            return True
+        if packed.is_array_op():
+            if packed.getarg(1) == inquestion.result:
+                return True
+        return False
+
 
     def combine(self, i, j):
         """ combine two packs. it is assumed that the attribute self.packs

@@ -2184,8 +2184,6 @@ class MetaInterp(object):
         self.current_merge_points = []
         self.resumekey = key
         self.seen_loop_header_for_jdindex = -1
-        import py
-        py.test.set_trace()
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         try:
@@ -2338,8 +2336,6 @@ class MetaInterp(object):
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
         elif opnum == rop.GUARD_EARLY_EXIT:
-            import py
-            py.test.set_trace()
             pass
         elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
             frame.pc = frame.jitcode.follow_jump(frame.pc)

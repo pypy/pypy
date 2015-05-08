@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import (rop, GuardResOp)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box, Const
+from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box, Const, BoxFloat
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
@@ -196,7 +196,10 @@ class Node(object):
             # assume this destroys every argument... can be enhanced by looking
             # at the effect info of a call for instance
             for arg in op.getarglist():
-                args.append((arg,None,True))
+                if isinstance(arg, Const) or isinstance(arg, BoxFloat):
+                    args.append((arg, None, False))
+                else:
+                    args.append((arg,None,True))
         return args
 
     def provides_count(self):
@@ -677,7 +680,7 @@ class DependencyGraph(object):
                     dot += " n%d -> n%d %s;\n" % (node.getindex(),dep.to_index(),label)
             dot += "\n}\n"
             return dot
-        raise NotImplementedError("dot cannot built at runtime")
+        raise NotImplementedError("dot only for debug purpose")
 
 class SchedulerData(object):
     pass

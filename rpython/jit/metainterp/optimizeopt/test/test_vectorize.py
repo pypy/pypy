@@ -1078,6 +1078,37 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(self.parse_loop(ops))
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
+    def test_call_prohibits_vectorization(self):
+        ops = """
+        [p31, i32, p3, i33, f10, p24, p34, p35, i19, p5, i36, p37, i28, f13, i29, i15]
+        guard_early_exit() [p5,p37,p34,p3,p24,i32,p35,i36,i33,f10,p31,i19]
+        f38 = raw_load(i28, i33, descr=floatarraydescr)
+        guard_not_invalidated()[p5,p37,p34,p3,p24,f38,i32,p35,i36,i33,None,p31,i19]
+        i39 = int_add(i33, 8) 
+        f40 = float_mul(f38, 0.0)
+        i41 = float_eq(f40, f40)
+        guard_true(i41) [p5,p37,p34,p3,p24,f13,f38,i39,i32,p35,i36,None,None,p31,i19]
+        f42 = call(111, f38, f13, descr=writeadescr)
+        i43 = call(222, 333, descr=writeadescr)
+        f44 = float_mul(f42, 0.0)
+        i45 = float_eq(f44, f44)
+        guard_true(i45) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
+        i46 = int_is_true(i43)
+        guard_false(i46) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
+        raw_store(i29, i36, f42, descr=floatarraydescr)
+        i47 = int_add(i19, 1)
+        i48 = int_add(i36, 8)
+        i49 = int_ge(i47, i15)
+        guard_false(i49) [p5,p37,p34,p3,p24,i47,f38,i48,i39,i32,p35,None,None,None,p31,None]
+        jump(p31, i32, p3, i39, f38, p24, p34, p35, i47, p5, i48, p37, i28, f13, i29, i15)
+        """
+        try:
+            vopt = self.vectorize(self.parse_loop(ops))
+            self.debug_print_operations(vopt.loop)
+            # TODO verify
+        except NotAVectorizeableLoop:
+            pass
+
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

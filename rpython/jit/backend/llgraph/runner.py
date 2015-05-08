@@ -680,6 +680,17 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
     exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
     exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
+    exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
+
+    def bh_vec_float_eq(self, vx, vy, count):
+        assert len(vx) == count
+        assert len(vy) == count
+        return [_vx == _vy for _vx,_vy in zip(vx,vy)]
+    bh_vec_float_eq.argtypes = ['f','f','i']
+    bh_vec_float_eq.resulttype = 'i'
+
+    def bh_vec_box(self, size):
+        return [0] * size
 
     def bh_vec_box_pack(self, vx, index, y):
         vx[index] = y
@@ -776,18 +787,15 @@ class LLFrame(object):
         elif box.type == VECTOR:
             if box.item_type == INT:
                 _type = lltype.Signed
-                i = 0
-                while i < len(arg):
-                    a = arg[i]
+                for i,a in enumerate(arg):
                     if isinstance(a, bool):
                         arg[i] = int(a) 
-                    i+=1
             elif box.item_type == FLOAT:
                 _type = longlong.FLOATSTORAGE
             else:
                 raise AssertionError(box)
-            for a in arg:
-                assert lltype.typeOf(a) == _type
+            #for a in arg:
+            #    assert lltype.typeOf(a) == _type
         else:
             raise AssertionError(box)
         #
