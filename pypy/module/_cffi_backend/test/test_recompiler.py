@@ -2,6 +2,8 @@ import os, py
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.module._cffi_backend.newtype import _clean_cache
+import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
@@ -43,6 +45,21 @@ class AppTestRecompiler:
 
     def setup_class(cls):
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
+
+    def setup_method(self, meth):
+        self._w_modules = self.space.appexec([], """():
+            import sys
+            return set(sys.modules)
+        """)
+
+    def teardown_method(self, meth):
+        self.space.appexec([self._w_modules], """(old_modules):
+            import sys
+            for key in sys.modules.keys():
+                if key not in old_modules:
+                    del sys.modules[key]
+        """)
+        _clean_cache(self.space)
 
     def test_math_sin(self):
         import math
