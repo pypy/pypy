@@ -199,6 +199,50 @@ def _realize_c_struct_or_union(ffi, sindex):
             raise
     return x
 
+def _realize_c_enum(ffi, eindex):
+    e = ffi.ctxobj.ctx.c_enums[eindex]
+    type_index = rffi.getintfield(e, 'c_type_index')
+    if ffi.cached_types[type_index] is not None:
+        return ffi.cached_types[type_index] #found already in the "primary" slot
+
+    space = ffi.space
+    w_basetd = get_primitive_type(space, rffi.getintfield(e, 'c_type_prim'))
+
+    enumerators_w = []
+    enumvalues_w = []
+    p = e.c_enumerators
+    if p[0] != '\x00':
+        while True:
+            j = 0
+            while p[j] != ',' and p[j] != '\x00':
+                j += 1
+            enname = rffi.charpsize2str(p, j)
+            enumerators_w.append(space.wrap(enname))
+
+            gindex = parse_c_type.search_in_globals(ffi.ctxobj.ctx, enname)
+            assert gindex >= 0
+            g = ffi.ctxobj.ctx.c_globals[gindex]
+            assert getop(g.c_type_op) == cffi_opcode.OP_ENUM
+            assert getarg(g.c_type_op) == -1
+
+            w_integer_value = realize_global_int(ffi, g)
+            enumvalues_w.append(w_integer_value)
+
+            p = rffi.ptradd(p, j)
+            if p[0] == '\x00':
+                break
+            p = rffi.ptradd(p, 1)
+
+    name = _realize_name("enum ", e.c_name)
+    w_ctype = newtype.new_enum_type(space, name,
+                                    space.newtuple(enumerators_w),
+                                    space.newtuple(enumvalues_w),
+                                    w_basetd)
+
+    # Update the "primary" OP_ENUM slot
+    ffi.cached_types[type_index] = w_ctype
+    return w_ctype
+
 
 def realize_c_type_or_func(ffi, opcodes, index):
     op = opcodes[index]
@@ -230,6 +274,9 @@ def realize_c_type_or_func(ffi, opcodes, index):
 
     elif case == cffi_opcode.OP_STRUCT_UNION:
         x = _realize_c_struct_or_union(ffi, getarg(op))
+
+    elif case == cffi_opcode.OP_ENUM:
+        x = _realize_c_enum(ffi, getarg(op))
 
     elif case == cffi_opcode.OP_FUNCTION:
         y = realize_c_type(ffi, opcodes, getarg(op))
