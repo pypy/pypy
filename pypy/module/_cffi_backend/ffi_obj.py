@@ -265,7 +265,7 @@ back to the original object, use from_handle().  You must keep alive
 the cdata object returned by new_handle()!"""
         #
         space = self.space
-        return handle._newp_handle(space, newtype.new_voidp_type(space), w_arg)
+        return handle._newp_handle(space, newtype._new_voidp_type(space), w_arg)
 
 
     def _more_offsetof(self, w_ctype, w_arg0, args_w):
@@ -345,7 +345,7 @@ def W_FFIObject___new__(space, w_subtype, __args__):
     return space.wrap(r)
 
 def make_NULL(space):
-    ctvoidp = newtype.new_voidp_type(space)
+    ctvoidp = newtype._new_voidp_type(space)
     w_NULL = ctvoidp.cast(space.wrap(0))
     return w_NULL
 

@@ -140,9 +140,12 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
-@jit.elidable
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
+    return _new_primitive_type(space, name)
+
+@jit.elidable
+def _new_primitive_type(space, name):
     unique_cache = space.fromcache(UniqueCache)
     try:
         return unique_cache.primitives[name]
@@ -158,9 +161,12 @@ def new_primitive_type(space, name):
 
 # ____________________________________________________________
 
-@jit.elidable
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def new_pointer_type(space, w_ctype):
+    return _new_pointer_type(space, w_ctype)
+
+@jit.elidable
+def _new_pointer_type(space, w_ctype):
     unique_cache = space.fromcache(UniqueCache)
     try:
         return unique_cache.pointers[w_ctype]
@@ -172,7 +178,6 @@ def new_pointer_type(space, w_ctype):
 
 # ____________________________________________________________
 
-@jit.elidable
 @unwrap_spec(w_ctptr=ctypeobj.W_CType)
 def new_array_type(space, w_ctptr, w_length):
     if space.is_w(w_length, space.w_None):
@@ -526,15 +531,18 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
 # ____________________________________________________________
 
-@jit.elidable
 def new_void_type(space):
+    return _new_void_type(space)
+
+@jit.elidable
+def _new_void_type(space):
     unique_cache = space.fromcache(UniqueCache)
     if unique_cache.ctvoid is None:
         unique_cache.ctvoid = ctypevoid.W_CTypeVoid(space)
     return unique_cache.ctvoid
 
 @jit.elidable
-def new_voidp_type(space):
+def _new_voidp_type(space):
     unique_cache = space.fromcache(UniqueCache)
     if unique_cache.ctvoidp is None:
         unique_cache.ctvoidp = new_pointer_type(space, new_void_type(space))
@@ -578,7 +586,6 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 # ____________________________________________________________
 
-@jit.elidable
 @unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
 def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
     fargs = []
