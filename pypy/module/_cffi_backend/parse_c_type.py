@@ -73,6 +73,9 @@ ll_parse_c_type = llexternal('pypy_parse_c_type', [PINFO, rffi.CCHARP],
 ll_search_in_globals = llexternal('pypy_search_in_globals',
                                   [PCTX, rffi.CCHARP, rffi.SIZE_T],
                                   rffi.INT)
+ll_search_in_struct_unions = llexternal('pypy_search_in_struct_unions',
+                                        [PCTX, rffi.CCHARP, rffi.SIZE_T],
+                                        rffi.INT)
 
 def parse_c_type(info, input):
     p_input = rffi.str2charp(input)
@@ -111,5 +114,12 @@ def search_in_globals(ctx, name):
     c_name = rffi.str2charp(name)
     result = ll_search_in_globals(ctx, c_name,
                                   rffi.cast(rffi.SIZE_T, len(name)))
+    rffi.free_charp(c_name)
+    return rffi.cast(lltype.Signed, result)
+
+def search_in_struct_unions(ctx, name):
+    c_name = rffi.str2charp(name)
+    result = ll_search_in_struct_unions(ctx, c_name,
+                                        rffi.cast(rffi.SIZE_T, len(name)))
     rffi.free_charp(c_name)
     return rffi.cast(lltype.Signed, result)

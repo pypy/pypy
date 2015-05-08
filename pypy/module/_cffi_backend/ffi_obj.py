@@ -44,6 +44,7 @@ class W_FFIObject(W_Root):
         else:
             self.cached_types = None
         self.w_FFIError = get_ffi_error(space)
+        self.included_libs = []        # list of W_LibObject's included here
 
     @jit.elidable
     def parse_string_to_type(self, string, flags):

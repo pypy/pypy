@@ -497,16 +497,17 @@ class AppTestRecompiler:
         assert lib.foo2(42) == 37
         assert lib.foo1(42) == 52
 
-    def test_include_2():
-        ffi1 = FFI()
-        ffi1.cdef("struct foo_s { int x, y; };")
-        verify(ffi1, "test_include_2_parent", "struct foo_s { int x, y; };")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("struct foo_s *ff2(struct foo_s *);")
-        lib = verify(ffi, "test_include_2",
-                     "struct foo_s { int x, y; }; //usually from a #include\n"
-                     "struct foo_s *ff2(struct foo_s *p) { p->y++; return p; }")
+    def test_include_2(self):
+        ffi1, lib1 = self.prepare(
+            "struct foo_s { int x, y; };",
+            "test_include_2_parent",
+            "struct foo_s { int x, y; };")
+        ffi, lib = self.prepare(
+            "struct foo_s *ff2(struct foo_s *);",
+            "test_include_2",
+            "struct foo_s { int x, y; }; //usually from a #include\n"
+            "struct foo_s *ff2(struct foo_s *p) { p->y++; return p; }",
+            includes=[ffi1])
         p = ffi.new("struct foo_s *")
         p.y = 41
         q = lib.ff2(p)

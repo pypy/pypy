@@ -20,7 +20,6 @@ class W_LibObject(W_Root):
         self.ffi = ffi
         self.dict_w = {}          # content, built lazily
         self.libname = libname    # some string that gives the name of the lib
-        self.includes = []        # list of W_LibObjects included here
 
     def descr_repr(self):
         return self.space.wrap("<Lib object for '%s'>" % self.libname)
@@ -37,7 +36,7 @@ class W_LibObject(W_Root):
             lib1 = space.interp_w(W_LibObject, w_lib1)
             includes.append(lib1)
             num += 1
-        self.includes = includes[:]
+        self.ffi.included_libs = includes[:]
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -46,7 +45,7 @@ class W_LibObject(W_Root):
         except KeyError:
             index = parse_c_type.search_in_globals(self.ctx, attr)
             if index < 0:
-                for lib1 in self.includes:
+                for lib1 in self.ffi.included_libs:
                     w_result = lib1._get_attr_elidable(attr)
                     if w_result is not None:
                         return w_result
