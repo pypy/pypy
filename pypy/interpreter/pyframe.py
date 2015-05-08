@@ -294,10 +294,18 @@ class PyFrame(W_Root):
         self.locals_cells_stack_w[depth] = w_object
         self.valuestackdepth = depth + 1
 
+    def _check_stack_index(self, index):
+        # will be completely removed by the optimizer if only used in an assert
+        # and if asserts are disabled
+        code = self.pycode
+        ncellvars = len(code.co_cellvars)
+        nfreevars = len(code.co_freevars)
+        stackstart = code.co_nlocals + ncellvars + nfreevars
+        return index >= stackstart
+
     def popvalue(self):
         depth = self.valuestackdepth - 1
-        # YYY
-        assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
+        assert self._check_stack_index(depth)
         w_object = self.locals_cells_stack_w[depth]
         self.locals_cells_stack_w[depth] = None
         self.valuestackdepth = depth
@@ -325,8 +333,7 @@ class PyFrame(W_Root):
     def peekvalues(self, n):
         values_w = [None] * n
         base = self.valuestackdepth - n
-        # YYY
-        assert base >= self.pycode.co_nlocals
+        assert self._check_stack_index(base)
         while True:
             n -= 1
             if n < 0:
@@ -338,9 +345,7 @@ class PyFrame(W_Root):
     def dropvalues(self, n):
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
-        # YYY
-        assert finaldepth >= self.pycode.co_nlocals, (
-            "stack underflow in dropvalues()")
+        assert self._check_stack_index(finaldepth)
         while True:
             n -= 1
             if n < 0:
@@ -372,17 +377,13 @@ class PyFrame(W_Root):
         # Contrast this with CPython where it's PEEK(-1).
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        # YYY
-        assert index >= self.pycode.co_nlocals, (
-            "peek past the bottom of the stack")
+        assert self._check_stack_index(index)
         return self.locals_cells_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        # YYY
-        assert index >= self.pycode.co_nlocals, (
-            "settop past the bottom of the stack")
+        assert self._check_stack_index(index)
         self.locals_cells_stack_w[index] = w_object
 
     @jit.unroll_safe
@@ -504,8 +505,8 @@ class PyFrame(W_Root):
                                  for w_blk in space.unpackiterable(w_blockstack)])
         self.locals_cells_stack_w = values_w[:]
         valuestackdepth = space.int_w(w_stackdepth)
-        if valuestackdepth < 0:
-            raise OperationError(space.w_ValueError, space.wrap("stackdepth must be non-negative"))
+        if not self._check_stack_index(valuestackdepth):
+            raise OperationError(space.w_ValueError, space.wrap("invalid stackdepth"))
         self.valuestackdepth = valuestackdepth
         if space.is_w(w_exc_value, space.w_None):
             new_frame.last_exception = None
