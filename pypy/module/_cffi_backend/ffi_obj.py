@@ -34,6 +34,7 @@ class FreeCtxObj(object):
 
 class W_FFIObject(W_Root):
 
+    @jit.dont_look_inside
     def __init__(self, space, src_ctx):
         self.space = space
         self.types_dict = {}
@@ -350,6 +351,7 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
+@jit.dont_look_inside
 def W_FFIObject___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_FFIObject, w_subtype)
     # get in 'src_ctx' a NULL which transaction doesn't consider a constant
