@@ -29,7 +29,7 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     """ agree on dtype from a list of arrays. if out is allocated,
     use it's dtype, otherwise allocate a new one with agreed dtype
     """
-    from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
+    from .casting import find_binop_result_dtype
 
     if not space.is_none(out):
         return out
@@ -1011,7 +1011,7 @@ def get_dtype_cache(space):
     return space.fromcache(DtypeCache)
 
 def as_dtype(space, w_arg, allow_None=True):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    from pypy.module.micronumpy.casting import find_dtype_for_scalar
     # roughly equivalent to CNumPy's PyArray_DescrConverter2
     if not allow_None and space.is_none(w_arg):
         raise TypeError("Cannot create dtype from None here")

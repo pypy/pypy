@@ -988,6 +988,7 @@ class __extend__(W_NDimArray):
         return space.newtuple([w_quotient, w_remainder])
 
     def descr_dot(self, space, w_other, w_out=None):
+        from .casting import find_binop_result_dtype
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -1002,7 +1003,7 @@ class __extend__(W_NDimArray):
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
-        dtype = ufuncs.find_binop_result_dtype(space, self.get_dtype(),
+        dtype = find_binop_result_dtype(space, self.get_dtype(),
                                                other.get_dtype())
         if self.get_size() < 1 and other.get_size() < 1:
             # numpy compatability

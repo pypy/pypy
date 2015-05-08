@@ -9,6 +9,7 @@ from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
+from pypy.module.micronumpy.casting import find_binop_result_dtype
 
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
@@ -173,7 +174,7 @@ class ConcreteIter(OperandIter):
     def __init__(self, array, size, shape, strides, backstrides,
                  op_flags, base):
         OperandIter.__init__(self, array, size, shape, strides, backstrides)
-        self.slice_shape =[] 
+        self.slice_shape =[]
         self.slice_stride = []
         self.slice_backstride = []
         if op_flags.rw == 'r':
@@ -302,7 +303,7 @@ def coalesce_iter(old_iter, op_flags, it, order, flat=True):
     But after coalesce(), getoperand() will return a slice by removing
     the fastest varying dimension(s) from the beginning or end of the shape.
     If flat is true, then the slice will be 1d, otherwise stack up the shape of
-    the fastest varying dimension in the slice, so an iterator of a  'C' array 
+    the fastest varying dimension in the slice, so an iterator of a  'C' array
     of shape (2,4,3) after two calls to coalesce will iterate 2 times over a slice
     of shape (4,3) by setting the offset to the beginning of the data at each iteration
     '''
@@ -367,8 +368,6 @@ class W_NDIter(W_Root):
     _immutable_fields_ = ['ndim', ]
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
                  w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
-        from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
-        
         self.order = order
         self.external_loop = False
         self.buffered = False

@@ -1,11 +1,12 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
-    constants as NPY
+from pypy.module.micronumpy import loop, descriptor, support
+from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
 from pypy.module.micronumpy.strides import (
     Chunk, Chunks, shape_agreement, shape_agreement_multiple)
+from .casting import find_binop_result_dtype
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -84,8 +85,7 @@ def where(space, w_arr, w_x=None, w_y=None):
         if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
             return x
         return y
-    dtype = ufuncs.find_binop_result_dtype(space, x.get_dtype(),
-                                                  y.get_dtype())
+    dtype = find_binop_result_dtype(space, x.get_dtype(), y.get_dtype())
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
     out = W_NDimArray.from_shape(space, shape, dtype)
@@ -148,7 +148,7 @@ def concatenate(space, w_args, w_axis=None):
         elif dtype.is_record() or a_dt.is_record():
             raise OperationError(space.w_TypeError,
                         space.wrap("invalid type promotion"))
-        dtype = ufuncs.find_binop_result_dtype(space, dtype,
+        dtype = find_binop_result_dtype(space, dtype,
                                                       arr.get_dtype())
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
     res = W_NDimArray.from_shape(space, shape, dtype, 'C')

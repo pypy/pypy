@@ -215,7 +215,7 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type):
 
 
 def find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    from pypy.module.micronumpy.casting import find_dtype_for_scalar
     if len(elems_w) == 1:
         w_elem = elems_w[0]
         if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
@@ -225,7 +225,7 @@ def find_dtype_for_seq(space, elems_w, dtype):
 
 
 def _find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    from pypy.module.micronumpy.casting import find_dtype_for_scalar
     for w_elem in elems_w:
         if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
             w_elem = w_elem.get_scalar_value()

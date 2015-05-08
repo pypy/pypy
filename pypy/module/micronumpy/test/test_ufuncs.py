@@ -1,91 +1,10 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
-        find_unaryop_result_dtype, W_UfuncGeneric)
+from pypy.module.micronumpy.ufuncs import W_UfuncGeneric
 from pypy.module.micronumpy.support import _parse_signature
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.concrete import VoidBoxStorage
-from pypy.interpreter.gateway import interp2app
-from pypy.conftest import option
 from pypy.interpreter.error import OperationError
-
-
-class TestUfuncCoercion(object):
-    def test_binops(self, space):
-        bool_dtype = get_dtype_cache(space).w_booldtype
-        int8_dtype = get_dtype_cache(space).w_int8dtype
-        int32_dtype = get_dtype_cache(space).w_int32dtype
-        float64_dtype = get_dtype_cache(space).w_float64dtype
-        c64_dtype = get_dtype_cache(space).w_complex64dtype
-        c128_dtype = get_dtype_cache(space).w_complex128dtype
-        cld_dtype = get_dtype_cache(space).w_complexlongdtype
-        fld_dtype = get_dtype_cache(space).w_floatlongdtype
-
-        # Basic pairing
-        assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype) is float64_dtype
-        assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
-        assert find_binop_result_dtype(space, int32_dtype, int8_dtype) is int32_dtype
-        assert find_binop_result_dtype(space, int32_dtype, bool_dtype) is int32_dtype
-        assert find_binop_result_dtype(space, c64_dtype, float64_dtype) is c128_dtype
-        assert find_binop_result_dtype(space, c64_dtype, fld_dtype) is cld_dtype
-        assert find_binop_result_dtype(space, c128_dtype, fld_dtype) is cld_dtype
-
-        # With promote bool (happens on div), the result is that the op should
-        # promote bools to int8
-        assert find_binop_result_dtype(space, bool_dtype, bool_dtype, promote_bools=True) is int8_dtype
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_bools=True) is float64_dtype
-
-        # Coerce to floats
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
-
-    def test_unaryops(self, space):
-        bool_dtype = get_dtype_cache(space).w_booldtype
-        int8_dtype = get_dtype_cache(space).w_int8dtype
-        uint8_dtype = get_dtype_cache(space).w_uint8dtype
-        int16_dtype = get_dtype_cache(space).w_int16dtype
-        uint16_dtype = get_dtype_cache(space).w_uint16dtype
-        int32_dtype = get_dtype_cache(space).w_int32dtype
-        uint32_dtype = get_dtype_cache(space).w_uint32dtype
-        long_dtype = get_dtype_cache(space).w_longdtype
-        ulong_dtype = get_dtype_cache(space).w_ulongdtype
-        int64_dtype = get_dtype_cache(space).w_int64dtype
-        uint64_dtype = get_dtype_cache(space).w_uint64dtype
-        float16_dtype = get_dtype_cache(space).w_float16dtype
-        float32_dtype = get_dtype_cache(space).w_float32dtype
-        float64_dtype = get_dtype_cache(space).w_float64dtype
-
-        # Normal rules, everything returns itself
-        assert find_unaryop_result_dtype(space, bool_dtype) is bool_dtype
-        assert find_unaryop_result_dtype(space, int8_dtype) is int8_dtype
-        assert find_unaryop_result_dtype(space, uint8_dtype) is uint8_dtype
-        assert find_unaryop_result_dtype(space, int16_dtype) is int16_dtype
-        assert find_unaryop_result_dtype(space, uint16_dtype) is uint16_dtype
-        assert find_unaryop_result_dtype(space, int32_dtype) is int32_dtype
-        assert find_unaryop_result_dtype(space, uint32_dtype) is uint32_dtype
-        assert find_unaryop_result_dtype(space, long_dtype) is long_dtype
-        assert find_unaryop_result_dtype(space, ulong_dtype) is ulong_dtype
-        assert find_unaryop_result_dtype(space, int64_dtype) is int64_dtype
-        assert find_unaryop_result_dtype(space, uint64_dtype) is uint64_dtype
-        assert find_unaryop_result_dtype(space, float32_dtype) is float32_dtype
-        assert find_unaryop_result_dtype(space, float64_dtype) is float64_dtype
-
-        # Coerce to floats, some of these will eventually be float16, or
-        # whatever our smallest float type is.
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
-        assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype
-        assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, uint32_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, int64_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, uint64_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, float32_dtype, promote_to_float=True) is float32_dtype
-        assert find_unaryop_result_dtype(space, float64_dtype, promote_to_float=True) is float64_dtype
-
-        # promote bools, happens with sign ufunc
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
 
 class TestGenericUfuncOperation(object):
@@ -96,10 +15,10 @@ class TestGenericUfuncOperation(object):
                 self.nout = nout
                 self.nargs = nin + nout
                 self.core_enabled = True
-                self.core_num_dim_ix = 0 
-                self.core_num_dims = [0] * self.nargs  
+                self.core_num_dim_ix = 0
+                self.core_num_dims = [0] * self.nargs
                 self.core_offsets = [0] * self.nargs
-                self.core_dim_ixs = [] 
+                self.core_dim_ixs = []
 
         u = Ufunc(2, 1)
         _parse_signature(space, u, '(m,n), (n,r)->(m,r)')
@@ -116,8 +35,8 @@ class TestGenericUfuncOperation(object):
         b_dtype = get_dtype_cache(space).w_booldtype
 
         ufunc = W_UfuncGeneric(space, [None, None, None], 'eigenvals', None, 1, 1,
-                     [f32_dtype, c64_dtype, 
-                      f64_dtype, c128_dtype, 
+                     [f32_dtype, c64_dtype,
+                      f64_dtype, c128_dtype,
                       c128_dtype, c128_dtype],
                      '')
         f32_array = W_NDimArray(VoidBoxStorage(0, f32_dtype))
@@ -167,7 +86,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
-            sumdiff = frompyfunc(sumdiff, 2, 2, dtypes=['match'], 
+            sumdiff = frompyfunc(sumdiff, 2, 2, dtypes=['match'],
                                     signature='(i),(i)->(i),(i)')
             adder_ufunc1 = frompyfunc([adder, adder], 2, 1,
                             dtypes=[int, int, int, float, float, float])
