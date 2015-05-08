@@ -514,84 +514,84 @@ class AppTestRecompiler:
         assert q == p
         assert p.y == 42
 
-    def test_include_3():
-        ffi1 = FFI()
-        ffi1.cdef("typedef short sshort_t;")
-        verify(ffi1, "test_include_3_parent", "typedef short sshort_t;")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("sshort_t ff3(sshort_t);")
-        lib = verify(ffi, "test_include_3",
-                     "typedef short sshort_t; //usually from a #include\n"
-                     "sshort_t ff3(sshort_t x) { return x + 42; }")
+    def test_include_3(self):
+        ffi1, lib1 = self.prepare(
+            "typedef short sshort_t;",
+            "test_include_3_parent",
+            "typedef short sshort_t;")
+        ffi, lib = self.prepare(
+            "sshort_t ff3(sshort_t);",
+            "test_include_3",
+            "typedef short sshort_t; //usually from a #include\n"
+            "sshort_t ff3(sshort_t x) { return x + 42; }",
+            includes=[ffi1])
         assert lib.ff3(10) == 52
         assert ffi.typeof(ffi.cast("sshort_t", 42)) is ffi.typeof("short")
 
-    def test_include_4():
-        ffi1 = FFI()
-        ffi1.cdef("typedef struct { int x; } mystruct_t;")
-        verify(ffi1, "test_include_4_parent",
-               "typedef struct { int x; } mystruct_t;")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("mystruct_t *ff4(mystruct_t *);")
-        lib = verify(ffi, "test_include_4",
-               "typedef struct {int x; } mystruct_t; //usually from a #include\n"
-               "mystruct_t *ff4(mystruct_t *p) { p->x += 42; return p; }")
+    def test_include_4(self):
+        ffi1, lib1 = self.prepare(
+            "typedef struct { int x; } mystruct_t;",
+            "test_include_4_parent",
+            "typedef struct { int x; } mystruct_t;")
+        ffi, lib = self.prepare(
+            "mystruct_t *ff4(mystruct_t *);",
+            "test_include_4",
+            "typedef struct {int x; } mystruct_t; //usually from a #include\n"
+            "mystruct_t *ff4(mystruct_t *p) { p->x += 42; return p; }",
+            includes=[ffi1])
         p = ffi.new("mystruct_t *", [10])
         q = lib.ff4(p)
         assert q == p
         assert p.x == 52
 
-    def test_include_5():
-        py.test.xfail("also fails in 0.9.3")
-        ffi1 = FFI()
-        ffi1.cdef("typedef struct { int x; } *mystruct_p;")
-        verify(ffi1, "test_include_5_parent",
-               "typedef struct { int x; } *mystruct_p;")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("mystruct_p ff5(mystruct_p);")
-        lib = verify(ffi, "test_include_5",
-               "typedef struct {int x; } *mystruct_p; //usually from a #include\n"
-               "mystruct_p ff5(mystruct_p p) { p->x += 42; return p; }")
+    def test_include_5(self):
+        skip("also fails in 0.9.3")
+        ffi1, lib1 = self.prepare(
+            "typedef struct { int x; } *mystruct_p;",
+            "test_include_5_parent",
+            "typedef struct { int x; } *mystruct_p;")
+        ffi, lib = self.prepare(
+            "mystruct_p ff5(mystruct_p);",
+            "test_include_5",
+            "typedef struct {int x; } *mystruct_p; //usually from a #include\n"
+            "mystruct_p ff5(mystruct_p p) { p->x += 42; return p; }",
+            includes=[ffi1])
         p = ffi.new("mystruct_p", [10])
         q = lib.ff5(p)
         assert q == p
         assert p.x == 52
 
-    def test_include_6():
-        ffi1 = FFI()
-        ffi1.cdef("typedef ... mystruct_t;")
-        verify(ffi1, "test_include_6_parent",
-               "typedef struct _mystruct_s mystruct_t;")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("mystruct_t *ff6(void); int ff6b(mystruct_t *);")
-        lib = verify(ffi, "test_include_6",
-               "typedef struct _mystruct_s mystruct_t; //usually from a #include\n"
-               "struct _mystruct_s { int x; };\n"
-               "static mystruct_t result_struct = { 42 };\n"
-               "mystruct_t *ff6(void) { return &result_struct; }\n"
-               "int ff6b(mystruct_t *p) { return p->x; }")
+    def test_include_6(self):
+        ffi1, lib1 = self.prepare(
+            "typedef ... mystruct_t;",
+            "test_include_6_parent",
+            "typedef struct _mystruct_s mystruct_t;")
+        ffi, lib = self.prepare(
+            "mystruct_t *ff6(void); int ff6b(mystruct_t *);",
+            "test_include_6",
+           "typedef struct _mystruct_s mystruct_t; //usually from a #include\n"
+           "struct _mystruct_s { int x; };\n"
+           "static mystruct_t result_struct = { 42 };\n"
+           "mystruct_t *ff6(void) { return &result_struct; }\n"
+           "int ff6b(mystruct_t *p) { return p->x; }",
+           includes=[ffi1])
         p = lib.ff6()
         assert ffi.cast("int *", p)[0] == 42
         assert lib.ff6b(p) == 42
 
-    def test_include_7():
-        ffi1 = FFI()
-        ffi1.cdef("typedef ... mystruct_t;\n"
-                  "int ff7b(mystruct_t *);")
-        verify(ffi1, "test_include_7_parent",
-               "typedef struct { int x; } mystruct_t;\n"
-               "int ff7b(mystruct_t *p) { return p->x; }")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("mystruct_t *ff7(void);")
-        lib = verify(ffi, "test_include_7",
-               "typedef struct { int x; } mystruct_t; //usually from a #include\n"
-               "static mystruct_t result_struct = { 42 };"
-               "mystruct_t *ff7(void) { return &result_struct; }")
+    def test_include_7(self):
+        ffi1, lib1 = self.prepare(
+            "typedef ... mystruct_t; int ff7b(mystruct_t *);",
+            "test_include_7_parent",
+           "typedef struct { int x; } mystruct_t;\n"
+           "int ff7b(mystruct_t *p) { return p->x; }")
+        ffi, lib = self.prepare(
+            "mystruct_t *ff7(void);",
+            "test_include_7",
+           "typedef struct { int x; } mystruct_t; //usually from a #include\n"
+           "static mystruct_t result_struct = { 42 };"
+           "mystruct_t *ff7(void) { return &result_struct; }",
+           includes=[ffi1])
         p = lib.ff7()
         assert ffi.cast("int *", p)[0] == 42
         assert lib.ff7b(p) == 42
