@@ -13,6 +13,9 @@ def prepare(space, cdef, module_name, source):
         from _cffi1 import recompiler     # needs to be at least cffi 1.0.0b3
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
+    space.appexec([], """():
+        import _cffi_backend     # force it to be initialized
+    """)
     module_name = '_CFFI_' + module_name
     rdir = udir.ensure('recompiler', dir=1)
     rdir.join('Python.h').write(
