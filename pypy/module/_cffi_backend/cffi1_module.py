@@ -8,7 +8,8 @@ from pypy.module._cffi_backend.ffi_obj import W_FFIObject
 from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
-EXPECTED_VERSION = 0x10000f0
+VERSION_MIN = 0x010000f0
+VERSION_MAX = 0x0100ffff
 
 initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
@@ -19,9 +20,9 @@ def load_cffi1_module(space, name, path, dll, initptr):
         with lltype.scoped_alloc(rffi.VOIDPP.TO, 2, zero=True) as p:
             initfunc(p)
             version = rffi.cast(lltype.Signed, p[0])
-            if version != EXPECTED_VERSION:
+            if not (VERSION_MIN <= version <= VERSION_MAX):
                 raise oefmt(space.w_ImportError,
-                    "the cffi extension module '%s' has unknown version %s",
+                    "cffi extension module '%s' has unknown version %s",
                     name, hex(version))
             src_ctx = rffi.cast(parse_c_type.PCTX, p[1])
     except:

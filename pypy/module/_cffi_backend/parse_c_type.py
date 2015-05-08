@@ -59,7 +59,8 @@ PCTX = rffi.CStructPtr('struct _cffi_type_context_s',
                        ('num_enums', rffi.INT),
                        ('num_typenames', rffi.INT),
                        ('includes', rffi.CCHARPP),
-                       ('num_types', rffi.INT))
+                       ('num_types', rffi.INT),
+                       ('flags', rffi.INT))
 
 PINFO = rffi.CStructPtr('struct _cffi_parse_info_s',
                         ('ctx', PCTX),

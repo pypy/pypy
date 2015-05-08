@@ -131,6 +131,7 @@ struct _cffi_type_context_s {
     int num_typenames;
     const char *const *includes;
     int num_types;
+    int flags;      /* future extension */
 };
 
 struct _cffi_parse_info_s {

@@ -48,8 +48,9 @@ class W_LibObject(W_Root):
                 w_result = W_CData(self.space, ptr, w_ct)
                 #
             else:
-                raise NotImplementedError("in lib_build_attr: op=%d" % op)
-            
+                raise oefmt(ffi.space.w_NotImplementedError,
+                            "in lib_build_attr: op=%d", op)
+
             self.dict_w[attr] = w_result
         return w_result
 

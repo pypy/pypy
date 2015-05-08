@@ -1,6 +1,4 @@
-import sys, os, py
-from cffi import FFI              # <== the system one, which
-from _cffi1 import recompiler     # needs to be at least cffi 1.0.0b3
+import os, py
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
@@ -8,6 +6,11 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
 def prepare(space, cdef, module_name, source):
+    try:
+        from cffi import FFI              # <== the system one, which
+        from _cffi1 import recompiler     # needs to be at least cffi 1.0.0b3
+    except ImportError:
+        py.test.skip("system cffi module not found or older than 1.0.0")
     module_name = '_CFFI_' + module_name
     rdir = udir.ensure('recompiler', dir=1)
     rdir.join('Python.h').write(
@@ -43,52 +46,61 @@ class AppTestRecompiler:
 
     def test_math_sin(self):
         import math
-        ffi, lib = self.prepare("float sin(double); double cos(double);",
-                                'test_math_sin',
-                                '#include <math.h>')
+        ffi, lib = self.prepare(
+            "float sin(double); double cos(double);",
+            'test_math_sin',
+            '#include <math.h>')
         assert lib.cos(1.43) == math.cos(1.43)
 
-    def test_funcarg_ptr():
-        ffi = FFI()
-        ffi.cdef("int foo(int *);")
-        lib = verify(ffi, 'test_funcarg_ptr', 'int foo(int *p) { return *p; }')
+    def test_funcarg_ptr(self):
+        ffi, lib = self.prepare(
+            "int foo(int *);",
+            'test_funcarg_ptr',
+            'int foo(int *p) { return *p; }')
         assert lib.foo([-12345]) == -12345
 
-    def test_funcres_ptr():
-        ffi = FFI()
-        ffi.cdef("int *foo(void);")
-        lib = verify(ffi, 'test_funcres_ptr',
-                     'int *foo(void) { static int x=-12345; return &x; }')
+    def test_funcres_ptr(self):
+        ffi, lib = self.prepare(
+            "int *foo(void);",
+            'test_funcres_ptr',
+            'int *foo(void) { static int x=-12345; return &x; }')
         assert lib.foo()[0] == -12345
 
-    def test_global_var_array():
-        ffi = FFI()
-        ffi.cdef("int a[100];")
-        lib = verify(ffi, 'test_global_var_array', 'int a[100] = { 9999 };')
+    def test_global_var_array(self):
+        ffi, lib = self.prepare(
+            "int a[100];",
+            'test_global_var_array',
+            'int a[100] = { 9999 };')
         lib.a[42] = 123456
         assert lib.a[42] == 123456
         assert lib.a[0] == 9999
 
-    def test_verify_typedef():
-        ffi = FFI()
-        ffi.cdef("typedef int **foo_t;")
-        lib = verify(ffi, 'test_verify_typedef', 'typedef int **foo_t;')
+    def test_verify_typedef(self):
+        ffi, lib = self.prepare(
+            "typedef int **foo_t;",
+            'test_verify_typedef',
+            'typedef int **foo_t;')
         assert ffi.sizeof("foo_t") == ffi.sizeof("void *")
 
-    def test_verify_typedef_dotdotdot():
-        ffi = FFI()
-        ffi.cdef("typedef ... foo_t;")
-        verify(ffi, 'test_verify_typedef_dotdotdot', 'typedef int **foo_t;')
+    def test_verify_typedef_dotdotdot(self):
+        ffi, lib = self.prepare(
+            "typedef ... foo_t;",
+            'test_verify_typedef_dotdotdot',
+            'typedef int **foo_t;')
+        # did not crash
 
-    def test_verify_typedef_star_dotdotdot():
-        ffi = FFI()
-        ffi.cdef("typedef ... *foo_t;")
-        verify(ffi, 'test_verify_typedef_star_dotdotdot', 'typedef int **foo_t;')
+    def test_verify_typedef_star_dotdotdot(self):
+        ffi, lib = self.prepare(
+            "typedef ... *foo_t;",
+            'test_verify_typedef_star_dotdotdot',
+            'typedef int **foo_t;')
+        # did not crash
 
-    def test_global_var_int():
-        ffi = FFI()
-        ffi.cdef("int a, b, c;")
-        lib = verify(ffi, 'test_global_var_int', 'int a = 999, b, c;')
+    def test_global_var_int(self):
+        ffi, lib = self.prepare(
+            "int a, b, c;",
+            'test_global_var_int',
+            'int a = 999, b, c;')
         assert lib.a == 999
         lib.a -= 1001
         assert lib.a == -2
@@ -102,35 +114,39 @@ class AppTestRecompiler:
         py.test.raises(AttributeError, "del lib.c")
         py.test.raises(AttributeError, "del lib.foobarbaz")
 
-    def test_macro():
-        ffi = FFI()
-        ffi.cdef("#define FOOBAR ...")
-        lib = verify(ffi, 'test_macro', "#define FOOBAR (-6912)")
+    def test_macro(self):
+        ffi, lib = self.prepare(
+            "#define FOOBAR ...",
+            'test_macro',
+            "#define FOOBAR (-6912)")
         assert lib.FOOBAR == -6912
         py.test.raises(AttributeError, "lib.FOOBAR = 2")
 
-    def test_macro_check_value():
+    def test_macro_check_value(self):
         # the value '-0x80000000' in C sources does not have a clear meaning
         # to me; it appears to have a different effect than '-2147483648'...
         # Moreover, on 32-bits, -2147483648 is actually equal to
         # -2147483648U, which in turn is equal to 2147483648U and so positive.
+        import sys
         vals = ['42', '-42', '0x80000000', '-2147483648',
                 '0', '9223372036854775809ULL',
                 '-9223372036854775807LL']
         if sys.maxsize <= 2**32:
             vals.remove('-2147483648')
-        ffi = FFI()
+
         cdef_lines = ['#define FOO_%d_%d %s' % (i, j, vals[i])
                       for i in range(len(vals))
                       for j in range(len(vals))]
-        ffi.cdef('\n'.join(cdef_lines))
 
         verify_lines = ['#define FOO_%d_%d %s' % (i, j, vals[j])  # [j], not [i]
                         for i in range(len(vals))
                         for j in range(len(vals))]
-        lib = verify(ffi, 'test_macro_check_value_ok',
-                     '\n'.join(verify_lines))
-        #
+
+        ffi, lib = self.prepare(
+            '\n'.join(cdef_lines),
+            'test_macro_check_value_ok',
+            '\n'.join(verify_lines))
+
         for j in range(len(vals)):
             c_got = int(vals[j].replace('U', '').replace('L', ''), 0)
             c_compiler_msg = str(c_got)
@@ -148,24 +164,27 @@ class AppTestRecompiler:
                         "the C compiler says '%s' is equal to "
                         "%s, but the cdef disagrees" % (attrname, c_compiler_msg))
 
-    def test_constant():
-        ffi = FFI()
-        ffi.cdef("static const int FOOBAR;")
-        lib = verify(ffi, 'test_constant', "#define FOOBAR (-6912)")
+    def test_constant(self):
+        ffi, lib = self.prepare(
+            "static const int FOOBAR;",
+            'test_constant',
+            "#define FOOBAR (-6912)")
         assert lib.FOOBAR == -6912
         py.test.raises(AttributeError, "lib.FOOBAR = 2")
 
-    def test_constant_nonint():
-        ffi = FFI()
-        ffi.cdef("static const double FOOBAR;")
-        lib = verify(ffi, 'test_constant_nonint', "#define FOOBAR (-6912.5)")
+    def test_constant_nonint(self):
+        ffi, lib = self.prepare(
+            "static const double FOOBAR;",
+            'test_constant_nonint',
+            "#define FOOBAR (-6912.5)")
         assert lib.FOOBAR == -6912.5
         py.test.raises(AttributeError, "lib.FOOBAR = 2")
 
-    def test_constant_ptr():
-        ffi = FFI()
-        ffi.cdef("static double *const FOOBAR;")
-        lib = verify(ffi, 'test_constant_ptr', "#define FOOBAR NULL")
+    def test_constant_ptr(self):
+        ffi, lib = self.prepare(
+            "static double *const FOOBAR;",
+            'test_constant_ptr',
+            "#define FOOBAR NULL")
         assert lib.FOOBAR == ffi.NULL
         assert ffi.typeof(lib.FOOBAR) == ffi.typeof("double *")
 
