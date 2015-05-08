@@ -7,7 +7,7 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
-def prepare(space, cdef, module_name, source):
+def prepare(space, cdef, module_name, source, w_includes=None):
     try:
         from cffi import FFI              # <== the system one, which
         from _cffi1 import recompiler     # needs to be at least cffi 1.0.0b3
@@ -16,6 +16,9 @@ def prepare(space, cdef, module_name, source):
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
+    includes = []
+    if w_includes:
+        includes += space.unpackiterable(w_includes)
     assert module_name.startswith('test_')
     module_name = '_CFFI_' + module_name
     rdir = udir.ensure('recompiler', dir=1)
@@ -32,6 +35,8 @@ def prepare(space, cdef, module_name, source):
     c_file  = str(rdir.join('%s.c'  % path))
     so_file = str(rdir.join('%s.so' % path))
     ffi = FFI()
+    for include_ffi_object in includes:
+        ffi.include(include_ffi_object._test_recompiler_source_ffi)
     ffi.cdef(cdef)
     ffi.set_source(module_name, source)
     ffi.emit_c_code(c_file)
@@ -43,11 +48,14 @@ def prepare(space, cdef, module_name, source):
         raise Exception("gcc error")
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
-    return space.appexec(args_w, """(modulename, filename):
+    w_res = space.appexec(args_w, """(modulename, filename):
         import imp
         mod = imp.load_dynamic(modulename, filename)
         return (mod.ffi, mod.lib)
     """)
+    ffiobject = space.getitem(w_res, space.wrap(0))
+    ffiobject._test_recompiler_source_ffi = ffi
+    return w_res
 
 
 class AppTestRecompiler:
@@ -464,14 +472,16 @@ class AppTestRecompiler:
             "int glob[10];")
         lib.glob    # does not crash
 
-    def test_include_1():
-        ffi1 = FFI()
-        ffi1.cdef("typedef double foo_t;")
-        verify(ffi1, "test_include_1_parent", "typedef double foo_t;")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("foo_t ff1(foo_t);")
-        lib = verify(ffi, "test_include_1", "double ff1(double x) { return 42.5; }")
+    def test_include_1(self):
+        ffi1, lib1 = self.prepare(
+            "typedef double foo_t;",
+            "test_include_1_parent",
+            "typedef double foo_t;")
+        ffi, lib = self.prepare(
+            "foo_t ff1(foo_t);",
+            "test_include_1",
+            "double ff1(double x) { return 42.5; }",
+            includes=[ffi1])
         assert lib.ff1(0) == 42.5
 
     def test_include_1b():
