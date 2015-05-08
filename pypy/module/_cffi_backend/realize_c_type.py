@@ -161,6 +161,14 @@ def realize_c_type_or_func(ffi, opcodes, index):
     elif case == cffi_opcode.OP_NOOP:
         x = realize_c_type_or_func(ffi, opcodes, getarg(op))
 
+    elif case == cffi_opcode.OP_TYPENAME:
+        # essential: the TYPENAME opcode resolves the type index looked
+        # up in the 'ctx.c_typenames' array, but it does so in 'ctx.c_types'
+        # instead of in 'opcodes'!
+        type_index = rffi.getintfield(ffi.ctxobj.ctx.c_typenames[getarg(op)],
+                                      'c_type_index')
+        x = realize_c_type_or_func(ffi, ffi.ctxobj.ctx.c_types, type_index)
+
     else:
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
 
