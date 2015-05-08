@@ -16,6 +16,7 @@ def prepare(space, cdef, module_name, source):
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
+    assert module_name.startswith('test_')
     module_name = '_CFFI_' + module_name
     rdir = udir.ensure('recompiler', dir=1)
     rdir.join('Python.h').write(
@@ -71,6 +72,13 @@ class AppTestRecompiler:
             'test_math_sin',
             '#include <math.h>')
         assert lib.cos(1.43) == math.cos(1.43)
+
+    def test_repr_lib(self):
+        ffi, lib = self.prepare(
+            "",
+            'test_repr_lib',
+            "")
+        assert repr(lib) == "<Lib object for '_CFFI_test_repr_lib'>"
 
     def test_funcarg_ptr(self):
         ffi, lib = self.prepare(
@@ -208,10 +216,10 @@ class AppTestRecompiler:
         assert lib.FOOBAR == ffi.NULL
         assert ffi.typeof(lib.FOOBAR) == ffi.typeof("double *")
 
-    def test_dir():
-        ffi = FFI()
-        ffi.cdef("int ff(int); int aa; static const int my_constant;")
-        lib = verify(ffi, 'test_dir', """
+    def test_dir(self):
+        ffi, lib = self.prepare(
+            "int ff(int); int aa; static const int my_constant;",
+            'test_dir', """
             #define my_constant  (-45)
             int aa;
             int ff(int x) { return x+aa; }
@@ -219,25 +227,27 @@ class AppTestRecompiler:
         lib.aa = 5
         assert dir(lib) == ['aa', 'ff', 'my_constant']
 
-    def test_verify_opaque_struct():
-        ffi = FFI()
-        ffi.cdef("struct foo_s;")
-        lib = verify(ffi, 'test_verify_opaque_struct', "struct foo_s;")
+    def test_verify_opaque_struct(self):
+        ffi, lib = self.prepare(
+            "struct foo_s;",
+            'test_verify_opaque_struct',
+            "struct foo_s;")
         assert ffi.typeof("struct foo_s").cname == "struct foo_s"
 
-    def test_verify_opaque_union():
-        ffi = FFI()
-        ffi.cdef("union foo_s;")
-        lib = verify(ffi, 'test_verify_opaque_union', "union foo_s;")
+    def test_verify_opaque_union(self):
+        ffi, lib = self.prepare(
+            "union foo_s;",
+            'test_verify_opaque_union',
+            "union foo_s;")
         assert ffi.typeof("union foo_s").cname == "union foo_s"
 
-    def test_verify_struct():
-        ffi = FFI()
-        ffi.cdef("""struct foo_s { int b; short a; ...; };
-                    struct bar_s { struct foo_s *f; };""")
-        lib = verify(ffi, 'test_verify_struct',
-                     """struct foo_s { short a; int b; };
-                        struct bar_s { struct foo_s *f; };""")
+    def test_verify_struct(self):
+        ffi, lib = self.prepare(
+            """struct foo_s { int b; short a; ...; };
+               struct bar_s { struct foo_s *f; };""",
+            'test_verify_struct',
+            """struct foo_s { short a; int b; };
+               struct bar_s { struct foo_s *f; };""")
         ffi.typeof("struct bar_s *")
         p = ffi.new("struct foo_s *", {'a': -32768, 'b': -2147483648})
         assert p.a == -32768
@@ -256,11 +266,11 @@ class AppTestRecompiler:
         assert ffi.typeof(ffi.addressof(p, "b")) is ffi.typeof("int *")
         assert ffi.addressof(p, "b")[0] == p.b
 
-    def test_verify_exact_field_offset():
-        ffi = FFI()
-        ffi.cdef("""struct foo_s { int b; short a; };""")
-        lib = verify(ffi, 'test_verify_exact_field_offset',
-                     """struct foo_s { short a; int b; };""")
+    def test_verify_exact_field_offset(self):
+        ffi, lib = self.prepare(
+            """struct foo_s { int b; short a; };""",
+            'test_verify_exact_field_offset',
+            """struct foo_s { short a; int b; };""")
         e = raises(ffi.error, ffi.new, "struct foo_s *", [])    # lazily
         assert str(e.value) == ("struct foo_s: wrong offset for field 'b' (cdef "
                            'says 0, but C compiler says 4). fix it or use "...;" '

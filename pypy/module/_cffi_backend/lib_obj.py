@@ -23,7 +23,7 @@ class W_LibObject(W_Root):
         self.includes = []        # list of W_LibObjects included here
 
     def descr_repr(self):
-        XXX
+        return self.space.wrap("<Lib object for '%s'>" % self.libname)
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -117,6 +117,14 @@ class W_LibObject(W_Root):
         raise oefmt(self.space.w_AttributeError,
                     "C attribute cannot be deleted")
 
+    def descr_dir(self):
+        space = self.space
+        total = rffi.getintfield(self.ctx, 'c_num_globals')
+        g = self.ctx.c_globals
+        names_w = [space.wrap(rffi.charp2str(g[i].c_name))
+                   for i in range(total)]
+        return space.newlist(names_w)
+
 
 W_LibObject.typedef = TypeDef(
         'CompiledLib',
@@ -124,5 +132,6 @@ W_LibObject.typedef = TypeDef(
         __getattribute__ = interp2app(W_LibObject.descr_getattribute),
         __setattr__ = interp2app(W_LibObject.descr_setattr),
         __delattr__ = interp2app(W_LibObject.descr_delattr),
+        __dir__ = interp2app(W_LibObject.descr_dir),
         )
 W_LibObject.typedef.acceptable_as_base_class = False
