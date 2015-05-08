@@ -148,11 +148,58 @@ def realize_c_type(ffi, opcodes, index):
     return x
 
 
+def _realize_name(prefix, charp_src_name):
+    # "xyz" => "struct xyz"
+    #"$xyz" => "xyz"
+    if charp_src_name[0] == '$' and charp_src_name[1] != '$':
+        return rffi.charp2str(rffi.ptradd(charp_src_name, 1))
+    else:
+        return prefix + rffi.charp2str(charp_src_name)
+
+
+def _realize_c_struct_or_union(ffi, sindex):
+    s = ffi.ctxobj.ctx.c_struct_unions[sindex]
+    type_index = rffi.getintfield(s, 'c_type_index')
+    if ffi.cached_types[type_index] is not None:
+        return ffi.cached_types[type_index] #found already in the "primary" slot
+
+    w_ctype = None
+    s_flags = rffi.getintfield(s, 'c_flags')
+    if (s_flags & cffi_opcode.F_EXTERNAL) == 0:
+        space = ffi.space
+        if (s_flags & cffi_opcode.F_UNION) != 0:
+            name = _realize_name("union ", s.c_name)
+            x = newtype.new_union_type(space, name)
+        else:
+            name = _realize_name("struct ", s.c_name)
+            x = newtype.new_struct_type(space, name)
+        if rffi.getintfield(s, 'c_first_field_index') >= 0:
+            w_ctype = x
+            xxxx
+    else:
+        yyyy
+
+    # Update the "primary" OP_STRUCT_UNION slot
+    ffi.cached_types[type_index] = x
+
+    if w_ctype is not None and rffi.getintfield(s, 'c_size') == -2:
+        # oops, this struct is unnamed and we couldn't generate
+        # a C expression to get its size.  We have to rely on
+        # complete_struct_or_union() to compute it now.
+        try:
+            xxxx / do_realize_lazy_struct(w_ctype)
+        except:
+            ffi.cached_types[type_index] = None
+            raise
+    return x
+
+
 def realize_c_type_or_func(ffi, opcodes, index):
     op = opcodes[index]
 
-    from_ffi = False
-    #...
+    from_ffi = (opcodes == ffi.ctxobj.ctx.c_types)
+    if from_ffi and ffi.cached_types[index] is not None:
+        return ffi.cached_types[index]
 
     case = getop(op)
 
@@ -174,6 +221,9 @@ def realize_c_type_or_func(ffi, opcodes, index):
 
     elif case == cffi_opcode.OP_OPEN_ARRAY:
         x = get_array_type(ffi, opcodes, getarg(op), -1)
+
+    elif case == cffi_opcode.OP_STRUCT_UNION:
+        x = _realize_c_struct_or_union(ffi, getarg(op))
 
     elif case == cffi_opcode.OP_FUNCTION:
         y = realize_c_type(ffi, opcodes, getarg(op))
@@ -203,6 +253,7 @@ def realize_c_type_or_func(ffi, opcodes, index):
         raise oefmt(ffi.space.w_NotImplementedError, "op=%d", case)
 
     if from_ffi:
-        yyyy # ...
+        assert ffi.cached_types[index] is None or ffi.cached_types[index] is x
+        ffi.cached_types[index] = x
 
     return x
