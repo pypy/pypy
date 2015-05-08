@@ -75,8 +75,9 @@ for _i, _fn in enumerate([fetch_constant_five,
     _helpers_keepalive.append(llf)
     ctx_globals[_i].c_name = c_glob_names[_i]
     ctx_globals[_i].c_address = rffi.cast(rffi.VOIDP, llf)
-    ctx_globals[_i].c_type_op = (cffi_opcode.OP_CONSTANT_INT if _i != 1
-                                 else cffi_opcode.OP_ENUM)
+    type_op = (cffi_opcode.OP_CONSTANT_INT if _i != 1
+               else cffi_opcode.OP_ENUM)
+    ctx_globals[_i].c_type_op = rffi.cast(rffi.VOIDP, type_op)
 ctx.c_globals = ctx_globals
 rffi.setintfield(ctx, 'c_num_globals', len(global_names))
 
