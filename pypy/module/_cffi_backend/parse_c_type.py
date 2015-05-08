@@ -19,12 +19,12 @@ def llexternal(name, args, result, **kwds):
                            _nowrapper=True, **kwds)
 
 _CFFI_OPCODE_T = rffi.VOIDP
-GLOBAL_S = rffi.CStruct('struct _cffi_global_s',
+GLOBAL_S = rffi.CStruct('_cffi_global_s',
                        ('name', rffi.CCHARP),
                        ('address', rffi.VOIDP),
                        ('type_op', _CFFI_OPCODE_T),
                        ('size', rffi.SIZE_T))
-STRUCT_UNION_S = rffi.CStruct('struct _cffi_struct_union_s',
+STRUCT_UNION_S = rffi.CStruct('_cffi_struct_union_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT),
                        ('flags', rffi.INT),
@@ -32,21 +32,21 @@ STRUCT_UNION_S = rffi.CStruct('struct _cffi_struct_union_s',
                        ('alignment', rffi.INT),
                        ('first_field_index', rffi.INT),
                        ('num_fields', rffi.INT))
-FIELD_S = rffi.CStruct('struct _cffi_field_s',
+FIELD_S = rffi.CStruct('_cffi_field_s',
                        ('name', rffi.CCHARP),
                        ('field_offset', rffi.SIZE_T),
                        ('field_size', rffi.SIZE_T),
                        ('field_type_op', _CFFI_OPCODE_T))
-ENUM_S = rffi.CStruct('struct _cffi_enum_s',
+ENUM_S = rffi.CStruct('_cffi_enum_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT),
                        ('type_prim', rffi.INT),
                        ('enumerators', rffi.CCHARP))
-TYPENAME_S = rffi.CStruct('struct _cffi_typename_s',
+TYPENAME_S = rffi.CStruct('_cffi_typename_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT))
 
-PCTX = rffi.CStructPtr('struct _cffi_type_context_s',
+PCTX = rffi.CStructPtr('_cffi_type_context_s',
                        ('types', rffi.VOIDPP),
                        ('globals', rffi.CArrayPtr(GLOBAL_S)),
                        ('fields', rffi.CArrayPtr(FIELD_S)),
@@ -61,7 +61,7 @@ PCTX = rffi.CStructPtr('struct _cffi_type_context_s',
                        ('num_types', rffi.INT),
                        ('flags', rffi.INT))
 
-PINFO = rffi.CStructPtr('struct _cffi_parse_info_s',
+PINFO = rffi.CStructPtr('_cffi_parse_info_s',
                         ('ctx', PCTX),
                         ('output', rffi.VOIDPP),
                         ('output_size', rffi.UINT),
