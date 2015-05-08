@@ -241,8 +241,7 @@ class FakeSpace(ObjSpace):
 
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
-        return None
-        #return getattr(w_obj, 'descr_' + s)(self, *args)
+        return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):
