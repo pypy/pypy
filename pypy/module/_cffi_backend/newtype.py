@@ -45,6 +45,7 @@ def _func_key_hash((fargs, w_fresult, ellipsis)):
     return x
 
 def _clean_cache(space):
+    "NOT_RPYTHON"
     space.fromcache(UniqueCache).__init__(space)
 
 # ____________________________________________________________

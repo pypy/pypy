@@ -24,21 +24,26 @@ def get_ffi_error(space):
     return w_ffitype.getdictvalue(space, 'error')
 
 
+class FreeCtxObj(object):
+    def __init__(self, ctxobj):
+        self.ctxobj = ctxobj
+    @rgc.must_be_light_finalizer
+    def __del__(self):
+        parse_c_type.free_ctxobj(self.ctxobj)
+
+
 class W_FFIObject(W_Root):
 
     def __init__(self, space, src_ctx=parse_c_type.NULL_CTX):
         self.space = space
         self.types_dict = {}
         self.ctxobj = parse_c_type.allocate_ctxobj(src_ctx)
+        self._finalizer = FreeCtxObj(self.ctxobj)
         if src_ctx:
             self.cached_types = [None] * parse_c_type.get_num_types(src_ctx)
         else:
             self.cached_types = None
         self.w_FFIError = get_ffi_error(space)
-
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        parse_c_type.free_ctxobj(self.ctxobj)
 
     @jit.elidable
     def parse_string_to_type(self, string, flags):
