@@ -123,13 +123,13 @@ class AppTestRecompiler:
         assert lib.a == -2
         lib.a = -2147483648
         assert lib.a == -2147483648
-        py.test.raises(OverflowError, "lib.a = 2147483648")
-        py.test.raises(OverflowError, "lib.a = -2147483649")
+        raises(OverflowError, "lib.a = 2147483648")
+        raises(OverflowError, "lib.a = -2147483649")
         lib.b = 525      # try with the first access being in setattr, too
         assert lib.b == 525
-        py.test.raises(AttributeError, "del lib.a")
-        py.test.raises(AttributeError, "del lib.c")
-        py.test.raises(AttributeError, "del lib.foobarbaz")
+        raises(AttributeError, "del lib.a")
+        raises(AttributeError, "del lib.c")
+        raises(AttributeError, "del lib.foobarbaz")
 
     def test_macro(self):
         ffi, lib = self.prepare(
@@ -137,7 +137,7 @@ class AppTestRecompiler:
             'test_macro',
             "#define FOOBAR (-6912)")
         assert lib.FOOBAR == -6912
-        py.test.raises(AttributeError, "lib.FOOBAR = 2")
+        raises(AttributeError, "lib.FOOBAR = 2")
 
     def test_macro_check_value(self):
         # the value '-0x80000000' in C sources does not have a clear meaning
@@ -176,7 +176,7 @@ class AppTestRecompiler:
                     x = getattr(lib, attrname)
                     assert x == c_got
                 else:
-                    e = py.test.raises(ffi.error, getattr, lib, attrname)
+                    e = raises(ffi.error, getattr, lib, attrname)
                     assert str(e.value) == (
                         "the C compiler says '%s' is equal to "
                         "%s, but the cdef disagrees" % (attrname, c_compiler_msg))
@@ -187,7 +187,7 @@ class AppTestRecompiler:
             'test_constant',
             "#define FOOBAR (-6912)")
         assert lib.FOOBAR == -6912
-        py.test.raises(AttributeError, "lib.FOOBAR = 2")
+        raises(AttributeError, "lib.FOOBAR = 2")
 
     def test_constant_nonint(self):
         ffi, lib = self.prepare(
@@ -195,7 +195,7 @@ class AppTestRecompiler:
             'test_constant_nonint',
             "#define FOOBAR (-6912.5)")
         assert lib.FOOBAR == -6912.5
-        py.test.raises(AttributeError, "lib.FOOBAR = 2")
+        raises(AttributeError, "lib.FOOBAR = 2")
 
     def test_constant_ptr(self):
         ffi, lib = self.prepare(
@@ -239,15 +239,15 @@ class AppTestRecompiler:
         p = ffi.new("struct foo_s *", {'a': -32768, 'b': -2147483648})
         assert p.a == -32768
         assert p.b == -2147483648
-        py.test.raises(OverflowError, "p.a -= 1")
-        py.test.raises(OverflowError, "p.b -= 1")
+        raises(OverflowError, "p.a -= 1")
+        raises(OverflowError, "p.b -= 1")
         q = ffi.new("struct bar_s *", {'f': p})
         assert q.f == p
         #
         assert ffi.offsetof("struct foo_s", "a") == 0
         assert ffi.offsetof("struct foo_s", "b") == 4
         #
-        py.test.raises(TypeError, ffi.addressof, p)
+        raises(TypeError, ffi.addressof, p)
         assert ffi.addressof(p[0]) == p
         assert ffi.typeof(ffi.addressof(p[0])) is ffi.typeof("struct foo_s *")
         assert ffi.typeof(ffi.addressof(p, "b")) is ffi.typeof("int *")
@@ -258,7 +258,7 @@ class AppTestRecompiler:
         ffi.cdef("""struct foo_s { int b; short a; };""")
         lib = verify(ffi, 'test_verify_exact_field_offset',
                      """struct foo_s { short a; int b; };""")
-        e = py.test.raises(ffi.error, ffi.new, "struct foo_s *", [])    # lazily
+        e = raises(ffi.error, ffi.new, "struct foo_s *", [])    # lazily
         assert str(e.value) == ("struct foo_s: wrong offset for field 'b' (cdef "
                            'says 0, but C compiler says 4). fix it or use "...;" '
                            "in the cdef for struct foo_s to make it flexible")
@@ -299,7 +299,7 @@ class AppTestRecompiler:
     def test_duplicate_enum():
         ffi = FFI()
         ffi.cdef("enum e1 { A1, ... }; enum e2 { A1, ... };")
-        py.test.raises(VerificationError, verify, ffi, 'test_duplicate_enum',
+        raises(VerificationError, verify, ffi, 'test_duplicate_enum',
                         "enum e1 { A1 }; enum e2 { B1 };")
 
     def test_dotdotdot_length_of_array_field():
@@ -310,8 +310,8 @@ class AppTestRecompiler:
         assert ffi.sizeof("struct foo_s") == (42 + 11) * 4
         p = ffi.new("struct foo_s *")
         assert p.a[41] == p.b[10] == 0
-        py.test.raises(IndexError, "p.a[42]")
-        py.test.raises(IndexError, "p.b[11]")
+        raises(IndexError, "p.a[42]")
+        raises(IndexError, "p.b[11]")
 
     def test_dotdotdot_global_array():
         ffi = FFI()
@@ -321,8 +321,8 @@ class AppTestRecompiler:
         assert ffi.sizeof(lib.aa) == 41 * 4
         assert ffi.sizeof(lib.bb) == 12 * 4
         assert lib.aa[40] == lib.bb[11] == 0
-        py.test.raises(IndexError, "lib.aa[41]")
-        py.test.raises(IndexError, "lib.bb[12]")
+        raises(IndexError, "lib.aa[41]")
+        raises(IndexError, "lib.bb[12]")
 
     def test_misdeclared_field_1():
         ffi = FFI()
@@ -332,7 +332,7 @@ class AppTestRecompiler:
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
         p = ffi.new("struct foo_s *")
         # lazily build the fields and boom:
-        e = py.test.raises(ffi.error, "p.a")
+        e = raises(ffi.error, "p.a")
         assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
                                        "(cdef says 20, but C compiler says 24)")
 
@@ -353,7 +353,7 @@ class AppTestRecompiler:
         assert ffi.typeof(lib.sin).cname == "double(*)(double)"
         # 'x' is another <built-in method> object on lib, made very indirectly
         x = type(lib).__dir__.__get__(lib)
-        py.test.raises(TypeError, ffi.typeof, x)
+        raises(TypeError, ffi.typeof, x)
 
     def test_verify_anonymous_struct_with_typedef():
         ffi = FFI()
@@ -437,13 +437,13 @@ class AppTestRecompiler:
         ffi = FFI()
         ffi.cdef("short glob;")
         lib = verify(ffi, "test_bad_size_of_global_1", "long glob;")
-        py.test.raises(ffi.error, "lib.glob")
+        raises(ffi.error, "lib.glob")
 
     def test_bad_size_of_global_2():
         ffi = FFI()
         ffi.cdef("int glob[10];")
         lib = verify(ffi, "test_bad_size_of_global_2", "int glob[9];")
-        e = py.test.raises(ffi.error, "lib.glob")
+        e = raises(ffi.error, "lib.glob")
         assert str(e.value) == ("global variable 'glob' should be 40 bytes "
                                 "according to the cdef, but is actually 36")
 
