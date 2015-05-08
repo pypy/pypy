@@ -193,7 +193,7 @@ def _realize_c_struct_or_union(ffi, sindex):
         # a C expression to get its size.  We have to rely on
         # complete_struct_or_union() to compute it now.
         try:
-            do_realize_lazy_struct(ffi, w_ctype)
+            do_realize_lazy_struct(w_ctype)
         except:
             ffi.cached_types[type_index] = None
             raise
@@ -319,7 +319,7 @@ def do_realize_lazy_struct(w_ctype):
     space = w_ctype.space
     ffi = w_ctype._lazy_ffi
     s = w_ctype._lazy_s
-    assert w_ctype.size != -1      # not an opaque
+    assert w_ctype.size != -1      # not an opaque (but may be -2)
     assert ffi is not None         # still lazy
 
     first_field = rffi.getintfield(s, 'c_first_field_index')
@@ -342,7 +342,10 @@ def do_realize_lazy_struct(w_ctype):
         field_size   = rffi.getintfield(fld, 'c_field_size')
         field_offset = rffi.getintfield(fld, 'c_field_offset')
         if field_offset == -1:
-            xxxx
+            # unnamed struct, with field positions and sizes entirely
+            # determined by complete_struct_or_union() and not checked.
+            # Or, bitfields (field_size >= 0), similarly not checked.
+            assert field_size == -1 or fbitsize >= 0
         else:
             newtype.detect_custom_layout(w_ctype, newtype.SF_STD_FIELD_POS,
                                          w_ctf.size, field_size,
@@ -375,8 +378,9 @@ def do_realize_lazy_struct(w_ctype):
         w_ctype.size      = rffi.getintfield(s, 'c_size')       # restore
         w_ctype.alignment = rffi.getintfield(s, 'c_alignment')  # restore
         raise
-    assert w_ctype.size      == rffi.getintfield(s, 'c_size')
-    assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
+    if rffi.getintfield(s, 'c_size') >= 0:
+        assert w_ctype.size      == rffi.getintfield(s, 'c_size')
+        assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
     assert w_ctype._fields_list is not None       # not lazy any more
 
     w_ctype._lazy_ffi = None
