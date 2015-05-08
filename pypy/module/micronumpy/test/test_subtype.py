@@ -624,3 +624,48 @@ class AppTestSupport(BaseNumpyAppTest):
         a = asarray(fp[5:6][:,4])
         assert (a == vals).all()
 
+    def test__array_wrap__(self):
+        ''' Straight from the documentation of __array_wrap__
+        '''
+        import numpy as np
+
+        class MySubClass(np.ndarray):
+            output = ''
+
+            def __new__(cls, input_array, info=None):
+                obj = np.array(input_array).view(cls)
+                obj.info = info
+                return obj
+
+            def __array_finalize__(self, obj):
+                self.output += 'In __array_finalize__:'
+                self.output += '   self is %s' % repr(self)
+                self.output += '   obj is %s' % repr(obj)
+                print self.output
+                if obj is None: return
+                self.info = getattr(obj, 'info', None)
+
+            def __array_wrap__(self, out_arr, context=None):
+                self.output += 'In __array_wrap__:'
+                self.output += '   self is %s' % repr(self)
+                self.output += '   arr is %s' % repr(out_arr)
+                # then just call the parent
+                ret = np.ndarray.__array_wrap__(self, out_arr, context)
+                print 'wrap',self.output
+                return ret 
+
+        obj = MySubClass(np.arange(5), info='spam')
+        assert obj.output.startswith('In __array_finalize')
+        obj.output = ''
+        arr2 = np.arange(5)+1
+        assert len(obj.output) < 1
+        ret = np.add(arr2, obj)
+        print obj.output
+        assert obj.output.startswith('In __array_wrap')
+        assert 'finalize' not in obj.output
+        assert ret.info == 'spam'
+        ret = np.negative(obj)
+        assert ret.info == 'spam'
+        ret = obj.sum()
+        assert ret.info == 'spam'
+        assert False

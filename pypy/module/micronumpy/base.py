@@ -3,14 +3,16 @@ from pypy.interpreter.error import OperationError, oefmt
 from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy import support
 
-def wrap_impl(space, w_cls, w_instance, impl):
+def wrap_impl(space, w_cls, w_instance, impl, postpone_finalize=False):
     if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
         w_ret = W_NDimArray(impl)
     else:
         w_ret = space.allocate_instance(W_NDimArray, w_cls)
         W_NDimArray.__init__(w_ret, impl)
         assert isinstance(w_ret, W_NDimArray)
-        space.call_method(w_ret, '__array_finalize__', w_instance)
+        if not postpone_finalize:
+            # ufuncs need to call finalize after wrap
+            space.call_method(w_ret, '__array_finalize__', w_instance)
     return w_ret
 
 
@@ -33,7 +35,8 @@ class W_NDimArray(W_NumpyObject):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
+    def from_shape(space, shape, dtype, order='C', w_instance=None,
+                   zero=True, postpone_finalize=False):
         from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
         strides, backstrides = calc_strides(shape, dtype.base, order)
@@ -42,7 +45,8 @@ class W_NDimArray(W_NumpyObject):
         if dtype == descriptor.get_dtype_cache(space).w_objectdtype:
             impl.fill(space, boxes.W_ObjectBox(space.w_None))
         if w_instance:
-            return wrap_impl(space, space.type(w_instance), w_instance, impl)
+            return wrap_impl(space, space.type(w_instance), w_instance,
+                             impl, postpone_finalize=postpone_finalize)
         return W_NDimArray(impl)
 
     @staticmethod

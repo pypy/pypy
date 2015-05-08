@@ -60,9 +60,11 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         right_iter.track_index = False
 
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype,
-                                     w_instance=lhs_for_subtype)
-    out_iter, out_state = out.create_iter(shape)
+        w_ret = W_NDimArray.from_shape(space, shape, res_dtype,
+                                     w_instance=lhs_for_subtype, postpone_finalize=True)
+    else:
+        w_ret = out
+    out_iter, out_state = w_ret.create_iter(shape)
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -76,7 +78,10 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
             space, res_dtype))
         out_state = out_iter.next(out_state)
-    return out
+    if out is None:
+        w_ret2 = space.call_method(w_rhs, '__array_wrap__', w_ret)
+        space.call_method(w_ret2, '__array_finalize__', lhs_for_subtype)
+    return w_ret2
 
 call1_driver = jit.JitDriver(
     name='numpy_call1',
