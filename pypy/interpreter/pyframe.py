@@ -395,14 +395,6 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def save_locals_stack(self):
-        return self.locals_cells_stack_w[:self.valuestackdepth]
-
-    def restore_locals_stack(self, items_w):
-        self.locals_cells_stack_w[:len(items_w)] = items_w
-        self.init_cells()
-        self.dropvaluesuntil(len(items_w))
-
     def make_arguments(self, nargs):
         return Arguments(self.space, self.peekvalues(nargs))
 
