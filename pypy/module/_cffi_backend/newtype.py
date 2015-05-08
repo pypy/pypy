@@ -598,7 +598,8 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         fargs.append(w_farg)
     return _new_function_type(space, fargs, w_fresult, bool(ellipsis))
 
-@jit.elidable
+# can't use @jit.elidable here, because it might call back to random
+# space functions via force_lazy_struct()
 def _new_function_type(space, fargs, w_fresult, ellipsis=False):
     from pypy.module._cffi_backend import ctypefunc
     #

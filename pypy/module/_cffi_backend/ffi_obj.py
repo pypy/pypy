@@ -46,11 +46,24 @@ class W_FFIObject(W_Root):
         self.w_FFIError = get_ffi_error(space)
         self.included_libs = []        # list of W_LibObject's included here
 
-    @jit.elidable
-    def parse_string_to_type(self, string, flags):
-        try:
-            x = self.types_dict[string]
-        except KeyError:
+    @jit.elidable_promote()
+    def get_string_to_type(self, string, consider_fn_as_fnptr):
+        x = self.types_dict[string]     # KeyError if not found
+        if isinstance(x, W_CType):
+            return x
+        elif consider_fn_as_fnptr:
+            return realize_c_type.unwrap_fn_as_fnptr(x)
+        else:
+            return realize_c_type.unexpected_fn_type(self, x)
+
+    @jit.dont_look_inside
+    def parse_string_to_type(self, string, consider_fn_as_fnptr):
+        # This cannot be made @elidable because it calls general space
+        # functions (indirectly, e.g. via the new_xxx_type() functions).
+        # The get_string_to_type() function above is elidable, and we
+        # hope that in almost all cases, get_string_to_type() has already
+        # found an answer.
+        if string not in self.types_dict:
             info = self.ctxobj.info
             index = parse_c_type.parse_c_type(info, string)
             if index < 0:
@@ -62,20 +75,19 @@ class W_FFIObject(W_Root):
             x = realize_c_type.realize_c_type_or_func(
                 self, self.ctxobj.info.c_output, index)
             self.types_dict[string] = x
-
-        if isinstance(x, W_CType):
-            return x
-        elif flags & CONSIDER_FN_AS_FNPTR:
-            return realize_c_type.unwrap_fn_as_fnptr(x)
-        else:
-            return realize_c_type.unexpected_fn_type(self, x)
+        return self.get_string_to_type(string, consider_fn_as_fnptr)
 
     def ffi_type(self, w_x, accept):
         space = self.space
         if (accept & ACCEPT_STRING) and space.isinstance_w(w_x, space.w_str):
-            self = jit.promote(self)
-            return self.parse_string_to_type(space.str_w(w_x),
-                                             accept & CONSIDER_FN_AS_FNPTR)
+            string = space.str_w(w_x)
+            consider_fn_as_fnptr = (accept & CONSIDER_FN_AS_FNPTR) != 0
+            if jit.isconstant(string):
+                try:
+                    return self.get_string_to_type(string, consider_fn_as_fnptr)
+                except KeyError:
+                    pass
+            return self.parse_string_to_type(string, consider_fn_as_fnptr)
         if (accept & ACCEPT_CTYPE) and isinstance(w_x, W_CType):
             return w_x
         if (accept & ACCEPT_CDATA) and isinstance(w_x, W_CData):

@@ -40,17 +40,23 @@ class W_LibObject(W_Root):
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
-        try:
-            w_result = self.dict_w[attr]
-        except KeyError:
-            index = parse_c_type.search_in_globals(self.ctx, attr)
-            if index < 0:
-                for lib1 in self.ffi.included_libs:
-                    w_result = lib1._get_attr_elidable(attr)
-                    if w_result is not None:
-                        return w_result
-                return None     # no active caching, but still @elidable
+        return self.dict_w[attr]     # KeyError if not found
 
+    @jit.dont_look_inside
+    def _build_attr(self, attr):
+        index = parse_c_type.search_in_globals(self.ctx, attr)
+        if index < 0:
+            for lib1 in self.ffi.included_libs:
+                try:
+                    w_result = lib1._get_attr_elidable(attr)
+                except KeyError:
+                    w_result = lib1._build_attr(attr)
+                    if w_result is None:
+                        continue
+                break           # found, break out of this loop
+            else:
+                return None     # not found at all
+        else:
             space = self.space
             g = self.ctx.c_globals[index]
             op = getop(g.c_type_op)
@@ -101,17 +107,21 @@ class W_LibObject(W_Root):
                 raise oefmt(space.w_NotImplementedError,
                             "in lib_build_attr: op=%d", op)
 
-            self.dict_w[attr] = w_result
+        assert w_result is not None
+        self.dict_w[attr] = w_result
         return w_result
 
     def _get_attr(self, w_attr):
         attr = self.space.str_w(w_attr)
-        w_value = self._get_attr_elidable(attr)
-        if w_value is None:
-            raise oefmt(self.space.w_AttributeError,
-                        "cffi lib '%s' has no function,"
-                        " global variable or constant named '%s'",
-                        self.libname, attr)
+        try:
+            w_value = self._get_attr_elidable(attr)
+        except KeyError:
+            w_value = self._build_attr(attr)
+            if w_value is None:
+                raise oefmt(self.space.w_AttributeError,
+                            "cffi lib '%s' has no function,"
+                            " global variable or constant named '%s'",
+                            self.libname, attr)
         return w_value
 
     def descr_getattribute(self, w_attr):
