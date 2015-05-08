@@ -276,11 +276,15 @@ class AppTestRecompiler:
                            'says 0, but C compiler says 4). fix it or use "...;" '
                            "in the cdef for struct foo_s to make it flexible")
 
-    def test_type_caching():
-        ffi1 = FFI(); ffi1.cdef("struct foo_s;")
-        ffi2 = FFI(); ffi2.cdef("struct foo_s;")    # different one!
-        lib1 = verify(ffi1, 'test_type_caching_1', 'struct foo_s;')
-        lib2 = verify(ffi2, 'test_type_caching_2', 'struct foo_s;')
+    def test_type_caching(self):
+        ffi1, lib1 = self.prepare(
+            "struct foo_s;",
+            'test_type_caching_1',
+            'struct foo_s;')
+        ffi2, lib2 = self.prepare(
+            "struct foo_s;",    # different one!
+            'test_type_caching_2',
+            'struct foo_s;')
         # shared types
         assert ffi1.typeof("long") is ffi2.typeof("long")
         assert ffi1.typeof("long**") is ffi2.typeof("long * *")
@@ -293,12 +297,13 @@ class AppTestRecompiler:
         assert ffi1.typeof("void(*)(struct foo_s*)") is not (
             ffi2.typeof("void(*)(struct foo_s*)"))
 
-    def test_verify_enum():
-        ffi = FFI()
-        ffi.cdef("""enum e1 { B1, A1, ... }; enum e2 { B2, A2, ... };""")
-        lib = verify(ffi, 'test_verify_enum',
-                     "enum e1 { A1, B1, C1=%d };" % sys.maxsize +
-                     "enum e2 { A2, B2, C2 };")
+    def test_verify_enum(self):
+        import sys
+        ffi, lib = self.prepare(
+            """enum e1 { B1, A1, ... }; enum e2 { B2, A2, ... };""",
+            'test_verify_enum',
+            "enum e1 { A1, B1, C1=%d };" % sys.maxsize +
+            "enum e2 { A2, B2, C2 };")
         ffi.typeof("enum e1")
         ffi.typeof("enum e2")
         assert lib.A1 == 0
@@ -309,39 +314,33 @@ class AppTestRecompiler:
         assert ffi.sizeof("enum e2") == ffi.sizeof("int")
         assert repr(ffi.cast("enum e1", 0)) == "<cdata 'enum e1' 0: A1>"
 
-    def test_duplicate_enum():
-        ffi = FFI()
-        ffi.cdef("enum e1 { A1, ... }; enum e2 { A1, ... };")
-        raises(VerificationError, verify, ffi, 'test_duplicate_enum',
-                        "enum e1 { A1 }; enum e2 { B1 };")
-
-    def test_dotdotdot_length_of_array_field():
-        ffi = FFI()
-        ffi.cdef("struct foo_s { int a[...]; int b[...]; };")
-        verify(ffi, 'test_dotdotdot_length_of_array_field',
-               "struct foo_s { int a[42]; int b[11]; };")
+    def test_dotdotdot_length_of_array_field(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int a[...]; int b[...]; };",
+            'test_dotdotdot_length_of_array_field',
+            "struct foo_s { int a[42]; int b[11]; };")
         assert ffi.sizeof("struct foo_s") == (42 + 11) * 4
         p = ffi.new("struct foo_s *")
         assert p.a[41] == p.b[10] == 0
         raises(IndexError, "p.a[42]")
         raises(IndexError, "p.b[11]")
 
-    def test_dotdotdot_global_array():
-        ffi = FFI()
-        ffi.cdef("int aa[...]; int bb[...];")
-        lib = verify(ffi, 'test_dotdotdot_global_array',
-                     "int aa[41]; int bb[12];")
+    def test_dotdotdot_global_array(self):
+        ffi, lib = self.prepare(
+            "int aa[...]; int bb[...];",
+            'test_dotdotdot_global_array',
+            "int aa[41]; int bb[12];")
         assert ffi.sizeof(lib.aa) == 41 * 4
         assert ffi.sizeof(lib.bb) == 12 * 4
         assert lib.aa[40] == lib.bb[11] == 0
         raises(IndexError, "lib.aa[41]")
         raises(IndexError, "lib.bb[12]")
 
-    def test_misdeclared_field_1():
-        ffi = FFI()
-        ffi.cdef("struct foo_s { int a[5]; };")
-        verify(ffi, 'test_misdeclared_field_1',
-               "struct foo_s { int a[6]; };")
+    def test_misdeclared_field_1(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int a[5]; };",
+            'test_misdeclared_field_1',
+            "struct foo_s { int a[6]; };")
         assert ffi.sizeof("struct foo_s") == 24  # found by the actual C code
         p = ffi.new("struct foo_s *")
         # lazily build the fields and boom:
@@ -349,47 +348,48 @@ class AppTestRecompiler:
         assert str(e.value).startswith("struct foo_s: wrong size for field 'a' "
                                        "(cdef says 20, but C compiler says 24)")
 
-    def test_open_array_in_struct():
-        ffi = FFI()
-        ffi.cdef("struct foo_s { int b; int a[]; };")
-        verify(ffi, 'test_open_array_in_struct',
-               "struct foo_s { int b; int a[]; };")
+    def test_open_array_in_struct(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int b; int a[]; };",
+            'test_open_array_in_struct',
+            "struct foo_s { int b; int a[]; };")
         assert ffi.sizeof("struct foo_s") == 4
         p = ffi.new("struct foo_s *", [5, [10, 20, 30]])
         assert p.a[2] == 30
 
-    def test_math_sin_type():
-        ffi = FFI()
-        ffi.cdef("double sin(double);")
-        lib = verify(ffi, 'test_math_sin_type', '#include <math.h>')
+    def test_math_sin_type(self):
+        ffi, lib = self.prepare(
+            "double sin(double);",
+            'test_math_sin_type',
+            '#include <math.h>')
         # 'lib.sin' is typed as a <built-in method> object on lib
         assert ffi.typeof(lib.sin).cname == "double(*)(double)"
         # 'x' is another <built-in method> object on lib, made very indirectly
         x = type(lib).__dir__.__get__(lib)
         raises(TypeError, ffi.typeof, x)
 
-    def test_verify_anonymous_struct_with_typedef():
-        ffi = FFI()
-        ffi.cdef("typedef struct { int a; long b; ...; } foo_t;")
-        verify(ffi, 'test_verify_anonymous_struct_with_typedef',
-               "typedef struct { long b; int hidden, a; } foo_t;")
+    def test_verify_anonymous_struct_with_typedef(self):
+        ffi, lib = self.prepare(
+            "typedef struct { int a; long b; ...; } foo_t;",
+            'test_verify_anonymous_struct_with_typedef',
+            "typedef struct { long b; int hidden, a; } foo_t;")
         p = ffi.new("foo_t *", {'b': 42})
         assert p.b == 42
         assert repr(p).startswith("<cdata 'foo_t *' ")
 
-    def test_verify_anonymous_struct_with_star_typedef():
-        ffi = FFI()
-        ffi.cdef("typedef struct { int a; long b; } *foo_t;")
-        verify(ffi, 'test_verify_anonymous_struct_with_star_typedef',
-               "typedef struct { int a; long b; } *foo_t;")
+    def test_verify_anonymous_struct_with_star_typedef(self):
+        ffi, lib = self.prepare(
+            "typedef struct { int a; long b; } *foo_t;",
+            'test_verify_anonymous_struct_with_star_typedef',
+            "typedef struct { int a; long b; } *foo_t;")
         p = ffi.new("foo_t", {'b': 42})
         assert p.b == 42
 
-    def test_verify_anonymous_enum_with_typedef():
-        ffi = FFI()
-        ffi.cdef("typedef enum { AA, ... } e1;")
-        lib = verify(ffi, 'test_verify_anonymous_enum_with_typedef1',
-                     "typedef enum { BB, CC, AA } e1;")
+    def test_verify_anonymous_enum_with_typedef(self):
+        ffi, lib = self.prepare(
+            "typedef enum { AA, ... } e1;",
+            'test_verify_anonymous_enum_with_typedef1',
+            "typedef enum { BB, CC, AA } e1;")
         assert lib.AA == 2
         assert ffi.sizeof("e1") == ffi.sizeof("int")
         assert repr(ffi.cast("e1", 2)) == "<cdata 'e1' 2: AA>"
@@ -401,10 +401,10 @@ class AppTestRecompiler:
         assert lib.AA == sys.maxsize
         assert ffi.sizeof("e1") == ffi.sizeof("long")
 
-    def test_unique_types():
+    def test_unique_types(self):
         CDEF = "struct foo_s; union foo_u; enum foo_e { AA };"
-        ffi1 = FFI(); ffi1.cdef(CDEF); verify(ffi1, "test_unique_types_1", CDEF)
-        ffi2 = FFI(); ffi2.cdef(CDEF); verify(ffi2, "test_unique_types_2", CDEF)
+        ffi1, lib1 = self.prepare(CDEF, "test_unique_types_1", CDEF)
+        ffi2, lib2 = self.prepare(CDEF, "test_unique_types_2", CDEF)
         #
         assert ffi1.typeof("char") is ffi2.typeof("char ")
         assert ffi1.typeof("long") is ffi2.typeof("signed long int")
