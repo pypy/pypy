@@ -66,6 +66,12 @@ class W_LibObject(W_Root):
                 ptr = rffi.cast(rffi.CCHARP, g.c_address)
                 w_result = cglob.W_GlobSupport(space, w_ct, ptr)
                 #
+            elif (op == cffi_opcode.OP_CONSTANT_INT or
+                  op == cffi_opcode.OP_ENUM):
+                # A constant integer whose value, in an "unsigned long long",
+                # is obtained by calling the function at g->address
+                w_result = realize_c_type.realize_global_int(self.ffi, g)
+                #
             else:
                 raise oefmt(space.w_NotImplementedError,
                             "in lib_build_attr: op=%d", op)

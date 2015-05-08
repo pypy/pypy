@@ -1,4 +1,6 @@
-from rpython.rtyper.lltypesystem import rffi
+import sys
+from rpython.rlib.rarithmetic import intmask
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._cffi_backend.ctypeobj import W_CType
@@ -85,12 +87,32 @@ def get_array_type(ffi, opcodes, itemindex, length):
     return newtype._new_array_type(ffi.space, w_ctitemptr, length)
 
 
+FUNCPTR_FETCH_LONGLONG = lltype.Ptr(lltype.FuncType([rffi.ULONGLONGP],
+                                                    rffi.INT))
+def realize_global_int(ffi, g):
+    fetch_fnptr = rffi.cast(FUNCPTR_FETCH_LONGLONG, g.c_address)
+    with lltype.scoped_alloc(rffi.ULONGLONGP.TO, 1) as p_value:
+        neg = fetch_fnptr(p_value)
+        value = p_value[0]
+    neg = rffi.cast(lltype.Signed, neg)
+
+    if neg == 0:     # positive
+        if value <= sys.maxint:
+            return ffi.space.wrap(intmask(value))
+        else:
+            return ffi.space.wrap(value)
+    elif neg == 1:   # negative
+        if value >= -sys.maxint-1:
+            return ffi.space.wrap(intmask(value))
+        else:
+            return ffi.space.wrap(rffi.cast(rffi.LONGLONG, value))
+    xxxx
+
+
 class W_RawFuncType(W_Root):
     """Temporary: represents a C function type (not a function pointer)"""
     def __init__(self, w_ctfuncptr):
         self.w_ctfuncptr = w_ctfuncptr
-
-
 
 def unwrap_fn_as_fnptr(x):
     assert isinstance(x, W_RawFuncType)
