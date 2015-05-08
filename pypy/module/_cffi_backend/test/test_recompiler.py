@@ -23,14 +23,20 @@ def prepare(space, cdef, module_name, source):
         '#define PYPY_VERSION XX\n'
         '#define PyMODINIT_FUNC /*exported*/\n'
         )
-    c_file  = str(rdir.join('%s.c'  % module_name))
-    so_file = str(rdir.join('%s.so' % module_name))
+    path = module_name.replace('.', os.sep)
+    if '.' in module_name:
+        subrdir = rdir.join(module_name[:module_name.index('.')])
+        os.mkdir(str(subrdir))
+    else:
+        subrdir = rdir
+    c_file  = str(rdir.join('%s.c'  % path))
+    so_file = str(rdir.join('%s.so' % path))
     ffi = FFI()
     ffi.cdef(cdef)
     ffi.set_source(module_name, source)
     ffi.emit_c_code(c_file)
-    err = os.system("cd '%s' && gcc -shared -fPIC -g -I. '%s' -o '%s'" % (
-        str(rdir),
+    err = os.system("cd '%s' && gcc -shared -fPIC -g -I'%s' '%s' -o '%s'" % (
+        str(subrdir), str(rdir),
         os.path.basename(c_file),
         os.path.basename(so_file)))
     if err != 0:
@@ -394,10 +400,11 @@ class AppTestRecompiler:
         assert ffi.sizeof("e1") == ffi.sizeof("int")
         assert repr(ffi.cast("e1", 2)) == "<cdata 'e1' 2: AA>"
         #
-        ffi = FFI()
-        ffi.cdef("typedef enum { AA=%d } e1;" % sys.maxsize)
-        lib = verify(ffi, 'test_verify_anonymous_enum_with_typedef2',
-                     "typedef enum { AA=%d } e1;" % sys.maxsize)
+        import sys
+        ffi, lib = self.prepare(
+            "typedef enum { AA=%d } e1;" % sys.maxsize,
+            'test_verify_anonymous_enum_with_typedef2',
+            "typedef enum { AA=%d } e1;" % sys.maxsize)
         assert lib.AA == sys.maxsize
         assert ffi.sizeof("e1") == ffi.sizeof("long")
 
@@ -427,24 +434,12 @@ class AppTestRecompiler:
         # sanity check: twice 'ffi1'
         assert ffi1.typeof("struct foo_s*") is ffi1.typeof("struct foo_s *")
 
-    def test_module_name_in_package():
-        ffi = FFI()
-        ffi.cdef("int foo(int);")
-        recompiler.recompile(ffi, "test_module_name_in_package.mymod",
-                             "int foo(int x) { return x + 32; }",
-                             tmpdir=str(udir))
-        old_sys_path = sys.path[:]
-        try:
-            package_dir = udir.join('test_module_name_in_package')
-            assert os.path.isdir(str(package_dir))
-            assert len(os.listdir(str(package_dir))) > 0
-            package_dir.join('__init__.py').write('')
-            #
-            sys.path.insert(0, str(udir))
-            import test_module_name_in_package.mymod
-            assert test_module_name_in_package.mymod.lib.foo(10) == 42
-        finally:
-            sys.path[:] = old_sys_path
+    def test_module_name_in_package(self):
+        ffi, lib = self.prepare(
+            "int foo(int);",
+            'test_module_name_in_package.mymod',
+            "int foo(int x) { return x + 32; }")
+        assert lib.foo(10) == 42
 
     def test_bad_size_of_global_1():
         ffi = FFI()
