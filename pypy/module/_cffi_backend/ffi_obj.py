@@ -51,9 +51,14 @@ class W_FFIObject(W_Root):
         try:
             x = self.types_dict[string]
         except KeyError:
-            index = parse_c_type.parse_c_type(self.ctxobj.info, string)
+            info = self.ctxobj.info
+            index = parse_c_type.parse_c_type(info, string)
             if index < 0:
-                xxxx
+                num_spaces = rffi.getintfield(info, 'c_error_location')
+                raise oefmt(self.w_FFIError, "%s\n%s\n%s^",
+                            rffi.charp2str(info.c_error_message),
+                            string,
+                            " " * num_spaces)
             x = realize_c_type.realize_c_type_or_func(
                 self, self.ctxobj.info.c_output, index)
             self.types_dict[string] = x

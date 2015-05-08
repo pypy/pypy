@@ -165,3 +165,19 @@ class AppTestFFIObj:
         assert ffi.cast("int(*)(int)", 0) == ffi.NULL
         ffi.callback("int(int)")      # side-effect of registering this string
         raises(ffi.error, ffi.cast, "int(int)", 0)
+
+    def test_ffi_invalid_type(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        e = raises(ffi.error, ffi.cast, "", 0)
+        assert str(e.value) == ("identifier expected\n"
+                                "\n"
+                                "^")
+        e = raises(ffi.error, ffi.cast, "struct struct", 0)
+        assert str(e.value) == ("struct or union name expected\n"
+                                "struct struct\n"
+                                "       ^")
+        e = raises(ffi.error, ffi.cast, "struct never_heard_of_s", 0)
+        assert str(e.value) == ("undefined struct/union name\n"
+                                "struct never_heard_of_s\n"
+                                "       ^")
