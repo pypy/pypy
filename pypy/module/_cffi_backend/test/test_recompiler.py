@@ -441,24 +441,27 @@ class AppTestRecompiler:
             "int foo(int x) { return x + 32; }")
         assert lib.foo(10) == 42
 
-    def test_bad_size_of_global_1():
-        ffi = FFI()
-        ffi.cdef("short glob;")
-        lib = verify(ffi, "test_bad_size_of_global_1", "long glob;")
-        raises(ffi.error, "lib.glob")
+    def test_bad_size_of_global_1(self):
+        ffi, lib = self.prepare(
+            "short glob;",
+            "test_bad_size_of_global_1",
+            "long glob;")
+        raises(ffi.error, getattr, lib, "glob")
 
-    def test_bad_size_of_global_2():
-        ffi = FFI()
-        ffi.cdef("int glob[10];")
-        lib = verify(ffi, "test_bad_size_of_global_2", "int glob[9];")
-        e = raises(ffi.error, "lib.glob")
+    def test_bad_size_of_global_2(self):
+        ffi, lib = self.prepare(
+            "int glob[10];",
+            "test_bad_size_of_global_2",
+            "int glob[9];")
+        e = raises(ffi.error, getattr, lib, "glob")
         assert str(e.value) == ("global variable 'glob' should be 40 bytes "
                                 "according to the cdef, but is actually 36")
 
-    def test_unspecified_size_of_global():
-        ffi = FFI()
-        ffi.cdef("int glob[];")
-        lib = verify(ffi, "test_unspecified_size_of_global", "int glob[10];")
+    def test_unspecified_size_of_global(self):
+        ffi, lib = self.prepare(
+            "int glob[];",
+            "test_unspecified_size_of_global",
+            "int glob[10];")
         lib.glob    # does not crash
 
     def test_include_1():
