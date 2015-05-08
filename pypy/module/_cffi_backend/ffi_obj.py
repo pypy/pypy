@@ -88,6 +88,14 @@ class W_FFIObject(W_Root):
         cerrno.set_errno(space, space.c_int_w(errno))
 
 
+    def _more_addressof(self, args_w, w_ctype):
+        # contains a loop, the JIT doesn't look inside this helper
+        offset = 0
+        for i in range(len(args_w)):
+            w_ctype, ofs1 = w_ctype.direct_typeoffsetof(args_w[i], i > 0)
+            offset += ofs1
+        return w_ctype, offset
+
     def descr_addressof(self, w_arg, args_w):
         """\
 With a single arg, return the address of a <cdata 'struct-or-union'>.
@@ -97,21 +105,22 @@ structures."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
         space = self.space
-        offset = 0
         if len(args_w) == 0:
             if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion) and
                 not isinstance(w_ctype, ctypearray.W_CTypeArray)):
                 raise oefmt(space.w_TypeError,
                             "expected a cdata struct/union/array object")
+            offset = 0
         else:
             if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion) and
                 not isinstance(w_ctype, ctypearray.W_CTypeArray) and
                 not isinstance(w_ctype, ctypeptr.W_CTypePointer)):
                 raise oefmt(space.w_TypeError,
                         "expected a cdata struct/union/array/pointer object")
-            for i in range(len(args_w)):
-                w_ctype, ofs1 = w_ctype.direct_typeoffsetof(args_w[i], i > 0)
-                offset += ofs1
+            if len(args_w) == 1:
+                w_ctype, offset = w_ctype.direct_typeoffsetof(args_w[0], False)
+            else:
+                w_ctype, offset = self._more_addressof(args_w, w_ctype)
         #
         assert isinstance(w_arg, W_CData)
         cdata = w_arg.unsafe_escaping_ptr()
@@ -244,6 +253,29 @@ the cdata object returned by new_handle()!"""
         return handle._newp_handle(space, newtype.new_voidp_type(space), w_arg)
 
 
+    def _more_offsetof(self, w_ctype, w_arg0, args_w):
+        # contains a loop, the JIT doesn't look inside this helper
+        w_ctype, offset = w_ctype.direct_typeoffsetof(w_arg0, False)
+        for i in range(len(args_w)):
+            w_ctype, ofs1 = w_ctype.direct_typeoffsetof(args_w[i], True)
+            offset += ofs1
+        return offset
+
+    def descr_offsetof(self, w_arg, w_field_or_array, args_w):
+        """\
+Return the offset of the named field inside the given structure or
+array, which must be given as a C type name.  You can give several
+field names in case of nested structures.  You can also give numeric
+values which correspond to array items, in case of an array type."""
+        #
+        w_ctype = self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CTYPE)
+        if len(args_w) == 0:
+            _, offset = w_ctype.direct_typeoffsetof(w_field_or_array, False)
+        else:
+            offset = self._more_offsetof(w_ctype, w_field_or_array, args_w)
+        return self.space.wrap(offset)
+
+
     @unwrap_spec(w_cdata=W_CData, maxlen=int)
     def descr_string(self, w_cdata, maxlen=-1):
         """\
@@ -322,6 +354,7 @@ W_FFIObject.typedef = TypeDef(
         getctype    = interp2app(W_FFIObject.descr_getctype),
         new         = interp2app(W_FFIObject.descr_new),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
+        offsetof    = interp2app(W_FFIObject.descr_offsetof),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),
