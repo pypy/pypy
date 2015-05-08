@@ -69,10 +69,9 @@ class PyFrame(W_Root):
 
     w_globals = None
     pycode = None # code object executed by that frame
-    locals_stack_w = None # the list of all locals and valuestack
+    locals_cells_stack_w = None # the list of all locals, cells and the valuestack
     valuestackdepth = 0 # number of items on valuestack
     lastblock = None
-    cells = None # cells
 
     # other fields:
     
