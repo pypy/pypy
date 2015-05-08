@@ -79,9 +79,9 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
             space, res_dtype))
         out_state = out_iter.next(out_state)
     if out is None:
-        w_ret2 = space.call_method(w_rhs, '__array_wrap__', w_ret)
-        space.call_method(w_ret2, '__array_finalize__', lhs_for_subtype)
-    return w_ret2
+        w_ret = space.call_method(w_rhs, '__array_wrap__', w_ret)
+        space.call_method(w_ret, '__array_finalize__', lhs_for_subtype)
+    return w_ret
 
 call1_driver = jit.JitDriver(
     name='numpy_call1',
