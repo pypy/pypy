@@ -36,6 +36,21 @@ def _get_dtype(space, w_npyobj):
         assert isinstance(w_npyobj, W_NDimArray)
         return w_npyobj.get_dtype()
 
+def _find_array_wrap(*args, **kwds):
+    '''determine an appropriate __array_wrap__ function to call for the outputs.
+      If an output argument is provided, then it is wrapped
+      with its own __array_wrap__ not with the one determined by
+      the input arguments.
+     
+      if the provided output argument is already an array,
+      the wrapping function is None (which means no wrapping will
+      be done --- not even PyArray_Return).
+     
+      A NULL is placed in output_wrap for outputs that
+      should just have PyArray_Return called.
+    '''
+    raise NotImplementedError()
+
 
 class W_Ufunc(W_Root):
     _immutable_fields_ = [
@@ -225,6 +240,7 @@ class W_Ufunc(W_Root):
                         raise oefmt(space.w_ValueError,
                             "zero-size array to reduction operation %s "
                             "which has no identity", self.name)
+        call__array_wrap__ = True
         if shapelen > 1 and axis < shapelen:
             temp = None
             if cumulative:
@@ -257,6 +273,7 @@ class W_Ufunc(W_Root):
                                 ",".join([str(x) for x in shape]),
                                 ",".join([str(x) for x in out.get_shape()]),
                                 )
+                call__array_wrap__ = False
                 dtype = out.get_dtype()
             else:
                 out = W_NDimArray.from_shape(space, shape, dtype,
@@ -265,11 +282,16 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            return loop.do_axis_reduce(space, shape, self.func, obj, dtype,
+            loop.do_axis_reduce(space, shape, self.func, obj, dtype,
                                        axis, out, self.identity, cumulative,
                                        temp)
+            if call__array_wrap__:
+                pass
+                # XXX if out is not type(obj) call __array_wrap__ 
+            return out
         if cumulative:
             if out:
+                call__array_wrap__ = False
                 if out.get_shape() != [obj.get_size()]:
                     raise OperationError(space.w_ValueError, space.wrap(
                         "out of incompatible size"))
@@ -278,8 +300,12 @@ class W_Ufunc(W_Root):
                                              w_instance=obj)
             loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
                                            self.identity)
+            if call__array_wrap__:
+                pass
+                # XXX if out is not a type(obj) call __array_wrap__ 
             return out
         if out:
+            call__array_wrap__ = False
             if out.ndims() > 0:
                 raise oefmt(space.w_ValueError,
                             "output parameter for reduction operation %s has "
@@ -295,7 +321,10 @@ class W_Ufunc(W_Root):
             out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype,
                                          w_instance=obj)
             out.implementation.setitem(0, res)
-            return out
+            res = out
+        if call__array_wrap__:
+            pass
+            # XXX if res is not a type(obj) call __array_wrap__ 
         return res
 
     def descr_outer(self, space, __args__):
@@ -416,6 +445,7 @@ class W_Ufunc1(W_Ufunc):
         assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
+        # XXX call __array_wrap__ if out was not provided
         return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
 
@@ -554,6 +584,7 @@ class W_Ufunc2(W_Ufunc):
         assert isinstance(w_rhs, W_NDimArray)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
+        # XXX call __array_wrap__ if out was not provided
         return loop.call2(space, new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
@@ -652,6 +683,7 @@ class W_UfuncGeneric(W_Ufunc):
             assert isinstance(outargs0, W_NDimArray)
             res_dtype = outargs0.get_dtype()
             new_shape = inargs0.get_shape()
+            # XXX use _find_array_wrap and wrap outargs using __array_wrap__
             if len(outargs) < 2:
                 return loop.call_many_to_one(space, new_shape, func,
                                              res_dtype, inargs, outargs[0])
@@ -744,6 +776,7 @@ class W_UfuncGeneric(W_Ufunc):
                     for i in range(self.nout):
                         w_val = space.getitem(outs, space.wrap(i))
                         outiters[i].descr_setitem(space, space.w_Ellipsis, w_val)
+        # XXX use _find_array_wrap and wrap outargs using __array_wrap__
         if len(outargs) > 1:
             return space.newtuple([convert_to_array(space, o) for o in outargs])
         return outargs[0]

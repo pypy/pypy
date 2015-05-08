@@ -802,6 +802,7 @@ class __extend__(W_NDimArray):
             new_shape = [s for s in cur_shape if s != 1]
         if len(cur_shape) == len(new_shape):
             return self
+        # XXX need to call __array_wrap__
         return wrap_impl(space, space.type(self), self,
                          self.implementation.get_view(
                              space, self, self.get_dtype(), new_shape))
