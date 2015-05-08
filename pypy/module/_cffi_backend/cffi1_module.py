@@ -31,6 +31,8 @@ def load_cffi1_module(space, name, path, dll, initptr):
 
     ffi = W_FFIObject(space, src_ctx)
     lib = W_LibObject(ffi, name)
+    if src_ctx.c_includes:
+        lib.make_includes_from(src_ctx.c_includes)
 
     w_name = space.wrap(name)
     module = Module(space, w_name)

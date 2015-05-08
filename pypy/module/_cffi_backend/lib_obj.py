@@ -25,6 +25,20 @@ class W_LibObject(W_Root):
     def descr_repr(self):
         return self.space.wrap("<Lib object for '%s'>" % self.libname)
 
+    def make_includes_from(self, c_includes):
+        space = self.space
+        num = 0
+        includes = []
+        while c_includes[num]:
+            include_name = rffi.charp2str(c_includes[num])
+            w_lib1 = space.appexec([space.wrap(include_name)], """(modname):
+                mod = __import__(modname, None, None, ['ffi', 'lib'])
+                return mod.lib""")
+            lib1 = space.interp_w(W_LibObject, w_lib1)
+            includes.append(lib1)
+            num += 1
+        self.includes = includes[:]
+
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
         try:
@@ -32,6 +46,10 @@ class W_LibObject(W_Root):
         except KeyError:
             index = parse_c_type.search_in_globals(self.ctx, attr)
             if index < 0:
+                for lib1 in self.includes:
+                    w_result = lib1._get_attr_elidable(attr)
+                    if w_result is not None:
+                        return w_result
                 return None     # no active caching, but still @elidable
 
             space = self.space

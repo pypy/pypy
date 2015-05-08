@@ -484,14 +484,16 @@ class AppTestRecompiler:
             includes=[ffi1])
         assert lib.ff1(0) == 42.5
 
-    def test_include_1b():
-        ffi1 = FFI()
-        ffi1.cdef("int foo1(int);")
-        verify(ffi1, "test_include_1b_parent", "int foo1(int x) { return x + 10; }")
-        ffi = FFI()
-        ffi.include(ffi1)
-        ffi.cdef("int foo2(int);")
-        lib = verify(ffi, "test_include_1b", "int foo2(int x) { return x - 5; }")
+    def test_include_1b(self):
+        ffi1, lib1 = self.prepare(
+            "int foo1(int);",
+            "test_include_1b_parent",
+            "int foo1(int x) { return x + 10; }")
+        ffi, lib = self.prepare(
+            "int foo2(int);",
+            "test_include_1b",
+            "int foo2(int x) { return x - 5; }",
+            includes=[ffi1])
         assert lib.foo2(42) == 37
         assert lib.foo1(42) == 52
 
