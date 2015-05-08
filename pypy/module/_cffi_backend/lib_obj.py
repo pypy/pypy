@@ -1,5 +1,5 @@
 from rpython.rlib import jit
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -43,20 +43,16 @@ class W_LibObject(W_Root):
                 # A function: in the PyPy version, these are all equivalent
                 # and 'g->address' is a pointer to a function of exactly the
                 # C type specified
-                type_index = getarg(g.c_type_op)
-                opcodes = self.ctx.c_types
-                w_ct = realize_c_type.realize_c_type_or_func(self.ffi, opcodes,
-                                                             type_index)
+                w_ct = realize_c_type.realize_c_type_or_func(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
                 w_ct = realize_c_type.unwrap_fn_as_fnptr(w_ct)
                 ptr = rffi.cast(rffi.CCHARP, g.c_address)
                 w_result = W_CData(space, ptr, w_ct)
                 #
             elif op == cffi_opcode.OP_GLOBAL_VAR:
                 # A global variable of the exact type specified here
-                type_index = getarg(g.c_type_op)
-                opcodes = self.ctx.c_types
-                w_ct = realize_c_type.realize_c_type(self.ffi, opcodes,
-                                                     type_index)
+                w_ct = realize_c_type.realize_c_type(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
                 g_size = rffi.getintfield(g, 'c_size')
                 if g_size != w_ct.size and g_size != 0 and w_ct.size > 0:
                     raise oefmt(self.ffi.w_FFIError,
@@ -71,6 +67,18 @@ class W_LibObject(W_Root):
                 # A constant integer whose value, in an "unsigned long long",
                 # is obtained by calling the function at g->address
                 w_result = realize_c_type.realize_global_int(self.ffi, g)
+                #
+            elif op == cffi_opcode.OP_CONSTANT:
+                # A constant which is not of integer type
+                w_ct = realize_c_type.realize_c_type(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
+                fetch_funcptr = rffi.cast(
+                    realize_c_type.FUNCPTR_FETCH_CHARP,
+                    g.c_address)
+                assert w_ct.size > 0
+                with lltype.scoped_alloc(rffi.CCHARP.TO, w_ct.size) as ptr:
+                    fetch_funcptr(ptr)
+                    w_result = w_ct.convert_to_object(ptr)
                 #
             else:
                 raise oefmt(space.w_NotImplementedError,

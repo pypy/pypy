@@ -87,6 +87,7 @@ def get_array_type(ffi, opcodes, itemindex, length):
     return newtype._new_array_type(ffi.space, w_ctitemptr, length)
 
 
+FUNCPTR_FETCH_CHARP = lltype.Ptr(lltype.FuncType([rffi.CCHARP], lltype.Void))
 FUNCPTR_FETCH_LONGLONG = lltype.Ptr(lltype.FuncType([rffi.ULONGLONGP],
                                                     rffi.INT))
 def realize_global_int(ffi, g):
