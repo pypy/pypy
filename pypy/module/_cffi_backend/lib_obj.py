@@ -26,7 +26,7 @@ class W_LibObject(W_Root):
         XXX
 
     @jit.elidable_promote()
-    def _get_attr(self, attr):
+    def _get_attr_elidable(self, attr):
         try:
             w_result = self.dict_w[attr]
         except KeyError:
@@ -73,26 +73,42 @@ class W_LibObject(W_Root):
             self.dict_w[attr] = w_result
         return w_result
 
-    def _no_such_attr(self, attr):
-        raise oefmt(self.space.w_AttributeError,
-                    "cffi lib '%s' has no function,"
-                    " global variable or constant named '%s'",
-                    self.libname, attr)
+    def _get_attr(self, w_attr):
+        attr = self.space.str_w(w_attr)
+        w_value = self._get_attr_elidable(attr)
+        if w_value is None:
+            raise oefmt(self.space.w_AttributeError,
+                        "cffi lib '%s' has no function,"
+                        " global variable or constant named '%s'",
+                        self.libname, attr)
+        return w_value
 
     def descr_getattribute(self, w_attr):
-        space = self.space
-        attr = space.str_w(w_attr)
-        w_value = self._get_attr(attr)
-        if w_value is None:
-            raise self._no_such_attr(attr)
-        elif isinstance(w_value, cglob.W_GlobSupport):
+        w_value = self._get_attr(w_attr)
+        if isinstance(w_value, cglob.W_GlobSupport):
             w_value = w_value.read_global_var()
         return w_value
+
+    def descr_setattr(self, w_attr, w_newvalue):
+        w_value = self._get_attr(w_attr)
+        if isinstance(w_value, cglob.W_GlobSupport):
+            w_value.write_global_var(w_newvalue)
+        else:
+            raise oefmt(self.space.w_AttributeError,
+                        "cannot write to function or constant '%s'",
+                        self.space.str_w(w_attr))
+
+    def descr_delattr(self, w_attr):
+        self._get_attr(w_attr)    # for the possible AttributeError
+        raise oefmt(self.space.w_AttributeError,
+                    "C attribute cannot be deleted")
 
 
 W_LibObject.typedef = TypeDef(
         'CompiledLib',
         __repr__ = interp2app(W_LibObject.descr_repr),
         __getattribute__ = interp2app(W_LibObject.descr_getattribute),
+        __setattr__ = interp2app(W_LibObject.descr_setattr),
+        __delattr__ = interp2app(W_LibObject.descr_delattr),
         )
 W_LibObject.typedef.acceptable_as_base_class = False

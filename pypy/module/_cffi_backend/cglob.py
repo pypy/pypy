@@ -12,5 +12,8 @@ class W_GlobSupport(W_Root):
     def read_global_var(self):
         return self.w_ctype.convert_to_object(self.ptr)
 
+    def write_global_var(self, w_newvalue):
+        self.w_ctype.convert_from_object(self.ptr, w_newvalue)
+
 W_GlobSupport.typedef = TypeDef("FFIGlobSupport")
 W_GlobSupport.typedef.acceptable_as_base_class = False
