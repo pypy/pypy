@@ -106,7 +106,14 @@ def realize_global_int(ffi, g):
             return ffi.space.wrap(intmask(value))
         else:
             return ffi.space.wrap(rffi.cast(rffi.LONGLONG, value))
-    xxxx
+
+    if neg == 2:
+        got = "%d (0x%x)" % (value, value)
+    else:
+        got = "%d" % (rffi.cast(rffi.LONGLONG, value),)
+    raise oefmt(ffi.w_FFIError,
+                "the C compiler says '%s' is equal to %s, "
+                "but the cdef disagrees", rffi.charp2str(g.c_name), got)
 
 
 class W_RawFuncType(W_Root):
