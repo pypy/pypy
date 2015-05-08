@@ -1,5 +1,6 @@
 import sys
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -8,9 +9,11 @@ from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
 from pypy.module._cffi_backend import parse_c_type
 
 
+@specialize.ll()
 def getop(op):
     return rffi.cast(rffi.SIGNED, op) & 0xFF
 
+@specialize.ll()
 def getarg(op):
     return rffi.cast(rffi.SIGNED, op) >> 8
 
@@ -78,7 +81,7 @@ def get_primitive_type(space, num):
         elif 0 <= num < len(RealizeCache.NAMES) and RealizeCache.NAMES[num]:
             w_ctype = newtype.new_primitive_type(space, RealizeCache.NAMES[num])
         else:
-            raise oefmt(ffi.space.w_NotImplementedError, "prim=%d", case)
+            raise oefmt(space.w_NotImplementedError, "prim=%d", num)
         realize_cache.all_primitives[num] = w_ctype
     return w_ctype
 
@@ -99,15 +102,16 @@ def realize_global_int(ffi, g):
     neg = rffi.cast(lltype.Signed, neg)
 
     if neg == 0:     # positive
-        if value <= sys.maxint:
+        if value <= rffi.cast(rffi.ULONGLONG, sys.maxint):
             return ffi.space.wrap(intmask(value))
         else:
             return ffi.space.wrap(value)
     elif neg == 1:   # negative
+        value = rffi.cast(rffi.LONGLONG, value)
         if value >= -sys.maxint-1:
             return ffi.space.wrap(intmask(value))
         else:
-            return ffi.space.wrap(rffi.cast(rffi.LONGLONG, value))
+            return ffi.space.wrap(value)
 
     if neg == 2:
         got = "%d (0x%x)" % (value, value)
@@ -240,8 +244,8 @@ def _realize_c_enum(ffi, eindex):
 
     name = _realize_name("enum ", e.c_name)
     w_ctype = newtype.new_enum_type(space, name,
-                                    space.newtuple(enumerators_w),
-                                    space.newtuple(enumvalues_w),
+                                    space.newlist(enumerators_w),
+                                    space.newlist(enumvalues_w),
                                     w_basetd)
 
     # Update the "primary" OP_ENUM slot
@@ -389,7 +393,7 @@ def do_realize_lazy_struct(w_ctype):
     assert w_ctype._fields_list is not None       # not lazy any more
 
     w_ctype._lazy_ffi = None
-    w_ctype._lazy_s = lltype.nullptr(parse_c_type.FIELD_S)
+    w_ctype._lazy_s = lltype.nullptr(parse_c_type.STRUCT_UNION_S)
 
 
 def _fetch_external_struct_or_union(s, included_libs):
