@@ -2,7 +2,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from rpython.rlib import jit, rgc, nonconst
+from rpython.rlib import jit, rgc
 from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
@@ -340,7 +340,7 @@ It can also be used on 'cdata' instance to get its C type."""
 def W_FFIObject___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_FFIObject, w_subtype)
     # get in 'src_ctx' a NULL which transaction doesn't consider a constant
-    src_ctx = rffi.cast(parse_c_type.PCTX, nonconst.NonConstant(0))
+    src_ctx = rffi.cast(parse_c_type.PCTX, 0)
     r.__init__(space, src_ctx)
     return space.wrap(r)
 
