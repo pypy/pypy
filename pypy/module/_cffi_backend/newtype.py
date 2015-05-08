@@ -226,6 +226,7 @@ SF_GCC_BIG_ENDIAN     = 0x04
 SF_GCC_LITTLE_ENDIAN  = 0x40
 
 SF_PACKED             = 0x08
+SF_STD_FIELD_POS      = 0x80
 
 
 if sys.platform == 'win32':

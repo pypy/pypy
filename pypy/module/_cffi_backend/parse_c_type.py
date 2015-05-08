@@ -33,11 +33,10 @@ STRUCT_UNION_S = rffi.CStruct('struct _cffi_struct_union_s',
                        ('first_field_index', rffi.INT),
                        ('num_fields', rffi.INT))
 FIELD_S = rffi.CStruct('struct _cffi_field_s',
-    ## const char *name;
-    ## size_t field_offset;
-    ## size_t field_size;
-    ## _cffi_opcode_t field_type_op;
-    )
+                       ('name', rffi.CCHARP),
+                       ('field_offset', rffi.SIZE_T),
+                       ('field_size', rffi.SIZE_T),
+                       ('field_type_op', _CFFI_OPCODE_T))
 ENUM_S = rffi.CStruct('struct _cffi_enum_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT),

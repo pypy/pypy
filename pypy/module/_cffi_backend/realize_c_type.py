@@ -4,7 +4,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._cffi_backend.ctypeobj import W_CType
-from pypy.module._cffi_backend import cffi_opcode, newtype
+from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
+from pypy.module._cffi_backend import parse_c_type
 
 
 def getop(op):
@@ -164,18 +165,23 @@ def _realize_c_struct_or_union(ffi, sindex):
         return ffi.cached_types[type_index] #found already in the "primary" slot
 
     w_ctype = None
-    s_flags = rffi.getintfield(s, 'c_flags')
-    if (s_flags & cffi_opcode.F_EXTERNAL) == 0:
+    c_flags = rffi.getintfield(s, 'c_flags')
+    if (c_flags & cffi_opcode.F_EXTERNAL) == 0:
         space = ffi.space
-        if (s_flags & cffi_opcode.F_UNION) != 0:
+        if (c_flags & cffi_opcode.F_UNION) != 0:
             name = _realize_name("union ", s.c_name)
-            x = newtype.new_union_type(space, name)
+            x = ctypestruct.W_CTypeUnion(space, name)
         else:
             name = _realize_name("struct ", s.c_name)
-            x = newtype.new_struct_type(space, name)
+            x = ctypestruct.W_CTypeStruct(space, name)
         if rffi.getintfield(s, 'c_first_field_index') >= 0:
             w_ctype = x
-            xxxx
+            w_ctype.size = rffi.getintfield(s, 'c_size')
+            w_ctype.alignment = rffi.getintfield(s, 'c_alignment')
+            # w_ctype._field_list and other underscore fields are still
+            # None, making it a "lazy" (i.e. "non-forced") kind of struct
+            w_ctype._lazy_ffi = ffi
+            w_ctype._lazy_s = s
     else:
         yyyy
 
@@ -187,7 +193,7 @@ def _realize_c_struct_or_union(ffi, sindex):
         # a C expression to get its size.  We have to rely on
         # complete_struct_or_union() to compute it now.
         try:
-            xxxx / do_realize_lazy_struct(w_ctype)
+            do_realize_lazy_struct(ffi, w_ctype)
         except:
             ffi.cached_types[type_index] = None
             raise
@@ -257,3 +263,69 @@ def realize_c_type_or_func(ffi, opcodes, index):
         ffi.cached_types[index] = x
 
     return x
+
+
+def do_realize_lazy_struct(w_ctype):
+    """This is called by W_CTypeStructOrUnion.force_lazy_struct().
+    """
+    assert isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
+    space = w_ctype.space
+    ffi = w_ctype._lazy_ffi
+    s = w_ctype._lazy_s
+    assert w_ctype.size != -1      # not an opaque
+    assert ffi is not None         # still lazy
+
+    first_field = rffi.getintfield(s, 'c_first_field_index')
+    num_fields = rffi.getintfield(s, 'c_num_fields')
+    fields_w = [None] * num_fields
+
+    for i in range(num_fields):
+        fbitsize = -1
+        fld = ffi.ctxobj.ctx.c_fields[first_field + i]
+        op = rffi.getintfield(fld, 'c_field_type_op')
+        case = getop(op)
+
+        if case == cffi_opcode.OP_NOOP:
+            # standard field
+            w_ctf = realize_c_type(ffi, ffi.ctxobj.ctx.c_types, getarg(op))
+        else:
+            raise oefmt(space.w_NotImplementedError, "field op=%d", case)
+
+        field_offset = rffi.getintfield(fld, 'c_field_offset')
+        if field_offset == -1:
+            xxxx
+        else:
+            pass #detect_custom_layout()
+
+        fields_w[i] = space.newtuple([
+            space.wrap(rffi.charp2str(fld.c_name)),
+            w_ctf,
+            space.wrap(fbitsize),
+            space.wrap(field_offset)])
+
+    sflags = 0
+    c_flags = rffi.getintfield(s, 'c_flags')
+    if c_flags & cffi_opcode.F_CHECK_FIELDS:
+        sflags |= newtype.SF_STD_FIELD_POS
+    if c_flags & cffi_opcode.F_PACKED:
+        sflags |= newtype.SF_PACKED
+
+    assert w_ctype.size      == rffi.getintfield(s, 'c_size')
+    assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
+    try:
+        w_ctype.size = -1              # make opaque again
+        newtype.complete_struct_or_union(
+            space, w_ctype, space.newlist(fields_w), space.w_None,
+            totalsize = rffi.getintfield(s, 'c_size'),
+            totalalignment = rffi.getintfield(s, 'c_alignment'),
+            sflags = sflags)
+    except:
+        w_ctype.size      = rffi.getintfield(s, 'c_size')       # restore
+        w_ctype.alignment = rffi.getintfield(s, 'c_alignment')  # restore
+        raise
+    assert w_ctype.size      == rffi.getintfield(s, 'c_size')
+    assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
+    assert w_ctype._fields_list is not None       # not lazy any more
+
+    w_ctype._lazy_ffi = None
+    w_ctype._lazy_s = lltype.nullptr(parse_c_type.FIELD_S)

@@ -48,7 +48,9 @@ class W_CTypeStructOrUnion(W_CType):
         # Force a "lazy" struct to become "forced"; complain if we are "opaque".
         if self._fields_list is None:
             self.check_complete()
-            XXXXX
+            #
+            from pypy.module._cffi_backend import realize_c_type
+            realize_c_type.do_realize_lazy_struct(self)
 
     def _alignof(self):
         self.check_complete(w_errorcls=self.space.w_ValueError)
