@@ -1,6 +1,6 @@
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
 from rpython.rtyper.lltypesystem import rffi
@@ -295,10 +295,21 @@ def W_FFIObject___new__(space, w_subtype, __args__):
     r.__init__(space)
     return space.wrap(r)
 
+def make_NULL(space):
+    ctvoidp = newtype.new_voidp_type(space)
+    w_NULL = ctvoidp.cast(space.wrap(0))
+    return w_NULL
+
+def make_error(space):
+    return space.appexec([], """():
+        return type('error', (Exception,), {'__module__': 'ffi'})""")
+
 W_FFIObject.typedef = TypeDef(
         'CompiledFFI',
         __new__     = interp2app(W_FFIObject___new__),
         __init__    = interp2app(W_FFIObject.descr_init),
+        NULL        = ClassAttr(make_NULL),
+        error       = ClassAttr(make_error),
         errno       = GetSetProperty(W_FFIObject.get_errno,
                                      W_FFIObject.set_errno,
                                      doc=W_FFIObject.doc_errno,
@@ -315,11 +326,3 @@ W_FFIObject.typedef = TypeDef(
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),
         )
-
-def _startup(space):
-    ctvoidp = newtype.new_voidp_type(space)
-    w_NULL = ctvoidp.cast(space.wrap(0))
-    w_ffitype = space.gettypefor(W_FFIObject)
-    w_ffitype.dict_w['NULL'] = w_NULL
-    w_ffitype.dict_w['error'] = space.appexec([], """():
-        return type('error', (Exception,), {'__module__': 'ffi'})""")

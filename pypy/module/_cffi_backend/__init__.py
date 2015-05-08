@@ -53,10 +53,6 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['getwinerror'] = 'cerrno.getwinerror'
 
-    def startup(self, space):
-        from pypy.module._cffi_backend import ffi_obj
-        ffi_obj._startup(space)
-
 for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
               "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
     if getattr(rdynload.cConfig, _name) is not None:
