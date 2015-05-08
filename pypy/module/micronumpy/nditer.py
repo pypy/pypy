@@ -252,10 +252,6 @@ def coalesce_axes(it, space):
     # Copy logic from npyiter_coalesce_axes, used in ufunc iterators
     # and in nditer's with 'external_loop' flag
     can_coalesce = True
-    if it.order == 'F':
-        fastest = 0
-    else:
-        fastest = -1
     for idim in range(it.ndim - 1):
         for op_it, _ in it.iters:
             if op_it is None:
@@ -275,7 +271,7 @@ def coalesce_axes(it, space):
         if can_coalesce:
             for i in range(len(it.iters)):
                 new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it,
-                                         it.order, fastest)
+                                         it.order)
                 it.iters[i] = (new_iter, new_iter.reset())
             if len(it.shape) > 1:
                 if it.order == 'F':
@@ -289,7 +285,7 @@ def coalesce_axes(it, space):
             break
     # Always coalesce at least one
     for i in range(len(it.iters)):
-        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C', -1)
+        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C')
         it.iters[i] = (new_iter, new_iter.reset())
     if len(it.shape) > 1:
         if it.order == 'F':
@@ -300,12 +296,11 @@ def coalesce_axes(it, space):
         it.shape = [1]
 
 
-def coalesce_iter(old_iter, op_flags, it, order, fastest=-1, flat=True):
+def coalesce_iter(old_iter, op_flags, it, order, flat=True):
     '''
     We usually iterate through an array one value at a time.
     But after coalesce(), getoperand() will return a slice by removing
-    the fastest varying dimension from the beginning or end of the shape.
-    XXX - what happens on swapaxis arrays?
+    the fastest varying dimension(s) from the beginning or end of the shape.
     If flat is true, then the slice will be 1d, otherwise stack up the shape of
     the fastest varying dimension in the slice, so an iterator of a  'C' array 
     of shape (2,4,3) after two calls to coalesce will iterate 2 times over a slice
@@ -319,6 +314,9 @@ def coalesce_iter(old_iter, op_flags, it, order, fastest=-1, flat=True):
         new_strides = strides[1:]
         new_backstrides = backstrides[1:]
         _stride = old_iter.slice_stride + [strides[0]]
+        _shape =  old_iter.slice_shape + [shape[0]]
+        _backstride = old_iter.slice_backstride + [strides[0] * (shape[0] - 1)]
+        fastest = shape[0]
     else:
         new_shape = shape[:-1]
         new_strides = strides[:-1]
@@ -326,14 +324,15 @@ def coalesce_iter(old_iter, op_flags, it, order, fastest=-1, flat=True):
         # use the operand's iterator's rightmost stride,
         # even if it is not the fastest (for 'F' or swapped axis)
         _stride = [strides[-1]] + old_iter.slice_stride
-    _shape = [shape[fastest]]  + old_iter.slice_shape
-    _backstride = [(_shape[fastest] - 1) * _stride[0]] + old_iter.slice_backstride
+        _shape = [shape[-1]]  + old_iter.slice_shape
+        _backstride = [(shape[-1] - 1) * strides[-1]] + old_iter.slice_backstride
+        fastest = shape[-1]
     if flat:
         _shape = [support.product(_shape)]
         if len(_stride) > 1:
             _stride = [min(_stride[0], _stride[1])]
         _backstride = [(shape[0] - 1) * _stride[0]]
-    return SliceIter(old_iter.array, old_iter.size / shape[fastest],
+    return SliceIter(old_iter.array, old_iter.size / fastest,
                 new_shape, new_strides, new_backstrides,
                 _shape, _stride, _backstride, op_flags, it)
 

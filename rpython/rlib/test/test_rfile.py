@@ -26,6 +26,7 @@ class TestFile(BaseRtypingTest):
 
         f()
         assert open(fname, "r").read() == "dupa"
+        os.unlink(fname)
         self.interpret(f, [])
         assert open(fname, "r").read() == "dupa"
 
@@ -102,6 +103,7 @@ class TestFile(BaseRtypingTest):
             f2.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     @py.test.mark.skipif("sys.platform == 'win32'")
@@ -121,6 +123,7 @@ class TestFile(BaseRtypingTest):
             f2.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     def test_open_buffering_full(self):
@@ -138,6 +141,7 @@ class TestFile(BaseRtypingTest):
             f2.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     def test_fdopen_buffering_full(self):
@@ -157,6 +161,7 @@ class TestFile(BaseRtypingTest):
             f2.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     def test_read_write(self):
@@ -203,6 +208,7 @@ class TestFile(BaseRtypingTest):
                 f2.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     def test_read_sequentially(self):
@@ -277,6 +283,7 @@ class TestFile(BaseRtypingTest):
             f.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     def test_tempfile(self):
@@ -309,6 +316,7 @@ class TestFile(BaseRtypingTest):
 
         f()
         assert open(fname).read() == "xxx"
+        os.unlink(fname)
         self.interpret(f, [])
         assert open(fname).read() == "xxx"
 
@@ -325,6 +333,7 @@ class TestFile(BaseRtypingTest):
 
         res = f()
         assert res > 2
+        os.unlink(fname)
         res = self.interpret(f, [])
         assert res > 2
 
@@ -341,6 +350,7 @@ class TestFile(BaseRtypingTest):
 
         res = f()
         assert res == 3
+        os.unlink(fname)
         res = self.interpret(f, [])
         assert res == 3
 
@@ -357,6 +367,7 @@ class TestFile(BaseRtypingTest):
             f.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
 
     def test_truncate(self):
@@ -381,7 +392,27 @@ class TestFile(BaseRtypingTest):
             f.close()
 
         f()
+        os.unlink(fname)
         self.interpret(f, [])
+
+    def test_with_statement(self):
+        fname = str(self.tmpdir.join('file_6'))
+
+        def f():
+            with open(fname, "w") as f:
+                f.write("dupa")
+            try:
+                f.write("dupb")
+            except ValueError:
+                pass
+            else:
+                assert False
+
+        f()
+        assert open(fname, "r").read() == "dupa"
+        os.unlink(fname)
+        self.interpret(f, [])
+        assert open(fname, "r").read() == "dupa"
 
 
 class TestDirect:

@@ -374,14 +374,11 @@ class Function(W_Root):
         return space.wrap(self.name)
 
     def fset_func_name(self, space, w_name):
-        try:
+        if space.isinstance_w(w_name, space.w_str):
             self.name = space.str_w(w_name)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("func_name must be set "
-                                                "to a string object"))
-            raise
+        else:
+            raise OperationError(space.w_TypeError,
+                space.wrap("__name__ must be set to a string object"))
 
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None

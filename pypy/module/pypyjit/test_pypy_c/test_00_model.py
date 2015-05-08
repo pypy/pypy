@@ -62,7 +62,7 @@ class BaseTestPyPyC(object):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
-        if getattr(pipe, 'returncode', 0) < 0:
+        if pipe.wait() < 0:
             raise IOError("subprocess was killed by signal %d" % (
                 pipe.returncode,))
         if stderr.startswith('SKIP:'):
@@ -383,6 +383,25 @@ class TestOpMatcher_(object):
             jump(i2, i3, descr=...)
         """
         assert not self.match(loop, expected)
+
+    def test_match_optional_op(self):
+        loop = """
+            i1 = int_add(i0, 1)
+        """
+        expected = """
+            guard_not_invalidated?
+            i1 = int_add(i0, 1)
+        """
+        assert self.match(loop, expected)
+        #
+        loop = """
+            i1 = int_add(i0, 1)
+        """
+        expected = """
+            i1 = int_add(i0, 1)
+            guard_not_invalidated?
+        """
+        assert self.match(loop, expected)
 
 
 class TestRunPyPyC(BaseTestPyPyC):

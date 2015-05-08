@@ -26,9 +26,8 @@ static char *debug_prefix = NULL;
 static char *debug_filename = NULL;
 static char *debug_filename_with_fork = NULL;
 
-static void pypy_debug_open(void)
+static void _pypy_debug_open(char *filename)
 {
-  char *filename = getenv("PYPYLOG");
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');
@@ -77,6 +76,11 @@ static void pypy_debug_open(void)
   debug_ready = 1;
 }
 
+static void pypy_debug_open(void)
+{
+    _pypy_debug_open(getenv("PYPYLOG"));
+}
+
 long pypy_debug_offset(void)
 {
   if (!debug_ready)
@@ -116,7 +120,7 @@ void pypy_debug_forked(long original_offset)
 
 #ifndef _WIN32
 
-     long long pypy_read_timestamp(void)
+     RPY_EXTERN long long pypy_read_timestamp(void)
      {
 #  ifdef CLOCK_THREAD_CPUTIME_ID
        struct timespec tspec;

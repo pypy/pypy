@@ -36,7 +36,7 @@ def pytest_configure(config):
 def pytest_addoption(parser):
     from rpython.conftest import pytest_addoption
     pytest_addoption(parser)
-    
+
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
@@ -44,6 +44,9 @@ def pytest_addoption(parser):
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
+    group.addoption('--raise-operr', action="store_true",
+            default=False, dest="raise_operr",
+            help="Show the interp-level OperationError in app-level tests")
 
 def pytest_funcarg__space(request):
     from pypy.tool.pytest.objspace import gettestobjspace

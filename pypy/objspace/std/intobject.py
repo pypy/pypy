@@ -46,7 +46,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
+        b = b.lshift(3).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     def int(self, space):
@@ -427,9 +427,11 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_bit_length(self, space):
         val = self.intval
-        if val < 0:
-            val = -val
         bits = 0
+        if val < 0:
+            # warning, "-val" overflows here
+            val = -((val + 1) >> 1)
+            bits = 1
         while val:
             bits += 1
             val >>= 1

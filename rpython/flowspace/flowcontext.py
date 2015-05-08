@@ -7,13 +7,11 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
-from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
     c_last_exception, const, FSException)
-from rpython.flowspace.framestate import (FrameState, recursively_unflatten,
-    recursively_flatten)
+from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline)
 from rpython.flowspace.operation import op
@@ -125,7 +123,6 @@ class BlockRecorder(Recorder):
 
     def guessexception(self, ctx, *cases):
         block = self.crnt_block
-        bvars = vars = vars2 = block.getvariables()
         links = []
         for case in [None] + list(cases):
             if case is not None:
@@ -278,6 +275,7 @@ compare_method = [
     "cmp_exc_match",
     ]
 
+
 class FlowContext(object):
     def __init__(self, graph, code):
         self.graph = graph
@@ -307,112 +305,91 @@ class FlowContext(object):
 
         The locals are ordered according to self.pycode.signature.
         """
-        self.valuestackdepth = code.co_nlocals
-        self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
+        self.nlocals = code.co_nlocals
+        self.locals_w = [None] * code.co_nlocals
+        self.stack = []
+
+    @property
+    def stackdepth(self):
+        return len(self.stack)
 
     def pushvalue(self, w_object):
-        depth = self.valuestackdepth
-        self.locals_stack_w[depth] = w_object
-        self.valuestackdepth = depth + 1
+        self.stack.append(w_object)
 
     def popvalue(self):
-        depth = self.valuestackdepth - 1
-        assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
-        w_object = self.locals_stack_w[depth]
-        self.locals_stack_w[depth] = None
-        self.valuestackdepth = depth
-        return w_object
+        return self.stack.pop()
 
     def peekvalue(self, index_from_top=0):
         # NOTE: top of the stack is peekvalue(0).
-        index = self.valuestackdepth + ~index_from_top
-        assert index >= self.pycode.co_nlocals, (
-            "peek past the bottom of the stack")
-        return self.locals_stack_w[index]
+        index = ~index_from_top
+        return self.stack[index]
 
     def settopvalue(self, w_object, index_from_top=0):
-        index = self.valuestackdepth + ~index_from_top
-        assert index >= self.pycode.co_nlocals, (
-            "settop past the bottom of the stack")
-        self.locals_stack_w[index] = w_object
+        index = ~index_from_top
+        self.stack[index] = w_object
 
     def popvalues(self, n):
-        values_w = [self.popvalue() for i in range(n)]
-        values_w.reverse()
+        if n == 0:
+            return []
+        values_w = self.stack[-n:]
+        del self.stack[-n:]
         return values_w
 
-    def dropvalues(self, n):
-        finaldepth = self.valuestackdepth - n
-        for n in range(finaldepth, self.valuestackdepth):
-            self.locals_stack_w[n] = None
-        self.valuestackdepth = finaldepth
-
     def dropvaluesuntil(self, finaldepth):
-        for n in range(finaldepth, self.valuestackdepth):
-            self.locals_stack_w[n] = None
-        self.valuestackdepth = finaldepth
-
-    def save_locals_stack(self):
-        return self.locals_stack_w[:self.valuestackdepth]
-
-    def restore_locals_stack(self, items_w):
-        self.locals_stack_w[:len(items_w)] = items_w
-        self.dropvaluesuntil(len(items_w))
+        del self.stack[finaldepth:]
 
     def getstate(self, next_offset):
-        # getfastscope() can return real None, for undefined locals
-        data = self.save_locals_stack()
-        if self.last_exception is None:
-            data.append(Constant(None))
-            data.append(Constant(None))
-        else:
-            data.append(self.last_exception.w_type)
-            data.append(self.last_exception.w_value)
-        recursively_flatten(data)
-        return FrameState(data, self.blockstack[:], next_offset)
+        return FrameState(self.locals_w[:], self.stack[:],
+                self.last_exception, self.blockstack[:], next_offset)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
-        data = state.mergeable[:]
-        recursively_unflatten(data)
-        self.restore_locals_stack(data[:-2])  # Nones == undefined locals
-        if data[-2] == Constant(None):
-            assert data[-1] == Constant(None)
-            self.last_exception = None
-        else:
-            self.last_exception = FSException(data[-2], data[-1])
+        self.locals_w = state.locals_w[:]
+        self.stack = state.stack[:]
+        self.last_exception = state.last_exception
         self.blockstack = state.blocklist[:]
+        self._normalize_raise_signals()
+
+    def _normalize_raise_signals(self):
+        st = self.stack
+        for i in range(len(st)):
+            if isinstance(st[i], RaiseImplicit):
+                st[i] = Raise(st[i].w_exc)
 
     def guessbool(self, w_condition):
         if isinstance(w_condition, Constant):
             return w_condition.value
         return self.recorder.guessbool(self, w_condition)
 
-    def record(self, spaceop):
+    def maybe_merge(self):
         recorder = self.recorder
         if getattr(recorder, 'final_state', None) is not None:
             self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
+
+    def record(self, spaceop):
         spaceop.offset = self.last_offset
-        recorder.append(spaceop)
+        self.recorder.append(spaceop)
 
     def do_op(self, op):
+        self.maybe_merge()
         self.record(op)
         self.guessexception(op.canraise)
         return op.result
 
-    def guessexception(self, exceptions, force=False):
+    def guessexception(self, exceptions):
         """
         Catch possible exceptions implicitly.
         """
         if not exceptions:
             return
-        if not force and not any(isinstance(block, (ExceptBlock, FinallyBlock))
-                                 for block in self.blockstack):
-            # The implicit exception wouldn't be caught and would later get
-            # removed, so don't bother creating it.
-            return
-        self.recorder.guessexception(self, *exceptions)
+        # Implicit exceptions are ignored unless they are caught explicitly
+        if self.has_exc_handler():
+            self.recorder.guessexception(self, *exceptions)
+
+    def has_exc_handler(self):
+        return any(isinstance(block, (ExceptBlock, FinallyBlock))
+                for block in self.blockstack)
 
     def build_flow(self):
         graph = self.graph
@@ -430,35 +407,8 @@ class FlowContext(object):
             while True:
                 next_offset = self.handle_bytecode(next_offset)
                 self.recorder.final_state = self.getstate(next_offset)
-
-        except RaiseImplicit as e:
-            w_exc = e.w_exc
-            if isinstance(w_exc.w_type, Constant):
-                exc_cls = w_exc.w_type.value
-            else:
-                exc_cls = Exception
-            msg = "implicit %s shouldn't occur" % exc_cls.__name__
-            w_type = Constant(AssertionError)
-            w_value = Constant(AssertionError(msg))
-            link = Link([w_type, w_value], self.graph.exceptblock)
-            self.recorder.crnt_block.closeblock(link)
-
-        except Raise as e:
-            w_exc = e.w_exc
-            if w_exc.w_type == const(ImportError):
-                msg = 'import statement always raises %s' % e
-                raise ImportError(msg)
-            link = Link([w_exc.w_type, w_exc.w_value], self.graph.exceptblock)
-            self.recorder.crnt_block.closeblock(link)
-
         except StopFlowing:
             pass
-
-        except Return as exc:
-            w_result = exc.w_value
-            link = Link([w_result], self.graph.returnblock)
-            self.recorder.crnt_block.closeblock(link)
-
         except FlowingError as exc:
             if exc.ctx is None:
                 exc.ctx = self
@@ -476,14 +426,8 @@ class FlowContext(object):
             if newstate is not None:
                 break
         else:
-            newstate = currentstate.copy()
-            newblock = SpamBlock(newstate)
-            # unconditionally link the current block to the newblock
-            outputargs = currentstate.getoutputargs(newstate)
-            link = Link(outputargs, newblock)
-            currentblock.closeblock(link)
+            newblock = self.make_next_block(currentblock, currentstate)
             candidates.insert(0, newblock)
-            self.pendingblocks.append(newblock)
             return
 
         if newstate.matches(block.framestate):
@@ -493,7 +437,7 @@ class FlowContext(object):
 
         newblock = SpamBlock(newstate)
         varnames = self.pycode.co_varnames
-        for name, w_value in zip(varnames, newstate.mergeable):
+        for name, w_value in zip(varnames, newstate.locals_w):
             if isinstance(w_value, Variable):
                 w_value.rename(name)
         # unconditionally link the current block to the newblock
@@ -513,11 +457,21 @@ class FlowContext(object):
         candidates.insert(0, newblock)
         self.pendingblocks.append(newblock)
 
+    def make_next_block(self, block, state):
+        newstate = state.copy()
+        newblock = SpamBlock(newstate)
+        # unconditionally link the current block to the newblock
+        outputargs = state.getoutputargs(newstate)
+        link = Link(outputargs, newblock)
+        block.closeblock(link)
+        self.pendingblocks.append(newblock)
+        return newblock
+
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        stack_items_w = self.locals_stack_w
-        for i in range(self.valuestackdepth - 1, self.pycode.co_nlocals - 1, -1):
+        stack_items_w = self.stack
+        for i in range(self.stackdepth - 1, - 1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -541,7 +495,7 @@ class FlowContext(object):
             if isinstance(signal, block.handles):
                 return block.handle(self, signal)
             block.cleanupstack(self)
-        return signal.nomoreblocks()
+        return signal.nomoreblocks(self)
 
     def getlocalvarname(self, index):
         return self.pycode.co_varnames[index]
@@ -818,15 +772,10 @@ class FlowContext(object):
 
     def FOR_ITER(self, target):
         w_iterator = self.peekvalue()
-        try:
-            w_nextitem = op.next(w_iterator).eval(self)
-            self.pushvalue(w_nextitem)
-        except Raise as e:
-            if self.exception_match(e.w_exc.w_type, const(StopIteration)):
-                self.popvalue()
-                return target
-            else:
-                raise
+        self.blockstack.append(IterBlock(self, target))
+        w_nextitem = op.next(w_iterator).eval(self)
+        self.blockstack.pop()
+        self.pushvalue(w_nextitem)
 
     def SETUP_LOOP(self, target):
         block = LoopBlock(self, target)
@@ -870,7 +819,7 @@ class FlowContext(object):
             op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
 
     def LOAD_FAST(self, varindex):
-        w_value = self.locals_stack_w[varindex]
+        w_value = self.locals_w[varindex]
         if w_value is None:
             raise FlowingError("Local variable referenced before assignment")
         self.pushvalue(w_value)
@@ -915,7 +864,7 @@ class FlowContext(object):
     def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.locals_stack_w[varindex] = w_newvalue
+        self.locals_w[varindex] = w_newvalue
         if isinstance(w_newvalue, Variable):
             w_newvalue.rename(self.getlocalvarname(varindex))
 
@@ -1128,11 +1077,11 @@ class FlowContext(object):
         op.simple_call(w_append_meth, w_value).eval(self)
 
     def DELETE_FAST(self, varindex):
-        if self.locals_stack_w[varindex] is None:
+        if self.locals_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise UnboundLocalError(message, varname)
-        self.locals_stack_w[varindex] = None
+        self.locals_w[varindex] = None
 
     def STORE_MAP(self, oparg):
         w_key = self.popvalue()
@@ -1220,25 +1169,32 @@ class FlowSignal(Exception):
                 WHY_CONTINUE,   Continue
                 WHY_YIELD       not needed
     """
-    def nomoreblocks(self):
+    def nomoreblocks(self, ctx):
         raise BytecodeCorruption("misplaced bytecode - should not return")
+
+    def __eq__(self, other):
+        return type(other) is type(self) and other.args == self.args
 
 
 class Return(FlowSignal):
     """Signals a 'return' statement.
-    Argument is the wrapped object to return."""
-
+    Argument is the wrapped object to return.
+    """
     def __init__(self, w_value):
         self.w_value = w_value
 
-    def nomoreblocks(self):
-        raise Return(self.w_value)
+    def nomoreblocks(self, ctx):
+        w_result = self.w_value
+        link = Link([w_result], ctx.graph.returnblock)
+        ctx.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return [self.w_value]
 
     @staticmethod
-    def state_pack_variables(w_value):
+    def rebuild(w_value):
         return Return(w_value)
 
 class Raise(FlowSignal):
@@ -1248,28 +1204,48 @@ class Raise(FlowSignal):
     def __init__(self, w_exc):
         self.w_exc = w_exc
 
-    def nomoreblocks(self):
-        raise self
+    def nomoreblocks(self, ctx):
+        w_exc = self.w_exc
+        if w_exc.w_type == const(ImportError):
+            msg = 'import statement always raises %s' % self
+            raise ImportError(msg)
+        link = Link([w_exc.w_type, w_exc.w_value], ctx.graph.exceptblock)
+        ctx.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return [self.w_exc.w_type, self.w_exc.w_value]
 
-    @staticmethod
-    def state_pack_variables(w_type, w_value):
-        return Raise(FSException(w_type, w_value))
+    @classmethod
+    def rebuild(cls, w_type, w_value):
+        return cls(FSException(w_type, w_value))
 
 class RaiseImplicit(Raise):
     """Signals an exception raised implicitly"""
+    def nomoreblocks(self, ctx):
+        w_exc = self.w_exc
+        if isinstance(w_exc.w_type, Constant):
+            exc_cls = w_exc.w_type.value
+        else:
+            exc_cls = Exception
+        msg = "implicit %s shouldn't occur" % exc_cls.__name__
+        w_type = Constant(AssertionError)
+        w_value = Constant(AssertionError(msg))
+        link = Link([w_type, w_value], ctx.graph.exceptblock)
+        ctx.recorder.crnt_block.closeblock(link)
+        raise StopFlowing
 
 
 class Break(FlowSignal):
     """Signals a 'break' statement."""
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return []
 
     @staticmethod
-    def state_pack_variables():
+    def rebuild():
         return Break.singleton
 
 Break.singleton = Break()
@@ -1281,11 +1257,12 @@ class Continue(FlowSignal):
     def __init__(self, jump_to):
         self.jump_to = jump_to
 
-    def state_unpack_variables(self):
+    @property
+    def args(self):
         return [const(self.jump_to)]
 
     @staticmethod
-    def state_pack_variables(w_jump_to):
+    def rebuild(w_jump_to):
         return Continue(w_jump_to.value)
 
 
@@ -1295,21 +1272,21 @@ class FrameBlock(object):
 
     def __init__(self, ctx, handlerposition):
         self.handlerposition = handlerposition
-        self.valuestackdepth = ctx.valuestackdepth
+        self.stackdepth = ctx.stackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.handlerposition == other.handlerposition and
-                self.valuestackdepth == other.valuestackdepth)
+                self.stackdepth == other.stackdepth)
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        return hash((self.handlerposition, self.valuestackdepth))
+        return hash((self.handlerposition, self.stackdepth))
 
     def cleanupstack(self, ctx):
-        ctx.dropvaluesuntil(self.valuestackdepth)
+        ctx.dropvaluesuntil(self.stackdepth)
 
     def handle(self, ctx, unroller):
         raise NotImplementedError
@@ -1350,6 +1327,16 @@ class ExceptBlock(FrameBlock):
         ctx.pushvalue(w_exc.w_type)
         ctx.last_exception = w_exc
         return self.handlerposition   # jump to the handler
+
+class IterBlock(ExceptBlock):
+    """A pseudo-block to catch the StopIteration inside FOR_ITER"""
+    def handle(self, ctx, unroller):
+        w_exc = unroller.w_exc
+        if ctx.exception_match(w_exc.w_type, const(StopIteration)):
+            ctx.popvalue()
+            return self.handlerposition
+        else:
+            return ctx.unroll(unroller)
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""

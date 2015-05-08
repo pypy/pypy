@@ -12,6 +12,7 @@ class Freebsd(BSD):
     cflags = tuple(
         ['-O3', '-pthread', '-fomit-frame-pointer'] +
         os.environ.get('CFLAGS', '').split())
+    rpath_flags = ['-Wl,-rpath=\'$$ORIGIN/\'',  '-Wl,-z,origin']
 
 class Freebsd_64(Freebsd):
     shared_only = ('-fPIC',)

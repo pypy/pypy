@@ -711,8 +711,15 @@ class InstanceRepr(Repr):
                     continue
                 value = self.classdef.classdesc.read_attribute(fldname, None)
                 if value is not None:
-                    cvalue = inputconst(r.lowleveltype,
-                                        r.convert_desc_or_const(value))
+                    ll_value = r.convert_desc_or_const(value)
+                    # don't write NULL GC pointers: we know that the malloc
+                    # done above initialized at least the GC Ptr fields to
+                    # NULL already, and that's true for all our GCs
+                    if (isinstance(r.lowleveltype, Ptr) and
+                            r.lowleveltype.TO._gckind == 'gc' and
+                            not ll_value):
+                        continue
+                    cvalue = inputconst(r.lowleveltype, ll_value)
                     self.setfield(vptr, fldname, cvalue, llops,
                                   flags={'access_directly': True})
         return vptr
@@ -812,40 +819,6 @@ class InstanceRepr(Repr):
     def rtype_bool(self, hop):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
-
-    def _emulate_call(self, hop, meth_name):
-        vinst = hop.args_v[0]
-        clsdef = hop.args_s[0].classdef
-        s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
-        s_attr = clsdef.lookup_filter(s_unbound_attr, meth_name,
-                                      hop.args_s[0].flags)
-        # does that even happen?
-        assert not s_attr.is_constant()
-        if '__iter__' in self.allinstancefields:
-            raise Exception("__iter__ on instance disallowed")
-        r_method = self.rtyper.getrepr(s_attr)
-        r_method.get_method_from_instance(self, vinst, hop.llops)
-        hop2 = hop.copy()
-        hop2.spaceop = op.simple_call(*hop.spaceop.args)
-        hop2.spaceop.result = hop.spaceop.result
-        hop2.args_r[0] = r_method
-        hop2.args_s[0] = s_attr
-        return hop2.dispatch()
-
-    def rtype_iter(self, hop):
-        return self._emulate_call(hop, '__iter__')
-
-    def rtype_next(self, hop):
-        return self._emulate_call(hop, 'next')
-
-    def rtype_getslice(self, hop):
-        return self._emulate_call(hop, "__getslice__")
-
-    def rtype_setslice(self, hop):
-        return self._emulate_call(hop, "__setslice__")
-
-    def rtype_len(self, hop):
-        return self._emulate_call(hop, "__len__")
 
     def ll_str(self, i):  # doesn't work for non-gc classes!
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
@@ -1014,14 +987,6 @@ class InstanceRepr(Repr):
                 return hop.gendirectcall(llf_nonnull, v_obj)
         else:
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
-
-
-class __extend__(pairtype(InstanceRepr, Repr)):
-    def rtype_getitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__getitem__")
-
-    def rtype_setitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__setitem__")
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):

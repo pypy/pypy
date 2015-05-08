@@ -607,6 +607,18 @@ class AppTest_Descroperation:
 
         raises(AttributeError, lambda: A().a)
 
+    def test_delete_descriptor(self):
+        class Prop(object):
+            def __get__(self, obj, cls):
+                return 42
+            def __delete__(self, obj):
+                obj.deleted = True
+        class C(object):
+            x = Prop()
+        obj = C()
+        del obj.x
+        assert obj.deleted
+
     def test_non_callable(self):
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)
@@ -771,3 +783,19 @@ class AppTest_Descroperation:
         assert [2] + A1([3]) == [2, 3]
         assert type([2] + A1([3])) is list
         assert [2] + A2([3]) == 42
+
+    def test_data_descriptor_without_delete(self):
+        class D(object):
+            def __set__(self, x, y):
+                pass
+        class A(object):
+            d = D()
+        raises(AttributeError, "del A().d")
+
+    def test_data_descriptor_without_set(self):
+        class D(object):
+            def __delete__(self, x):
+                pass
+        class A(object):
+            d = D()
+        raises(AttributeError, "A().d = 5")

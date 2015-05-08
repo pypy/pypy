@@ -300,6 +300,18 @@ thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 Notably missing from the list above are ``str`` and ``unicode``.  If your
 code relies on comparing strings with ``is``, then it might break in PyPy.
 
+Note that for floats there "``is``" only one object per "bit pattern"
+of the float.  So ``float('nan') is float('nan')`` is true on PyPy,
+but not on CPython because they are two objects; but ``0.0 is -0.0``
+is always False, as the bit patterns are different.  As usual,
+``float('nan') == float('nan')`` is always False.  When used in
+containers (as list items or in sets for example), the exact rule of
+equality used is "``if x is y or x == y``" (on both CPython and PyPy);
+as a consequence, because all ``nans`` are identical in PyPy, you
+cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
+
+.. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
+
 
 Miscellaneous
 -------------

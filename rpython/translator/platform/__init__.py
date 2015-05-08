@@ -101,7 +101,7 @@ class Platform(object):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], icon=None):
         raise NotImplementedError("Pure abstract baseclass")
 
     def __repr__(self):
@@ -201,9 +201,13 @@ class Platform(object):
         library_dirs = self._libdirs(library_dirs)
         libraries = self._libs(eci.libraries)
         link_files = self._linkfiles(eci.link_files)
-        return (library_dirs + list(self.link_flags) +
+        export_flags = self._exportsymbols_link_flags()
+        return (library_dirs + list(self.link_flags) + export_flags +
                 link_files + list(eci.link_extra) + libraries +
                 list(self.extra_libs))
+
+    def _exportsymbols_link_flags(self):
+        return []
 
     def _finish_linking(self, ofiles, eci, outputfilename, standalone):
         if outputfilename is None:

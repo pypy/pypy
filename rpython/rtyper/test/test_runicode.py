@@ -306,3 +306,11 @@ class TestRUnicode(AbstractTestRstr, BaseRtypingTest):
         assert res == False
         res = self.interpret(f, [2])
         assert res == True
+
+    def test_strip_no_arg(self):
+
+        def f():
+            return u'abcdef'.strip()
+
+        e = py.test.raises(Exception, self.interpret, f, [])
+        assert "unicode.strip() with no arg is not RPython" in str(e.value)

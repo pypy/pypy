@@ -27,8 +27,6 @@ def interpret(func, values):
     return interp.eval_graph(graph, values)
 
 class TestExceptionTransform:
-    type_system = 'lltype'
-
     def compile(self, fn, inputargs):
         from rpython.translator.c.test.test_genc import compile
         return compile(fn, inputargs)
@@ -239,7 +237,7 @@ class TestExceptionTransform:
         etrafo.create_exception_handling(g)
         ops = dict.fromkeys([o.opname for b, o in g.iterblockops()])
         assert 'zero_gc_pointers_inside' in ops
-    
+
     def test_llexternal(self):
         from rpython.rtyper.lltypesystem.rffi import llexternal
         from rpython.rtyper.lltypesystem import lltype

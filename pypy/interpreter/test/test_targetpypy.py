@@ -8,7 +8,7 @@ class TestTargetPyPy(object):
         entry_point = get_entry_point(config)[0]
         entry_point(['pypy-c' , '-S', '-c', 'print 3'])
 
-def test_exeucte_source(space):
+def test_execute_source(space):
     _, d = create_entry_point(space, None)
     execute_source = d['pypy_execute_source']
     lls = rffi.str2charp("import sys; sys.modules['xyz'] = 3")

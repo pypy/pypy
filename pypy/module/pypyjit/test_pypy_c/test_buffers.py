@@ -42,7 +42,7 @@ class TestBuffers(BaseTestPyPyC):
         assert loop.match_by_id('unpack', """
             guard_not_invalidated(descr=...)
             p90 = newstr(4)
-            call(ConstClass(copy_raw_to_string), i55, p90, 0, 4, descr=<Callv 0 irii EF=4>)
+            call(ConstClass(copy_raw_to_string), i55, p90, 0, 4, descr=<Callv 0 irii EF=5>)
             guard_no_exception(descr=...)
             i91 = strgetitem(p90, 0)
             i92 = strgetitem(p90, 1)

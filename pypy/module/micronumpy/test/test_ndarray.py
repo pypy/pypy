@@ -17,6 +17,7 @@ class MockDtype(object):
     def __init__(self):
         self.base = self
         self.elsize = 1
+        self.num = 0
 
 
 def create_slice(space, a, chunks):
@@ -2852,6 +2853,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c.flat = ['defgh', 'ijklmnop']
         assert (c.flatten() == ['def', 'ijk']*5).all()
 
+    def test_flatiter_subtype(self):
+        from numpy import array
+        x = array([[1, 2], [3, 4]]).T
+        y = array(x.flat)
+        assert (x == [[1, 3], [2, 4]]).all()
+
+
     def test_slice_copy(self):
         from numpy import zeros
         a = zeros((10, 10))
@@ -2994,6 +3002,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(3).ravel() == arange(3)).all()
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
+        assert (arange(3).ravel('K') == arange(3)).all()
 
     def test_nonzero(self):
         from numpy import array
@@ -3142,11 +3151,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[35] == 200
         b[[slice(25, 30)]] = range(5)
         assert all(a[:5] == range(5))
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            raises(TypeError, 'b[[[slice(25, 125)]]]')
-        else:
-            raises(NotImplementedError, 'b[[[slice(25, 125)]]]')
+        raises(IndexError, 'b[[[slice(25, 125)]]]')
 
     def test_cumsum(self):
         from numpy import arange

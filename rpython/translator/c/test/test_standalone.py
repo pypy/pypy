@@ -22,13 +22,14 @@ def setup_module(module):
         # Do not open dreaded dialog box on segfault
         import ctypes
         SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
-        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
-        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
-        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        module.old_err_mode = old_err_mode
+        if hasattr(ctypes.windll.kernel32, 'GetErrorMode'):
+            old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+            new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+            ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+            module.old_err_mode = old_err_mode
 
 def teardown_module(module):
-    if os.name == 'nt':
+    if os.name == 'nt' and hasattr(module, 'old_err_mode'):
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
@@ -36,7 +37,7 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None):
+                stackcheck=False, entrypoints=None, local_icon=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -53,6 +54,9 @@ class StandaloneTests(object):
             insert_ll_stackcheck(t)
 
         t.config.translation.shared = shared
+        if local_icon:
+            t.config.translation.icon = os.path.join(os.path.dirname(__file__),
+                                                     local_icon)
 
         if entrypoints is not None:
             kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
@@ -71,6 +75,36 @@ class StandaloneTests(object):
 
 class TestStandalone(StandaloneTests):
 
+    def compile(self, *args, **kwds):
+        t, builder = StandaloneTests.compile(self, *args, **kwds)
+        #
+        # verify that the executable re-export symbols, but not too many
+        if sys.platform.startswith('linux') and not kwds.get('shared', False):
+            seen_main = False
+            g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
+            for line in g:
+                if not line.strip():
+                    continue
+                if '*UND*' in line:
+                    continue
+                name = line.split()[-1]
+                if name.startswith('__'):
+                    continue
+                if name == 'main':
+                    seen_main = True
+                    continue
+                if name == 'pypy_debug_file':     # ok to export this one
+                    continue
+                if 'pypy' in name.lower() or 'rpy' in name.lower():
+                    raise Exception("Unexpected exported name %r.  "
+                        "What is likely missing is RPY_EXTERN before the "
+                        "declaration of this C function or global variable"
+                        % (name,))
+            g.close()
+            assert seen_main, "did not see 'main' exported"
+        #
+        return t, builder
+
     def test_hello_world(self):
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -80,7 +114,7 @@ class TestStandalone(StandaloneTests):
                 os.write(1, "   '" + str(s) + "'\n")
             return 0
 
-        t, cbuilder = self.compile(entry_point)
+        t, cbuilder = self.compile(entry_point, local_icon='red.ico')
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
@@ -808,12 +842,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, shared=True)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
-        if os.name == 'posix':
-            library_path = cbuilder.shared_library_name.dirpath()
-            if sys.platform == 'darwin':
-                monkeypatch.setenv('DYLD_LIBRARY_PATH', library_path)
-            else:
-                monkeypatch.setenv('LD_LIBRARY_PATH', library_path)
+        #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
 
@@ -1382,7 +1411,7 @@ class TestShared(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point, shared=True,
-                                   entrypoints=[f])
+                                   entrypoints=[f], local_icon='red.ico')
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'

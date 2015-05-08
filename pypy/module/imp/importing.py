@@ -621,7 +621,10 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 try:
                     load_module(space, w_modulename, find_info, reuse=True)
                 finally:
-                    find_info.stream.close()
+                    try:
+                        find_info.stream.close()
+                    except StreamErrors:
+                        pass
                 # fetch the module again, in case of "substitution"
                 w_mod = check_sys_modules(space, w_modulename)
                 return w_mod
@@ -663,7 +666,10 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    stream.close()
+                    try:
+                        stream.close()
+                    except StreamErrors:
+                        pass
 
     if tentative:
         return None
@@ -881,7 +887,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
         try:
             code_w = read_compiled_module(space, cpathname, stream.readall())
         finally:
-            stream.close()
+            try:
+                stream.close()
+            except StreamErrors:
+                pass
         space.setattr(w_mod, w('__file__'), w(cpathname))
     else:
         code_w = parse_source_module(space, pathname, source)
@@ -966,7 +975,10 @@ def check_compiled_module(space, pycfilename, expected_mtime):
         return stream
     except StreamErrors:
         if stream:
-            stream.close()
+            try:
+                stream.close()
+            except StreamErrors:
+                pass
         return None    # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 

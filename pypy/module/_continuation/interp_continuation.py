@@ -49,9 +49,6 @@ class W_Continulet(W_Root):
 
     def switch(self, w_to):
         sthread = self.sthread
-        if sthread is not None and sthread.is_empty_handle(self.h):
-            global_state.clear()
-            raise geterror(self.space, "continulet already finished")
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
         if to is not None and to.sthread is None:
             to = None
@@ -62,6 +59,9 @@ class W_Continulet(W_Root):
                 to = None
             else:
                 return get_result()  # else: no-op
+        if sthread is not None and sthread.is_empty_handle(self.h):
+            global_state.clear()
+            raise geterror(self.space, "continulet already finished")
         if to is not None:
             if to.sthread is not sthread:
                 global_state.clear()

@@ -2,138 +2,79 @@
 What's new in PyPy 2.5+
 =======================
 
-.. this is a revision shortly after release-2.4.x
-.. startrev: 7026746cbb1b
+.. this is a revision shortly after release-2.5.1
+.. startrev: cb01edcb59414d9d93056e54ed060673d24e67c1
 
-.. branch: win32-fixes5
+issue2005:
+ignore errors on closing random file handles while importing a module (cpython compatibility)
 
-Fix c code generation for msvc so empty "{ }" are avoided in unions,
-Avoid re-opening files created with NamedTemporaryFile,
-Allocate by 4-byte chunks in rffi_platform,
-Skip testing objdump if it does not exist,
-and other small adjustments in own tests
+issue2013:
+added constants to _ssl for TLS 1.1 and 1.2
 
-.. branch: rtyper-stuff
+issue2014:
+Add PyLong_FromUnicode to cpyext.
 
-Small internal refactorings in the rtyper.
+issue2017: 
+On non-Linux-x86 platforms, reduced the memory impact of
+creating a lot of greenlets/tasklets.  Particularly useful on Win32 and
+on ARM, where you used to get a MemoryError after only 2500-5000
+greenlets (the 32-bit address space is exhausted).
 
-.. branch: var-in-Some
+Update gdb_pypy for python3 (gdb comatability)
 
-Store annotations on the Variable objects, rather than in a big dict.
-Introduce a new framework for double-dispatched annotation implementations.
+Merged rstrategies into rpython which provides a library for Storage Strategies
 
-.. branch: ClassRepr
+Support unicode strings in numpy.dtype creation i.e. np.dtype(u'int64')
 
-Refactor ClassRepr and make normalizecalls independent of the rtyper.
+Various rpython cleanups for vmprof support
 
-.. branch: remove-remaining-smm
+issue2019:
+Fix isspace as called by rpython unicode.strip()
 
-Remove all remaining multimethods.
+issue2023:
+In the cpyext 'Concrete Object Layer' API,
+don't call methods on the object (which can be overriden),
+but directly on the concrete base type.
 
-.. branch: improve-docs
+issue2029:
+Hide the default_factory attribute in a dict
 
-Split RPython documentation from PyPy documentation and clean up.  There now is
-a clearer separation between documentation for users, developers and people
-interested in background information.
+issue2027:
+Better document pyinteractive and add --withmod-time
 
-.. branch: kill-multimethod
+.. branch: gc-incminimark-pinning-improve
 
-Kill multimethod machinery, all multimethods were removed earlier.
+branch gc-incminimark-pinning-improve: 
+Object Pinning is now used in `bz2` and `rzlib` (therefore also affects
+Python's `zlib`). In case the data to compress/decompress is inside the nursery
+(incminimark) it no longer needs to create a non-moving copy of it. This saves
+one `malloc` and copying the data.  Additionally a new GC environment variable
+is introduced (`PYPY_GC_MAX_PINNED`) primarily for debugging purposes.
 
-.. branch nditer-external_loop
+.. branch: refactor-pycall
 
-Implement `external_loop` arguement to numpy's nditer
+branch refactor-pycall:
+Make `*`-unpacking in RPython function calls completely equivalent to passing
+the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves 
+exactly like `f(a, b)`.
 
-.. branch kill-rctime
+.. branch: issue2018
+branch issue2018:
+Allow prebuilt rpython dict with function values
 
-Rename pypy/module/rctime to pypy/module/time, since it contains the implementation of the 'time' module.
+.. branch: vmprof
+.. Merged but then backed out, hopefully it will return as vmprof2
 
-.. branch: ssa-flow
+.. branch: object-dtype2
+Extend numpy dtypes to allow using objects with associated garbage collection hook
 
-Use SSA form for flow graphs inside build_flow() and part of simplify_graph()
+.. branch: vmprof2
+Add backend support for vmprof - a lightweight statistical profiler -
+to linux64, see client at https://vmprof.readthedocs.org
 
-.. branch: ufuncapi
+.. branch: jit_hint_docs
+Add more detail to @jit.elidable and @jit.promote in rpython/rlib/jit.py
 
-Implement most of the GenericUfunc api to support numpy linalg. The strategy is
-to encourage use of pure python or cffi ufuncs by extending frompyfunc().
-See the docstring of frompyfunc for more details. This dovetails with a branch
-of pypy/numpy - cffi-linalg which is a rewrite of the _umath_linalg module in
-python, calling lapack from cffi. The branch also support traditional use of
-cpyext GenericUfunc definitions in c.
-
-.. branch: all_ordered_dicts
-
-This makes ordered dicts the default dictionary implementation in
-RPython and in PyPy. It polishes the basic idea of rordereddict.py
-and then fixes various things, up to simplifying
-collections.OrderedDict.
-
-Note: Python programs can rely on the guaranteed dict order in PyPy
-now, but for compatibility with other Python implementations they
-should still use collections.OrderedDict where that really matters.
-Also, support for reversed() was *not* added to the 'dict' class;
-use OrderedDict.
-
-Benchmark results: in the noise. A few benchmarks see good speed
-improvements but the average is very close to parity.
-
-.. branch: berkerpeksag/fix-broken-link-in-readmerst-1415127402066
-.. branch: bigint-with-int-ops
-.. branch: dstufft/update-pip-bootstrap-location-to-the-new-1420760611527
-.. branch: float-opt
-.. branch: gc-incminimark-pinning
-
-This branch adds an interface rgc.pin which would (very temporarily)
-make object non-movable. That's used by rffi.alloc_buffer and
-rffi.get_nonmovable_buffer and improves performance considerably for
-IO operations.
-
-.. branch: gc_no_cleanup_nursery
-
-A branch started by Wenzhu Man (SoC'14) and then done by fijal. It
-removes the clearing of the nursery. The drawback is that new objects
-are not automatically filled with zeros any longer, which needs some
-care, mostly for GC references (which the GC tries to follow, so they
-must not contain garbage). The benefit is a quite large speed-up.
-
-.. branch: improve-gc-tracing-hooks
-.. branch: improve-ptr-conv-error
-.. branch: intern-not-immortal
-
-Fix intern() to return mortal strings, like in CPython.
-
-.. branch: issue1922-take2
-.. branch: kill-exported-symbols-list
-.. branch: kill-rctime
-.. branch: kill_ll_termios
-.. branch: look-into-all-modules
-.. branch: nditer-external_loop
-.. branch: numpy-generic-item
-.. branch: osx-shared
-
-``--shared`` support on OS/X (thanks wouter)
-
-.. branch: portable-threadlocal
-.. branch: pypy-dont-copy-ops
-.. branch: recursion_and_inlining
-.. branch: slim-down-resumedescr
-.. branch: squeaky/use-cflags-for-compiling-asm
-.. branch: unicode-fix
-.. branch: zlib_zdict
-
-.. branch: errno-again
-
-Changes how errno, GetLastError, and WSAGetLastError are handled.
-The idea is to tie reading the error status as close as possible to
-the external function call. This fixes some bugs, both of the very
-rare kind (e.g. errno on Linux might in theory be overwritten by
-mmap(), called rarely during major GCs, if such a major GC occurs at
-exactly the wrong time), and some of the less rare kind
-(particularly on Windows tests).
-
-.. branch: osx-package.py
-.. branch: package.py-helpful-error-message
-
-.. branch: typed-cells
-
-Improve performance of integer globals and class attributes.
+.. branch: remove-frame-debug-attrs
+Remove the debug attributes from frames only used for tracing and replace
+them with a debug object that is created on-demand

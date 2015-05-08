@@ -521,10 +521,19 @@ class AppTestInt:
             (10, 4),
             (150, 8),
             (-1, 1),
+            (-2, 2),
+            (-3, 2),
+            (-4, 3),
             (-10, 4),
             (-150, 8),
         ]:
             assert val.bit_length() == bits
+
+    def test_bit_length_max(self):
+        import sys
+        val = -sys.maxint-1
+        bits = 32 if val == -2147483648 else 64
+        assert val.bit_length() == bits
 
     def test_int_real(self):
         class A(int): pass

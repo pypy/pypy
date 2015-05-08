@@ -70,7 +70,7 @@ RFFI_SAVE_WSALASTERROR   = 32    # win32: save WSAGetLastError() after the call
 RFFI_FULL_LASTERROR      = RFFI_SAVE_LASTERROR | RFFI_READSAVED_LASTERROR
 RFFI_ERR_NONE            = 0
 RFFI_ERR_ALL             = RFFI_FULL_ERRNO | RFFI_FULL_LASTERROR
-
+RFFI_ALT_ERRNO           = 64    # read, save using alt tl destination
 def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, releasegil='auto',
@@ -794,6 +794,14 @@ def make_string_mappings(strtype):
         else:
             lltype.free(cp, flavor='raw', track_allocation=False)
 
+    # str -> already-existing char[maxsize]
+    def str2chararray(s, array, maxsize):
+        length = min(len(s), maxsize)
+        ll_s = llstrtype(s)
+        copy_string_to_raw(ll_s, array, 0, length)
+        return length
+    str2chararray._annenforceargs_ = [strtype, None, int]
+
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
@@ -944,19 +952,19 @@ def make_string_mappings(strtype):
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
-            charp2strn, charpsize2str,
+            charp2strn, charpsize2str, str2chararray,
             )
 
 (str2charp, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
- charp2strn, charpsize2str,
+ charp2strn, charpsize2str, str2chararray,
  ) = make_string_mappings(str)
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
- wcharp2unicoden, wcharpsize2unicode,
+ wcharp2unicoden, wcharpsize2unicode, unicode2wchararray,
  ) = make_string_mappings(unicode)
 
 # char**

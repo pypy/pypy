@@ -3,6 +3,7 @@ from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
+from rpython.jit.metainterp.history import MissingValue
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
@@ -28,9 +29,6 @@ LONGLONG_TYPECODE = 'i' if longlong.is_64_bit else 'f'
 
 class LeaveFrame(jitexc.JitException):
     pass
-
-class MissingValue(object):
-    "NOT_RPYTHON"
 
 def signedord(c):
     value = ord(c)
@@ -1227,32 +1225,39 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "r", "i", "d", "d", returns="i")
     def bhimpl_getarrayitem_vable_i(cpu, vable, index, fielddescr, arraydescr):
+        fielddescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
         return cpu.bh_getarrayitem_gc_i(array, index, arraydescr)
     @arguments("cpu", "r", "i", "d", "d", returns="r")
     def bhimpl_getarrayitem_vable_r(cpu, vable, index, fielddescr, arraydescr):
+        fielddescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
         return cpu.bh_getarrayitem_gc_r(array, index, arraydescr)
     @arguments("cpu", "r", "i", "d", "d", returns="f")
     def bhimpl_getarrayitem_vable_f(cpu, vable, index, fielddescr, arraydescr):
+        fielddescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
         return cpu.bh_getarrayitem_gc_f(array, index, arraydescr)
 
     @arguments("cpu", "r", "i", "i", "d", "d")
     def bhimpl_setarrayitem_vable_i(cpu, vable, index, newval, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         cpu.bh_setarrayitem_gc_i(array, index, newval, adescr)
     @arguments("cpu", "r", "i", "r", "d", "d")
     def bhimpl_setarrayitem_vable_r(cpu, vable, index, newval, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         cpu.bh_setarrayitem_gc_r(array, index, newval, adescr)
     @arguments("cpu", "r", "i", "f", "d", "d")
     def bhimpl_setarrayitem_vable_f(cpu, vable, index, newval, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         cpu.bh_setarrayitem_gc_f(array, index, newval, adescr)
 
     @arguments("cpu", "r", "d", "d", returns="i")
     def bhimpl_arraylen_vable(cpu, vable, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         return cpu.bh_arraylen_gc(array, adescr)
 
@@ -1290,9 +1295,20 @@ class BlackholeInterpreter(object):
     bhimpl_getfield_gc_r_pure = bhimpl_getfield_gc_r
     bhimpl_getfield_gc_f_pure = bhimpl_getfield_gc_f
 
-    bhimpl_getfield_vable_i = bhimpl_getfield_gc_i
-    bhimpl_getfield_vable_r = bhimpl_getfield_gc_r
-    bhimpl_getfield_vable_f = bhimpl_getfield_gc_f
+    @arguments("cpu", "r", "d", returns="i")
+    def bhimpl_getfield_vable_i(cpu, struct, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        return cpu.bh_getfield_gc_i(struct, fielddescr)
+
+    @arguments("cpu", "r", "d", returns="r")
+    def bhimpl_getfield_vable_r(cpu, struct, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        return cpu.bh_getfield_gc_r(struct, fielddescr)
+
+    @arguments("cpu", "r", "d", returns="f")
+    def bhimpl_getfield_vable_f(cpu, struct, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        return cpu.bh_getfield_gc_f(struct, fielddescr)
 
     bhimpl_getfield_gc_i_greenfield = bhimpl_getfield_gc_i
     bhimpl_getfield_gc_r_greenfield = bhimpl_getfield_gc_r
@@ -1323,9 +1339,18 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_gc_f(cpu, struct, newvalue, fielddescr):
         cpu.bh_setfield_gc_f(struct, newvalue, fielddescr)
 
-    bhimpl_setfield_vable_i = bhimpl_setfield_gc_i
-    bhimpl_setfield_vable_r = bhimpl_setfield_gc_r
-    bhimpl_setfield_vable_f = bhimpl_setfield_gc_f
+    @arguments("cpu", "r", "i", "d")
+    def bhimpl_setfield_vable_i(cpu, struct, newvalue, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        cpu.bh_setfield_gc_i(struct, newvalue, fielddescr)
+    @arguments("cpu", "r", "r", "d")
+    def bhimpl_setfield_vable_r(cpu, struct, newvalue, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        cpu.bh_setfield_gc_r(struct, newvalue, fielddescr)
+    @arguments("cpu", "r", "f", "d")
+    def bhimpl_setfield_vable_f(cpu, struct, newvalue, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        cpu.bh_setfield_gc_f(struct, newvalue, fielddescr)
 
     @arguments("cpu", "i", "i", "d")
     def bhimpl_setfield_raw_i(cpu, struct, newvalue, fielddescr):
@@ -1595,14 +1620,20 @@ class BlackholeInterpreter(object):
         self.setposition(miframe.jitcode, miframe.pc)
         for i in range(self.jitcode.num_regs_i()):
             box = miframe.registers_i[i]
+            if not we_are_translated() and isinstance(box, MissingValue):
+                continue
             if box is not None:
                 self.setarg_i(i, box.getint())
         for i in range(self.jitcode.num_regs_r()):
             box = miframe.registers_r[i]
+            if not we_are_translated() and isinstance(box, MissingValue):
+                continue
             if box is not None:
                 self.setarg_r(i, box.getref_base())
         for i in range(self.jitcode.num_regs_f()):
             box = miframe.registers_f[i]
+            if not we_are_translated() and isinstance(box, MissingValue):
+                continue
             if box is not None:
                 self.setarg_f(i, box.getfloatstorage())
 
@@ -1620,7 +1651,7 @@ def _run_forever(blackholeinterp, current_exc):
 
 def _handle_jitexception(blackholeinterp, exc):
     # See comments in _handle_jitexception_in_portal().
-    while not blackholeinterp.jitcode.is_portal:
+    while blackholeinterp.jitcode.jitdriver_sd is None:
         blackholeinterp.builder.release_interp(blackholeinterp)
         blackholeinterp = blackholeinterp.nextblackholeinterp
     if blackholeinterp.nextblackholeinterp is None:
@@ -1653,6 +1684,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
         resumedescr.guard_opnum, deadframe)
 
     _run_forever(blackholeinterp, current_exc)
+resume_in_blackhole._dont_inline_ = True
 
 def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     # Get a chain of blackhole interpreters and fill them by copying
@@ -1676,3 +1708,4 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         current_exc = lltype.nullptr(rclass.OBJECTPTR.TO)
     #
     _run_forever(firstbh, current_exc)
+convert_and_run_from_pyjitpl._dont_inline_ = True

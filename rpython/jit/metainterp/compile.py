@@ -303,11 +303,13 @@ def propagate_original_jitcell_token(trace):
             token.original_jitcell_token = trace.original_jitcell_token
 
 
-def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
-                    log=True, name=''):
+def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
+                    looptoken, log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+    return metainterp_sd.cpu.compile_loop(inputargs,
+                                          operations, looptoken,
+                                          jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
                                           logger=metainterp_sd.logger_ops)
 
@@ -325,7 +327,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
 
     original_jitcell_token = loop.original_jitcell_token
-    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     original_jitcell_token.number = n = globaldata.loopnumbering
     globaldata.loopnumbering += 1
@@ -347,7 +348,10 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
+        loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
+        asminfo = do_compile_loop(jitdriver_sd.index, unique_id, metainterp_sd,
+                                  loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname)
     finally:
@@ -749,18 +753,14 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import (force_from_resumedata,
-                                                   AlreadyForced)
+        from rpython.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
         # there is some chance that this is already forced. In this case
         # the virtualizable would have a token = NULL
-        try:
-            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                                 vinfo, ginfo)
-        except AlreadyForced:
-            return
+        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                             vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED

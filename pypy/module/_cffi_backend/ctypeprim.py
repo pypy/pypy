@@ -5,7 +5,6 @@ Primitives.
 import sys
 
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -53,7 +52,8 @@ class W_CTypePrimitive(W_CType):
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, ctypeptr.W_CTypePtrOrArray)):
-            value = rffi.cast(lltype.Signed, w_ob._cdata)
+            ptr = w_ob.unsafe_escaping_ptr()
+            value = rffi.cast(lltype.Signed, ptr)
             value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
@@ -81,8 +81,8 @@ class W_CTypePrimitive(W_CType):
 
     def string(self, cdataobj, maxlen):
         if self.size == 1:
-            s = cdataobj._cdata[0]
-            keepalive_until_here(cdataobj)
+            with cdataobj as ptr:
+                s = ptr[0]
             return self.space.wrap(s)
         return W_CType.string(self, cdataobj, maxlen)
 
@@ -116,7 +116,8 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
                 return s[0]
         if (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveChar)):
-            return w_ob._cdata[0]
+            with w_ob as ptr:
+                return ptr[0]
         raise self._convert_error("string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
@@ -137,8 +138,8 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         return self.space.wrap(s)
 
     def string(self, cdataobj, maxlen):
-        w_res = self.convert_to_object(cdataobj._cdata)
-        keepalive_until_here(cdataobj)
+        with cdataobj as ptr:
+            w_res = self.convert_to_object(ptr)
         return w_res
 
     def _convert_to_unichar(self, w_ob):
@@ -149,7 +150,8 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
                 return s[0]
         if (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, W_CTypePrimitiveUniChar)):
-            return rffi.cast(rffi.CWCHARP, w_ob._cdata)[0]
+            with w_ob as ptr:
+                return rffi.cast(rffi.CWCHARP, ptr)[0]
         raise self._convert_error("unicode string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
@@ -219,13 +221,15 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         if self.size == rffi.sizeof(rffi.LONG):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            buf = rffi.cast(rffi.LONGP, w_cdata._cdata)
             length = w_cdata.get_array_length()
-            populate_list_from_raw_array(res, buf, length)
+            with w_cdata as ptr:
+                buf = rffi.cast(rffi.LONGP, ptr)
+                populate_list_from_raw_array(res, buf, length)
             return res
         elif self.value_smaller_than_long:
             res = [0] * w_cdata.get_array_length()
-            misc.unpack_list_from_raw_array(res, w_cdata._cdata, self.size)
+            with w_cdata as ptr:
+                misc.unpack_list_from_raw_array(res, ptr, self.size)
             return res
         return None
 
@@ -308,8 +312,8 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def unpack_list_of_int_items(self, w_cdata):
         if self.value_fits_long:
             res = [0] * w_cdata.get_array_length()
-            misc.unpack_unsigned_list_from_raw_array(res, w_cdata._cdata,
-                                                     self.size)
+            with w_cdata as ptr:
+                misc.unpack_unsigned_list_from_raw_array(res, ptr, self.size)
             return res
         return None
 
@@ -363,8 +367,8 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         if not isinstance(self, W_CTypePrimitiveLongDouble):
             w_cdata.write_raw_float_data(value)
         else:
-            self._to_longdouble_and_write(value, w_cdata._cdata)
-            keepalive_until_here(w_cdata)
+            with w_cdata as ptr:
+                self._to_longdouble_and_write(value, ptr)
         return w_cdata
 
     def cast_to_int(self, cdata):
@@ -387,13 +391,15 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         if self.size == rffi.sizeof(rffi.DOUBLE):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            buf = rffi.cast(rffi.DOUBLEP, w_cdata._cdata)
             length = w_cdata.get_array_length()
-            populate_list_from_raw_array(res, buf, length)
+            with w_cdata as ptr:
+                buf = rffi.cast(rffi.DOUBLEP, ptr)
+                populate_list_from_raw_array(res, buf, length)
             return res
         elif self.size == rffi.sizeof(rffi.FLOAT):
             res = [0.0] * w_cdata.get_array_length()
-            misc.unpack_cfloat_list_from_raw_array(res, w_cdata._cdata)
+            with w_cdata as ptr:
+                misc.unpack_cfloat_list_from_raw_array(res, ptr)
             return res
         return None
 
@@ -423,8 +429,8 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     def cast(self, w_ob):
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
-            w_cdata = self.convert_to_object(w_ob._cdata)
-            keepalive_until_here(w_ob)
+            with w_ob as ptr:
+                w_cdata = self.convert_to_object(ptr)
             return w_cdata
         else:
             return W_CTypePrimitiveFloat.cast(self, w_ob)
@@ -451,16 +457,16 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
 
     def convert_to_object(self, cdata):
         w_cdata = cdataobj.W_CDataMem(self.space, self.size, self)
-        self._copy_longdouble(cdata, w_cdata._cdata)
-        keepalive_until_here(w_cdata)
+        with w_cdata as ptr:
+            self._copy_longdouble(cdata, ptr)
         return w_cdata
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble)):
-            self._copy_longdouble(w_ob._cdata, cdata)
-            keepalive_until_here(w_ob)
+            with w_ob as ptr:
+                self._copy_longdouble(ptr, cdata)
         else:
             value = space.float_w(space.float(w_ob))
             self._to_longdouble_and_write(value, cdata)

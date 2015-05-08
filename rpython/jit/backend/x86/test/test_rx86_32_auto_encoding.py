@@ -33,6 +33,12 @@ class CodeCheckerMixin(object):
     def done(self):
         assert len(self.expected) == self.index
 
+    def stack_frame_size_delta(self, delta):
+        pass   # ignored
+
+    def check_stack_size_at_ret(self):
+        pass   # ignored
+
 def hexdump(s):
     return ' '.join(["%02X" % ord(c) for c in s])
 
@@ -317,7 +323,9 @@ class TestRx86_32(object):
                 # CALL_j is actually relative, so tricky to test
                 (instrname == 'CALL' and argmodes == 'j') or
                 # SET_ir must be tested manually
-                (instrname == 'SET' and argmodes == 'ir')
+                (instrname == 'SET' and argmodes == 'ir') or
+                # MULTIBYTE_NOPs can't easily be tested the same way
+                (instrname == 'MULTIBYTE')
         )
 
 
