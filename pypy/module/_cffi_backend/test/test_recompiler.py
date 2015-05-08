@@ -273,6 +273,7 @@ class AppTestRecompiler:
         #
         assert ffi.offsetof("struct foo_s", "a") == 0
         assert ffi.offsetof("struct foo_s", "b") == 4
+        assert ffi.offsetof(u"struct foo_s", u"b") == 4
         #
         raises(TypeError, ffi.addressof, p)
         assert ffi.addressof(p[0]) == p
