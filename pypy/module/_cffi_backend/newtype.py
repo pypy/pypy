@@ -264,6 +264,20 @@ def new_struct_type(space, name):
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
+def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
+                         msg1, msg2="", msg3=""):
+    if compiler_value != cdef_value:
+        if sflags & SF_STD_FIELD_POS:
+            from pypy.module._cffi_backend.ffi_obj import get_ffi_error
+            w_FFIError = get_ffi_error(w_ctype.space)
+            raise oefmt(w_FFIError,
+                    '%s: %s%s%s (cdef says %d, but C compiler says %d).'
+                    ' fix it or use "...;" in the cdef for %s to '
+                    'make it flexible',
+                    w_ctype.name, msg1, msg2, msg3,
+                    cdef_value, compiler_value, w_ctype.name)
+        w_ctype._custom_field_pos = True
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
              sflags=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
@@ -284,7 +298,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_w = space.listview(w_fields)
     fields_list = []
     fields_dict = {}
-    custom_field_pos = False
+    w_ctype._custom_field_pos = False
     with_var_array = False
 
     for i in range(len(fields_w)):
@@ -343,7 +357,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             if foffset >= 0:
                 # a forced field position: ignore the offset just computed,
                 # except to know if we must set 'custom_field_pos'
-                custom_field_pos |= (boffset != foffset * 8)
+                detect_custom_layout(w_ctype, sflags, boffset // 8, foffset,
+                                     "wrong offset for field '",
+                                     fname, "'")
                 boffset = foffset * 8
 
             if (fname == '' and
@@ -361,7 +377,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     except KeyError:
                         pass
                 # always forbid such structures from being passed by value
-                custom_field_pos = True
+                w_ctype._custom_field_pos = True
             else:
                 # a regular field
                 fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1)
@@ -481,22 +497,30 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     # Like C, if the size of this structure would be zero, we compute it
     # as 1 instead.  But for ctypes support, we allow the manually-
     # specified totalsize to be zero in this case.
-    got = (boffsetmax + 7) // 8
+    boffsetmax = (boffsetmax + 7) // 8      # bits -> bytes
+    alignedsize = (boffsetmax + alignment - 1) & ~(alignment - 1)
+    alignedsize = alignedsize or 1
+
     if totalsize < 0:
-        totalsize = (got + alignment - 1) & ~(alignment - 1)
-        totalsize = totalsize or 1
-    elif totalsize < got:
-        raise oefmt(space.w_TypeError,
-                    "%s cannot be of size %d: there are fields at least up to "
-                    "%d", w_ctype.name, totalsize, got)
+        totalsize = alignedsize
+    else:
+        detect_custom_layout(w_ctype, sflags, alignedsize, totalsize,
+                             "wrong total size")
+        if totalsize < boffsetmax:
+            raise oefmt(space.w_TypeError,
+                "%s cannot be of size %d: there are fields at least up to %d",
+                w_ctype.name, totalsize, boffsetmax)
     if totalalignment < 0:
         totalalignment = alignment
+    else:
+        detect_custom_layout(w_ctype, sflags, alignment, totalalignment,
+                             "wrong total alignment")
 
     w_ctype.size = totalsize
     w_ctype.alignment = totalalignment
     w_ctype._fields_list = fields_list[:]
     w_ctype._fields_dict = fields_dict
-    w_ctype._custom_field_pos = custom_field_pos
+    #w_ctype._custom_field_pos = ...set above already
     w_ctype._with_var_array = with_var_array
 
 # ____________________________________________________________

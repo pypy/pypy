@@ -19,6 +19,11 @@ ACCEPT_ALL      = ACCEPT_STRING | ACCEPT_CTYPE | ACCEPT_CDATA
 CONSIDER_FN_AS_FNPTR  = 8
 
 
+def get_ffi_error(space):
+    w_ffitype = space.gettypefor(W_FFIObject)
+    return w_ffitype.getdictvalue(space, 'error')
+
+
 class W_FFIObject(W_Root):
 
     def __init__(self, space, src_ctx=parse_c_type.NULL_CTX):
@@ -29,8 +34,7 @@ class W_FFIObject(W_Root):
             self.cached_types = [None] * parse_c_type.get_num_types(src_ctx)
         else:
             self.cached_types = None
-        w_ffitype = space.gettypefor(W_FFIObject)
-        self.w_FFIError = w_ffitype.getdictvalue(space, 'error')
+        self.w_FFIError = get_ffi_error(space)
 
     @rgc.must_be_light_finalizer
     def __del__(self):

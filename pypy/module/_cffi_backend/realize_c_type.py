@@ -291,14 +291,19 @@ def do_realize_lazy_struct(w_ctype):
         else:
             raise oefmt(space.w_NotImplementedError, "field op=%d", case)
 
+        field_name   = rffi.charp2str(fld.c_name)
+        field_size   = rffi.getintfield(fld, 'c_field_size')
         field_offset = rffi.getintfield(fld, 'c_field_offset')
         if field_offset == -1:
             xxxx
         else:
-            pass #detect_custom_layout()
+            newtype.detect_custom_layout(w_ctype, newtype.SF_STD_FIELD_POS,
+                                         w_ctf.size, field_size,
+                                         "wrong size for field '",
+                                         field_name, "'")
 
         fields_w[i] = space.newtuple([
-            space.wrap(rffi.charp2str(fld.c_name)),
+            space.wrap(field_name),
             w_ctf,
             space.wrap(fbitsize),
             space.wrap(field_offset)])
