@@ -607,3 +607,26 @@ class AppTestRecompiler:
         s.a = -512
         raises(OverflowError, "s.a = -513")
         assert s.a == -512
+
+    def test_incomplete_struct_as_arg(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int x; ...; }; int f(int, struct foo_s);",
+            "test_incomplete_struct_as_arg",
+            "struct foo_s { int a, x, z; };\n"
+            "int f(int b, struct foo_s s) { return s.x * b; }")
+        s = ffi.new("struct foo_s *", [21])
+        assert s.x == 21
+        assert ffi.sizeof(s[0]) == 12
+        assert ffi.offsetof(ffi.typeof(s), 'x') == 4
+        assert lib.f(2, s[0]) == 42
+        assert ffi.typeof(lib.f) == ffi.typeof("int(*)(int, struct foo_s)")
+
+    def test_incomplete_struct_as_result(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int x; ...; }; struct foo_s f(int);",
+            "test_incomplete_struct_as_result",
+            "struct foo_s { int a, x, z; };\n"
+            "struct foo_s f(int x) { struct foo_s r; r.x = x * 2; return r; }")
+        s = lib.f(21)
+        assert s.x == 42
+        assert ffi.typeof(lib.f) == ffi.typeof("struct foo_s(*)(int)")

@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func, cgc
+from pypy.module._cffi_backend import cbuffer, func, cgc, structwrapper
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -55,10 +55,12 @@ class W_FFIObject(W_Root):
         x = self.types_dict[string]     # KeyError if not found
         if isinstance(x, W_CType):
             return x
-        elif consider_fn_as_fnptr:
-            return realize_c_type.unwrap_fn_as_fnptr(x)
         else:
-            return realize_c_type.unexpected_fn_type(self, x)
+            assert isinstance(x, realize_c_type.W_RawFuncType)
+            if consider_fn_as_fnptr:
+                return x.unwrap_as_fnptr(self)
+            else:
+                return x.unexpected_fn_type(self)
 
     @jit.dont_look_inside
     def parse_string_to_type(self, string, consider_fn_as_fnptr):
@@ -78,6 +80,7 @@ class W_FFIObject(W_Root):
                             " " * num_spaces)
             x = realize_c_type.realize_c_type_or_func(
                 self, self.ctxobj.info.c_output, index)
+            assert x is not None
             self.types_dict[string] = x
         return self.get_string_to_type(string, consider_fn_as_fnptr)
 
@@ -402,6 +405,8 @@ Parse the C type given as a string and return the
 corresponding <ctype> object.
 It can also be used on 'cdata' instance to get its C type."""
         #
+        if isinstance(w_arg, structwrapper.W_StructWrapper):
+            return w_arg.typeof(self)
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 

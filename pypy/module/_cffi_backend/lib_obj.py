@@ -10,6 +10,7 @@ from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import cffi_opcode, cglob
 from pypy.module._cffi_backend.realize_c_type import getop, getarg
 from pypy.module._cffi_backend.cdataobj import W_CData
+from pypy.module._cffi_backend.structwrapper import W_StructWrapper
 
 
 class W_LibObject(W_Root):
@@ -38,6 +39,25 @@ class W_LibObject(W_Root):
             num += 1
         self.ffi.included_libs = includes[:]
 
+    def _build_cpython_func(self, g):
+        # Build a function: in the PyPy version, these are all equivalent
+        # and 'g->address' is a pointer to a function of exactly the
+        # C type specified --- almost: arguments that are structs or
+        # unions are replaced with pointers, and a return value that
+        # would be struct or union is instead handled by passing
+        # inside the function a hidden first pointer argument.
+        rawfunctype = realize_c_type.realize_c_type_or_func(
+            self.ffi, self.ctx.c_types, getarg(g.c_type_op))
+        assert isinstance(rawfunctype, realize_c_type.W_RawFuncType)
+        #
+        w_ct, locs = rawfunctype.unwrap_as_nostruct_fnptr(self.ffi)
+        #
+        ptr = rffi.cast(rffi.CCHARP, g.c_address)
+        w_cdata = W_CData(self.space, ptr, w_ct)
+        if locs is not None:
+            w_cdata = W_StructWrapper(w_cdata, locs, rawfunctype)
+        return w_cdata
+
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
         return self.dict_w[attr]     # KeyError if not found
@@ -63,14 +83,8 @@ class W_LibObject(W_Root):
             if (op == cffi_opcode.OP_CPYTHON_BLTN_V or
                 op == cffi_opcode.OP_CPYTHON_BLTN_N or
                 op == cffi_opcode.OP_CPYTHON_BLTN_O):
-                # A function: in the PyPy version, these are all equivalent
-                # and 'g->address' is a pointer to a function of exactly the
-                # C type specified
-                w_ct = realize_c_type.realize_c_type_or_func(
-                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
-                w_ct = realize_c_type.unwrap_fn_as_fnptr(w_ct)
-                ptr = rffi.cast(rffi.CCHARP, g.c_address)
-                w_result = W_CData(space, ptr, w_ct)
+                # A function
+                w_result = self._build_cpython_func(g)
                 #
             elif op == cffi_opcode.OP_GLOBAL_VAR:
                 # A global variable of the exact type specified here

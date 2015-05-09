@@ -124,23 +124,64 @@ def realize_global_int(ffi, g):
 
 class W_RawFuncType(W_Root):
     """Temporary: represents a C function type (not a function pointer)"""
-    def __init__(self, w_ctfuncptr):
-        self.w_ctfuncptr = w_ctfuncptr
+    _ctfuncptr = None
+    _nostruct_ctfuncptr = (None, None)
 
-def unwrap_fn_as_fnptr(x):
-    assert isinstance(x, W_RawFuncType)
-    return x.w_ctfuncptr
+    def __init__(self, opcodes, base_index):
+        self.opcodes = opcodes
+        self.base_index = base_index
 
-def unexpected_fn_type(ffi, x):
-    x = unwrap_fn_as_fnptr(x)
-    # here, x.name is for example 'int(*)(int)'
-    #                                   ^
-    j = x.name_position - 2
-    assert j >= 0
-    text1 = x.name[:j]
-    text2 = x.name[x.name_position+1:]
-    raise oefmt(ffi.w_FFIError, "the type '%s%s' is a function type, not a "
-                                "pointer-to-function type", text1, text2)
+    def _unpack(self, ffi):
+        opcodes = self.opcodes
+        base_index = self.base_index
+        assert getop(opcodes[base_index]) == cffi_opcode.OP_FUNCTION
+        fret = realize_c_type(ffi, opcodes, getarg(opcodes[base_index]))
+        base_index += 1
+        num_args = 0
+        OP_FUNCTION_END = cffi_opcode.OP_FUNCTION_END
+        while getop(opcodes[base_index + num_args]) != OP_FUNCTION_END:
+            num_args += 1
+        ellipsis = (getarg(opcodes[base_index + num_args]) & 1) != 0
+        fargs = [realize_c_type(ffi, opcodes, base_index + i)
+                 for i in range(num_args)]
+        return fargs, fret, ellipsis
+
+    def unwrap_as_fnptr(self, ffi):
+        if self._ctfuncptr is None:
+            fargs, fret, ellipsis = self._unpack(ffi)
+            self._ctfuncptr = newtype._new_function_type(
+                ffi.space, fargs, fret, ellipsis)
+        return self._ctfuncptr
+
+    def unwrap_as_nostruct_fnptr(self, ffi):
+        if self._nostruct_ctfuncptr[0] is None:
+            fargs, fret, ellipsis = self._unpack(ffi)
+            locs = []
+            for i in range(len(fargs)):
+                farg = fargs[i]
+                if isinstance(farg, ctypestruct.W_CTypeStructOrUnion):
+                    farg = newtype.new_pointer_type(ffi.space, farg)
+                    fargs[i] = farg
+                    locs.append(i)
+            if isinstance(fret, ctypestruct.W_CTypeStructOrUnion):
+                xxx
+            ctfuncptr = newtype._new_function_type(
+                ffi.space, fargs, fret, ellipsis)
+            if not locs:
+                locs = None
+            else:
+                locs = locs[:]
+            self._nostruct_ctfuncptr = (ctfuncptr, locs)
+        return self._nostruct_ctfuncptr
+
+    def unexpected_fn_type(self, ffi):
+        fargs, fret, ellipsis = self._unpack(ffi)
+        sargs = ', '.join([farg.name for farg in fargs])
+        sret1 = fret.name[:fret.name_position]
+        sret2 = fret.name[fret.name_position:]
+        raise oefmt(ffi.w_FFIError,
+                    "the type '%s(%s)%s' is a function type, not a "
+                    "pointer-to-function type", sret1, sargs, sret2)
 
 
 def realize_c_type(ffi, opcodes, index):
@@ -149,7 +190,8 @@ def realize_c_type(ffi, opcodes, index):
     """
     x = realize_c_type_or_func(ffi, opcodes, index)
     if not isinstance(x, W_CType):
-        unexpected_fn_type(ffi, x)
+        assert isinstance(x, W_RawFuncType)
+        raise x.unexpected_fn_type(ffi)
     return x
 
 
@@ -270,7 +312,7 @@ def realize_c_type_or_func(ffi, opcodes, index):
         if isinstance(y, W_CType):
             x = newtype.new_pointer_type(ffi.space, y)
         elif isinstance(y, W_RawFuncType):
-            x = y.w_ctfuncptr
+            x = y.unwrap_as_fnptr(ffi)
         else:
             raise NotImplementedError
 
@@ -288,17 +330,7 @@ def realize_c_type_or_func(ffi, opcodes, index):
         x = _realize_c_enum(ffi, getarg(op))
 
     elif case == cffi_opcode.OP_FUNCTION:
-        y = realize_c_type(ffi, opcodes, getarg(op))
-        base_index = index + 1
-        num_args = 0
-        OP_FUNCTION_END = cffi_opcode.OP_FUNCTION_END
-        while getop(opcodes[base_index + num_args]) != OP_FUNCTION_END:
-            num_args += 1
-        ellipsis = (getarg(opcodes[base_index + num_args]) & 1) != 0
-        fargs = [realize_c_type(ffi, opcodes, base_index + i)
-                 for i in range(num_args)]
-        w_ctfuncptr = newtype._new_function_type(ffi.space, fargs, y, ellipsis)
-        x = W_RawFuncType(w_ctfuncptr)
+        x = W_RawFuncType(opcodes, index)
 
     elif case == cffi_opcode.OP_NOOP:
         x = realize_c_type_or_func(ffi, opcodes, getarg(op))
