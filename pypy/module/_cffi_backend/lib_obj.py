@@ -1,7 +1,7 @@
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
@@ -31,10 +31,17 @@ class W_LibObject(W_Root):
         includes = []
         while c_includes[num]:
             include_name = rffi.charp2str(c_includes[num])
-            w_lib1 = space.appexec([space.wrap(include_name)], """(modname):
-                mod = __import__(modname, None, None, ['ffi', 'lib'])
-                return mod.lib""")
-            lib1 = space.interp_w(W_LibObject, w_lib1)
+            try:
+                w_lib1 = space.appexec([space.wrap(include_name)], """(modname):
+                    mod = __import__(modname, None, None, ['ffi', 'lib'])
+                    return mod.lib""")
+                lib1 = space.interp_w(W_LibObject, w_lib1)
+            except OperationError, e:
+                if e.async(space):
+                    raise
+                raise oefmt(space.w_ImportError,
+                    "while loading %s: failed to import ffi, lib from %s",
+                    self.libname, include_name)
             includes.append(lib1)
             num += 1
         self.ffi.included_libs = includes[:]
