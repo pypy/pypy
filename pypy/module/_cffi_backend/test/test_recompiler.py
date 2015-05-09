@@ -596,3 +596,14 @@ class AppTestRecompiler:
         p = lib.ff7()
         assert ffi.cast("int *", p)[0] == 42
         assert lib.ff7b(p) == 42
+
+    def test_bitfield_basic(self):
+        ffi, lib = self.prepare(
+            "struct bitfield { int a:10, b:25; };",
+            "test_bitfield_basic",
+            "struct bitfield { int a:10, b:25; };")
+        assert ffi.sizeof("struct bitfield") == 8
+        s = ffi.new("struct bitfield *")
+        s.a = -512
+        raises(OverflowError, "s.a = -513")
+        assert s.a == -512

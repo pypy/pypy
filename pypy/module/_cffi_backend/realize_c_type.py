@@ -336,20 +336,23 @@ def do_realize_lazy_struct(w_ctype):
     fields_w = [None] * num_fields
 
     for i in range(num_fields):
-        fbitsize = -1
         fld = ffi.ctxobj.ctx.c_fields[first_field + i]
+        field_name   = rffi.charp2str(fld.c_name)
+        field_size   = rffi.getintfield(fld, 'c_field_size')
+        field_offset = rffi.getintfield(fld, 'c_field_offset')
         op = rffi.getintfield(fld, 'c_field_type_op')
         case = getop(op)
 
         if case == cffi_opcode.OP_NOOP:
-            # standard field
-            w_ctf = realize_c_type(ffi, ffi.ctxobj.ctx.c_types, getarg(op))
+            fbitsize = -1     # standard field
+        elif case == cffi_opcode.OP_BITFIELD:
+            assert field_size >= 0
+            fbitsize = field_size
         else:
             raise oefmt(space.w_NotImplementedError, "field op=%d", case)
 
-        field_name   = rffi.charp2str(fld.c_name)
-        field_size   = rffi.getintfield(fld, 'c_field_size')
-        field_offset = rffi.getintfield(fld, 'c_field_offset')
+        w_ctf = realize_c_type(ffi, ffi.ctxobj.ctx.c_types, getarg(op))
+
         if field_offset == -1:
             # unnamed struct, with field positions and sizes entirely
             # determined by complete_struct_or_union() and not checked.
