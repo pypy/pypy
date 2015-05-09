@@ -164,7 +164,10 @@ class W_RawFuncType(W_Root):
                     fargs[i] = farg
                     locs.append(i)
             if isinstance(fret, ctypestruct.W_CTypeStructOrUnion):
-                xxx
+                fret = newtype.new_pointer_type(ffi.space, fret)
+                fargs = [fret] + fargs
+                fret = newtype.new_void_type(ffi.space)
+                locs.append(-1)
             ctfuncptr = newtype._new_function_type(
                 ffi.space, fargs, fret, ellipsis)
             if not locs:
