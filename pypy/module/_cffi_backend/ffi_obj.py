@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
-from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
+from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle, cbuffer
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -166,6 +166,22 @@ It can be a string naming a C type, or a 'cdata' instance."""
         w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
         align = w_ctype.alignof()
         return self.space.wrap(align)
+
+
+    @unwrap_spec(w_cdata=W_CData, size=int)
+    def descr_buffer(self, w_cdata, size=-1):
+        """\
+Return a read-write buffer object that references the raw C data
+ointed to by the given 'cdata'.  The 'cdata' must be a pointer or an
+array.  Can be passed to functions expecting a buffer, or directly
+manipulated with:
+
+    buf[:]          get a copy of it in a regular string, or
+    buf[idx]        as a single character
+    buf[:] = ...
+    buf[idx] = ...  change the content"""
+        #
+        return cbuffer.buffer(self.space, w_cdata, size)
 
 
     @unwrap_spec(w_python_callable=WrappedDefault(None),
@@ -380,10 +396,14 @@ W_FFIObject.typedef = TypeDef(
                                      cls=W_FFIObject),
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
+        buffer      = interp2app(W_FFIObject.descr_buffer),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
+        #from_buffer = interp2app(W_FFIObject.descr_from_buffer),
         from_handle = interp2app(W_FFIObject.descr_from_handle),
+        #gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
+        #getwinerror = interp2app(W_FFIObject.descr_getwinerror),
         new         = interp2app(W_FFIObject.descr_new),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),

@@ -181,3 +181,9 @@ class AppTestFFIObj:
         assert str(e.value) == ("undefined struct/union name\n"
                                 "struct never_heard_of_s\n"
                                 "       ^")
+
+    def test_ffi_buffer(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        a = ffi.new("signed char[]", [5, 6, 7])
+        assert ffi.buffer(a)[:] == '\x05\x06\x07'
