@@ -197,3 +197,11 @@ class AppTestFFIObj:
         assert ffi.typeof(c) is ffi.typeof("char[]")
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
+
+    def test_ffi_types(self):
+        import _cffi_backend as _cffi1_backend
+        CData = _cffi1_backend.FFI.CData
+        CType = _cffi1_backend.FFI.CType
+        ffi = _cffi1_backend.FFI()
+        assert isinstance(ffi.cast("int", 42), CData)
+        assert isinstance(ffi.typeof("int"), CType)

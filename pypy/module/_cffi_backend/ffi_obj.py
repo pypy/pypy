@@ -389,6 +389,12 @@ def W_FFIObject___new__(space, w_subtype, __args__):
     r.__init__(space, src_ctx)
     return space.wrap(r)
 
+def make_CData(space):
+    return space.gettypefor(W_CData)
+
+def make_CType(space):
+    return space.gettypefor(W_CType)
+
 def make_NULL(space):
     ctvoidp = newtype._new_voidp_type(space)
     w_NULL = ctvoidp.cast(space.wrap(0))
@@ -402,6 +408,8 @@ W_FFIObject.typedef = TypeDef(
         'CompiledFFI',
         __new__     = interp2app(W_FFIObject___new__),
         __init__    = interp2app(W_FFIObject.descr_init),
+        CData       = ClassAttr(make_CData),
+        CType       = ClassAttr(make_CType),
         NULL        = ClassAttr(make_NULL),
         error       = ClassAttr(make_error),
         errno       = GetSetProperty(W_FFIObject.get_errno,
