@@ -1141,8 +1141,12 @@ def load_extension_module(space, path, name):
         except KeyError:
             pass
         else:
-            from pypy.module._cffi_backend.cffi1_module import load_cffi1_module
-            load_cffi1_module(space, name, path, dll, initptr)
+            try:
+                from pypy.module._cffi_backend import cffi1_module
+                cffi1_module.load_cffi1_module(space, name, path, initptr)
+            except:
+                rdynload.dlclose(dll)
+                raise
             return
     #
     if space.config.objspace.usemodules.cpyext:

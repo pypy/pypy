@@ -413,7 +413,7 @@ It can also be used on 'cdata' instance to get its C type."""
 @jit.dont_look_inside
 def W_FFIObject___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_FFIObject, w_subtype)
-    # get in 'src_ctx' a NULL which transaction doesn't consider a constant
+    # get in 'src_ctx' a NULL which translation doesn't consider to be constant
     src_ctx = rffi.cast(parse_c_type.PCTX, 0)
     r.__init__(space, src_ctx)
     return space.wrap(r)
