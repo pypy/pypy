@@ -164,16 +164,18 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return dt1
     if dt1 is None:
         return dt2
+    # Some operations promote op(bool, bool) to return int8, rather than bool
+    if promote_bools and (dt1.kind == dt2.kind == NPY.GENBOOLLTR):
+        return get_dtype_cache(space).w_int8dtype
+    return _promote_types(space, dt1, dt2, promote_to_float)
 
+def _promote_types(space, dt1, dt2, promote_to_float=False):
     if dt1.num == NPY.OBJECT or dt2.num == NPY.OBJECT:
         return get_dtype_cache(space).w_objectdtype
 
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
-    # Some operations promote op(bool, bool) to return int8, rather than bool
-    if promote_bools and (dt1.kind == dt2.kind == NPY.GENBOOLLTR):
-        return get_dtype_cache(space).w_int8dtype
 
     # Everything numeric promotes to complex
     if dt2.is_complex() or dt1.is_complex():
