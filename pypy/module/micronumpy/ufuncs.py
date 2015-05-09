@@ -287,7 +287,7 @@ class W_Ufunc(W_Root):
                                        axis, out, self.identity, cumulative,
                                        temp)
             if call__array_wrap__:
-                out = space.call_method(w_obj, '__array_wrap__', out)
+                out = space.call_method(obj, '__array_wrap__', out)
             return out
         if cumulative:
             if out:
@@ -301,7 +301,7 @@ class W_Ufunc(W_Root):
             loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
                                            self.identity)
             if call__array_wrap__:
-                out = space.call_method(w_obj, '__array_wrap__', out)
+                out = space.call_method(obj, '__array_wrap__', out)
             return out
         if out:
             call__array_wrap__ = False
@@ -320,13 +320,13 @@ class W_Ufunc(W_Root):
             out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
             out.implementation.setitem(0, res)
             res = out
-        elif not space.is_w(space.gettypefor(w_obj), space.gettypefor(W_NDimArray)):
+        elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
             # subtypes return a ndarray subtype, not a scalar
             out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
             out.implementation.setitem(0, res)
             res = out
         if call__array_wrap__:
-            res = space.call_method(w_obj, '__array_wrap__', res)
+            res = space.call_method(obj, '__array_wrap__', res)
         return res
 
     def descr_outer(self, space, __args__):
