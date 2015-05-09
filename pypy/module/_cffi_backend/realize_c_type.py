@@ -179,7 +179,10 @@ class W_RawFuncType(W_Root):
 
     def unexpected_fn_type(self, ffi):
         fargs, fret, ellipsis = self._unpack(ffi)
-        sargs = ', '.join([farg.name for farg in fargs])
+        argnames = [farg.name for farg in fargs]
+        if ellipsis:
+            argnames.append('...')
+        sargs = ', '.join(argnames)
         sret1 = fret.name[:fret.name_position]
         sret2 = fret.name[fret.name_position:]
         raise oefmt(ffi.w_FFIError,
