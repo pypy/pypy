@@ -49,13 +49,16 @@ class W_StructWrapper(W_Root):
             farg = self.fargs[i]      # <ptr to struct/union>
             assert isinstance(farg, W_CTypePtrOrArray)
             if isinstance(w_arg, W_CData) and w_arg.ctype is farg.ctitem:
-                # fast way: just make a new W_CData of ctype "ptr to struct"
-                # which points to the same raw memory as the existing W_CData
-                # of ctype "struct"
-                w_arg = W_CData(space, w_arg.unsafe_escaping_ptr(), farg)
+                # fast way: we are given a W_CData "struct", so just make
+                # a new W_CData "ptr-to-struct" which points to the same
+                # raw memory.  We use unsafe_escaping_ptr(), so we have to
+                # make sure the original 'w_arg' stays alive; the easiest
+                # is to build an instance of W_CDataPtrToStructOrUnion.
+                w_arg = W_CDataPtrToStructOrUnion(
+                    space, w_arg.unsafe_escaping_ptr(), farg, w_arg)
             else:
                 # slow way: build a new "ptr to struct" W_CData by calling
-                # the equivalenet of ffi.new()
+                # the equivalent of ffi.new()
                 if space.is_w(w_arg, space.w_None):
                     continue
                 w_arg = farg.newp(w_arg)
