@@ -449,7 +449,7 @@ class __extend__(pyframe.PyFrame):
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)
-        self.last_instr = -2  # makes frame_finished_execution return True
+        self.frame_finished_execution = True  # for generators
         return None
 
     def unrollstack_and_jump(self, unroller):
@@ -1015,7 +1015,11 @@ class __extend__(pyframe.PyFrame):
         if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))
-        w_locals = self.getorcreatedebug().w_locals
+        d = self.getdebug()
+        if d is None:
+            w_locals = None
+        else:
+            w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
         w_modulename = space.wrap(modulename)

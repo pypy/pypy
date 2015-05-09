@@ -34,6 +34,9 @@ class FrameDebugData(object):
     is_being_profiled        = False
     w_locals                 = None
 
+    def __init__(self, pycode):
+        self.f_lineno = pycode.co_firstlineno
+
 class PyFrame(W_Root):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
@@ -56,6 +59,7 @@ class PyFrame(W_Root):
 
     __metaclass__ = extendabletype
 
+    frame_finished_execution = False
     last_instr               = -1
     last_exception           = None
     f_backref                = jit.vref_None
@@ -105,7 +109,7 @@ class PyFrame(W_Root):
 
     def getorcreatedebug(self):
         if self.debugdata is None:
-            self.debugdata = FrameDebugData()
+            self.debugdata = FrameDebugData(self.pycode)
         return self.debugdata
 
     def get_w_f_trace(self):
@@ -125,9 +129,6 @@ class PyFrame(W_Root):
         if d is None:
             return None
         return d.w_locals
-
-    def frame_finished_execution(self):
-        return self.last_instr == -2
 
     def __repr__(self):
         # NOT_RPYTHON: useful in tracebacks
@@ -446,6 +447,7 @@ class PyFrame(W_Root):
             w_tb,        #
             self.w_globals,
             w(self.last_instr),
+            w(self.frame_finished_execution),
             w(f_lineno),
             w_fastlocals,
             space.w_None,           #XXX placeholder for f_locals
@@ -465,9 +467,9 @@ class PyFrame(W_Root):
         from pypy.module._pickle_support import maker # helper fns
         from pypy.interpreter.pycode import PyCode
         from pypy.interpreter.module import Module
-        args_w = space.unpackiterable(w_args, 17)
+        args_w = space.unpackiterable(w_args, 18)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_exc_value, w_tb,\
-            w_globals, w_last_instr, w_f_lineno, w_fastlocals, w_f_locals, \
+            w_globals, w_last_instr, w_finished, w_f_lineno, w_fastlocals, w_f_locals, \
             w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev_plus_one, w_cells = args_w
 
         new_frame = self
@@ -512,6 +514,7 @@ class PyFrame(W_Root):
                                                       w_exc_value, tb
                                                       )
         new_frame.last_instr = space.int_w(w_last_instr)
+        new_frame.frame_finished_execution = space.is_true(w_finished)
         d = new_frame.getorcreatedebug()
         d.f_lineno = space.int_w(w_f_lineno)
         fastlocals_w = maker.slp_from_tuple_with_nulls(space, w_fastlocals)
@@ -822,7 +825,7 @@ class PyFrame(W_Root):
         else:
             d = self.getorcreatedebug()
             d.w_f_trace = w_trace
-            d = self.get_last_lineno()
+            d.f_lineno = self.get_last_lineno()
 
     def fdel_f_trace(self, space):
         self.getorcreatedebug().w_f_trace = None
