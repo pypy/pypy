@@ -26,6 +26,8 @@ def main(cffi_dir):
         cffi_dest.join('..', p.relto(cffi_dir)).write(p.read())
     for p in cffi_dir.join('_cffi1').visit(fil='*.py'):
         cffi1_dest.join('..', p.relto(cffi_dir)).write(p.read())
+    for p in cffi_dir.join('_cffi1').visit(fil='*.h'):
+        cffi1_dest.join('..', p.relto(cffi_dir)).write(p.read())
     for p in cffi_dir.join('testing').visit(fil='*.py'):
         path = test_dest.join(p.relto(cffi_dir.join('testing')))
         path.join('..').ensure(dir=1)
