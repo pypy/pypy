@@ -306,6 +306,7 @@ class PyFrame(W_Root):
     def popvalue(self):
         depth = self.valuestackdepth - 1
         assert self._check_stack_index(depth)
+        assert depth >= 0
         w_object = self.locals_cells_stack_w[depth]
         self.locals_cells_stack_w[depth] = None
         self.valuestackdepth = depth
@@ -334,6 +335,7 @@ class PyFrame(W_Root):
         values_w = [None] * n
         base = self.valuestackdepth - n
         assert self._check_stack_index(base)
+        assert base >= 0
         while True:
             n -= 1
             if n < 0:
@@ -346,6 +348,7 @@ class PyFrame(W_Root):
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
         assert self._check_stack_index(finaldepth)
+        assert finaldepth >= 0
         while True:
             n -= 1
             if n < 0:
@@ -378,18 +381,21 @@ class PyFrame(W_Root):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert self._check_stack_index(index)
+        assert index >= 0
         return self.locals_cells_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert self._check_stack_index(index)
+        assert index >= 0
         self.locals_cells_stack_w[index] = w_object
 
     @jit.unroll_safe
     def dropvaluesuntil(self, finaldepth):
         depth = self.valuestackdepth - 1
         finaldepth = hint(finaldepth, promote=True)
+        assert finaldepth >= 0
         while depth >= finaldepth:
             self.locals_cells_stack_w[depth] = None
             depth -= 1
@@ -499,6 +505,7 @@ class PyFrame(W_Root):
         valuestackdepth = space.int_w(w_stackdepth)
         if not self._check_stack_index(valuestackdepth):
             raise OperationError(space.w_ValueError, space.wrap("invalid stackdepth"))
+        assert valuestackdepth >= 0
         self.valuestackdepth = valuestackdepth
         if space.is_w(w_exc_value, space.w_None):
             new_frame.last_exception = None
