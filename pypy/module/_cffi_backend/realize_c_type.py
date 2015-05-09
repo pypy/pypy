@@ -153,6 +153,10 @@ class W_RawFuncType(W_Root):
                 ffi.space, fargs, fret, ellipsis)
         return self._ctfuncptr
 
+    def unwrap_as_fnptr_in_elidable(self):
+        assert self._ctfuncptr is not None
+        return self._ctfuncptr
+
     def unwrap_as_nostruct_fnptr(self, ffi):
         if self._nostruct_ctfuncptr[0] is None:
             fargs, fret, ellipsis = self._unpack(ffi)

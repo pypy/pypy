@@ -58,7 +58,7 @@ class W_FFIObject(W_Root):
         else:
             assert isinstance(x, realize_c_type.W_RawFuncType)
             if consider_fn_as_fnptr:
-                return x.unwrap_as_fnptr(self)
+                return x.unwrap_as_fnptr_in_elidable()
             else:
                 return x.unexpected_fn_type(self)
 
@@ -81,6 +81,8 @@ class W_FFIObject(W_Root):
             x = realize_c_type.realize_c_type_or_func(
                 self, self.ctxobj.info.c_output, index)
             assert x is not None
+            if isinstance(x, realize_c_type.W_RawFuncType):
+                x.unwrap_as_fnptr(self)      # force it here
             self.types_dict[string] = x
         return self.get_string_to_type(string, consider_fn_as_fnptr)
 
