@@ -1830,7 +1830,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         s = y.swapaxes(0, 1)
         v = s.view(y.__class__)
         assert v.strides == (4, 24)
-    
+
     def test_tolist_scalar(self):
         from numpy import dtype
         int32 = dtype('int32').type

@@ -1015,7 +1015,11 @@ class __extend__(pyframe.PyFrame):
         if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))
-        w_locals = self.getorcreatedebug().w_locals
+        d = self.getdebug()
+        if d is None:
+            w_locals = None
+        else:
+            w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
         w_modulename = space.wrap(modulename)
