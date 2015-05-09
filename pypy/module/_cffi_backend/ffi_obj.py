@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
@@ -288,6 +289,15 @@ variable name, or '*' to get actually the C type 'pointer-to-cdecl'."""
         return self.space.wrap(result)
 
 
+    @unwrap_spec(code=int)
+    def descr_getwinerror(self, code=-1):
+        """\
+Return either the GetLastError() or the error number given by the
+optional 'code' argument, as a tuple '(code, message)'."""
+        #
+        return cerrno.getwinerror(self.space, code)
+
+
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_new(self, w_arg, w_init):
         """\
@@ -418,6 +428,11 @@ def make_error(space):
     return space.appexec([], """():
         return type('error', (Exception,), {'__module__': 'ffi'})""")
 
+_extras = {}
+if sys.platform == 'win32':
+    _extras['getwinerror'] = interp2app(W_FFIObject.descr_getwinerror)
+
+
 W_FFIObject.typedef = TypeDef(
         'CompiledFFI',
         __new__     = interp2app(W_FFIObject___new__),
@@ -440,11 +455,10 @@ W_FFIObject.typedef = TypeDef(
         from_handle = interp2app(W_FFIObject.descr_from_handle),
         gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
-        #getwinerror = interp2app(W_FFIObject.descr_getwinerror),
         new         = interp2app(W_FFIObject.descr_new),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),
         string      = interp2app(W_FFIObject.descr_string),
         typeof      = interp2app(W_FFIObject.descr_typeof),
-        )
+        **_extras)
