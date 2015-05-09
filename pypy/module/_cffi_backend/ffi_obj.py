@@ -60,7 +60,7 @@ class W_FFIObject(W_Root):
             if consider_fn_as_fnptr:
                 return x.unwrap_as_fnptr_in_elidable()
             else:
-                return x.unexpected_fn_type(self)
+                raise KeyError    # don't handle this error case here
 
     @jit.dont_look_inside
     def parse_string_to_type(self, string, consider_fn_as_fnptr):
@@ -69,7 +69,9 @@ class W_FFIObject(W_Root):
         # The get_string_to_type() function above is elidable, and we
         # hope that in almost all cases, get_string_to_type() has already
         # found an answer.
-        if string not in self.types_dict:
+        try:
+            x = self.types_dict[string]
+        except KeyError:
             info = self.ctxobj.info
             index = parse_c_type.parse_c_type(info, string)
             if index < 0:
@@ -84,7 +86,15 @@ class W_FFIObject(W_Root):
             if isinstance(x, realize_c_type.W_RawFuncType):
                 x.unwrap_as_fnptr(self)      # force it here
             self.types_dict[string] = x
-        return self.get_string_to_type(string, consider_fn_as_fnptr)
+        #
+        if isinstance(x, W_CType):
+            return x
+        else:
+            assert isinstance(x, realize_c_type.W_RawFuncType)
+            if consider_fn_as_fnptr:
+                return x.unwrap_as_fnptr_in_elidable()
+            else:
+                raise x.unexpected_fn_type(self)
 
     def ffi_type(self, w_x, accept):
         space = self.space
