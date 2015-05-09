@@ -640,7 +640,7 @@ class AppTestSupport(BaseNumpyAppTest):
             def __array_finalize__(self, obj):
                 self.output += 'In __array_finalize__:'
                 self.output += '   self is %s' % repr(self)
-                self.output += '   obj is %s' % repr(obj)
+                self.output += '   obj is %s\n' % repr(obj)
                 print self.output
                 if obj is None: return
                 self.info = getattr(obj, 'info', None)
@@ -648,7 +648,7 @@ class AppTestSupport(BaseNumpyAppTest):
             def __array_wrap__(self, out_arr, context=None):
                 self.output += 'In __array_wrap__:'
                 self.output += '   self is %s' % repr(self)
-                self.output += '   arr is %s' % repr(out_arr)
+                self.output += '   arr is %r\n' % (out_arr,)
                 # then just call the parent
                 ret = np.ndarray.__array_wrap__(self, out_arr, context)
                 print 'wrap',self.output
@@ -657,15 +657,18 @@ class AppTestSupport(BaseNumpyAppTest):
         obj = MySubClass(np.arange(5), info='spam')
         assert obj.output.startswith('In __array_finalize')
         obj.output = ''
-        arr2 = np.arange(5)+1
+        print 'np.arange(5) + 1'
+        arr2 = np.arange(5) + 1
         assert len(obj.output) < 1
+        print 'np.add(arr2, obj)'
         ret = np.add(arr2, obj)
-        print obj.output
         assert obj.output.startswith('In __array_wrap')
         assert 'finalize' not in obj.output
         assert ret.info == 'spam'
+        print 'np.negative(obj)'
         ret = np.negative(obj)
         assert ret.info == 'spam'
+        print 'obj.sum()'
         ret = obj.sum()
+        print type(ret)
         assert ret.info == 'spam'
-        assert False

@@ -13,7 +13,8 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
-from pypy.module.micronumpy.support import _parse_signature, product, get_storage_as_int
+from pypy.module.micronumpy.support import (_parse_signature, product, 
+        get_storage_as_int, is_rhs_priority_higher)
 from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
              alloc_raw_storage)
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -286,8 +287,7 @@ class W_Ufunc(W_Root):
                                        axis, out, self.identity, cumulative,
                                        temp)
             if call__array_wrap__:
-                pass
-                # XXX if out is not type(obj) call __array_wrap__ 
+                out = space.call_method(w_obj, '__array_wrap__', out)
             return out
         if cumulative:
             if out:
@@ -301,8 +301,7 @@ class W_Ufunc(W_Root):
             loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
                                            self.identity)
             if call__array_wrap__:
-                pass
-                # XXX if out is not a type(obj) call __array_wrap__ 
+                out = space.call_method(w_obj, '__array_wrap__', out)
             return out
         if out:
             call__array_wrap__ = False
@@ -318,13 +317,16 @@ class W_Ufunc(W_Root):
             return out
         if keepdims:
             shape = [1] * len(obj_shape)
-            out = W_NDimArray.from_shape(space, [1] * len(obj_shape), dtype,
-                                         w_instance=obj)
+            out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
+            out.implementation.setitem(0, res)
+            res = out
+        elif not space.is_w(space.gettypefor(w_obj), space.gettypefor(W_NDimArray)):
+            # subtypes return a ndarray subtype, not a scalar
+            out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
             out.implementation.setitem(0, res)
             res = out
         if call__array_wrap__:
-            pass
-            # XXX if res is not a type(obj) call __array_wrap__ 
+            res = space.call_method(w_obj, '__array_wrap__', res)
         return res
 
     def descr_outer(self, space, __args__):
@@ -494,11 +496,7 @@ class W_Ufunc2(W_Ufunc):
             # the __r<op>__ method and has __array_priority__ as
             # an attribute (signalling it can handle ndarray's)
             # and is not already an ndarray or a subtype of the same type.
-            w_zero = space.wrap(0.0)
-            w_priority_l = space.findattr(w_lhs, space.wrap('__array_priority__')) or w_zero
-            w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
-            # XXX what is better, unwrapping values or space.gt?
-            r_greater = space.is_true(space.gt(w_priority_r, w_priority_l))
+            r_greater = is_rhs_priority_higher(space, w_lhs, w_rhs)
             if r_greater and _has_reflected_op(space, w_rhs, self.name):
                 return space.w_NotImplemented
         w_lhs = numpify(space, w_lhs)
