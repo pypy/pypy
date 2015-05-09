@@ -6,7 +6,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
 from pypy.module.micronumpy.strides import (
     Chunk, Chunks, shape_agreement, shape_agreement_multiple)
-from .casting import find_binop_result_dtype
+from .casting import find_binop_result_dtype, find_result_type
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -85,7 +85,7 @@ def where(space, w_arr, w_x=None, w_y=None):
         if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
             return x
         return y
-    dtype = find_binop_result_dtype(space, x.get_dtype(), y.get_dtype())
+    dtype = find_result_type(space, [x, y], [])
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
     out = W_NDimArray.from_shape(space, shape, dtype)

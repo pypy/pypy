@@ -37,6 +37,10 @@ def result_type(space, __args__):
 
 def find_result_type(space, arrays_w, dtypes_w):
     # equivalent to PyArray_ResultType
+    if len(arrays_w) == 1 and not dtypes_w:
+        return arrays_w[0].get_dtype()
+    elif not arrays_w and len(dtypes_w) == 1:
+        return dtypes_w[0]
     result = None
     for w_array in arrays_w:
         result = find_binop_result_dtype(space, result, w_array.get_dtype())

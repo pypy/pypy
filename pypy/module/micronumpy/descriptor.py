@@ -29,14 +29,12 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     """ agree on dtype from a list of arrays. if out is allocated,
     use it's dtype, otherwise allocate a new one with agreed dtype
     """
-    from .casting import find_binop_result_dtype
+    from .casting import find_result_type
 
     if not space.is_none(out):
         return out
-    dtype = None
-    for w_arr in w_arr_list:
-        if not space.is_none(w_arr):
-            dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    arr_w = [w_arr for w_arr in w_arr_list if not space.is_none(w_arr)]
+    dtype = find_result_type(space, arr_w, [])
     assert dtype is not None
     out = W_NDimArray.from_shape(space, shape, dtype)
     return out
