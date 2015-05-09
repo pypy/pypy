@@ -3,7 +3,9 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from rpython.rlib import jit
 
+from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.cdataobj import W_CDataPtrToStructOrUnion
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
 
@@ -45,8 +47,8 @@ class W_StructWrapper(W_Root):
                 continue
             w_arg = args_w[i]
             farg = self.fargs[i]      # <ptr to struct/union>
-            if (isinstance(w_arg, W_CTypeStructOrUnion) and
-                    w_arg.ctype is farg.ctitem):
+            assert isinstance(farg, W_CTypePtrOrArray)
+            if isinstance(w_arg, W_CData) and w_arg.ctype is farg.ctitem:
                 # fast way: just make a new W_CData of ctype "ptr to struct"
                 # which points to the same raw memory as the existing W_CData
                 # of ctype "struct"
