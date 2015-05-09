@@ -25,6 +25,7 @@ class UniqueCache:
     def __init__(self, space):
         self.ctvoid = None      # There can be only one
         self.ctvoidp = None     # Cache for self.pointers[self.ctvoid]
+        self.ctchara = None     # Cache for self.arrays[charp, -1]
         self.primitives = {}    # Keys: name
         self.pointers = {}      # Keys: base_ctype
         self.arrays = {}        # Keys: (ptr_ctype, length_or_-1)
@@ -46,7 +47,9 @@ def _func_key_hash((fargs, w_fresult, ellipsis)):
 
 def _clean_cache(space):
     "NOT_RPYTHON"
+    from pypy.module._cffi_backend.realize_c_type import RealizeCache
     space.fromcache(UniqueCache).__init__(space)
+    space.fromcache(RealizeCache).__init__(space)
 
 # ____________________________________________________________
 
@@ -547,6 +550,16 @@ def _new_voidp_type(space):
     if unique_cache.ctvoidp is None:
         unique_cache.ctvoidp = new_pointer_type(space, new_void_type(space))
     return unique_cache.ctvoidp
+
+@jit.elidable
+def _new_chara_type(space):
+    unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.ctchara is None:
+        ctchar = new_primitive_type(space, "char")
+        ctcharp = new_pointer_type(space, ctchar)
+        ctchara = _new_array_type(space, ctcharp, length=-1)
+        unique_cache.ctchara = ctchara
+    return unique_cache.ctchara
 
 # ____________________________________________________________
 

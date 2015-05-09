@@ -7,7 +7,8 @@ from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
-from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle, cbuffer
+from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
+from pypy.module._cffi_backend import cbuffer, func
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -219,6 +220,19 @@ casted between integers or pointers of any type."""
         return w_ctype.cast(w_ob)
 
 
+    def descr_from_buffer(self, w_python_buffer):
+        """\
+Return a <cdata 'char[]'> that points to the data of the given Python
+object, which must support the buffer interface.  Note that this is
+not meant to be used on the built-in types str, unicode, or bytearray
+(you can build 'char[]' arrays explicitly) but only on objects
+containing large quantities of raw data in some other format, like
+'array.array' or numpy arrays."""
+        #
+        w_ctchara = newtype._new_chara_type(self.space)
+        return func.from_buffer(self.space, w_ctchara, w_python_buffer)
+
+
     @unwrap_spec(w_arg=W_CData)
     def descr_from_handle(self, w_arg):
         """\
@@ -399,7 +413,7 @@ W_FFIObject.typedef = TypeDef(
         buffer      = interp2app(W_FFIObject.descr_buffer),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
-        #from_buffer = interp2app(W_FFIObject.descr_from_buffer),
+        from_buffer = interp2app(W_FFIObject.descr_from_buffer),
         from_handle = interp2app(W_FFIObject.descr_from_handle),
         #gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),

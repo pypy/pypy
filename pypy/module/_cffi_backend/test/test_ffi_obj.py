@@ -1,7 +1,7 @@
 from pypy.module._cffi_backend.newtype import _clean_cache
 
 class AppTestFFIObj:
-    spaceconfig = dict(usemodules=('_cffi_backend', ))
+    spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
 
     def teardown_method(self, meth):
         _clean_cache(self.space)
@@ -187,3 +187,13 @@ class AppTestFFIObj:
         ffi = _cffi1_backend.FFI()
         a = ffi.new("signed char[]", [5, 6, 7])
         assert ffi.buffer(a)[:] == '\x05\x06\x07'
+
+    def test_ffi_from_buffer(self):
+        import _cffi_backend as _cffi1_backend
+        import array
+        ffi = _cffi1_backend.FFI()
+        a = array.array('H', [10000, 20000, 30000])
+        c = ffi.from_buffer(a)
+        assert ffi.typeof(c) is ffi.typeof("char[]")
+        ffi.cast("unsigned short *", c)[1] += 500
+        assert list(a) == [10000, 20500, 30000]
