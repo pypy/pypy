@@ -205,3 +205,20 @@ class AppTestFFIObj:
         ffi = _cffi1_backend.FFI()
         assert isinstance(ffi.cast("int", 42), CData)
         assert isinstance(ffi.typeof("int"), CType)
+
+    def test_ffi_gc(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int *", 123)
+        seen = []
+        def destructor(p1):
+            assert p1 is p
+            assert p1[0] == 123
+            seen.append(1)
+        ffi.gc(p, destructor=destructor)    # instantly forgotten
+        for i in range(5):
+            if seen:
+                break
+            import gc
+            gc.collect()
+        assert seen == [1]

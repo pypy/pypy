@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func
+from pypy.module._cffi_backend import cbuffer, func, cgc
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -34,6 +34,7 @@ class FreeCtxObj(object):
 
 
 class W_FFIObject(W_Root):
+    w_gc_wref_remove = None
 
     @jit.dont_look_inside
     def __init__(self, space, src_ctx):
@@ -244,6 +245,19 @@ in the program).  Failure to follow these rules will crash."""
         return handle.from_handle(self.space, w_arg)
 
 
+    @unwrap_spec(w_cdata=W_CData)
+    def descr_gc(self, w_cdata, w_destructor):
+        """\
+Return a new cdata object that points to the same data.
+Later, when this new cdata object is garbage-collected,
+'destructor(old_cdata_object)' will be called."""
+        #
+        return cgc.gc_weakrefs_build(self, w_cdata, w_destructor)
+
+    def descr___gc_wref_remove(self, w_ref):
+        return cgc.gc_wref_remove(self, w_ref)
+
+
     @unwrap_spec(replace_with=str)
     def descr_getctype(self, w_cdecl, replace_with=''):
         """\
@@ -416,6 +430,7 @@ W_FFIObject.typedef = TypeDef(
                                      W_FFIObject.set_errno,
                                      doc=W_FFIObject.doc_errno,
                                      cls=W_FFIObject),
+        __gc_wref_remove = interp2app(W_FFIObject.descr___gc_wref_remove),
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         buffer      = interp2app(W_FFIObject.descr_buffer),
@@ -423,7 +438,7 @@ W_FFIObject.typedef = TypeDef(
         cast        = interp2app(W_FFIObject.descr_cast),
         from_buffer = interp2app(W_FFIObject.descr_from_buffer),
         from_handle = interp2app(W_FFIObject.descr_from_handle),
-        #gc          = interp2app(W_FFIObject.descr_gc),
+        gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
         #getwinerror = interp2app(W_FFIObject.descr_getwinerror),
         new         = interp2app(W_FFIObject.descr_new),
