@@ -149,15 +149,21 @@ class VGenericEngine(object):
         context = 'argument of %s' % name
         arglist = [type.get_c_name(' %s' % arg, context)
                    for type, arg in zip(tp.args, argnames)]
+        tpresult = tp.result
+        if isinstance(tpresult, model.StructOrUnion):
+            arglist.insert(0, tpresult.get_c_name(' *r', context))
+            tpresult = model.void_type
         arglist = ', '.join(arglist) or 'void'
         wrappername = '_cffi_f_%s' % name
         self.export_symbols.append(wrappername)
         funcdecl = ' %s(%s)' % (wrappername, arglist)
         context = 'result of %s' % name
-        prnt(tp.result.get_c_name(funcdecl, context))
+        prnt(tpresult.get_c_name(funcdecl, context))
         prnt('{')
         #
-        if not isinstance(tp.result, model.VoidType):
+        if isinstance(tp.result, model.StructOrUnion):
+            result_code = '*r = '
+        elif not isinstance(tp.result, model.VoidType):
             result_code = 'return '
         else:
             result_code = ''
@@ -174,15 +180,26 @@ class VGenericEngine(object):
         else:
             indirections = []
             base_tp = tp
-            if any(isinstance(typ, model.StructOrUnion) for typ in tp.args):
+            if (any(isinstance(typ, model.StructOrUnion) for typ in tp.args)
+                    or isinstance(tp.result, model.StructOrUnion)):
                 indirect_args = []
                 for i, typ in enumerate(tp.args):
                     if isinstance(typ, model.StructOrUnion):
                         typ = model.PointerType(typ)
                         indirections.append((i, typ))
                     indirect_args.append(typ)
+                indirect_result = tp.result
+                if isinstance(indirect_result, model.StructOrUnion):
+                    if indirect_result.fldtypes is None:
+                        raise TypeError("'%s' is used as result type, "
+                                        "but is opaque" % (
+                                            indirect_result._get_c_name(),))
+                    indirect_result = model.PointerType(indirect_result)
+                    indirect_args.insert(0, indirect_result)
+                    indirections.insert(0, ("result", indirect_result))
+                    indirect_result = model.void_type
                 tp = model.FunctionPtrType(tuple(indirect_args),
-                                           tp.result, tp.ellipsis)
+                                           indirect_result, tp.ellipsis)
             BFunc = self.ffi._get_cached_btype(tp)
             wrappername = '_cffi_f_%s' % name
             newfunction = module.load_function(BFunc, wrappername)
@@ -195,9 +212,16 @@ class VGenericEngine(object):
     def _make_struct_wrapper(self, oldfunc, i, tp, base_tp):
         backend = self.ffi._backend
         BType = self.ffi._get_cached_btype(tp)
-        def newfunc(*args):
-            args = args[:i] + (backend.newp(BType, args[i]),) + args[i+1:]
-            return oldfunc(*args)
+        if i == "result":
+            ffi = self.ffi
+            def newfunc(*args):
+                res = ffi.new(BType)
+                oldfunc(res, *args)
+                return res[0]
+        else:
+            def newfunc(*args):
+                args = args[:i] + (backend.newp(BType, args[i]),) + args[i+1:]
+                return oldfunc(*args)
         newfunc._cffi_base_type = base_tp
         return newfunc
 

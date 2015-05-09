@@ -23,7 +23,7 @@ _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
 _r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
 _r_words = re.compile(r"\w+|\S")
 _parser_cache = None
-_r_int_literal = re.compile(r"^0?x?[0-9a-f]+u?l?$", re.IGNORECASE)
+_r_int_literal = re.compile(r"^0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
 
 def _get_parser():
     global _parser_cache
@@ -95,6 +95,7 @@ class Parser(object):
 
     def __init__(self):
         self._declarations = {}
+        self._included_declarations = set()
         self._anonymous_counter = 0
         self._structnode2type = weakref.WeakKeyDictionary()
         self._override = False
@@ -217,6 +218,9 @@ class Parser(object):
     def _process_macros(self, macros):
         for key, value in macros.items():
             value = value.strip()
+            neg = value.startswith('-')
+            if neg:
+                value = value[1:].strip()
             match = _r_int_literal.search(value)
             if match is not None:
                 int_str = match.group(0).lower().rstrip("ul")
@@ -228,6 +232,7 @@ class Parser(object):
                     int_str = "0o" + int_str[1:]
 
                 pyvalue = int(int_str, 0)
+                if neg: pyvalue = -pyvalue
                 self._add_constants(key, pyvalue)
                 self._declare('macro ' + key, pyvalue)
             elif value == '...':
@@ -251,22 +256,21 @@ class Parser(object):
             self._declare('function ' + decl.name, tp)
         else:
             if isinstance(node, pycparser.c_ast.Struct):
-                # XXX do we need self._declare in any of those?
-                if node.decls is not None:
-                    self._get_struct_union_enum_type('struct', node)
+                self._get_struct_union_enum_type('struct', node)
             elif isinstance(node, pycparser.c_ast.Union):
-                if node.decls is not None:
-                    self._get_struct_union_enum_type('union', node)
+                self._get_struct_union_enum_type('union', node)
             elif isinstance(node, pycparser.c_ast.Enum):
-                if node.values is not None:
-                    self._get_struct_union_enum_type('enum', node)
+                self._get_struct_union_enum_type('enum', node)
             elif not decl.name:
                 raise api.CDefError("construct does not declare any variable",
                                     decl)
             #
             if decl.name:
                 tp = self._get_type(node, partial_length_ok=True)
-                if self._is_constant_globalvar(node):
+                if tp.is_raw_function:
+                    tp = self._get_type_pointer(tp)
+                    self._declare('function ' + decl.name, tp)
+                elif self._is_constant_globalvar(node):
                     self._declare('constant ' + decl.name, tp)
                 else:
                     self._declare('variable ' + decl.name, tp)
@@ -279,7 +283,7 @@ class Parser(object):
             raise api.CDefError("unknown identifier '%s'" % (exprnode.name,))
         return self._get_type(exprnode.type)
 
-    def _declare(self, name, obj):
+    def _declare(self, name, obj, included=False):
         if name in self._declarations:
             if self._declarations[name] is obj:
                 return
@@ -289,6 +293,8 @@ class Parser(object):
                     "try cdef(xx, override=True))" % (name,))
         assert '__dotdotdot__' not in name.split()
         self._declarations[name] = obj
+        if included:
+            self._included_declarations.add(obj)
 
     def _get_type_pointer(self, type, const=False):
         if isinstance(type, model.RawFunctionType):
@@ -602,7 +608,9 @@ class Parser(object):
     def include(self, other):
         for name, tp in other._declarations.items():
             kind = name.split(' ', 1)[0]
-            if kind in ('typedef', 'struct', 'union', 'enum'):
-                self._declare(name, tp)
+            if kind in ('struct', 'union', 'enum', 'anonymous'):
+                self._declare(name, tp, included=True)
+            elif kind == 'typedef':
+                self._declare(name, tp, included=True)
         for k, v in other._int_constants.items():
             self._add_constants(k, v)

@@ -31,6 +31,9 @@ class BaseTypeByIdentity(object):
 
     def has_c_name(self):
         return '$' not in self._get_c_name()
+    
+    def sizeof_enabled(self):
+        return False
 
     def get_cached_btype(self, ffi, finishlist, can_delay=False):
         try:
@@ -102,8 +105,26 @@ class PrimitiveType(BaseType):
         'uint32_t':           'i',
         'int64_t':            'i',
         'uint64_t':           'i',
+        'int_least8_t':       'i',
+        'uint_least8_t':      'i',
+        'int_least16_t':      'i',
+        'uint_least16_t':     'i',
+        'int_least32_t':      'i',
+        'uint_least32_t':     'i',
+        'int_least64_t':      'i',
+        'uint_least64_t':     'i',
+        'int_fast8_t':        'i',
+        'uint_fast8_t':       'i',
+        'int_fast16_t':       'i',
+        'uint_fast16_t':      'i',
+        'int_fast32_t':       'i',
+        'uint_fast32_t':      'i',
+        'int_fast64_t':       'i',
+        'uint_fast64_t':      'i',
         'intptr_t':           'i',
         'uintptr_t':          'i',
+        'intmax_t':           'i',
+        'uintmax_t':          'i',
         'ptrdiff_t':          'i',
         'size_t':             'i',
         'ssize_t':            'i',
@@ -120,6 +141,9 @@ class PrimitiveType(BaseType):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'i'
     def is_float_type(self):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'f'
+
+    def sizeof_enabled(self):
+        return True
 
     def build_backend_type(self, ffi, finishlist):
         return global_cache(self, ffi, 'new_primitive_type', self.name)
@@ -161,6 +185,9 @@ class RawFunctionType(BaseFunctionType):
 class FunctionPtrType(BaseFunctionType):
     _base_pattern = '(*&)(%s)'
 
+    def sizeof_enabled(self):
+        return True
+
     def build_backend_type(self, ffi, finishlist):
         result = self.result.get_cached_btype(ffi, finishlist)
         args = []
@@ -168,6 +195,9 @@ class FunctionPtrType(BaseFunctionType):
             args.append(tp.get_cached_btype(ffi, finishlist))
         return global_cache(self, ffi, 'new_function_type',
                             tuple(args), result, self.ellipsis)
+
+    def as_raw_function(self):
+        return RawFunctionType(self.args, self.result, self.ellipsis)
 
 
 class PointerType(BaseType):
@@ -182,6 +212,9 @@ class PointerType(BaseType):
         else:
             extra = self._base_pattern
         self.c_name_with_marker = totype.c_name_with_marker.replace('&', extra)
+
+    def sizeof_enabled(self):
+        return True
 
     def build_backend_type(self, ffi, finishlist):
         BItem = self.totype.get_cached_btype(ffi, finishlist, can_delay=True)
@@ -219,9 +252,12 @@ class ArrayType(BaseType):
         elif length == '...':
             brackets = '&[/*...*/]'
         else:
-            brackets = '&[%d]' % length
+            brackets = '&[%s]' % length
         self.c_name_with_marker = (
             self.item.c_name_with_marker.replace('&', brackets))
+
+    def sizeof_enabled(self):
+        return self.item.sizeof_enabled() and self.length is not None
 
     def resolve_length(self, newlength):
         return ArrayType(self.item, newlength)
@@ -267,6 +303,14 @@ class StructOrUnion(StructOrUnionOrEnum):
         self.fldtypes = fldtypes
         self.fldbitsize = fldbitsize
         self.build_c_name_with_marker()
+
+    def has_anonymous_struct_fields(self):
+        if self.fldtypes is None:
+            return False
+        for name, type in zip(self.fldnames, self.fldtypes):
+            if name == '' and isinstance(type, StructOrUnion):
+                return True
+        return False
 
     def enumfields(self):
         for name, type, bitsize in zip(self.fldnames, self.fldtypes,
@@ -368,6 +412,9 @@ class StructOrUnion(StructOrUnionOrEnum):
             from . import ffiplatform
             raise ffiplatform.VerificationMissing(self._get_c_name())
 
+    def sizeof_enabled(self):
+        return self.fldtypes is not None
+
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
         finishlist.append(self)
@@ -395,6 +442,9 @@ class EnumType(StructOrUnionOrEnum):
         self.enumvalues = enumvalues
         self.baseinttype = baseinttype
         self.build_c_name_with_marker()
+
+    def sizeof_enabled(self):
+        return True     # not strictly true, but external enums are obscure
 
     def force_the_name(self, forcename):
         StructOrUnionOrEnum.force_the_name(self, forcename)
@@ -451,11 +501,12 @@ def unknown_type(name, structname=None):
         structname = '$%s' % name
     tp = StructType(structname, None, None, None)
     tp.force_the_name(name)
+    tp.origin = "unknown_type"
     return tp
 
 def unknown_ptr_type(name, structname=None):
     if structname is None:
-        structname = '*$%s' % name
+        structname = '$$%s' % name
     tp = StructType(structname, None, None, None)
     return NamedPointerType(tp, name)
 

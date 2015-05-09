@@ -293,7 +293,6 @@ class TestFunction(object):
         assert ffi.string(a) == b'4.4.4.4'
 
     def test_function_typedef(self):
-        py.test.skip("using really obscure C syntax")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             typedef double func_t(double);

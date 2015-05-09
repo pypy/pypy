@@ -18,10 +18,14 @@ def main(cffi_dir):
     pypydir = py.path.local(__file__).join('..', '..')
     cffi_dest = pypydir.join('..', 'lib_pypy', 'cffi')
     cffi_dest.ensure(dir=1)
+    cffi1_dest = pypydir.join('..', 'lib_pypy', '_cffi1')
+    cffi1_dest.ensure(dir=1)
     test_dest = pypydir.join('module', 'test_lib_pypy', 'cffi_tests')
     test_dest.ensure(dir=1)
     for p in cffi_dir.join('cffi').visit(fil='*.py'):
         cffi_dest.join('..', p.relto(cffi_dir)).write(p.read())
+    for p in cffi_dir.join('_cffi1').visit(fil='*.py'):
+        cffi1_dest.join('..', p.relto(cffi_dir)).write(p.read())
     for p in cffi_dir.join('testing').visit(fil='*.py'):
         path = test_dest.join(p.relto(cffi_dir.join('testing')))
         path.join('..').ensure(dir=1)

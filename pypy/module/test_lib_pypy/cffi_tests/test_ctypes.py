@@ -29,6 +29,9 @@ class TestCTypes(backend_tests.BackendTests):
     def test_nested_anonymous_struct(self):
         py.test.skip("ctypes backend: not supported: nested anonymous struct")
 
+    def test_nested_field_offset_align(self):
+        py.test.skip("ctypes backend: not supported: nested anonymous struct")
+
     def test_nested_anonymous_union(self):
         py.test.skip("ctypes backend: not supported: nested anonymous union")
 

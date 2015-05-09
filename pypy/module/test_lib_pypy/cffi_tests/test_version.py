@@ -17,6 +17,7 @@ def setup_module(mod):
 def test_version():
     v = cffi.__version__
     version_info = '.'.join(str(i) for i in cffi.__version_info__)
+    version_info = version_info.replace('.beta.', 'b')
     version_info = version_info.replace('.plus', '+')
     assert v == version_info
     #v = BACKEND_VERSIONS.get(v, v)

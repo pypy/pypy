@@ -70,6 +70,7 @@ class FFI(object):
         self._function_caches = []
         self._libraries = []
         self._cdefsources = []
+        self._included_ffis = []
         self._windows_unicode = None
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
@@ -418,12 +419,17 @@ class FFI(object):
         variables, which must anyway be accessed directly from the
         lib object returned by the original FFI instance.
         """
+        if not isinstance(ffi_to_include, FFI):
+            raise TypeError("ffi.include() expects an argument that is also of"
+                            " type cffi.FFI, not %r" % (
+                                type(ffi_to_include).__name__,))
         with ffi_to_include._lock:
             with self._lock:
                 self._parser.include(ffi_to_include._parser)
                 self._cdefsources.append('[')
                 self._cdefsources.extend(ffi_to_include._cdefsources)
                 self._cdefsources.append(']')
+                self._included_ffis.append(ffi_to_include)
 
     def new_handle(self, x):
         return self._backend.newp_handle(self.BVoidP, x)
@@ -468,6 +474,51 @@ class FFI(object):
         defmacros = list(defmacros) + [('UNICODE', '1'),
                                        ('_UNICODE', '1')]
         kwds['define_macros'] = defmacros
+
+    def set_source(self, module_name, source, **kwds):
+        if hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() cannot be called several times "
+                             "per ffi object")
+        if not isinstance(module_name, basestring):
+            raise TypeError("'module_name' must be a string")
+        self._recompiler_module_name = str(module_name)
+        self._assigned_source = (source, kwds)
+
+    def distutils_extension(self, tmpdir='build'):
+        from distutils.dir_util import mkpath
+        from _cffi1 import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            if hasattr(self, 'verifier'):     # fallback, 'tmpdir' ignored
+                return self.verifier.get_extension()
+            raise ValueError("set_source() must be called before"
+                             " distutils_extension()")
+        source, kwds = self._assigned_source
+        mkpath(tmpdir)
+        ext, updated = recompile(self, self._recompiler_module_name,
+                                 source, tmpdir=tmpdir,
+                                 call_c_compiler=False, **kwds)
+        if updated:
+            sys.stderr.write("generated %r\n" % (ext.sources[0],))
+        return ext
+
+    def emit_c_code(self, filename):
+        from _cffi1 import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() must be called before emit_c_code()")
+        source, kwds = self._assigned_source
+        recompile(self, self._recompiler_module_name, source,
+                  c_file=filename, call_c_compiler=False, **kwds)
+
+    def compile(self, tmpdir='.'):
+        from _cffi1 import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() must be called before compile()")
+        source, kwds = self._assigned_source
+        return recompile(self, self._recompiler_module_name,
+                         source, tmpdir=tmpdir, **kwds)
 
 
 def _load_backend_lib(backend, name, flags):
