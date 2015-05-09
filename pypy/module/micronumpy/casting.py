@@ -20,11 +20,30 @@ def result_type(space, __args__):
     if not args_w:
         raise oefmt(space.w_ValueError,
             "at least one array or dtype is required")
-    result = None
+    arrays_w = []
+    dtypes_w = []
     for w_arg in args_w:
-        dtype = as_dtype(space, w_arg)
+        if isinstance(w_arg, W_NDimArray):
+            arrays_w.append(w_arg)
+        elif is_scalar_w(space, w_arg):
+            w_scalar = as_scalar(space, w_arg)
+            w_arr = W_NDimArray.from_scalar(space, w_scalar)
+            arrays_w.append(w_arr)
+        else:
+            dtype = as_dtype(space, w_arg)
+            dtypes_w.append(dtype)
+    return find_result_type(space, arrays_w, dtypes_w)
+
+
+def find_result_type(space, arrays_w, dtypes_w):
+    # equivalent to PyArray_ResultType
+    result = None
+    for w_array in arrays_w:
+        result = find_binop_result_dtype(space, result, w_array.get_dtype())
+    for dtype in dtypes_w:
         result = find_binop_result_dtype(space, result, dtype)
     return result
+
 
 @unwrap_spec(casting=str)
 def can_cast(space, w_from, w_totype, casting='safe'):
