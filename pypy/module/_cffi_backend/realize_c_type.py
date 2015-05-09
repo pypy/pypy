@@ -158,26 +158,35 @@ class W_RawFuncType(W_Root):
         return self._ctfuncptr
 
     def unwrap_as_nostruct_fnptr(self, ffi):
+        # tweaked version: instead of returning the ctfuncptr corresponding
+        # exactly to the OP_FUNCTION ... OP_FUNCTION_END opcodes, return
+        # another one in which the struct args are replaced with ptr-to-
+        # struct, and a struct return value is replaced with a hidden first
+        # arg of type ptr-to-struct.  This is how recompiler.py produces
+        # trampoline functions for PyPy.
         if self._nostruct_ctfuncptr[0] is None:
             fargs, fret, ellipsis = self._unpack(ffi)
-            locs = []
+            # 'locs' will be a string of the same length as the final fargs,
+            # containing 'A' where a struct argument was detected, and 'R'
+            # in first position if a struct return value was detected
+            locs = ['\x00'] * len(fargs)
             for i in range(len(fargs)):
                 farg = fargs[i]
                 if isinstance(farg, ctypestruct.W_CTypeStructOrUnion):
                     farg = newtype.new_pointer_type(ffi.space, farg)
                     fargs[i] = farg
-                    locs.append(i)
+                    locs[i] = 'A'
             if isinstance(fret, ctypestruct.W_CTypeStructOrUnion):
                 fret = newtype.new_pointer_type(ffi.space, fret)
                 fargs = [fret] + fargs
+                locs = ['R'] + locs
                 fret = newtype.new_void_type(ffi.space)
-                locs.append(-1)
             ctfuncptr = newtype._new_function_type(
                 ffi.space, fargs, fret, ellipsis)
-            if not locs:
+            if locs == ['\x00'] * len(locs):
                 locs = None
             else:
-                locs = locs[:]
+                locs = ''.join(locs)
             self._nostruct_ctfuncptr = (ctfuncptr, locs)
         return self._nostruct_ctfuncptr
 
