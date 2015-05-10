@@ -42,8 +42,10 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     ffi.set_source(module_name, source)
     ffi.emit_c_code(c_file)
 
+    base_module_name = module_name.split('.')[-1]
     ext = ffiplatform.get_extension(c_file, module_name,
-                                    include_dirs=[str(rdir)])
+            include_dirs=[str(rdir)],
+            export_symbols=['_cffi_pypyinit_' + base_module_name])
     ffiplatform.compile(str(rdir), ext)
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
