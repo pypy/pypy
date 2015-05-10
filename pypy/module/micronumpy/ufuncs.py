@@ -571,15 +571,11 @@ class W_UfuncGeneric(W_Ufunc):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w, sig, casting, extobj):
-        inargs = [None] * self.nin
         if len(args_w) < self.nin:
             raise oefmt(space.w_ValueError,
                  '%s called with too few input args, expected at least %d got %d',
                  self.name, self.nin, len(args_w))
-        for i in range(self.nin):
-            inargs[i] = convert_to_array(space, args_w[i])
-        for i in inargs:
-            assert isinstance(i, W_NDimArray)
+        inargs = [convert_to_array(space, args_w[i]) for i in range(self.nin)]
         outargs = [None] * self.nout
         for i in range(len(args_w)-self.nin):
             out = args_w[i+self.nin]
