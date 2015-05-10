@@ -7,8 +7,10 @@ from pypy.module._cffi_backend.ffi_obj import W_FFIObject
 from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
-VERSION_MIN = 0x010000f0
-VERSION_MAX = 0x0100ffff
+VERSION_MIN    = 0x2600
+VERSION_MAX    = 0x260F
+
+VERSION_EXPORT = 0x0A02
 
 initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
@@ -16,7 +18,8 @@ initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
     initfunc = rffi.cast(initfunctype, initptr)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 2, zero=True) as p:
+    with lltype.scoped_alloc(rffi.VOIDPP.TO, 2) as p:
+        p[0] = rffi.cast(rffi.VOIDP, VERSION_EXPORT)
         initfunc(p)
         version = rffi.cast(lltype.Signed, p[0])
         if not (VERSION_MIN <= version <= VERSION_MAX):
