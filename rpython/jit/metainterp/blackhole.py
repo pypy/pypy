@@ -1225,32 +1225,39 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "r", "i", "d", "d", returns="i")
     def bhimpl_getarrayitem_vable_i(cpu, vable, index, fielddescr, arraydescr):
+        fielddescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
         return cpu.bh_getarrayitem_gc_i(array, index, arraydescr)
     @arguments("cpu", "r", "i", "d", "d", returns="r")
     def bhimpl_getarrayitem_vable_r(cpu, vable, index, fielddescr, arraydescr):
+        fielddescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
         return cpu.bh_getarrayitem_gc_r(array, index, arraydescr)
     @arguments("cpu", "r", "i", "d", "d", returns="f")
     def bhimpl_getarrayitem_vable_f(cpu, vable, index, fielddescr, arraydescr):
+        fielddescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
         return cpu.bh_getarrayitem_gc_f(array, index, arraydescr)
 
     @arguments("cpu", "r", "i", "i", "d", "d")
     def bhimpl_setarrayitem_vable_i(cpu, vable, index, newval, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         cpu.bh_setarrayitem_gc_i(array, index, newval, adescr)
     @arguments("cpu", "r", "i", "r", "d", "d")
     def bhimpl_setarrayitem_vable_r(cpu, vable, index, newval, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         cpu.bh_setarrayitem_gc_r(array, index, newval, adescr)
     @arguments("cpu", "r", "i", "f", "d", "d")
     def bhimpl_setarrayitem_vable_f(cpu, vable, index, newval, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         cpu.bh_setarrayitem_gc_f(array, index, newval, adescr)
 
     @arguments("cpu", "r", "d", "d", returns="i")
     def bhimpl_arraylen_vable(cpu, vable, fdescr, adescr):
+        fdescr.get_vinfo().clear_vable_token(vable)
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         return cpu.bh_arraylen_gc(array, adescr)
 
@@ -1288,9 +1295,20 @@ class BlackholeInterpreter(object):
     bhimpl_getfield_gc_r_pure = bhimpl_getfield_gc_r
     bhimpl_getfield_gc_f_pure = bhimpl_getfield_gc_f
 
-    bhimpl_getfield_vable_i = bhimpl_getfield_gc_i
-    bhimpl_getfield_vable_r = bhimpl_getfield_gc_r
-    bhimpl_getfield_vable_f = bhimpl_getfield_gc_f
+    @arguments("cpu", "r", "d", returns="i")
+    def bhimpl_getfield_vable_i(cpu, struct, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        return cpu.bh_getfield_gc_i(struct, fielddescr)
+
+    @arguments("cpu", "r", "d", returns="r")
+    def bhimpl_getfield_vable_r(cpu, struct, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        return cpu.bh_getfield_gc_r(struct, fielddescr)
+
+    @arguments("cpu", "r", "d", returns="f")
+    def bhimpl_getfield_vable_f(cpu, struct, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        return cpu.bh_getfield_gc_f(struct, fielddescr)
 
     bhimpl_getfield_gc_i_greenfield = bhimpl_getfield_gc_i
     bhimpl_getfield_gc_r_greenfield = bhimpl_getfield_gc_r
@@ -1321,9 +1339,18 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_gc_f(cpu, struct, newvalue, fielddescr):
         cpu.bh_setfield_gc_f(struct, newvalue, fielddescr)
 
-    bhimpl_setfield_vable_i = bhimpl_setfield_gc_i
-    bhimpl_setfield_vable_r = bhimpl_setfield_gc_r
-    bhimpl_setfield_vable_f = bhimpl_setfield_gc_f
+    @arguments("cpu", "r", "i", "d")
+    def bhimpl_setfield_vable_i(cpu, struct, newvalue, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        cpu.bh_setfield_gc_i(struct, newvalue, fielddescr)
+    @arguments("cpu", "r", "r", "d")
+    def bhimpl_setfield_vable_r(cpu, struct, newvalue, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        cpu.bh_setfield_gc_r(struct, newvalue, fielddescr)
+    @arguments("cpu", "r", "f", "d")
+    def bhimpl_setfield_vable_f(cpu, struct, newvalue, fielddescr):
+        fielddescr.get_vinfo().clear_vable_token(struct)
+        cpu.bh_setfield_gc_f(struct, newvalue, fielddescr)
 
     @arguments("cpu", "i", "i", "d")
     def bhimpl_setfield_raw_i(cpu, struct, newvalue, fielddescr):

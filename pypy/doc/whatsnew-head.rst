@@ -71,3 +71,13 @@ Extend numpy dtypes to allow using objects with associated garbage collection ho
 .. branch: vmprof2
 Add backend support for vmprof - a lightweight statistical profiler -
 to linux64, see client at https://vmprof.readthedocs.org
+
+.. branch: jit_hint_docs
+Add more detail to @jit.elidable and @jit.promote in rpython/rlib/jit.py
+
+.. branch: remove-frame-debug-attrs
+Remove the debug attributes from frames only used for tracing and replace
+them with a debug object that is created on-demand
+
+.. branch: can_cast
+Implement np.can_cast, np.min_scalar_type and missing dtype comparison operations.

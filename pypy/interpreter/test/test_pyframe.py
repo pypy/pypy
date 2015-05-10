@@ -64,6 +64,8 @@ class AppTestPyFrame:
                 f.f_lineno += 1
             return x
 
+        open    # force fetching of this name now
+
         def function():
             xyz
             with open(self.tempfile1, 'w') as f:

@@ -156,7 +156,7 @@ W_Hash.typedef = TypeDef(
     block_size=GetSetProperty(W_Hash.get_block_size),
     name=GetSetProperty(W_Hash.get_name),
 )
-W_Hash.acceptable_as_base_class = False
+W_Hash.typedef.acceptable_as_base_class = False
 
 @unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):

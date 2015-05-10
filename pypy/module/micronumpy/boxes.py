@@ -874,4 +874,3 @@ W_ObjectBox.typedef = TypeDef("numpy.object_", W_ObjectBox.typedef,
     __new__ = interp2app(W_ObjectBox.descr__new__.im_func),
     __getattr__ = interp2app(W_ObjectBox.descr__getattr__),
 )
-

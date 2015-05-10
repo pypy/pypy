@@ -23,6 +23,19 @@ POP_BLOCK END_FINALLY'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
+class FrameDebugData(object):
+    """ A small object that holds debug data for tracing
+    """
+    w_f_trace                = None
+    instr_lb                 = 0
+    instr_ub                 = 0
+    instr_prev_plus_one      = 0
+    f_lineno                 = 0      # current lineno for tracing
+    is_being_profiled        = False
+    w_locals                 = None
+
+    def __init__(self, pycode):
+        self.f_lineno = pycode.co_firstlineno
 
 class PyFrame(W_Root):
     """Represents a frame for a regular Python function
@@ -31,7 +44,8 @@ class PyFrame(W_Root):
     Public fields:
      * 'space' is the object space this frame is running in
      * 'code' is the PyCode object this frame runs
-     * 'w_locals' is the locals dictionary to use
+     * 'w_locals' is the locals dictionary to use, if needed, stored on a
+       debug object
      * 'w_globals' is the attached globals dictionary
      * 'builtin' is the attached built-in module
      * 'valuestack_w', 'blockstack', control the interpretation
@@ -49,13 +63,26 @@ class PyFrame(W_Root):
     last_instr               = -1
     last_exception           = None
     f_backref                = jit.vref_None
-    w_f_trace                = None
-    # For tracing
-    instr_lb                 = 0
-    instr_ub                 = 0
-    instr_prev_plus_one      = 0
-    is_being_profiled        = False
+    
     escaped                  = False  # see mark_as_escaped()
+    debugdata                = None
+
+    w_globals = None
+    pycode = None # code object executed by that frame
+    locals_stack_w = None # the list of all locals and valuestack
+    valuestackdepth = 0 # number of items on valuestack
+    lastblock = None
+    cells = None # cells
+
+    # other fields:
+    
+    # builtin - builtin cache, only if honor__builtins__ is True
+    # defaults to False
+
+    # there is also self.space which is removed by the annotator
+
+    # additionally JIT uses vable_token field that is representing
+    # frame current virtualizable state as seen by the JIT
 
     def __init__(self, space, code, w_globals, outer_func):
         if not we_are_translated():
@@ -65,11 +92,9 @@ class PyFrame(W_Root):
         assert isinstance(code, pycode.PyCode)
         self.space = space
         self.w_globals = w_globals
-        self.w_locals = None
         self.pycode = code
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
-        self.lastblock = None
         make_sure_not_resized(self.locals_stack_w)
         check_nonneg(self.valuestackdepth)
         #
@@ -78,7 +103,32 @@ class PyFrame(W_Root):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         self.initialize_frame_scopes(outer_func, code)
-        self.f_lineno = code.co_firstlineno
+
+    def getdebug(self):
+        return self.debugdata
+
+    def getorcreatedebug(self):
+        if self.debugdata is None:
+            self.debugdata = FrameDebugData(self.pycode)
+        return self.debugdata
+
+    def get_w_f_trace(self):
+        d = self.getdebug()
+        if d is None:
+            return None
+        return d.w_f_trace
+
+    def get_is_being_profiled(self):
+        d = self.getdebug()
+        if d is None:
+            return False
+        return d.is_being_profiled
+
+    def get_w_locals(self):
+        d = self.getdebug()
+        if d is None:
+            return None
+        return d.w_locals
 
     def __repr__(self):
         # NOT_RPYTHON: useful in tracebacks
@@ -142,10 +192,10 @@ class PyFrame(W_Root):
         flags = code.co_flags
         if not (flags & pycode.CO_OPTIMIZED):
             if flags & pycode.CO_NEWLOCALS:
-                self.w_locals = self.space.newdict(module=True)
+                self.getorcreatedebug().w_locals = self.space.newdict(module=True)
             else:
                 assert self.w_globals is not None
-                self.w_locals = self.w_globals
+                self.getorcreatedebug().w_locals = self.w_globals
 
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
@@ -367,10 +417,10 @@ class PyFrame(W_Root):
         else:
             w_cells = space.newlist([space.wrap(cell) for cell in cells])
 
-        if self.w_f_trace is None:
+        if self.get_w_f_trace() is None:
             f_lineno = self.get_last_lineno()
         else:
-            f_lineno = self.f_lineno
+            f_lineno = self.getorcreatedebug().f_lineno
 
         nlocals = self.pycode.co_nlocals
         values_w = self.locals_stack_w[nlocals:self.valuestackdepth]
@@ -386,6 +436,7 @@ class PyFrame(W_Root):
             w_exc_value = self.last_exception.get_w_value(space)
             w_tb = w(self.last_exception.get_traceback())
 
+        d = self.getorcreatedebug()
         tup_state = [
             w(self.f_backref()),
             w(self.get_builtin()),
@@ -402,11 +453,11 @@ class PyFrame(W_Root):
             space.w_None,           #XXX placeholder for f_locals
 
             #f_restricted requires no additional data!
-            space.w_None, ## self.w_f_trace,  ignore for now
+            space.w_None,
 
-            w(self.instr_lb), #do we need these three (that are for tracing)
-            w(self.instr_ub),
-            w(self.instr_prev_plus_one),
+            w(d.instr_lb),
+            w(d.instr_ub),
+            w(d.instr_prev_plus_one),
             w_cells,
             ]
         return nt(tup_state)
@@ -464,18 +515,19 @@ class PyFrame(W_Root):
                                                       )
         new_frame.last_instr = space.int_w(w_last_instr)
         new_frame.frame_finished_execution = space.is_true(w_finished)
-        new_frame.f_lineno = space.int_w(w_f_lineno)
+        d = new_frame.getorcreatedebug()
+        d.f_lineno = space.int_w(w_f_lineno)
         fastlocals_w = maker.slp_from_tuple_with_nulls(space, w_fastlocals)
         new_frame.locals_stack_w[:len(fastlocals_w)] = fastlocals_w
 
         if space.is_w(w_f_trace, space.w_None):
-            new_frame.w_f_trace = None
+            d.w_f_trace = None
         else:
-            new_frame.w_f_trace = w_f_trace
+            d.w_f_trace = w_f_trace
 
-        new_frame.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
-        new_frame.instr_ub = space.int_w(w_instr_ub)
-        new_frame.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
+        d.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
+        d.instr_ub = space.int_w(w_instr_ub)
+        d.instr_prev_plus_one = space.int_w(w_instr_prev_plus_one)
 
         self._setcellvars(cellvars)
 
@@ -503,30 +555,31 @@ class PyFrame(W_Root):
         Get the locals as a dictionary
         """
         self.fast2locals()
-        return self.w_locals
+        return self.debugdata.w_locals
 
     def setdictscope(self, w_locals):
         """
         Initialize the locals from a dictionary.
         """
-        self.w_locals = w_locals
+        self.getorcreatedebug().w_locals = w_locals
         self.locals2fast()
 
     @jit.unroll_safe
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
-        if self.w_locals is None:
-            self.w_locals = self.space.newdict()
+        d = self.getorcreatedebug()
+        if d.w_locals is None:
+            d.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_stack_w[i]
             if w_value is not None:
-                self.space.setitem_str(self.w_locals, name, w_value)
+                self.space.setitem_str(d.w_locals, name, w_value)
             else:
                 w_name = self.space.wrap(name)
                 try:
-                    self.space.delitem(self.w_locals, w_name)
+                    self.space.delitem(d.w_locals, w_name)
                 except OperationError as e:
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
@@ -545,13 +598,14 @@ class PyFrame(W_Root):
             except ValueError:
                 pass
             else:
-                self.space.setitem_str(self.w_locals, name, w_value)
+                self.space.setitem_str(d.w_locals, name, w_value)
 
 
     @jit.unroll_safe
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
-        assert self.w_locals is not None
+        w_locals = self.getorcreatedebug().w_locals
+        assert w_locals is not None
         varnames = self.getcode().getvarnames()
         numlocals = self.getcode().co_nlocals
 
@@ -559,7 +613,7 @@ class PyFrame(W_Root):
 
         for i in range(min(len(varnames), numlocals)):
             name = varnames[i]
-            w_value = self.space.finditem_str(self.w_locals, name)
+            w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
                 new_fastlocals_w[i] = w_value
 
@@ -578,7 +632,7 @@ class PyFrame(W_Root):
         for i in range(len(freevarnames)):
             name = freevarnames[i]
             cell = self.cells[i]
-            w_value = self.space.finditem_str(self.w_locals, name)
+            w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
                 cell.set(w_value)
 
@@ -613,10 +667,10 @@ class PyFrame(W_Root):
 
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
-        if self.w_f_trace is None:
+        if self.get_w_f_trace() is None:
             return space.wrap(self.get_last_lineno())
         else:
-            return space.wrap(self.f_lineno)
+            return space.wrap(self.getorcreatedebug().f_lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Returns the line number of the instruction currently being executed."
@@ -626,7 +680,7 @@ class PyFrame(W_Root):
             raise OperationError(space.w_ValueError,
                                  space.wrap("lineno must be an integer"))
 
-        if self.w_f_trace is None:
+        if self.get_w_f_trace() is None:
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineno can only be set by a trace function."))
 
@@ -745,7 +799,7 @@ class PyFrame(W_Root):
             block.cleanup(self)
             f_iblock -= 1
 
-        self.f_lineno = new_lineno
+        self.getorcreatedebug().f_lineno = new_lineno
         self.last_instr = new_lasti
 
     def get_last_lineno(self):
@@ -763,17 +817,18 @@ class PyFrame(W_Root):
         return self.space.wrap(self.last_instr)
 
     def fget_f_trace(self, space):
-        return self.w_f_trace
+        return self.get_w_f_trace()
 
     def fset_f_trace(self, space, w_trace):
         if space.is_w(w_trace, space.w_None):
-            self.w_f_trace = None
+            self.getorcreatedebug().w_f_trace = None
         else:
-            self.w_f_trace = w_trace
-            self.f_lineno = self.get_last_lineno()
+            d = self.getorcreatedebug()
+            d.w_f_trace = w_trace
+            d.f_lineno = self.get_last_lineno()
 
     def fdel_f_trace(self, space):
-        self.w_f_trace = None
+        self.getorcreatedebug().w_f_trace = None
 
     def fget_f_exc_type(self, space):
         if self.last_exception is not None:

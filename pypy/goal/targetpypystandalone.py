@@ -238,6 +238,7 @@ class PyPyTarget(object):
 
         config.translation.suggest(check_str_without_nul=True)
         config.translation.suggest(shared=True)
+        config.translation.suggest(icon=os.path.join(this_dir, 'pypy.ico'))
         if config.translation.shared:
             if config.translation.output is not None:
                 raise Exception("Cannot use the --output option with PyPy "
