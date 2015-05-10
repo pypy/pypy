@@ -194,7 +194,7 @@ class _socketobject(object):
             # methods _reuse() and _drop() that maintains an explicit
             # reference counter, starting at 0.  When it drops back to
             # zero, close() must be called.
-            _sock._reuse()
+            _sock._reuse()      # please read the comment above!
 
         self._sock = _sock
 
@@ -297,7 +297,7 @@ class _fileobject(object):
         # methods _reuse() and _drop() that maintains an explicit
         # reference counter, starting at 0.  When it drops back to
         # zero, close() must be called.
-        sock._reuse()
+        sock._reuse()      # please read the comment above!
         self._sock = sock
         self.mode = mode # Not actually used in this version
         if bufsize < 0:
