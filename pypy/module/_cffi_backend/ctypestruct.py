@@ -54,6 +54,9 @@ class W_CTypeStructOrUnion(W_CType):
 
     def _alignof(self):
         self.check_complete(w_errorcls=self.space.w_ValueError)
+        if self.alignment == -1:
+            self.force_lazy_struct()
+            assert self.alignment > 0
         return self.alignment
 
     def _fget(self, attrchar):

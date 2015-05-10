@@ -484,6 +484,8 @@ class AppTestRecompiler:
             "double ff1(double x) { return 42.5; }",
             includes=[ffi1])
         assert lib.ff1(0) == 42.5
+        assert ffi1.typeof("foo_t") is ffi.typeof("foo_t") \
+            is ffi.typeof("double")
 
     def test_include_1b(self):
         ffi1, lib1 = self.prepare(
@@ -497,6 +499,7 @@ class AppTestRecompiler:
             includes=[ffi1])
         assert lib.foo2(42) == 37
         assert lib.foo1(42) == 52
+        assert lib.foo1 is lib1.foo1
 
     def test_include_2(self):
         ffi1, lib1 = self.prepare(
@@ -514,6 +517,7 @@ class AppTestRecompiler:
         q = lib.ff2(p)
         assert q == p
         assert p.y == 42
+        assert ffi1.typeof("struct foo_s") is ffi.typeof("struct foo_s")
 
     def test_include_3(self):
         ffi1, lib1 = self.prepare(
@@ -528,6 +532,7 @@ class AppTestRecompiler:
             includes=[ffi1])
         assert lib.ff3(10) == 52
         assert ffi.typeof(ffi.cast("sshort_t", 42)) is ffi.typeof("short")
+        assert ffi1.typeof("sshort_t") is ffi.typeof("sshort_t")
 
     def test_include_4(self):
         ffi1, lib1 = self.prepare(
@@ -544,23 +549,28 @@ class AppTestRecompiler:
         q = lib.ff4(p)
         assert q == p
         assert p.x == 52
+        assert ffi1.typeof("mystruct_t") is ffi.typeof("mystruct_t")
 
     def test_include_5(self):
-        skip("also fails in 0.9.3")
         ffi1, lib1 = self.prepare(
-            "typedef struct { int x; } *mystruct_p;",
+            "typedef struct { int x[2]; int y; } *mystruct_p;",
             "test_include_5_parent",
-            "typedef struct { int x; } *mystruct_p;")
+            "typedef struct { int x[2]; int y; } *mystruct_p;")
         ffi, lib = self.prepare(
             "mystruct_p ff5(mystruct_p);",
             "test_include_5",
-            "typedef struct {int x; } *mystruct_p; //usually from a #include\n"
-            "mystruct_p ff5(mystruct_p p) { p->x += 42; return p; }",
+            "typedef struct {int x[2]; int y; } *mystruct_p; //#include\n"
+            "mystruct_p ff5(mystruct_p p) { p->x[1] += 42; return p; }",
             includes=[ffi1])
-        p = ffi.new("mystruct_p", [10])
+        assert ffi.alignof(ffi.typeof("mystruct_p").item) == 4
+        assert ffi1.typeof("mystruct_p") is ffi.typeof("mystruct_p")
+        p = ffi.new("mystruct_p", [[5, 10], -17])
         q = lib.ff5(p)
         assert q == p
-        assert p.x == 52
+        assert p.x[0] == 5
+        assert p.x[1] == 52
+        assert p.y == -17
+        assert ffi.alignof(ffi.typeof(p[0])) == 4
 
     def test_include_6(self):
         ffi1, lib1 = self.prepare(
@@ -648,3 +658,16 @@ class AppTestRecompiler:
             "struct foo_s(*)(int, struct bar_s)")
         s = lib.f(14, {'y': -3})
         assert s.x == -42
+
+    def test_name_of_unnamed_struct(self):
+        ffi, lib = self.prepare(
+                 "typedef struct { int x; } foo_t;\n"
+                 "typedef struct { int y; } *bar_p;\n"
+                 "typedef struct { int y; } **baz_pp;\n",
+                 "test_name_of_unnamed_struct",
+                 "typedef struct { int x; } foo_t;\n"
+                 "typedef struct { int y; } *bar_p;\n"
+                 "typedef struct { int y; } **baz_pp;\n")
+        assert repr(ffi.typeof("foo_t")) == "<ctype 'foo_t'>"
+        assert repr(ffi.typeof("bar_p")) == "<ctype 'struct $1 *'>"
+        assert repr(ffi.typeof("baz_pp")) == "<ctype 'struct $2 * *'>"

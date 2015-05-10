@@ -216,8 +216,10 @@ def realize_c_type(ffi, opcodes, index):
 
 def _realize_name(prefix, charp_src_name):
     # "xyz" => "struct xyz"
-    #"$xyz" => "xyz"
-    if charp_src_name[0] == '$' and charp_src_name[1] != '$':
+    # "$xyz" => "xyz"
+    # "$1" => "struct $1"
+    if (charp_src_name[0] == '$' and charp_src_name[1] != '$'
+            and not ('0' <= charp_src_name[1] <= '9')):
         return rffi.charp2str(rffi.ptradd(charp_src_name, 1))
     else:
         return prefix + rffi.charp2str(charp_src_name)
@@ -442,8 +444,10 @@ def do_realize_lazy_struct(w_ctype):
         w_ctype.alignment = rffi.getintfield(s, 'c_alignment')  # restore
         raise
     if rffi.getintfield(s, 'c_size') >= 0:
-        assert w_ctype.size      == rffi.getintfield(s, 'c_size')
-        assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
+        assert w_ctype.size == rffi.getintfield(s, 'c_size')
+        assert w_ctype.alignment > 0
+        if rffi.getintfield(s, 'c_alignment') != -1:
+            assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
     assert w_ctype._fields_list is not None       # not lazy any more
 
     w_ctype._lazy_ffi = None
