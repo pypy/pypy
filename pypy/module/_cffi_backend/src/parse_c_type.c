@@ -2,7 +2,12 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <stdint.h>
+
+#if defined(_MSC_VER)
+typedef size_t uintptr_t;
+#else
+# include <stdint.h>
+#endif
 
 #define _CFFI_INTERNAL
 #include "src/precommondefs.h"
