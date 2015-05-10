@@ -366,23 +366,26 @@ class W_Ufunc1(W_Ufunc):
                 else:
                     res_dtype = get_dtype_cache(space).w_float64dtype
         if w_obj.is_scalar():
-            w_val = self.func(calc_dtype,
-                              w_obj.get_scalar_value().convert_to(space, calc_dtype))
-            if out is None:
-                if res_dtype.is_object():
-                    w_val = w_obj.get_scalar_value()
-                return w_val
-            w_val = res_dtype.coerce(space, w_val)
-            if out.is_scalar():
-                out.set_scalar_value(w_val)
-            else:
-                out.fill(space, w_val)
-            return out
+            return self.call_scalar(space, w_obj.get_scalar_value(),
+                                    calc_dtype, res_dtype, out)
         assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
         return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
+
+    def call_scalar(self, space, w_arg, in_dtype, out_dtype, out):
+        w_val = self.func(in_dtype, w_arg.convert_to(space, in_dtype))
+        if out is None:
+            if out_dtype.is_object():
+                w_val = w_arg
+            return w_val
+        w_val = out_dtype.coerce(space, w_val)
+        if out.is_scalar():
+            out.set_scalar_value(w_val)
+        else:
+            out.fill(space, w_val)
+        return out
 
 
 class W_Ufunc2(W_Ufunc):
@@ -486,6 +489,10 @@ class W_Ufunc2(W_Ufunc):
         else:
             res_dtype = calc_dtype
         if w_lhs.is_scalar() and w_rhs.is_scalar():
+            return self.call_scalar(space,
+                                    w_lhs.get_scalar_value(),
+                                    w_rhs.get_scalar_value(),
+                                    calc_dtype, res_dtype, out)
             arr = self.func(calc_dtype,
                 w_lhs.get_scalar_value().convert_to(space, calc_dtype),
                 w_rhs.get_scalar_value().convert_to(space, calc_dtype)
@@ -508,6 +515,20 @@ class W_Ufunc2(W_Ufunc):
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
         return loop.call2(space, new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
+
+    def call_scalar(self, space, w_lhs, w_rhs, in_dtype, out_dtype, out):
+        w_val = self.func(in_dtype,
+                          w_lhs.convert_to(space, in_dtype),
+                          w_rhs.convert_to(space, in_dtype))
+        if out is None:
+            return w_val
+        w_val = out_dtype.coerce(space, w_val)
+        if out.is_scalar():
+            out.set_scalar_value(w_val)
+        else:
+            out.fill(space, w_val)
+        return out
+
 
 
 class W_UfuncGeneric(W_Ufunc):
