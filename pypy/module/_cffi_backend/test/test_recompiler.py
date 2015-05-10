@@ -11,6 +11,7 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     try:
         from cffi import FFI              # <== the system one, which
         from _cffi1 import recompiler     # needs to be at least cffi 1.0.0b3
+        from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
     space.appexec([], """():
@@ -40,12 +41,10 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     ffi.cdef(cdef)
     ffi.set_source(module_name, source)
     ffi.emit_c_code(c_file)
-    err = os.system("cd '%s' && gcc -shared -fPIC -g -I'%s' '%s' -o '%s'" % (
-        str(subrdir), str(rdir),
-        os.path.basename(c_file),
-        os.path.basename(so_file)))
-    if err != 0:
-        raise Exception("gcc error")
+
+    ext = ffiplatform.get_extension(c_file, module_name,
+                                    include_dirs=[str(rdir)])
+    ffiplatform.compile(str(rdir), ext)
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
     w_res = space.appexec(args_w, """(modulename, filename):
