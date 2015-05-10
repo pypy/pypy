@@ -34,7 +34,6 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     else:
         subrdir = rdir
     c_file  = str(rdir.join('%s.c'  % path))
-    so_file = str(rdir.join('%s.so' % path))
     ffi = FFI()
     for include_ffi_object in includes:
         ffi.include(include_ffi_object._test_recompiler_source_ffi)
@@ -47,6 +46,13 @@ def prepare(space, cdef, module_name, source, w_includes=None):
             include_dirs=[str(rdir)],
             export_symbols=['_cffi_pypyinit_' + base_module_name])
     ffiplatform.compile(str(rdir), ext)
+
+    for extension in ['so', 'pyd', 'dylib']:
+        so_file = str(rdir.join('%s.%s' % (path, extension)))
+        if os.path.exists(so_file):
+            break
+    else:
+        raise Exception("could not find the compiled extension module?")
 
     args_w = [space.wrap(module_name), space.wrap(so_file)]
     w_res = space.appexec(args_w, """(modulename, filename):
