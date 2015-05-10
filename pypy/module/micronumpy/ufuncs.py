@@ -28,14 +28,6 @@ def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
 
-def _get_dtype(space, w_npyobj):
-    if isinstance(w_npyobj, boxes.W_GenericBox):
-        return w_npyobj.get_dtype(space)
-    else:
-        assert isinstance(w_npyobj, W_NDimArray)
-        return w_npyobj.get_dtype()
-
-
 class W_Ufunc(W_Root):
     _immutable_fields_ = [
         "name", "promote_to_largest", "promote_to_float", "promote_bools", "nin",
@@ -344,7 +336,7 @@ class W_Ufunc1(W_Ufunc):
             if space.is_w(out, space.w_None):
                 out = None
         w_obj = numpify(space, w_obj)
-        dtype = _get_dtype(space, w_obj)
+        dtype = w_obj.get_dtype(space)
         if dtype.is_flexible():
             raise OperationError(space.w_TypeError,
                       space.wrap('Not implemented for this type'))
@@ -433,8 +425,8 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = numpify(space, w_lhs)
         w_rhs = numpify(space, w_rhs)
-        w_ldtype = _get_dtype(space, w_lhs)
-        w_rdtype = _get_dtype(space, w_rhs)
+        w_ldtype = w_lhs.get_dtype(space)
+        w_rdtype = w_rhs.get_dtype(space)
         if w_ldtype.is_object() or w_rdtype.is_object():
             pass
         elif w_ldtype.is_str() and w_rdtype.is_str() and \
