@@ -465,7 +465,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.dtype is dtype(complex)
 
     def test_arange(self):
-        from numpy import arange, dtype
+        from numpy import arange, dtype, array
         a = arange(3)
         assert (a == [0, 1, 2]).all()
         assert a.dtype is dtype(int)
@@ -485,6 +485,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
+
+        a = arange(array([10]))
+        assert a.shape == (10,)
 
     def test_copy(self):
         from numpy import arange, array
