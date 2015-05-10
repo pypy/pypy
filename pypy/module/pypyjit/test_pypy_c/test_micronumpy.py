@@ -151,7 +151,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
-            jump(p0, p1, p5, p6, p7, p8, p11, p13, f86, p17, i87, i62, p42, i58, p48, i41, i64, i70, descr=...)
+            jump(p0, p1, p6, p7, p8, p11, p13, f86, p17, i87, i62, p42, i58, p48, i41, i64, i70, descr=...)
         """)
 
     def test_array_flatiter_next(self):
