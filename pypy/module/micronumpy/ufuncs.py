@@ -337,18 +337,7 @@ class W_Ufunc1(W_Ufunc):
                 out = None
         w_obj = numpify(space, w_obj)
         dtype = w_obj.get_dtype(space)
-        if dtype.is_flexible():
-            raise OperationError(space.w_TypeError,
-                      space.wrap('Not implemented for this type'))
-        if (self.int_only and not (dtype.is_int() or dtype.is_object()) or
-                not self.allow_bool and dtype.is_bool() or
-                not self.allow_complex and dtype.is_complex()):
-            raise oefmt(space.w_TypeError,
-                "ufunc %s not supported for the input type", self.name)
-        calc_dtype = find_unaryop_result_dtype(space,
-                                  dtype,
-                                  promote_to_float=self.promote_to_float,
-                                  promote_bools=self.promote_bools)
+        calc_dtype, func = self.find_specialization(space, dtype)
         if out is not None:
             if not isinstance(out, W_NDimArray):
                 raise oefmt(space.w_TypeError, 'output must be an array')
@@ -371,7 +360,7 @@ class W_Ufunc1(W_Ufunc):
         assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
+        return loop.call1(space, shape, func, calc_dtype, res_dtype,
                           w_obj, out)
 
     def call_scalar(self, space, w_arg, in_dtype, out_dtype, out):
@@ -386,6 +375,20 @@ class W_Ufunc1(W_Ufunc):
         else:
             out.fill(space, w_val)
         return out
+
+    def find_specialization(self, space, dtype):
+        if dtype.is_flexible():
+            raise oefmt(space.w_TypeError, 'Not implemented for this type')
+        if (self.int_only and not (dtype.is_int() or dtype.is_object()) or
+                not self.allow_bool and dtype.is_bool() or
+                not self.allow_complex and dtype.is_complex()):
+            raise oefmt(space.w_TypeError,
+                "ufunc %s not supported for the input type", self.name)
+        calc_dtype = find_unaryop_result_dtype(space,
+                                  dtype,
+                                  promote_to_float=self.promote_to_float,
+                                  promote_bools=self.promote_bools)
+        return calc_dtype, self.func
 
 
 class W_Ufunc2(W_Ufunc):
