@@ -10,6 +10,7 @@ from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import cffi_opcode, cglob
 from pypy.module._cffi_backend.realize_c_type import getop, getarg
 from pypy.module._cffi_backend.cdataobj import W_CData
+from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.structwrapper import W_StructWrapper
 
 
@@ -172,6 +173,24 @@ class W_LibObject(W_Root):
         names_w = [space.wrap(rffi.charp2str(g[i].c_name))
                    for i in range(total)]
         return space.newlist(names_w)
+
+    def address_of_global_var(self, varname):
+        # rebuild a string object from 'varname', to do typechecks and
+        # to force a unicode back to a plain string
+        space = self.space
+        w_value = self._get_attr(space.wrap(varname))
+        if isinstance(w_value, cglob.W_GlobSupport):
+            # regular case: a global variable
+            return w_value.address()
+        #
+        if ((isinstance(w_value, W_CData) and
+                isinstance(w_value.ctype, W_CTypeFunc))
+            or isinstance(w_value, W_StructWrapper)):
+            # '&func' is 'func' in C, for a constant function 'func'
+            return w_value
+        #
+        raise oefmt(space.w_AttributeError,
+                    "cannot take the address of the constant '%s'", varname)
 
 
 W_LibObject.typedef = TypeDef(

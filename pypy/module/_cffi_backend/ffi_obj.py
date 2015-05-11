@@ -145,20 +145,34 @@ class W_FFIObject(W_Root):
 
     def descr_addressof(self, w_arg, args_w):
         """\
-With a single arg, return the address of a <cdata 'struct-or-union'>.
-If 'fields_or_indexes' are given, returns the address of that field or
-array item in the structure or array, recursively in case of nested
-structures."""
+Limited equivalent to the '&' operator in C:
+
+1. ffi.addressof(<cdata 'struct-or-union'>) returns a cdata that is a
+pointer to this struct or union.
+
+2. ffi.addressof(<cdata>, field-or-index...) returns the address of a
+field or array item inside the given structure or array, recursively
+in case of nested structures or arrays.
+
+3. ffi.addressof(<library>, "name") returns the address of the named
+global variable."""
+        #
+        from pypy.module._cffi_backend.lib_obj import W_LibObject
+        space = self.space
+        if isinstance(w_arg, W_LibObject) and len(args_w) == 1:
+            # case 3 in the docstring
+            return w_arg.address_of_global_var(space.str_w(args_w[0]))
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
-        space = self.space
         if len(args_w) == 0:
+            # case 1 in the docstring
             if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion) and
                 not isinstance(w_ctype, ctypearray.W_CTypeArray)):
                 raise oefmt(space.w_TypeError,
                             "expected a cdata struct/union/array object")
             offset = 0
         else:
+            # case 2 in the docstring
             if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion) and
                 not isinstance(w_ctype, ctypearray.W_CTypeArray) and
                 not isinstance(w_ctype, ctypeptr.W_CTypePointer)):
