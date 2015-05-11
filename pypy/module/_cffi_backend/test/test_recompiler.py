@@ -614,6 +614,22 @@ class AppTestRecompiler:
         assert ffi.cast("int *", p)[0] == 42
         assert lib.ff7b(p) == 42
 
+    def test_include_8(self):
+        ffi1, lib1 = self.prepare(
+            "struct foo_s;",
+            "test_include_8_parent",
+            "struct foo_s;")
+        ffi, lib = self.prepare(
+            "struct foo_s { int x, y; };",
+            "test_include_8",
+            "struct foo_s { int x, y; };",
+            includes=[ffi1])
+        e = raises(NotImplementedError, ffi.new, "struct foo_s *")
+        assert str(e.value) == (
+            "'struct foo_s' is opaque in the ffi.include(), but no longer in "
+            "the ffi doing the include (workaround: don't use ffi.include() but"
+            " duplicate the declarations of everything using struct foo_s)")
+
     def test_bitfield_basic(self):
         ffi, lib = self.prepare(
             "struct bitfield { int a:10, b:25; };",

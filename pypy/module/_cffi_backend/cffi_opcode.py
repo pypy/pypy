@@ -137,6 +137,7 @@ F_UNION         = 0x01
 F_CHECK_FIELDS  = 0x02
 F_PACKED        = 0x04
 F_EXTERNAL      = 0x08
+F_OPAQUE        = 0x10
 
 CLASS_NAME = {}
 for _name, _value in list(globals().items()):

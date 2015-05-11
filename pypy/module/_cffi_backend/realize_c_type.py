@@ -231,17 +231,19 @@ def _realize_c_struct_or_union(ffi, sindex):
     if ffi.cached_types[type_index] is not None:
         return ffi.cached_types[type_index] #found already in the "primary" slot
 
+    space = ffi.space
     w_ctype = None
     c_flags = rffi.getintfield(s, 'c_flags')
+    c_first_field_index = rffi.getintfield(s, 'c_first_field_index')
     if (c_flags & cffi_opcode.F_EXTERNAL) == 0:
-        space = ffi.space
         if (c_flags & cffi_opcode.F_UNION) != 0:
             name = _realize_name("union ", s.c_name)
             x = ctypestruct.W_CTypeUnion(space, name)
         else:
             name = _realize_name("struct ", s.c_name)
             x = ctypestruct.W_CTypeStruct(space, name)
-        if rffi.getintfield(s, 'c_first_field_index') >= 0:
+        if (c_flags & cffi_opcode.F_OPAQUE) == 0:
+            assert c_first_field_index >= 0
             w_ctype = x
             w_ctype.size = rffi.getintfield(s, 'c_size')
             w_ctype.alignment = rffi.getintfield(s, 'c_alignment')
@@ -249,13 +251,26 @@ def _realize_c_struct_or_union(ffi, sindex):
             # None, making it a "lazy" (i.e. "non-forced") kind of struct
             w_ctype._lazy_ffi = ffi
             w_ctype._lazy_s = s
+        else:
+            assert c_first_field_index < 0
     else:
+        assert c_first_field_index < 0
         x = _fetch_external_struct_or_union(s, ffi.included_libs)
         if x is None:
             raise oefmt(ffi.w_FFIError,
                     "'%s %s' should come from ffi.include() but was not found",
                     "union" if c_flags & cffi_opcode.F_UNION else "struct",
                     rffi.charp2str(s.c_name))
+        assert isinstance(x, ctypestruct.W_CTypeStructOrUnion)
+        if (c_flags & cffi_opcode.F_OPAQUE) == 0 and x.size < 0:
+            prefix = "union" if c_flags & cffi_opcode.F_UNION else "struct"
+            name = rffi.charp2str(s.c_name)
+            raise oefmt(space.w_NotImplementedError,
+                    "'%s %s' is opaque in the ffi.include(), but no "
+                    "longer in the ffi doing the include (workaround: don't "
+                    "use ffi.include() but duplicate the declarations of "
+                    "everything using %s %s)",
+                    prefix, name, prefix, name)
 
     # Update the "primary" OP_STRUCT_UNION slot
     ffi.cached_types[type_index] = x
