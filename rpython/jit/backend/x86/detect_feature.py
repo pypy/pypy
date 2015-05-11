@@ -18,41 +18,32 @@ def detect_sse2():
     code = cpu_id(eax=1)
     return bool(code & (1<<25)) and bool(code & (1<<26))
 
-def cpu_id(eax = 1, ret_edx=True, ret_ecx = False):
+def cpu_id(eax = 1, ret_edx = True, ret_ecx = False):
     asm = "\xB8" + struct.pack('I', eax) # MOV EAX, $eax
-    asm += "\x53"                     # PUSH EBX
-           "\x0F\xA2"                 # CPUID
-           "\x5B"                     # POP EBX
+    asm += ("\x53"                     # PUSH EBX
+            "\x0F\xA2"                 # CPUID
+            "\x5B"                     # POP EBX
+           )
     if ret_edx:
         asm += "\x92"                 # XCHG EAX, EDX
     elif ret_ecx:
         asm += "\x91"                 # XCHG EAX, ECX
     asm += "\xC3"                     # RET
-    #code = cpu_info("\xB8\x01\x00\x00\x00"     # MOV EAX, 1
-    #                "\x53"                     # PUSH EBX
-    #                "\x0F\xA2"                 # CPUID
-    #                "\x5B"                     # POP EBX
-    #                "\x92"                     # XCHG EAX, EDX
-    #                "\xC3"                     # RET
-    #               )
     return cpu_info(asm)
 
 def detect_sse4_1(code=-1):
-    """ use cpu_id_eax_1_ecx() to get code parameter """
     if code == -1:
-        code = cpu_id(eax=1, ret_edx=False, ret_ecx=False)
+        code = cpu_id(eax=1, ret_edx=False, ret_ecx=True)
     return bool(code & (1<<19))
 
 def detect_sse4_2(code=-1):
-    """ use cpu_id_eax_1_ecx() to get code parameter """
     if code == -1:
-        code = cpu_id(eax=1, ret_edx=False, ret_ecx=False)
+        code = cpu_id(eax=1, ret_edx=False, ret_ecx=True)
     return bool(code & (1<<20))
 
 def detect_sse4a(code=-1):
-    """ use cpu_id_eax_1_ecx() to get code parameter """
     if code == -1:
-        code = feature.cpu_id(eax=0x80000001, ret_edx=False, ret_ecx=True)
+        code = cpu_id(eax=0x80000001, ret_edx=False, ret_ecx=True)
     return bool(code & (1<<20))
 
 def detect_x32_mode():
@@ -67,8 +58,13 @@ def detect_x32_mode():
 
 if __name__ == '__main__':
     if detect_sse2():
-        print 'Processor supports sse2.'
-    else:
-        print 'Missing processor support for sse2.'
+        print 'Processor supports sse2'
+    if detect_sse4_1():
+        print 'Processor supports sse4.1'
+    if detect_sse4_2():
+        print 'Processor supports sse4.2'
+    if detect_sse4a():
+        print 'Processor supports sse4a'
+
     if detect_x32_mode():
         print 'Process is running in "x32" mode.'

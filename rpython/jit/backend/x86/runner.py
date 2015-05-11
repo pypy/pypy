@@ -51,16 +51,6 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
-        if self.supports_floats and self.supports_longlong:
-            # has sse 2 at least
-            from rpython.jit.backend.x86 import detect_feature as feature
-            if feature.detect_sse4_1():
-                self.vector_extension = True
-                self.vector_register_size = 16
-                self.vector_horizontal_operations = True
-                if feature.detect_sse4a():
-                    self.vector_pack_slots = True
-
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
@@ -175,5 +165,10 @@ class CPU_X86_64(AbstractX86CPU):
 
     IS_64_BIT = True
     HAS_CODEMAP = True
+
+class CPU_X86_64_SSE4(CPU_X86_64):
+    vector_extension = True
+    vector_register_size = 16
+    vector_horizontal_operations = True
 
 CPU = CPU386
