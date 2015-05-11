@@ -242,7 +242,10 @@ class LLGraphCPU(model.AbstractCPU):
     translate_support_code = False
     is_llgraph = True
 
-    vector_register_size = 16
+    vector_extension = True
+    vector_register_size = 16 # in bytes
+    vector_horizontal_operations = True
+    vector_pack_slots = True
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
@@ -794,8 +797,6 @@ class LLFrame(object):
                 _type = longlong.FLOATSTORAGE
             else:
                 raise AssertionError(box)
-            #for a in arg:
-            #    assert lltype.typeOf(a) == _type
         else:
             raise AssertionError(box)
         #

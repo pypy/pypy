@@ -920,6 +920,15 @@ define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], reg
 define_modrm_modes('XORPS_x*', [rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
 
+define_modrm_modes('ADDPD_x*', ['\x66', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
+define_modrm_modes('ADDPS_x*', [        rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
+define_modrm_modes('SUBPD_x*', ['\x66', rex_nw, '\x0F\x5C', register(1, 8)], regtype='XMM')
+define_modrm_modes('SUBPS_x*', [        rex_nw, '\x0F\x5C', register(1, 8)], regtype='XMM')
+define_modrm_modes('MULPD_x*', ['\x66', rex_nw, '\x0F\x59', register(1, 8)], regtype='XMM')
+define_modrm_modes('MULPS_x*', [        rex_nw, '\x0F\x59', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPD_x*', ['\x66', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPS_x*', [        rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
+
 def define_pxmm_insn(insnname_template, insn_char):
     def add_insn(char, *post):
         methname = insnname_template.replace('*', char)
@@ -938,6 +947,9 @@ define_pxmm_insn('PADDD_x*',     '\xFE')
 define_pxmm_insn('PADDW_x*',     '\xFD')
 define_pxmm_insn('PADDB_x*',     '\xFC')
 define_pxmm_insn('PSUBQ_x*',     '\xFB')
+define_pxmm_insn('PSUBD_x*',     '\xFA')
+define_pxmm_insn('PSUBW_x*',     '\xF9')
+define_pxmm_insn('PSUBB_x*',     '\xF8')
 define_pxmm_insn('PAND_x*',      '\xDB')
 define_pxmm_insn('POR_x*',       '\xEB')
 define_pxmm_insn('PXOR_x*',      '\xEF')

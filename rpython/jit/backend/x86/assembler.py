@@ -1,5 +1,6 @@
 import sys
 import os
+import py
 
 from rpython.jit.backend.llsupport import symbolic, jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
@@ -2516,6 +2517,45 @@ class Assembler386(BaseAssembler):
             self.mc.PADDQ(loc0, loc1)
         else:
             raise NotImplementedError
+
+    def genop_vec_int_sub(self, op, arglocs, resloc):
+        loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 1:
+            self.mc.PSUBB(loc0, loc1)
+        elif itemsize == 2:
+            self.mc.PSUBW(loc0, loc1)
+        elif itemsize == 4:
+            self.mc.PSUBD(loc0, loc1)
+        elif itemsize == 8:
+            self.mc.PSUBQ(loc0, loc1)
+        else:
+            raise NotImplementedError
+
+    genop_vec_float_arith = """
+    def genop_vec_float_{type}(self, op, arglocs, resloc):
+        loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 4:
+            self.mc.{p_op_s}(loc0, loc1)
+        elif itemsize == 8:
+            self.mc.{p_op_d}(loc0, loc1)
+        else:
+            raise NotImplementedError
+    """
+    for op in ['add','mul','sub','div']:
+        OP = op.upper()
+        _source = genop_vec_float_arith.format(type=op, p_op_s=OP+'PS',p_op_d=OP+'PD')
+        exec py.code.Source(_source).compile()
+    del genop_vec_float_arith
+
+    def genop_vec_unpack(self, op, arglocs, resloc):
+        loc0, indexloc, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            pass
+        elif size == 8:
+            self.mc.CMPPD(
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         pass

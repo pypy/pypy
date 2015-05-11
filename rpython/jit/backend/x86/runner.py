@@ -24,11 +24,6 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
-    vector_extension = False
-    vector_register_size = 0 # in bytes
-    vector_horizontal_operations = False
-    vector_pack_slots = False
-
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
     gen_regs = gpr_reg_mgr_cls.all_regs

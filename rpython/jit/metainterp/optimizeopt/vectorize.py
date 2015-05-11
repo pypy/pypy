@@ -402,7 +402,9 @@ class VectorizingOptimizer(Optimizer):
                 (j, vbox) = box_to_vbox.get(arg, (-1, None))
                 if vbox:
                     arg_cloned = arg.clonebox()
-                    unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, ConstInt(j)], arg_cloned)
+                    cj = ConstInt(j)
+                    ci = ConstInt(vbox.item_count)
+                    unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, cj, ci], arg_cloned)
                     self.emit_operation(unpack_op)
                     sched_data.rename_unpacked(arg, arg_cloned)
                     op.setarg(i, arg_cloned)
@@ -415,7 +417,9 @@ class VectorizingOptimizer(Optimizer):
                     (j, vbox) = box_to_vbox.get(arg, (-1, None))
                     if vbox:
                         arg_cloned = arg.clonebox()
-                        unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, ConstInt(j)], arg_cloned)
+                        cj = ConstInt(j)
+                        ci = ConstInt(vbox.item_count)
+                        unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, cj, ci], arg_cloned)
                         self.emit_operation(unpack_op)
                         sched_data.rename_unpacked(arg, arg_cloned)
                         fail_args[i] = arg_cloned
@@ -619,6 +623,7 @@ class VecScheduleData(SchedulerData):
                 break
 
         vbox = BoxVector(arg.type, len(ops))
+        print "creating vectorbox", vbox, "of type",arg.type
         if all_same_box:
             expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(len(ops))], vbox)
             self.preamble_ops.append(expand_op)

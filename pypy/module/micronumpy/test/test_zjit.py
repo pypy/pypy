@@ -4,14 +4,19 @@ good assembler
 
 import py
 from rpython.jit.metainterp.test.support import LLJitMixin
+from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
 
-class TestNumpyJit(LLJitMixin):
+class TestNumpyJit(Jit386Mixin):
     graph = None
     interp = None
+
+    def setup_method(self, method):
+        if not self.CPUClass.vector_extension:
+            py.test.skip("needs vector extension to run (for now)")
 
     def setup_class(cls):
         default = """
@@ -128,7 +133,6 @@ class TestNumpyJit(LLJitMixin):
         """
 
     def test_sum(self):
-        py.test.skip('TODO')
         result = self.run("sum")
         assert result == sum(range(30))
         self.check_trace_count(1)
@@ -150,7 +154,6 @@ class TestNumpyJit(LLJitMixin):
         """
 
     def test_cumsum(self):
-        py.test.skip('TODO')
         result = self.run("cumsum")
         assert result == 15
         self.check_trace_count(1)
@@ -220,7 +223,6 @@ class TestNumpyJit(LLJitMixin):
         })
 
     def define_reduce():
-        py.test.skip('TODO')
         return """
         a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         sum(a)

@@ -458,12 +458,13 @@ _oplist = [
     'VEC_FLOAT_ADD/3',
     'VEC_FLOAT_SUB/3',
     'VEC_FLOAT_MUL/3',
+    'VEC_FLOAT_DIV/3',
     'VEC_FLOAT_EQ/3',
     'VEC_INT_SIGNEXT/3',
     '_VEC_ARITHMETIC_LAST',
-    'VEC_BOX_UNPACK/2',
-    'VEC_BOX_PACK/3',
-    'VEC_EXPAND/2',
+    'VEC_BOX_UNPACK/3',          # iX|fX = VEC_BOX_UNPACK(vX, index, item_count)
+    'VEC_BOX_PACK/4',            # VEC_BOX_PACK(vX, var/const, index, item_count)
+    'VEC_EXPAND/2',              # vX = VEC_EXPAND(var/const, item_count)
     'VEC_BOX/1',
     #
     'INT_LT/2b',
@@ -725,6 +726,7 @@ _opvector = {
     rop.FLOAT_ADD: rop.VEC_FLOAT_ADD,
     rop.FLOAT_SUB: rop.VEC_FLOAT_SUB,
     rop.FLOAT_MUL: rop.VEC_FLOAT_MUL,
+    rop.FLOAT_TRUEDIV: rop.VEC_FLOAT_DIV,
     rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
 
     rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,

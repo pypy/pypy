@@ -1505,7 +1505,8 @@ class RegAlloc(BaseRegalloc):
 
     consider_vec_raw_store = consider_vec_setarrayitem_raw
 
-    def consider_vec_int_add(self, op):
+    
+    def consider_vec_arith(self, op):
         count = op.getarg(2)
         assert isinstance(count, ConstInt)
         itemsize = self.assembler.cpu.vector_register_size // count.value
@@ -1513,6 +1514,26 @@ class RegAlloc(BaseRegalloc):
         loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [loc0, loc1, imm(itemsize)], loc0)
+
+    consider_vec_int_add = consider_vec_arith
+    consider_vec_int_sub = consider_vec_arith
+    consider_vec_int_mul = consider_vec_arith
+    consider_vec_float_add = consider_vec_arith
+    consider_vec_float_sub = consider_vec_arith
+    consider_vec_float_mul = consider_vec_arith
+    del consider_vec_arith
+
+    def consider_vec_logic(self, op):
+        count = op.getarg(2)
+        assert isinstance(count, ConstInt)
+        itemsize = self.assembler.cpu.vector_register_size // count.value
+        args = op.getarglist()
+        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
+        self.perform(op, [loc0, loc1, imm(itemsize)], loc0)
+
+    consider_vec_float_eq = consider_vec_logic
+    del consider_vec_logic
 
     def consider_vec_int_signext(self, op):
         # there is not much we can do in this case. arithmetic is
@@ -1523,6 +1544,35 @@ class RegAlloc(BaseRegalloc):
         self.xrm.force_result_in_reg(op.result, op.getarg(0))
         #if op.getarg(1).value != op.getarg(2).value:
         #    raise NotImplementedError("signext not implemented")
+
+    def consider_vec_box_pack(self, op):
+        count = op.getarg(3)
+        index = op.getarg(2)
+        assert isinstance(count, ConstInt)
+        assert isinstance(index, ConstInt)
+        itemsize = self.assembler.cpu.vector_register_size // count.value
+        args = op.getarglist()
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args)
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
+        self.perform(op, [loc0, loc1, imm(index.value), imm(itemsize)], None)
+
+    def consider_vec_box_unpack(self, op):
+        count = op.getarg(2)
+        index = op.getarg(1)
+        assert isinstance(count, ConstInt)
+        assert isinstance(index, ConstInt)
+        itemsize = self.assembler.cpu.vector_register_size // count.value
+        args = op.getarglist()
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args)
+        result = self.force_allocate_reg(op.result, args)
+        self.perform(op, [loc0, imm(index.value), imm(itemsize)], result)
+
+    def consider_vec_expand(self, op):
+        pass
+
+    def consider_vec_box(self, op):
+        # pseudo instruction, needed to create a new variable
+        pass
 
     def consider_guard_early_exit(self, op):
         pass
