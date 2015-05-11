@@ -58,6 +58,7 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     w_res = space.appexec(args_w, """(modulename, filename):
         import imp
         mod = imp.load_dynamic(modulename, filename)
+        assert mod.__name__ == modulename
         return (mod.ffi, mod.lib)
     """)
     ffiobject = space.getitem(w_res, space.wrap(0))
