@@ -24,7 +24,10 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
+    vector_extension = False
     vector_register_size = 0 # in bytes
+    vector_horizontal_operations = False
+    vector_pack_slots = False
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
@@ -47,6 +50,16 @@ class AbstractX86CPU(AbstractLLCPU):
             self.with_threads = config.translation.thread
 
         self.profile_agent = profile_agent
+
+        if self.supports_floats and self.supports_longlong:
+            # has sse 2 at least
+            from rpython.jit.backend.x86 import detect_feature as feature
+            if feature.detect_sse4_1():
+                self.vector_extension = True
+                self.vector_register_size = 16
+                self.vector_horizontal_operations = True
+                if feature.detect_sse4a():
+                    self.vector_pack_slots = True
 
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
@@ -147,8 +160,6 @@ class CPU386(AbstractX86CPU):
 
     IS_64_BIT = False
 
-    vector_register_size = 16
-
     def __init__(self, *args, **kwargs):
         assert sys.maxint == (2**31 - 1)
         super(CPU386, self).__init__(*args, **kwargs)
@@ -164,7 +175,5 @@ class CPU_X86_64(AbstractX86CPU):
 
     IS_64_BIT = True
     HAS_CODEMAP = True
-
-    vector_register_size = 16
 
 CPU = CPU386
