@@ -1818,7 +1818,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         s[...] = 2
         v = s.view(x.__class__)
         assert (v == 2).all()
-    
+
     def test_tolist_scalar(self):
         from numpy import dtype
         int32 = dtype('int32').type

@@ -145,6 +145,34 @@ def getfqdn(name=''):
             name = hostname
     return name
 
+class RefCountingWarning(UserWarning):
+    pass
+
+def _do_reuse_or_drop(socket, methname):
+    try:
+        method = getattr(socket, methname)
+    except (AttributeError, TypeError):
+        warnings.warn("""'%s' object has no _reuse/_drop methods
+{{
+    You make use (or a library you are using makes use) of the internal
+    classes '_socketobject' and '_fileobject' in socket.py, initializing
+    them with custom objects.  On PyPy, these custom objects need two
+    extra methods, _reuse() and _drop(), that maintain an explicit
+    reference counter.  When _drop() has been called as many times as
+    _reuse(), then the object should be freed.
+
+    Without these methods, you get the warning here.  This is to
+    prevent the following situation: if your (or the library's) code
+    relies on reference counting for prompt closing, then on PyPy, the
+    __del__ method will be called later than on CPython.  You can
+    easily end up in a situation where you open and close a lot of
+    (high-level) '_socketobject' or '_fileobject', but the (low-level)
+    custom objects will accumulate before their __del__ are called.
+    You quickly risk running out of file descriptors, for example.
+}}""" % (socket.__class__.__name__,), RefCountingWarning, stacklevel=3)
+    else:
+        method()
+
 
 _socketmethods = (
     'bind', 'connect', 'connect_ex', 'fileno', 'listen',
@@ -182,19 +210,7 @@ class _socketobject(object):
         if _sock is None:
             _sock = _realsocket(family, type, proto)
         else:
-            # PyPy note about refcounting: implemented with _reuse()/_drop()
-            # on the class '_socket.socket'.  Python 3 did it differently
-            # with a reference counter on this class 'socket._socketobject'
-            # instead, but it is a less compatible change.
-            
-            # Note that a few libraries (like eventlet) poke at the
-            # private implementation of socket.py, passing custom
-            # objects to _socketobject().  These libraries need the
-            # following fix for use on PyPy: the custom objects need
-            # methods _reuse() and _drop() that maintains an explicit
-            # reference counter, starting at 0.  When it drops back to
-            # zero, close() must be called.
-            _sock._reuse()
+            _do_reuse_or_drop(_sock, '_reuse')
 
         self._sock = _sock
 
@@ -228,13 +244,13 @@ class _socketobject(object):
     def close(self):
         s = self._sock
         self._sock = _closedsocket()
-        s._drop()
+        _do_reuse_or_drop(s, '_drop')
     close.__doc__ = _realsocket.close.__doc__
 
     def accept(self):
         sock, addr = self._sock.accept()
         sockobj = _socketobject(_sock=sock)
-        sock._drop()    # already a copy in the _socketobject()
+        _do_reuse_or_drop(sock, '_drop') # already a copy in the _socketobject()
         return sockobj, addr
     accept.__doc__ = _realsocket.accept.__doc__
 
@@ -290,14 +306,7 @@ class _fileobject(object):
                  "_close"]
 
     def __init__(self, sock, mode='rb', bufsize=-1, close=False):
-        # Note that a few libraries (like eventlet) poke at the
-        # private implementation of socket.py, passing custom
-        # objects to _fileobject().  These libraries need the
-        # following fix for use on PyPy: the custom objects need
-        # methods _reuse() and _drop() that maintains an explicit
-        # reference counter, starting at 0.  When it drops back to
-        # zero, close() must be called.
-        sock._reuse()
+        _do_reuse_or_drop(sock, '_reuse')
         self._sock = sock
         self.mode = mode # Not actually used in this version
         if bufsize < 0:
@@ -338,7 +347,7 @@ class _fileobject(object):
                 if self._close:
                     s.close()
                 else:
-                    s._drop()
+                    _do_reuse_or_drop(s, '_drop')
 
     def __del__(self):
         try:
