@@ -451,6 +451,7 @@ _oplist = [
     'CONVERT_LONGLONG_BYTES_TO_FLOAT/1',
     #
     # vector operations
+    '_VEC_PURE_FIRST',
     '_VEC_ARITHMETIC_FIRST',
     'VEC_INT_ADD/3',
     'VEC_INT_SUB/3',
@@ -459,13 +460,17 @@ _oplist = [
     'VEC_FLOAT_SUB/3',
     'VEC_FLOAT_MUL/3',
     'VEC_FLOAT_DIV/3',
-    'VEC_FLOAT_EQ/3',
-    'VEC_INT_SIGNEXT/3',
     '_VEC_ARITHMETIC_LAST',
+    'VEC_FLOAT_EQ/3',
+
+    'VEC_INT_SIGNEXT/3',
+    'VEC_CAST_FLOAT_TO_SINGLEFLOAT/2',
+
     'VEC_BOX_UNPACK/3',          # iX|fX = VEC_BOX_UNPACK(vX, index, item_count)
     'VEC_BOX_PACK/4',            # VEC_BOX_PACK(vX, var/const, index, item_count)
     'VEC_EXPAND/2',              # vX = VEC_EXPAND(var/const, item_count)
     'VEC_BOX/1',
+    '_VEC_PURE_LAST',
     #
     'INT_LT/2b',
     'INT_LE/2b',
@@ -716,7 +721,6 @@ _opboolreflex = {
 _opvector = {
     rop.RAW_LOAD:         rop.VEC_RAW_LOAD,
     rop.GETARRAYITEM_RAW: rop.VEC_GETARRAYITEM_RAW,
-
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
     rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
 
@@ -730,6 +734,7 @@ _opvector = {
     rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
 
     rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,
+    rop.CAST_FLOAT_TO_SINGLEFLOAT: rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT,
 }
 
 def setup2():

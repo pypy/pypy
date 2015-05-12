@@ -5,7 +5,7 @@ from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
-        BoxVector, TargetToken, JitCellToken, Box)
+        BoxVector, TargetToken, JitCellToken, Box, PrimitiveTypeMixin)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
@@ -300,11 +300,9 @@ class VectorizingOptimizer(Optimizer):
                 if node_a.is_before(node_b):
                     if memref_a.is_adjacent_to(memref_b):
                         if self.packset.can_be_packed(node_a, node_b):
-                            self.packset.add_pair(node_a, node_b)
-                    #if memref_a.is_adjacent_with_runtime_check(memref_b, graph):
-                    #    if self.packset.can_be_packed(node_a, node_b):
-                    #        self.check_adjacent_at_runtime(memref_a, memref_b)
-                    #        self.packset.add_pair(node_a, node_b)
+                            pair = Pair(node_a,node_b)
+                            pair.ptype = PackType.by_descr(node_a.getoperation().getdescr())
+                            self.packset.packs.append(pair)
 
     def extend_packset(self):
         pack_count = self.packset.pack_count()
@@ -346,7 +344,7 @@ class VectorizingOptimizer(Optimizer):
         if savings >= 0:
             assert candidate[0] is not None
             assert candidate[1] is not None
-            self.packset.add_pair(*candidate)
+            self.packset.add_pair(candidate[0], candidate[1])
 
     def combine_packset(self):
         if len(self.packset.packs) == 0:
@@ -373,11 +371,12 @@ class VectorizingOptimizer(Optimizer):
                 i += 1
             if len_before == len(self.packset.packs):
                 break
+        print self.packset.packs
 
     def schedule(self):
         self.guard_early_exit = -1
         self.clear_newoperations()
-        sched_data = VecScheduleData()
+        sched_data = VecScheduleData(self.metainterp_sd.cpu.vector_register_size)
         scheduler = Scheduler(self.dependency_graph, sched_data)
         while scheduler.has_more():
             position = len(self._newoperations)
@@ -553,12 +552,50 @@ def fail_args_break_dependency(guard, prev_op, target_guard):
     # this might be an indicator for edge removal
     return True
 
+class PackArgs(object):
+    def __init__(self, arg_pos, result=True):
+        self.mask = 0
+        for p in arg_pos:
+            self.mask |= (1<<(p+1))
+        if result:
+            self.mask |= 1
+
+    def arg_is_set(self, i):
+        return bool((1<<(i+1)) & self.mask)
+
+    def result_is_set(self):
+        return bool(1 & self.mask)
+
+
+ROP_ARG_RES_VECTOR = {
+    rop.VEC_INT_ADD:     PackArgs((0,1)),
+    rop.VEC_INT_SUB:     PackArgs((0,1)),
+    rop.VEC_INT_MUL:     PackArgs((0,1)),
+    rop.VEC_INT_SIGNEXT: PackArgs((0,)),
+
+    rop.VEC_FLOAT_ADD:   PackArgs((0,1)),
+    rop.VEC_FLOAT_SUB:   PackArgs((0,1)),
+    rop.VEC_FLOAT_MUL:   PackArgs((0,1)),
+    rop.VEC_FLOAT_EQ:    PackArgs((0,1)),
+
+    rop.VEC_RAW_LOAD:         PackArgs(()),
+    rop.VEC_GETARRAYITEM_RAW: PackArgs(()),
+    rop.VEC_RAW_STORE:        PackArgs((2,), result=False),
+    rop.VEC_SETARRAYITEM_RAW: PackArgs((2,), result=False),
+
+    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: PackArgs((0,)),
+}
+
+
 class VecScheduleData(SchedulerData):
-    def __init__(self):
+    def __init__(self, vec_reg_size):
         self.box_to_vbox = {}
         self.unpack_rename_map = {}
         self.preamble_ops = None
         self.expansion_byte_count = -1
+        self.vec_reg_size = vec_reg_size
+        self.pack_ops = -1
+        self.pack_off = -1
 
     def unpack_rename(self, arg):
         return self.unpack_rename_map.get(arg, arg)
@@ -572,15 +609,57 @@ class VecScheduleData(SchedulerData):
         self.pack = pack
         # properties that hold for the pack are:
         # isomorphism (see func above)
-        op0 = pack.operations[0].getoperation()
+
+        if pack.ptype is None:
+            self.propagete_ptype()
+
+        self.preamble_ops = []
+        if pack.is_overloaded(self.vec_reg_size):
+            self.preamble_ops = []
+            stride = pack.size_in_bytes() // self.vec_reg_size
+            for i in range(0, op_count, stride):
+                self.pack_off = i
+                self.pack_ops = stride
+                self._as_vector_op()
+            return self.preamble_ops
+        else:
+            self.pack_off = 0
+            self.pack_ops = op_count
+            self._as_vector_op()
+            return self.preamble_ops
+
+    def _as_vector_op(self):
+        op0 = self.pack.operations[self.pack_off].getoperation()
         assert op0.vector != -1
         args = op0.getarglist()[:]
-        args.append(ConstInt(op_count))
+        args.append(ConstInt(self.pack_ops))
         vop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
-        self.preamble_ops = []
-        self._inspect_operation(vop)
+
+        packargs = ROP_ARG_RES_VECTOR.get(op0.vector, None)
+        if packargs is None:
+            raise NotImplementedError("vecop map entry missing. trans: pack -> vop")
+
+        for i,arg in enumerate(args):
+            if packargs.arg_is_set(i):
+                self.vector_arg(vop, i, True)
+        if packargs.result_is_set():
+            self.vector_result(vop)
+
         self.preamble_ops.append(vop)
-        return self.preamble_ops
+
+    def propagete_ptype(self):
+        op0 = self.pack.operations[self.pack_off].getoperation()
+        packargs = ROP_ARG_RES_VECTOR.get(op0.vector, None)
+        if packargs is None:
+            raise NotImplementedError("vecop map entry missing. trans: pack -> vop")
+        args = op0.getarglist()[:]
+        ptype = PackType(PackType.UNKNOWN_TYPE, 0, True)
+        for i,arg in enumerate(args):
+            if packargs.arg_is_set(i):
+                vbox = self.get_vbox_for(arg)
+                ptype.record_vbox(vbox)
+        self.pack.ptype = ptype
+
 
     def get_vbox_for(self, arg):
         try:
@@ -589,18 +668,21 @@ class VecScheduleData(SchedulerData):
         except KeyError:
             return None
 
-    def vector_result(self, vop, type):
+    def vector_result(self, vop):
         ops = self.pack.operations
         result = vop.result
-        vbox = BoxVector(type, len(ops))
-        vop.result = vbox
-        i = 0
-        while i < len(ops):
+        vop.result = vbox = self.box_vector(self.pack.ptype)
+        i = self.pack_off
+        end = i + self.pack_ops
+        while i < end:
             op = ops[i].getoperation()
             self.box_to_vbox[op.result] = (i, vbox)
             i += 1
 
-    def vector_arg(self, vop, argidx, expand=True):
+    def box_vector(self, ptype):
+        return BoxVector(ptype.type, self.pack_ops, ptype.size, ptype.signed)
+
+    def vector_arg(self, vop, argidx, expand):
         ops = self.pack.operations
         vbox = self.get_vbox_for(vop.getarg(argidx))
         if not vbox:
@@ -609,26 +691,50 @@ class VecScheduleData(SchedulerData):
             else:
                 assert False, "not allowed to expand" \
                               ", but do not have a vector box as arg"
+        # vbox is a primitive type mixin
+        if self.pack.ptype.getsize() < vbox.getsize():
+            packable = self.vec_reg_size // self.pack.ptype.getsize()
+            packed = vbox.item_count
+            vbox = self.pack_arguments(packed, [op.getoperation().getarg(argidx) for op in ops])
         vop.setarg(argidx, vbox)
+        return vbox
+
+    def pack_arguments(self, index, args):
+        i = index
+        vbox = self.box_vector(self.pack.ptype)
+        op = ResOperation(rop.VEC_BOX, [ConstInt(len(args))], vbox)
+        self.preamble_ops.append(op)
+        arg_count = len(args)
+        while i < arg_count:
+            arg = args[i]
+            vbox2 = self.get_vbox_for(arg)
+            if vbox2 is None:
+                raise NotImplementedError
+            op = ResOperation(rop.VEC_BOX_PACK, [vbox, vbox2, ConstInt(i)], None)
+            self.preamble_ops.append(op)
+            i += vbox.item_count
         return vbox
 
     def expand_box_to_vector_box(self, vop, argidx):
         arg = vop.getarg(argidx)
         all_same_box = True
         ops = self.pack.operations
-        for i in range(len(ops)):
+        i = self.pack_off
+        end = i + self.pack_ops
+        while i < end:
             op = ops[i]
             if arg is not op.getoperation().getarg(argidx):
                 all_same_box = False
                 break
+            i += 1
 
-        vbox = BoxVector(arg.type, len(ops))
-        print "creating vectorbox", vbox, "of type",arg.type
+        vbox = BoxVector(arg.type, self.pack_ops)
+        print "creating vectorbox", vbox, "of type", arg.type
         if all_same_box:
-            expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(len(ops))], vbox)
+            expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(self.pack_ops)], vbox)
             self.preamble_ops.append(expand_op)
         else:
-            resop = ResOperation(rop.VEC_BOX, [ConstInt(len(ops))], vbox)
+            resop = ResOperation(rop.VEC_BOX, [ConstInt(self.pack_ops)], vbox)
             self.preamble_ops.append(resop)
             for i,op in enumerate(ops):
                 arg = op.getoperation().getarg(argidx)
@@ -637,43 +743,6 @@ class VecScheduleData(SchedulerData):
                 self.preamble_ops.append(resop)
         return vbox
 
-    bin_arith_trans = """
-    def _vectorize_{name}(self, vop):
-        self.vector_arg(vop, 0)
-        self.vector_arg(vop, 1)
-        self.vector_result(vop, vop.result.type)
-    """
-    for name in ['VEC_FLOAT_SUB','VEC_FLOAT_MUL','VEC_FLOAT_ADD',
-                 'VEC_INT_ADD','VEC_INT_MUL', 'VEC_INT_SUB',
-                ]:
-        exec py.code.Source(bin_arith_trans.format(name=name)).compile()
-    del bin_arith_trans
-
-    def _vectorize_VEC_FLOAT_EQ(self, vop):
-        self.vector_arg(vop, 0)
-        self.vector_arg(vop, 1)
-        self.vector_result(vop, INT)
-
-    def _vectorize_VEC_INT_SIGNEXT(self, vop):
-        self.vector_arg(vop, 0)
-        # arg 1 is a constant
-        self.vector_result(vop, vop.result.type)
-
-    def _vectorize_VEC_RAW_LOAD(self, vop):
-        descr = vop.getdescr()
-        self.vector_result(vop, vop.result.type)
-    def _vectorize_VEC_GETARRAYITEM_RAW(self, vop):
-        descr = vop.getdescr()
-        self.vector_result(vop, vop.result.type)
-
-    def _vectorize_VEC_RAW_STORE(self, vop):
-        self.vector_arg(vop, 2)
-    def _vectorize_VEC_SETARRAYITEM_RAW(self, vop):
-        self.vector_arg(vop, 2)
-
-VecScheduleData._inspect_operation = \
-        make_dispatcher_method(VecScheduleData, '_vectorize_')
-
 def isomorphic(l_op, r_op):
     """ Same instructions have the same operation name.
     TODO what about parameters?
@@ -681,6 +750,45 @@ def isomorphic(l_op, r_op):
     if l_op.getopnum() == r_op.getopnum():
         return True
     return False
+
+class PackType(PrimitiveTypeMixin):
+    UNKNOWN_TYPE = '-'
+
+    def __init__(self, type, size, signed):
+        self.type = type
+        self.size = size
+        self.signed = signed
+
+    def gettype(self):
+        return self.type
+
+    def getsize(self):
+        return self.size
+
+    def getsigned(self):
+        return self.signed
+
+    def get_byte_size(self):
+        return self.size
+
+    @staticmethod
+    def by_descr(descr):
+        _t = INT
+        if descr.is_array_of_floats():
+            _t = FLOAT
+        pt = PackType(_t, descr.get_item_size_in_bytes(), descr.is_item_signed())
+        return pt
+
+    def record_vbox(self, vbox):
+        if self.type == PackType.UNKNOWN_TYPE:
+            self.type = vbox.type
+            self.signed = vbox.signed
+        if vbox.item_size > self.size:
+            self.size = vbox.item_size
+
+    def __repr__(self):
+        return 'PackType(%s, %s, %s)' % (self.type, self.size, self.signed)
+
 
 class PackSet(object):
 
@@ -696,9 +804,8 @@ class PackSet(object):
         return len(self.packs)
 
     def add_pair(self, l, r):
-        if l.op.is_guard():
-            assert False
-        self.packs.append(Pair(l,r))
+        p = Pair(l,r)
+        self.packs.append(p)
 
     def can_be_packed(self, lnode, rnode):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
@@ -755,8 +862,8 @@ class PackSet(object):
         operations = pack_i.operations
         for op in pack_j.operations[1:]:
             operations.append(op)
-        self.packs[i] = Pack(operations)
-
+        self.packs[i] = pack = Pack(operations)
+        pack.ptype = pack_i.ptype
 
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
@@ -784,6 +891,7 @@ class Pack(object):
     def __init__(self, ops):
         self.operations = ops
         self.savings = 0
+        self.ptype = None
         for node in self.operations:
             node.pack = self
 
@@ -796,6 +904,13 @@ class Pack(object):
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
         return rightmost == leftmost
+
+    def size_in_bytes(self):
+        return self.ptype.get_byte_size() * len(self.operations)
+
+    def is_overloaded(self, vec_reg_byte_size):
+        size = self.size_in_bytes()
+        return size > vec_reg_byte_size
 
     def __repr__(self):
         return "Pack(%r)" % self.operations

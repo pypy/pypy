@@ -342,16 +342,11 @@ def _make_execute_list():
                          rop.LABEL,
                          rop.VEC_RAW_LOAD,
                          rop.VEC_RAW_STORE,
-                         rop.VEC_BOX_PACK,
-                         rop.VEC_BOX_UNPACK,
-                         rop.VEC_EXPAND,
-                         rop.VEC_BOX,
                          rop.VEC_GETARRAYITEM_RAW,
                          rop.VEC_SETARRAYITEM_RAW,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
-             # trace will generate such an op
-            if rop._VEC_ARITHMETIC_FIRST <= value <= rop._VEC_ARITHMETIC_LAST:
+            if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
                 continue
 
             raise AssertionError("missing %r" % (key,))

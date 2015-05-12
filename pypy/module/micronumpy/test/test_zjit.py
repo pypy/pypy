@@ -80,26 +80,44 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         return retval
 
-    def define_add():
+    def define_add_float():
         return """
         a = |30|
         b = a + a
         b -> 3
         """
 
-    def test_add(self):
-        result = self.run("add")
-        assert result == 3 + 3
-
-    def define_add_const():
+    def define_add_float32():
         return """
-        a = |30| + 3
+        a = astype(|30|, float32)
+        b = a + a
+        b -> 3
+        """
+
+    def test_add_float(self):
+        result = self.run("add_float")
+        assert result == 3 + 3
+        result = self.run("add_float32")
+        assert result == 3.0 + 3.0
+
+    def define_add_float32_const():
+        return """
+        a = astype(|30|, float32) + 3.0
         a -> 29
         """
 
-    def test_add_const(self):
-        result = self.run("add_const")
-        assert result == 29 + 3
+    def define_add_float_const():
+        return """
+        a = astype(|30|, float32) + 3.0
+        a -> 29
+        """
+
+    def test_add_float_const(self):
+        result = self.run("add_float_const")
+        assert result == 29.0 + 3.0
+        self.check_trace_count(1)
+        result = self.run("add_float32_const")
+        assert result == 29.0 + 3.0
         self.check_trace_count(1)
 
     def define_pow():

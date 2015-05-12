@@ -512,14 +512,52 @@ NULLBOX = BoxPtr()
 
 # ____________________________________________________________
 
-class BoxVector(Box):
+class PrimitiveTypeMixin(object):
+    def gettype(self):
+        raise NotImplementedError
+    def getsize(self):
+        raise NotImplementedError
+    def getsigned(self):
+        raise NotImplementedError
+
+    def matches_type(self, other):
+        assert isinstance(other, PrimitiveTypeMixin)
+        return self.gettype() == other.gettype()
+
+    def matches_size(self, other):
+        assert isinstance(other, PrimitiveTypeMixin)
+        return self.getsize() == other.getsize()
+
+    def matches_sign(self, other):
+        assert isinstance(other, PrimitiveTypeMixin)
+        return self.getsigend() == other.signed()
+
+    def matches(self, other):
+        if isinstance(other, PrimitiveTypeMixin):
+            return self.matches_type(other) and \
+                   self.matches_size(other) and \
+                   self.matches_sign(other)
+        return False
+
+
+
+class BoxVector(Box, PrimitiveTypeMixin):
     type = VECTOR
-    _attrs_ = ('item_type','item_count')
+    _attrs_ = ('item_type','item_count','item_size','signed')
     _extended_display = False
 
-    def __init__(self, item_type=FLOAT, item_count=2):
+    def __init__(self, item_type=FLOAT, item_count=2, item_size=8, signed=True):
         self.item_type = item_type
         self.item_count = item_count
+        self.item_size = item_size
+        self.signed = signed
+
+    def gettype(self):
+        return self.item_type
+    def getsize(self):
+        return self.item_size
+    def getsigned(self):
+        return self.signed
 
     def forget_value(self):
         raise NotImplementedError("cannot forget value of vector")

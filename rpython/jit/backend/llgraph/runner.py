@@ -692,6 +692,9 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_float_eq.argtypes = ['f','f','i']
     bh_vec_float_eq.resulttype = 'i'
 
+    def bh_vec_cast_float_to_singlefloat(self, vx):
+        return vx
+
     def bh_vec_box(self, size):
         return [0] * size
 

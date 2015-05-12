@@ -632,8 +632,16 @@ class DtypeClass(Node):
     def execute(self, interp):
         if self.v == 'int':
             dtype = get_dtype_cache(interp.space).w_int64dtype
+        elif self.v == 'int8':
+            dtype = get_dtype_cache(interp.space).w_int8dtype
+        elif self.v == 'int16':
+            dtype = get_dtype_cache(interp.space).w_int16dtype
+        elif self.v == 'int32':
+            dtype = get_dtype_cache(interp.space).w_int32dtype
         elif self.v == 'float':
             dtype = get_dtype_cache(interp.space).w_float64dtype
+        elif self.v == 'float32':
+            dtype = get_dtype_cache(interp.space).w_float32dtype
         else:
             raise BadToken('unknown v to dtype "%s"' % self.v)
         return dtype
@@ -864,7 +872,19 @@ class Parser(object):
                     stack.append(ArrayClass())
                 elif token.v.strip(' ') == 'int':
                     stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'int8':
+                    stack.append(DtypeClass('int8'))
+                elif token.v.strip(' ') == 'int16':
+                    stack.append(DtypeClass('int16'))
+                elif token.v.strip(' ') == 'int32':
+                    stack.append(DtypeClass('int32'))
+                elif token.v.strip(' ') == 'int64':
+                    stack.append(DtypeClass('int'))
                 elif token.v.strip(' ') == 'float':
+                    stack.append(DtypeClass('float'))
+                elif token.v.strip(' ') == 'float32':
+                    stack.append(DtypeClass('float32'))
+                elif token.v.strip(' ') == 'float64':
                     stack.append(DtypeClass('float'))
                 else:
                     stack.append(Variable(token.v.strip(' ')))

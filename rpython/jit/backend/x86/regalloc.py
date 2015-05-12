@@ -1535,16 +1535,6 @@ class RegAlloc(BaseRegalloc):
     consider_vec_float_eq = consider_vec_logic
     del consider_vec_logic
 
-    def consider_vec_int_signext(self, op):
-        # there is not much we can do in this case. arithmetic is
-        # done on the vector register, if there is a wrap around,
-        # it is lost, because the register does not have enough bits
-        # to save it.
-        #argloc = self.loc(op.getarg(0))
-        self.xrm.force_result_in_reg(op.result, op.getarg(0))
-        #if op.getarg(1).value != op.getarg(2).value:
-        #    raise NotImplementedError("signext not implemented")
-
     def consider_vec_box_pack(self, op):
         count = op.getarg(3)
         index = op.getarg(2)
@@ -1573,6 +1563,24 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
         result = self.force_allocate_reg(op.result, args)
         self.perform(op, [loc0, imm(count.value)], result)
+
+    def consider_vec_cast_float_to_singlefloat(self, op):
+        size = op.getarg(1)
+        args = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
+        result = self.force_allocate_reg(op.result, args)
+        self.perform(op, [loc0, imm(size.value)], result)
+
+    def consider_vec_int_signext(self, op):
+        # there is not much we can do in this case. arithmetic is
+        # done on the vector register, if there is a wrap around,
+        # it is lost, because the register does not have enough bits
+        # to save it.
+        #argloc = self.loc(op.getarg(0))
+        self.xrm.force_result_in_reg(op.result, op.getarg(0))
+        #if op.getarg(1).value != op.getarg(2).value:
+        #    raise NotImplementedError("signext not implemented")
+
 
     def consider_vec_box(self, op):
         # pseudo instruction, needed to create a new variable

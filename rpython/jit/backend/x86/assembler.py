@@ -2549,6 +2549,13 @@ class Assembler386(BaseAssembler):
         exec py.code.Source(_source).compile()
     del genop_vec_float_arith
 
+    def genop_vec_expand(self, op, arglocs, resloc):
+        loc0, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 2:
+            pass
+
+
     def genop_vec_box_unpack(self, op, arglocs, resloc):
         loc0, indexloc, sizeloc = arglocs
         size = sizeloc.value

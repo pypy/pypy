@@ -1109,6 +1109,41 @@ class BaseTestVectorize(VecTestHelper):
         except NotAVectorizeableLoop:
             pass
 
+    def test_shrink_vector_size(self):
+        ops = """
+        [p0,p1,i1]
+        guard_early_exit() []
+        f1 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
+        i2 = cast_float_to_singlefloat(f1)
+        setarrayitem_raw(p1, i1, i2, descr=singlefloatarraydescr)
+        i3 = int_add(i1, 1)
+        i4 = int_ge(i3, 36)
+        guard_false(i4) []
+        jump(p0, p1, i3)
+        """
+        opt = """
+        [p0, p1, i1]
+        guard_early_exit() []
+        i3 = int_add(i1, 1)
+        i4 = int_ge(i3, 36)
+        i5 = int_add(i1, 2)
+        i8 = int_ge(i5, 36)
+        i6 = int_add(i1, 3)
+        i11 = int_ge(i6, 36)
+        i7 = int_add(i1, 4)
+        i14 = int_ge(i7, 36)
+        guard_false(i14) []
+        v17 = vec_getarrayitem_raw(p0, i1, 2, descr=floatarraydescr)
+        v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
+        v19 = vec_cast_float_to_singlefloat(v17, 2)
+        v20 = vec_cast_float_to_singlefloat(v18, 2)
+        v21 = vec_box(4)
+        vec_box_pack(v21, v20, 2)
+        vec_setarrayitem_raw(p1, i1, v21, 4, descr=singlefloatarraydescr)
+        jump(p0, p1, i7)
+        """
+        vopt = self.vectorize(self.parse_loop(ops))
+        self.assert_equal(vopt.loop, self.parse_loop(opt))
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
