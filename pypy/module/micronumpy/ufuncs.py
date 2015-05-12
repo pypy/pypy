@@ -18,7 +18,8 @@ from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import _parse_signature, product, get_storage_as_int
-from .casting import find_unaryop_result_dtype, find_binop_result_dtype
+from .casting import (
+    find_unaryop_result_dtype, find_binop_result_dtype, can_cast_type)
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -384,11 +385,35 @@ class W_Ufunc1(W_Ufunc):
                 not self.allow_complex and dtype.is_complex()):
             raise oefmt(space.w_TypeError,
                 "ufunc %s not supported for the input type", self.name)
-        calc_dtype = find_unaryop_result_dtype(space,
-                                  dtype,
-                                  promote_to_float=self.promote_to_float,
-                                  promote_bools=self.promote_bools)
+        calc_dtype = self._calc_dtype(space, dtype)
         return calc_dtype, self.func
+
+    def _calc_dtype(self, space, arg_dtype):
+        use_min_scalar=False
+        if arg_dtype.is_object():
+            return arg_dtype
+        for dtype in self.allowed_types(space):
+            if use_min_scalar:
+                if can_cast_array(space, w_arg, dtype, casting='safe'):
+                    return dtype
+            else:
+                if can_cast_type(space, arg_dtype, dtype, casting='safe'):
+                    return dtype
+        else:
+            raise oefmt(space.w_TypeError,
+                "No loop matching the specified signature was found "
+                "for ufunc %s", self.name)
+
+    def allowed_types(self, space):
+        dtypes = []
+        cache = get_dtype_cache(space)
+        if not self.promote_bools and not self.promote_to_float:
+            dtypes.append(cache.w_booldtype)
+        if not self.promote_to_float:
+            dtypes.extend(cache.integer_dtypes)
+        dtypes.extend(cache.float_dtypes)
+        dtypes.extend(cache.complex_dtypes)
+        return dtypes
 
 
 class W_Ufunc2(W_Ufunc):

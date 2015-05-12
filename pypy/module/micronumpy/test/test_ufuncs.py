@@ -1,5 +1,5 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.ufuncs import W_UfuncGeneric
+from pypy.module.micronumpy.ufuncs import W_UfuncGeneric, W_Ufunc1
 from pypy.module.micronumpy.support import _parse_signature
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 from pypy.module.micronumpy.base import W_NDimArray
@@ -53,6 +53,20 @@ class TestGenericUfuncOperation(object):
                                 'u->u', ufunc.dtypes)
         exc = raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
                                 'i->i', ufunc.dtypes)
+
+    def test_allowed_types(self, space):
+        dt_bool = get_dtype_cache(space).w_booldtype
+        dt_float16 = get_dtype_cache(space).w_float16dtype
+        dt_int32 = get_dtype_cache(space).w_int32dtype
+        ufunc = W_Ufunc1(None, 'x', int_only=True)
+        assert ufunc._calc_dtype(space, dt_bool) == dt_bool
+        assert ufunc.allowed_types(space)  # XXX: shouldn't contain too much stuff
+
+        ufunc = W_Ufunc1(None, 'x', promote_to_float=True)
+        assert ufunc._calc_dtype(space, dt_bool) == dt_float16
+
+        ufunc = W_Ufunc1(None, 'x')
+        assert ufunc._calc_dtype(space, dt_int32) == dt_int32
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):

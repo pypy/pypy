@@ -900,17 +900,20 @@ class DtypeCache(object):
             NPY.CDOUBLE:     self.w_float64dtype,
             NPY.CLONGDOUBLE: self.w_floatlongdtype,
         }
-        self.builtin_dtypes = [
-            self.w_booldtype,
+        integer_dtypes = [
             self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype,
-            self.w_longdtype, self.w_ulongdtype,
             self.w_int32dtype, self.w_uint32dtype,
-            self.w_int64dtype, self.w_uint64dtype,
-            ] + float_dtypes + complex_dtypes + [
-            self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
-            self.w_objectdtype,
-        ]
+            self.w_longdtype, self.w_ulongdtype,
+            self.w_int64dtype, self.w_uint64dtype]
+        self.builtin_dtypes = ([self.w_booldtype] + integer_dtypes +
+            float_dtypes + complex_dtypes + [
+                self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
+                self.w_objectdtype,
+            ])
+        self.integer_dtypes = integer_dtypes
+        self.float_dtypes = float_dtypes
+        self.complex_dtypes = complex_dtypes
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.elsize, dtype)
             for dtype in float_dtypes
