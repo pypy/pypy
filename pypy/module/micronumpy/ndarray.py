@@ -864,8 +864,12 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 # Adapt the smallest dim to the new itemsize
-                minstride = strides[0]
-                mini = 0
+                if self.get_order() == 'F':
+                    minstride = strides[0]
+                    mini = 0
+                else:
+                    minstride = strides[-1]
+                    mini = len(strides) - 1
                 for i in range(len(strides)):
                     if strides[i] < minstride:
                         minstride = strides[i]
@@ -874,7 +878,8 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 new_shape[mini] = new_shape[mini] * old_itemsize / new_itemsize
-                strides[mini] = strides[mini] * new_itemsize / old_itemsize    
+                strides[mini] = strides[mini] * new_itemsize / old_itemsize
+                backstrides[mini] = strides[mini] * new_shape[mini]
         if dtype.is_object() != impl.dtype.is_object():
             raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
                 ' one of target dtype or dtype is object dtype')

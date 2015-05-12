@@ -1818,7 +1818,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         y = x.view(dtype='int16')
 
     def test_view_of_slice(self):
-        from numpy import empty
+        from numpy import empty, dtype
         x = empty([6], 'uint32')
         x.fill(0xdeadbeef)
         s = x[::3]
@@ -1833,6 +1833,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         s = y.swapaxes(0, 1)
         v = s.view(y.__class__)
         assert v.strides == (4, 24)
+
+        a = empty([3, 2, 1], dtype='float64')
+        b = a.view(dtype('uint32'))
+        assert b.strides == (16, 8, 4)
+        assert b.shape == (3, 2, 2)
+        b.fill(0xdeadbeef)
 
     def test_tolist_scalar(self):
         from numpy import dtype
