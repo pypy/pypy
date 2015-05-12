@@ -1,7 +1,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 from pypy.module.micronumpy.casting import (
-    find_unaryop_result_dtype, find_binop_result_dtype)
+    find_unaryop_result_dtype, find_binop_result_dtype, can_cast_type)
 
 
 class AppTestNumSupport(BaseNumpyAppTest):
@@ -27,6 +27,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.can_cast(np.int32, np.int64)
         assert np.can_cast(np.float64, complex)
         assert not np.can_cast(np.complex64, float)
+        assert np.can_cast(np.bool_, np.bool_)
 
         assert np.can_cast('i8', 'f8')
         assert not np.can_cast('i8', 'f4')
@@ -122,6 +123,15 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.min_scalar_type(2**64 - 1) == np.dtype('uint64')
         # XXX: np.asarray(2**64) fails with OverflowError
         # assert np.min_scalar_type(2**64) == np.dtype('O')
+
+def test_can_cast_same_type(space):
+    dt_bool = get_dtype_cache(space).w_booldtype
+    assert can_cast_type(space, dt_bool, dt_bool, 'no')
+    assert can_cast_type(space, dt_bool, dt_bool, 'equiv')
+    assert can_cast_type(space, dt_bool, dt_bool, 'safe')
+    assert can_cast_type(space, dt_bool, dt_bool, 'same_kind')
+    assert can_cast_type(space, dt_bool, dt_bool, 'unsafe')
+
 
 class TestCoercion(object):
     def test_binops(self, space):

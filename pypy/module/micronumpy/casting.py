@@ -90,7 +90,7 @@ def can_cast_type(space, origin, target, casting):
         if origin.kind in kind_ordering and target.kind in kind_ordering:
             return kind_ordering[origin.kind] <= kind_ordering[target.kind]
         return False
-    else:
+    else:  # 'safe'
         return origin.can_cast_to(target)
 
 def can_cast_array(space, w_from, target, casting):

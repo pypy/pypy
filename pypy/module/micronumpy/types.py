@@ -2439,7 +2439,7 @@ del _setup
 
 casting_table = [[False] * NPY.NTYPES for _ in range(NPY.NTYPES)]
 number_types = int_types + float_types + complex_types
-all_types = number_types + [ObjectType, StringType, UnicodeType, VoidType]
+all_types = [Bool] + number_types + [ObjectType, StringType, UnicodeType, VoidType]
 
 def enable_cast(type1, type2):
     casting_table[type1.num][type2.num] = True
