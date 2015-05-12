@@ -1568,7 +1568,11 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [loc0, imm(index.value), imm(itemsize)], result)
 
     def consider_vec_expand(self, op):
-        pass
+        count = op.getarg(1)
+        args = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
+        result = self.force_allocate_reg(op.result, args)
+        self.perform(op, [loc0, imm(count.value)], result)
 
     def consider_vec_box(self, op):
         # pseudo instruction, needed to create a new variable

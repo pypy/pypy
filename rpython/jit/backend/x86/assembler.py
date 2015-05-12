@@ -2549,13 +2549,24 @@ class Assembler386(BaseAssembler):
         exec py.code.Source(_source).compile()
     del genop_vec_float_arith
 
-    def genop_vec_unpack(self, op, arglocs, resloc):
+    def genop_vec_box_unpack(self, op, arglocs, resloc):
         loc0, indexloc, sizeloc = arglocs
         size = sizeloc.value
         if size == 4:
             pass
         elif size == 8:
-            self.mc.CMPPD(
+            if indexloc.value == 0:
+                self.mc.UNPCKLPD(resloc, loc0)
+            else:
+                self.mc.UNPCKHPD(resloc, loc0)
+
+    def genop_vec_expand(self, op, arglocs, resloc):
+        loc0, countloc = arglocs
+        count = countloc.value
+        if count == 1:
+            pass
+        elif count == 2:
+            self.mc.MOVDDUP(resloc, loc0)
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         pass

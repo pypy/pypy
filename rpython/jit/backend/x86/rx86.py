@@ -732,6 +732,11 @@ class AbstractX86CodeBuilder(object):
     MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
     PSRLDQ_xi = xmminsn('\x66\x0F\x73', orbyte(0xd8), mem_reg_plus_const(1))
+    UNPCKLPD_xx = xmminsn('\x66', rex_nw, '\x0F\x14', register(1, 8), register(2, 8), '\xC0')
+    UNPCKHPD_xx = xmminsn('\x66', rex_nw, '\x0F\x15', register(1, 8), register(2, 8), '\xC0')
+    UNPCKLPS_xx = xmminsn(        rex_nw, '\x0F\x14', register(1, 8), register(2, 8), '\xC0')
+    UNPCKHPS_xx = xmminsn(        rex_nw, '\x0F\x15', register(1, 8), register(2, 8), '\xC0')
+    MOVDDUP_xx = xmminsn('\xF2', rex_nw, '\x0F\x12', register(1, 8), register(2,8), '\xC0')
     # SSE4.1 PEXTRDD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1,8), register(2), immediate(3,'b'))
     # ------------------------------------------------------------
 
@@ -920,12 +925,15 @@ define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], reg
 define_modrm_modes('XORPS_x*', [rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
 
+# floating point operations (single & double)
 define_modrm_modes('ADDPD_x*', ['\x66', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
 define_modrm_modes('ADDPS_x*', [        rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
 define_modrm_modes('SUBPD_x*', ['\x66', rex_nw, '\x0F\x5C', register(1, 8)], regtype='XMM')
 define_modrm_modes('SUBPS_x*', [        rex_nw, '\x0F\x5C', register(1, 8)], regtype='XMM')
 define_modrm_modes('MULPD_x*', ['\x66', rex_nw, '\x0F\x59', register(1, 8)], regtype='XMM')
 define_modrm_modes('MULPS_x*', [        rex_nw, '\x0F\x59', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPD_x*', ['\x66', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPS_x*', [        rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 define_modrm_modes('DIVPD_x*', ['\x66', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 define_modrm_modes('DIVPS_x*', [        rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 
