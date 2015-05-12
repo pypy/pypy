@@ -521,18 +521,6 @@ class W_Ufunc2(W_Ufunc):
                                     w_lhs.get_scalar_value(),
                                     w_rhs.get_scalar_value(),
                                     calc_dtype, res_dtype, out)
-            arr = self.func(calc_dtype,
-                w_lhs.get_scalar_value().convert_to(space, calc_dtype),
-                w_rhs.get_scalar_value().convert_to(space, calc_dtype)
-            )
-            if isinstance(out, W_NDimArray):
-                if out.is_scalar():
-                    out.set_scalar_value(arr)
-                else:
-                    out.fill(space, arr)
-            else:
-                out = arr
-            return out
         if isinstance(w_lhs, boxes.W_GenericBox):
             w_lhs = W_NDimArray.from_scalar(space, w_lhs)
         assert isinstance(w_lhs, W_NDimArray)
