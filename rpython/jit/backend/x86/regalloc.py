@@ -1542,7 +1542,7 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(index, ConstInt)
         itemsize = self.assembler.cpu.vector_register_size // count.value
         args = op.getarglist()
-        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args)
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
         loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
         self.perform(op, [loc0, loc1, imm(index.value), imm(itemsize)], None)
 
@@ -1551,11 +1551,13 @@ class RegAlloc(BaseRegalloc):
         index = op.getarg(1)
         assert isinstance(count, ConstInt)
         assert isinstance(index, ConstInt)
-        itemsize = self.assembler.cpu.vector_register_size // count.value
         args = op.getarglist()
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args)
         result = self.force_allocate_reg(op.result, args)
-        self.perform(op, [loc0, imm(index.value), imm(itemsize)], result)
+        tmpxvar = TempBox()
+        tmploc = self.xrm.force_allocate_reg(tmpxvar)
+        self.xrm.possibly_free_var(tmpxvar)
+        self.perform(op, [loc0, tmploc, imm(index.value), imm(count.value)], result)
 
     def consider_vec_expand(self, op):
         count = op.getarg(1)
@@ -1563,13 +1565,6 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
         result = self.force_allocate_reg(op.result, args)
         self.perform(op, [loc0, imm(count.value)], result)
-
-    def consider_vec_cast_float_to_singlefloat(self, op):
-        size = op.getarg(1)
-        args = op.getarglist()
-        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
-        result = self.force_allocate_reg(op.result, args)
-        self.perform(op, [loc0, imm(size.value)], result)
 
     def consider_vec_int_signext(self, op):
         # there is not much we can do in this case. arithmetic is
@@ -1588,6 +1583,23 @@ class RegAlloc(BaseRegalloc):
 
     def consider_guard_early_exit(self, op):
         pass
+
+    def consider_vec_cast_float_to_singlefloat(self, op):
+        count = op.getarg(1)
+        args = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
+        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        self.perform(op, [loc0, imm(count.value)], result)
+
+    def consider_vec_cast_singlefloat_to_float(self, op):
+        index = op.getarg(1)
+        args = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
+        result = self.force_allocate_reg(op.result, args)
+        tmpxvar = TempBox()
+        tmploc = self.xrm.force_allocate_reg(tmpxvar)
+        self.xrm.possibly_free_var(tmpxvar)
+        self.perform(op, [loc0, tmploc, imm(index.value)], result)
 
     # ________________________________________
 

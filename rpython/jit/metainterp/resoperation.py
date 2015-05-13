@@ -464,7 +464,12 @@ _oplist = [
     'VEC_FLOAT_EQ/3',
 
     'VEC_INT_SIGNEXT/3',
+    # double -> float: v2 = cast(v1, 2) equal to v2 = (v1[0], v1[1], X, X)
     'VEC_CAST_FLOAT_TO_SINGLEFLOAT/2',
+    # v4 = cast(v3, 0, 2), v4 = (v3[0], v3[1])
+    'VEC_CAST_SINGLEFLOAT_TO_FLOAT/3',
+    'VEC_CAST_FLOAT_TO_INT/2',
+    'VEC_CAST_INT_TO_FLOAT/2',
 
     'VEC_BOX_UNPACK/3',          # iX|fX = VEC_BOX_UNPACK(vX, index, item_count)
     'VEC_BOX_PACK/4',            # VEC_BOX_PACK(vX, var/const, index, item_count)
@@ -734,7 +739,11 @@ _opvector = {
     rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
 
     rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,
+
     rop.CAST_FLOAT_TO_SINGLEFLOAT: rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT,
+    rop.CAST_SINGLEFLOAT_TO_FLOAT: rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT,
+    rop.CAST_INT_TO_FLOAT: rop.VEC_CAST_INT_TO_FLOAT,
+    rop.CAST_FLOAT_TO_INT: rop.VEC_CAST_FLOAT_TO_INT,
 }
 
 def setup2():

@@ -192,6 +192,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
+    loaded_float = False
 
     def __init__(self, basesize, itemsize, lendescr, flag):
         self.basesize = basesize
@@ -260,6 +261,10 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
+        if ARRAY_INSIDE.OF is lltype.SingleFloat:
+            # it would be optimal to set the flag as FLOAT_TYPE
+            # but it is not possible???
+            arraydescr.loaded_float = True
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         cache[ARRAY_OR_STRUCT] = arraydescr

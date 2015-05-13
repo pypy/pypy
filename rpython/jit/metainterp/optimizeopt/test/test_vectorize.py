@@ -1137,14 +1137,66 @@ class BaseTestVectorize(VecTestHelper):
         v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
         v19 = vec_cast_float_to_singlefloat(v17, 2)
         v20 = vec_cast_float_to_singlefloat(v18, 2)
-        v21 = vec_box(4)
-        vec_box_pack(v21, v20, 2)
-        vec_setarrayitem_raw(p1, i1, v21, 4, descr=singlefloatarraydescr)
+        vec_box_pack(v19, v20, 2)
+        vec_setarrayitem_raw(p1, i1, v19, 4, descr=singlefloatarraydescr)
         jump(p0, p1, i7)
         """
         vopt = self.vectorize(self.parse_loop(ops))
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
+    def test_castup_arith_castdown(self):
+        ops = """
+        [p0,p1,p2,i0,i4]
+        guard_early_exit() []
+        i10 = raw_load(p0, i0, descr=singlefloatarraydescr)
+        i1 = int_add(i0, 4)
+        i11 = raw_load(p1, i1, descr=singlefloatarraydescr)
+        i2 = int_add(i1, 4)
+        f1 = cast_singlefloat_to_float(i10)
+        f2 = cast_singlefloat_to_float(i11)
+        f3 = float_add(f1, f2)
+        i12  = cast_float_to_singlefloat(f3)
+        raw_store(p2, i4, i12, descr=singlefloatarraydescr)
+        i5  = int_add(i4, 4) 
+        i186 = int_lt(i5, 100) 
+        guard_false(i186) []
+        jump(p0,p1,p2,i2,i5)
+        """
+        opt = """
+        [p0, p1, p2, i0, i4]
+        guard_early_exit() []
+        i5 = int_add(i4, 4)
+        i1 = int_add(i0, 4)
+        i186 = int_lt(i5, 100)
+        i2 = int_add(i0, 8)
+        i187 = int_add(i4, 8)
+        i191 = int_add(i0, 12)
+        i190 = int_lt(i187, 100)
+        i192 = int_add(i0, 16)
+        i188 = int_add(i4, 12)
+        i200 = int_add(i0, 20)
+        i199 = int_lt(i188, 100)
+        i201 = int_add(i0, 24)
+        i189 = int_add(i4, 16)
+        i209 = int_add(i0, 28)
+        i208 = int_lt(i189, 100)
+        guard_false(i208) []
+        i210 = int_add(i0, 32)
+        v217 = vec_raw_load(p0, i0, 4, descr=singlefloatarraydescr)
+        v218 = vec_cast_singlefloat_to_float(v217, 0, 2)
+        v219 = vec_cast_singlefloat_to_float(v217, 2, 2)
+        v220 = vec_raw_load(p1, i1, 4, descr=singlefloatarraydescr)
+        v221 = vec_cast_singlefloat_to_float(v220, 0, 2)
+        v222 = vec_cast_singlefloat_to_float(v220, 2, 2)
+        v223 = vec_float_add(v218, v221, 2)
+        v224 = vec_float_add(v219, v222, 2)
+        v225 = vec_cast_float_to_singlefloat(v223, 2)
+        v226 = vec_cast_float_to_singlefloat(v224, 2)
+        vec_raw_store(p2, i4, v225, 4, descr=singlefloatarraydescr)
+        jump(p0, p1, p2, i210, i189)
+        """
+        vopt = self.vectorize(self.parse_loop(ops))
+        self.assert_equal(vopt.loop, self.parse_loop(opt))
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

@@ -7,7 +7,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import Const, Box, VOID
+from rpython.jit.metainterp.history import Const, Box, VOID, BoxVector
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -2473,10 +2473,10 @@ class Assembler386(BaseAssembler):
             else:
                 self.mc.MOVDQU(resloc, src_addr)
         else:
-            if itemsize == 8: # TODO is there a constant for double floating point size?
+            if itemsize == 4:
+                self.mc.MOVSS(resloc, src_addr)
+            elif itemsize == 8:
                 self.mc.MOVSD(resloc, src_addr)
-            else:
-                raise NotImplementedError
 
     def genop_discard_vec_setarrayitem_raw(self, op, arglocs):
         # considers item scale (raw_store does not)
@@ -2499,10 +2499,10 @@ class Assembler386(BaseAssembler):
             else:
                 self.mc.MOVDQU(dest_loc, value_loc)
         else:
-            if itemsize == 8: # TODO is there a constant for double floating point size?
+            if itemsize == 4:
+                self.mc.MOVSS(dest_loc, value_loc)
+            elif itemsize == 8:
                 self.mc.MOVSD(dest_loc, value_loc)
-            else:
-                raise NotImplementedError
 
     def genop_vec_int_add(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -2515,8 +2515,6 @@ class Assembler386(BaseAssembler):
             self.mc.PADDD(loc0, loc1)
         elif itemsize == 8:
             self.mc.PADDQ(loc0, loc1)
-        else:
-            raise NotImplementedError
 
     def genop_vec_int_sub(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -2529,8 +2527,6 @@ class Assembler386(BaseAssembler):
             self.mc.PSUBD(loc0, loc1)
         elif itemsize == 8:
             self.mc.PSUBQ(loc0, loc1)
-        else:
-            raise NotImplementedError
 
     genop_vec_float_arith = """
     def genop_vec_float_{type}(self, op, arglocs, resloc):
@@ -2540,8 +2536,6 @@ class Assembler386(BaseAssembler):
             self.mc.{p_op_s}(loc0, loc1)
         elif itemsize == 8:
             self.mc.{p_op_d}(loc0, loc1)
-        else:
-            raise NotImplementedError
     """
     for op in ['add','mul','sub','div']:
         OP = op.upper()
@@ -2549,34 +2543,88 @@ class Assembler386(BaseAssembler):
         exec py.code.Source(_source).compile()
     del genop_vec_float_arith
 
-    def genop_vec_expand(self, op, arglocs, resloc):
-        loc0, sizeloc = arglocs
-        size = sizeloc.value
-        if size == 2:
-            pass
+    def genop_vec_int_signext(self, op, arglocs, resloc):
+        pass
 
+    def genop_vec_expand(self, op, arglocs, resloc):
+        loc0, countloc = arglocs
+        count = countloc.value
+        if count == 1:
+            raise NotImplementedError("expand count 1")
+        elif count == 2:
+            self.mc.MOVDDUP(resloc, loc0)
 
     def genop_vec_box_unpack(self, op, arglocs, resloc):
-        loc0, indexloc, sizeloc = arglocs
+        loc0, tmploc, indexloc, countloc = arglocs
+        count = countloc.value
+        index = indexloc.value
+        box = op.getarg(0)
+        assert isinstance(box, BoxVector)
+        item_type = box.item_type
+        size = box.item_size
+        if size == 4:
+            tmploc = self._shuffle_by_index(loc0, tmploc, item_type, size, index, count)
+            self.mc.MOVD32_rx(resloc.value, tmploc.value)
+        elif size == 8:
+            if index == 0:
+                self.mc.UNPCKLPD(resloc, loc0)
+            else:
+                self.mc.UNPCKHPD(resloc, loc0)
+
+    def _shuffle_by_index(self, src_loc, tmp_loc, item_type, size, index, count):
+        if index == 0 and count == 1:
+            return src_loc
+        select = 0
+        if item_type == FLOAT:
+            self.mc.MOVSS(tmp_loc, src_loc)
+            i = 0
+            while i < count:
+                select |= (index+i<<(i*2))
+                i += 1
+            self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
+            return tmp_loc
+        else:
+            py.test.set_trace()
+            raise NotImplementedError("shuffle by index for non floats")
+
+
+    def genop_vec_box_pack(self, op, arglocs, resloc):
+        toloc, fromloc, indexloc, sizeloc = arglocs
+        toarg = op.getarg(0)
+        index = indexloc.value
         size = sizeloc.value
         if size == 4:
-            pass
+            select = 0
+            if index == 2:
+                select |= (1<<0)
+                select |= (2<<2)
+                select |= (3<<4)
+                select |= (4<<6)
+            else:
+                raise NotImplementedError("index is not equal to 2")
+
+            self.mc.SHUFPS_xxi(toloc.value, fromloc.value, select)
         elif size == 8:
             if indexloc.value == 0:
                 self.mc.UNPCKLPD(resloc, loc0)
             else:
                 self.mc.UNPCKHPD(resloc, loc0)
 
-    def genop_vec_expand(self, op, arglocs, resloc):
-        loc0, countloc = arglocs
-        count = countloc.value
-        if count == 1:
-            pass
-        elif count == 2:
-            self.mc.MOVDDUP(resloc, loc0)
+    def genop_vec_cast_float_to_singlefloat(self, op, arglocs, resloc):
+        argloc, _ = arglocs
+        self.mc.CVTPD2PS(resloc, argloc)
 
-    def genop_vec_int_signext(self, op, arglocs, resloc):
-        pass
+    def genop_vec_cast_singlefloat_to_float(self, op, arglocs, resloc):
+        loc0, tmploc, indexloc = arglocs
+        index = indexloc.value
+        if index == 0:
+            self.mc.CVTPS2PD(resloc, loc0)
+        else:
+            assert index == 2
+            self.mc.MOVSS_xx(tmploc.value, loc0.value)
+            select = (2<<0)|(3<<2) # move pos 2->0,3->1
+            self.mc.SHUFPS_xxi(tmploc.value, tmploc.value, select)
+            self.mc.CVTPS2PD(resloc, tmploc) # expand
 
     # ________________________________________
 

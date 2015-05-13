@@ -97,6 +97,8 @@ class TestNumpyJit(Jit386Mixin):
     def test_add_float(self):
         result = self.run("add_float")
         assert result == 3 + 3
+
+    def test_add_float32(self):
         result = self.run("add_float32")
         assert result == 3.0 + 3.0
 
@@ -113,6 +115,10 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_add_float_const(self):
+        result = self.run("add_float_const")
+        assert result == 29.0 + 3.0
+        self.check_trace_count(1)
+    def test_add_float22_const(self):
         result = self.run("add_float_const")
         assert result == 29.0 + 3.0
         self.check_trace_count(1)

@@ -703,14 +703,13 @@ class AbstractX86CodeBuilder(object):
     CVTTSD2SI_rx = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), register(2), '\xC0')
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
 
-    CVTSD2SS_xx = xmminsn('\xF2', rex_nw, '\x0F\x5A',
-                          register(1, 8), register(2), '\xC0')
-    CVTSD2SS_xb = xmminsn('\xF2', rex_nw, '\x0F\x5A',
-                          register(1, 8), stack_bp(2))
-    CVTSS2SD_xx = xmminsn('\xF3', rex_nw, '\x0F\x5A',
-                          register(1, 8), register(2), '\xC0')
-    CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
-                          register(1, 8), stack_bp(2))
+    CVTSD2SS_xx = xmminsn('\xF2', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTSD2SS_xb = xmminsn('\xF2', rex_nw, '\x0F\x5A', register(1, 8), stack_bp(2))
+    CVTSS2SD_xx = xmminsn('\xF3', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A', register(1, 8), stack_bp(2))
+
+    CVTPD2PS_xx = xmminsn('\x66', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTPS2PD_xx = xmminsn(rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
 
     # These work on machine sized registers, so "MOVDQ" is MOVD when running
     # on 32 bits and MOVQ when running on 64 bits.  "MOVD32" is always 32-bit.
@@ -731,12 +730,15 @@ class AbstractX86CodeBuilder(object):
     MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
     MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
+    MOVSS_xx = xmminsn('\xF3', rex_nw, '\x0F\x10', register(1,8), register(2), '\xC0')
+
     PSRLDQ_xi = xmminsn('\x66\x0F\x73', orbyte(0xd8), mem_reg_plus_const(1))
-    UNPCKLPD_xx = xmminsn('\x66', rex_nw, '\x0F\x14', register(1, 8), register(2, 8), '\xC0')
-    UNPCKHPD_xx = xmminsn('\x66', rex_nw, '\x0F\x15', register(1, 8), register(2, 8), '\xC0')
-    UNPCKLPS_xx = xmminsn(        rex_nw, '\x0F\x14', register(1, 8), register(2, 8), '\xC0')
-    UNPCKHPS_xx = xmminsn(        rex_nw, '\x0F\x15', register(1, 8), register(2, 8), '\xC0')
-    MOVDDUP_xx = xmminsn('\xF2', rex_nw, '\x0F\x12', register(1, 8), register(2,8), '\xC0')
+    UNPCKLPD_xx = xmminsn('\x66', rex_nw, '\x0F\x14', register(1, 8), register(2), '\xC0')
+    UNPCKHPD_xx = xmminsn('\x66', rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
+    UNPCKLPS_xx = xmminsn(        rex_nw, '\x0F\x14', register(1, 8), register(2), '\xC0')
+    UNPCKHPS_xx = xmminsn(        rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
+    MOVDDUP_xx = xmminsn('\xF2', rex_nw, '\x0F\x12', register(1, 8), register(2), '\xC0')
+    SHUFPS_xxi = xmminsn(rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     # SSE4.1 PEXTRDD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1,8), register(2), immediate(3,'b'))
     # ------------------------------------------------------------
 
@@ -897,6 +899,8 @@ define_modrm_modes('MOVSX32_r*', [rex_w, '\x63', register(1, 8)])
 
 define_modrm_modes('MOVSD_x*', ['\xF2', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
 define_modrm_modes('MOVSD_*x', ['\xF2', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
+define_modrm_modes('MOVSS_x*', ['\xF3', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
+define_modrm_modes('MOVSS_*x', ['\xF3', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
 define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)],
                    regtype='XMM')
 define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],

@@ -689,8 +689,6 @@ class LLGraphCPU(model.AbstractCPU):
         assert len(vx) == count
         assert len(vy) == count
         return [_vx == _vy for _vx,_vy in zip(vx,vy)]
-    bh_vec_float_eq.argtypes = ['f','f','i']
-    bh_vec_float_eq.resulttype = 'i'
 
     def bh_vec_cast_float_to_singlefloat(self, vx):
         return vx
