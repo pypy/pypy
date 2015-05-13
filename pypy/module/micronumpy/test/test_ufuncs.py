@@ -64,6 +64,8 @@ class TestGenericUfuncOperation(object):
 
         ufunc = W_Ufunc1(None, 'x', promote_to_float=True)
         assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_float16, dt_float16)
+        assert ufunc._calc_dtype(space, dt_bool, casting='same_kind') == (dt_float16, dt_float16)
+        raises(OperationError, ufunc._calc_dtype, space, dt_bool, casting='no')
 
         ufunc = W_Ufunc1(None, 'x')
         assert ufunc._calc_dtype(space, dt_int32, out=None) == (dt_int32, dt_int32)
@@ -260,6 +262,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, adder_ufunc, *args, blah=True)
         raises(TypeError, adder_ufunc, *args, extobj=True)
         raises(RuntimeError, adder_ufunc, *args, sig='(d,d)->(d)', dtype=int)
+
+    def test_unary_ufunc_kwargs(self):
+        from numpy import array, sin, float16
+        bool_array = array([True])
+        raises(TypeError, sin, bool_array, casting='no')
+        assert sin(bool_array, casting='same_kind').dtype == float16
+        raises(TypeError, sin, bool_array, out=bool_array, casting='same_kind')
+        assert sin(bool_array).dtype == float16
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin
