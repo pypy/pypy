@@ -12,8 +12,8 @@ def arange(start, stop=None, step=1, dtype=None):
         stop = start
         start = 0
     if dtype is None:
-        test = _numpypy.multiarray.array([start, stop, step, 0])
-        dtype = test.dtype
+        # find minimal acceptable dtype but not less than int
+        dtype = _numpypy.multiarray.result_type(start, stop, step, int)
     length = math.ceil((float(stop) - start) / step)
     length = int(length)
     arr = _numpypy.multiarray.empty(length, dtype=dtype)

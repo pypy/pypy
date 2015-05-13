@@ -66,6 +66,29 @@ class TestIterDirect(object):
         assert s.offset == 1
         assert s._indices == [1,0]
 
+    def test_one_in_shape(self):
+        strides = [16, 4, 8]
+        shape   = [3,  4, 1]
+        backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
+        assert backstrides == [32, 12, 0]
+        i = ArrayIter(MockArray(shape, strides), support.product(shape), shape,
+                      strides, backstrides)
+        assert not i.contiguous
+        s = i.reset()
+        for j in range(3):
+            s = i.next(s)
+        assert s.offset == 12
+        assert not i.done(s)
+        assert s._indices == [0, 3, 0]
+        while not i.done(s):
+            old_indices = s._indices[:]
+            old_offset = s.offset
+            s = i.next(s)
+        assert s.offset == 0
+        assert s._indices == [0, 0, 0]
+        assert old_indices == [2, 3, 0]
+        assert old_offset == 44
+
     def test_iterator_goto(self):
         shape = [3, 5]
         strides = [1, 3]

@@ -429,6 +429,17 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     n_old_elems_to_use *= old_shape[oldI]
     return new_strides[:]
 
+def calc_start(shape, strides):
+    ''' Strides can be negative for non-contiguous data.
+    Calculate the appropriate positive starting position so
+    the indexing still works properly
+    '''
+    start = 0
+    for i in range(len(shape)):
+        if strides[i] < 0:
+            start -= strides[i] * (shape[i] - 1)
+    return start
+
 @jit.unroll_safe
 def is_c_contiguous(arr):
     shape = arr.get_shape()

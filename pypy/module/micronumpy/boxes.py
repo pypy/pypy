@@ -197,6 +197,9 @@ class W_GenericBox(W_NumpyObject):
     def descr_hash(self, space):
         return space.hash(self.item(space))
 
+    def descr___array_priority__(self, space):
+        return space.wrap(0.0)
+
     def descr_index(self, space):
         return space.index(self.item(space))
 
@@ -679,6 +682,8 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     __invert__ = interp2app(W_GenericBox.descr_invert),
 
     __hash__ = interp2app(W_GenericBox.descr_hash),
+
+    __array_priority__ = GetSetProperty(W_GenericBox.descr___array_priority__),
 
     tolist = interp2app(W_GenericBox.item),
     item = interp2app(W_GenericBox.descr_item),
