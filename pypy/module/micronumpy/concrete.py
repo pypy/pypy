@@ -533,6 +533,9 @@ class SliceArray(BaseConcreteArray):
         return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
 
+    def sort(self, space, w_axis, w_order):
+        from .selection import sort_array
+        return sort_array(self, space, w_axis, w_order)
 
 class NonWritableSliceArray(SliceArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):

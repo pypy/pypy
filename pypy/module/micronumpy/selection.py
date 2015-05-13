@@ -120,7 +120,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
     ArgSort = make_timsort_class(arg_getitem, arg_setitem, arg_length,
                                  arg_getitem_slice, arg_lt)
 
-    def argsort(arr, space, w_axis, itemsize):
+    def argsort(arr, space, w_axis):
         if w_axis is space.w_None:
             # note that it's fine ot pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
@@ -138,7 +138,7 @@ def make_argsort_function(space, itemtype, comp_type, count=1):
             if len(arr.get_shape()) == 1:
                 for i in range(arr.get_size()):
                     raw_storage_setitem(storage, i * INT_SIZE, i)
-                r = Repr(INT_SIZE, itemsize, arr.get_size(), arr_storage,
+                r = Repr(INT_SIZE, arr.strides[0], arr.get_size(), arr_storage,
                          storage, 0, arr.start)
                 ArgSort(r).sort()
             else:
@@ -174,8 +174,7 @@ def argsort_array(arr, space, w_axis):
     itemtype = arr.dtype.itemtype
     for tp in all_types:
         if isinstance(itemtype, tp[0]):
-            return cache._lookup(tp)(arr, space, w_axis,
-                                     itemtype.get_element_size())
+            return cache._lookup(tp)(arr, space, w_axis)
     # XXX this should probably be changed
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",
@@ -272,7 +271,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
     ArgSort = make_timsort_class(arg_getitem, arg_setitem, arg_length,
                                  arg_getitem_slice, arg_lt)
 
-    def sort(arr, space, w_axis, itemsize):
+    def sort(arr, space, w_axis):
         if w_axis is space.w_None:
             # note that it's fine to pass None here as we're not going
             # to pass the result around (None is the link to base in slices)
@@ -284,7 +283,7 @@ def make_sort_function(space, itemtype, comp_type, count=1):
             axis = space.int_w(w_axis)
         with arr as storage:
             if len(arr.get_shape()) == 1:
-                r = Repr(itemsize, arr.get_size(), storage,
+                r = Repr(arr.strides[0], arr.get_size(), storage,
                          arr.start)
                 ArgSort(r).sort()
             else:
@@ -313,8 +312,7 @@ def sort_array(arr, space, w_axis, w_order):
                     "sorting of non-native byteorder not supported yet")
     for tp in all_types:
         if isinstance(itemtype, tp[0]):
-            return cache._lookup(tp)(arr, space, w_axis,
-                                     itemtype.get_element_size())
+            return cache._lookup(tp)(arr, space, w_axis)
     # XXX this should probably be changed
     raise oefmt(space.w_NotImplementedError,
                 "sorting of non-numeric types '%s' is not implemented",

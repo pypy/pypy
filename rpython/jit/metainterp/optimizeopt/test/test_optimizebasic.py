@@ -1240,12 +1240,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape(i2)
         jump()
         """
+        # also check that the length of the forced array is known
         expected = """
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
-        i2 = arraylen_gc(p1)
-        escape(i2)
+        escape(3)
         jump()
         """
         self.optimize_loop(ops, expected)

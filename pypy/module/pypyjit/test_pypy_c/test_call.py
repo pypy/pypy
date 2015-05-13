@@ -435,7 +435,6 @@ class TestCall(BaseTestPyPyC):
             guard_value(i4, 1, descr=...)
             guard_isnull(p5, descr=...)
             guard_nonnull_class(p12, ConstClass(W_IntObject), descr=...)
-            guard_value(i8, 0, descr=...)
             guard_value(p2, ConstPtr(ptr21), descr=...)
             i22 = getfield_gc_pure(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i24 = int_lt(i22, 5000)
