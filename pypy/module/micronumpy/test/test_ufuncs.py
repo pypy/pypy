@@ -59,14 +59,14 @@ class TestGenericUfuncOperation(object):
         dt_float16 = get_dtype_cache(space).w_float16dtype
         dt_int32 = get_dtype_cache(space).w_int32dtype
         ufunc = W_Ufunc1(None, 'x', int_only=True)
-        assert ufunc._calc_dtype(space, dt_bool) == dt_bool
+        assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_bool, dt_bool)
         assert ufunc.allowed_types(space)  # XXX: shouldn't contain too much stuff
 
         ufunc = W_Ufunc1(None, 'x', promote_to_float=True)
-        assert ufunc._calc_dtype(space, dt_bool) == dt_float16
+        assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_float16, dt_float16)
 
         ufunc = W_Ufunc1(None, 'x')
-        assert ufunc._calc_dtype(space, dt_int32) == dt_int32
+        assert ufunc._calc_dtype(space, dt_int32, out=None) == (dt_int32, dt_int32)
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):

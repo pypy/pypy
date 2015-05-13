@@ -371,7 +371,7 @@ class W_Ufunc1(W_Ufunc):
                 not self.allow_complex and dtype.is_complex()):
             raise oefmt(space.w_TypeError,
                 "ufunc %s not supported for the input type", self.name)
-        calc_dtype = self._calc_dtype(space, dtype)
+        dt_in, dt_out = self._calc_dtype(space, dtype, out)
 
         if out is not None:
             res_dtype = out.get_dtype()
@@ -381,25 +381,32 @@ class W_Ufunc1(W_Ufunc):
         elif self.bool_result:
             res_dtype = get_dtype_cache(space).w_booldtype
         else:
-            res_dtype = calc_dtype
-            if self.complex_to_float and calc_dtype.is_complex():
-                if calc_dtype.num == NPY.CFLOAT:
+            res_dtype = dt_in
+            if self.complex_to_float and dt_in.is_complex():
+                if dt_in.num == NPY.CFLOAT:
                     res_dtype = get_dtype_cache(space).w_float32dtype
                 else:
                     res_dtype = get_dtype_cache(space).w_float64dtype
-        return calc_dtype, res_dtype, self.func
+        return dt_in, res_dtype, self.func
 
-    def _calc_dtype(self, space, arg_dtype):
-        use_min_scalar=False
+    def _calc_dtype(self, space, arg_dtype, out):
+        use_min_scalar = False
         if arg_dtype.is_object():
-            return arg_dtype
+            return arg_dtype, arg_dtype
         for dtype in self.allowed_types(space):
             if use_min_scalar:
-                if can_cast_array(space, w_arg, dtype, casting='safe'):
-                    return dtype
+                if not can_cast_array(space, w_arg, dtype, casting='safe'):
+                    continue
             else:
-                if can_cast_type(space, arg_dtype, dtype, casting='safe'):
-                    return dtype
+                if not can_cast_type(space, arg_dtype, dtype, casting='safe'):
+                    continue
+            dt_out = dtype
+            if out is not None:
+                res_dtype = out.get_dtype()
+                if not can_cast_type(space, dt_out, res_dtype, 'unsafe'):
+                    continue
+            return dtype, dt_out
+
         else:
             raise oefmt(space.w_TypeError,
                 "No loop matching the specified signature was found "
