@@ -30,7 +30,26 @@ log2 = math.log(2)
 log2e = 1. / log2
 log10 = math.log(10)
 
+'''
+if not we_are_translated():
+    _raw_storage_setitem_unaligned = raw_storage_setitem_unaligned
+    _raw_storage_getitem_unaligned = raw_storage_getitem_unaligned
+    def raw_storage_setitem_unaligned(storage, offset, value):
+        assert offset >=0
+        try:
+            assert offset < storage._obj.getlength()
+        except AttributeError:
+            pass
+        return _raw_storage_setitem_unaligned(storage, offset, value) 
 
+    def raw_storage_getitem_unaligned(T, storage, offset):
+        assert offset >=0
+        try:
+            assert offset < storage._obj.getlength()
+        except AttributeError:
+            pass
+        return _raw_storage_getitem_unaligned(T, storage, offset) 
+'''
 def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
@@ -291,11 +310,15 @@ class Primitive(object):
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_unary_op
     def logical_not(self, v):
@@ -757,6 +780,8 @@ class Float(Primitive):
     def sign(self, v):
         if v == 0.0:
             return 0.0
+        if rfloat.isnan(v):
+            return rfloat.NAN
         return rfloat.copysign(1.0, v)
 
     @raw_unary_op
@@ -1324,11 +1349,15 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return self._cbool(v1) and self._cbool(v2)
+        if self._cbool(v1) and self._cbool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return self._cbool(v1) or self._cbool(v2)
+        if self._cbool(v1) or self._cbool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_unary_op
     def logical_not(self, v):
@@ -1352,12 +1381,30 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def floordiv(self, v1, v2):
-        try:
-            ab = v1[0]*v2[0] + v1[1]*v2[1]
-            bb = v2[0]*v2[0] + v2[1]*v2[1]
-            return math.floor(ab/bb), 0.
-        except ZeroDivisionError:
-            return rfloat.NAN, 0.
+        (r1, i1), (r2, i2) = v1, v2
+        if r2 < 0:
+            abs_r2 = -r2
+        else:
+            abs_r2 = r2
+        if i2 < 0:
+            abs_i2 = -i2
+        else:
+            abs_i2 = i2
+        if abs_r2 >= abs_i2:
+            if abs_r2 == 0.0:
+                return rfloat.NAN, 0.
+            else:
+                ratio = i2 / r2
+                denom = r2 + i2 * ratio
+                rr = (r1 + i1 * ratio) / denom
+        elif rfloat.isnan(r2):
+            rr = rfloat.NAN
+        else:
+            ratio = r2 / i2
+            denom = r2 * ratio + i2
+            assert i2 != 0.0
+            rr = (r1 * ratio + i1) / denom
+        return math.floor(rr), 0.
 
     #complex mod does not exist in numpy
     #@simple_binary_op
@@ -1394,15 +1441,17 @@ class ComplexFloating(object):
         sign of complex number could be either the point closest to the unit circle
         or {-1,0,1}, for compatability with numpy we choose the latter
         '''
+        if rfloat.isnan(v[0]) or rfloat.isnan(v[1]):
+            return rfloat.NAN, 0
         if v[0] == 0.0:
             if v[1] == 0:
-                return 0,0
+                return 0, 0
             if v[1] > 0:
-                return 1,0
-            return -1,0
+                return 1, 0
+            return -1, 0
         if v[0] > 0:
-            return 1,0
-        return -1,0
+            return 1, 0
+        return -1, 0
 
     def fmax(self, v1, v2):
         if self.ge(v1, v2) or self.isnan(v2):
@@ -1856,14 +1905,14 @@ class ObjectType(Primitive, BaseType):
     @raw_binary_op
     def logical_and(self, v1, v2):
         if self._obool(v1):
-            return self.space.bool_w(v2)
-        return self.space.bool_w(v1)
+            return self.box(v2)
+        return self.box(v1)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
         if self._obool(v1):
-            return self.space.bool_w(v1)
-        return self.space.bool_w(v2)
+            return self.box(v1)
+        return self.box(v2)
 
     @raw_unary_op
     def logical_not(self, v):
@@ -2110,11 +2159,15 @@ class StringType(FlexibleType):
 
     @str_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
     @str_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     @str_unary_op
     def logical_not(self, v):

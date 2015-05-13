@@ -81,3 +81,11 @@ them with a debug object that is created on-demand
 
 .. branch: can_cast
 Implement np.can_cast, np.min_scalar_type and missing dtype comparison operations.
+
+.. branch: numpy-fixes
+Fix some error related to object dtype, non-contiguous arrays, inplement parts of 
+__array_interface__, __array_priority__, __array_wrap__
+
+.. branch: cells-local-stack
+Unify the PyFrame.cells and Pyframe.locals_stack_w lists, making frame objects
+1 or 3 words smaller.
