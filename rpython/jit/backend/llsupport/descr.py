@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport import symbolic, support
-from rpython.jit.metainterp.history import AbstractDescr, getkind
+from rpython.jit.metainterp.history import AbstractDescr, getkind, FLOAT, INT
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
@@ -192,7 +192,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
-    loaded_float = False
+    concrete_type = '\x00'
 
     def __init__(self, basesize, itemsize, lendescr, flag):
         self.basesize = basesize
@@ -261,10 +261,11 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
-        if ARRAY_INSIDE.OF is lltype.SingleFloat:
-            # it would be optimal to set the flag as FLOAT_TYPE
-            # but it is not possible???
-            arraydescr.loaded_float = True
+        if ARRAY_INSIDE.OF is lltype.SingleFloat or \
+           ARRAY_INSIDE.OF is lltype.Float:
+            # it would be better to set the flag as FLOAT_TYPE
+            # for single float -> leads to problems
+            arraydescr.concrete_type = FLOAT
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         cache[ARRAY_OR_STRUCT] = arraydescr

@@ -148,6 +148,7 @@ def _is_signed_kind(TYPE):
 class ArrayDescr(AbstractDescr):
     def __init__(self, A):
         self.A = self.OUTERA = A
+        self.concrete_type = '\x00'
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
 

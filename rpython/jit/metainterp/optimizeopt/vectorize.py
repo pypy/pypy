@@ -19,12 +19,6 @@ class NotAVectorizeableLoop(JitException):
     def __str__(self):
         return 'NotAVectorizeableLoop()'
 
-def dprint(*args):
-    if not we_are_translated():
-        for arg in args:
-            print arg,
-        print
-
 def debug_print_operations(loop):
     if not we_are_translated():
         print('--- loop instr numbered ---')
@@ -48,14 +42,13 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
     try:
-        debug_print_operations(loop)
+        jitdriver_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
-        debug_print_operations(loop)
+        jitdriver_sd.profiler.count(Counters.OPT_VECTORIZED)
     except NotAVectorizeableLoop:
-        loop.operations = orig_ops
         # vectorization is not possible, propagate only normal optimizations
-        pass
+        loop.operations = orig_ops
 
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
@@ -371,7 +364,6 @@ class VectorizingOptimizer(Optimizer):
                 i += 1
             if len_before == len(self.packset.packs):
                 break
-        print self.packset.packs
 
     def schedule(self):
         self.guard_early_exit = -1
@@ -393,37 +385,28 @@ class VectorizingOptimizer(Optimizer):
         self.clear_newoperations()
 
     def unpack_from_vector(self, op, sched_data):
-        box_to_vbox = sched_data.box_to_vbox
+        args = op.getarglist()
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
-                arg = sched_data.unpack_rename(arg)
-                op.setarg(i, arg)
-                (j, vbox) = box_to_vbox.get(arg, (-1, None))
-                if vbox:
-                    arg_cloned = arg.clonebox()
-                    cj = ConstInt(j)
-                    ci = ConstInt(1)
-                    unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, cj, ci], arg_cloned)
-                    self.emit_operation(unpack_op)
-                    sched_data.rename_unpacked(arg, arg_cloned)
-                    op.setarg(i, arg_cloned)
+                self._unpack_from_vector(args, i, arg, sched_data)
         if op.is_guard():
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
                 if arg and isinstance(arg, Box):
-                    arg = sched_data.unpack_rename(arg)
-                    fail_args[i] = arg
-                    (j, vbox) = box_to_vbox.get(arg, (-1, None))
-                    if vbox:
-                        arg_cloned = arg.clonebox()
-                        cj = ConstInt(j)
-                        ci = ConstInt(vbox.item_count)
-                        unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, cj, ci], arg_cloned)
-                        self.emit_operation(unpack_op)
-                        sched_data.rename_unpacked(arg, arg_cloned)
-                        fail_args[i] = arg_cloned
+                    self._unpack_from_vector(fail_args, i, arg, sched_data)
 
-
+    def _unpack_from_vector(self, args, i, arg, sched_data):
+        arg = sched_data.unpack_rename(arg)
+        args[i] = arg
+        (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
+        if vbox:
+            arg_cloned = arg.clonebox()
+            cj = ConstInt(j)
+            ci = ConstInt(1)
+            unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, cj, ci], arg_cloned)
+            self.emit_operation(unpack_op)
+            sched_data.rename_unpacked(arg, arg_cloned)
+            args[i] = arg_cloned
 
     def analyse_index_calculations(self):
         if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
@@ -517,15 +500,6 @@ class VectorizingOptimizer(Optimizer):
 
         self.loop.operations = self._newoperations[:]
 
-    def check_adjacent_at_runtime(self, mem_a, mem_b):
-        ivar_a = mem_a.index_var
-        ivar_b = mem_b.index_var
-        if ivar_a.mods:
-            print "guard(", ivar_a.mods[1], " is adjacent)"
-        if ivar_b.mods:
-            print "guard(", ivar_b.mods[1], " is adjacent)"
-        pass
-
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
     if op.getoperation().vector != -1:
@@ -575,10 +549,13 @@ class PackType(PrimitiveTypeMixin):
     @staticmethod
     def by_descr(descr):
         _t = INT
-        if descr.is_array_of_floats() or descr.loaded_float:
+        if descr.is_array_of_floats() or descr.concrete_type == FLOAT:
             _t = FLOAT
         pt = PackType(_t, descr.get_item_size_in_bytes(), descr.is_item_signed())
         return pt
+
+    def is_valid(self):
+        return self.type != PackType.UNKNOWN_TYPE and self.size > 0
 
     def record_vbox(self, vbox):
         if self.type == PackType.UNKNOWN_TYPE:
@@ -657,9 +634,8 @@ class VecScheduleData(SchedulerData):
         self.pack = pack
         # properties that hold for the pack are:
         # isomorphism (see func above)
-
         if pack.ptype is None:
-            self.propagete_ptype()
+            self.propagate_ptype()
 
         self.preamble_ops = []
         if pack.is_overloaded(self.vec_reg_size):
@@ -699,7 +675,7 @@ class VecScheduleData(SchedulerData):
 
         self.preamble_ops.append(vop)
 
-    def propagete_ptype(self):
+    def propagate_ptype(self):
         op0 = self.pack.operations[0].getoperation()
         packargs = ROP_ARG_RES_VECTOR.get(op0.vector, None)
         if packargs is None:
@@ -708,21 +684,15 @@ class VecScheduleData(SchedulerData):
         ptype = packargs.getpacktype()
         for i,arg in enumerate(args):
             if packargs.vector_arg(i):
-                vbox = self.get_vbox_for(arg)
+                _, vbox = self.box_to_vbox.get(arg, (-1, None))
                 if vbox is not None:
                     ptype.record_vbox(vbox)
                 else:
-                    ptype.size = arg
-                    raise NotImplementedError
+                    # vbox of a variable/constant is not present here
+                    pass
+        if not we_are_translated():
+            assert ptype.is_valid()
         self.pack.ptype = ptype
-
-
-    def get_vbox_for(self, arg):
-        try:
-            _, vbox = self.box_to_vbox[arg]
-            return vbox
-        except KeyError:
-            return None
 
     def vector_result(self, vop, packargs):
         ops = self.pack.operations
@@ -743,11 +713,12 @@ class VecScheduleData(SchedulerData):
             i += 1
 
     def box_vector(self, ptype):
+        """ TODO remove this? """
         return BoxVector(ptype.type, self.pack_ops, ptype.size, ptype.signed)
 
     def vector_arg(self, vop, argidx, expand):
         ops = self.pack.operations
-        vbox = self.get_vbox_for(vop.getarg(argidx))
+        _, vbox = self.box_to_vbox.get(vop.getarg(argidx), (-1, None))
         if not vbox:
             if expand:
                 vbox = self.expand_box_to_vector_box(vop, argidx)
@@ -759,24 +730,31 @@ class VecScheduleData(SchedulerData):
         packed = vbox.item_count
         if packed < packable:
             args = [op.getoperation().getarg(argidx) for op in ops]
-            self.package(vbox, packed, args)
+            self.package(vbox, packed, args, packable)
         vop.setarg(argidx, vbox)
         return vbox
 
-    def package(self, tgt_box, index, args):
+    def package(self, tgt_box, index, args, packable):
+        """ If there are two vector boxes:
+          v1 = [<empty>,<emtpy>,X,Y]
+          v2 = [A,B,<empty>,<empty>]
+          this function creates a box pack instruction to merge them to:
+          v1/2 = [A,B,X,Y]
+        """
         arg_count = len(args)
         i = index
-        while i < arg_count:
+        while i < arg_count and tgt_box.item_count < packable:
             arg = args[i]
             pos, src_box = self.box_to_vbox.get(arg, (-1, None))
-            if pos != 0:
+            if pos == -1:
                 i += 1
                 continue
             op = ResOperation(rop.VEC_BOX_PACK,
                               [tgt_box, src_box, ConstInt(i),
                                ConstInt(src_box.item_count)], None)
             self.preamble_ops.append(op)
-            i += 1
+            tgt_box.item_count += src_box.item_count
+            i += src_box.item_count
 
     def expand_box_to_vector_box(self, vop, argidx):
         arg = vop.getarg(argidx)
@@ -792,7 +770,6 @@ class VecScheduleData(SchedulerData):
             i += 1
 
         vbox = BoxVector(arg.type, self.pack_ops)
-        print "creating vectorbox", vbox, "of type", arg.type
         if all_same_box:
             expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(self.pack_ops)], vbox)
             self.preamble_ops.append(expand_op)

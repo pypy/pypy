@@ -18,6 +18,9 @@ class TestNumpyJit(Jit386Mixin):
         if not self.CPUClass.vector_extension:
             py.test.skip("needs vector extension to run (for now)")
 
+    def assert_float_equal(self, f1, f2, delta=0.0001):
+        assert abs(f1-f2) < delta
+
     def setup_class(cls):
         default = """
         a = [1,2,3,4]
@@ -55,12 +58,19 @@ class TestNumpyJit(Jit386Mixin):
                 w_res = i.getitem(s)
             if isinstance(w_res, boxes.W_Float64Box):
                 return w_res.value
+            if isinstance(w_res, boxes.W_Float32Box):
+                return float(w_res.value)
             elif isinstance(w_res, boxes.W_Int64Box):
                 return float(w_res.value)
+            elif isinstance(w_res, boxes.W_Int32Box):
+                return float(int(w_res.value))
+            elif isinstance(w_res, boxes.W_Int16Box):
+                return float(int(w_res.value))
             elif isinstance(w_res, boxes.W_LongBox):
                 return float(w_res.value)
             elif isinstance(w_res, boxes.W_BoolBox):
                 return float(w_res.value)
+            print "ERROR: did not implement return type for interpreter"
             raise TypeError(w_res)
 
         if self.graph is None:
@@ -80,51 +90,44 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         return retval
 
-    def define_add_float():
+    def define_float32_add():
         return """
         a = |30|
         b = a + a
-        b -> 3
+        b -> 15
         """
+    def test_float32_add(self):
+        result = self.run("float32_add")
+        self.assert_float_equal(result, 15.0 + 15.0)
 
-    def define_add_float32():
+    def define_float_add():
         return """
         a = astype(|30|, float32)
         b = a + a
-        b -> 3
+        b -> 17
         """
+    def test_float_add(self):
+        result = self.run("float_add")
+        self.assert_float_equal(result, 17.0 + 17.0)
 
-    def test_add_float(self):
-        result = self.run("add_float")
-        assert result == 3 + 3
-
-    def test_add_float32(self):
-        result = self.run("add_float32")
-        assert result == 3.0 + 3.0
-
-    def define_add_float32_const():
+    def define_float32_add_const():
         return """
-        a = astype(|30|, float32) + 3.0
+        a = astype(|30|, float32)
+        b = a + 77.345
+        b -> 29
+        """
+    def test_float32_add_const(self):
+        result = self.run("float32_add_const")
+        self.assert_float_equal(result, 29.0 + 77.345)
+
+    def define_float_add_const():
+        return """
+        a = |30| + 25.5
         a -> 29
         """
-
-    def define_add_float_const():
-        return """
-        a = astype(|30|, float32) + 3.0
-        a -> 29
-        """
-
-    def test_add_float_const(self):
-        result = self.run("add_float_const")
-        assert result == 29.0 + 3.0
-        self.check_trace_count(1)
-    def test_add_float22_const(self):
-        result = self.run("add_float_const")
-        assert result == 29.0 + 3.0
-        self.check_trace_count(1)
-        result = self.run("add_float32_const")
-        assert result == 29.0 + 3.0
-        self.check_trace_count(1)
+    def test_float_add_const(self):
+        result = self.run("float_add_const")
+        self.assert_float_equal(result, 29.0 + 25.5)
 
     def define_pow():
         return """

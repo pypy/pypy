@@ -726,9 +726,6 @@ class AbstractX86CodeBuilder(object):
     MOVD32_xs = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_sp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
-    MOVUPS_mx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_const(1))
-    MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
-    MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
     MOVSS_xx = xmminsn('\xF3', rex_nw, '\x0F\x10', register(1,8), register(2), '\xC0')
 
@@ -906,14 +903,14 @@ define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)],
 define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
                    regtype='XMM')
 
-define_modrm_modes('MOVDQA_x*', ['\x66', rex_nw, '\x0F\x6F', register(1, 8)],
-                   regtype='XMM')
-define_modrm_modes('MOVDQA_*x', ['\x66', rex_nw, '\x0F\x7F', register(2, 8)],
-                   regtype='XMM')
-define_modrm_modes('MOVDQU_x*', ['\xF3', rex_nw, '\x0F\x6F', register(1, 8)],
-                   regtype='XMM')
-define_modrm_modes('MOVDQU_*x', ['\xF3', rex_nw, '\x0F\x7F', register(2, 8)],
-                   regtype='XMM')
+define_modrm_modes('MOVDQA_x*', ['\x66', rex_nw, '\x0F\x6F', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVDQA_*x', ['\x66', rex_nw, '\x0F\x7F', register(2, 8)], regtype='XMM')
+define_modrm_modes('MOVDQU_x*', ['\xF3', rex_nw, '\x0F\x6F', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVDQU_*x', ['\xF3', rex_nw, '\x0F\x7F', register(2, 8)], regtype='XMM')
+define_modrm_modes('MOVUPS_x*', [        rex_nw, '\x0F\x10', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVUPS_*x', [        rex_nw, '\x0F\x11', register(2, 8)], regtype='XMM')
+define_modrm_modes('MOVUPD_x*', ['\x66', rex_nw, '\x0F\x10', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVUPD_*x', ['\x66', rex_nw, '\x0F\x11', register(2, 8)], regtype='XMM')
 
 define_modrm_modes('SQRTSD_x*', ['\xF2', rex_nw, '\x0F\x51', register(1,8)], regtype='XMM')
 

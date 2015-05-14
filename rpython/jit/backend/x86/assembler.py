@@ -2474,9 +2474,9 @@ class Assembler386(BaseAssembler):
                 self.mc.MOVDQU(resloc, src_addr)
         else:
             if itemsize == 4:
-                self.mc.MOVSS(resloc, src_addr)
+                self.mc.MOVUPS(resloc, src_addr)
             elif itemsize == 8:
-                self.mc.MOVSD(resloc, src_addr)
+                self.mc.MOVUPD(resloc, src_addr)
 
     def genop_discard_vec_setarrayitem_raw(self, op, arglocs):
         # considers item scale (raw_store does not)
@@ -2500,9 +2500,9 @@ class Assembler386(BaseAssembler):
                 self.mc.MOVDQU(dest_loc, value_loc)
         else:
             if itemsize == 4:
-                self.mc.MOVSS(dest_loc, value_loc)
+                self.mc.MOVUPS(dest_loc, value_loc)
             elif itemsize == 8:
-                self.mc.MOVSD(dest_loc, value_loc)
+                self.mc.MOVUPD(dest_loc, value_loc)
 
     def genop_vec_int_add(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
