@@ -413,8 +413,15 @@ class W_Ufunc1(W_Ufunc):
         assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(space, shape, func, calc_dtype, res_dtype,
-                          w_obj, out)
+        if out is None:
+            w_res = W_NDimArray.from_shape(
+                space, shape, res_dtype, w_instance=w_obj)
+        else:
+            w_res = out
+        w_res = loop.call1(space, shape, func, calc_dtype, w_obj, w_res)
+        if out is None:
+            w_res = space.call_method(w_obj, '__array_wrap__', w_res)
+        return w_res
 
     def call_scalar(self, space, w_arg, in_dtype, out_dtype, out):
         w_val = self.func(in_dtype, w_arg.convert_to(space, in_dtype))

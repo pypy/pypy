@@ -91,16 +91,12 @@ call1_driver = jit.JitDriver(
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
     reds='auto')
 
-def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
+def call1(space, shape, func, calc_dtype, w_obj, w_ret):
     obj_iter, obj_state = w_obj.create_iter(shape)
     obj_iter.track_index = False
-
-    if out is None:
-        w_ret = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
-    else:
-        w_ret = out
     out_iter, out_state = w_ret.create_iter(shape)
     shapelen = len(shape)
+    res_dtype = w_ret.get_dtype()
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      calc_dtype=calc_dtype, res_dtype=res_dtype)
@@ -108,8 +104,6 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         out_iter.setitem(out_state, func(calc_dtype, elem).convert_to(space, res_dtype))
         out_state = out_iter.next(out_state)
         obj_state = obj_iter.next(obj_state)
-    if out is None:
-        w_ret = space.call_method(w_obj, '__array_wrap__', w_ret)
     return w_ret
 
 call_many_to_one_driver = jit.JitDriver(
@@ -181,7 +175,7 @@ def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
             vals[i] = in_iters[i].getitem(in_states[i])
         w_arglist = space.newlist(vals)
         w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
-        # w_outvals should be a tuple, but func can return a single value as well 
+        # w_outvals should be a tuple, but func can return a single value as well
         if space.isinstance_w(w_outvals, space.w_tuple):
             batch = space.listview(w_outvals)
             for i in range(len(batch)):
