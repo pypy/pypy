@@ -405,7 +405,7 @@ class VectorizingOptimizer(Optimizer):
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = rop.VEC_FLOAT_UNPACK
-            if vbox.type == INT:
+            if vbox.item_type == INT:
                 opnum = rop.VEC_INT_UNPACK
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.emit_operation(unpack_op)
@@ -534,6 +534,7 @@ class PackType(PrimitiveTypeMixin):
     UNKNOWN_TYPE = '-'
 
     def __init__(self, type, size, signed):
+        assert type in (FLOAT, INT, PackType.UNKNOWN_TYPE)
         self.type = type
         self.size = size
         self.signed = signed
@@ -563,7 +564,8 @@ class PackType(PrimitiveTypeMixin):
 
     def record_vbox(self, vbox):
         if self.type == PackType.UNKNOWN_TYPE:
-            self.type = vbox.type
+            self.type = vbox.item_type
+            assert self.type in (FLOAT, INT)
             self.signed = vbox.signed
         if vbox.item_size > self.size:
             self.size = vbox.item_size
@@ -609,10 +611,10 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_RAW_STORE:        PackArgs((2,), result=False),
     rop.VEC_SETARRAYITEM_RAW: PackArgs((2,), result=False),
 
-    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: PackArgs((0,), result_type=PackType(FLOAT, 4, True)),
-    rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: PackArgs((0,), result_type=PackType(FLOAT, 8, True), index=1),
+    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: PackArgs((0,), result_type=PackType(FLOAT, 4, False)),
+    rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: PackArgs((0,), result_type=PackType(FLOAT, 8, False), index=1),
     rop.VEC_CAST_FLOAT_TO_INT: PackArgs((0,), result_type=PackType(INT, 8, True)),
-    rop.VEC_CAST_INT_TO_FLOAT: PackArgs((0,), result_type=PackType(FLOAT, 8, True)),
+    rop.VEC_CAST_INT_TO_FLOAT: PackArgs((0,), result_type=PackType(FLOAT, 8, False)),
 }
 
 
@@ -722,15 +724,13 @@ class VecScheduleData(SchedulerData):
         ops = self.pack.operations
         _, vbox = self.box_to_vbox.get(vop.getarg(argidx), (-1, None))
         if not vbox:
-            if expand:
-                vbox = self.expand_box_to_vector_box(vop, argidx)
-            else:
-                assert False, "not allowed to expand" \
-                              ", but do not have a vector box as arg"
+            vbox = self.expand_box_to_vector_box(vop, argidx)
         # vbox is a primitive type mixin
         packable = self.vec_reg_size // self.pack.ptype.getsize()
         packed = vbox.item_count
         if packed < packable:
+            # due to casting problems values might be scattered along
+            # different vector boxes
             args = [op.getoperation().getarg(argidx) for op in ops]
             self.package(vbox, packed, args, packable)
             _, vbox = self.box_to_vbox.get(vop.getarg(argidx), (-1, None))
@@ -745,7 +745,7 @@ class VecScheduleData(SchedulerData):
           v1/2 = [A,B,X,Y]
         """
         opnum = rop.VEC_FLOAT_PACK
-        if tgt_box.type == INT:
+        if tgt_box.item_type == INT:
             opnum = rop.VEC_INT_PACK
         arg_count = len(args)
         i = index
@@ -801,9 +801,16 @@ class VecScheduleData(SchedulerData):
                 break
             i += 1
 
-        vbox = BoxVector(arg.type, self.pack_ops)
+        box_type = arg.type
+        if isinstance(arg, BoxVector):
+            box_type = arg.item_type
+        expand_opnum = rop.VEC_FLOAT_EXPAND
+        if box_type == INT:
+            expand_opnum = rop.VEC_INT_EXPAND
+
+        vbox = BoxVector(box_type, self.pack_ops)
         if all_same_box:
-            expand_op = ResOperation(rop.VEC_EXPAND, [arg, ConstInt(self.pack_ops)], vbox)
+            expand_op = ResOperation(expand_opnum, [arg], vbox)
             self.preamble_ops.append(expand_op)
         else:
             resop = ResOperation(rop.VEC_BOX, [ConstInt(self.pack_ops)], vbox)

@@ -538,9 +538,16 @@ class Operator(Node):
     def __repr__(self):
         return '(%r %s %r)' % (self.lhs, self.name, self.rhs)
 
-class FloatConstant(Node):
+class NumberConstant(Node):
     def __init__(self, v):
-        self.v = float(v)
+        assert len(v) > 0
+        c = v[-1]
+        if c == 'f':
+            self.v = float(v[:-1])
+        elif c == 'i':
+            self.v = int(v[:-1])
+        else:
+            self.v = float(v)
 
     def __repr__(self):
         return "Const(%s)" % self.v
@@ -766,7 +773,7 @@ class FunctionCall(Node):
         return W_NDimArray.new_scalar(interp.space, dtype, w_res)
 
 _REGEXES = [
-    ('-?[\d\.]+', 'number'),
+    ('-?[\d\.]+(i|f)?', 'number'),
     ('\[', 'array_left'),
     (':', 'colon'),
     ('\w+', 'identifier'),
@@ -840,7 +847,7 @@ class Parser(object):
             start = 0
         else:
             if tokens.get(0).name != 'colon':
-                return FloatConstant(start_tok.v)
+                return NumberConstant(start_tok.v)
             start = int(start_tok.v)
             tokens.pop()
         if not tokens.get(0).name in ['colon', 'number']:
@@ -938,7 +945,7 @@ class Parser(object):
         while True:
             token = tokens.pop()
             if token.name == 'number':
-                elems.append(FloatConstant(token.v))
+                elems.append(NumberConstant(token.v))
             elif token.name == 'array_left':
                 elems.append(ArrayConstant(self.parse_array_const(tokens)))
             elif token.name == 'paren_left':

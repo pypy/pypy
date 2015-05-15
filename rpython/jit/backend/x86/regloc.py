@@ -648,10 +648,20 @@ class LocationCodeBuilder(object):
     MOVUPS = _binaryop('MOVUPS')
     MOVUPD = _binaryop('MOVUPD')
     ADDSD = _binaryop('ADDSD')
-    ADDPD = _binaryop('ADDPD')
     SUBSD = _binaryop('SUBSD')
     MULSD = _binaryop('MULSD')
     DIVSD = _binaryop('DIVSD')
+
+    # packed
+    ADDPD = _binaryop('ADDPD')
+    ADDPS = _binaryop('ADDPS')
+    SUBPD = _binaryop('SUBPD')
+    SUBPS = _binaryop('SUBPS')
+    MULPD = _binaryop('MULPD')
+    MULPS = _binaryop('MULPS')
+    DIVPD = _binaryop('DIVPD')
+    DIVPS = _binaryop('DIVPS')
+
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
@@ -659,6 +669,8 @@ class LocationCodeBuilder(object):
     CVTSS2SD = _binaryop('CVTSS2SD')
     CVTPD2PS = _binaryop('CVTPD2PS')
     CVTPS2PD = _binaryop('CVTPS2PD')
+    CVTPD2DQ = _binaryop('CVTPD2DQ')
+    CVTDQ2PD = _binaryop('CVTDQ2PD')
     
     SQRTSD = _binaryop('SQRTSD')
 
@@ -670,10 +682,14 @@ class LocationCodeBuilder(object):
     PADDW = _binaryop('PADDW')
     PADDB = _binaryop('PADDB')
     PSUBQ = _binaryop('PSUBQ')
+    PSUBD = _binaryop('PSUBD')
+    PSUBW = _binaryop('PSUBW')
+    PSUBQ = _binaryop('PSUBQ')
     PAND  = _binaryop('PAND')
     POR   = _binaryop('POR')
     PXOR  = _binaryop('PXOR')
     PCMPEQD = _binaryop('PCMPEQD')
+    PSRLDQ = _binaryop('PSRLDQ')
 
     MOVDQ = _binaryop('MOVDQ')
     MOVD32 = _binaryop('MOVD32')
@@ -684,6 +700,11 @@ class LocationCodeBuilder(object):
     UNPCKLPD = _binaryop('UNPCKLPD')
     UNPCKHPS = _binaryop('UNPCKHPS')
     UNPCKLPS = _binaryop('UNPCKLPS')
+
+    PUNPCKLQDQ = _binaryop('PUNPCKLQDQ')
+    PUNPCKHQDQ = _binaryop('PUNPCKHQDQ')
+    PUNPCKLDQ = _binaryop('PUNPCKLDQ')
+    PUNPCKHDQ = _binaryop('PUNPCKHDQ')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

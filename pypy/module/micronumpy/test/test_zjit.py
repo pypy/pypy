@@ -150,6 +150,40 @@ class TestNumpyJit(Jit386Mixin):
         self.assert_float_equal(result, 29.0 + 25.5)
         self.check_vectorized(1, 1)
 
+    def define_int_add_const():
+        return """
+        a = astype(|30|, int)
+        b = a + 1i
+        c = a + 2.0
+        x1 = b -> 7
+        x2 = b -> 8
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
+        """
+    def test_int_add_const(self):
+        result = self.run("int_add_const")
+        assert int(result) == 7+1+8+1+11+2+12+2
+        self.check_vectorized(1, 1)
+
+    def define_int32_add_const():
+        return """
+        a = astype(|30|, int32)
+        b = a + 1i
+        c = a + 2.0
+        x1 = b -> 7
+        x2 = b -> 8
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
+        """
+    def test_int32_add_const(self):
+        result = self.run("int32_add_const")
+        assert int(result) == 7+1+8+1+11+2+12+2
+        self.check_vectorized(1, 1)
+
+
+
     def define_pow():
         return """
         a = |30| ** 2

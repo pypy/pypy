@@ -22,7 +22,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, VECTOR, TargetToken)
+    ConstFloat, BoxInt, BoxFloat, BoxVector, INT, REF, FLOAT, VECTOR,
+    TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
@@ -1556,23 +1557,57 @@ class RegAlloc(BaseRegalloc):
         self.xrm.possibly_free_var(tmpxvar)
         self.perform(op, [loc0, tmploc, imm(index.value), imm(count.value)], result)
 
-    def consider_vec_expand(self, op):
-        count = op.getarg(1)
+    def consider_vec_int_pack(self, op):
+        index = op.getarg(2)
+        count = op.getarg(3)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
         args = op.getarglist()
-        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
-        result = self.force_allocate_reg(op.result, args)
-        self.perform(op, [loc0, imm(count.value)], result)
+        srcloc = self.make_sure_var_in_reg(op.getarg(1), args)
+        resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        residx = 0
+        assert isinstance(op.result, BoxVector)
+        args = op.getarglist()
+        size = op.result.item_size
+        arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
+        self.perform(op, arglocs, resloc)
+
+    def consider_vec_int_unpack(self, op):
+        index = op.getarg(1)
+        count = op.getarg(2)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        args = op.getarglist()
+        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
+        resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        residx = 0
+        assert isinstance(op.result, BoxVector)
+        args = op.getarglist()
+        size = op.result.item_size
+        arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
+        self.perform(op, arglocs, resloc)
+
+    def consider_vec_float_expand(self, op):
+        args = op.getarglist()
+        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
+        resloc = self.force_allocate_reg(op.result, args)
+        vres = op.result
+        assert isinstance(vres, BoxVector)
+        count = vres.item_count
+        size = vres.item_size
+        self.perform(op, [srcloc, imm(size), imm(count)], resloc)
 
     def consider_vec_int_signext(self, op):
-        # there is not much we can do in this case. arithmetic is
-        # done on the vector register, if there is a wrap around,
-        # it is lost, because the register does not have enough bits
-        # to save it.
-        #argloc = self.loc(op.getarg(0))
-        self.xrm.force_result_in_reg(op.result, op.getarg(0))
-        #if op.getarg(1).value != op.getarg(2).value:
-        #    raise NotImplementedError("signext not implemented")
-
+        args = op.getarglist()
+        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
+        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        sizearg = op.getarg(0)
+        result = op.result
+        assert isinstance(sizearg, BoxVector)
+        assert isinstance(result, BoxVector)
+        size = sizearg.item_size
+        tosize = result.item_size
+        self.perform(op, [srcloc, imm(size), imm(tosize)], resloc)
 
     def consider_vec_box(self, op):
         # pseudo instruction, needed to create a new variable
@@ -1583,6 +1618,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_cast_float_to_singlefloat(self, op):
         count = op.getarg(1)
+        assert isinstance(count, ConstInt)
         args = op.getarglist()
         loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
         result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
@@ -1590,6 +1626,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_cast_singlefloat_to_float(self, op):
         index = op.getarg(1)
+        assert isinstance(index, ConstInt)
         args = op.getarglist()
         loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
         result = self.force_allocate_reg(op.result, args)
@@ -1597,6 +1634,16 @@ class RegAlloc(BaseRegalloc):
         tmploc = self.xrm.force_allocate_reg(tmpxvar)
         self.xrm.possibly_free_var(tmpxvar)
         self.perform(op, [loc0, tmploc, imm(index.value)], result)
+
+    def consider_vec_cast_float_to_int(self, op):
+        count = op.getarg(1)
+        assert isinstance(count, ConstInt)
+        args = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
+        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        self.perform(op, [loc0, imm(count.value)], result)
+
+    consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
 
     # ________________________________________
 

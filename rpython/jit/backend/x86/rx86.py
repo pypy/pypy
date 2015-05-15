@@ -710,6 +710,8 @@ class AbstractX86CodeBuilder(object):
 
     CVTPD2PS_xx = xmminsn('\x66', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
     CVTPS2PD_xx = xmminsn(rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTDQ2PD_xx = xmminsn('\xF3', rex_nw, '\x0F\xE6', register(1, 8), register(2), '\xC0')
+    CVTPD2DQ_xx = xmminsn('\xF2', rex_nw, '\x0F\xE6', register(1, 8), register(2), '\xC0')
 
     # These work on machine sized registers, so "MOVDQ" is MOVD when running
     # on 32 bits and MOVQ when running on 64 bits.  "MOVD32" is always 32-bit.
@@ -718,6 +720,7 @@ class AbstractX86CodeBuilder(object):
     MOVDQ_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVDQ_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
     MOVDQ_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVDQ_xx = xmminsn('\xF3', rex_nw, '\x0F\x7E', register(1, 8), register(2), '\xC0')
 
     MOVD32_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD32_sx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), stack_sp(1))
@@ -729,14 +732,26 @@ class AbstractX86CodeBuilder(object):
 
     MOVSS_xx = xmminsn('\xF3', rex_nw, '\x0F\x10', register(1,8), register(2), '\xC0')
 
-    PSRLDQ_xi = xmminsn('\x66\x0F\x73', orbyte(0xd8), mem_reg_plus_const(1))
+    PSRLDQ_xi = xmminsn('\x66', rex_nw, '\x0F\x73', register(1,8), immediate(2, 'b'))
     UNPCKLPD_xx = xmminsn('\x66', rex_nw, '\x0F\x14', register(1, 8), register(2), '\xC0')
     UNPCKHPD_xx = xmminsn('\x66', rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
     UNPCKLPS_xx = xmminsn(        rex_nw, '\x0F\x14', register(1, 8), register(2), '\xC0')
     UNPCKHPS_xx = xmminsn(        rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
     MOVDDUP_xx = xmminsn('\xF2', rex_nw, '\x0F\x12', register(1, 8), register(2), '\xC0')
     SHUFPS_xxi = xmminsn(rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
-    # SSE4.1 PEXTRDD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1,8), register(2), immediate(3,'b'))
+
+    PSHUFD_xxi = xmminsn('\x66', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+
+    # following require SSE4_1
+    PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PEXTRD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x16', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PEXTRW_rxi = xmminsn('\x66', rex_nw, '\x0F\xC4', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PEXTRB_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRQ_xri = xmminsn('\x66', rex_w, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRD_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRW_xri = xmminsn('\x66', rex_nw, '\x0F\xC5', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRB_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x20', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+
     # ------------------------------------------------------------
 
 Conditions = {
@@ -963,6 +978,9 @@ define_pxmm_insn('PAND_x*',      '\xDB')
 define_pxmm_insn('POR_x*',       '\xEB')
 define_pxmm_insn('PXOR_x*',      '\xEF')
 define_pxmm_insn('PUNPCKLDQ_x*', '\x62')
+define_pxmm_insn('PUNPCKHDQ_x*', '\x6A')
+define_pxmm_insn('PUNPCKLQDQ_x*', '\x6C')
+define_pxmm_insn('PUNPCKHQDQ_x*', '\x6D')
 define_pxmm_insn('PCMPEQD_x*',   '\x76')
 
 # ____________________________________________________________

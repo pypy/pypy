@@ -513,6 +513,8 @@ NULLBOX = BoxPtr()
 # ____________________________________________________________
 
 class PrimitiveTypeMixin(object):
+    _mixin_ = True
+
     def gettype(self):
         raise NotImplementedError
     def getsize(self):
@@ -547,6 +549,7 @@ class BoxVector(Box, PrimitiveTypeMixin):
     _extended_display = False
 
     def __init__(self, item_type=FLOAT, item_count=2, item_size=8, signed=True):
+        assert item_type in (FLOAT, INT)
         self.item_type = item_type
         self.item_count = item_count
         self.item_size = item_size

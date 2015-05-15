@@ -2544,33 +2544,25 @@ class Assembler386(BaseAssembler):
     del genop_vec_float_arith
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
-        pass
+        srcloc, sizeloc, tosizeloc = arglocs
+        size = sizeloc.value
+        tosize = tosizeloc.value
+        if size == 8 and tosize == 4:
+            # is there a better sequence to move them?
+            self.mc.MOVDQU(resloc, srcloc)
+            self.mc.PSRLDQ(srcloc, 8)
+            self.mc.PUNPCKLDQ(resloc, srcloc)
+        else:
+            py.test.set_trace()
+            raise NotImplementedError("sign ext missing")
 
-    def genop_vec_expand(self, op, arglocs, resloc):
+    def genop_vec_float_expand(self, op, arglocs, resloc):
         loc0, countloc = arglocs
         count = countloc.value
         if count == 1:
             raise NotImplementedError("expand count 1")
         elif count == 2:
             self.mc.MOVDDUP(resloc, loc0)
-
-    def genop_vec_float_unpack(self, op, arglocs, resloc):
-        loc0, tmploc, indexloc, countloc = arglocs
-        count = countloc.value
-        index = indexloc.value
-        box = op.getarg(0)
-        assert isinstance(box, BoxVector)
-        item_type = box.item_type
-        size = box.item_size
-        if size == 4:
-            tmploc = self._shuffle_by_index(loc0, tmploc, item_type, size, index, count)
-            self.mc.MOVD32_rx(resloc.value, tmploc.value)
-        elif size == 8:
-            pass
-            #if index == 1:
-            #    self.mc.SHUFPD_xxi(resloc, loc0, 0|(1<<2))
-            #else:
-            #    self.mc.UNPCKHPD(resloc, loc0)
 
     def _shuffle_by_index(self, src_loc, tmp_loc, item_type, size, index, count):
         if index == 0 and count == 1:
@@ -2586,12 +2578,9 @@ class Assembler386(BaseAssembler):
                 self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
                 return tmp_loc
             else:
-                py.test.set_trace()
                 raise NotImplementedError("shuffle by index for float64 not impl")
         else:
-            py.test.set_trace()
             raise NotImplementedError("shuffle by index for non floats")
-
 
     def genop_vec_float_pack(self, op, arglocs, resloc):
         resultloc, fromloc, tmploc = arglocs
@@ -2622,9 +2611,73 @@ class Assembler386(BaseAssembler):
         elif size == 8:
             raise NotImplementedError("pack: float double pack")
 
+    def genop_vec_int_pack(self, op, arglocs, resloc):
+        resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
+        size = sizeloc.value
+        srcidx = srcidxloc.value
+        residx = residxloc.value
+        count = countloc.value
+        si = srcidx
+        ri = residx
+        k = count
+        while k > 0:
+            if size == 8:
+                if resultloc.is_xmm:
+                    self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRQ_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                else:
+                    self.mc.PEXTRQ_rxi(resloc.value, sourceloc.value, si)
+            elif size == 4:
+                if resultloc.is_xmm:
+                    self.mc.PEXTRD_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRD_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                else:
+                    self.mc.PEXTRD_rxi(resloc.value, sourceloc.value, si)
+            elif size == 2:
+                if resultloc.is_xmm:
+                    self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRW_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                else:
+                    self.mc.PEXTRW_rxi(resloc.value, sourceloc.value, si)
+            elif size == 1:
+                if resultloc.is_xmm:
+                    self.mc.PEXTRB_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRB_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                else:
+                    self.mc.PEXTRB_rxi(resloc.value, sourceloc.value, si)
+            si += 1
+            ri += 1
+            k -= 1
+
+    genop_vec_int_unpack = genop_vec_int_pack
+
+    def genop_vec_float_unpack(self, op, arglocs, resloc):
+        loc0, tmploc, indexloc, countloc = arglocs
+        count = countloc.value
+        index = indexloc.value
+        box = op.getarg(0)
+        assert isinstance(box, BoxVector)
+        item_type = box.item_type
+        size = box.item_size
+        if size == 4:
+            tmploc = self._shuffle_by_index(loc0, tmploc, item_type, size, index, count)
+            self.mc.MOVD32_rx(resloc.value, tmploc.value)
+        elif size == 8:
+            pass
+            #if index == 1:
+            #    self.mc.SHUFPD_xxi(resloc, loc0, 0|(1<<2))
+            #else:
+            #    self.mc.UNPCKHPD(resloc, loc0)
+
+
     def genop_vec_cast_float_to_singlefloat(self, op, arglocs, resloc):
-        argloc, _ = arglocs
-        self.mc.CVTPD2PS(resloc, argloc)
+        self.mc.CVTPD2PS(resloc, arglocs[0])
+
+    def genop_vec_cast_float_to_int(self, op, arglocs, resloc):
+        self.mc.CVTPD2DQ(resloc, arglocs[0])
+
+    def genop_vec_cast_int_to_float(self, op, arglocs, resloc):
+        self.mc.CVTDQ2PD(resloc, arglocs[0])
 
     def genop_vec_cast_singlefloat_to_float(self, op, arglocs, resloc):
         loc0, tmploc, indexloc = arglocs
