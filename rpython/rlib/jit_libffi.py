@@ -3,8 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import clibffi, jit
 from rpython.rlib.rarithmetic import r_longlong, r_singlefloat
-
-BIG_ENDIAN = sys.byteorder == 'big'
+from rpython.rlib.unroll import unrolling_iterable
 
 FFI_CIF = clibffi.FFI_CIFP.TO
 FFI_TYPE = clibffi.FFI_TYPE_P.TO
@@ -114,8 +113,10 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
     reskind = types.getkind(cif_description.rtype)
     if reskind == 'v':
         jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer)
-    elif reskind == 'i' or reskind == 'u':
-        _do_ffi_call_int(cif_description, func_addr, exchange_buffer)
+    elif reskind == 'i':
+        _do_ffi_call_sint(cif_description, func_addr, exchange_buffer)
+    elif reskind == 'u':
+        _do_ffi_call_uint(cif_description, func_addr, exchange_buffer)
     elif reskind == 'f':
         _do_ffi_call_float(cif_description, func_addr, exchange_buffer)
     elif reskind == 'L': # L is for longlongs, on 32bit
@@ -132,21 +133,44 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
         jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
 
 
-def _do_ffi_call_int(cif_description, func_addr, exchange_buffer):
+_short_sint_types = unrolling_iterable([rffi.SIGNEDCHAR, rffi.SHORT, rffi.INT])
+_short_uint_types = unrolling_iterable([rffi.UCHAR, rffi.USHORT, rffi.UINT])
+
+def _do_ffi_call_sint(cif_description, func_addr, exchange_buffer):
     result = jit_ffi_call_impl_int(cif_description, func_addr,
                                    exchange_buffer)
-    if BIG_ENDIAN:
-        # Special case: we need to store an integer of 'c_size' bytes
-        # only.  To avoid type-specialization hell, we always store a
-        # full Signed here, but by shifting it to the left on big-endian
-        # we get the result that we want.
-        size = rffi.getintfield(cif_description.rtype, 'c_size')
-        if size < SIZE_OF_SIGNED:
-            result <<= (SIZE_OF_SIGNED - size) * 8
-    llop.raw_store(lltype.Void,
-                   llmemory.cast_ptr_to_adr(exchange_buffer),
-                   cif_description.exchange_result,
-                   result)
+    size = types.getsize(cif_description.rtype)
+    for TP in _short_sint_types:     # short **signed** types
+        if size == rffi.sizeof(TP):
+            llop.raw_store(lltype.Void,
+                           llmemory.cast_ptr_to_adr(exchange_buffer),
+                           cif_description.exchange_result,
+                           rffi.cast(TP, result))
+            break
+    else:
+        # default case: expect a full signed number
+        llop.raw_store(lltype.Void,
+                       llmemory.cast_ptr_to_adr(exchange_buffer),
+                       cif_description.exchange_result,
+                       result)
+
+def _do_ffi_call_uint(cif_description, func_addr, exchange_buffer):
+    result = jit_ffi_call_impl_int(cif_description, func_addr,
+                                   exchange_buffer)
+    size = types.getsize(cif_description.rtype)
+    for TP in _short_uint_types:     # short **unsigned** types
+        if size == rffi.sizeof(TP):
+            llop.raw_store(lltype.Void,
+                           llmemory.cast_ptr_to_adr(exchange_buffer),
+                           cif_description.exchange_result,
+                           rffi.cast(TP, result))
+            break
+    else:
+        # default case: expect a full unsigned number
+        llop.raw_store(lltype.Void,
+                       llmemory.cast_ptr_to_adr(exchange_buffer),
+                       cif_description.exchange_result,
+                       rffi.cast(lltype.Unsigned, result))
 
 def _do_ffi_call_float(cif_description, func_addr, exchange_buffer):
     # a separate function in case the backend doesn't support floats
@@ -281,6 +305,11 @@ class types(object):
         #
         elif types.is_struct(ffi_type): return '*'
         return '?'
+
+    @staticmethod
+    @jit.elidable
+    def getsize(ffi_type):
+        return rffi.getintfield(ffi_type, 'c_size')
 
     @staticmethod
     @jit.elidable
