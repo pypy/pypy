@@ -416,6 +416,7 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
 def parse_env(name, key, options):
     ''' Modify options inplace if name exists in os.environ
     '''
+    import os
     v = os.getenv(name)
     if v:
         options[key] = max(1, options[key])
