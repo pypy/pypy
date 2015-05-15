@@ -82,6 +82,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert isinstance(b, matrix)
         assert b.__array_priority__ == 0.0
         assert (b == a).all()
+        assert isinstance(b.view(), matrix) 
         a = array(5)[()]
         for s in [matrix, ndarray]:
             b = a.view(s)

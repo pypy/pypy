@@ -883,6 +883,7 @@ class __extend__(W_NDimArray):
         if dtype.is_object() != impl.dtype.is_object():
             raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
                 ' one of target dtype or dtype is object dtype')
+        w_type = w_type or space.type(self)
         v = impl.get_view(space, base, dtype, new_shape, strides, backstrides)
         w_ret = wrap_impl(space, w_type, self, v)
         return w_ret
