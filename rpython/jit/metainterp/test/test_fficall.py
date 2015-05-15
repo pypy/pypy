@@ -48,8 +48,8 @@ class FfiCallTests(object):
     def _run(self, atypes, rtype, avalues, rvalue,
              expected_call_release_gil=1,
              supports_floats=True,
-             supports_longlong=True,
-             supports_singlefloats=True):
+             supports_longlong=False,
+             supports_singlefloats=False):
 
         cif_description = get_description(atypes, rtype)
 
@@ -156,20 +156,24 @@ class FfiCallTests(object):
                       -42434445)
 
     def test_simple_call_float(self, **kwds):
+        kwds.setdefault('supports_floats', True)
         self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2, **kwds)
 
     def test_simple_call_longlong(self, **kwds):
+        kwds.setdefault('supports_longlong', True)
         maxint32 = 2147483647
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
         self._run([types.slonglong] * 2, types.slonglong, [a, b], a, **kwds)
 
-    def test_simple_call_singlefloat_args(self):
+    def test_simple_call_singlefloat_args(self, **kwds):
+        kwds.setdefault('supports_singlefloats', True)
         self._run([types.float] * 2, types.double,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
                   -4.5)
 
     def test_simple_call_singlefloat(self, **kwds):
+        kwds.setdefault('supports_singlefloats', True)
         self._run([types.float] * 2, types.float,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
                   r_singlefloat(-4.5), **kwds)
@@ -323,8 +327,3 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_simple_call_singlefloat_unsupported(self):
         self.test_simple_call_singlefloat(supports_singlefloats=False,
                                           expected_call_release_gil=0)
-
-    def test_simple_call_float_even_if_other_unsupported(self):
-        self.test_simple_call_float(supports_longlong=False,
-                                    supports_singlefloats=False)
-        # this is the default:      expected_call_release_gil=1
