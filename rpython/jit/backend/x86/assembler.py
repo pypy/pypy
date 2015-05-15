@@ -7,7 +7,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import Const, Box, VOID, BoxVector
+from rpython.jit.metainterp.history import Const, Box, VOID, BoxVector, ConstInt
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -2576,30 +2576,36 @@ class Assembler386(BaseAssembler):
             return src_loc
         select = 0
         if item_type == FLOAT:
-            self.mc.MOVSS(tmp_loc, src_loc)
-            i = 0
-            while i < count:
-                select |= (index+i<<(i*2))
-                i += 1
-            self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
-            return tmp_loc
+            if size == 4:
+                self.mc.MOVUPS(tmp_loc, src_loc) # TODO could be aligned if xx
+                i = 0
+                while i < count:
+                    select |= (index+i<<(i*2))
+                    i += 1
+                self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
+                return tmp_loc
+            else:
+                py.test.set_trace()
+                raise NotImplementedError("shuffle by index for float64 not impl")
         else:
             py.test.set_trace()
             raise NotImplementedError("shuffle by index for non floats")
 
 
     def genop_vec_box_pack(self, op, arglocs, resloc):
-        toloc, fromloc, indexloc, sizeloc = arglocs
-        toarg = op.getarg(0)
-        index = indexloc.value
-        size = sizeloc.value
+        toloc, fromloc, tmploc = arglocs
+        result = op.result
+        indexarg = op.getarg(2)
+        assert isinstance(result, BoxVector)
+        assert isinstance(indexarg, ConstInt)
+        index = indexarg.value
+        size = result.item_size
+        #py.test.set_trace()
         if size == 4:
-            select = 0
+            select = (1 << 2) # move 0 -> 0, 1 -> 1 for toloc
+            # TODO
             if index == 2:
-                select |= (1<<0)
-                select |= (2<<2)
-                select |= (3<<4)
-                select |= (4<<6)
+                select |= (1<<6) # move 0 -> 2, 1 -> 3 for fromloc
             else:
                 raise NotImplementedError("index is not equal to 2")
 
@@ -2621,7 +2627,7 @@ class Assembler386(BaseAssembler):
             self.mc.CVTPS2PD(resloc, loc0)
         else:
             assert index == 2
-            self.mc.MOVSS_xx(tmploc.value, loc0.value)
+            self.mc.MOVUPS(tmploc, loc0) # TODO could be aligned if xx
             select = (2<<0)|(3<<2) # move pos 2->0,3->1
             self.mc.SHUFPS_xxi(tmploc.value, tmploc.value, select)
             self.mc.CVTPS2PD(resloc, tmploc) # expand

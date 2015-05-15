@@ -1192,8 +1192,8 @@ class BaseTestVectorize(VecTestHelper):
         v224 = vec_float_add(v219, v222, 2)
         v225 = vec_cast_float_to_singlefloat(v223, 2)
         v226 = vec_cast_float_to_singlefloat(v224, 2)
-        vec_box_pack(v225, v226, 2, 2)
-        vec_raw_store(p2, i4, v225, 4, descr=singlefloatarraydescr)
+        v227 = vec_box_pack(v225, v226, 2, 2)
+        vec_raw_store(p2, i4, v227, 4, descr=singlefloatarraydescr)
         jump(p0, p1, p2, i210, i189)
         """
         vopt = self.vectorize(self.parse_loop(ops))

@@ -6,9 +6,15 @@ import py
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats
+from rpython.jit.metainterp.jitprof import Profiler
+from rpython.rlib.jit import Counters
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
+
+def get_profiler():
+    from rpython.jit.metainterp import pyjitpl
+    return pyjitpl._warmrunnerdesc.metainterp_sd.profiler
 
 class TestNumpyJit(Jit386Mixin):
     graph = None
@@ -79,12 +85,23 @@ class TestNumpyJit(Jit386Mixin):
                                              listcomp=True,
                                              backendopt=True,
                                              graph_and_interp_only=True,
+                                             ProfilerClass=Profiler,
                                              vectorize=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
 
+    def check_vectorized(self, expected_tried, expected_success):
+        profiler = get_profiler()
+        tried = profiler.get_counter(Counters.OPT_VECTORIZE_TRY)
+        success = profiler.get_counter(Counters.OPT_VECTORIZED)
+        assert tried >= success
+        assert tried == expected_tried
+        assert success == expected_success
+
     def run(self, name):
         self.compile_graph()
+        profiler = get_profiler()
+        profiler.start()
         reset_jit()
         i = self.code_mapping[name]
         retval = self.interp.eval_graph(self.graph, [i])
@@ -92,23 +109,25 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_float32_add():
         return """
-        a = |30|
+        a = astype(|30|, float32)
         b = a + a
         b -> 15
         """
     def test_float32_add(self):
         result = self.run("float32_add")
         self.assert_float_equal(result, 15.0 + 15.0)
+        self.check_vectorized(2, 2)
 
     def define_float_add():
         return """
-        a = astype(|30|, float32)
+        a = |30|
         b = a + a
-        b -> 17
+        b -> 15
         """
     def test_float_add(self):
         result = self.run("float_add")
         self.assert_float_equal(result, 17.0 + 17.0)
+        self.check_vectorized(1, 1)
 
     def define_float32_add_const():
         return """
@@ -119,6 +138,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_float32_add_const(self):
         result = self.run("float32_add_const")
         self.assert_float_equal(result, 29.0 + 77.345)
+        self.check_vectorized(2, 2)
 
     def define_float_add_const():
         return """
@@ -128,6 +148,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_float_add_const(self):
         result = self.run("float_add_const")
         self.assert_float_equal(result, 29.0 + 25.5)
+        self.check_vectorized(1, 1)
 
     def define_pow():
         return """

@@ -13,6 +13,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 class NotAVectorizeableLoop(JitException):
@@ -42,10 +43,10 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
     try:
-        jitdriver_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
+        metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
-        jitdriver_sd.profiler.count(Counters.OPT_VECTORIZED)
+        metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
     except NotAVectorizeableLoop:
         # vectorization is not possible, propagate only normal optimizations
         loop.operations = orig_ops
@@ -690,8 +691,6 @@ class VecScheduleData(SchedulerData):
                 else:
                     # vbox of a variable/constant is not present here
                     pass
-        if not we_are_translated():
-            assert ptype.is_valid()
         self.pack.ptype = ptype
 
     def vector_result(self, vop, packargs):
@@ -731,6 +730,7 @@ class VecScheduleData(SchedulerData):
         if packed < packable:
             args = [op.getoperation().getarg(argidx) for op in ops]
             self.package(vbox, packed, args, packable)
+            _, vbox = self.box_to_vbox.get(vop.getarg(argidx), (-1, None))
         vop.setarg(argidx, vbox)
         return vbox
 
@@ -749,12 +749,39 @@ class VecScheduleData(SchedulerData):
             if pos == -1:
                 i += 1
                 continue
+            new_box = tgt_box.clonebox()
+            new_box.item_count += src_box.item_count
             op = ResOperation(rop.VEC_BOX_PACK,
                               [tgt_box, src_box, ConstInt(i),
-                               ConstInt(src_box.item_count)], None)
+                               ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)
-            tgt_box.item_count += src_box.item_count
+            self._check_vec_pack(op)
             i += src_box.item_count
+
+            # overwrite the new positions, arguments now live in new_box
+            # at a new position
+            for j in range(i):
+                arg = args[j]
+                self.box_to_vbox[arg] = (j, new_box)
+
+    def _check_vec_pack(self, op):
+        result = op.result
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        index = op.getarg(2)
+        count = op.getarg(3)
+        assert isinstance(result, BoxVector)
+        assert isinstance(arg0, BoxVector)
+        assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
+        assert arg0.item_size == result.item_size
+        if isinstance(arg1, BoxVector):
+            assert arg1.item_size == result.item_size
+        else:
+            assert count.value == 1
+        assert index.value < result.item_size
+        assert index.value + count.value <= result.item_size
+        assert result.item_count > arg0.item_count
 
     def expand_box_to_vector_box(self, vop, argidx):
         arg = vop.getarg(argidx)

@@ -1477,7 +1477,7 @@ class RegAlloc(BaseRegalloc):
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
-        integer = not descr.is_array_of_floats()
+        integer = not (descr.is_array_of_floats() or descr.concrete_type == FLOAT)
         aligned = False
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
@@ -1498,7 +1498,7 @@ class RegAlloc(BaseRegalloc):
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
 
-        integer = not descr.is_array_of_floats()
+        integer = not (descr.is_array_of_floats() or descr.concrete_type == FLOAT)
         aligned = False
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
@@ -1536,15 +1536,13 @@ class RegAlloc(BaseRegalloc):
     del consider_vec_logic
 
     def consider_vec_box_pack(self, op):
-        count = op.getarg(3)
-        index = op.getarg(2)
-        assert isinstance(count, ConstInt)
-        assert isinstance(index, ConstInt)
-        itemsize = self.assembler.cpu.vector_register_size // count.value
         args = op.getarglist()
-        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
         loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
-        self.perform(op, [loc0, loc1, imm(index.value), imm(itemsize)], None)
+        result =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        tmpxvar = TempBox()
+        tmploc = self.xrm.force_allocate_reg(tmpxvar)
+        self.xrm.possibly_free_var(tmpxvar)
+        self.perform(op, [result, loc1, tmploc], result)
 
     def consider_vec_box_unpack(self, op):
         count = op.getarg(2)
