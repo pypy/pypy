@@ -1431,41 +1431,6 @@ class BlackholeInterpreter(object):
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
-    def _libffi_save_result(self, cif_description, exchange_buffer, result):
-        ARRAY = lltype.Ptr(rffi.CArray(lltype.typeOf(result)))
-        cast_int_to_ptr = self.cpu.cast_int_to_ptr
-        cif_description = cast_int_to_ptr(cif_description, CIF_DESCRIPTION_P)
-        exchange_buffer = cast_int_to_ptr(exchange_buffer, rffi.CCHARP)
-        #
-        data_out = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
-        rffi.cast(ARRAY, data_out)[0] = result
-    _libffi_save_result._annspecialcase_ = 'specialize:argtype(3)'
-
-    @arguments("self", "i", "i", "i")
-    def bhimpl_libffi_save_result_int(self, cif_description,
-                                      exchange_buffer, result):
-        self._libffi_save_result(cif_description, exchange_buffer, result)
-
-    @arguments("self", "i", "i", "f")
-    def bhimpl_libffi_save_result_float(self, cif_description,
-                                        exchange_buffer, result):
-        result = longlong.getrealfloat(result)
-        self._libffi_save_result(cif_description, exchange_buffer, result)
-
-    @arguments("self", "i", "i", "f")
-    def bhimpl_libffi_save_result_longlong(self, cif_description,
-                                           exchange_buffer, result):
-        # 32-bit only: 'result' is here a LongLong
-        assert longlong.is_longlong(lltype.typeOf(result))
-        self._libffi_save_result(cif_description, exchange_buffer, result)
-
-    @arguments("self", "i", "i", "i")
-    def bhimpl_libffi_save_result_singlefloat(self, cif_description,
-                                              exchange_buffer, result):
-        result = longlong.int2singlefloat(result)
-        self._libffi_save_result(cif_description, exchange_buffer, result)
-
-
     # ----------
     # helpers to resume running in blackhole mode when a guard failed
 

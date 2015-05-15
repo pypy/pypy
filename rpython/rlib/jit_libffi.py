@@ -1,10 +1,10 @@
-
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.extregistry import ExtRegistryEntry
+import sys
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import clibffi, jit
 from rpython.rlib.rarithmetic import r_longlong, r_singlefloat
-from rpython.rlib.nonconst import NonConstant
 
+BIG_ENDIAN = sys.byteorder == 'big'
 
 FFI_CIF = clibffi.FFI_CIFP.TO
 FFI_TYPE = clibffi.FFI_TYPE_P.TO
@@ -13,6 +13,8 @@ FFI_TYPE_PP = clibffi.FFI_TYPE_PP
 FFI_ABI = clibffi.FFI_ABI
 FFI_TYPE_STRUCT = clibffi.FFI_TYPE_STRUCT
 SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
+SIZE_OF_SIGNED = rffi.sizeof(lltype.Signed)
+FFI_ARG_P = rffi.CArrayPtr(clibffi.ffi_arg)
 
 # Usage: for each C function, make one CIF_DESCRIPTION block of raw
 # memory.  Initialize it by filling all its fields apart from 'cif'.
@@ -33,11 +35,12 @@ SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
 #  - 'exchange_result': the offset in that buffer for the result of the call.
 #    (this and the other offsets must be at least NARGS * sizeof(void*).)
 #
-#  - 'exchange_result_libffi': the actual offset passed to ffi_call().
-#    Differs on big-endian machines if the result is an integer type smaller
-#    than SIZE_OF_FFI_ARG (blame libffi).
-#
 #  - 'exchange_args[nargs]': the offset in that buffer for each argument.
+#
+# Each argument and the result should have enough room for at least
+# SIZE_OF_FFI_ARG bytes, even if they may be smaller.  (Unlike ffi_call,
+# we don't have any special rule about results that are integers smaller
+# than SIZE_OF_FFI_ARG).
 
 CIF_DESCRIPTION = lltype.Struct(
     'CIF_DESCRIPTION',
@@ -48,7 +51,6 @@ CIF_DESCRIPTION = lltype.Struct(
     ('atypes', FFI_TYPE_PP),   #
     ('exchange_size', lltype.Signed),
     ('exchange_result', lltype.Signed),
-    ('exchange_result_libffi', lltype.Signed),
     ('exchange_args', lltype.Array(lltype.Signed,
                           hints={'nolength': True, 'immutable': True})),
     hints={'immutable': True})
@@ -93,12 +95,16 @@ def jit_ffi_prep_cif(cif_description):
 ##
 ## The result is that now the jitcode looks like this:
 ##
-##     %i0 = libffi_call_int(...)
+##     %i0 = direct_call(libffi_call_int, ...)
 ##     -live-
-##     libffi_save_result_int(..., %i0)
+##     raw_store(exchange_result, %i0)
 ##
 ## the "-live-" is the key, because it make sure that the value is not lost if
 ## guard_not_forced fails.
+##
+## The value of %i0 is stored back in the exchange_buffer at the offset
+## exchange_result, which is usually where functions like jit_ffi_call_impl_int
+## have just read it from when called *in interpreter mode* only.
 
 
 def jit_ffi_call(cif_description, func_addr, exchange_buffer):
@@ -129,51 +135,71 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
 def _do_ffi_call_int(cif_description, func_addr, exchange_buffer):
     result = jit_ffi_call_impl_int(cif_description, func_addr,
                                    exchange_buffer)
-    jit_ffi_save_result('int', cif_description, exchange_buffer, result)
+    if BIG_ENDIAN:
+        # Special case: we need to store an integer of 'c_size' bytes
+        # only.  To avoid type-specialization hell, we always store a
+        # full Signed here, but by shifting it to the left on big-endian
+        # we get the result that we want.
+        size = rffi.getintfield(cif_description.rtype, 'c_size')
+        if size < SIZE_OF_SIGNED:
+            result <<= (SIZE_OF_SIGNED - size) * 8
+    llop.raw_store(lltype.Void,
+                   llmemory.cast_ptr_to_adr(exchange_buffer),
+                   cif_description.exchange_result,
+                   result)
 
 def _do_ffi_call_float(cif_description, func_addr, exchange_buffer):
     # a separate function in case the backend doesn't support floats
     result = jit_ffi_call_impl_float(cif_description, func_addr,
                                      exchange_buffer)
-    jit_ffi_save_result('float', cif_description, exchange_buffer, result)
+    llop.raw_store(lltype.Void,
+                   llmemory.cast_ptr_to_adr(exchange_buffer),
+                   cif_description.exchange_result,
+                   result)
 
 def _do_ffi_call_longlong(cif_description, func_addr, exchange_buffer):
     # a separate function in case the backend doesn't support longlongs
     result = jit_ffi_call_impl_longlong(cif_description, func_addr,
                                         exchange_buffer)
-    jit_ffi_save_result('longlong', cif_description, exchange_buffer, result)
+    llop.raw_store(lltype.Void,
+                   llmemory.cast_ptr_to_adr(exchange_buffer),
+                   cif_description.exchange_result,
+                   result)
 
 def _do_ffi_call_singlefloat(cif_description, func_addr, exchange_buffer):
     # a separate function in case the backend doesn't support singlefloats
     result = jit_ffi_call_impl_singlefloat(cif_description, func_addr,
                                            exchange_buffer)
-    jit_ffi_save_result('singlefloat', cif_description, exchange_buffer,result)
+    llop.raw_store(lltype.Void,
+                   llmemory.cast_ptr_to_adr(exchange_buffer),
+                   cif_description.exchange_result,
+                   result)
 
-
-# we must return a NonConstant else we get the constant -1 as the result of
-# the flowgraph, and the codewriter does not produce a box for the
-# result. Note that when not-jitted, the result is unused, but when jitted the
-# box of the result contains the actual value returned by the C function.
 
 @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
 def jit_ffi_call_impl_int(cif_description, func_addr, exchange_buffer):
     jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return NonConstant(-1)
+    # read a complete 'ffi_arg' word
+    resultdata = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
+    return rffi.cast(lltype.Signed, rffi.cast(FFI_ARG_P, resultdata)[0])
 
 @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
 def jit_ffi_call_impl_float(cif_description, func_addr, exchange_buffer):
     jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return NonConstant(-1.0)
+    resultdata = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
+    return rffi.cast(rffi.DOUBLEP, resultdata)[0]
 
 @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
 def jit_ffi_call_impl_longlong(cif_description, func_addr, exchange_buffer):
     jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return r_longlong(-1)
+    resultdata = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
+    return rffi.cast(rffi.LONGLONGP, resultdata)[0]
 
 @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
 def jit_ffi_call_impl_singlefloat(cif_description, func_addr, exchange_buffer):
     jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
-    return r_singlefloat(-1.0)
+    resultdata = rffi.ptradd(exchange_buffer, cif_description.exchange_result)
+    return rffi.cast(rffi.FLOATP, resultdata)[0]
 
 @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
 def jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer):
@@ -191,35 +217,11 @@ def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer):
         data = rffi.ptradd(exchange_buffer, cif_description.exchange_args[i])
         buffer_array[i] = data
     resultdata = rffi.ptradd(exchange_buffer,
-                             cif_description.exchange_result_libffi)
+                             cif_description.exchange_result)
     clibffi.c_ffi_call(cif_description.cif, func_addr,
                        rffi.cast(rffi.VOIDP, resultdata),
                        buffer_array)
-    return -1
 
-
-
-def jit_ffi_save_result(kind, cif_description, exchange_buffer, result):
-    """
-    This is a no-op during normal execution, but actually fills the buffer
-    when jitted
-    """
-    pass
-
-class Entry(ExtRegistryEntry):
-    _about_ = jit_ffi_save_result
-
-    def compute_result_annotation(self, kind_s, *args_s):
-        from rpython.annotator import model as annmodel
-        assert isinstance(kind_s, annmodel.SomeString)
-        assert kind_s.const in ('int', 'float', 'longlong', 'singlefloat')
-
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        vlist = hop.inputargs(lltype.Void, *hop.args_r[1:])
-        return hop.genop('jit_ffi_save_result', vlist,
-                         resulttype=lltype.Void)
-    
 
 # ____________________________________________________________
 

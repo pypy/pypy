@@ -314,13 +314,6 @@ class CPPMethod(object):
                 exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
                 exchange_offset = (exchange_offset + 7) & ~7     # alignment
                 cif_descr.exchange_result = exchange_offset
-                cif_descr.exchange_result_libffi = exchange_offset
-
-                # TODO: left this out while testing (see ctypefunc.py)
-                # For results of precisely these types, libffi has a
-                # strange rule that they will be returned as a whole
-                # 'ffi_arg' if they are smaller.  The difference
-                # only matters on big-endian.
 
                 # then enough room for the result, rounded up to sizeof(ffi_arg)
                 exchange_offset += max(rffi.getintfield(cif_descr.rtype, 'c_size'),
