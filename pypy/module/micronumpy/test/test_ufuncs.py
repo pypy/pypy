@@ -403,6 +403,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = negative(a + a)
         assert (b == [[-2, -4], [-6, -8]]).all()
 
+        class Obj(object):
+            def __neg__(self):
+                return 'neg'
+        x = Obj()
+        assert type(negative(x)) is str
+
     def test_abs(self):
         from numpy import array, absolute
 

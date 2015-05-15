@@ -21,6 +21,7 @@ from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
 from .casting import (
     find_unaryop_result_dtype, find_binop_result_dtype, can_cast_type)
+from .boxes import W_ObjectBox
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -459,7 +460,8 @@ class W_Ufunc1(W_Ufunc):
         w_val = self.func(in_dtype, w_arg.convert_to(space, in_dtype))
         if out is None:
             if out_dtype.is_object():
-                w_val = w_arg
+                assert isinstance(w_val, W_ObjectBox)
+                return w_val.w_obj
             return w_val
         w_val = out_dtype.coerce(space, w_val)
         if out.is_scalar():
