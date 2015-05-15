@@ -45,6 +45,38 @@ def _find_array_wrap(*args, **kwds):
     '''
     raise NotImplementedError()
 
+
+def array_priority(space, w_lhs, w_rhs):
+    # handle array_priority
+    # w_lhs and w_rhs could be of different ndarray subtypes. Numpy does:
+    # 1. if __array_priorities__ are equal and one is an ndarray and the
+    #        other is a subtype,  return a subtype
+    # 2. elif rhs.__array_priority__ is higher, return the type of rhs
+
+    w_ndarray = space.gettypefor(W_NDimArray)
+    lhs_type = space.type(w_lhs)
+    rhs_type = space.type(w_rhs)
+    lhs_for_subtype = w_lhs
+    rhs_for_subtype = w_rhs
+    #it may be something like a FlatIter, which is not an ndarray
+    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+        lhs_type = space.type(w_lhs.base)
+        lhs_for_subtype = w_lhs.base
+    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+        rhs_type = space.type(w_rhs.base)
+        rhs_for_subtype = w_rhs.base
+
+    w_highpriority = w_lhs
+    highpriority_subtype = lhs_for_subtype
+    if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
+        highpriority_subtype = rhs_for_subtype
+        w_highpriority = w_rhs
+    if is_rhs_priority_higher(space, w_lhs, w_rhs):
+        highpriority_subtype = rhs_for_subtype
+        w_highpriority = w_rhs
+    return w_highpriority, highpriority_subtype
+
+
 class W_Ufunc(W_Root):
     _immutable_fields_ = [
         "name", "promote_to_largest", "promote_to_float", "promote_bools", "nin",
@@ -620,8 +652,17 @@ class W_Ufunc2(W_Ufunc):
         assert isinstance(w_rhs, W_NDimArray)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(space, new_shape, self.func, calc_dtype,
-                          res_dtype, w_lhs, w_rhs, out)
+        w_highpriority, out_subtype = array_priority(space, w_lhs, w_rhs)
+        if out is None:
+            w_ret = W_NDimArray.from_shape(space, new_shape, res_dtype,
+                                           w_instance=out_subtype)
+        else:
+            w_ret = out
+        w_ret = loop.call2(space, new_shape, self.func, calc_dtype,
+                           w_lhs, w_rhs, w_ret)
+        if out is None:
+            w_ret = space.call_method(w_highpriority, '__array_wrap__', w_ret)
+        return w_ret
 
     def call_scalar(self, space, w_lhs, w_rhs, in_dtype, out_dtype, out):
         w_val = self.func(in_dtype,
