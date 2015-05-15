@@ -3951,6 +3951,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert np.greater(a, a) is NotImplemented
         assert np.less_equal(a, a) is NotImplemented
 
+    def test_create_from_memory(self):
+        import numpy as np
+        dat = np.array(__builtins__.buffer('1.0'), dtype=np.float64)
+        assert (dat == [49.0, 46.0, 48.0]).all()
+
 
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
