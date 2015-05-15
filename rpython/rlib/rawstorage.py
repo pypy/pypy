@@ -1,10 +1,13 @@
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
+from rpython.rlib import rgc
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rlib.objectmodel import specialize
+from rpython.rtyper.lltypesystem.rstr import STR, _get_raw_str_buf
+from rpython.rtyper.annlowlevel import llstr
 
 RAW_STORAGE = rffi.CCHARP.TO
 RAW_STORAGE_PTR = rffi.CCHARP
@@ -39,6 +42,29 @@ def _raw_storage_setitem_unchecked(storage, index, item):
 @specialize.arg(1)
 def free_raw_storage(storage, track_allocation=True):
     lltype.free(storage, flavor='raw', track_allocation=track_allocation)
+
+
+@rgc.no_collect
+def str_storage_getitem(TP, s, index):
+    lls = llstr(s)
+    # from here, no GC operations can happen
+    buf = _get_raw_str_buf(STR, lls, 0)
+    storage = rffi.cast(RAW_STORAGE_PTR, buf)
+    res = raw_storage_getitem(TP, storage, index)
+    # end of "no GC" section
+    keepalive_until_here(lls)
+    return res
+
+@rgc.no_collect
+def str_storage_getitem_unaligned(TP, s, index):
+    lls = llstr(s)
+    # from here, no GC operations can happen
+    buf = _get_raw_str_buf(STR, lls, 0)
+    storage = rffi.cast(RAW_STORAGE_PTR, buf)
+    res = raw_storage_getitem_unaligned(TP, storage, index)
+    # end of "no GC" section
+    keepalive_until_here(lls)
+    return res
 
 # ____________________________________________________________
 #
