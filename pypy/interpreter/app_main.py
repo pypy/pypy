@@ -420,10 +420,12 @@ def parse_env(name, key, options):
     if v:
         options[key] = max(1, options[key])
         try:
-            newval = max(1, int(v))
-            options[key] = max(options[key], newval)
-        except:
+            newval = int(v)
+        except ValueError:
             pass
+        else:
+            newval = max(1, newval)
+            options[key] = max(options[key], newval)
 
 def parse_command_line(argv):
     import os
