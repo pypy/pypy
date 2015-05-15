@@ -53,8 +53,15 @@ class FfiCallTests(object):
 
         cif_description = get_description(atypes, rtype)
 
+        expected_args = []
+        for avalue in avalues:
+            if lltype.typeOf(avalue) == rffi.ULONG:
+                avalue = intmask(avalue)
+            expected_args.append(avalue)
+        expected_args = tuple(expected_args)
+
         def verify(*args):
-            assert args == tuple(avalues)
+            assert args == expected_args
             return rvalue
         FUNC = lltype.FuncType([lltype.typeOf(avalue) for avalue in avalues],
                                lltype.typeOf(rvalue))
@@ -76,6 +83,10 @@ class FfiCallTests(object):
                 if lltype.typeOf(avalue) is lltype.SingleFloat:
                     got = float(got)
                     avalue = float(avalue)
+                elif (lltype.typeOf(avalue) is rffi.SIGNEDCHAR or
+                      lltype.typeOf(avalue) is rffi.UCHAR):
+                    got = intmask(got)
+                    avalue = intmask(avalue)
                 assert got == avalue
                 ofs += 16
             if rvalue is not None:
@@ -115,6 +126,9 @@ class FfiCallTests(object):
                 return res == 654321
             if isinstance(rvalue, r_singlefloat):
                 rvalue = float(rvalue)
+            if lltype.typeOf(rvalue) is rffi.ULONG:
+                res = intmask(res)
+                rvalue = intmask(rvalue)
             return res == rvalue
 
         with FakeFFI(fake_call_impl_any):
@@ -187,8 +201,19 @@ class FfiCallTests(object):
         self._run([types.signed] * 2, types.void, [456, 789], None)
 
     def test_returns_signedchar(self):
-        self._run([types.signed], types.sint8, [456],
+        self._run([types.sint8], types.sint8,
+                  [rffi.cast(rffi.SIGNEDCHAR, -28)],
                   rffi.cast(rffi.SIGNEDCHAR, -42))
+
+    def test_handle_unsigned(self):
+        self._run([types.ulong], types.ulong,
+                  [rffi.cast(rffi.ULONG, sys.maxint + 91348)],
+                  rffi.cast(rffi.ULONG, sys.maxint + 4242))
+
+    def test_handle_unsignedchar(self):
+        self._run([types.uint8], types.uint8,
+                  [rffi.cast(rffi.UCHAR, 191)],
+                  rffi.cast(rffi.UCHAR, 180))
 
     def _add_libffi_types_to_ll2types_maybe(self):
         # not necessary on the llgraph backend, but needed for x86.
