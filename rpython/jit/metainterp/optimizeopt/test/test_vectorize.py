@@ -878,7 +878,7 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.schedule(loop,1)
         self.assert_equal(loop, self.parse_loop(vops))
 
-    @pytest.mark.parametrize('unroll', range(2,16,3))
+    @pytest.mark.parametrize('unroll', [1])
     def test_vectorize_index_variable_combination(self, unroll):
         ops = """
         [p0,i0]
@@ -940,7 +940,7 @@ class BaseTestVectorize(VecTestHelper):
         ops = """
         [p0,i0]
         guard_early_exit() [p0,i0]
-        i1 = getarrayitem_raw(p0, i0, descr=intarraydescr)
+        i1 = getarrayitem_raw(p0, i0, descr=chararraydescr)
         i2 = int_add(i0, 1)
         i3 = int_lt(i2, 102)
         guard_true(i3) [p0,i0]
@@ -957,7 +957,7 @@ class BaseTestVectorize(VecTestHelper):
         i2 = int_add(i0, 16)
         i3 = int_lt(i2, 102)
         guard_true(i3) [p0,i0]
-        i1 = vec_getarrayitem_raw(p0, i0, 16, descr=intarraydescr)
+        i1 = vec_getarrayitem_raw(p0, i0, 16, descr=chararraydescr)
         jump(p0,i2)
         """.format(dead_code=dead_code)
         vopt = self.vectorize(self.parse_loop(ops),15)
@@ -1071,8 +1071,8 @@ class BaseTestVectorize(VecTestHelper):
         v62 = vec_raw_load(i4, i41, 2, descr=floatarraydescr) 
         v63 = vec_float_add(v61, v62, 2) 
         vec_raw_store(i0, i37, v63, 2, descr=floatarraydescr) 
-        f100 = vec_box_unpack(v61, 1)
-        f101 = vec_box_unpack(v62, 1)
+        f100 = vec_float_unpack(v61, 1, 1)
+        f101 = vec_float_unpack(v62, 1, 1)
         jump(p36, i53, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
         """
         vopt = self.vectorize(self.parse_loop(ops))
@@ -1137,8 +1137,8 @@ class BaseTestVectorize(VecTestHelper):
         v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
         v19 = vec_cast_float_to_singlefloat(v17, 2)
         v20 = vec_cast_float_to_singlefloat(v18, 2)
-        vec_box_pack(v19, v20, 2)
-        vec_setarrayitem_raw(p1, i1, v19, 4, descr=singlefloatarraydescr)
+        v21 = vec_float_pack(v19, v20, 2, 2)
+        vec_setarrayitem_raw(p1, i1, v21, 4, descr=singlefloatarraydescr)
         jump(p0, p1, i7)
         """
         vopt = self.vectorize(self.parse_loop(ops))
@@ -1192,7 +1192,7 @@ class BaseTestVectorize(VecTestHelper):
         v224 = vec_float_add(v219, v222, 2)
         v225 = vec_cast_float_to_singlefloat(v223, 2)
         v226 = vec_cast_float_to_singlefloat(v224, 2)
-        v227 = vec_box_pack(v225, v226, 2, 2)
+        v227 = vec_float_pack(v225, v226, 2, 2)
         vec_raw_store(p2, i4, v227, 4, descr=singlefloatarraydescr)
         jump(p0, p1, p2, i210, i189)
         """

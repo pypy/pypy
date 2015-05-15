@@ -122,7 +122,7 @@ class TestNumpyJit(Jit386Mixin):
         return """
         a = |30|
         b = a + a
-        b -> 15
+        b -> 17
         """
     def test_float_add(self):
         result = self.run("float_add")

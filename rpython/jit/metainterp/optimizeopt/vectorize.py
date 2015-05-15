@@ -404,7 +404,10 @@ class VectorizingOptimizer(Optimizer):
             arg_cloned = arg.clonebox()
             cj = ConstInt(j)
             ci = ConstInt(1)
-            unpack_op = ResOperation(rop.VEC_BOX_UNPACK, [vbox, cj, ci], arg_cloned)
+            opnum = rop.VEC_FLOAT_UNPACK
+            if vbox.type == INT:
+                opnum = rop.VEC_INT_UNPACK
+            unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.emit_operation(unpack_op)
             sched_data.rename_unpacked(arg, arg_cloned)
             args[i] = arg_cloned
@@ -741,6 +744,9 @@ class VecScheduleData(SchedulerData):
           this function creates a box pack instruction to merge them to:
           v1/2 = [A,B,X,Y]
         """
+        opnum = rop.VEC_FLOAT_PACK
+        if tgt_box.type == INT:
+            opnum = rop.VEC_INT_PACK
         arg_count = len(args)
         i = index
         while i < arg_count and tgt_box.item_count < packable:
@@ -751,9 +757,8 @@ class VecScheduleData(SchedulerData):
                 continue
             new_box = tgt_box.clonebox()
             new_box.item_count += src_box.item_count
-            op = ResOperation(rop.VEC_BOX_PACK,
-                              [tgt_box, src_box, ConstInt(i),
-                               ConstInt(src_box.item_count)], new_box)
+            op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
+                                      ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)
             self._check_vec_pack(op)
             i += src_box.item_count
@@ -803,9 +808,12 @@ class VecScheduleData(SchedulerData):
         else:
             resop = ResOperation(rop.VEC_BOX, [ConstInt(self.pack_ops)], vbox)
             self.preamble_ops.append(resop)
+            opnum = rop.VEC_FLOAT_PACK
+            if arg.type == INT:
+                opnum = rop.VEC_INT_PACK
             for i,op in enumerate(ops):
                 arg = op.getoperation().getarg(argidx)
-                resop = ResOperation(rop.VEC_BOX_PACK,
+                resop = ResOperation(opnum,
                                      [vbox,ConstInt(i),arg], None)
                 self.preamble_ops.append(resop)
         return vbox

@@ -2554,7 +2554,7 @@ class Assembler386(BaseAssembler):
         elif count == 2:
             self.mc.MOVDDUP(resloc, loc0)
 
-    def genop_vec_box_unpack(self, op, arglocs, resloc):
+    def genop_vec_float_unpack(self, op, arglocs, resloc):
         loc0, tmploc, indexloc, countloc = arglocs
         count = countloc.value
         index = indexloc.value
@@ -2566,10 +2566,11 @@ class Assembler386(BaseAssembler):
             tmploc = self._shuffle_by_index(loc0, tmploc, item_type, size, index, count)
             self.mc.MOVD32_rx(resloc.value, tmploc.value)
         elif size == 8:
-            if index == 0:
-                self.mc.UNPCKLPD(resloc, loc0)
-            else:
-                self.mc.UNPCKHPD(resloc, loc0)
+            pass
+            #if index == 1:
+            #    self.mc.SHUFPD_xxi(resloc, loc0, 0|(1<<2))
+            #else:
+            #    self.mc.UNPCKHPD(resloc, loc0)
 
     def _shuffle_by_index(self, src_loc, tmp_loc, item_type, size, index, count):
         if index == 0 and count == 1:
@@ -2592,29 +2593,34 @@ class Assembler386(BaseAssembler):
             raise NotImplementedError("shuffle by index for non floats")
 
 
-    def genop_vec_box_pack(self, op, arglocs, resloc):
-        toloc, fromloc, tmploc = arglocs
+    def genop_vec_float_pack(self, op, arglocs, resloc):
+        resultloc, fromloc, tmploc = arglocs
         result = op.result
         indexarg = op.getarg(2)
+        countarg = op.getarg(2)
         assert isinstance(result, BoxVector)
         assert isinstance(indexarg, ConstInt)
+        assert isinstance(countarg, ConstInt)
         index = indexarg.value
+        count = countarg.value
         size = result.item_size
-        #py.test.set_trace()
         if size == 4:
-            select = (1 << 2) # move 0 -> 0, 1 -> 1 for toloc
-            # TODO
-            if index == 2:
-                select |= (1<<6) # move 0 -> 2, 1 -> 3 for fromloc
+            if count == 1:
+                raise NotImplementedError("pack: float single pack")
+            elif count == 2:
+                select = (1 << 2) # move 0 -> 0, 1 -> 1 for toloc
+                if index == 0:
+                    # move 0 -> 2, 1 -> 3 for fromloc
+                    self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 2))
+                elif index == 2:
+                    # move 0 -> 2, 1 -> 3 for fromloc
+                    self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 6))
+                else:
+                    raise NotImplementedError("pack: only index in {0,2} supported")
             else:
-                raise NotImplementedError("index is not equal to 2")
-
-            self.mc.SHUFPS_xxi(toloc.value, fromloc.value, select)
+                raise NotImplementedError("pack: count 3 for single float pack not supported")
         elif size == 8:
-            if indexloc.value == 0:
-                self.mc.UNPCKLPD(resloc, loc0)
-            else:
-                self.mc.UNPCKHPD(resloc, loc0)
+            raise NotImplementedError("pack: float double pack")
 
     def genop_vec_cast_float_to_singlefloat(self, op, arglocs, resloc):
         argloc, _ = arglocs

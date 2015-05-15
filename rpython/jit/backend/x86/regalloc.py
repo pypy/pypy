@@ -1505,7 +1505,6 @@ class RegAlloc(BaseRegalloc):
 
     consider_vec_raw_store = consider_vec_setarrayitem_raw
 
-    
     def consider_vec_arith(self, op):
         count = op.getarg(2)
         assert isinstance(count, ConstInt)
@@ -1535,7 +1534,7 @@ class RegAlloc(BaseRegalloc):
     consider_vec_float_eq = consider_vec_logic
     del consider_vec_logic
 
-    def consider_vec_box_pack(self, op):
+    def consider_vec_float_pack(self, op):
         args = op.getarglist()
         loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
         result =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
@@ -1544,7 +1543,7 @@ class RegAlloc(BaseRegalloc):
         self.xrm.possibly_free_var(tmpxvar)
         self.perform(op, [result, loc1, tmploc], result)
 
-    def consider_vec_box_unpack(self, op):
+    def consider_vec_float_unpack(self, op):
         count = op.getarg(2)
         index = op.getarg(1)
         assert isinstance(count, ConstInt)
