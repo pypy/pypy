@@ -9,7 +9,7 @@ from rpython.jit.codewriter.longlong import is_longlong, is_64_bit
 from rpython.rlib import jit
 from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
-                                     jit_ffi_call, jit_ffi_save_result)
+                                     jit_ffi_call)
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, r_longlong, r_singlefloat
 from rpython.rlib.longlong2float import float2longlong
@@ -255,7 +255,7 @@ class FfiCallTests(object):
                 # when n==50, fn() will force the frame, so guard_not_forced
                 # fails and we enter blackholing: this test makes sure that
                 # the result of call_release_gil is kept alive before the
-                # libffi_save_result, and that the corresponding box is passed
+                # raw_store, and that the corresponding box is passed
                 # in the fail_args. Before the fix, the result of
                 # call_release_gil was simply lost and when guard_not_forced
                 # failed, and the value of "res" was unpredictable.
@@ -291,7 +291,6 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
         cd.atypes = atypes
         cd.exchange_size = 64    # 64 bytes of exchange data
         cd.exchange_result = 24
-        cd.exchange_result_libffi = 24
         cd.exchange_args[0] = 16
 
         def f():

@@ -3,14 +3,14 @@ Callbacks.
 """
 import os
 
-from rpython.rlib import clibffi, rweakref, jit
+from rpython.rlib import clibffi, rweakref, jit, jit_libffi
 from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
-from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
+from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 
@@ -147,7 +147,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
             # zero extension: fill the '*result' with zeros, and (on big-
             # endian machines) correct the 'result' pointer to write to
             misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
-            if BIG_ENDIAN:
+            if jit_libffi.BIG_ENDIAN:
                 diff = SIZE_OF_FFI_ARG - fresult.size
                 ll_res = rffi.ptradd(ll_res, diff)
     #
