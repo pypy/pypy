@@ -188,7 +188,6 @@ def _get_abi(space, name):
 # ____________________________________________________________
 
 
-BIG_ENDIAN = sys.byteorder == 'big'
 USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 
@@ -399,16 +398,6 @@ class CifDescrBuilder(object):
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
-        cif_descr.exchange_result_libffi = exchange_offset
-
-        if BIG_ENDIAN and self.fresult.is_primitive_integer:
-            # For results of precisely these types, libffi has a
-            # strange rule that they will be returned as a whole
-            # 'ffi_arg' if they are smaller.  The difference
-            # only matters on big-endian.
-            if self.fresult.size < SIZE_OF_FFI_ARG:
-                diff = SIZE_OF_FFI_ARG - self.fresult.size
-                cif_descr.exchange_result += diff
 
         # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),

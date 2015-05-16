@@ -320,6 +320,13 @@ Miscellaneous
   http://bugs.python.org/issue14621, some of us believe it has no
   purpose in CPython either.
 
+* You can't store non-string keys in type objects.  For example::
+
+    class A(object):
+        locals()[42] = 3
+
+  won't work.
+
 * ``sys.setrecursionlimit(n)`` sets the limit only approximately,
   by setting the usable stack space to ``n * 768`` bytes.  On Linux,
   depending on the compiler settings, the default of 768KB is enough
@@ -361,8 +368,13 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
+  
+* some functions and attributes of the ``gc`` module behave in a
+  slightly different way: for example, ``gc.enable`` and
+  ``gc.disable`` are supported, but instead of enabling and disabling
+  the GC, they just enable and disable the execution of finalizers.
 
 * PyPy prints a random line from past #pypy IRC topics at startup in
-  interactive mode. In a released version, this behaviour is supressed, but
+  interactive mode. In a released version, this behaviour is suppressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.

@@ -68,6 +68,7 @@ class FakeSpace(ObjSpace):
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
     w_object = W_TypeObject("object")
+    w_buffer = W_TypeObject("buffer")
 
     def __init__(self):
         """NOT_RPYTHON"""

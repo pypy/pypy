@@ -1834,6 +1834,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         v = s.view(y.__class__)
         assert v.strides == (4, 24)
 
+        x = empty([12, 8, 8], 'float64')
+        y = x[::-4, :, :]
+        assert y.base is x
+        assert y.strides == (-2048, 64, 8)
+        y[:] = 1000
+        assert x[-1, 0, 0] == 1000 
+
         a = empty([3, 2, 1], dtype='float64')
         b = a.view(dtype('uint32'))
         assert b.strides == (16, 8, 4)
@@ -3950,6 +3957,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert not a == e
         assert np.greater(a, a) is NotImplemented
         assert np.less_equal(a, a) is NotImplemented
+
+    def test_create_from_memory(self):
+        import numpy as np
+        dat = np.array(__builtins__.buffer('1.0'), dtype=np.float64)
+        assert (dat == [49.0, 46.0, 48.0]).all()
 
 
 class AppTestPyPy(BaseNumpyAppTest):

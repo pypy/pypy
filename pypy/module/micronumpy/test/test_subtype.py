@@ -82,6 +82,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert isinstance(b, matrix)
         assert b.__array_priority__ == 0.0
         assert (b == a).all()
+        assert isinstance(b.view(), matrix) 
         a = array(5)[()]
         for s in [matrix, ndarray]:
             b = a.view(s)
@@ -125,7 +126,7 @@ class AppTestSupport(BaseNumpyAppTest):
         import numpy as np
         class InfoArray(np.ndarray):
             def __new__(subtype, shape, dtype=float, buffer=None, offset=0,
-                          strides=None, order='C', info=None):
+                          strides=None, order='C', info=1):
                 obj = np.ndarray.__new__(subtype, shape, dtype, buffer,
                          offset, strides, order)
                 obj.info = info
@@ -133,25 +134,31 @@ class AppTestSupport(BaseNumpyAppTest):
 
             def __array_finalize__(self, obj):
                 if obj is None:
-                    print 'finalize with None'
                     return
                 # printing the object itself will crash the test
-                print 'finalize with something',type(obj)
-                self.info = getattr(obj, 'info', None)
+                self.info = 1 + getattr(obj, 'info', 0)
+                if hasattr(obj, 'info'):
+                    obj.info += 100
+
         obj = InfoArray(shape=(3,))
         assert isinstance(obj, InfoArray)
-        assert obj.info is None
-        obj = InfoArray(shape=(3,), info='information')
-        assert obj.info == 'information'
+        assert obj.info == 1
+        obj = InfoArray(shape=(3,), info=10)
+        assert obj.info == 10
         v = obj[1:]
         assert isinstance(v, InfoArray)
         assert v.base is obj
-        assert v.info == 'information'
+        assert v.info == 11
         arr = np.arange(10)
         cast_arr = arr.view(InfoArray)
         assert isinstance(cast_arr, InfoArray)
         assert cast_arr.base is arr
-        assert cast_arr.info is None
+        assert cast_arr.info == 1
+        # Test that setshape calls __array_finalize__
+        cast_arr.shape = (5,2)
+        z = cast_arr.info
+        assert z == 101
+
 
     def test_sub_where(self):
         from numpy import where, ones, zeros, array
