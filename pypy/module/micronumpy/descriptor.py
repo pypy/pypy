@@ -568,6 +568,8 @@ def dtype_from_spec(space, w_spec):
         # testing, handle manually
         if space.eq_w(w_spec, space.wrap('u4,u4,u4')):
             w_lst = space.newlist([space.wrap('u4')]*3)
+        if space.eq_w(w_spec, space.wrap('u4,u4,u4')):
+            w_lst = space.newlist([space.wrap('u4')]*3)
         else:
             raise oefmt(space.w_RuntimeError,
                     "cannot parse w_spec")
