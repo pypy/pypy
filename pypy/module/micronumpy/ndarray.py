@@ -53,6 +53,11 @@ class __extend__(W_NDimArray):
     def descr_set_shape(self, space, w_new_shape):
         shape = get_shape_from_iterable(space, self.get_size(), w_new_shape)
         self.implementation = self.implementation.set_shape(space, self, shape)
+        w_cls = space.type(self)
+        if not space.is_w(w_cls, space.gettypefor(W_NDimArray)):
+            # numpy madness - allow __array_finalize__(self, obj)
+            # to run, in MaskedArray this modifies obj._mask
+            wrap_impl(space, w_cls, self, self.implementation)
 
     def descr_get_strides(self, space):
         strides = self.implementation.get_strides()
@@ -883,6 +888,7 @@ class __extend__(W_NDimArray):
         if dtype.is_object() != impl.dtype.is_object():
             raise oefmt(space.w_ValueError, 'expect trouble in ndarray.view,'
                 ' one of target dtype or dtype is object dtype')
+        w_type = w_type or space.type(self)
         v = impl.get_view(space, base, dtype, new_shape, strides, backstrides)
         w_ret = wrap_impl(space, w_type, self, v)
         return w_ret
