@@ -105,3 +105,7 @@ branch cells-local-stack:
 Unify the PyFrame.cells and Pyframe.locals_stack_w lists, making frame objects
 1 or 3 words smaller.
 
+.. branch: pythonoptimize-env
+
+branch pythonoptimize-env
+Implement PYTHONOPTIMIZE environment variable, fixing issue #2044
