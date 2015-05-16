@@ -450,6 +450,9 @@ class OpMatcher(object):
             if self.try_match(op, until_op):
                 # it matched! The '...' operator ends here
                 return op
+            self._assert(op != '--end--',
+                         'nothing in the end of the loop matches %r' %
+                          (until_op,))
 
     def match_any_order(self, iter_exp_ops, iter_ops, ignore_ops):
         exp_ops = []

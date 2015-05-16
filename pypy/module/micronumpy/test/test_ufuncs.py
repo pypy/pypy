@@ -246,12 +246,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             dtypes=[dtype(int), dtype(int)],
                             stack_inputs=True,
                           )
-        ai = arange(18, dtype=int).reshape(2,3,3)
+        ai = arange(12*3*3, dtype='int32').reshape(12,3,3)
         exc = raises(ValueError, ufunc, ai[:,:,0])
         assert "perand 0 has a mismatch in its core dimension 1" in exc.value.message
         ai3 = ufunc(ai[0,:,:])
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()
+        # view
+        aiV = ai[::-2, :, :]
+        assert aiV.strides == (-72, 12, 4)
+        ai2 = ufunc(aiV)
+        assert (ai2 == aiV * 2).all()
 
     def test_frompyfunc_needs_nditer(self):
         def summer(in0):
