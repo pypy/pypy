@@ -425,6 +425,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = add(a, b)
         for i in range(3):
             assert c[i] == a[i] + b[i]
+        class Obj(object):
+            def __add__(self, other):
+                return 'add'
+        x = Obj()
+        assert type(add(x, 0)) is str
 
     def test_divide(self):
         from numpy import array, divide
