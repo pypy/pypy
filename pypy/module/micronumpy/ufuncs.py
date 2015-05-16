@@ -21,7 +21,7 @@ from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
 from .casting import (
     find_unaryop_result_dtype, find_binop_result_dtype, can_cast_type)
-from .boxes import W_ObjectBox
+from .boxes import W_GenericBox, W_ObjectBox
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -440,9 +440,11 @@ class W_Ufunc1(W_Ufunc):
         w_obj = numpify(space, w_obj)
         dtype = w_obj.get_dtype(space)
         calc_dtype, res_dtype, func = self.find_specialization(space, dtype, out, casting)
-        if w_obj.is_scalar():
-            return self.call_scalar(space, w_obj.get_scalar_value(),
-                                    calc_dtype, res_dtype, out)
+        if isinstance(w_obj, W_GenericBox):
+            if out is None:
+                return self.call_scalar(space, w_obj, calc_dtype, res_dtype)
+            else:
+                w_obj = W_NDimArray.from_scalar(space, w_obj)
         assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
@@ -453,22 +455,16 @@ class W_Ufunc1(W_Ufunc):
             w_res = out
         w_res = loop.call1(space, shape, func, calc_dtype, w_obj, w_res)
         if out is None:
+            if w_res.is_scalar():
+                return w_res.get_scalar_value()
             w_res = space.call_method(w_obj, '__array_wrap__', w_res)
         return w_res
 
-    def call_scalar(self, space, w_arg, in_dtype, out_dtype, out):
+    def call_scalar(self, space, w_arg, in_dtype, out_dtype):
         w_val = self.func(in_dtype, w_arg.convert_to(space, in_dtype))
-        if out is None:
-            if out_dtype.is_object():
-                assert isinstance(w_val, W_ObjectBox)
-                return w_val.w_obj
-            return w_val
-        w_val = out_dtype.coerce(space, w_val)
-        if out.is_scalar():
-            out.set_scalar_value(w_val)
-        else:
-            out.fill(space, w_val)
-        return out
+        if isinstance(w_val, W_ObjectBox):
+            return w_val.w_obj
+        return w_val
 
     def find_specialization(self, space, dtype, out, casting):
         if dtype.is_flexible():
