@@ -9,8 +9,8 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 @unwrap_spec(cdef=str, module_name=str, source=str)
 def prepare(space, cdef, module_name, source, w_includes=None):
     try:
-        from cffi import FFI              # <== the system one, which
-        from _cffi1 import recompiler     # needs to be at least cffi 1.0.0b3
+        from cffi import FFI            # <== the system one, which
+        from cffi import recompiler     # needs to be at least cffi 1.0.0
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
@@ -221,6 +221,15 @@ class AppTestRecompiler:
             "#define FOOBAR (-6912)")
         assert lib.FOOBAR == -6912
         raises(AttributeError, "lib.FOOBAR = 2")
+
+    def test_check_value_of_static_const(self):
+        ffi, lib = self.prepare(
+            "static const int FOOBAR = 042;",
+            'test_check_value_of_static_const',
+            "#define FOOBAR (-6912)")
+        e = raises(ffi.error, getattr, lib, 'FOOBAR')
+        assert str(e.value) == (
+           "the C compiler says 'FOOBAR' is equal to -6912, but the cdef disagrees")
 
     def test_constant_nonint(self):
         ffi, lib = self.prepare(

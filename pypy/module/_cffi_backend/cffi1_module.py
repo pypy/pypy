@@ -7,8 +7,8 @@ from pypy.module._cffi_backend.ffi_obj import W_FFIObject
 from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
-VERSION_MIN    = 0x2600
-VERSION_MAX    = 0x260F
+VERSION_MIN    = 0x2601
+VERSION_MAX    = 0x26FF
 
 VERSION_EXPORT = 0x0A02
 

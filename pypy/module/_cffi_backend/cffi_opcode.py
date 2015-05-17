@@ -3,15 +3,36 @@ class CffiOp(object):
     def __init__(self, op, arg):
         self.op = op
         self.arg = arg
+
     def as_c_expr(self):
         if self.op is None:
             assert isinstance(self.arg, str)
             return '(_cffi_opcode_t)(%s)' % (self.arg,)
         classname = CLASS_NAME[self.op]
         return '_CFFI_OP(_CFFI_OP_%s, %d)' % (classname, self.arg)
+
+    def as_python_bytes(self):
+        if self.op is None:
+            if self.arg.isdigit():
+                value = int(self.arg)     # non-negative: '-' not in self.arg
+                if value >= 2**31:
+                    raise OverflowError("cannot emit %r: limited to 2**31-1"
+                                        % (self.arg,))
+                return format_four_bytes(value)
+            from .ffiplatform import VerificationError
+            raise VerificationError("cannot emit to Python: %r" % (self.arg,))
+        return format_four_bytes((self.arg << 8) | self.op)
+
     def __str__(self):
         classname = CLASS_NAME.get(self.op, self.op)
         return '(%s %s)' % (classname, self.arg)
+
+def format_four_bytes(num):
+    return '\\x%02X\\x%02X\\x%02X\\x%02X' % (
+        (num >> 24) & 0xFF,
+        (num >> 16) & 0xFF,
+        (num >>  8) & 0xFF,
+        (num      ) & 0xFF)
 
 OP_PRIMITIVE       = 1
 OP_POINTER         = 3
@@ -30,6 +51,7 @@ OP_CPYTHON_BLTN_O  = 27   # O  (i.e. a single arg)
 OP_CONSTANT        = 29
 OP_CONSTANT_INT    = 31
 OP_GLOBAL_VAR      = 33
+OP_DLOPEN_FUNC     = 35
 
 PRIM_VOID          = 0
 PRIM_BOOL          = 1
@@ -138,6 +160,10 @@ F_CHECK_FIELDS  = 0x02
 F_PACKED        = 0x04
 F_EXTERNAL      = 0x08
 F_OPAQUE        = 0x10
+
+G_FLAGS = dict([('_CFFI_' + _key, globals()[_key])
+                for _key in ['F_UNION', 'F_CHECK_FIELDS', 'F_PACKED',
+                             'F_EXTERNAL', 'F_OPAQUE']])
 
 CLASS_NAME = {}
 for _name, _value in list(globals().items()):

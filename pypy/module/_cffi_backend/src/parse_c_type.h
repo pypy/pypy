@@ -1,4 +1,6 @@
 
+/* See doc/parse_c_type.rst in the source of CFFI for more information */
+
 typedef void *_cffi_opcode_t;
 
 #define _CFFI_OP(opcode, arg)   (_cffi_opcode_t)(opcode | (((uintptr_t)(arg)) << 8))
@@ -22,6 +24,7 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_OP_CONSTANT       29
 #define _CFFI_OP_CONSTANT_INT   31
 #define _CFFI_OP_GLOBAL_VAR     33
+#define _CFFI_OP_DLOPEN_FUNC    35
 
 #define _CFFI_PRIM_VOID          0
 #define _CFFI_PRIM_BOOL          1
@@ -83,6 +86,12 @@ struct _cffi_global_s {
     size_t size;             // 0 if unknown
 };
 
+struct _cffi_getconst_s {
+    unsigned long long value;
+    const struct _cffi_type_context_s *ctx;
+    int gindex;
+};
+
 struct _cffi_struct_union_s {
     const char *name;
     int type_index;          // -> _cffi_types, on a OP_STRUCT_UNION
@@ -97,6 +106,7 @@ struct _cffi_struct_union_s {
                                      // "standard layout" or if some are missing
 #define _CFFI_F_PACKED        0x04   // for CHECK_FIELDS, assume a packed struct
 #define _CFFI_F_EXTERNAL      0x08   // in some other ffi.include()
+#define _CFFI_F_OPAQUE        0x10   // opaque
 
 struct _cffi_field_s {
     const char *name;
