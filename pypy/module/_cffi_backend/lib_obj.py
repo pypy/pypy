@@ -113,7 +113,8 @@ class W_LibObject(W_Root):
                   op == cffi_opcode.OP_ENUM):
                 # A constant integer whose value, in an "unsigned long long",
                 # is obtained by calling the function at g->address
-                w_result = realize_c_type.realize_global_int(self.ffi, g)
+                w_result = realize_c_type.realize_global_int(self.ffi, g,
+                                                             index)
                 #
             elif op == cffi_opcode.OP_CONSTANT:
                 # A constant which is not of integer type
@@ -122,7 +123,6 @@ class W_LibObject(W_Root):
                 fetch_funcptr = rffi.cast(
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
-                xxxxxxxxxxxxxxxxxxxx
                 assert w_ct.size > 0
                 with lltype.scoped_alloc(rffi.CCHARP.TO, w_ct.size) as ptr:
                     fetch_funcptr(ptr)
