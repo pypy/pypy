@@ -220,6 +220,11 @@ class W_LibObject(W_Root):
     def cdlopen_fetch(self, name):
         raise NotImplementedError
 
+    def cdlopen_close(self):
+        raise oefmt(self.ffi.w_FFIError,
+                    "library '%s' was not created with ffi.dlopen()",
+                    self.libname)
+
 
 W_LibObject.typedef = TypeDef(
         'CompiledLib',

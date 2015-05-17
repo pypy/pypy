@@ -96,8 +96,7 @@ class AppTestRecompilerPython:
         ffi.dlclose(lib)
         e = raises(ffi.error, ffi.dlclose, lib)
         assert str(e.value) == (
-            "library '%s' is already closed or was not created with ffi.dlopen()"
-            % (self.extmod,))
+            "library '%s' is already closed" % (self.extmod,))
 
     def test_constant_via_lib(self):
         from re_python_pysrc import ffi

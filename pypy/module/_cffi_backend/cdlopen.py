@@ -1,6 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rdynload import dlopen, dlsym, dlclose, DLOpenError
+from rpython.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
+
+from pypy.interpreter.error import oefmt
 from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from pypy.module._cffi_backend.parse_c_type import (
@@ -121,3 +123,22 @@ class W_DlOpenLibObject(W_LibObject):
                         "symbol '%s' not found in library '%s': %s",
                         name, self.libname, e.msg)
         return rffi.cast(rffi.CCHARP, cdata)
+
+    def cdlopen_close(self):
+        libhandle = self.libhandle
+        self.libhandle = rffi.cast(DLLHANDLE, 0)
+
+        if not libhandle:
+            raise oefmt(self.ffi.w_FFIError, "library '%s' is already closed",
+                        self.libname)
+
+        # Clear the dict to force further accesses to do cdlopen_fetch()
+        # again, and fail because the library was closed.  Note that the
+        # JIT may have elided some accesses, and so has addresses as
+        # constants.  We could work around it with a quasi-immutable flag
+        # but unsure it's worth it.
+        self.dict_w.clear()
+
+        if dlclose(libhandle) < 0:
+            raise oefmt(self.ffi.w_FFIError, "error closing library '%s'",
+                        self.libname)

@@ -500,9 +500,9 @@ Close a library obtained with ffi.dlopen().  After this call, access to
 "functions or variables from the library will fail (possibly with a
 segmentation fault)."""
         #
-        from pypy.module._cffi_backend import cdlopen
+        from pypy.module._cffi_backend.lib_obj import W_LibObject
         lib = self.space.interp_w(W_LibObject, w_lib)
-        return cdlopen.ffi_dlclose(self, lib)
+        lib.cdlopen_close()
 
 
     @unwrap_spec(name=str)
