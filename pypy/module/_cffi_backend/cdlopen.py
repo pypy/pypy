@@ -93,6 +93,9 @@ class StringDecoder:
 
 def allocate(ffi, nbytes):
     nbytes = llmemory.raw_malloc_usage(nbytes)
+    if not we_are_translated():
+        nbytes *= 2   # hack to account for the fact that raw_malloc_usage()
+                      # returns an approximation, ignoring padding and alignment
     p = lltype.malloc(rffi.CCHARP.TO, nbytes, flavor='raw', zero=True)
     ffi._finalizer.free_mems.append(p)
     return p
@@ -100,9 +103,6 @@ def allocate(ffi, nbytes):
 @specialize.arg(1)
 def allocate_array(ffi, OF, nitems):
     nbytes = llmemory.raw_malloc_usage(rffi.sizeof(OF))
-    if not we_are_translated():
-        nbytes *= 2   # hack to account for the fact that raw_malloc_usage()
-                      # returns an approximation, ignoring padding and alignment
     p = allocate(ffi, nitems * nbytes)
     return rffi.cast(rffi.CArrayPtr(OF), p)
 
