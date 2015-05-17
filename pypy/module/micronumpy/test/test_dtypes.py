@@ -288,7 +288,7 @@ class AppTestDtypes(BaseAppTestDtypes):
             types += ['g', 'G']
         a = array([True], '?')
         for t in types:
-            assert (a + array([0], t)).dtype is dtype(t)
+            assert (a + array([0], t)).dtype == dtype(t)
 
     def test_binop_types(self):
         from numpy import array, dtype
@@ -312,7 +312,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         for d1, d2, dout in tests:
             # make a failed test print helpful info
             d3 = (array([1], d1) + array([1], d2)).dtype
-            assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
+            assert (d1, d2) == (d1, d2) and d3 == dtype(dout)
 
     def test_add(self):
         import numpy as np
