@@ -34,9 +34,13 @@ class FreeCtxObj(object):
         self.free_mems = []       # filled from cdlopen.py
     @rgc.must_be_light_finalizer
     def __del__(self):
-        parse_c_type.free_ctxobj(self.ctxobj)
-        for p in self.free_mems:
-            lltype.free(p, flavor='raw')
+        ctxobj = self.ctxobj
+        free_mems = self.free_mems
+        parse_c_type.free_ctxobj(ctxobj)
+        i = len(free_mems) - 1
+        while i >= 0:
+            lltype.free(free_mems[i], flavor='raw')
+            i -= 1
 
 
 class W_FFIObject(W_Root):
