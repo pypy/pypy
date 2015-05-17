@@ -6,8 +6,8 @@ from pypy.interpreter.error import oefmt
 from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from pypy.module._cffi_backend.parse_c_type import (
-    _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S, ENUM_S,
-    ll_set_cdl_realize_global_int)
+    _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S,
+    ENUM_S, TYPENAME_S, ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
 from pypy.module._cffi_backend import cffi_opcode
@@ -216,5 +216,18 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
             nenums[i].c_enumerators = decoder.next_name()
         ffi.ctxobj.ctx.c_enums = nenums
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_enums', n)
+
+    if w_typenames:
+        # unpack a tuple of strings, each of which describes one typename_s
+        # entry
+        typenames_w = space.fixedview(w_typenames)
+        n = len(typenames_w)
+        ntypenames = allocate_array(ffi, TYPENAME_S, n)
+        for i in range(n):
+            decoder = StringDecoder(ffi, space.str_w(typenames_w[i]))
+            rffi.setintfield(ntypenames[i],'c_type_index',decoder.next_4bytes())
+            ntypenames[i].c_name = decoder.next_name()
+        ffi.ctxobj.ctx.c_typenames = ntypenames
+        rffi.setintfield(ffi.ctxobj.ctx, 'c_num_typenames', n)
 
     # ... XXXX
