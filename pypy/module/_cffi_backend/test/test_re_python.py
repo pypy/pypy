@@ -14,6 +14,7 @@ class AppTestRecompilerPython:
             from cffi import ffiplatform
         except ImportError:
             py.test.skip("system cffi module not found or older than 1.0.0")
+        space = cls.space
         SRC = """
         #define FOOBAR (-42)
         static const int FOOBAZ = -43;
@@ -35,7 +36,7 @@ class AppTestRecompilerPython:
         ext = ffiplatform.get_extension(str(c_file), '_test_re_python',
                                         export_symbols=['add42', 'globalvar42'])
         outputfilename = ffiplatform.compile(str(tmpdir), ext)
-        #mod.extmod = outputfilename
+        cls.w_extmod = space.wrap(outputfilename)
         #mod.tmpdir = tmpdir
         #
         ffi = FFI()
@@ -54,7 +55,6 @@ class AppTestRecompilerPython:
         ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
         #mod.original_ffi = ffi
         #
-        space = cls.space
         space.appexec([space.wrap(str(tmpdir))], """(path):
             import _cffi_backend     # force it to be initialized
             import sys
@@ -77,40 +77,40 @@ class AppTestRecompilerPython:
         assert ffi.integer_const('FOOBAR') == -42
         assert ffi.integer_const('FOOBAZ') == -43
 
-    def test_large_constant():
+    def test_large_constant(self):
         from re_python_pysrc import ffi
         assert ffi.integer_const('BIGPOS') == 420000000000
         assert ffi.integer_const('BIGNEG') == -420000000000
 
-    def test_function():
+    def test_function(self):
         import _cffi_backend
         from re_python_pysrc import ffi
-        lib = ffi.dlopen(extmod)
+        lib = ffi.dlopen(self.extmod)
         assert lib.add42(-10) == 32
         assert type(lib.add42) is _cffi_backend.FFI.CData
 
-    def test_dlclose():
+    def test_dlclose(self):
         import _cffi_backend
         from re_python_pysrc import ffi
-        lib = ffi.dlopen(extmod)
+        lib = ffi.dlopen(self.extmod)
         ffi.dlclose(lib)
         e = py.test.raises(ffi.error, ffi.dlclose, lib)
         assert str(e.value) == (
             "library '%s' is already closed or was not created with ffi.dlopen()"
-            % (extmod,))
+            % (self.extmod,))
 
-    def test_constant_via_lib():
+    def test_constant_via_lib(self):
         from re_python_pysrc import ffi
-        lib = ffi.dlopen(extmod)
+        lib = ffi.dlopen(self.extmod)
         assert lib.FOOBAR == -42
         assert lib.FOOBAZ == -43
 
-    def test_opaque_struct():
+    def test_opaque_struct(self):
         from re_python_pysrc import ffi
         ffi.cast("struct foo_s *", 0)
         py.test.raises(TypeError, ffi.new, "struct foo_s *")
 
-    def test_nonopaque_struct():
+    def test_nonopaque_struct(self):
         from re_python_pysrc import ffi
         for p in [ffi.new("struct bar_s *", [5, b"foobar"]),
                   ffi.new("bar_t *", [5, b"foobar"])]:
@@ -118,13 +118,13 @@ class AppTestRecompilerPython:
             assert p.a[0] == ord('f')
             assert p.a[5] == ord('r')
 
-    def test_enum():
+    def test_enum(self):
         from re_python_pysrc import ffi
         assert ffi.integer_const("BB") == 1
         e = ffi.cast("enum foo_e", 2)
         assert ffi.string(e) == "CC"
 
-    def test_include_1():
+    def test_include_1(self):
         sub_ffi = FFI()
         sub_ffi.cdef("static const int k2 = 121212;")
         sub_ffi.include(original_ffi)
@@ -137,7 +137,7 @@ class AppTestRecompilerPython:
         assert ffi.integer_const('FOOBAR') == -42
         assert ffi.integer_const('FOOBAZ') == -43
         assert ffi.integer_const('k2') == 121212
-        lib = ffi.dlopen(extmod)     # <- a random unrelated library would be fine
+        lib = ffi.dlopen(self.extmod)     # <- a random unrelated library would be fine
         assert lib.FOOBAR == -42
         assert lib.FOOBAZ == -43
         assert lib.k2 == 121212
@@ -145,9 +145,9 @@ class AppTestRecompilerPython:
         p = ffi.new("bar_t *", [5, b"foobar"])
         assert p.a[4] == ord('a')
 
-    def test_global_var():
+    def test_global_var(self):
         from re_python_pysrc import ffi
-        lib = ffi.dlopen(extmod)
+        lib = ffi.dlopen(self.extmod)
         assert lib.globalvar42 == 1234
         p = ffi.addressof(lib, 'globalvar42')
         lib.globalvar42 += 5
@@ -155,7 +155,7 @@ class AppTestRecompilerPython:
         p[0] -= 1
         assert lib.globalvar42 == 1238
 
-    def test_rtld_constants():
+    def test_rtld_constants(self):
         from re_python_pysrc import ffi
         ffi.RTLD_NOW    # check that we have the attributes
         ffi.RTLD_LAZY

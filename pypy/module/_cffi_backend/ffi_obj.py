@@ -477,6 +477,32 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
+    @unwrap_spec(filename="str_or_None", flags=int)
+    def descr_dlopen(self, filename, flags=0):
+        """\
+Load and return a dynamic library identified by 'name'.  The standard
+C library can be loaded by passing None.
+
+Note that functions and types declared with 'ffi.cdef()' are not
+linked to a particular library, just like C headers.  In the library
+we only look for the actual (untyped) symbols at the time of their
+first access."""
+        #
+        from pypy.module._cffi_backend import cdlopen
+        return cdlopen.ffi_dlopen(self, filename, flags)
+
+
+    def descr_dlclose(self, w_lib):
+        """\
+Close a library obtained with ffi.dlopen().  After this call, access to
+"functions or variables from the library will fail (possibly with a
+segmentation fault)."""
+        #
+        from pypy.module._cffi_backend import cdlopen
+        lib = self.space.interp_w(W_LibObject, w_lib)
+        return cdlopen.ffi_dlclose(self, lib)
+
+
     @unwrap_spec(name=str)
     def descr_integer_const(self, name):
         """\
@@ -539,6 +565,8 @@ W_FFIObject.typedef = TypeDef(
         buffer      = interp2app(W_FFIObject.descr_buffer),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
+        dlclose     = interp2app(W_FFIObject.descr_dlclose),
+        dlopen      = interp2app(W_FFIObject.descr_dlopen),
         from_buffer = interp2app(W_FFIObject.descr_from_buffer),
         from_handle = interp2app(W_FFIObject.descr_from_handle),
         gc          = interp2app(W_FFIObject.descr_gc),

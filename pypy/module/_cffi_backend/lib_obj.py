@@ -1,5 +1,6 @@
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rdynload import DLLHANDLE
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -16,12 +17,13 @@ from pypy.module._cffi_backend.structwrapper import W_StructWrapper
 
 class W_LibObject(W_Root):
 
-    def __init__(self, ffi, libname):
+    def __init__(self, ffi, libname, libhandle=rffi.cast(DLLHANDLE, 0)):
         self.space = ffi.space
         self.ctx = ffi.ctxobj.ctx
         self.ffi = ffi
         self.dict_w = {}          # content, built lazily
         self.libname = libname    # some string that gives the name of the lib
+        self.libhandle = libhandle   # the dlopen()ed handle, if any
 
     def descr_repr(self):
         return self.space.wrap("<Lib object for '%s'>" % self.libname)
