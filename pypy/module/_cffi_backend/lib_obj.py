@@ -120,6 +120,7 @@ class W_LibObject(W_Root):
                 fetch_funcptr = rffi.cast(
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
+                xxxxxxxxxxxxxxxxxxxx
                 assert w_ct.size > 0
                 with lltype.scoped_alloc(rffi.CCHARP.TO, w_ct.size) as ptr:
                     fetch_funcptr(ptr)

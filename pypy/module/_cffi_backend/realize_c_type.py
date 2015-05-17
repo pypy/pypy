@@ -92,13 +92,16 @@ def get_array_type(ffi, opcodes, itemindex, length):
 
 
 FUNCPTR_FETCH_CHARP = lltype.Ptr(lltype.FuncType([rffi.CCHARP], lltype.Void))
-FUNCPTR_FETCH_LONGLONG = lltype.Ptr(lltype.FuncType([rffi.ULONGLONGP],
-                                                    rffi.INT))
-def realize_global_int(ffi, g):
+FUNCPTR_FETCH_LONGLONG = lltype.Ptr(lltype.FuncType(
+    [lltype.Ptr(parse_c_type.GETCONST_S)], rffi.INT))
+
+def realize_global_int(ffi, g, gindex):
     fetch_fnptr = rffi.cast(FUNCPTR_FETCH_LONGLONG, g.c_address)
-    with lltype.scoped_alloc(rffi.ULONGLONGP.TO, 1) as p_value:
+    with lltype.scoped_alloc(parse_c_type.GETCONST_S) as p_value:
+        p_value.c_ctx = ffi.ctxobj.ctx
+        rffi.setintfield(p_value, 'c_gindex', gindex)
         neg = fetch_fnptr(p_value)
-        value = p_value[0]
+        value = p_value.c_value
     neg = rffi.cast(lltype.Signed, neg)
 
     if neg == 0:     # positive
@@ -312,7 +315,7 @@ def _realize_c_enum(ffi, eindex):
             assert getop(g.c_type_op) == cffi_opcode.OP_ENUM
             assert getarg(g.c_type_op) == -1
 
-            w_integer_value = realize_global_int(ffi, g)
+            w_integer_value = realize_global_int(ffi, g, gindex)
             enumvalues_w.append(w_integer_value)
 
             p = rffi.ptradd(p, j)

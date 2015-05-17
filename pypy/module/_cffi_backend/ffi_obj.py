@@ -4,13 +4,14 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, ClassAttr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from rpython.rlib import jit, rgc
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.module._cffi_backend import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
 from pypy.module._cffi_backend import cbuffer, func, cgc, structwrapper
+from pypy.module._cffi_backend import cffi_opcode
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -30,9 +31,12 @@ def get_ffi_error(space):
 class FreeCtxObj(object):
     def __init__(self, ctxobj):
         self.ctxobj = ctxobj
+        self.free_mems = []       # filled from cdlopen.py
     @rgc.must_be_light_finalizer
     def __del__(self):
         parse_c_type.free_ctxobj(self.ctxobj)
+        for p in self.free_mems:
+            lltype.free(p, flavor='raw')
 
 
 class W_FFIObject(W_Root):
@@ -43,13 +47,35 @@ class W_FFIObject(W_Root):
         self.space = space
         self.types_dict = {}
         self.ctxobj = parse_c_type.allocate_ctxobj(src_ctx)
+        self.is_static = bool(src_ctx)
+        self.is_nonempty = bool(src_ctx)
         self._finalizer = FreeCtxObj(self.ctxobj)
         if src_ctx:
             self.cached_types = [None] * parse_c_type.get_num_types(src_ctx)
         else:
             self.cached_types = None
         self.w_FFIError = get_ffi_error(space)
+        self.included_ffis = []        # list of W_FFIObject's included here
         self.included_libs = []        # list of W_LibObject's included here
+
+    def fetch_int_constant(self, name):
+        index = parse_c_type.search_in_globals(self.ctxobj.ctx, name)
+        if index >= 0:
+            g = self.ctxobj.ctx.c_globals[index]
+            op = realize_c_type.getop(g.c_type_op)
+            if (op == cffi_opcode.OP_CONSTANT_INT or
+                  op == cffi_opcode.OP_ENUM):
+                return realize_c_type.realize_global_int(self, g, index)
+            raise oefmt(self.w_FFIError,
+                        "function, global variable or non-integer constant "
+                        "'%s' must be fetched from its original 'lib' "
+                        "object", name)
+
+        for ffi1 in self.included_ffis:
+            w_result = ffi1.ffi_fetch_int_constant(name)
+            if w_result is not None:
+                return w_result
+        return None
 
     @jit.elidable_promote()
     def get_string_to_type(self, string, consider_fn_as_fnptr):
@@ -123,8 +149,21 @@ class W_FFIObject(W_Root):
                     m1, s12, m2, s23, m3, w_x)
 
 
-    def descr_init(self):
-        pass       # if any argument is passed, gets a TypeError
+    @unwrap_spec(module_name=str, _version=int, _types=str)
+    def descr_init(self, module_name=None, _version=-1, _types=None,
+                   w__globals=None, w__struct_unions=None, w__enums=None,
+                   w__typenames=None, w__includes=None):
+        from pypy.module._cffi_backend import cdlopen
+        #
+        space = self.space
+        if self.is_nonempty:
+            raise oefmt(space.w_ValueError,
+                        "cannot call FFI.__init__() more than once")
+        self.is_nonempty = True
+        #
+        cdlopen.ffiobj_init(self, module_name, _version, _types,
+                            w__globals, w__struct_unions, w__enums,
+                            w__typenames, w__includes)
 
 
     doc_errno = "the value of 'errno' from/to the C calls"
@@ -316,6 +355,7 @@ variable name, or '*' to get actually the C type 'pointer-to-cdecl'."""
             if add_paren:
                 result += ')'
             result += w_ctype.name[w_ctype.name_position:]
+        # Python 3: bytes -> unicode string
         return self.space.wrap(result)
 
 
@@ -437,6 +477,22 @@ It can also be used on 'cdata' instance to get its C type."""
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 
 
+    @unwrap_spec(name=str)
+    def descr_integer_const(self, name):
+        """\
+Get the value of an integer constant.
+
+'ffi.integer_const(\"xxx\")' is equivalent to 'lib.xxx' if xxx names an
+integer constant.  The point of this function is limited to use cases
+where you have an 'ffi' object but not any associated 'lib' object."""
+        #
+        w_result = self.fetch_int_constant(name)
+        if w_result is None:
+            raise oefmt(self.space.w_AttributeError,
+                        "integer constant '%s' not found", name)
+        return w_result
+
+
 @jit.dont_look_inside
 def W_FFIObject___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_FFIObject, w_subtype)
@@ -487,6 +543,7 @@ W_FFIObject.typedef = TypeDef(
         from_handle = interp2app(W_FFIObject.descr_from_handle),
         gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
+        integer_const = interp2app(W_FFIObject.descr_integer_const),
         new         = interp2app(W_FFIObject.descr_new),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),

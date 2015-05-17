@@ -24,6 +24,9 @@ GLOBAL_S = rffi.CStruct('_cffi_global_s',
                        ('address', rffi.VOIDP),
                        ('type_op', _CFFI_OPCODE_T),
                        ('size', rffi.SIZE_T))
+CDL_INTCONST_S = lltype.Struct('cdl_intconst_s',
+                       ('value', rffi.ULONGLONG),
+                       ('neg', rffi.INT))
 STRUCT_UNION_S = rffi.CStruct('_cffi_struct_union_s',
                        ('name', rffi.CCHARP),
                        ('type_index', rffi.INT),
@@ -68,6 +71,11 @@ PINFO = rffi.CStructPtr('_cffi_parse_info_s',
                         ('error_location', rffi.SIZE_T),
                         ('error_message', rffi.CCHARP))
 
+GETCONST_S = rffi.CStruct('_cffi_getconst_s',
+                          ('value', rffi.ULONGLONG),
+                          ('ctx', PCTX),
+                          ('gindex', rffi.INT))
+
 ll_parse_c_type = llexternal('pypy_parse_c_type', [PINFO, rffi.CCHARP],
                              rffi.INT)
 ll_search_in_globals = llexternal('pypy_search_in_globals',
@@ -76,6 +84,9 @@ ll_search_in_globals = llexternal('pypy_search_in_globals',
 ll_search_in_struct_unions = llexternal('pypy_search_in_struct_unions',
                                         [PCTX, rffi.CCHARP, rffi.SIZE_T],
                                         rffi.INT)
+ll_set_cdl_realize_global_int = llexternal('pypy_set_cdl_realize_global_int',
+                                           [lltype.Ptr(GLOBAL_S)],
+                                           lltype.Void)
 
 def parse_c_type(info, input):
     p_input = rffi.str2charp(input)

@@ -161,4 +161,6 @@ pypy_search_in_globals(const struct _cffi_type_context_s *ctx,
 RPY_EXTERN int
 pypy_search_in_struct_unions(const struct _cffi_type_context_s *ctx,
                              const char *search, size_t search_len);
+RPY_EXTERN
+void pypy_set_cdl_realize_global_int(struct _cffi_global_s *target);
 #endif
