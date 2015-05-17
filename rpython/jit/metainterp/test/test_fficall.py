@@ -53,15 +53,12 @@ class FfiCallTests(object):
 
         cif_description = get_description(atypes, rtype)
 
-        expected_args = []
-        for avalue in avalues:
-            if lltype.typeOf(avalue) == rffi.ULONG:
-                avalue = intmask(avalue)
-            expected_args.append(avalue)
-        expected_args = tuple(expected_args)
-
         def verify(*args):
-            assert args == expected_args
+            for a, exp_a in zip(args, avalues):
+                if (lltype.typeOf(exp_a) == rffi.ULONG and
+                    lltype.typeOf(a) == lltype.Signed):
+                    a = rffi.cast(rffi.ULONG, a)
+                assert a == exp_a
             return rvalue
         FUNC = lltype.FuncType([lltype.typeOf(avalue) for avalue in avalues],
                                lltype.typeOf(rvalue))
