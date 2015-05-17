@@ -137,6 +137,19 @@ class W_LibObject(W_Root):
                     fetch_funcptr(ptr)
                     w_result = w_ct.convert_to_object(ptr)
                 #
+            elif op == cffi_opcode.OP_DLOPEN_FUNC:
+                # For dlopen(): the function of the given 'name'.  We use
+                # dlsym() to get the address of something in the dynamic
+                # library, which we interpret as being exactly a function of
+                # the specified type.
+                ptr = self.cdlopen_fetch(attr)
+                w_ct = realize_c_type.realize_c_type_or_func(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
+                # must have returned a function type:
+                assert isinstance(w_ct, realize_c_type.W_RawFuncType)
+                w_ctfnptr = w_ct.unwrap_as_fnptr(self.ffi)
+                w_result = W_CData(self.space, ptr, w_ctfnptr)
+                #
             else:
                 raise oefmt(space.w_NotImplementedError,
                             "in lib_build_attr: op=%d", op)
