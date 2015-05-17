@@ -124,19 +124,21 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             copy = True
         if copy:
             shape = w_object.get_shape()
-            elems_w = [None] * w_object.get_size()
-            elsize = w_object.get_dtype().elsize
-            # TODO - use w_object.implementation without copying to a list
-            # unfortunately that causes a union error in translation
-            for i in range(w_object.get_size()):
-                elems_w[i] = w_object.implementation.getitem(i * elsize)
+            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
+            if support.product(shape) == 1:
+                w_arr.set_scalar_value(dtype.coerce(space, 
+                        w_object.implementation.getitem(0)))
+            else:
+                loop.setslice(space, shape, w_arr.implementation, w_object.implementation)
+            return w_arr
         else:
             imp = w_object.implementation
+            w_base = imp.base() or w_object
             with imp as storage:
                 sz = support.product(w_object.get_shape()) * dtype.elsize
                 return W_NDimArray.from_shape_and_storage(space,
                     w_object.get_shape(), storage, dtype, storage_bytes=sz, 
-                    w_base=w_object, start=imp.start)
+                    w_base=w_base, start=imp.start)
     else:
         # not an array
         shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)

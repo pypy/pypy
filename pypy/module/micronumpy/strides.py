@@ -185,8 +185,14 @@ def find_shape_and_elems(space, w_iterable, dtype):
 
 
 def _find_shape_and_elems(space, w_iterable, is_rec_type):
+    from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
-    batch = space.listview(w_iterable)
+    if space.isinstance_w(w_iterable, space.w_buffer):
+        batch = [space.wrap(0)] * shape[0]
+        for i in range(shape[0]):
+            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
+    else:
+        batch = space.listview(w_iterable)
     while True:
         if not batch:
             return shape[:], []
@@ -428,6 +434,17 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
     return new_strides[:]
+
+def calc_start(shape, strides):
+    ''' Strides can be negative for non-contiguous data.
+    Calculate the appropriate positive starting position so
+    the indexing still works properly
+    '''
+    start = 0
+    for i in range(len(shape)):
+        if strides[i] < 0:
+            start -= strides[i] * (shape[i] - 1)
+    return start
 
 @jit.unroll_safe
 def is_c_contiguous(arr):

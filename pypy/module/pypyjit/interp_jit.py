@@ -19,13 +19,12 @@ from opcode import opmap
 
 
 PyFrame._virtualizable_ = ['last_instr', 'pycode',
-                           'valuestackdepth', 'locals_stack_w[*]',
-                           'cells[*]',
+                           'valuestackdepth',
+                           'locals_cells_stack_w[*]',
+                           'debugdata',
                            'last_exception',
                            'lastblock',
-                           'is_being_profiled',
                            'w_globals',
-                           'w_f_trace',
                            ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
@@ -58,7 +57,7 @@ class __extend__(PyFrame):
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
-        is_being_profiled = self.is_being_profiled
+        is_being_profiled = self.get_is_being_profiled()
         try:
             while True:
                 pypyjitdriver.jit_merge_point(ec=ec,
@@ -67,7 +66,7 @@ class __extend__(PyFrame):
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                is_being_profiled = self.is_being_profiled
+                is_being_profiled = self.get_is_being_profiled()
         except Yield:
             self.last_exception = None
             w_result = self.popvalue()
@@ -91,8 +90,8 @@ class __extend__(PyFrame):
             jumpto = r_uint(self.last_instr)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
-                                    pycode=self.getcode(),
-                                    is_being_profiled=self.is_being_profiled)
+                                 pycode=self.getcode(),
+                                 is_being_profiled=self.get_is_being_profiled())
         return jumpto
 
 def _get_adapted_tick_counter():

@@ -59,6 +59,7 @@ the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves
 exactly like `f(a, b)`.
 
 .. branch: issue2018
+
 branch issue2018:
 Allow prebuilt rpython dict with function values
 
@@ -66,11 +67,45 @@ Allow prebuilt rpython dict with function values
 .. Merged but then backed out, hopefully it will return as vmprof2
 
 .. branch: object-dtype2
+
+branch object-dtype2:
 Extend numpy dtypes to allow using objects with associated garbage collection hook
 
 .. branch: vmprof2
+
+branch vmprof2:
 Add backend support for vmprof - a lightweight statistical profiler -
 to linux64, see client at https://vmprof.readthedocs.org
 
 .. branch: jit_hint_docs
+
+branch jit_hint_docs:
 Add more detail to @jit.elidable and @jit.promote in rpython/rlib/jit.py
+
+.. branch: remove-frame-debug-attrs
+
+branch remove_frame-debug-attrs:
+Remove the debug attributes from frames only used for tracing and replace
+them with a debug object that is created on-demand
+
+.. branch: can_cast
+
+branch can_cast:
+Implement np.can_cast, np.min_scalar_type and missing dtype comparison operations.
+
+.. branch: numpy-fixes
+
+branch numpy-fixes:
+Fix some error related to object dtype, non-contiguous arrays, inplement parts of 
+__array_interface__, __array_priority__, __array_wrap__
+
+.. branch: cells-local-stack
+
+branch cells-local-stack:
+Unify the PyFrame.cells and Pyframe.locals_stack_w lists, making frame objects
+1 or 3 words smaller.
+
+.. branch: pythonoptimize-env
+
+branch pythonoptimize-env
+Implement PYTHONOPTIMIZE environment variable, fixing issue #2044

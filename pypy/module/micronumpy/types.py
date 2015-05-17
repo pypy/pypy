@@ -1,5 +1,6 @@
 import functools
 import math
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
@@ -22,13 +23,33 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage, V_OBJECTSTORE
 from pypy.module.micronumpy.strides import calc_strides
+from . import constants as NPY
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
 log10 = math.log(10)
 
+'''
+if not we_are_translated():
+    _raw_storage_setitem_unaligned = raw_storage_setitem_unaligned
+    _raw_storage_getitem_unaligned = raw_storage_getitem_unaligned
+    def raw_storage_setitem_unaligned(storage, offset, value):
+        assert offset >=0
+        try:
+            assert offset < storage._obj.getlength()
+        except AttributeError:
+            pass
+        return _raw_storage_setitem_unaligned(storage, offset, value) 
 
+    def raw_storage_getitem_unaligned(T, storage, offset):
+        assert offset >=0
+        try:
+            assert offset < storage._obj.getlength()
+        except AttributeError:
+            pass
+        return _raw_storage_getitem_unaligned(T, storage, offset) 
+'''
 def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
@@ -127,6 +148,14 @@ class BaseType(object):
             return alloc_raw_storage(size, track_allocation=False, zero=True)
         else:
             return alloc_raw_storage(size, track_allocation=False, zero=False)
+
+    @classmethod
+    def basesize(cls):
+        return rffi.sizeof(cls.T)
+
+    def can_cast_to(self, other):
+        # equivalent to PyArray_CanCastSafely
+        return casting_table[self.num][other.num]
 
 class Primitive(object):
     _mixin_ = True
@@ -281,11 +310,15 @@ class Primitive(object):
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_unary_op
     def logical_not(self, v):
@@ -316,6 +349,9 @@ class Primitive(object):
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
+    num = NPY.BOOL
+    kind = NPY.GENBOOLLTR
+    char = NPY.BOOLLTR
     BoxType = boxes.W_BoolBox
     format_code = "?"
 
@@ -408,6 +444,7 @@ class Bool(BaseType, Primitive):
 
 class Integer(Primitive):
     _mixin_ = True
+    signed = True
 
     def _base_coerce(self, space, w_item):
         if w_item is None:
@@ -551,33 +588,54 @@ class Integer(Primitive):
 
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
+    num = NPY.BYTE
+    kind = NPY.SIGNEDLTR
+    char = NPY.BYTELTR
     BoxType = boxes.W_Int8Box
     format_code = "b"
 
 class UInt8(BaseType, Integer):
     T = rffi.UCHAR
+    num = NPY.UBYTE
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.UBYTELTR
     BoxType = boxes.W_UInt8Box
     format_code = "B"
+    signed = False
 
 class Int16(BaseType, Integer):
     T = rffi.SHORT
+    num = NPY.SHORT
+    kind = NPY.SIGNEDLTR
+    char = NPY.SHORTLTR
     BoxType = boxes.W_Int16Box
     format_code = "h"
 
 class UInt16(BaseType, Integer):
     T = rffi.USHORT
+    num = NPY.USHORT
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.USHORTLTR
     BoxType = boxes.W_UInt16Box
     format_code = "H"
+    signed = False
 
 class Int32(BaseType, Integer):
     T = rffi.INT
+    num = NPY.INT
+    kind = NPY.SIGNEDLTR
+    char = NPY.INTLTR
     BoxType = boxes.W_Int32Box
     format_code = "i"
 
 class UInt32(BaseType, Integer):
     T = rffi.UINT
+    num = NPY.UINT
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.UINTLTR
     BoxType = boxes.W_UInt32Box
     format_code = "I"
+    signed = False
 
 def _int64_coerce(self, space, w_item):
     try:
@@ -594,6 +652,9 @@ def _int64_coerce(self, space, w_item):
 
 class Int64(BaseType, Integer):
     T = rffi.LONGLONG
+    num = NPY.LONGLONG
+    kind = NPY.SIGNEDLTR
+    char = NPY.LONGLONGLTR
     BoxType = boxes.W_Int64Box
     format_code = "q"
 
@@ -615,13 +676,20 @@ def _uint64_coerce(self, space, w_item):
 
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
+    num = NPY.ULONGLONG
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.ULONGLONGLTR
     BoxType = boxes.W_UInt64Box
     format_code = "Q"
+    signed = False
 
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class Long(BaseType, Integer):
     T = rffi.LONG
+    num = NPY.LONG
+    kind = NPY.SIGNEDLTR
+    char = NPY.LONGLTR
     BoxType = boxes.W_LongBox
     format_code = "l"
 
@@ -640,8 +708,12 @@ def _ulong_coerce(self, space, w_item):
 
 class ULong(BaseType, Integer):
     T = rffi.ULONG
+    num = NPY.ULONG
+    kind = NPY.UNSIGNEDLTR
+    char = NPY.ULONGLTR
     BoxType = boxes.W_ULongBox
     format_code = "L"
+    signed = False
 
     _coerce = func_with_new_name(_ulong_coerce, '_coerce')
 
@@ -708,6 +780,8 @@ class Float(Primitive):
     def sign(self, v):
         if v == 0.0:
             return 0.0
+        if rfloat.isnan(v):
+            return rfloat.NAN
         return rfloat.copysign(1.0, v)
 
     @raw_unary_op
@@ -974,7 +1048,11 @@ class Float(Primitive):
 class Float16(BaseType, Float):
     _STORAGE_T = rffi.USHORT
     T = rffi.SHORT
+    num = NPY.HALF
+    kind = NPY.FLOATINGLTR
+    char = NPY.HALFLTR
     BoxType = boxes.W_Float16Box
+    max_value = 65000.
 
     @specialize.argtype(1)
     def box(self, value):
@@ -1014,13 +1092,21 @@ class Float16(BaseType, Float):
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
+    num = NPY.FLOAT
+    kind = NPY.FLOATINGLTR
+    char = NPY.FLOATLTR
     BoxType = boxes.W_Float32Box
     format_code = "f"
+    max_value = 3.4e38
 
 class Float64(BaseType, Float):
     T = rffi.DOUBLE
+    num = NPY.DOUBLE
+    kind = NPY.FLOATINGLTR
+    char = NPY.DOUBLELTR
     BoxType = boxes.W_Float64Box
     format_code = "d"
+    max_value = 1.7e308
 
 class ComplexFloating(object):
     _mixin_ = True
@@ -1263,11 +1349,15 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return self._cbool(v1) and self._cbool(v2)
+        if self._cbool(v1) and self._cbool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return self._cbool(v1) or self._cbool(v2)
+        if self._cbool(v1) or self._cbool(v2):
+            return Bool._True
+        return Bool._False
 
     @raw_unary_op
     def logical_not(self, v):
@@ -1291,12 +1381,30 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def floordiv(self, v1, v2):
-        try:
-            ab = v1[0]*v2[0] + v1[1]*v2[1]
-            bb = v2[0]*v2[0] + v2[1]*v2[1]
-            return math.floor(ab/bb), 0.
-        except ZeroDivisionError:
-            return rfloat.NAN, 0.
+        (r1, i1), (r2, i2) = v1, v2
+        if r2 < 0:
+            abs_r2 = -r2
+        else:
+            abs_r2 = r2
+        if i2 < 0:
+            abs_i2 = -i2
+        else:
+            abs_i2 = i2
+        if abs_r2 >= abs_i2:
+            if abs_r2 == 0.0:
+                return rfloat.NAN, 0.
+            else:
+                ratio = i2 / r2
+                denom = r2 + i2 * ratio
+                rr = (r1 + i1 * ratio) / denom
+        elif rfloat.isnan(r2):
+            rr = rfloat.NAN
+        else:
+            ratio = r2 / i2
+            denom = r2 * ratio + i2
+            assert i2 != 0.0
+            rr = (r1 * ratio + i1) / denom
+        return math.floor(rr), 0.
 
     #complex mod does not exist in numpy
     #@simple_binary_op
@@ -1333,15 +1441,17 @@ class ComplexFloating(object):
         sign of complex number could be either the point closest to the unit circle
         or {-1,0,1}, for compatability with numpy we choose the latter
         '''
+        if rfloat.isnan(v[0]) or rfloat.isnan(v[1]):
+            return rfloat.NAN, 0
         if v[0] == 0.0:
             if v[1] == 0:
-                return 0,0
+                return 0, 0
             if v[1] > 0:
-                return 1,0
-            return -1,0
+                return 1, 0
+            return -1, 0
         if v[0] > 0:
-            return 1,0
-        return -1,0
+            return 1, 0
+        return -1, 0
 
     def fmax(self, v1, v2):
         if self.ge(v1, v2) or self.isnan(v2):
@@ -1592,28 +1702,46 @@ class ComplexFloating(object):
 
 class Complex64(ComplexFloating, BaseType):
     T = rffi.FLOAT
+    num = NPY.CFLOAT
+    kind = NPY.COMPLEXLTR
+    char = NPY.CFLOATLTR
     BoxType = boxes.W_Complex64Box
     ComponentBoxType = boxes.W_Float32Box
+    ComponentType = Float32
 
 class Complex128(ComplexFloating, BaseType):
     T = rffi.DOUBLE
+    num = NPY.CDOUBLE
+    kind = NPY.COMPLEXLTR
+    char = NPY.CDOUBLELTR
     BoxType = boxes.W_Complex128Box
     ComponentBoxType = boxes.W_Float64Box
+    ComponentType = Float64
 
 if boxes.long_double_size == 8:
     class FloatLong(BaseType, Float):
         T = rffi.DOUBLE
+        num = NPY.LONGDOUBLE
+        kind = NPY.FLOATINGLTR
+        char = NPY.LONGDOUBLELTR
         BoxType = boxes.W_FloatLongBox
         format_code = "d"
 
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.DOUBLE
+        num = NPY.CLONGDOUBLE
+        kind = NPY.COMPLEXLTR
+        char = NPY.CLONGDOUBLELTR
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
+        ComponentType = FloatLong
 
 elif boxes.long_double_size in (12, 16):
     class FloatLong(BaseType, Float):
         T = rffi.LONGDOUBLE
+        num = NPY.LONGDOUBLE
+        kind = NPY.FLOATINGLTR
+        char = NPY.LONGDOUBLELTR
         BoxType = boxes.W_FloatLongBox
 
         def runpack_str(self, space, s):
@@ -1631,13 +1759,20 @@ elif boxes.long_double_size in (12, 16):
 
     class ComplexLong(ComplexFloating, BaseType):
         T = rffi.LONGDOUBLE
+        num = NPY.CLONGDOUBLE
+        kind = NPY.COMPLEXLTR
+        char = NPY.CLONGDOUBLELTR
         BoxType = boxes.W_ComplexLongBox
         ComponentBoxType = boxes.W_FloatLongBox
+        ComponentType = FloatLong
 
 _all_objs_for_tests = [] # for tests
 
 class ObjectType(Primitive, BaseType):
     T = lltype.Signed
+    num = NPY.OBJECT
+    kind = NPY.OBJECTLTR
+    char = NPY.OBJECTLTR
     BoxType = boxes.W_ObjectBox
 
     def get_element_size(self):
@@ -1698,7 +1833,7 @@ class ObjectType(Primitive, BaseType):
         else:
             raise oefmt(self.space.w_NotImplementedError,
                 "object dtype cannot unbox %s", str(box))
-            
+
     @specialize.argtype(1)
     def box(self, w_obj):
         if isinstance(w_obj, W_Root):
@@ -1770,14 +1905,14 @@ class ObjectType(Primitive, BaseType):
     @raw_binary_op
     def logical_and(self, v1, v2):
         if self._obool(v1):
-            return self.space.bool_w(v2)
-        return self.space.bool_w(v1)
+            return self.box(v2)
+        return self.box(v1)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
         if self._obool(v1):
-            return self.space.bool_w(v1)
-        return self.space.bool_w(v2)
+            return self.box(v1)
+        return self.box(v2)
 
     @raw_unary_op
     def logical_not(self, v):
@@ -1949,6 +2084,9 @@ def str_binary_op(func):
 
 class StringType(FlexibleType):
     T = lltype.Char
+    num = NPY.STRING
+    kind = NPY.STRINGLTR
+    char = NPY.STRINGLTR
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
@@ -2021,11 +2159,15 @@ class StringType(FlexibleType):
 
     @str_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
     @str_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     @str_unary_op
     def logical_not(self, v):
@@ -2046,6 +2188,9 @@ class StringType(FlexibleType):
 
 class UnicodeType(FlexibleType):
     T = lltype.Char
+    num = NPY.UNICODE
+    kind = NPY.UNICODELTR
+    char = NPY.UNICODELTR
 
     def get_element_size(self):
         return 4  # always UTF-32
@@ -2110,6 +2255,9 @@ class UnicodeType(FlexibleType):
 
 class VoidType(FlexibleType):
     T = lltype.Char
+    num = NPY.VOID
+    kind = NPY.VOIDLTR
+    char = NPY.VOIDLTR
 
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
@@ -2194,8 +2342,14 @@ class VoidType(FlexibleType):
                     "item() for Void aray with no fields not implemented"))
         return space.newtuple(ret_unwrapped)
 
+class CharType(StringType):
+    char = NPY.CHARLTR
+
 class RecordType(FlexibleType):
     T = lltype.Char
+    num = NPY.VOID
+    kind = NPY.VOIDLTR
+    char = NPY.VOIDLTR
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
@@ -2313,8 +2467,11 @@ for tp in [UInt32, UInt64]:
 del tp
 
 all_float_types = []
+float_types = []
 all_int_types = []
+int_types = []
 all_complex_types = []
+complex_types = []
 
 def _setup():
     # compute alignment
@@ -2323,9 +2480,168 @@ def _setup():
             tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
             if issubclass(tp, Float):
                 all_float_types.append((tp, 'float'))
+                float_types.append(tp)
             if issubclass(tp, Integer):
                 all_int_types.append((tp, 'int'))
+                int_types.append(tp)
             if issubclass(tp, ComplexFloating):
                 all_complex_types.append((tp, 'complex'))
+                complex_types.append(tp)
 _setup()
 del _setup
+
+casting_table = [[False] * NPY.NTYPES for _ in range(NPY.NTYPES)]
+number_types = int_types + float_types + complex_types
+all_types = number_types + [ObjectType, StringType, UnicodeType, VoidType]
+
+def enable_cast(type1, type2):
+    casting_table[type1.num][type2.num] = True
+
+for tp in all_types:
+    enable_cast(tp, tp)
+    if tp.num != NPY.DATETIME:
+        enable_cast(Bool, tp)
+    enable_cast(tp, ObjectType)
+    enable_cast(tp, VoidType)
+enable_cast(StringType, UnicodeType)
+#enable_cast(Bool, TimeDelta)
+
+for tp in number_types:
+    enable_cast(tp, StringType)
+    enable_cast(tp, UnicodeType)
+
+for tp1 in int_types:
+    for tp2 in int_types:
+        if tp1.signed:
+            if tp2.signed and tp1.basesize() <= tp2.basesize():
+                enable_cast(tp1, tp2)
+        else:
+            if tp2.signed and tp1.basesize() < tp2.basesize():
+                enable_cast(tp1, tp2)
+            elif not tp2.signed and tp1.basesize() <= tp2.basesize():
+                enable_cast(tp1, tp2)
+for tp1 in int_types:
+    for tp2 in float_types + complex_types:
+        size1 = tp1.basesize()
+        size2 = tp2.basesize()
+        if (size1 < 8 and size2 > size1) or (size1 >= 8 and size2 >= size1):
+            enable_cast(tp1, tp2)
+for tp1 in float_types:
+    for tp2 in float_types + complex_types:
+        if tp1.basesize() <= tp2.basesize():
+            enable_cast(tp1, tp2)
+for tp1 in complex_types:
+    for tp2 in complex_types:
+        if tp1.basesize() <= tp2.basesize():
+            enable_cast(tp1, tp2)
+
+_int_types = [(Int8, UInt8), (Int16, UInt16), (Int32, UInt32),
+        (Int64, UInt64), (Long, ULong)]
+for Int_t, UInt_t in _int_types:
+    Int_t.Unsigned = UInt_t
+    UInt_t.Signed = Int_t
+    size = rffi.sizeof(Int_t.T)
+    Int_t.min_value = rffi.cast(Int_t.T, -1) << (8*size - 1)
+    Int_t.max_value = ~Int_t.min_value
+    UInt_t.max_value = ~rffi.cast(UInt_t.T, 0)
+
+
+signed_types = [Int8, Int16, Int32, Int64, Long]
+
+def make_integer_min_dtype(Int_t, UInt_t):
+    smaller_types = [tp for tp in signed_types
+            if rffi.sizeof(tp.T) < rffi.sizeof(Int_t.T)]
+    smaller_types = unrolling_iterable(
+            [(tp, tp.Unsigned) for tp in smaller_types])
+    def min_dtype(self):
+        value = rffi.cast(UInt64.T, self.value)
+        for Small, USmall in smaller_types:
+            signed_max = rffi.cast(UInt64.T, Small.max_value)
+            unsigned_max = rffi.cast(UInt64.T, USmall.max_value)
+            if value <= unsigned_max:
+                if value <= signed_max:
+                    return Small.num, USmall.num
+                else:
+                    return USmall.num, USmall.num
+        if value <= rffi.cast(UInt64.T, Int_t.max_value):
+            return Int_t.num, UInt_t.num
+        else:
+            return UInt_t.num, UInt_t.num
+    UInt_t.BoxType.min_dtype = min_dtype
+
+    def min_dtype(self):
+        value = rffi.cast(Int64.T, self.value)
+        if value >= 0:
+            for Small, USmall in smaller_types:
+                signed_max = rffi.cast(Int64.T, Small.max_value)
+                unsigned_max = rffi.cast(Int64.T, USmall.max_value)
+                if value <= unsigned_max:
+                    if value <= signed_max:
+                        return Small.num, USmall.num
+                    else:
+                        return USmall.num, USmall.num
+            return Int_t.num, UInt_t.num
+        else:
+            for Small, USmall in smaller_types:
+                signed_min = rffi.cast(Int64.T, Small.min_value)
+                if value >= signed_min:
+                        return Small.num, Small.num
+            return Int_t.num, Int_t.num
+    Int_t.BoxType.min_dtype = min_dtype
+
+for Int_t in signed_types:
+    UInt_t = Int_t.Unsigned
+    make_integer_min_dtype(Int_t, UInt_t)
+
+
+smaller_float_types = {
+    Float16: [], Float32: [Float16], Float64: [Float16, Float32],
+    FloatLong: [Float16, Float32, Float64]}
+
+def make_float_min_dtype(Float_t):
+    smaller_types = unrolling_iterable(smaller_float_types[Float_t])
+    smallest_type = Float16
+
+    def min_dtype(self):
+        value = float(self.value)
+        if not rfloat.isfinite(value):
+            tp = smallest_type
+        else:
+            for SmallFloat in smaller_types:
+                if -SmallFloat.max_value < value < SmallFloat.max_value:
+                    tp = SmallFloat
+                    break
+            else:
+                tp = Float_t
+        return tp.num, tp.num
+    Float_t.BoxType.min_dtype = min_dtype
+
+for Float_t in float_types:
+    make_float_min_dtype(Float_t)
+
+smaller_complex_types = {
+    Complex64: [], Complex128: [Complex64],
+    ComplexLong: [Complex64, Complex128]}
+
+def make_complex_min_dtype(Complex_t):
+    smaller_types = unrolling_iterable(smaller_complex_types[Complex_t])
+
+    def min_dtype(self):
+        real, imag = float(self.real), float(self.imag)
+        for CSmall in smaller_types:
+            max_value = CSmall.ComponentType.max_value
+
+            if -max_value < real < max_value and -max_value < imag < max_value:
+                tp = CSmall
+                break
+        else:
+            tp = Complex_t
+        return tp.num, tp.num
+    Complex_t.BoxType.min_dtype = min_dtype
+
+for Complex_t in complex_types:
+    make_complex_min_dtype(Complex_t)
+
+def min_dtype(self):
+    return Bool.num, Bool.num
+Bool.BoxType.min_dtype = min_dtype

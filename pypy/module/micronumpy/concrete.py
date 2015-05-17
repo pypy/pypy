@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calc_backstrides)
+    calculate_broadcast_strides, calc_backstrides, calc_start)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.baseobjspace import W_Root
@@ -90,8 +90,9 @@ class BaseConcreteArray(object):
                               new_shape, self, orig_array)
         return None
 
-    def get_view(self, space, orig_array, dtype, new_shape):
-        strides, backstrides = calc_strides(new_shape, dtype,
+    def get_view(self, space, orig_array, dtype, new_shape, strides=None, backstrides=None):
+        if not strides:
+            strides, backstrides = calc_strides(new_shape, dtype,
                                                     self.order)
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
@@ -323,15 +324,27 @@ class BaseConcreteArray(object):
 
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
-        
+
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        strides, backstrides = calc_strides(self.get_shape(), dtype,
-                                                    self.order)
-        impl = ConcreteArray(self.get_shape(), dtype, self.order,
-                             strides, backstrides)
+        # copy the general pattern of the strides
+        # but make the array storage contiguous in memory
+        shape = self.get_shape()
+        strides = self.get_strides()
+        if len(strides) > 0:
+            mins = strides[0]
+            t_elsize = dtype.elsize
+            for s in strides:
+                if s < mins:
+                    mins = s
+            t_strides = [s * t_elsize / mins for s in strides]
+            backstrides = calc_backstrides(t_strides, shape)
+        else:
+            t_strides = []
+            backstrides = []
+        impl = ConcreteArray(shape, dtype, self.order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
@@ -426,8 +439,9 @@ class ConcreteArray(ConcreteArrayNotOwning):
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
             else:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
+        start = calc_start(shape, strides)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
-                                        storage)
+                                        storage, start=start)
         self.gcstruct = gcstruct
 
     def __del__(self):
@@ -519,6 +533,9 @@ class SliceArray(BaseConcreteArray):
         return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
 
+    def sort(self, space, w_axis, w_order):
+        from .selection import sort_array
+        return sort_array(self, space, w_axis, w_order)
 
 class NonWritableSliceArray(SliceArray):
     def descr_setitem(self, space, orig_array, w_index, w_value):

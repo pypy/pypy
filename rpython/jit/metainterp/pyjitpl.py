@@ -1331,34 +1331,6 @@ class MIFrame(object):
             metainterp.history.record(rop.VIRTUAL_REF_FINISH,
                                       [vrefbox, nullbox], None)
 
-    @arguments("box", "box", "box")
-    def _opimpl_libffi_save_result(self, box_cif_description,
-                                   box_exchange_buffer, box_result):
-        from rpython.rtyper.lltypesystem import llmemory
-        from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
-        from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
-
-        cif_description = box_cif_description.getint()
-        cif_description = llmemory.cast_int_to_adr(cif_description)
-        cif_description = llmemory.cast_adr_to_ptr(cif_description,
-                                                   CIF_DESCRIPTION_P)
-
-        kind, descr, itemsize = get_arg_descr(self.metainterp.cpu, cif_description.rtype)
-
-        if kind != 'v':
-            ofs = cif_description.exchange_result
-            assert ofs % itemsize == 0     # alignment check (result)
-            self.metainterp.history.record(rop.SETARRAYITEM_RAW,
-                                           [box_exchange_buffer,
-                                            ConstInt(ofs // itemsize),
-                                            box_result],
-                                           None, descr)
-
-    opimpl_libffi_save_result_int         = _opimpl_libffi_save_result
-    opimpl_libffi_save_result_float       = _opimpl_libffi_save_result
-    opimpl_libffi_save_result_longlong    = _opimpl_libffi_save_result
-    opimpl_libffi_save_result_singlefloat = _opimpl_libffi_save_result
-
     # ------------------------------
 
     def setup_call(self, argboxes):
@@ -2910,7 +2882,7 @@ class MetaInterp(object):
         self.history.operations.extend(extra_guards)
         #
         # note that the result is written back to the exchange_buffer by the
-        # special op libffi_save_result_{int,float}
+        # following operation, which should be a raw_store
 
     def direct_call_release_gil(self):
         op = self.history.operations.pop()

@@ -27,7 +27,7 @@ eci_kwds = dict(
     include_dirs = [SRC],
     includes = ['vmprof.h', 'trampoline.h'],
     separate_module_files = [SRC.join('trampoline.asmgcc.s')],
-    link_files = ['-Wl,-Bstatic', '-lunwind', '-llzma','-Wl,-Bdynamic'],
+    libraries = ['unwind'],
     
     post_include_bits=["""
         void pypy_vmprof_init(void);
