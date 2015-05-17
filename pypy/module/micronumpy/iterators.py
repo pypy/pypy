@@ -39,8 +39,6 @@ All the calculations happen in next()
 from rpython.rlib import jit
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.flagsobj import _update_contiguous_flags
-
 
 class PureShapeIter(object):
     def __init__(self, shape, idx_w):
@@ -96,7 +94,6 @@ class ArrayIter(object):
     @jit.unroll_safe
     def __init__(self, array, size, shape, strides, backstrides):
         assert len(shape) == len(strides) == len(backstrides)
-        _update_contiguous_flags(array)
         self.contiguous = (array.flags & NPY.ARRAY_C_CONTIGUOUS and
                            array.shape == shape and array.strides == strides)
 

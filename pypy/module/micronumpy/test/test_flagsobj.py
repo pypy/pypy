@@ -9,6 +9,10 @@ class AppTestFlagsObj(BaseNumpyAppTest):
         b = type(a.flags)()
         assert b is not a.flags
         assert b['C'] is True
+        s = str(b)
+        assert s == '%s' %('  C_CONTIGUOUS : True\n  F_CONTIGUOUS : True'
+                         '\n  OWNDATA : True\n  WRITEABLE : False'
+                         '\n  ALIGNED : True\n  UPDATEIFCOPY : False')
 
     def test_repr(self):
         import numpy as np
