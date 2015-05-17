@@ -6,7 +6,7 @@ from pypy.interpreter.error import oefmt
 from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from pypy.module._cffi_backend.parse_c_type import (
-    _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S,
+    _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S, STRUCT_UNION_S, FIELD_S, ENUM_S,
     ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
@@ -85,7 +85,7 @@ class StringDecoder:
         i = self.string.find('\x00', frm)
         if i < 0:
             i = len(self.string)
-        pos = i + 1
+        self.pos = i + 1
         p = rffi.str2charp(self.string[frm : i])
         self.ffi._finalizer.free_mems.append(p)
         return p
@@ -202,5 +202,19 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         ffi.ctxobj.ctx.c_struct_unions = nstructs
         ffi.ctxobj.ctx.c_fields = nfields
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_struct_unions', n)
+
+    if w_enums:
+        # unpack a tuple of strings, each of which describes one enum_s entry
+        enums_w = space.fixedview(w_enums)
+        n = len(enums_w)
+        nenums = allocate_array(ffi, ENUM_S, n)
+        for i in range(n):
+            decoder = StringDecoder(ffi, space.str_w(enums_w[i]))
+            rffi.setintfield(nenums[i], 'c_type_index', decoder.next_4bytes())
+            rffi.setintfield(nenums[i], 'c_type_prim', decoder.next_4bytes())
+            nenums[i].c_name = decoder.next_name()
+            nenums[i].c_enumerators = decoder.next_name()
+        ffi.ctxobj.ctx.c_enums = nenums
+        rffi.setintfield(ffi.ctxobj.ctx, 'c_num_enums', n)
 
     # ... XXXX
