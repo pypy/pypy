@@ -32,7 +32,7 @@ class FreeCtxObj(object):
     def __init__(self, ctxobj):
         self.ctxobj = ctxobj
         self.free_mems = []       # filled from cdlopen.py
-    @rgc.must_be_light_finalizer
+
     def __del__(self):
         ctxobj = self.ctxobj
         free_mems = self.free_mems
