@@ -1,6 +1,7 @@
 import py
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app
+from pypy.module._cffi_backend.newtype import _clean_cache
 
 
 class AppTestRecompilerPython:
@@ -60,8 +61,18 @@ class AppTestRecompilerPython:
             sys.path.insert(0, path)
         """)
 
+    def teardown_method(self, meth):
+        self.space.appexec([], """():
+            import sys
+            try:
+                del sys.modules['re_python_pysrc']
+            except KeyError:
+                pass
+        """)
+        _clean_cache(self.space)
 
-    def test_constant(self):
+
+    def test_constant_1(self):
         from re_python_pysrc import ffi
         assert ffi.integer_const('FOOBAR') == -42
         assert ffi.integer_const('FOOBAZ') == -43
