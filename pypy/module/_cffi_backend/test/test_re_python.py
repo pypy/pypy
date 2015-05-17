@@ -47,6 +47,8 @@ class AppTestRecompilerPython:
         #define BIGNEG -420000000000L
         int add42(int);
         int globalvar42;
+        int no_such_function(int);
+        int no_such_globalvar;
         struct foo_s;
         typedef struct bar_s { int x; signed char a[]; } bar_t;
         enum foo_e { AA, BB, CC };
@@ -160,7 +162,7 @@ class AppTestRecompilerPython:
 
     def test_no_such_function_or_global_var(self):
         from re_python_pysrc import ffi
-        lib = ffi.dlopen(extmod)
+        lib = ffi.dlopen(self.extmod)
         e = raises(ffi.error, getattr, lib, 'no_such_function')
         assert str(e.value).startswith(
             "symbol 'no_such_function' not found in library '")

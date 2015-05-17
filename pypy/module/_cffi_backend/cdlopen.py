@@ -33,10 +33,10 @@ class W_DlOpenLibObject(W_LibObject):
     def cdlopen_fetch(self, name):
         try:
             cdata = dlsym(self.libhandle, name)
-        except DLOpenError, e:
+        except KeyError:
             raise oefmt(self.ffi.w_FFIError,
-                        "symbol '%s' not found in library '%s': %s",
-                        name, self.libname, e.msg)
+                        "symbol '%s' not found in library '%s'",
+                        name, self.libname)
         return rffi.cast(rffi.CCHARP, cdata)
 
     def cdlopen_close(self):
