@@ -230,4 +230,9 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         ffi.ctxobj.ctx.c_typenames = ntypenames
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_typenames', n)
 
-    # ... XXXX
+    if w_includes:
+        from pypy.module._cffi_backend.ffi_obj import W_FFIObject
+        #
+        for w_parent_ffi in space.fixedview(w_includes):
+            parent_ffi = space.interp_w(W_FFIObject, w_parent_ffi)
+            ffi.included_ffis_libs.append((parent_ffi, None))

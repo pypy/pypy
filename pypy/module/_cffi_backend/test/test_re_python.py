@@ -53,7 +53,14 @@ class AppTestRecompilerPython:
         """)
         ffi.set_source('re_python_pysrc', None)
         ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
-        #mod.original_ffi = ffi
+        #
+        sub_ffi = FFI()
+        sub_ffi.cdef("static const int k2 = 121212;")
+        sub_ffi.include(ffi)
+        assert 'macro FOOBAR' in ffi._parser._declarations
+        assert 'macro FOOBAZ' in ffi._parser._declarations
+        sub_ffi.set_source('re_py_subsrc', None)
+        sub_ffi.emit_python_code(str(tmpdir.join('re_py_subsrc.py')))
         #
         space.appexec([space.wrap(str(tmpdir))], """(path):
             import _cffi_backend     # force it to be initialized
@@ -64,10 +71,9 @@ class AppTestRecompilerPython:
     def teardown_method(self, meth):
         self.space.appexec([], """():
             import sys
-            try:
-                del sys.modules['re_python_pysrc']
-            except KeyError:
-                pass
+            for name in ['re_py_subsrc', 're_python_pysrc']:
+                if name in sys.modules:
+                    del sys.modules[name]
         """)
         _clean_cache(self.space)
 
@@ -124,15 +130,7 @@ class AppTestRecompilerPython:
         assert ffi.string(e) == "CC"
 
     def test_include_1(self):
-        sub_ffi = FFI()
-        sub_ffi.cdef("static const int k2 = 121212;")
-        sub_ffi.include(original_ffi)
-        assert 'macro FOOBAR' in original_ffi._parser._declarations
-        assert 'macro FOOBAZ' in original_ffi._parser._declarations
-        sub_ffi.set_source('re_python_pysrc', None)
-        sub_ffi.emit_python_code(str(tmpdir.join('_re_include_1.py')))
-        #
-        from _re_include_1 import ffi
+        from re_py_subsrc import ffi
         assert ffi.integer_const('FOOBAR') == -42
         assert ffi.integer_const('FOOBAZ') == -43
         assert ffi.integer_const('k2') == 121212

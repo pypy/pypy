@@ -78,7 +78,7 @@ class W_FFIObject(W_Root):
                         "object", name)
 
         for ffi1, _ in self.included_ffis_libs:
-            w_result = ffi1.ffi_fetch_int_constant(name)
+            w_result = ffi1.fetch_int_constant(name)
             if w_result is not None:
                 return w_result
         return None
