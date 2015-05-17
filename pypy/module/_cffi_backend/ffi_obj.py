@@ -55,8 +55,10 @@ class W_FFIObject(W_Root):
         else:
             self.cached_types = None
         self.w_FFIError = get_ffi_error(space)
-        self.included_ffis = []        # list of W_FFIObject's included here
-        self.included_libs = []        # list of W_LibObject's included here
+        #
+        # list of (W_FFIObject, W_LibObject) included in this ffi,
+        # where the lib object may be None
+        self.included_ffis_libs = []
 
     def fetch_int_constant(self, name):
         index = parse_c_type.search_in_globals(self.ctxobj.ctx, name)
@@ -71,7 +73,7 @@ class W_FFIObject(W_Root):
                         "'%s' must be fetched from its original 'lib' "
                         "object", name)
 
-        for ffi1 in self.included_ffis:
+        for ffi1, _ in self.included_ffis_libs:
             w_result = ffi1.ffi_fetch_int_constant(name)
             if w_result is not None:
                 return w_result
@@ -489,7 +491,7 @@ we only look for the actual (untyped) symbols at the time of their
 first access."""
         #
         from pypy.module._cffi_backend import cdlopen
-        return cdlopen.ffi_dlopen(self, filename, flags)
+        return cdlopen.W_DlOpenLibObject(self, filename, flags)
 
 
     def descr_dlclose(self, w_lib):

@@ -16,14 +16,14 @@ from pypy.module._cffi_backend.structwrapper import W_StructWrapper
 
 
 class W_LibObject(W_Root):
+    libhandle = rffi.cast(DLLHANDLE, 0)    # the dlopen()ed handle, if any
 
-    def __init__(self, ffi, libname, libhandle=rffi.cast(DLLHANDLE, 0)):
+    def __init__(self, ffi, libname):
         self.space = ffi.space
         self.ctx = ffi.ctxobj.ctx
         self.ffi = ffi
         self.dict_w = {}          # content, built lazily
         self.libname = libname    # some string that gives the name of the lib
-        self.libhandle = libhandle   # the dlopen()ed handle, if any
 
     def descr_repr(self):
         return self.space.wrap("<Lib object for '%s'>" % self.libname)
@@ -45,9 +45,9 @@ class W_LibObject(W_Root):
                 raise oefmt(space.w_ImportError,
                     "while loading %s: failed to import ffi, lib from %s",
                     self.libname, include_name)
-            includes.append(lib1)
+            includes.append((lib1.ffi, lib1))
             num += 1
-        self.ffi.included_libs = includes[:]
+        self.ffi.included_ffis_libs = includes[:]
 
     def _build_cpython_func(self, g):
         # Build a function: in the PyPy version, these are all equivalent
@@ -63,6 +63,7 @@ class W_LibObject(W_Root):
         w_ct, locs = rawfunctype.unwrap_as_nostruct_fnptr(self.ffi)
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
+        assert ptr
         w_cdata = W_CData(self.space, ptr, w_ct)
         if locs is not None:
             w_cdata = W_StructWrapper(w_cdata, locs, rawfunctype)
@@ -76,14 +77,19 @@ class W_LibObject(W_Root):
     def _build_attr(self, attr):
         index = parse_c_type.search_in_globals(self.ctx, attr)
         if index < 0:
-            for lib1 in self.ffi.included_libs:
-                try:
-                    w_result = lib1._get_attr_elidable(attr)
-                except KeyError:
-                    w_result = lib1._build_attr(attr)
-                    if w_result is None:
-                        continue
-                break           # found, break out of this loop
+            for ffi1, lib1 in self.ffi.included_ffis_libs:
+                if lib1 is not None:
+                    try:
+                        w_result = lib1._get_attr_elidable(attr)
+                        break           # found, break out of this loop
+                    except KeyError:
+                        w_result = lib1._build_attr(attr)
+                        if w_result is not None:
+                            break       # found, break out of this loop
+                else:
+                    w_result = ffi1.fetch_int_constant(attr)
+                    if w_result is not None:
+                        break           # found, break out of this loop
             else:
                 return None     # not found at all
         else:
@@ -107,6 +113,8 @@ class W_LibObject(W_Root):
                             "according to the cdef, but is actually %d",
                             attr, w_ct.size, g_size)
                 ptr = rffi.cast(rffi.CCHARP, g.c_address)
+                if not ptr:   # for dlopen() style
+                    ptr = self.cdlopen_fetch(attr)
                 w_result = cglob.W_GlobSupport(space, w_ct, ptr)
                 #
             elif (op == cffi_opcode.OP_CONSTANT_INT or
@@ -123,6 +131,7 @@ class W_LibObject(W_Root):
                 fetch_funcptr = rffi.cast(
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
+                assert fetch_funcptr
                 assert w_ct.size > 0
                 with lltype.scoped_alloc(rffi.CCHARP.TO, w_ct.size) as ptr:
                     fetch_funcptr(ptr)
@@ -144,8 +153,8 @@ class W_LibObject(W_Root):
             w_value = self._build_attr(attr)
             if w_value is None:
                 raise oefmt(self.space.w_AttributeError,
-                            "cffi lib '%s' has no function,"
-                            " global variable or constant named '%s'",
+                            "cffi library '%s' has no function, constant "
+                            "or global variable named '%s'",
                             self.libname, attr)
         return w_value
 
@@ -194,6 +203,9 @@ class W_LibObject(W_Root):
         #
         raise oefmt(space.w_AttributeError,
                     "cannot take the address of the constant '%s'", varname)
+
+    def cdlopen_fetch(self, name):
+        raise NotImplementedError
 
 
 W_LibObject.typedef = TypeDef(

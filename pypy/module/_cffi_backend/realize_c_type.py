@@ -258,7 +258,7 @@ def _realize_c_struct_or_union(ffi, sindex):
             assert c_first_field_index < 0
     else:
         assert c_first_field_index < 0
-        x = _fetch_external_struct_or_union(s, ffi.included_libs)
+        x = _fetch_external_struct_or_union(s, ffi.included_ffis_libs)
         if x is None:
             raise oefmt(ffi.w_FFIError,
                     "'%s %s' should come from ffi.include() but was not found",
@@ -472,25 +472,26 @@ def do_realize_lazy_struct(w_ctype):
     w_ctype._lazy_s = lltype.nullptr(parse_c_type.STRUCT_UNION_S)
 
 
-def _fetch_external_struct_or_union(s, included_libs):
+def _fetch_external_struct_or_union(s, included_ffis_libs):
     name = rffi.charp2str(s.c_name)
     #
-    for lib1 in included_libs:
-        sindex = parse_c_type.search_in_struct_unions(lib1.ctx, name)
+    for ffi1, _ in included_ffis_libs:
+        ctx1 = ffi1.ctxobj.ctx
+        sindex = parse_c_type.search_in_struct_unions(ctx1, name)
         if sindex < 0:   # not found at all
             continue
 
-        s1 = lib1.ctx.c_struct_unions[sindex]
+        s1 = ctx1.c_struct_unions[sindex]
         s1_flags = rffi.getintfield(s1, 'c_flags')
         s_flags  = rffi.getintfield(s,  'c_flags')
         if ((s1_flags & (cffi_opcode.F_EXTERNAL | cffi_opcode.F_UNION))
                 == (s_flags & cffi_opcode.F_UNION)):
             # s1 is not external, and the same kind (struct or union) as s
-            return _realize_c_struct_or_union(lib1.ffi, sindex)
+            return _realize_c_struct_or_union(ffi1, sindex)
 
         # not found, look more recursively
-        if len(lib1.ffi.included_libs) > 0:
-            w_res = _fetch_external_struct_or_union(s, lib1.ffi.included_libs)
+        if len(ffi1.included_ffis_libs) > 0:
+            w_res = _fetch_external_struct_or_union(s, ffi1.included_ffis_libs)
             if w_res is not None:
                 return w_res
     return None

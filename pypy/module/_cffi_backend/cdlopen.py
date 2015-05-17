@@ -7,7 +7,8 @@ from pypy.module._cffi_backend.parse_c_type import (
     _CFFI_OPCODE_T, GLOBAL_S, CDL_INTCONST_S,
     ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
-from pypy.module._cffi_backend import cffi_opcode, lib_obj
+from pypy.module._cffi_backend.lib_obj import W_LibObject
+from pypy.module._cffi_backend import cffi_opcode
 
 
 class StringDecoder:
@@ -95,15 +96,28 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
     # ...
 
 
-def ffi_dlopen(ffi, filename, flags):
-    with rffi.scoped_str2charp(filename) as ll_libname:
-        if filename is None:
-            filename = "<None>"
-        try:
-            handle = dlopen(ll_libname, flags)
-        except DLOpenError, e:
-            raise wrap_dlopenerror(space, e, filename)
-    return lib_obj.W_LibObject(ffi, filename, handle)
+class W_DlOpenLibObject(W_LibObject):
 
-def ffi_dlclose(xxx):
-    yyyy
+    def __init__(self, ffi, filename, flags):
+        with rffi.scoped_str2charp(filename) as ll_libname:
+            if filename is None:
+                filename = "<None>"
+            try:
+                handle = dlopen(ll_libname, flags)
+            except DLOpenError, e:
+                raise wrap_dlopenerror(space, e, filename)
+        W_LibObject.__init__(self, ffi, filename)
+        self.libhandle = handle
+
+    def __del__(self):
+        if self.libhandle:
+            dlclose(self.libhandle)
+
+    def cdlopen_fetch(self, name):
+        try:
+            cdata = dlsym(self.libhandle, name)
+        except DLOpenError, e:
+            raise oefmt(self.ffi.w_FFIError,
+                        "symbol '%s' not found in library '%s': %s",
+                        name, self.libname, e.msg)
+        return rffi.cast(rffi.CCHARP, cdata)

@@ -94,7 +94,7 @@ class AppTestRecompilerPython:
         from re_python_pysrc import ffi
         lib = ffi.dlopen(self.extmod)
         ffi.dlclose(lib)
-        e = py.test.raises(ffi.error, ffi.dlclose, lib)
+        e = raises(ffi.error, ffi.dlclose, lib)
         assert str(e.value) == (
             "library '%s' is already closed or was not created with ffi.dlopen()"
             % (self.extmod,))
@@ -108,7 +108,7 @@ class AppTestRecompilerPython:
     def test_opaque_struct(self):
         from re_python_pysrc import ffi
         ffi.cast("struct foo_s *", 0)
-        py.test.raises(TypeError, ffi.new, "struct foo_s *")
+        raises(TypeError, ffi.new, "struct foo_s *")
 
     def test_nonopaque_struct(self):
         from re_python_pysrc import ffi
@@ -160,3 +160,13 @@ class AppTestRecompilerPython:
         ffi.RTLD_NOW    # check that we have the attributes
         ffi.RTLD_LAZY
         ffi.RTLD_GLOBAL
+
+    def test_no_such_function_or_global_var(self):
+        from re_python_pysrc import ffi
+        lib = ffi.dlopen(extmod)
+        e = raises(ffi.error, getattr, lib, 'no_such_function')
+        assert str(e.value).startswith(
+            "symbol 'no_such_function' not found in library '")
+        e = raises(ffi.error, getattr, lib, 'no_such_globalvar')
+        assert str(e.value).startswith(
+            "symbol 'no_such_globalvar' not found in library '")
