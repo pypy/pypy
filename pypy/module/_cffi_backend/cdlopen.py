@@ -10,7 +10,7 @@ from pypy.module._cffi_backend.parse_c_type import (
     ENUM_S, TYPENAME_S, ll_set_cdl_realize_global_int)
 from pypy.module._cffi_backend.realize_c_type import getop
 from pypy.module._cffi_backend.lib_obj import W_LibObject
-from pypy.module._cffi_backend import cffi_opcode
+from pypy.module._cffi_backend import cffi_opcode, cffi1_module
 
 
 class W_DlOpenLibObject(W_LibObject):
@@ -117,6 +117,13 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
     # xxx force ll2ctypes conversion here.  This appears to be needed,
     # otherwise ll2ctypes explodes.  I don't want to know :-(
     rffi.cast(lltype.Signed, ffi.ctxobj)
+
+    if version == -1 and not types:
+        return
+    if not (cffi1_module.VERSION_MIN <= version <= cffi1_module.VERSION_MAX):
+        raise oefmt(space.w_ImportError,
+            "cffi out-of-line Python module '%s' has unknown version %s",
+            module_name, hex(version))
 
     if types:
         # unpack a string of 4-byte entries into an array of _cffi_opcode_t

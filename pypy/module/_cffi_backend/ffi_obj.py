@@ -155,8 +155,8 @@ class W_FFIObject(W_Root):
                     m1, s12, m2, s23, m3, w_x)
 
 
-    @unwrap_spec(module_name="str_or_None", _version=int, _types="str_or_None")
-    def descr_init(self, module_name=None, _version=-1, _types=None,
+    @unwrap_spec(module_name=str, _version=int, _types=str)
+    def descr_init(self, module_name='?', _version=-1, _types='',
                    w__globals=None, w__struct_unions=None, w__enums=None,
                    w__typenames=None, w__includes=None):
         from pypy.module._cffi_backend import cdlopen
