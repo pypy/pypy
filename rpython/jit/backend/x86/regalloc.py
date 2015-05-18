@@ -1553,7 +1553,7 @@ class RegAlloc(BaseRegalloc):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args)
         result = self.force_allocate_reg(op.result, args)
         tmpxvar = TempBox()
-        tmploc = self.xrm.force_allocate_reg(tmpxvar)
+        tmploc = self.xrm.force_allocate_reg(tmpxvar, args)
         self.xrm.possibly_free_var(tmpxvar)
         self.perform(op, [loc0, tmploc, imm(index.value), imm(count.value)], result)
 
@@ -1569,7 +1569,7 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(op.result, BoxVector)
         args = op.getarglist()
         size = op.result.item_size
-        arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
+        arglocs = [resloc, srcloc, imm(index.value), imm(0), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
 
     def consider_vec_int_unpack(self, op):
@@ -1599,7 +1599,6 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_int_signext(self, op):
         args = op.getarglist()
-        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
         resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         sizearg = op.getarg(0)
         result = op.result
@@ -1607,7 +1606,7 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(result, BoxVector)
         size = sizearg.item_size
         tosize = result.item_size
-        self.perform(op, [srcloc, imm(size), imm(tosize)], resloc)
+        self.perform(op, [resloc, imm(size), imm(tosize)], resloc)
 
     def consider_vec_box(self, op):
         # pseudo instruction, needed to create a new variable
@@ -1617,7 +1616,7 @@ class RegAlloc(BaseRegalloc):
         pass
 
     def consider_vec_cast_float_to_singlefloat(self, op):
-        count = op.getarg(1)
+        count = op.getarg(2)
         assert isinstance(count, ConstInt)
         args = op.getarglist()
         loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
@@ -1636,12 +1635,12 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [loc0, tmploc, imm(index.value)], result)
 
     def consider_vec_cast_float_to_int(self, op):
-        count = op.getarg(1)
-        assert isinstance(count, ConstInt)
+        src = op.getarg(0)
+        res = op.result
         args = op.getarglist()
-        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
-        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [loc0, imm(count.value)], result)
+        srcloc = self.make_sure_var_in_reg(src, args)
+        resloc = self.xrm.force_result_in_reg(res, src, args)
+        self.perform(op, [srcloc], resloc)
 
     consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
 

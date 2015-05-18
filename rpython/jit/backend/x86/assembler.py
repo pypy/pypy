@@ -865,8 +865,14 @@ class Assembler386(BaseAssembler):
     # ------------------------------------------------------------
 
     def mov(self, from_loc, to_loc):
-        if (isinstance(from_loc, RegLoc) and from_loc.is_xmm) or (isinstance(to_loc, RegLoc) and to_loc.is_xmm):
-            self.mc.MOVSD(to_loc, from_loc)
+        from_xmm = isinstance(from_loc, RegLoc) and from_loc.is_xmm
+        to_xmm = isinstance(to_loc, RegLoc) and to_loc.is_xmm
+        if from_xmm or to_xmm:
+            if from_xmm and to_xmm:
+                # copy 128-bit from -> to
+                self.mc.MOVAPD(to_loc, from_loc)
+            else:
+                self.mc.MOVSD(to_loc, from_loc)
         else:
             assert to_loc is not ebp
             self.mc.MOV(to_loc, from_loc)
@@ -2547,17 +2553,29 @@ class Assembler386(BaseAssembler):
         srcloc, sizeloc, tosizeloc = arglocs
         size = sizeloc.value
         tosize = tosizeloc.value
-        if size == 8 and tosize == 4:
+        if size == 4 and tosize == 8:
+            scratch = X86_64_SCRATCH_REG.value
+            print resloc, "[0] <- int64(", srcloc, "[0])"
+            print resloc, "[1] <- int64(", srcloc, "[1])"
+            self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
+            self.mc.PINSRQ_xri(resloc.value, scratch, 1)
+            self.mc.PEXTRD_rxi(scratch, srcloc.value, 0)
+            self.mc.PINSRQ_xri(resloc.value, scratch, 0)
+        elif size == 8 and tosize == 4:
             # is there a better sequence to move them?
-            self.mc.MOVDQU(resloc, srcloc)
-            self.mc.PSRLDQ(srcloc, 8)
-            self.mc.PUNPCKLDQ(resloc, srcloc)
+            scratch = X86_64_SCRATCH_REG.value
+            print resloc, "[0] <- int32(", srcloc, "[0])"
+            print resloc, "[1] <- int32(", srcloc, "[1])"
+            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
+            self.mc.PINSRD_xri(resloc.value, scratch, 0)
+            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
+            self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:
             py.test.set_trace()
             raise NotImplementedError("sign ext missing")
 
     def genop_vec_float_expand(self, op, arglocs, resloc):
-        loc0, countloc = arglocs
+        loc0, sizeloc, countloc = arglocs
         count = countloc.value
         if count == 1:
             raise NotImplementedError("expand count 1")
@@ -2620,31 +2638,32 @@ class Assembler386(BaseAssembler):
         si = srcidx
         ri = residx
         k = count
+        print resultloc,"[", residx, "] <- ",sourceloc,"[",srcidx,"] count", count
         while k > 0:
             if size == 8:
                 if resultloc.is_xmm:
                     self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRQ_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PINSRQ_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRQ_rxi(resloc.value, sourceloc.value, si)
+                    self.mc.PEXTRQ_rxi(resultloc.value, sourceloc.value, si)
             elif size == 4:
                 if resultloc.is_xmm:
                     self.mc.PEXTRD_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRD_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PINSRD_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRD_rxi(resloc.value, sourceloc.value, si)
+                    self.mc.PEXTRD_rxi(resultloc.value, sourceloc.value, si)
             elif size == 2:
                 if resultloc.is_xmm:
                     self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRW_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PINSRW_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRW_rxi(resloc.value, sourceloc.value, si)
+                    self.mc.PEXTRW_rxi(resultloc.value, sourceloc.value, si)
             elif size == 1:
                 if resultloc.is_xmm:
                     self.mc.PEXTRB_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRB_xri(resloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PINSRB_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRB_rxi(resloc.value, sourceloc.value, si)
+                    self.mc.PEXTRB_rxi(resultloc.value, sourceloc.value, si)
             si += 1
             ri += 1
             k -= 1

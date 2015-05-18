@@ -1001,7 +1001,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = int_lt(i2, 10)
         guard_true(i3) [p0,i0]
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v3 = vec_expand(42, 2)
+        v3 = vec_int_expand(42)
         v2 = vec_int_mul(v1, v3, 2)
         jump(p0,i2)
         """
@@ -1028,7 +1028,7 @@ class BaseTestVectorize(VecTestHelper):
         i3 = int_lt(i2, 10)
         guard_true(i3) [p0,i0]
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v3 = vec_expand(f3, 2)
+        v3 = vec_float_expand(f3)
         v2 = vec_int_mul(v1, v3, 2)
         jump(p0,i2,f3)
         """

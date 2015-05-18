@@ -2,6 +2,7 @@
 It should not be imported by the module itself
 """
 import re
+import py
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
