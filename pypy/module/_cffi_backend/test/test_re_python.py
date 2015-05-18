@@ -105,6 +105,9 @@ class AppTestRecompilerPython:
         e = raises(ffi.error, ffi.dlclose, lib)
         assert str(e.value) == (
             "library '%s' is already closed" % (self.extmod,))
+        e = raises(ffi.error, getattr, lib, 'add42')
+        assert str(e.value) == (
+            "library '%s' has been closed" % (self.extmod,))
 
     def test_constant_via_lib(self):
         from re_python_pysrc import ffi

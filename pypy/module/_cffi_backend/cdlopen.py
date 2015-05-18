@@ -31,6 +31,9 @@ class W_DlOpenLibObject(W_LibObject):
             dlclose(self.libhandle)
 
     def cdlopen_fetch(self, name):
+        if not self.libhandle:
+            raise oefmt(self.ffi.w_FFIError, "library '%s' has been closed",
+                        self.libname)
         try:
             cdata = dlsym(self.libhandle, name)
         except KeyError:
