@@ -109,3 +109,8 @@ Unify the PyFrame.cells and Pyframe.locals_stack_w lists, making frame objects
 
 branch pythonoptimize-env
 Implement PYTHONOPTIMIZE environment variable, fixing issue #2044
+
+.. branch: numpy-flags
+
+branch numpy-flags
+Finish implementation of ndarray.flags, including str() and repr()
