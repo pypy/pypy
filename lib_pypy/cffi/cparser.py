@@ -23,7 +23,7 @@ _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
 _r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
 _r_words = re.compile(r"\w+|\S")
 _parser_cache = None
-_r_int_literal = re.compile(r"^0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
+_r_int_literal = re.compile(r"-?0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
 
 def _get_parser():
     global _parser_cache
@@ -215,26 +215,26 @@ class Parser(object):
                 "multiple declarations of constant: %s" % (key,))
         self._int_constants[key] = val
 
+    def _add_integer_constant(self, name, int_str):
+        int_str = int_str.lower().rstrip("ul")
+        neg = int_str.startswith('-')
+        if neg:
+            int_str = int_str[1:]
+        # "010" is not valid oct in py3
+        if (int_str.startswith("0") and int_str != '0'
+                and not int_str.startswith("0x")):
+            int_str = "0o" + int_str[1:]
+        pyvalue = int(int_str, 0)
+        if neg:
+            pyvalue = -pyvalue
+        self._add_constants(name, pyvalue)
+        self._declare('macro ' + name, pyvalue)
+
     def _process_macros(self, macros):
         for key, value in macros.items():
             value = value.strip()
-            neg = value.startswith('-')
-            if neg:
-                value = value[1:].strip()
-            match = _r_int_literal.search(value)
-            if match is not None:
-                int_str = match.group(0).lower().rstrip("ul")
-
-                # "010" is not valid oct in py3
-                if (int_str.startswith("0") and
-                        int_str != "0" and
-                        not int_str.startswith("0x")):
-                    int_str = "0o" + int_str[1:]
-
-                pyvalue = int(int_str, 0)
-                if neg: pyvalue = -pyvalue
-                self._add_constants(key, pyvalue)
-                self._declare('macro ' + key, pyvalue)
+            if _r_int_literal.match(value):
+                self._add_integer_constant(key, value)
             elif value == '...':
                 self._declare('macro ' + key, value)
             else:
@@ -270,6 +270,20 @@ class Parser(object):
                 if tp.is_raw_function:
                     tp = self._get_type_pointer(tp)
                     self._declare('function ' + decl.name, tp)
+                elif (isinstance(tp, model.PrimitiveType) and
+                        tp.is_integer_type() and
+                        hasattr(decl, 'init') and
+                        hasattr(decl.init, 'value') and
+                        _r_int_literal.match(decl.init.value)):
+                    self._add_integer_constant(decl.name, decl.init.value)
+                elif (isinstance(tp, model.PrimitiveType) and
+                        tp.is_integer_type() and
+                        isinstance(decl.init, pycparser.c_ast.UnaryOp) and
+                        decl.init.op == '-' and
+                        hasattr(decl.init.expr, 'value') and
+                        _r_int_literal.match(decl.init.expr.value)):
+                    self._add_integer_constant(decl.name,
+                                               '-' + decl.init.expr.value)
                 elif self._is_constant_globalvar(node):
                     self._declare('constant ' + decl.name, tp)
                 else:
@@ -296,9 +310,13 @@ class Parser(object):
         if included:
             self._included_declarations.add(obj)
 
-    def _get_type_pointer(self, type, const=False):
+    def _get_type_pointer(self, type, const=False, declname=None):
         if isinstance(type, model.RawFunctionType):
             return type.as_function_pointer()
+        if (isinstance(type, model.StructOrUnionOrEnum) and
+                type.name.startswith('$') and type.name[1:].isdigit() and
+                type.forcename is None and declname is not None):
+            return model.NamedPointerType(type, declname)
         if const:
             return model.ConstPointerType(type)
         return model.PointerType(type)
@@ -325,7 +343,8 @@ class Parser(object):
             # pointer type
             const = (isinstance(typenode.type, pycparser.c_ast.TypeDecl)
                      and 'const' in typenode.type.quals)
-            return self._get_type_pointer(self._get_type(typenode.type), const)
+            return self._get_type_pointer(self._get_type(typenode.type), const,
+                                          declname=name)
         #
         if isinstance(typenode, pycparser.c_ast.TypeDecl):
             type = typenode.type

@@ -1,3 +1,3 @@
 [distutils.setup_keywords]
-cffi_modules = _cffi1.setuptools_ext:cffi_modules
+cffi_modules = cffi.setuptools_ext:cffi_modules
 
