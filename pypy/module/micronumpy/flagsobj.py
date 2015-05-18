@@ -42,6 +42,12 @@ class W_FlagsObject(W_Root):
     def descr_get_writeable(self, space):
         return space.wrap(bool(self.flags & NPY.ARRAY_WRITEABLE))
 
+    def descr_get_owndata(self, space):
+        return space.wrap(bool(self.flags & NPY.ARRAY_OWNDATA))
+
+    def descr_get_aligned(self, space):
+        return space.wrap(bool(self.flags & NPY.ARRAY_ALIGNED))
+
     def descr_get_fnc(self, space):
         return space.wrap(bool(
             self.flags & NPY.ARRAY_F_CONTIGUOUS and not
@@ -112,6 +118,8 @@ W_FlagsObject.typedef = TypeDef("numpy.flagsobj",
     f_contiguous = GetSetProperty(W_FlagsObject.descr_f_contiguous),
     fortran = GetSetProperty(W_FlagsObject.descr_f_contiguous),
     writeable = GetSetProperty(W_FlagsObject.descr_get_writeable),
+    owndata = GetSetProperty(W_FlagsObject.descr_get_owndata),
+    aligned = GetSetProperty(W_FlagsObject.descr_get_aligned),
     fnc = GetSetProperty(W_FlagsObject.descr_get_fnc),
     forc = GetSetProperty(W_FlagsObject.descr_get_forc),
 )
