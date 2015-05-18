@@ -21,7 +21,6 @@ def get_tf_str(flags, key):
 
 class W_FlagsObject(W_Root):
     def __init__(self, arr):
-        print 'initializing flag from',arr
         if arr:
             self.flags = arr.get_flags()
         else:
@@ -112,6 +111,7 @@ W_FlagsObject.typedef = TypeDef("numpy.flagsobj",
     __eq__ = interp2app(W_FlagsObject.descr_eq),
     __ne__ = interp2app(W_FlagsObject.descr_ne),
     __str__ = interp2app(W_FlagsObject.descr___str__),
+    __repr__ = interp2app(W_FlagsObject.descr___str__),
 
     contiguous = GetSetProperty(W_FlagsObject.descr_c_contiguous),
     c_contiguous = GetSetProperty(W_FlagsObject.descr_c_contiguous),
