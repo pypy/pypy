@@ -779,6 +779,7 @@ c_forkpty = external('forkpty',
                      save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('fork')
+@jit.dont_look_inside
 def fork():
     # NB. keep forkpty() up-to-date, too
     ofs = debug.debug_offset()
