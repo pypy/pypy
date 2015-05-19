@@ -163,18 +163,14 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
                 return dtype
     return dt
 
-def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
-        promote_bools=False):
+def find_binop_result_dtype(space, dt1, dt2):
     if dt2 is None:
         return dt1
     if dt1 is None:
         return dt2
-    # Some operations promote op(bool, bool) to return int8, rather than bool
-    if promote_bools and (dt1.kind == dt2.kind == NPY.GENBOOLLTR):
-        return get_dtype_cache(space).w_int8dtype
-    return _promote_types(space, dt1, dt2, promote_to_float)
+    return _promote_types(space, dt1, dt2)
 
-def _promote_types(space, dt1, dt2, promote_to_float=False):
+def _promote_types(space, dt1, dt2):
     if dt1.num == NPY.OBJECT or dt2.num == NPY.OBJECT:
         return get_dtype_cache(space).w_objectdtype
 
@@ -201,8 +197,6 @@ def _promote_types(space, dt1, dt2, promote_to_float=False):
         else:
             raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
 
-    if promote_to_float:
-        return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
     if dt1.kind == dt2.kind and not dt2.is_flexible():
         if dt2.num == NPY.HALF:

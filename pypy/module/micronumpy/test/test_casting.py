@@ -151,7 +151,6 @@ class TestCoercion(object):
         cld_dtype = get_dtype_cache(space).w_complexlongdtype
         fld_dtype = get_dtype_cache(space).w_floatlongdtype
 
-        # Basic pairing
         assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
         assert find_binop_result_dtype(space, bool_dtype, float64_dtype) is float64_dtype
         assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
@@ -160,14 +159,6 @@ class TestCoercion(object):
         assert find_binop_result_dtype(space, c64_dtype, float64_dtype) is c128_dtype
         assert find_binop_result_dtype(space, c64_dtype, fld_dtype) is cld_dtype
         assert find_binop_result_dtype(space, c128_dtype, fld_dtype) is cld_dtype
-
-        # With promote bool (happens on div), the result is that the op should
-        # promote bools to int8
-        assert find_binop_result_dtype(space, bool_dtype, bool_dtype, promote_bools=True) is int8_dtype
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_bools=True) is float64_dtype
-
-        # Coerce to floats
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
 
     def test_unaryops(self, space):
         bool_dtype = get_dtype_cache(space).w_booldtype
