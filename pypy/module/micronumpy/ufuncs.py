@@ -21,7 +21,6 @@ from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
 from .casting import can_cast_type, find_result_type
 from .boxes import W_GenericBox, W_ObjectBox
-from .types import Long
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -265,7 +264,7 @@ class W_Ufunc(W_Root):
                     self.promote_to_largest):
                 if obj_dtype.is_bool():
                     num = NPY.LONG
-                elif obj_dtype.elsize < Long(space).get_element_size():
+                elif obj_dtype.elsize * 8 < LONG_BIT:
                     if obj_dtype.is_unsigned():
                         num = NPY.ULONG
                     else:
