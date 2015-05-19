@@ -814,8 +814,6 @@ class VecScheduleData(SchedulerData):
                 continue
             new_box = tgt_box.clonebox()
             new_box.item_count += src_box.item_count
-            if opnum == rop.VEC_FLOAT_PACK:
-                py.test.set_trace()
             op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
                                       ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)

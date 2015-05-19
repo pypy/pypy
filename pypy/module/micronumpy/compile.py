@@ -324,6 +324,15 @@ class FakeSpace(ObjSpace):
         return W_TypeObject(w_obj.typedef.name)
 
     def call_function(self, tp, w_dtype, *args):
+        if tp is self.w_float
+            if isinstance(w_dtype, boxes.W_Float64Box):
+                return FloatObject(float(w_dtype.value))
+            if isinstance(w_dtype, boxes.W_Float32Box):
+                return FloatObject(float(w_dtype.value))
+            if isinstance(w_dtype, boxes.W_Int64Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, boxes.W_Int32Box):
+                return FloatObject(float(int(w_dtype.value)))
         return w_dtype
 
     def call_method(self, w_obj, s, *args):
@@ -534,9 +543,9 @@ class Operator(Node):
             if isinstance(w_res, boxes.W_Float32Box):
                 print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
             if isinstance(w_res, boxes.W_Int64Box):
-                print "access", w_lhs, "[", w_rhs.intval, "] => ", float(int(w_res.value))
+                print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
             if isinstance(w_res, boxes.W_Int32Box):
-                print "access", w_lhs, "[", w_rhs.intval, "] => ", float(int(w_res.value))
+                print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
         else:
             raise NotImplementedError
         if (not isinstance(w_res, W_NDimArray) and

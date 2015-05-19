@@ -107,6 +107,35 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         return retval
 
+    def define_float32_copy():
+        return """
+        a = astype(|30|, float32)
+        x1 = a -> 7
+        x2 = a -> 8
+        x3 = a -> 9
+        x4 = a -> 10
+        r = x1 + x2 + x3 + x4
+        r
+        """
+    def test_float32_copy(self):
+        result = self.run("float32_copy")
+        assert int(result) == 7+8+9+10
+        self.check_vectorized(1, 1)
+
+    def define_int32_copy():
+        return """
+        a = astype(|30|, int32)
+        x1 = a -> 7
+        x2 = a -> 8
+        x3 = a -> 9
+        x4 = a -> 10
+        x1 + x2 + x3 + x4
+        """
+    def test_int32_copy(self):
+        result = self.run("int32_copy")
+        assert int(result) == 7+8+9+10
+        self.check_vectorized(1, 1)
+
     def define_float32_add():
         return """
         a = astype(|30|, float32)
@@ -175,7 +204,8 @@ class TestNumpyJit(Jit386Mixin):
         x2 = b -> 8
         x3 = b -> 9
         x4 = b -> 10
-        x1 + x2 + x3 + x4
+        r = x1 + x2 + x3 + x4
+        r
         """
         #return """
         #a = astype(|30|, int32)
@@ -190,25 +220,6 @@ class TestNumpyJit(Jit386Mixin):
     def test_int32_add_const(self):
         result = self.run("int32_add_const")
         assert int(result) == 7+1+8+1+9+1+10+1
-        self.check_vectorized(1, 1)
-
-    def define_int32_copy():
-        return """
-        a = astype(|30|, float32)
-        x1 = a -> 7
-        x2 = a -> 8
-        x3 = a -> 9
-        x4 = a -> 10
-        x5 = a -> 11
-        x6 = a -> 12
-        x7 = a -> 13
-        x8 = a -> 14
-        x9 = a -> 15
-        x1 + x2 + x3 + x4
-        """
-    def test_int32_copy(self):
-        result = self.run("int32_copy")
-        assert int(result) == 7+8+9+10
         self.check_vectorized(1, 1)
 
 

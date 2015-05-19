@@ -2565,11 +2565,13 @@ class Assembler386(BaseAssembler):
             # is there a better sequence to move them?
             scratch = X86_64_SCRATCH_REG.value
             #print resloc, "[0] <- int32(", srcloc, "[0])"
+            #66 48 0f 7e c0     movq   %xmm0,%rax
             print resloc, "[1] <- int32(", srcloc, "[1])"
+            #self.mc.MOVDQ(scratch, srcloc)
             #self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
             #self.mc.PINSRD_xri(resloc.value, scratch, 0)
-            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
-            self.mc.PINSRD_xri(resloc.value, scratch, 1)
+            #self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
+            #self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:
             py.test.set_trace()
             raise NotImplementedError("sign ext missing")
