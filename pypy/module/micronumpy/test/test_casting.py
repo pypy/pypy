@@ -124,6 +124,13 @@ class AppTestNumSupport(BaseNumpyAppTest):
         # XXX: np.asarray(2**64) fails with OverflowError
         # assert np.min_scalar_type(2**64) == np.dtype('O')
 
+    def test_promote_types(self):
+        import numpy as np
+        assert np.promote_types('f4', 'f8') == np.dtype('float64')
+        assert np.promote_types('i8', 'f4') == np.dtype('float64')
+        assert np.promote_types('>i8', '<c8') == np.dtype('complex128')
+        assert np.promote_types('i4', 'S8') == np.dtype('S11')
+
 def test_can_cast_same_type(space):
     dt_bool = get_dtype_cache(space).w_booldtype
     assert can_cast_type(space, dt_bool, dt_bool, 'no')

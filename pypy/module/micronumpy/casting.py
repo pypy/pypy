@@ -129,6 +129,11 @@ def min_scalar_type(space, w_a):
     else:
         return dtype
 
+def promote_types(space, w_type1, w_type2):
+    dt1 = as_dtype(space, w_type1, allow_None=False)
+    dt2 = as_dtype(space, w_type2, allow_None=False)
+    return _promote_types(space, dt1, dt2)
+
 @jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         promote_bools=False, promote_to_largest=False):
