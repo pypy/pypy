@@ -20,7 +20,7 @@ from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
 from .casting import (
-    find_unaryop_result_dtype, find_binop_result_dtype, can_cast_type)
+    find_unaryop_result_dtype, can_cast_type, find_result_type)
 from .boxes import W_GenericBox, W_ObjectBox
 
 def done_if_true(dtype, val):
@@ -654,6 +654,11 @@ class W_Ufunc2(W_Ufunc):
                                             r_dtype.is_complex())):
             raise oefmt(space.w_TypeError,
                 "ufunc '%s' not supported for the input types", self.name)
+        if self.bool_result:
+            # XXX: should actually pass the arrays
+            dtype = find_result_type(space, [], [l_dtype, r_dtype])
+            bool_dtype = get_dtype_cache(space).w_booldtype
+            return dtype, bool_dtype, self.func
         dt_in, dt_out = self._calc_dtype(space, l_dtype, r_dtype, out, casting)
         return dt_in, dt_out, self.func
 
