@@ -556,7 +556,6 @@ class W_Ufunc2(W_Ufunc):
 
     @jit.unroll_safe
     def call(self, space, args_w, sig, casting, extobj):
-        w_obj = args_w[0]
         if len(args_w) > 2:
             [w_lhs, w_rhs, out] = args_w
             if space.is_none(out):
@@ -665,7 +664,8 @@ class W_Ufunc2(W_Ufunc):
     def _calc_dtype(self, space, l_dtype, r_dtype, out=None, casting='unsafe'):
         use_min_scalar = False
         if l_dtype.is_object() or r_dtype.is_object():
-            return l_dtype, l_dtype
+            dtype = get_dtype_cache(space).w_objectdtype
+            return dtype, dtype
         in_casting = safe_casting_mode(casting)
         for dt_in, dt_out in self.allowed_types(space):
             if use_min_scalar:
