@@ -19,9 +19,9 @@ from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
-from .casting import (
-    find_unaryop_result_dtype, can_cast_type, find_result_type)
+from .casting import can_cast_type, find_result_type
 from .boxes import W_GenericBox, W_ObjectBox
+from .types import Long
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -254,15 +254,24 @@ class W_Ufunc(W_Root):
                 axis += shapelen
         assert axis >= 0
         dtype = decode_w_dtype(space, dtype)
-        if self.bool_result:
-            dtype = get_dtype_cache(space).w_booldtype
-        elif dtype is None:
-            dtype = find_unaryop_result_dtype(
-                space, obj.get_dtype(),
-                promote_to_float=self.promote_to_float,
-                promote_to_largest=self.promote_to_largest,
-                promote_bools=self.promote_bools,
-            )
+
+        if dtype is None and out is not None:
+            dtype = out.get_dtype()
+
+        if dtype is None:
+            obj_dtype = obj.get_dtype()
+            num = obj_dtype.num
+            if ((obj_dtype.is_bool() or obj_dtype.is_int()) and
+                    self.promote_to_largest):
+                if obj_dtype.is_bool():
+                    num = NPY.LONG
+                elif obj_dtype.elsize < Long(space).get_element_size():
+                    if obj_dtype.is_unsigned():
+                        num = NPY.ULONG
+                    else:
+                        num = NPY.LONG
+            dtype = get_dtype_cache(space).dtypes_by_num[num]
+
         if self.identity is None:
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
@@ -270,6 +279,11 @@ class W_Ufunc(W_Root):
                         raise oefmt(space.w_ValueError,
                             "zero-size array to reduction operation %s "
                             "which has no identity", self.name)
+
+        if cumulative:
+            dtype = self.find_binop_type(space, dtype)
+        elif self.bool_result:
+            dtype = get_dtype_cache(space).w_booldtype
         call__array_wrap__ = True
         if shapelen > 1 and axis < shapelen:
             temp = None
@@ -660,6 +674,25 @@ class W_Ufunc2(W_Ufunc):
             return dtype, bool_dtype, self.func
         dt_in, dt_out = self._calc_dtype(space, l_dtype, r_dtype, out, casting)
         return dt_in, dt_out, self.func
+
+    def find_binop_type(self, space, dtype):
+        """Find a valid dtype signature of the form xx->x"""
+        if dtype.is_object():
+            return dtype
+        for dt_in, dt_out in self.allowed_types(space):
+            if dtype.can_cast_to(dt_in):
+                if dt_out == dt_in:
+                    return dt_in
+                else:
+                    dtype = dt_out
+                    break
+        for dt_in, dt_out in self.allowed_types(space):
+            if dtype.can_cast_to(dt_in) and dt_out == dt_in:
+                return dt_in
+        raise ValueError(
+            "could not find a matching type for %s.accumulate, "
+            "requested type has type code '%s'" % (self.name, dtype.char))
+
 
     def _calc_dtype(self, space, l_dtype, r_dtype, out=None, casting='unsafe'):
         use_min_scalar = False
