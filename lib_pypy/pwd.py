@@ -10,8 +10,8 @@ The uid and gid items are integers, all others are strings. An
 exception is raised if the entry asked for cannot be found.
 """
 
-from _pwd_cffi import ffi, lib
-from _structseq import structseqtype, structseqfield
+from _pwdgrp_cffi import ffi, lib
+import _structseq
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -25,15 +25,16 @@ class struct_passwd:
       (pw_name,pw_passwd,pw_uid,pw_gid,pw_gecos,pw_dir,pw_shell)
     or via the object attributes as named in the above tuple.
     """
-    __metaclass__ = structseqtype
+    __metaclass__ = _structseq.structseqtype
     name = "pwd.struct_passwd"
-    pw_name = structseqfield(0)
-    pw_passwd = structseqfield(1)
-    pw_uid = structseqfield(2)
-    pw_gid = structseqfield(3)
-    pw_gecos = structseqfield(4)
-    pw_dir = structseqfield(5)
-    pw_shell = structseqfield(6)
+
+    pw_name = _structseq.structseqfield(0)
+    pw_passwd = _structseq.structseqfield(1)
+    pw_uid = _structseq.structseqfield(2)
+    pw_gid = _structseq.structseqfield(3)
+    pw_gecos = _structseq.structseqfield(4)
+    pw_dir = _structseq.structseqfield(5)
+    pw_shell = _structseq.structseqfield(6)
 
 
 def _mkpwent(pw):
@@ -67,8 +68,9 @@ def getpwnam(name):
     Return the password database entry for the given user name.
     See pwd.__doc__ for more on password database entries.
     """
-    if not isinstance(name, str):
+    if not isinstance(name, basestring):
         raise TypeError("expected string")
+    name = str(name)
     pw = lib.getpwnam(name)
     if not pw:
         raise KeyError("getpwname(): name not found: %s" % name)
