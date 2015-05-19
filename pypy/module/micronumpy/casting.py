@@ -134,35 +134,6 @@ def promote_types(space, w_type1, w_type2):
     dt2 = as_dtype(space, w_type2, allow_None=False)
     return _promote_types(space, dt1, dt2)
 
-@jit.unroll_safe
-def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-        promote_bools=False, promote_to_largest=False):
-    if dt.is_object():
-        return dt
-    if promote_to_largest:
-        if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
-            if dt.elsize * 8 < LONG_BIT:
-                return get_dtype_cache(space).w_longdtype
-        elif dt.kind == NPY.UNSIGNEDLTR:
-            if dt.elsize * 8 < LONG_BIT:
-                return get_dtype_cache(space).w_ulongdtype
-        else:
-            assert dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR
-        return dt
-    if promote_bools and (dt.kind == NPY.GENBOOLLTR):
-        return get_dtype_cache(space).w_int8dtype
-    if promote_to_float:
-        if dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR:
-            return dt
-        if dt.num >= NPY.INT:
-            return get_dtype_cache(space).w_float64dtype
-        for bytes, dtype in get_dtype_cache(space).float_dtypes_by_num_bytes:
-            if (dtype.kind == NPY.FLOATINGLTR and
-                    dtype.itemtype.get_element_size() >
-                    dt.itemtype.get_element_size()):
-                return dtype
-    return dt
-
 def find_binop_result_dtype(space, dt1, dt2):
     if dt2 is None:
         return dt1
