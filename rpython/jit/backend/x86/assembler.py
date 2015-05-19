@@ -2564,10 +2564,10 @@ class Assembler386(BaseAssembler):
         elif size == 8 and tosize == 4:
             # is there a better sequence to move them?
             scratch = X86_64_SCRATCH_REG.value
-            print resloc, "[0] <- int32(", srcloc, "[0])"
+            #print resloc, "[0] <- int32(", srcloc, "[0])"
             print resloc, "[1] <- int32(", srcloc, "[1])"
-            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
-            self.mc.PINSRD_xri(resloc.value, scratch, 0)
+            #self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
+            #self.mc.PINSRD_xri(resloc.value, scratch, 0)
             self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:

@@ -154,7 +154,8 @@ class TestNumpyJit(Jit386Mixin):
         return """
         a = astype(|30|, int)
         b = a + 1i
-        c = a + 2.0
+        d = astype(|30|, int)
+        c = d + 2.0
         x1 = b -> 7
         x2 = b -> 8
         x3 = c -> 11
@@ -164,7 +165,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_int_add_const(self):
         result = self.run("int_add_const")
         assert int(result) == 7+1+8+1+11+2+12+2
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 2)
 
     def define_int32_add_const():
         return """
@@ -172,7 +173,9 @@ class TestNumpyJit(Jit386Mixin):
         b = a + 1i
         x1 = b -> 7
         x2 = b -> 8
-        x1 + x2
+        x3 = b -> 9
+        x4 = b -> 10
+        x1 + x2 + x3 + x4
         """
         #return """
         #a = astype(|30|, int32)
@@ -186,9 +189,27 @@ class TestNumpyJit(Jit386Mixin):
         #"""
     def test_int32_add_const(self):
         result = self.run("int32_add_const")
-        assert int(result) == 7+1+8+1
+        assert int(result) == 7+1+8+1+9+1+10+1
         self.check_vectorized(1, 1)
 
+    def define_int32_copy():
+        return """
+        a = astype(|30|, float32)
+        x1 = a -> 7
+        x2 = a -> 8
+        x3 = a -> 9
+        x4 = a -> 10
+        x5 = a -> 11
+        x6 = a -> 12
+        x7 = a -> 13
+        x8 = a -> 14
+        x9 = a -> 15
+        x1 + x2 + x3 + x4
+        """
+    def test_int32_copy(self):
+        result = self.run("int32_copy")
+        assert int(result) == 7+8+9+10
+        self.check_vectorized(1, 1)
 
 
     def define_pow():

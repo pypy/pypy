@@ -1616,7 +1616,7 @@ class RegAlloc(BaseRegalloc):
         pass
 
     def consider_vec_cast_float_to_singlefloat(self, op):
-        count = op.getarg(2)
+        count = op.getarg(1)
         assert isinstance(count, ConstInt)
         args = op.getarglist()
         loc0 = self.make_sure_var_in_reg(op.getarg(0), args)

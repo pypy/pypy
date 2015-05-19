@@ -581,9 +581,10 @@ class PackType(PrimitiveTypeMixin):
 
 
 class OpToVectorOp(object):
-    def __init__(self, arg_ptypes, result_ptype, index=-1, result_vsize_arg=-1):
+    def __init__(self, arg_ptypes, result_ptype, has_ptype=False, index=-1, result_vsize_arg=-1):
         self.arg_ptypes = arg_ptypes
         self.result_ptype = result_ptype
+        self.has_ptype = has_ptype
         # TODO remove them?
         self.result = result_ptype != None
         self.result_vsize_arg = result_vsize_arg
@@ -620,10 +621,10 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_FLOAT_MUL:   OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), PT_FLOAT_GENERIC),
     rop.VEC_FLOAT_EQ:    OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), PT_INT_GENERIC),
 
-    rop.VEC_RAW_LOAD:         OpToVectorOp((), PT_GENERIC),
-    rop.VEC_GETARRAYITEM_RAW: OpToVectorOp((), PT_GENERIC),
-    rop.VEC_RAW_STORE:        OpToVectorOp((None,None,PT_INT_GENERIC,), None),
-    rop.VEC_SETARRAYITEM_RAW: OpToVectorOp((None,None,PT_INT_GENERIC,), None),
+    rop.VEC_RAW_LOAD:         OpToVectorOp((), PT_GENERIC, has_ptype=True),
+    rop.VEC_GETARRAYITEM_RAW: OpToVectorOp((), PT_GENERIC, has_ptype=True),
+    rop.VEC_RAW_STORE:        OpToVectorOp((None,None,PT_GENERIC,), None, has_ptype=True),
+    rop.VEC_SETARRAYITEM_RAW: OpToVectorOp((None,None,PT_GENERIC,), None, has_ptype=True),
 
     rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOp((PT_DOUBLE,), PT_FLOAT),
     # TODO remove index
@@ -656,9 +657,6 @@ class VecScheduleData(SchedulerData):
         # properties that hold for the pack are:
         # + isomorphism (see func above)
         # + tight packed (no room between vector elems)
-        if pack.operations[0].op.vector == rop.VEC_RAW_LOAD:
-            assert pack.ptype is not None
-            print pack.ptype
         if pack.ptype is None:
             self.propagate_ptype()
 
@@ -694,6 +692,8 @@ class VecScheduleData(SchedulerData):
 
         for i,arg in enumerate(args):
             arg_ptype = tovector.get_arg_ptype(i)
+            if arg_ptype and tovector.has_ptype:
+                arg_ptype = self.pack.ptype
             if arg_ptype is not None:
                 if arg_ptype.size == -1:
                     arg_ptype = self.pack.ptype
@@ -708,8 +708,10 @@ class VecScheduleData(SchedulerData):
         tovector = ROP_ARG_RES_VECTOR.get(op0.vector, None)
         if tovector is None:
             raise NotImplementedError("vecop map entry missing. trans: pack -> vop")
+        if tovector.has_ptype:
+            assert False, "load/store must have ptypes attached from the descriptor"
         args = op0.getarglist()[:]
-        res_ptype = tovector.get_result_ptype()
+        res_ptype = tovector.get_result_ptype().clone()
         for i,arg in enumerate(args):
             if tovector.vector_arg(i):
                 _, vbox = self.box_to_vbox.get(arg, (-1, None))
@@ -722,9 +724,10 @@ class VecScheduleData(SchedulerData):
 
     def vector_result(self, vop, tovector):
         ops = self.pack.operations
-        result = vop.result
-        ptype = tovector.get_result_ptype()
-        if ptype is not None and ptype.gettype() != PackType.UNKNOWN_TYPE:
+        ptype = tovector.get_result_ptype().clone()
+        if tovector.has_ptype:
+            ptype = self.pack.ptype
+        if ptype is not None:
             if ptype.size == -1:
                 ptype.size = self.pack.ptype.size
             vbox = self.box_vector(ptype)
@@ -771,7 +774,6 @@ class VecScheduleData(SchedulerData):
         return vbox
 
     def extend(self, vbox, arg_ptype):
-        py.test.set_trace()
         if vbox.item_count * vbox.item_size == self.vec_reg_size:
             return vbox
         size = arg_ptype.getsize()
@@ -802,7 +804,6 @@ class VecScheduleData(SchedulerData):
         opnum = rop.VEC_FLOAT_PACK
         if tgt_box.item_type == INT:
             opnum = rop.VEC_INT_PACK
-        py.test.set_trace()
         arg_count = len(args)
         i = index
         while i < arg_count and tgt_box.item_count < packable:
@@ -813,6 +814,8 @@ class VecScheduleData(SchedulerData):
                 continue
             new_box = tgt_box.clonebox()
             new_box.item_count += src_box.item_count
+            if opnum == rop.VEC_FLOAT_PACK:
+                py.test.set_trace()
             op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
                                       ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)
