@@ -102,6 +102,17 @@ class TestFunction(object):
         x = m.cos(1.23)
         assert x == math.cos(1.23)
 
+    def test_dlopen_constant(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            #define FOOBAR 42
+            static const float baz = 42.5;   /* not visible */
+            double sin(double x);
+        """)
+        m = ffi.dlopen(lib_m)
+        assert m.FOOBAR == 42
+        py.test.raises(NotImplementedError, "m.baz")
+
     def test_tlsalloc(self):
         if sys.platform != 'win32':
             py.test.skip("win32 only")
@@ -293,7 +304,6 @@ class TestFunction(object):
         assert ffi.string(a) == b'4.4.4.4'
 
     def test_function_typedef(self):
-        py.test.skip("using really obscure C syntax")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
             typedef double func_t(double);
