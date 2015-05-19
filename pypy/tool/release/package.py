@@ -50,15 +50,24 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 
-def create_cffi_import_libraries(pypy_c, options):
+def create_cffi_import_libraries(pypy_c, options, basedir):
+    shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
+                  ignore_errors=True)
     modules = ['_sqlite3', 'audioop']
     if not sys.platform == 'win32':
-        modules += ['_curses', 'syslog', 'gdbm',]
+        modules += ['_curses', 'syslog', '_gdbm_build.py']
     if not options.no_tk:
         modules.append('_tkinter')
     for module in modules:
+        if module.endswith('.py'):
+            args = [str(pypy_c), module]
+            cwd = str(basedir.join('lib_pypy'))
+        else:
+            args = [str(pypy_c), '-c', 'import ' + module]
+            cwd = None
+        print >> sys.stderr, '*', ' '.join(args)
         try:
-            subprocess.check_call([str(pypy_c), '-c', 'import ' + module])
+            subprocess.check_call(args, cwd=cwd)
         except subprocess.CalledProcessError:
             print >>sys.stderr, """Building {0} bindings failed.
 You can either install development headers package or
@@ -97,7 +106,7 @@ def create_package(basedir, options):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
         try:
-            create_cffi_import_libraries(pypy_c, options)
+            create_cffi_import_libraries(pypy_c, options, basedir)
         except MissingDependenciesError:
             # This is a non-fatal error
             retval = -1
@@ -125,7 +134,7 @@ def create_package(basedir, options):
     # Recursively copy all headers, shutil has only ignore
     # so we do a double-negative to include what we want
     def copyonly(dirpath, contents):
-        return set(contents) - set(
+        return set(contents) - set(    # XXX function not used?
             shutil.ignore_patterns('*.h', '*.incl')(dirpath, contents),
         )
     shutil.copytree(str(includedir), str(pypydir.join('include')))
