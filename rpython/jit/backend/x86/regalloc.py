@@ -1546,7 +1546,7 @@ class RegAlloc(BaseRegalloc):
         residx = 0
         assert isinstance(op.result, BoxVector)
         args = op.getarglist()
-        size = op.result.item_size
+        size = op.result.getsize()
         arglocs = [resloc, srcloc, imm(index.value), imm(0), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
 
@@ -1562,13 +1562,13 @@ class RegAlloc(BaseRegalloc):
         if isinstance(op.result, BoxVector):
             resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
             assert isinstance(op.result, BoxVector)
-            size = op.result.item_size
+            size = op.result.getsize()
         else:
             # unpack into iX box
             resloc =  self.force_allocate_reg(op.result, args)
             arg = op.getarg(0)
             assert isinstance(arg, BoxVector)
-            size = arg.item_size
+            size = arg.getsize()
         residx = 0
         args = op.getarglist()
         arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
@@ -1582,8 +1582,8 @@ class RegAlloc(BaseRegalloc):
         resloc = self.force_allocate_reg(op.result, args)
         vres = op.result
         assert isinstance(vres, BoxVector)
-        count = vres.item_count
-        size = vres.item_size
+        count = vres.getcount()
+        size = vres.getsize()
         self.perform(op, [srcloc, imm(size), imm(count)], resloc)
 
     def consider_vec_int_signext(self, op):
@@ -1593,8 +1593,8 @@ class RegAlloc(BaseRegalloc):
         result = op.result
         assert isinstance(sizearg, BoxVector)
         assert isinstance(result, BoxVector)
-        size = sizearg.item_size
-        tosize = result.item_size
+        size = sizearg.getsize()
+        tosize = result.getsize()
         self.perform(op, [resloc, imm(size), imm(tosize)], resloc)
 
     def consider_vec_box(self, op):

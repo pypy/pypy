@@ -685,7 +685,7 @@ class LocationCodeBuilder(object):
     PSUBQ = _binaryop('PSUBQ')
     PSUBD = _binaryop('PSUBD')
     PSUBW = _binaryop('PSUBW')
-    PSUBQ = _binaryop('PSUBQ')
+    PSUBB = _binaryop('PSUBB')
 
     PMULDQ = _binaryop('PMULDQ')
     PMULLD = _binaryop('PMULLD')

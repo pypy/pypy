@@ -561,6 +561,8 @@ class BoxVector(Box, PrimitiveTypeMixin):
         return self.item_size
     def getsigned(self):
         return self.signed
+    def getcount(self):
+        return self.item_count
 
     def forget_value(self):
         raise NotImplementedError("cannot forget value of vector")

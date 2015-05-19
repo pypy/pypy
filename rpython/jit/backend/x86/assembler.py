@@ -2518,7 +2518,7 @@ class Assembler386(BaseAssembler):
         elif itemsize == 4:
             self.mc.PMULLD(loc0, loc1)
         elif itemsize == 8:
-            self.mc.PMULDQ(loc0, loc1)
+            self.mc.PMULDQ(loc0, loc1) # TODO
         else:
             raise NotImplementedError("did not implement integer mul")
 
@@ -2591,27 +2591,9 @@ class Assembler386(BaseAssembler):
         elif count == 2:
             self.mc.MOVDDUP(resloc, loc0)
 
-    # TODO remove
-    #def _shuffle_by_index(self, src_loc, tmp_loc, item_type, size, index, count):
-    #    if index == 0 and count == 1:
-    #        return src_loc
-    #    select = 0
-    #    if item_type == FLOAT:
-    #        if size == 4:
-    #            self.mc.MOVUPS(tmp_loc, src_loc) # TODO could be aligned if xx
-    #            i = 0
-    #            while i < count:
-    #                select |= (index+i<<(i*2))
-    #                i += 1
-    #            self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
-    #            return tmp_loc
-    #        else:
-    #            raise NotImplementedError("shuffle by index for float64 not impl")
-    #    else:
-    #        raise NotImplementedError("shuffle by index for non floats")
-
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
+        assert isinstance(resultloc, RegLoc)
         size = sizeloc.value
         srcidx = srcidxloc.value
         residx = residxloc.value
@@ -2652,6 +2634,8 @@ class Assembler386(BaseAssembler):
 
     def genop_vec_float_pack(self, op, arglocs, resultloc):
         resloc, srcloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(srcloc, RegLoc)
         count = countloc.value
         residx = residxloc.value
         srcidx = srcidxloc.value
@@ -2701,36 +2685,6 @@ class Assembler386(BaseAssembler):
                         self.mc.SHUFPD_xxi(resloc.value, srcloc.value, 2)
 
     genop_vec_float_unpack = genop_vec_float_pack
-    #(self, op, arglocs, resloc):
-    #    resultloc, fromloc, tmploc = arglocs
-    #    result = op.result
-    #    indexarg = op.getarg(2)
-    #    countarg = op.getarg(2)
-    #    assert isinstance(result, BoxVector)
-    #    assert isinstance(indexarg, ConstInt)
-    #    assert isinstance(countarg, ConstInt)
-    #    index = indexarg.value
-    #    count = countarg.value
-    #    size = result.item_size
-    #    if size == 4:
-    #        if count == 1:
-    #            raise NotImplementedError("pack: float single pack")
-    #        elif count == 2:
-    #            select = (1 << 2) # move 0 -> 0, 1 -> 1 for toloc
-    #            if index == 0:
-    #                # move 0 -> 2, 1 -> 3 for fromloc
-    #                self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 2))
-    #            elif index == 2:
-    #                # move 0 -> 2, 1 -> 3 for fromloc
-    #                self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 6))
-    #            else:
-    #                raise NotImplementedError("pack: only index in {0,2} supported")
-    #        else:
-    #            raise NotImplementedError("pack: count 3 for single float pack not supported")
-    #    elif size == 8:
-    #        raise NotImplementedError("pack: float double pack")
-
-
 
     def genop_vec_cast_float_to_singlefloat(self, op, arglocs, resloc):
         self.mc.CVTPD2PS(resloc, arglocs[0])
@@ -2744,14 +2698,6 @@ class Assembler386(BaseAssembler):
     def genop_vec_cast_singlefloat_to_float(self, op, arglocs, resloc):
         loc0, tmploc, indexloc = arglocs
         self.mc.CVTPS2PD(resloc, arglocs[0])
-        #index = indexloc.value
-        #if index == 0:
-        #else:
-        #    assert index == 2
-        #    self.mc.MOVUPS(tmploc, loc0) # TODO could be aligned if xx
-        #    select = (2<<0)|(3<<2) # move pos 2->0,3->1
-        #    self.mc.SHUFPS_xxi(tmploc.value, tmploc.value, select)
-        #    self.mc.CVTPS2PD(resloc, tmploc) # expand
 
     # ________________________________________
 

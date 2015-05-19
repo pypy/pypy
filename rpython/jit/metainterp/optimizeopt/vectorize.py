@@ -402,7 +402,6 @@ class VectorizingOptimizer(Optimizer):
         (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
         if vbox:
             arg_cloned = arg.clonebox()
-            py.test.set_trace()
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = rop.VEC_FLOAT_UNPACK
@@ -568,7 +567,7 @@ class PackType(PrimitiveTypeMixin):
         return self.type != PackType.UNKNOWN_TYPE and self.size > 0
 
     def new_vector_box(self, count):
-        return BoxVector(self.type, count, self.size, self.signed, self.count)
+        return BoxVector(self.type, count, self.size, self.signed)
 
     def record_vbox(self, vbox):
         if self.type == PackType.UNKNOWN_TYPE:
@@ -587,13 +586,13 @@ class PackType(PrimitiveTypeMixin):
 
 class OpToVectorOp(object):
     def __init__(self, arg_ptypes, result_ptype, has_ptype=False, result_vsize_arg=-1):
-        self.arg_ptypes = arg_ptypes
+        self.arg_ptypes = list(arg_ptypes) # do not use a tuple. rpython cannot union
         self.result_ptype = result_ptype
         self.has_ptype = has_ptype
         self.result_vsize_arg = result_vsize_arg
 
     def has_result(self):
-        return self.result_ptype != None
+        return self.result_ptype is not None
 
     def get_result_ptype(self):
         return self.result_ptype
@@ -731,18 +730,21 @@ class VecScheduleData(SchedulerData):
         ptype = tovector.get_result_ptype().clone()
         if tovector.has_ptype:
             ptype = self.pack.ptype
-        if ptype is not None:
-            if ptype.size == -1:
-                ptype.size = self.pack.ptype.size
-            vbox = self.box_vector(ptype)
-        else:
-            vbox = self.box_vector(self.pack.ptype)
+        count = -1
         if tovector.result_vsize_arg != -1:
             # vec_int_signext specifies the size in bytes on the
             # first argument.
             arg = vop.getarg(tovector.result_vsize_arg)
             assert isinstance(arg, ConstInt)
-            vbox.item_size = arg.value
+            count = arg.value
+        else:
+            count = self.pack_ops
+        if ptype is not None:
+            if ptype.size == -1:
+                ptype.size = self.pack.ptype.size
+            vbox = ptype.new_vector_box(count)
+        else:
+            vbox = self.pack.ptype.new_vector_box(count)
         #
         vop.result = vbox
         i = self.pack_off
@@ -753,10 +755,6 @@ class VecScheduleData(SchedulerData):
             self.box_to_vbox[op.result] = (off, vbox)
             i += 1
             off += 1
-
-    def box_vector(self, ptype):
-        """ TODO remove this? """
-        return BoxVector(ptype.type, self.pack_ops, ptype.size, ptype.signed)
 
     def vector_arg(self, vop, argidx, arg_ptype):
         ops = self.pack.operations
