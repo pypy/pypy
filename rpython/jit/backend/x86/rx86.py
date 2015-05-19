@@ -740,6 +740,7 @@ class AbstractX86CodeBuilder(object):
     UNPCKHPS_xx = xmminsn(        rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
     MOVDDUP_xx = xmminsn('\xF2', rex_nw, '\x0F\x12', register(1, 8), register(2), '\xC0')
     SHUFPS_xxi = xmminsn(rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    SHUFPD_xxi = xmminsn('\x66', rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
     PSHUFD_xxi = xmminsn('\x66', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
@@ -748,10 +749,13 @@ class AbstractX86CodeBuilder(object):
     PEXTRD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x16', register(2,8), register(1), '\xC0', immediate(3, 'b'))
     PEXTRW_rxi = xmminsn('\x66', rex_nw, '\x0F\xC4', register(2,8), register(1), '\xC0', immediate(3, 'b'))
     PEXTRB_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(2,8), register(1), '\xC0', immediate(3, 'b'))
+    EXTRACTPS_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x17', register(2,8), register(1), '\xC0', immediate(3, 'b'))
+    
     PINSRQ_xri = xmminsn('\x66', rex_w, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     PINSRD_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     PINSRW_xri = xmminsn('\x66', rex_nw, '\x0F\xC5', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     PINSRB_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x20', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    INSERTPS_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x21', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
     # ------------------------------------------------------------
 
@@ -971,10 +975,16 @@ define_pxmm_insn('PADDQ_x*',     '\xD4')
 define_pxmm_insn('PADDD_x*',     '\xFE')
 define_pxmm_insn('PADDW_x*',     '\xFD')
 define_pxmm_insn('PADDB_x*',     '\xFC')
+
 define_pxmm_insn('PSUBQ_x*',     '\xFB')
 define_pxmm_insn('PSUBD_x*',     '\xFA')
 define_pxmm_insn('PSUBW_x*',     '\xF9')
 define_pxmm_insn('PSUBB_x*',     '\xF8')
+
+define_pxmm_insn('PMULDQ_x*',    '\x38\x28')
+define_pxmm_insn('PMULLD_x*',    '\x38\x40')
+define_pxmm_insn('PMULLW_x*',    '\xD5')
+
 define_pxmm_insn('PAND_x*',      '\xDB')
 define_pxmm_insn('POR_x*',       '\xEB')
 define_pxmm_insn('PXOR_x*',      '\xEF')

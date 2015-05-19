@@ -1535,28 +1535,6 @@ class RegAlloc(BaseRegalloc):
     consider_vec_float_eq = consider_vec_logic
     del consider_vec_logic
 
-    def consider_vec_float_pack(self, op):
-        args = op.getarglist()
-        loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
-        result =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        tmpxvar = TempBox()
-        tmploc = self.xrm.force_allocate_reg(tmpxvar)
-        self.xrm.possibly_free_var(tmpxvar)
-        self.perform(op, [result, loc1, tmploc], result)
-
-    def consider_vec_float_unpack(self, op):
-        count = op.getarg(2)
-        index = op.getarg(1)
-        assert isinstance(count, ConstInt)
-        assert isinstance(index, ConstInt)
-        args = op.getarglist()
-        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0), args)
-        result = self.force_allocate_reg(op.result, args)
-        tmpxvar = TempBox()
-        tmploc = self.xrm.force_allocate_reg(tmpxvar, args)
-        self.xrm.possibly_free_var(tmpxvar)
-        self.perform(op, [loc0, tmploc, imm(index.value), imm(count.value)], result)
-
     def consider_vec_int_pack(self, op):
         index = op.getarg(2)
         count = op.getarg(3)
@@ -1572,6 +1550,8 @@ class RegAlloc(BaseRegalloc):
         arglocs = [resloc, srcloc, imm(index.value), imm(0), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
 
+    consider_vec_float_pack = consider_vec_int_pack
+
     def consider_vec_int_unpack(self, op):
         index = op.getarg(1)
         count = op.getarg(2)
@@ -1579,13 +1559,22 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(count, ConstInt)
         args = op.getarglist()
         srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-        resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        if isinstance(op.result, BoxVector):
+            resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+            assert isinstance(op.result, BoxVector)
+            size = op.result.item_size
+        else:
+            # unpack into iX box
+            resloc =  self.force_allocate_reg(op.result, args)
+            arg = op.getarg(0)
+            assert isinstance(arg, BoxVector)
+            size = arg.item_size
         residx = 0
-        assert isinstance(op.result, BoxVector)
         args = op.getarglist()
-        size = op.result.item_size
         arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
+
+    consider_vec_float_unpack = consider_vec_int_unpack
 
     def consider_vec_float_expand(self, op):
         args = op.getarglist()

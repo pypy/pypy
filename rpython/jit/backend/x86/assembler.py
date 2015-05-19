@@ -2510,6 +2510,18 @@ class Assembler386(BaseAssembler):
             elif itemsize == 8:
                 self.mc.MOVUPD(dest_loc, value_loc)
 
+    def genop_vec_int_mul(self, op, arglocs, resloc):
+        loc0, loc1, itemsize_loc = arglocs
+        itemsize = itemsize_loc.value
+        if itemsize == 2:
+            self.mc.PMULLW(loc0, loc1)
+        elif itemsize == 4:
+            self.mc.PMULLD(loc0, loc1)
+        elif itemsize == 8:
+            self.mc.PMULDQ(loc0, loc1)
+        else:
+            raise NotImplementedError("did not implement integer mul")
+
     def genop_vec_int_add(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
         itemsize = itemsize_loc.value
@@ -2553,10 +2565,10 @@ class Assembler386(BaseAssembler):
         srcloc, sizeloc, tosizeloc = arglocs
         size = sizeloc.value
         tosize = tosizeloc.value
+        if size == tosize:
+            return # already the right size
         if size == 4 and tosize == 8:
             scratch = X86_64_SCRATCH_REG.value
-            print resloc, "[0] <- int64(", srcloc, "[0])"
-            print resloc, "[1] <- int64(", srcloc, "[1])"
             self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRQ_xri(resloc.value, scratch, 1)
             self.mc.PEXTRD_rxi(scratch, srcloc.value, 0)
@@ -2564,16 +2576,11 @@ class Assembler386(BaseAssembler):
         elif size == 8 and tosize == 4:
             # is there a better sequence to move them?
             scratch = X86_64_SCRATCH_REG.value
-            #print resloc, "[0] <- int32(", srcloc, "[0])"
-            #66 48 0f 7e c0     movq   %xmm0,%rax
-            print resloc, "[1] <- int32(", srcloc, "[1])"
-            #self.mc.MOVDQ(scratch, srcloc)
-            #self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
-            #self.mc.PINSRD_xri(resloc.value, scratch, 0)
-            #self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
-            #self.mc.PINSRD_xri(resloc.value, scratch, 1)
+            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
+            self.mc.PINSRD_xri(resloc.value, scratch, 0)
+            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
+            self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:
-            py.test.set_trace()
             raise NotImplementedError("sign ext missing")
 
     def genop_vec_float_expand(self, op, arglocs, resloc):
@@ -2584,52 +2591,24 @@ class Assembler386(BaseAssembler):
         elif count == 2:
             self.mc.MOVDDUP(resloc, loc0)
 
-    def _shuffle_by_index(self, src_loc, tmp_loc, item_type, size, index, count):
-        if index == 0 and count == 1:
-            return src_loc
-        select = 0
-        if item_type == FLOAT:
-            if size == 4:
-                self.mc.MOVUPS(tmp_loc, src_loc) # TODO could be aligned if xx
-                i = 0
-                while i < count:
-                    select |= (index+i<<(i*2))
-                    i += 1
-                self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
-                return tmp_loc
-            else:
-                raise NotImplementedError("shuffle by index for float64 not impl")
-        else:
-            raise NotImplementedError("shuffle by index for non floats")
-
-    def genop_vec_float_pack(self, op, arglocs, resloc):
-        resultloc, fromloc, tmploc = arglocs
-        result = op.result
-        indexarg = op.getarg(2)
-        countarg = op.getarg(2)
-        assert isinstance(result, BoxVector)
-        assert isinstance(indexarg, ConstInt)
-        assert isinstance(countarg, ConstInt)
-        index = indexarg.value
-        count = countarg.value
-        size = result.item_size
-        if size == 4:
-            if count == 1:
-                raise NotImplementedError("pack: float single pack")
-            elif count == 2:
-                select = (1 << 2) # move 0 -> 0, 1 -> 1 for toloc
-                if index == 0:
-                    # move 0 -> 2, 1 -> 3 for fromloc
-                    self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 2))
-                elif index == 2:
-                    # move 0 -> 2, 1 -> 3 for fromloc
-                    self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 6))
-                else:
-                    raise NotImplementedError("pack: only index in {0,2} supported")
-            else:
-                raise NotImplementedError("pack: count 3 for single float pack not supported")
-        elif size == 8:
-            raise NotImplementedError("pack: float double pack")
+    # TODO remove
+    #def _shuffle_by_index(self, src_loc, tmp_loc, item_type, size, index, count):
+    #    if index == 0 and count == 1:
+    #        return src_loc
+    #    select = 0
+    #    if item_type == FLOAT:
+    #        if size == 4:
+    #            self.mc.MOVUPS(tmp_loc, src_loc) # TODO could be aligned if xx
+    #            i = 0
+    #            while i < count:
+    #                select |= (index+i<<(i*2))
+    #                i += 1
+    #            self.mc.SHUFPS_xxi(tmp_loc.value, tmp_loc.value, select)
+    #            return tmp_loc
+    #        else:
+    #            raise NotImplementedError("shuffle by index for float64 not impl")
+    #    else:
+    #        raise NotImplementedError("shuffle by index for non floats")
 
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
@@ -2640,7 +2619,6 @@ class Assembler386(BaseAssembler):
         si = srcidx
         ri = residx
         k = count
-        print resultloc,"[", residx, "] <- ",sourceloc,"[",srcidx,"] count", count
         while k > 0:
             if size == 8:
                 if resultloc.is_xmm:
@@ -2672,23 +2650,86 @@ class Assembler386(BaseAssembler):
 
     genop_vec_int_unpack = genop_vec_int_pack
 
-    def genop_vec_float_unpack(self, op, arglocs, resloc):
-        loc0, tmploc, indexloc, countloc = arglocs
+    def genop_vec_float_pack(self, op, arglocs, resultloc):
+        resloc, srcloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
         count = countloc.value
-        index = indexloc.value
-        box = op.getarg(0)
-        assert isinstance(box, BoxVector)
-        item_type = box.item_type
-        size = box.item_size
+        residx = residxloc.value
+        srcidx = srcidxloc.value
+        size = sizeloc.value
         if size == 4:
-            tmploc = self._shuffle_by_index(loc0, tmploc, item_type, size, index, count)
-            self.mc.MOVD32_rx(resloc.value, tmploc.value)
+            si = srcidx
+            ri = residx
+            k = count
+            while k > 0:
+                if resloc.is_xmm:
+                    src = srcloc.value
+                    if not srcloc.is_xmm:
+                        # if source is a normal register (unpack)
+                        assert count == 1
+                        assert si == 0
+                        self.mc.MOVSD(X86_64_XMM_SCRATCH_REG, srcloc)
+                        src = X86_64_XMM_SCRATCH_REG.value
+                    select = ((si & 0x3) << 6)|((ri & 0x3) << 4)
+                    self.mc.INSERTPS_xxi(resloc.value, src, select)
+                else:
+                    self.mc.PEXTRD_rxi(resloc.value, srcloc.value, si)
+                si += 1
+                ri += 1
+                k -= 1
         elif size == 8:
-            pass
-            #if index == 1:
-            #    self.mc.SHUFPD_xxi(resloc, loc0, 0|(1<<2))
-            #else:
-            #    self.mc.UNPCKHPD(resloc, loc0)
+            assert resloc.is_xmm
+            if srcloc.is_xmm:
+                if srcidx == 0:
+                    if residx == 0:
+                        # r = (s[0], r[1])
+                        self.mc.MOVSD(resloc, srcloc)
+                    else:
+                        assert residx == 1
+                        # r = (r[0], s[0])
+                        self.mc.UNPCKLPD(resloc, srcloc)
+                else:
+                    assert srcidx == 1
+                    if residx == 0:
+                        source = resloc.value
+                        if resloc.value != srcloc.value:
+                            self.mc.MOVUPD(resloc, srcloc)
+                        # r = (s[1], r[0])
+                        self.mc.SHUFPD_xxi(resloc.value, source, 1)
+                    else:
+                        assert residx == 1
+                        # r = (r[0], s[1])
+                        self.mc.SHUFPD_xxi(resloc.value, srcloc.value, 2)
+
+    genop_vec_float_unpack = genop_vec_float_pack
+    #(self, op, arglocs, resloc):
+    #    resultloc, fromloc, tmploc = arglocs
+    #    result = op.result
+    #    indexarg = op.getarg(2)
+    #    countarg = op.getarg(2)
+    #    assert isinstance(result, BoxVector)
+    #    assert isinstance(indexarg, ConstInt)
+    #    assert isinstance(countarg, ConstInt)
+    #    index = indexarg.value
+    #    count = countarg.value
+    #    size = result.item_size
+    #    if size == 4:
+    #        if count == 1:
+    #            raise NotImplementedError("pack: float single pack")
+    #        elif count == 2:
+    #            select = (1 << 2) # move 0 -> 0, 1 -> 1 for toloc
+    #            if index == 0:
+    #                # move 0 -> 2, 1 -> 3 for fromloc
+    #                self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 2))
+    #            elif index == 2:
+    #                # move 0 -> 2, 1 -> 3 for fromloc
+    #                self.mc.SHUFPS_xxi(resultloc.value, fromloc.value, select | (1 << 6))
+    #            else:
+    #                raise NotImplementedError("pack: only index in {0,2} supported")
+    #        else:
+    #            raise NotImplementedError("pack: count 3 for single float pack not supported")
+    #    elif size == 8:
+    #        raise NotImplementedError("pack: float double pack")
+
 
 
     def genop_vec_cast_float_to_singlefloat(self, op, arglocs, resloc):
@@ -2702,15 +2743,15 @@ class Assembler386(BaseAssembler):
 
     def genop_vec_cast_singlefloat_to_float(self, op, arglocs, resloc):
         loc0, tmploc, indexloc = arglocs
-        index = indexloc.value
-        if index == 0:
-            self.mc.CVTPS2PD(resloc, loc0)
-        else:
-            assert index == 2
-            self.mc.MOVUPS(tmploc, loc0) # TODO could be aligned if xx
-            select = (2<<0)|(3<<2) # move pos 2->0,3->1
-            self.mc.SHUFPS_xxi(tmploc.value, tmploc.value, select)
-            self.mc.CVTPS2PD(resloc, tmploc) # expand
+        self.mc.CVTPS2PD(resloc, arglocs[0])
+        #index = indexloc.value
+        #if index == 0:
+        #else:
+        #    assert index == 2
+        #    self.mc.MOVUPS(tmploc, loc0) # TODO could be aligned if xx
+        #    select = (2<<0)|(3<<2) # move pos 2->0,3->1
+        #    self.mc.SHUFPS_xxi(tmploc.value, tmploc.value, select)
+        #    self.mc.CVTPS2PD(resloc, tmploc) # expand
 
     # ________________________________________
 

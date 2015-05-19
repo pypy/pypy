@@ -681,10 +681,16 @@ class LocationCodeBuilder(object):
     PADDD = _binaryop('PADDD')
     PADDW = _binaryop('PADDW')
     PADDB = _binaryop('PADDB')
+
     PSUBQ = _binaryop('PSUBQ')
     PSUBD = _binaryop('PSUBD')
     PSUBW = _binaryop('PSUBW')
     PSUBQ = _binaryop('PSUBQ')
+
+    PMULDQ = _binaryop('PMULDQ')
+    PMULLD = _binaryop('PMULLD')
+    PMULLW = _binaryop('PMULLW')
+
     PAND  = _binaryop('PAND')
     POR   = _binaryop('POR')
     PXOR  = _binaryop('PXOR')

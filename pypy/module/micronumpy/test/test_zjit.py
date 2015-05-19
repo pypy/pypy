@@ -200,28 +200,83 @@ class TestNumpyJit(Jit386Mixin):
         return """
         a = astype(|30|, int32)
         b = a + 1i
+        d = astype(|30|, int32)
+        c = d + 2.0
         x1 = b -> 7
         x2 = b -> 8
-        x3 = b -> 9
-        x4 = b -> 10
-        r = x1 + x2 + x3 + x4
-        r
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
         """
-        #return """
-        #a = astype(|30|, int32)
-        #b = a + 1i
-        #c = a + 2.0
-        #x1 = b -> 7
-        #x2 = b -> 8
-        #x3 = c -> 11
-        #x4 = c -> 12
-        #x1 + x2 + x3 + x4
-        #"""
     def test_int32_add_const(self):
         result = self.run("int32_add_const")
-        assert int(result) == 7+1+8+1+9+1+10+1
-        self.check_vectorized(1, 1)
+        assert int(result) == 7+1+8+1+11+2+12+2
+        self.check_vectorized(2, 2)
 
+    def define_int_mul_array():
+        return """
+        a = astype(|30|, int)
+        b = astype(|30|, int)
+        c = a * b
+        x1 = c -> 7
+        x2 = c -> 8
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
+        """
+    def test_int_mul_array(self):
+        py.test.skip("how to multiply quad word integers?")
+        result = self.run("int_mul_array")
+        assert int(result) == 7*7+8*8+11*11+12*12
+        self.check_vectorized(2, 2)
+
+    def define_float_mul_array():
+        return """
+        a = astype(|30|, float)
+        b = astype(|30|, float)
+        c = a * b
+        x1 = c -> 7
+        x2 = c -> 8
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
+        """
+    def test_float_mul_array(self):
+        result = self.run("float_mul_array")
+        assert int(result) == 7*7+8*8+11*11+12*12
+        self.check_vectorized(2, 2)
+
+    def define_int32_mul_array():
+        return """
+        a = astype(|30|, int32)
+        b = astype(|30|, int32)
+        c = a * b
+        x1 = c -> 7
+        x2 = c -> 8
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
+        """
+    def test_int32_mul_array(self):
+        result = self.run("int32_mul_array")
+        assert int(result) == 7*7+8*8+11*11+12*12
+        self.check_vectorized(2, 2)
+
+    def define_float32_mul_array():
+        return """
+        a = astype(|30|, float32)
+        b = astype(|30|, float32)
+        c = a * b
+        x1 = c -> 7
+        x2 = c -> 8
+        x3 = c -> 11
+        x4 = c -> 12
+        x1 + x2 + x3 + x4
+        """
+    def test_float32_mul_array(self):
+        result = self.run("float32_mul_array")
+        assert int(result) == 7*7+8*8+11*11+12*12
+        self.check_vectorized(2, 2)
 
     def define_pow():
         return """

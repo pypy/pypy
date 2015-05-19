@@ -209,7 +209,9 @@ class FakeSpace(ObjSpace):
         return self.wrap(1)
 
     def mul(self, w_obj1, w_obj2):
-        return self.wrap(1)
+        assert isinstance(w_obj1, boxes.W_GenericBox) 
+        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        return w_obj1.descr_mul(self, w_obj2)
 
     def pow(self, w_obj1, w_obj2, _):
         return self.wrap(1)
@@ -324,7 +326,7 @@ class FakeSpace(ObjSpace):
         return W_TypeObject(w_obj.typedef.name)
 
     def call_function(self, tp, w_dtype, *args):
-        if tp is self.w_float
+        if tp is self.w_float:
             if isinstance(w_dtype, boxes.W_Float64Box):
                 return FloatObject(float(w_dtype.value))
             if isinstance(w_dtype, boxes.W_Float32Box):

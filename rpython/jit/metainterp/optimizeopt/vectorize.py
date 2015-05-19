@@ -402,6 +402,7 @@ class VectorizingOptimizer(Optimizer):
         (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
         if vbox:
             arg_cloned = arg.clonebox()
+            py.test.set_trace()
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = rop.VEC_FLOAT_UNPACK
@@ -533,11 +534,12 @@ def fail_args_break_dependency(guard, prev_op, target_guard):
 class PackType(PrimitiveTypeMixin):
     UNKNOWN_TYPE = '-'
 
-    def __init__(self, type, size, signed):
+    def __init__(self, type, size, signed, count=-1):
         assert type in (FLOAT, INT, PackType.UNKNOWN_TYPE)
         self.type = type
         self.size = size
         self.signed = signed
+        self.count = count
 
     def gettype(self):
         return self.type
@@ -551,6 +553,9 @@ class PackType(PrimitiveTypeMixin):
     def get_byte_size(self):
         return self.size
 
+    def getcount(self):
+        return self.count
+
     @staticmethod
     def by_descr(descr):
         _t = INT
@@ -563,7 +568,7 @@ class PackType(PrimitiveTypeMixin):
         return self.type != PackType.UNKNOWN_TYPE and self.size > 0
 
     def new_vector_box(self, count):
-        return BoxVector(self.type, count, self.size, self.signed)
+        return BoxVector(self.type, count, self.size, self.signed, self.count)
 
     def record_vbox(self, vbox):
         if self.type == PackType.UNKNOWN_TYPE:
@@ -581,14 +586,14 @@ class PackType(PrimitiveTypeMixin):
 
 
 class OpToVectorOp(object):
-    def __init__(self, arg_ptypes, result_ptype, has_ptype=False, index=-1, result_vsize_arg=-1):
+    def __init__(self, arg_ptypes, result_ptype, has_ptype=False, result_vsize_arg=-1):
         self.arg_ptypes = arg_ptypes
         self.result_ptype = result_ptype
         self.has_ptype = has_ptype
-        # TODO remove them?
-        self.result = result_ptype != None
         self.result_vsize_arg = result_vsize_arg
-        self.index = index
+
+    def has_result(self):
+        return self.result_ptype != None
 
     def get_result_ptype(self):
         return self.result_ptype
@@ -604,9 +609,12 @@ class OpToVectorOp(object):
         return self.arg_ptypes[i] is not None
 
 PT_FLOAT = PackType(FLOAT, 4, False)
+PT_FLOAT_2 = PackType(FLOAT, 4, False, count=2)
 PT_DOUBLE = PackType(FLOAT, 8, False)
 PT_INT_GENERIC = PackType(INT, -1, True)
 PT_INT64 = PackType(INT, 8, True)
+PT_INT32 = PackType(INT, 4, True)
+PT_INT32_2 = PackType(INT, 4, True, count=2)
 PT_FLOAT_GENERIC = PackType(INT, -1, True)
 PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, True)
 
@@ -626,11 +634,10 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_RAW_STORE:        OpToVectorOp((None,None,PT_GENERIC,), None, has_ptype=True),
     rop.VEC_SETARRAYITEM_RAW: OpToVectorOp((None,None,PT_GENERIC,), None, has_ptype=True),
 
-    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOp((PT_DOUBLE,), PT_FLOAT),
-    # TODO remove index
-    rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOp((PT_FLOAT,), PT_DOUBLE, index=1),
-    rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOp((PT_DOUBLE,), PT_INT64),
-    rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOp((PT_INT64,), PT_DOUBLE),
+    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOp((PT_DOUBLE,), PT_FLOAT_2),
+    rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOp((PT_FLOAT_2,), PT_DOUBLE),
+    rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOp((PT_DOUBLE,), PT_INT32_2),
+    rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOp((PT_INT32_2,), PT_DOUBLE),
 }
 
 
@@ -684,9 +691,6 @@ class VecScheduleData(SchedulerData):
         if tovector is None:
             raise NotImplementedError("vecop map entry missing. trans: pack -> vop")
 
-        if tovector.index != -1:
-            args.append(ConstInt(self.pack_off))
-
         args.append(ConstInt(self.pack_ops))
         vop = ResOperation(op0.vector, args, op0.result, op0.getdescr())
 
@@ -698,7 +702,7 @@ class VecScheduleData(SchedulerData):
                 if arg_ptype.size == -1:
                     arg_ptype = self.pack.ptype
                 self.vector_arg(vop, i, arg_ptype)
-        if tovector.result:
+        if tovector.has_result():
             self.vector_result(vop, tovector)
 
         self.preamble_ops.append(vop)
@@ -742,11 +746,13 @@ class VecScheduleData(SchedulerData):
         #
         vop.result = vbox
         i = self.pack_off
+        off = 0 # assumption. the result is always placed at index [0,...,x]
         end = i + self.pack_ops
         while i < end:
             op = ops[i].getoperation()
-            self.box_to_vbox[op.result] = (i, vbox)
+            self.box_to_vbox[op.result] = (off, vbox)
             i += 1
+            off += 1
 
     def box_vector(self, ptype):
         """ TODO remove this? """
@@ -770,6 +776,16 @@ class VecScheduleData(SchedulerData):
             # the argument has more items than the operation is able to process!
             vbox = self.unpack(vbox, self.pack_off, packable, arg_ptype)
             vbox = self.extend(vbox, arg_ptype)
+
+        # The instruction takes less items than the vector has.
+        # Unpack if not at pack_off 0
+        count = arg_ptype.getcount()
+        if count != -1 and count < vbox.item_count:
+            if self.pack_off == 0:
+                pass # right place already
+            else:
+                vbox = self.unpack(vbox, self.pack_off, count, arg_ptype)
+
         vop.setarg(argidx, vbox)
         return vbox
 
