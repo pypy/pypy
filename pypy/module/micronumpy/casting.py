@@ -8,7 +8,8 @@ from pypy.interpreter.error import oefmt, OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
 from .types import (
-    Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType)
+    Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType,
+    promotion_table)
 from .descriptor import get_dtype_cache, as_dtype, is_scalar_w, variable_dtype
 
 @jit.unroll_safe
@@ -142,47 +143,13 @@ def find_binop_result_dtype(space, dt1, dt2):
     return _promote_types(space, dt1, dt2)
 
 def _promote_types(space, dt1, dt2):
-    if dt1.num == NPY.OBJECT or dt2.num == NPY.OBJECT:
-        return get_dtype_cache(space).w_objectdtype
+    num = promotion_table[dt1.num][dt2.num]
+    if num != -1:
+        return get_dtype_cache(space).dtypes_by_num[num]
 
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
-
-    # Everything numeric promotes to complex
-    if dt2.is_complex() or dt1.is_complex():
-        if dt2.num == NPY.HALF:
-            dt1, dt2 = dt2, dt1
-        if dt2.num == NPY.CFLOAT:
-            if dt1.num == NPY.DOUBLE:
-                return get_dtype_cache(space).w_complex128dtype
-            elif dt1.num == NPY.LONGDOUBLE:
-                return get_dtype_cache(space).w_complexlongdtype
-            return get_dtype_cache(space).w_complex64dtype
-        elif dt2.num == NPY.CDOUBLE:
-            if dt1.num == NPY.LONGDOUBLE:
-                return get_dtype_cache(space).w_complexlongdtype
-            return get_dtype_cache(space).w_complex128dtype
-        elif dt2.num == NPY.CLONGDOUBLE:
-            return get_dtype_cache(space).w_complexlongdtype
-        else:
-            raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
-
-    # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind and not dt2.is_flexible():
-        if dt2.num == NPY.HALF:
-            return dt1
-        return dt2
-
-    # Everything promotes to float, and bool promotes to everything.
-    if dt2.kind == NPY.FLOATINGLTR or dt1.kind == NPY.GENBOOLLTR:
-        if dt2.num == NPY.HALF and dt1.itemtype.get_element_size() == 2:
-            return get_dtype_cache(space).w_float32dtype
-        if dt2.num == NPY.HALF and dt1.itemtype.get_element_size() >= 4:
-            return get_dtype_cache(space).w_float64dtype
-        if dt2.num == NPY.FLOAT and dt1.itemtype.get_element_size() >= 4:
-            return get_dtype_cache(space).w_float64dtype
-        return dt2
 
     # for now this means mixing signed and unsigned
     if dt2.kind == NPY.SIGNEDLTR:

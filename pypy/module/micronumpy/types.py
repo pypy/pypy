@@ -40,7 +40,7 @@ if not we_are_translated():
             assert offset < storage._obj.getlength()
         except AttributeError:
             pass
-        return _raw_storage_setitem_unaligned(storage, offset, value) 
+        return _raw_storage_setitem_unaligned(storage, offset, value)
 
     def raw_storage_getitem_unaligned(T, storage, offset):
         assert offset >=0
@@ -48,7 +48,7 @@ if not we_are_translated():
             assert offset < storage._obj.getlength()
         except AttributeError:
             pass
-        return _raw_storage_getitem_unaligned(T, storage, offset) 
+        return _raw_storage_getitem_unaligned(T, storage, offset)
 '''
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -2497,6 +2497,9 @@ all_types = [Bool] + number_types + [ObjectType, StringType, UnicodeType, VoidTy
 def enable_cast(type1, type2):
     casting_table[type1.num][type2.num] = True
 
+def _can_cast(type1, type2):
+    return casting_table[type1.num][type2.num]
+
 for tp in all_types:
     enable_cast(tp, tp)
     if tp.num != NPY.DATETIME:
@@ -2534,6 +2537,40 @@ for tp1 in complex_types:
     for tp2 in complex_types:
         if tp1.basesize() <= tp2.basesize():
             enable_cast(tp1, tp2)
+
+promotion_table = [[-1] * NPY.NTYPES for _ in range(NPY.NTYPES)]
+def promotes(tp1, tp2, tp3):
+    if tp3 is None:
+        num = -1
+    else:
+        num = tp3.num
+    promotion_table[tp1.num][tp2.num] = num
+
+
+for tp in all_types:
+    promotes(tp, ObjectType, ObjectType)
+    promotes(ObjectType, tp, ObjectType)
+
+for tp1 in [Bool] + number_types:
+    for tp2 in [Bool] + number_types:
+        if tp1 is tp2:
+            promotes(tp1, tp1, tp1)
+        elif _can_cast(tp1, tp2):
+            promotes(tp1, tp2, tp2)
+        elif _can_cast(tp2, tp1):
+            promotes(tp1, tp2, tp1)
+        else:
+            # Brute-force search for the least upper bound
+            result = None
+            for tp3 in number_types:
+                if _can_cast(tp1, tp3) and _can_cast(tp2, tp3):
+                    if result is None:
+                        result = tp3
+                    else:
+                        if _can_cast(tp3, result):
+                            result = tp3
+            promotes(tp1, tp2, result)
+
 
 _int_types = [(Int8, UInt8), (Int16, UInt16), (Int32, UInt32),
         (Int64, UInt64), (Long, ULong)]
