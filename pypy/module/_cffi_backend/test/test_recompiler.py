@@ -70,6 +70,8 @@ class AppTestRecompiler:
     spaceconfig = dict(usemodules=['_cffi_backend', 'imp'])
 
     def setup_class(cls):
+        if cls.runappdirect:
+            py.test.skip("not a test for -A")
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
 
     def setup_method(self, meth):

@@ -48,8 +48,9 @@ def _func_key_hash((fargs, w_fresult, ellipsis)):
 def _clean_cache(space):
     "NOT_RPYTHON"
     from pypy.module._cffi_backend.realize_c_type import RealizeCache
-    space.fromcache(UniqueCache).__init__(space)
-    space.fromcache(RealizeCache).__init__(space)
+    if hasattr(space, 'fromcache'):   # not with the TinyObjSpace
+        space.fromcache(UniqueCache).__init__(space)
+        space.fromcache(RealizeCache).__init__(space)
 
 # ____________________________________________________________
 
