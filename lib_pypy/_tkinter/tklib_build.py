@@ -142,7 +142,7 @@ else:
         if os.path.isdir(incdirs[0]):
             break
 
-tklib = tkffi.verify("""
+tkffi.set_source("_tkinter.tklib_cffi", """
 #include <tcl.h>
 #include <tk.h>
 
@@ -153,3 +153,6 @@ include_dirs=incdirs,
 libraries=linklibs,
 library_dirs = libdirs
 )
+
+if __name__ == "__main__":
+    tkffi.compile()

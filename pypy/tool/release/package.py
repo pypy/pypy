@@ -57,7 +57,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
     if not sys.platform == 'win32':
         modules += ['_curses_build.py', '_syslog_build.py', '_gdbm_build.py']
     if not options.no_tk:
-        modules.append('_tkinter')
+        modules.append('_tkinter/tklib_build.py')
     for module in modules:
         if module.endswith('.py'):
             args = [str(pypy_c), module]
