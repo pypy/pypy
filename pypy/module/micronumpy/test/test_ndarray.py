@@ -258,17 +258,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test uninitialized value crash?
         assert len(str(a)) > 0
 
-        import sys
-        for order in [False, True, 'C', 'F']:
-            a = ndarray.__new__(ndarray, (2, 3), float, order=order)
-            assert a.shape == (2, 3)
-            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
-                assert a.flags['F']
-                assert not a.flags['C']
-            else:
-                assert a.flags['C']
-                assert not a.flags['F']
-
         x = array([[0, 2], [1, 1], [2, 0]])
         y = array(x.T, dtype=float)
         assert (y == x.T).all()
@@ -2587,6 +2576,18 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, b.__getitem__, (4, 1))
         assert a[0][1][1] == 13
         assert a[1][2][1] == 15
+
+    def test_create_order(self):
+        import sys, numpy as np
+        for order in [False, True, 'C', 'F']:
+            a = np.empty((2, 3), float, order=order)
+            assert a.shape == (2, 3)
+            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
+                assert a.flags['F']
+                assert not a.flags['C']
+            else:
+                assert a.flags['C'], "flags['C'] False for %r" % order
+                assert not a.flags['F']
 
     def test_setitem_slice(self):
         import numpy
