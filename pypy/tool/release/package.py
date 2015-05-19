@@ -53,7 +53,7 @@ def fix_permissions(dirname):
 def create_cffi_import_libraries(pypy_c, options, basedir):
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
-    modules = ['_sqlite3', 'audioop']
+    modules = ['_sqlite3', '_audioop_build.py']
     if not sys.platform == 'win32':
         modules += ['_curses', 'syslog', '_gdbm_build.py']
     if not options.no_tk:
