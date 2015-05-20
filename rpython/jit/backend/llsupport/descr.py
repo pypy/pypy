@@ -194,11 +194,14 @@ class ArrayDescr(ArrayOrFieldDescr):
     vinfo = None
     concrete_type = '\x00'
 
-    def __init__(self, basesize, itemsize, lendescr, flag):
+    def __init__(self, basesize, itemsize, lendescr, flag, concrete_type='\x00'):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
+
+    def getconcrete_type(self):
+        return self.concrete_type
 
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
@@ -260,12 +263,13 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         else:
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
-        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
+        concreate_type = '\x00'
         if ARRAY_INSIDE.OF is lltype.SingleFloat or \
            ARRAY_INSIDE.OF is lltype.Float:
             # it would be better to set the flag as FLOAT_TYPE
             # for single float -> leads to problems
-            arraydescr.concrete_type = FLOAT
+            concrete_type = FLOAT
+        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, concreate_type)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         cache[ARRAY_OR_STRUCT] = arraydescr

@@ -1475,10 +1475,11 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_getarrayitem_raw(self, op):
         descr = op.getdescr()
+        assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
-        integer = not (descr.is_array_of_floats() or descr.concrete_type == FLOAT)
+        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
         aligned = False
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
@@ -1491,6 +1492,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_setarrayitem_raw(self, op):
         descr = op.getdescr()
+        assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
                not descr.is_array_of_structs()
         itemsize, ofs, _ = unpack_arraydescr(descr)
@@ -1499,7 +1501,7 @@ class RegAlloc(BaseRegalloc):
         value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
 
-        integer = not (descr.is_array_of_floats() or descr.concrete_type == FLOAT)
+        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
         aligned = False
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
