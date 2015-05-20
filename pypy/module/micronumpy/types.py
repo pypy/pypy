@@ -721,6 +721,7 @@ class ULong(BaseType, Integer):
 
 class Float(Primitive):
     _mixin_ = True
+    strlen = 32
 
     def _coerce(self, space, w_item):
         if w_item is None:
@@ -1047,7 +1048,7 @@ class Float(Primitive):
         else:
             return x
 
-class Float16(BaseType, Float):
+class Float16(Float, BaseType):
     _STORAGE_T = rffi.USHORT
     T = rffi.SHORT
     num = NPY.HALF
@@ -1092,7 +1093,7 @@ class Float16(BaseType, Float):
             hbits = byteswap(hbits)
         raw_storage_setitem_unaligned(storage, i + offset, hbits)
 
-class Float32(BaseType, Float):
+class Float32(Float, BaseType):
     T = rffi.FLOAT
     num = NPY.FLOAT
     kind = NPY.FLOATINGLTR
@@ -1101,7 +1102,7 @@ class Float32(BaseType, Float):
     format_code = "f"
     max_value = 3.4e38
 
-class Float64(BaseType, Float):
+class Float64(Float, BaseType):
     T = rffi.DOUBLE
     num = NPY.DOUBLE
     kind = NPY.FLOATINGLTR
@@ -1112,6 +1113,7 @@ class Float64(BaseType, Float):
 
 class ComplexFloating(object):
     _mixin_ = True
+    strlen = 64
 
     def _coerce(self, space, w_item):
         if w_item is None:
@@ -1721,7 +1723,7 @@ class Complex128(ComplexFloating, BaseType):
     ComponentType = Float64
 
 if boxes.long_double_size == 8:
-    class FloatLong(BaseType, Float):
+    class FloatLong(Float, BaseType):
         T = rffi.DOUBLE
         num = NPY.LONGDOUBLE
         kind = NPY.FLOATINGLTR
@@ -1739,7 +1741,7 @@ if boxes.long_double_size == 8:
         ComponentType = FloatLong
 
 elif boxes.long_double_size in (12, 16):
-    class FloatLong(BaseType, Float):
+    class FloatLong(Float, BaseType):
         T = rffi.LONGDOUBLE
         num = NPY.LONGDOUBLE
         kind = NPY.FLOATINGLTR

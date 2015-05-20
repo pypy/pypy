@@ -10,7 +10,9 @@ from pypy.module.micronumpy import constants as NPY
 from .types import (
     Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType,
     promotion_table)
-from .descriptor import get_dtype_cache, as_dtype, is_scalar_w, variable_dtype
+from .descriptor import (
+    get_dtype_cache, as_dtype, is_scalar_w, variable_dtype, new_string_dtype,
+    new_unicode_dtype)
 
 @jit.unroll_safe
 def result_type(space, __args__):
@@ -151,39 +153,41 @@ def _promote_types(space, dt1, dt2):
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
 
-    # for now this means mixing signed and unsigned
-    if dt2.kind == NPY.SIGNEDLTR:
-        # if dt2 has a greater number of bytes, then just go with it
-        if dt1.itemtype.get_element_size() < dt2.itemtype.get_element_size():
-            return dt2
-        # we need to promote both dtypes
-        dtypenum = dt2.num + 2
-    elif dt2.num == NPY.ULONGLONG or (LONG_BIT == 64 and dt2.num == NPY.ULONG):
-        # UInt64 + signed = Float64
-        dtypenum = NPY.DOUBLE
-    elif dt2.is_flexible():
-        # For those operations that get here (concatenate, stack),
-        # flexible types take precedence over numeric type
-        if dt2.is_record():
-            return dt2
-        if dt1.is_str_or_unicode():
-            if dt2.elsize >= dt1.elsize:
+    if dt2.is_str():
+        if dt1.is_str():
+            if dt1.elsize > dt2.elsize:
+                return dt1
+            else:
                 return dt2
+        else:  # dt1 is numeric
+            dt1_size = dt1.itemtype.strlen
+            if dt1_size > dt2.elsize:
+                return new_string_dtype(space, dt1_size)
+            else:
+                return dt2
+    elif dt2.is_unicode():
+        if dt1.is_unicode():
+            if dt1.elsize > dt2.elsize:
+                return dt1
+            else:
+                return dt2
+        elif dt1.is_str():
+            if dt2.elsize >= 4 * dt1.elsize:
+                return dt2
+            else:
+                return new_unicode_dtype(space, 4 * dt1.elsize)
+        else:  # dt1 is numeric
+            dt1_size = 4 * dt1.itemtype.strlen
+            if dt1_size > dt2.elsize:
+                return new_unicode_dtype(space, dt1_size)
+            else:
+                return dt2
+    else:
+        assert dt2.num == NPY.VOID
+        if can_cast_type(space, dt1, dt2, casting='equiv'):
             return dt1
-        return dt2
-    else:
-        # increase to the next signed type
-        dtypenum = dt2.num + 1
-    newdtype = get_dtype_cache(space).dtypes_by_num[dtypenum]
+    raise oefmt(space.w_TypeError, "invalid type promotion")
 
-    if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
-            newdtype.kind == NPY.FLOATINGLTR):
-        return newdtype
-    else:
-        # we only promoted to long on 32-bit or to longlong on 64-bit
-        # this is really for dealing with the Long and Ulong dtypes
-        dtypenum += 2
-        return get_dtype_cache(space).dtypes_by_num[dtypenum]
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
     from .boxes import W_GenericBox
