@@ -94,6 +94,9 @@ class Node(object):
     def getopname(self):
         return self.op.getopname()
 
+    def can_be_relaxed(self):
+        return self.op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
+
     def getfailarg_set(self):
         op = self.getoperation()
         assert isinstance(op, GuardResOp)
@@ -330,13 +333,14 @@ class Node(object):
 
 
 class Dependency(object):
-    def __init__(self, at, to, arg):
+    def __init__(self, at, to, arg, flow=True):
         assert at != to
         self.args = [] 
         if arg is not None:
             self.add_dependency(at, to, arg)
         self.at = at
         self.to = to
+        self.flow = True
 
     def because_of(self, var):
         for arg in self.args:
@@ -366,6 +370,12 @@ class Dependency(object):
 
     def add_dependency(self, at, to, arg):
         self.args.append((at,arg))
+
+    def set_flow(self, flow):
+        self.flow = flow
+
+    def get_flow(self):
+        return self.flow
 
     def reverse_direction(self, ref):
         """ if the parameter index is the same as idx_to then

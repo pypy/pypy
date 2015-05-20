@@ -48,20 +48,16 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         opt.propagate_all_forward()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
     except NotAVectorizeableLoop:
-        # vectorization is not possible, propagate only normal optimizations
+        # vectorization is not possible
         loop.operations = orig_ops
     except Exception as e:
         loop.operations = orig_ops
-        print 'loop with %d instructions failed! ' % (len(orig_ops),)
-        print('--- loop instr numbered ---')
-        for i,op in enumerate(loop.operations):
-            print "[",i,"]",op,
-            if op.is_guard():
-                print op.getfailargs()
-            else:
-                print ""
-        #import traceback
-        #traceback.print_exc()
+        debug_start("failed to vec loop")
+        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations)
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        llop.debug_print_traceback(lltype.Void)
+        debug_stop("failed to vec loop")
 
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
@@ -81,8 +77,6 @@ class VectorizingOptimizer(Optimizer):
         label = self.loop.operations[0]
         jump = self.loop.operations[-1]
         if jump.getopnum() not in (rop.LABEL, rop.JUMP):
-            # compile_loop appends a additional label to all loops
-            # we cannot optimize normal traces
             raise NotAVectorizeableLoop()
 
         self.linear_find_smallest_type(self.loop)
