@@ -222,42 +222,42 @@ int lzma_block_compressed_size(lzma_block *block, lzma_vli unpadded_size);
 typedef struct {
     // cffi doesn't support partial anonymous structs
     // so we write the definition in full
-	struct {
-		const lzma_stream_flags *flags;
-		const void *reserved_ptr1;
-		const void *reserved_ptr2;
-		const void *reserved_ptr3;
-		lzma_vli number;
-		lzma_vli block_count;
-		lzma_vli compressed_offset;
-		lzma_vli uncompressed_offset;
-		lzma_vli compressed_size;
-		lzma_vli uncompressed_size;
-		lzma_vli padding;
-		lzma_vli reserved_vli1;
-		lzma_vli reserved_vli2;
-		lzma_vli reserved_vli3;
-		lzma_vli reserved_vli4;
-	} stream;
-	struct {
-		lzma_vli number_in_file;
-		lzma_vli compressed_file_offset;
-		lzma_vli uncompressed_file_offset;
-		lzma_vli number_in_stream;
-		lzma_vli compressed_stream_offset;
-		lzma_vli uncompressed_stream_offset;
-		lzma_vli uncompressed_size;
-		lzma_vli unpadded_size;
-		lzma_vli total_size;
-		lzma_vli reserved_vli1;
-		lzma_vli reserved_vli2;
-		lzma_vli reserved_vli3;
-		lzma_vli reserved_vli4;
-		const void *reserved_ptr1;
-		const void *reserved_ptr2;
-		const void *reserved_ptr3;
-		const void *reserved_ptr4;
-	} block;
+    struct {
+        const lzma_stream_flags *flags;
+        const void *reserved_ptr1;
+        const void *reserved_ptr2;
+        const void *reserved_ptr3;
+        lzma_vli number;
+        lzma_vli block_count;
+        lzma_vli compressed_offset;
+        lzma_vli uncompressed_offset;
+        lzma_vli compressed_size;
+        lzma_vli uncompressed_size;
+        lzma_vli padding;
+        lzma_vli reserved_vli1;
+        lzma_vli reserved_vli2;
+        lzma_vli reserved_vli3;
+        lzma_vli reserved_vli4;
+    } stream;
+    struct {
+        lzma_vli number_in_file;
+        lzma_vli compressed_file_offset;
+        lzma_vli uncompressed_file_offset;
+        lzma_vli number_in_stream;
+        lzma_vli compressed_stream_offset;
+        lzma_vli uncompressed_stream_offset;
+        lzma_vli uncompressed_size;
+        lzma_vli unpadded_size;
+        lzma_vli total_size;
+        lzma_vli reserved_vli1;
+        lzma_vli reserved_vli2;
+        lzma_vli reserved_vli3;
+        lzma_vli reserved_vli4;
+        const void *reserved_ptr1;
+        const void *reserved_ptr2;
+        const void *reserved_ptr3;
+        const void *reserved_ptr4;
+    } block;
     ...;
 } lzma_index_iter;
 
