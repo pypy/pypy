@@ -114,3 +114,7 @@ Implement PYTHONOPTIMIZE environment variable, fixing issue #2044
 
 branch numpy-flags
 Finish implementation of ndarray.flags, including str() and repr()
+
+.. branch: cffi-1.0
+
+PyPy now includes CFFI 1.0.
