@@ -27,8 +27,6 @@ LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC, 0, 1)
                    , (rop.GETARRAYITEM_RAW, 0, 1)
                    , (rop.GETINTERIORFIELD_GC, 0, 1)
                    , (rop.RAW_LOAD, 0, 1)
-                   , (rop.GETFIELD_GC, 0, 1)
-                   , (rop.GETFIELD_RAW, 0, 1)
                    ]
 
 class Path(object):
@@ -169,7 +167,7 @@ class Node(object):
         return self.op.getopnum() == rop.GUARD_EARLY_EXIT
 
     def loads_from_complex_object(self):
-        return rop._ALWAYS_PURE_LAST <= self.op.getopnum() <= rop._MALLOC_FIRST
+        return rop._ALWAYS_PURE_LAST <= self.op.getopnum() <= rop.GETINTERIORFIELD_GC
 
     def modifies_complex_object(self):
         return rop.SETARRAYITEM_GC <= self.op.getopnum() <= rop.UNICODESETITEM
@@ -196,10 +194,13 @@ class Node(object):
             # assume this destroys every argument... can be enhanced by looking
             # at the effect info of a call for instance
             for arg in op.getarglist():
+                # if it is a constant argument it cannot be destroyed.
+                # neither can a box float be destroyed. BoxInt can
+                # contain a reference thus it is assumed to be destroyed
                 if isinstance(arg, Const) or isinstance(arg, BoxFloat):
                     args.append((arg, None, False))
                 else:
-                    args.append((arg,None,True))
+                    args.append((arg, None,True))
         return args
 
     def provides_count(self):
