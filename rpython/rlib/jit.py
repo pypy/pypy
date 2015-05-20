@@ -552,7 +552,7 @@ PARAMETER_DOCS = {
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
-    'vectorize': 'turn on the vectorization optimization. default off. requirement: (sse2)',
+    'vectorize': 'turn on the vectorization optimization. requires sse4.1',
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -590,7 +590,7 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True, vectorize=True,
+                 name='jitdriver', check_untranslated=True, vectorize=False,
                  get_unique_id=None):
         if greens is not None:
             self.greens = greens

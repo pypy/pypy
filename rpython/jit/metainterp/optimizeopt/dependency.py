@@ -140,7 +140,9 @@ class Node(object):
         tgt_op.setfailargs(op.getfailargs())
 
     def edge_to(self, to, arg=None, label=None):
-        assert self != to
+        if self is to:
+            print "debug: tried to put edge from: ", self.op, "to:", to.op
+            return
         dep = self.depends_on(to)
         if not dep:
             #if force or self.independent(idx_from, idx_to):
@@ -817,34 +819,6 @@ class IntegralForwardModification(object):
     exec py.code.Source(additive_func_source
             .format(name='INT_SUB', op='-')).compile()
     del additive_func_source
-
-    #def operation_INT_ADD(self, op, node):
-    #    box_r = op.result
-    #    if not box_r:
-    #        return
-    #    box_a0 = op.getarg(0)
-    #    box_a1 = op.getarg(1)
-    #    if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
-    #        idx_ref = IndexVar(box_r)
-    #        idx_ref.constant = box_a0.getint() + box_a1.getint()
-    #        self.index_vars[box_r] = idx_ref 
-    #    elif self.is_const_integral(box_a0):
-    #        idx_ref = self.get_or_create(box_a1)
-    #        idx_ref = idx_ref.clone()
-    #        idx_ref.constant {op}= box_a0.getint()
-    #        self.index_vars[box_r] = idx_ref
-    #    elif self.is_const_integral(box_a1):
-    #        idx_ref = self.get_or_create(box_a0)
-    #        idx_ref = idx_ref.clone()
-    #        idx_ref.add_const(box_a1.getint())
-    #        self.index_vars[box_r] = idx_ref
-    #    else:
-    #        # both variables are boxes
-    #        if box_a1 in self.invariant_vars:
-    #            idx_var = self.get_or_create(box_a0)
-    #            idx_var = idx_var.clone()
-    #            idx_var.set_next_nonconst_mod(BoxedIndexVar(box_a1, op.getopnum(), box_a0))
-    #            self.index_vars[box_r] = idx_var
 
     multiplicative_func_source = """
     def operation_{name}(self, op, node):
