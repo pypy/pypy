@@ -134,6 +134,7 @@ def raw_binary_op(func):
 
 class BaseType(object):
     _immutable_fields_ = ['native', 'space']
+    strlen = 0  # chars needed to print any possible value of the type
 
     def __init__(self, space, native=True):
         assert isinstance(space, ObjSpace)
@@ -354,6 +355,7 @@ class Bool(BaseType, Primitive):
     char = NPY.BOOLLTR
     BoxType = boxes.W_BoolBox
     format_code = "?"
+    strlen = 5  # "False"
 
     _True = BoxType(True)
     _False = BoxType(False)
@@ -2473,6 +2475,7 @@ int_types = []
 all_complex_types = []
 complex_types = []
 
+_REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
 def _setup():
     # compute alignment
     for tp in globals().values():
@@ -2484,6 +2487,10 @@ def _setup():
             if issubclass(tp, Integer):
                 all_int_types.append((tp, 'int'))
                 int_types.append(tp)
+                elsize = tp(ObjSpace()).get_element_size()
+                tp.strlen = _REQ_STRLEN[elsize]
+                if tp.kind == NPY.SIGNEDLTR:
+                    tp.strlen += 1
             if issubclass(tp, ComplexFloating):
                 all_complex_types.append((tp, 'complex'))
                 complex_types.append(tp)

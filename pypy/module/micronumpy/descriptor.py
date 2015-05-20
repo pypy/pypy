@@ -40,7 +40,6 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     return out
 
 
-_REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
 
 @finishsigs
 class W_Dtype(W_Root):
@@ -115,20 +114,8 @@ class W_Dtype(W_Root):
                     char_size = 4
                 if other.elsize == 0:
                     return True
-                if self.is_bool():
-                    return other.elsize >= 5 * char_size
-                elif self.is_unsigned():
-                    if self.elsize > 8 or self.elsize < 0:
-                        return False
-                    else:
-                        return (other.elsize >=
-                                _REQ_STRLEN[self.elsize] * char_size)
-                elif self.is_signed():
-                    if self.elsize > 8 or self.elsize < 0:
-                        return False
-                    else:
-                        return (other.elsize >=
-                                (_REQ_STRLEN[self.elsize] + 1) * char_size)
+                if self.is_int():
+                    return other.elsize >= self.itemtype.strlen * char_size
         return result
 
     def coerce(self, space, w_item):
