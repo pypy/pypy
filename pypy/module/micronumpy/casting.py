@@ -45,10 +45,37 @@ def find_result_type(space, arrays_w, dtypes_w):
     elif not arrays_w and len(dtypes_w) == 1:
         return dtypes_w[0]
     result = None
+    all_scalars = True
+    max_scalar_kind = 0
+    max_array_kind = 0
     for w_array in arrays_w:
-        result = find_binop_result_dtype(space, result, w_array.get_dtype())
-    for dtype in dtypes_w:
-        result = find_binop_result_dtype(space, result, dtype)
+        if w_array.is_scalar():
+            kind = kind_ordering[w_array.get_dtype().kind]
+            if kind > max_scalar_kind:
+                max_scalar_kind = kind
+        else:
+            all_scalars = False
+            kind = kind_ordering[w_array.get_dtype().kind]
+            if kind > max_array_kind:
+                max_array_kind = kind
+    if arrays_w:
+        for dtype in dtypes_w:
+            kind = kind_ordering[dtype.kind]
+            if kind > max_array_kind:
+                max_array_kind = kind
+    #use_min_scalar = bool(arrays_w) and not all_scalars and max_array_kind >= max_scalar_kind
+    use_min_scalar = False
+    if not use_min_scalar:
+        for w_array in arrays_w:
+            if result is None:
+                result = w_array.get_dtype()
+            else:
+                result = _promote_types(space, result, w_array.get_dtype())
+        for dtype in dtypes_w:
+            if result is None:
+                result = dtype
+            else:
+                result = _promote_types(space, result, dtype)
     return result
 
 
