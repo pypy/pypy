@@ -165,7 +165,8 @@ class DistUtilsTest(object):
         assert lib.sin(12.3) == math.sin(12.3)
         v = ffi.verifier
         ext = v.get_extension()
-        assert 'distutils.extension.Extension' in str(ext.__class__)
+        assert 'distutils.extension.Extension' in str(ext.__class__) or \
+               'setuptools.extension.Extension' in str(ext.__class__)
         assert ext.sources == [maybe_relative_path(v.sourcefilename)]
         assert ext.name == v.get_module_name()
         assert ext.define_macros == [('TEST_EXTENSION_OBJECT', '1')]
@@ -194,7 +195,8 @@ class DistUtilsTest(object):
         assert lib.test1eoes(7.0) == 42.0
         v = ffi.verifier
         ext = v.get_extension()
-        assert 'distutils.extension.Extension' in str(ext.__class__)
+        assert 'distutils.extension.Extension' in str(ext.__class__) or \
+               'setuptools.extension.Extension' in str(ext.__class__)
         assert ext.sources == [maybe_relative_path(v.sourcefilename),
                                extra_source]
         assert ext.name == v.get_module_name()

@@ -4,6 +4,9 @@ import imp
 import subprocess
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 
+if sys.platform == 'win32':
+    py.test.skip('snippets do not run on win32')
+
 def create_venv(name):
     tmpdir = udir.join(name)
     try:
@@ -12,6 +15,23 @@ def create_venv(name):
                                str(tmpdir)])
     except OSError as e:
         py.test.skip("Cannot execute virtualenv: %s" % (e,))
+
+    try:
+        deepcopy = os.symlink
+    except:
+        import shutil, errno
+        def deepcopy(src, dst):
+            try:
+                shutil.copytree(src, dst)
+            except OSError as e:
+                if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                    shutil.copy(src, dst)
+                else:
+                    print('got errno')
+                    print(e.errno)
+                    print('not')
+                    print(errno.ENOTDIR)
+                    raise
 
     site_packages = None
     for dirpath, dirnames, filenames in os.walk(str(tmpdir)):
@@ -32,7 +52,7 @@ def create_venv(name):
                 modules += ('ply',)   # needed for older versions of pycparser
         for module in modules:
             target = imp.find_module(module)[1]
-            os.symlink(target, os.path.join(site_packages,
+            deepcopy(target, os.path.join(site_packages,
                                             os.path.basename(target)))
     return tmpdir
 
@@ -51,7 +71,11 @@ def really_run_setup_and_program(dirname, venv_dir, python_snippet):
     python_f.write(py.code.Source(python_snippet))
     try:
         os.chdir(str(SNIPPET_DIR.join(dirname)))
-        vp = str(venv_dir.join('bin/python'))
+        if os.name == 'nt':
+            bindir = 'Scripts'
+        else:
+            bindir = 'bin'
+        vp = str(venv_dir.join(bindir).join('python'))
         subprocess.check_call((vp, 'setup.py', 'clean'))
         subprocess.check_call((vp, 'setup.py', 'install'))
         subprocess.check_call((vp, str(python_f)))

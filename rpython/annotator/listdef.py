@@ -83,9 +83,6 @@ class ListItem(object):
                 self.setrangestep(self._step_map[type(self.range_step),
                                                  type(other.range_step)])
             self.itemof.update(other.itemof)
-            read_locations = self.read_locations.copy()
-            other_read_locations = other.read_locations.copy()
-            self.read_locations.update(other.read_locations)
             s_value = self.s_value
             s_other_value = other.s_value
             s_new_value = unionof(s_value, s_other_value)
@@ -95,17 +92,19 @@ class ListItem(object):
             self.patch()    # which should patch all refs to 'other'
             if s_new_value != s_value:
                 self.s_value = s_new_value
-                # reflow from reading points
-                for position_key in read_locations:
-                    self.bookkeeper.annotator.reflowfromposition(position_key) 
+                self.notify_update()
             if s_new_value != s_other_value:
-                # reflow from reading points
-                for position_key in other_read_locations:
-                    other.bookkeeper.annotator.reflowfromposition(position_key)
+                other.notify_update()
+            self.read_locations.update(other.read_locations)
 
     def patch(self):
         for listdef in self.itemof:
             listdef.listitem = self
+
+    def notify_update(self):
+        '''Reflow from all reading points'''
+        for position_key in self.read_locations:
+            self.bookkeeper.annotator.reflowfromposition(position_key)
 
     def generalize(self, s_other_value):
         s_new_value = unionof(self.s_value, s_other_value)
@@ -114,9 +113,7 @@ class ListItem(object):
             if self.dont_change_any_more:
                 raise TooLateForChange
             self.s_value = s_new_value
-            # reflow from all reading points
-            for position_key in self.read_locations:
-                self.bookkeeper.annotator.reflowfromposition(position_key)
+            self.notify_update()
         return updated
 
 

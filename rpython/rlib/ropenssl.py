@@ -255,6 +255,8 @@ HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df and \
                              OPENSSL_VERSION_NUMBER != 0x00909000
 if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
+HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
+
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -284,6 +286,9 @@ ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
 ssl_external('SSL_get_SSL_CTX', [SSL], SSL_CTX)
 ssl_external('SSL_set_SSL_CTX', [SSL, SSL_CTX], SSL_CTX)
 ssl_external('TLSv1_method', [], SSL_METHOD)
+if HAVE_TLSv1_2:
+    ssl_external('TLSv1_1_method', [], SSL_METHOD)
+    ssl_external('TLSv1_2_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)

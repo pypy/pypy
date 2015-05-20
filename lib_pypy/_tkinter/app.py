@@ -96,7 +96,7 @@ class TkApp(object):
 
         if not self.threaded:
             # TCL is not thread-safe, calls needs to be serialized.
-            self._tcl_lock = threading.Lock()
+            self._tcl_lock = threading.RLock()
         else:
             self._tcl_lock = _DummyLock()
 

@@ -23,6 +23,10 @@ class W_MMap(W_Root):
         return MMapBuffer(self.space, self.mmap,
                           bool(flags & space.BUF_WRITABLE))
 
+    def writebuf_w(self, space):
+        self.check_writeable()
+        return MMapBuffer(self.space, self.mmap, False)
+
     def close(self):
         self.mmap.close()
 

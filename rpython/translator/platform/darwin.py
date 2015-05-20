@@ -12,6 +12,12 @@ class Darwin(posix.BasePosix):
     DEFAULT_CC = 'clang'
     rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
 
+    def get_rpath_flags(self, rel_libdirs):
+        # needed for cross compiling on ARM, needs fixing if relevant for darwin
+        if len(rel_libdirs) > 0:
+            print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
+        return self.rpath_flags 
+
     def _args_for_shared(self, args):
         return (list(self.shared_only)
                 + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']

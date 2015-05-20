@@ -518,9 +518,11 @@ class AppTestSysModulePortedFromCPython:
     def test_reload_doesnt_override_sys_executable(self):
         import sys
         from imp import reload
-        sys.executable = 'from_test_sysmodule'
+        if not hasattr(sys, 'executable'):    # if not translated
+            sys.executable = 'from_test_sysmodule'
+        previous = sys.executable
         reload(sys)
-        assert sys.executable == 'from_test_sysmodule'
+        assert sys.executable == previous
 
     def test_settrace(self):
         import sys

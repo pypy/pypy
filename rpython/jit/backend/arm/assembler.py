@@ -553,7 +553,7 @@ class AssemblerARM(ResOpAssembler):
         debug_stop('jit-backend-ops')
 
     def _call_header(self):
-        assert self.currpos() == 0
+        assert self.mc.currpos() == 0
         self.gen_func_prolog()
 
     def _call_header_with_stack_check(self):

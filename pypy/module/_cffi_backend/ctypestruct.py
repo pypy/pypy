@@ -7,7 +7,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -57,12 +56,12 @@ class W_CTypeStructOrUnion(W_CType):
         self.check_complete()
         return cdataobj.W_CData(space, cdata, self)
 
-    def copy_and_convert_to_object(self, cdata):
+    def copy_and_convert_to_object(self, source):
         space = self.space
         self.check_complete()
         ob = cdataobj.W_CDataNewOwning(space, self.size, self)
-        misc._raw_memcopy(cdata, ob._cdata, self.size)
-        keepalive_until_here(ob)
+        with ob as target:
+            misc._raw_memcopy(source, target, self.size)
         return ob
 
     def typeoffsetof_field(self, fieldname, following):
@@ -80,8 +79,8 @@ class W_CTypeStructOrUnion(W_CType):
     def _copy_from_same(self, cdata, w_ob):
         if isinstance(w_ob, cdataobj.W_CData):
             if w_ob.ctype is self and self.size >= 0:
-                misc._raw_memcopy(w_ob._cdata, cdata, self.size)
-                keepalive_until_here(w_ob)
+                with w_ob as ptr:
+                    misc._raw_memcopy(ptr, cdata, self.size)
                 return True
         return False
 

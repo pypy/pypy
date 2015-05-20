@@ -12,7 +12,7 @@ from rpython.annotator.model import (SomeOrderedDict,
     SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType)
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -42,7 +42,7 @@ class Bookkeeper(object):
 
     def __setstate__(self, dic):
         self.__dict__.update(dic) # normal action
-        delayed_imports()
+        self.register_builtins()
 
     def __init__(self, annotator):
         self.annotator = annotator
@@ -67,7 +67,13 @@ class Bookkeeper(object):
         self.needs_generic_instantiate = {}
         self.thread_local_fields = set()
 
-        delayed_imports()
+        self.register_builtins()
+
+    def register_builtins(self):
+        import rpython.annotator.builtin  # for side-effects
+        from rpython.annotator.exception import standardexceptions
+        for cls in standardexceptions:
+            self.getuniqueclassdef(cls)
 
     def enter(self, position_key):
         """Start of an operation.
@@ -301,6 +307,8 @@ class Bookkeeper(object):
                 s1 = self.immutablevalue(x1)
                 assert isinstance(s1, SomeInstance)
                 result = SomeWeakRef(s1.classdef)
+        elif tp is property:
+            return SomeProperty(x)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
@@ -603,6 +611,3 @@ def getbookkeeper():
 
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
-
-def delayed_imports():
-    import rpython.annotator.builtin

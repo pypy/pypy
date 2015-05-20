@@ -148,7 +148,7 @@ def create_entry_point(space, w_dict):
         res = _pypy_execute_source(source)
         before = rffi.aroundstate.before
         if before: before()
-        return rffi.cast(rffi.INT, res)        
+        return rffi.cast(rffi.INT, res)
 
     @entrypoint('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
@@ -318,7 +318,7 @@ class PyPyTarget(object):
         w_dict = app.getwdict(space)
         entry_point, _ = create_entry_point(space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
+        return entry_point, None, PyPyAnnotatorPolicy()
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',
