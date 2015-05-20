@@ -1828,7 +1828,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert y.base is x
         assert y.strides == (-2048, 64, 8)
         y[:] = 1000
-        assert x[-1, 0, 0] == 1000 
+        assert x[-1, 0, 0] == 1000
 
         a = empty([3, 2, 1], dtype='float64')
         b = a.view(dtype('uint32'))
@@ -1953,7 +1953,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
         a = concatenate((array([1]), array(['abc'])))
-        assert str(a.dtype) == '|S3'
+        assert str(a.dtype) == '|S21'
         a = concatenate((array([]), array(['abc'])))
         assert a[0] == 'abc'
         a = concatenate((['abcdef'], ['abc']))
@@ -3861,7 +3861,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
                    ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
-        
+
         mdtype = dtype([('a', bool), ('b', bool), ('c', bool)])
         a = array([0, 0, 0, 1, 1])
         # this creates a value of (x, x, x) in b for each x in a
