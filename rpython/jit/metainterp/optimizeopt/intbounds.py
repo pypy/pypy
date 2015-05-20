@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport import symbolic
+from rpython.rlib.rarithmetic import is_valid_int
 
 
 def get_integer_min(is_unsigned, byte_size):
@@ -133,13 +134,17 @@ class OptIntBounds(Optimization):
                     prod_v1 = self.getvalue(prod_op.getarg(0))
                     prod_v2 = self.getvalue(prod_op.getarg(1))
                     if prod_v2.is_constant():
-                        arg1 = prod_op.getarg(0)
-                        arg2 = ConstInt(v2.box.getint() + prod_v2.box.getint())
-                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+                        sum = v2.box.getint() + prod_v2.box.getint()
+                        if is_valid_int(sum):
+                            arg1 = prod_op.getarg(0)
+                            arg2 = ConstInt(sum)
+                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
                     elif prod_v1.is_constant():
-                        arg1 = prod_op.getarg(1)
-                        arg2 = ConstInt(v2.box.getint() + prod_v1.box.getint())
-                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+                        sum = v2.box.getint() + prod_v1.box.getint()
+                        if is_valid_int(sum):
+                            arg1 = prod_op.getarg(1)
+                            arg2 = ConstInt(sum)
+                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
             except KeyError:
                 pass
         if v1.is_constant():
@@ -149,13 +154,17 @@ class OptIntBounds(Optimization):
                     prod_v1 = self.getvalue(prod_op.getarg(0))
                     prod_v2 = self.getvalue(prod_op.getarg(1))
                     if prod_v2.is_constant():
-                        arg1 = prod_op.getarg(0)
-                        arg2 = ConstInt(v1.box.getint() + prod_v2.box.getint())
-                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+                        sum = v1.box.getint() + prod_v2.box.getint()
+                        if is_valid_int(sum):
+                            arg1 = prod_op.getarg(0)
+                            arg2 = ConstInt(sum)
+                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
                     elif prod_v1.is_constant():
-                        arg1 = prod_op.getarg(1)
-                        arg2 = ConstInt(v1.box.getint() + prod_v1.box.getint())
-                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+                        sum = v1.box.getint() + prod_v1.box.getint()
+                        if is_valid_int(sum):
+                            arg1 = prod_op.getarg(1)
+                            arg2 = ConstInt(sum)
+                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
             except KeyError:
                 pass
 
