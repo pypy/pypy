@@ -845,6 +845,12 @@ class TestStandalone(StandaloneTests):
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
+        if sys.platform == 'win32':
+            # Make sure we have a test_1w.exe and it does not use stdout, stderr
+            exe = cbuilder.executable_name
+            wexe = exe.new(purebasename=exe.purebasename + 'w')
+            out, err = cbuilder.cmdexec("a b", exe = wexe)
+            assert out == ''
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if
