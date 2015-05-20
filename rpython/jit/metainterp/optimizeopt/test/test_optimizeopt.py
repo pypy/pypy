@@ -1278,7 +1278,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1288,7 +1288,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
