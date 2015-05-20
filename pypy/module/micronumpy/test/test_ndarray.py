@@ -3468,6 +3468,9 @@ class AppTestSupport(BaseNumpyAppTest):
         assert str(array('abc')) == 'abc'
         assert str(array(1.5)) == '1.5'
         assert str(array(1.5).real) == '1.5'
+        arr = array(['abc', 'abc'])
+        for a in arr.flat:
+             assert str(a) == 'abc'
 
     def test_ndarray_buffer_strides(self):
         from numpy import ndarray, array
