@@ -1110,6 +1110,10 @@ def setup_library(space):
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
+def _load_from_cffi(space, name, path, initptr):
+    from pypy.module._cffi_backend import cffi1_module
+    cffi1_module.load_cffi1_module(space, name, path, initptr)
+
 @unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
     # note: this is used both to load CPython-API-style C extension
@@ -1142,8 +1146,7 @@ def load_extension_module(space, path, name):
             pass
         else:
             try:
-                from pypy.module._cffi_backend import cffi1_module
-                cffi1_module.load_cffi1_module(space, name, path, initptr)
+                _load_from_cffi(space, name, path, initptr)
             except:
                 rdynload.dlclose(dll)
                 raise
