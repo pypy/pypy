@@ -3079,6 +3079,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_remove_multiple_add(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i1, 2)
+        i3 = int_add(i2, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i1, 2)
+        i3 = int_add(i0, 4)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_remove_duplicate_pure_op(self):
         ops = """
         [p1, p2]
