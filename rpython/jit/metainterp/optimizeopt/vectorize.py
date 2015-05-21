@@ -21,6 +21,7 @@ class NotAVectorizeableLoop(JitException):
         return 'NotAVectorizeableLoop()'
 
 def debug_print_operations(loop):
+    """ NOT_RPYTHON """
     if not we_are_translated():
         print('--- loop instr numbered ---')
         def ps(snap):
@@ -43,21 +44,26 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
     try:
+        debug_start("vec-opt-loop")
+        metainterp_sd.logger_opt.log_loop(loop.inputargs, loop.operations, "unroll", -2, 0, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
+
+        metainterp_sd.logger_opt.log_loop(loop.inputargs, loop.operations, "vec", -2, 0, "post vectorize")
     except NotAVectorizeableLoop:
         # vectorization is not possible
         loop.operations = orig_ops
     except Exception as e:
         loop.operations = orig_ops
-        debug_start("failed to vec loop")
-        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations)
-        from rpython.rtyper.lltypesystem import lltype
-        from rpython.rtyper.lltypesystem.lloperation import llop
-        llop.debug_print_traceback(lltype.Void)
-        debug_stop("failed to vec loop")
+        debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
+        if we_are_translated():
+            from rpython.rtyper.lltypesystem import lltype
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            llop.debug_print_traceback(lltype.Void)
+    finally:
+        debug_stop("vec-opt-loop")
 
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
@@ -427,37 +433,47 @@ class VectorizingOptimizer(Optimizer):
         label_node = graph.getnode(0)
         ee_guard_node = graph.getnode(self.early_exit_idx)
         guards = graph.guards
-        fail_args = []
         for guard_node in guards:
             if guard_node is ee_guard_node:
                 continue
-            del_deps = []
-            pullup = []
+            modify_later = []
             valid_trans = True
             last_prev_node = None
             for path in guard_node.iterate_paths(ee_guard_node, True):
                 prev_node = path.second()
-                if fail_args_break_dependency(guard_node, prev_node, ee_guard_node):
+                dep = prev_node.depends_on(guard_node)
+                if dep.is_failarg():
+                    # this dependency we are able to break because it is soley
+                    # relevant due to one or multiple fail args
                     if prev_node == last_prev_node:
+                        #  ...
+                        #  o  o
+                        #  \ /
+                        #  (a)
+                        #   |
+                        #  (g)
+                        # this graph yields 2 paths from (g), thus (a) is
+                        # remembered and skipped
                         continue
-                    del_deps.append((prev_node, guard_node))
+                    modify_later.append((prev_node, guard_node))
                 else:
                     if path.has_no_side_effects(exclude_first=True, exclude_last=True):
-                        #index_guards[guard.getindex()] = IndexGuard(guard, path.path[:])
                         path.set_schedule_priority(10)
-                        pullup.append(path.last_but_one())
+                        modify_later.append((path.last_but_one(), None))
                     else:
                         valid_trans = False
                         break
                 last_prev_node = prev_node
             if valid_trans:
-                for a,b in del_deps:
-                    a.remove_edge_to(b)
-                for lbo in pullup:
-                    if lbo is ee_guard_node:
-                        continue
-                    ee_guard_node.remove_edge_to(lbo)
-                    label_node.edge_to(lbo, label='pullup')
+                for a,b in modify_later:
+                    if b is not None:
+                        a.remove_edge_to(b)
+                    else:
+                        last_but_one = a
+                        if last_but_one is ee_guard_node:
+                            continue
+                        ee_guard_node.remove_edge_to(last_but_one)
+                        label_node.edge_to(last_but_one, label='pullup')
                 # only the last guard needs a connection
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
                 guard_node.relax_guard_to(ee_guard_node)
@@ -514,26 +530,6 @@ def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
     if op.getoperation().vector != -1:
         return False
-    return True
-
-def fail_args_break_dependency(guard, prev_op, target_guard):
-    failargs = guard.getfailarg_set()
-    new_failargs = target_guard.getfailarg_set()
-
-    op = prev_op.getoperation()
-    if not op.is_always_pure(): # TODO has_no_side_effect():
-        return True
-    if op.result is not None:
-        arg = op.result
-        if arg not in failargs or \
-               arg in failargs and arg in new_failargs:
-            return False
-    for arg in op.getarglist():
-        if arg not in failargs or \
-               arg in failargs and arg in new_failargs:
-            return False
-    # THINK about: increased index in fail arg, but normal index on arglist
-    # this might be an indicator for edge removal
     return True
 
 class PackType(PrimitiveTypeMixin):

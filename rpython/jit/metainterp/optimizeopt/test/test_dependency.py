@@ -260,7 +260,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         [p0, p1, i2] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
         i4 = call(p0, i3, descr=nonwritedescr) # 2: 3,4,5?
-        guard_no_exception() [i2] # 3: 4,5?
+        guard_no_exception() [i2] # 3: 4?,5?
         p2 = getarrayitem_gc(p1,i3,descr=intarraydescr) # 4: 5
         jump(p2, p1, i3) # 5:
         """
@@ -271,11 +271,25 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         [p0, p1, i2, i5] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
         i4 = call(i5, i3, descr=nonwritedescr) # 2: 3,4,5?
-        guard_no_exception() [i2] # 3: 4,5?
+        guard_no_exception() [i2] # 3: 5?
         p2 = getarrayitem_gc(p1,i3,descr=chararraydescr) # 4: 5
         jump(p2, p1, i3, i5) # 5:
         """
         self.assert_dependencies(ops, full_check=True)
+
+    def test_not_forced(self):
+        ops="""
+        [p0, p1, i2, i5] # 0: 1,2,4?,5,6
+        i4 = call(i5, i2, descr=nonwritedescr) # 1: 2,4,6
+        guard_not_forced() [i2] # 2: 3
+        guard_no_exception() [] # 3: 6
+        i3 = int_add(i2,1) # 4: 5
+        p2 = getarrayitem_gc(p1,i3,descr=chararraydescr) # 5: 6
+        jump(p2, p1, i2, i5) # 6:
+        """
+        self.assert_dependencies(ops, full_check=True)
+        assert self.last_graph.nodes[2].priority == 100
+        assert self.last_graph.nodes[3].priority == 100
 
     def test_setarrayitem_dependency(self):
         ops="""

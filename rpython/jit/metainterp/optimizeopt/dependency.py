@@ -61,7 +61,7 @@ class Path(object):
 
     def set_schedule_priority(self, p):
         for node in self.path:
-            node.priority = p
+            node.setpriority(p)
 
     def walk(self, node):
         self.path.append(node)
@@ -94,27 +94,11 @@ class Node(object):
     def getopname(self):
         return self.op.getopname()
 
+    def setpriority(self, value):
+        self.priority = value
+
     def can_be_relaxed(self):
         return self.op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
-
-    def getfailarg_set(self):
-        op = self.getoperation()
-        assert isinstance(op, GuardResOp)
-        args = {}
-        if op.getfailargs():
-            for arg in op.getfailargs():
-                args[arg] = None
-            return args.keys()
-        elif op.rd_snapshot:
-            ss = op.rd_snapshot
-            assert isinstance(ss, Snapshot)
-            while ss:
-                for box in ss.boxes:
-                    args[box] = None
-                ss = ss.prev
-
-        return args.keys()
-
 
     def relax_guard_to(self, guard):
         """ Relaxes a guard operation to an earlier guard. """
@@ -142,16 +126,17 @@ class Node(object):
         #if not we_are_translated():
         tgt_op.setfailargs(op.getfailargs())
 
-    def edge_to(self, to, arg=None, label=None):
+    def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
             print "debug: tried to put edge from: ", self.op, "to:", to.op
             return
         dep = self.depends_on(to)
         if not dep:
             #if force or self.independent(idx_from, idx_to):
-            dep = Dependency(self, to, arg)
+            dep = Dependency(self, to, arg, failarg)
             self.adjacent_list.append(dep)
-            dep_back = Dependency(to, self, arg)
+            dep_back = Dependency(to, self, arg, failarg)
+            dep.backward = dep_back
             to.adjacent_list_back.append(dep_back)
             if not we_are_translated():
                 if label is None:
@@ -160,9 +145,14 @@ class Node(object):
         else:
             if not dep.because_of(arg):
                 dep.add_dependency(self,to,arg)
+            # if a fail argument is overwritten by another normal
+            # dependency it will remove the failarg flag
+            if not (dep.is_failarg() and failarg):
+                dep.set_failarg(False)
             if not we_are_translated() and label is not None:
                 _label = getattr(dep, 'label', '')
                 dep.label = _label + ", " + label
+        return dep
 
     def clear_dependencies(self):
         self.adjacent_list = []
@@ -226,7 +216,7 @@ class Node(object):
             any other case.
         """
         for edge in self.adjacent_list:
-            if edge.to == to:
+            if edge.to is to:
                 return edge
         return None 
 
@@ -333,14 +323,15 @@ class Node(object):
 
 
 class Dependency(object):
-    def __init__(self, at, to, arg, flow=True):
+    def __init__(self, at, to, arg, failarg=False):
         assert at != to
         self.args = [] 
         if arg is not None:
             self.add_dependency(at, to, arg)
         self.at = at
         self.to = to
-        self.flow = True
+        self.failarg = failarg
+        self.backward = None
 
     def because_of(self, var):
         for arg in self.args:
@@ -371,11 +362,13 @@ class Dependency(object):
     def add_dependency(self, at, to, arg):
         self.args.append((at,arg))
 
-    def set_flow(self, flow):
-        self.flow = flow
+    def set_failarg(self, value):
+        self.failarg = value
+        if self.backward:
+            self.backward.failarg = value
 
-    def get_flow(self):
-        return self.flow
+    def is_failarg(self):
+        return self.failarg
 
     def reverse_direction(self, ref):
         """ if the parameter index is the same as idx_to then
@@ -505,13 +498,13 @@ class DependencyGraph(object):
         for i,node in enumerate(self.nodes):
             op = node.op
             if op.is_always_pure():
-                node.priority = 1
+                node.setpriority(1)
             if op.is_guard():
-                node.priority = 2
+                node.setpriority(2)
             # the label operation defines all operations at the
             # beginning of the loop
             if op.getopnum() == rop.LABEL and i != jump_pos:
-                node.priority = 100
+                node.setpriority(100)
                 label_pos = i
                 for arg in op.getarglist():
                     tracker.define(arg, node)
@@ -535,11 +528,11 @@ class DependencyGraph(object):
             elif op.is_guard():
                 self.guards.append(node)
             else:
-                self._build_non_pure_dependencies(node, tracker)
+                self.build_non_pure_dependencies(node, tracker)
         # pass 2 correct guard dependencies
         for guard_node in self.guards:
             op = guard_node.getoperation()
-            self._build_guard_dependencies(guard_node, op.getopnum(), tracker)
+            self.build_guard_dependencies(guard_node, op.getopnum(), tracker)
         # pass 3 find schedulable nodes
         jump_node = self.nodes[jump_pos]
         label_node = self.nodes[label_pos]
@@ -552,38 +545,69 @@ class DependencyGraph(object):
                 if node.provides_count() == 0:
                     node.edge_to(jump_node, None, label='jump')
 
-    def _build_guard_dependencies(self, guard_node, guard_opnum, tracker):
+    def guard_argument_protection(self, guard_node, tracker):
+        """ the parameters the guard protects are an indicator for
+            dependencies. Consider the example:
+            i3 = ptr_eq(p1,p2)
+            guard_true(i3) [...]
+
+            guard_true|false are exceptions because they do not directly
+            protect the arguments, but a comparison function does.
+        """
+        guard_op = guard_node.getoperation()
+        guard_opnum = guard_op.getopnum()
+        if guard_opnum in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+            for dep in guard_node.depends():
+                op = dep.to.getoperation()
+                for arg in op.getarglist():
+                    if isinstance(arg, Box):
+                        self.guard_exit_dependence(guard_node, arg, tracker)
+        elif guard_op.is_foldable_guard():
+            # these guards carry their protected variables directly as a parameter
+            for arg in guard_node.getoperation().getarglist():
+                if isinstance(arg, Box):
+                    self.guard_exit_dependence(guard_node, arg, tracker)
+        elif guard_opnum == rop.GUARD_NOT_FORCED_2:
+            # must be emitted before finish, thus delayed the longest
+            guard_node.setpriority(-10)
+        elif guard_opnum in (rop.GUARD_OVERFLOW, rop.GUARD_NO_OVERFLOW):
+            # previous operation must be an ovf_operation
+            guard_node.setpriority(100)
+            prev_node = self.nodes[guard_node.getindex()-1]
+            assert prev_node.getoperation().is_ovf()
+            prev_node.edge_to(guard_node, None, label='overflow')
+        elif guard_opnum == rop.GUARD_NOT_FORCED:
+            # previous op must be one that can raise
+            guard_node.setpriority(100)
+            prev_node = self.nodes[guard_node.getindex()-1]
+            assert prev_node.getoperation().can_raise()
+            prev_node.edge_to(guard_node, None, label='forced')
+        elif guard_opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
+            # previous op must be one that can raise or a not forced guard
+            guard_node.setpriority(100)
+            prev_node = self.nodes[guard_node.getindex()-1]
+            prev_node.edge_to(guard_node, None, label='exception')
+            if not prev_node.getoperation().getopnum() == rop.GUARD_NOT_FORCED:
+                assert prev_node.getoperation().can_raise()
+        else:
+            pass # not invalidated, early exit, future condition!
+
+    def guard_exit_dependence(self, guard_node, var, tracker):
+        def_node = tracker.definition(var)
+        for dep in def_node.provides():
+            if guard_node.is_before(dep.to) and dep.because_of(var):
+                guard_node.edge_to(dep.to, var, label='guard_exit('+str(var)+')')
+
+    def build_guard_dependencies(self, guard_node, guard_opnum, tracker):
         if guard_opnum >= rop.GUARD_NOT_INVALIDATED:
-            # ignure invalidated & future condition guard
+            # ignore invalidated & future condition guard & early exit
             return
-        # 'GUARD_TRUE/1d',
-        # 'GUARD_FALSE/1d',
-        # 'GUARD_VALUE/2d',
-        # 'GUARD_CLASS/2d',
-        # 'GUARD_NONNULL/1d',
-        # 'GUARD_ISNULL/1d',
-        # 'GUARD_NONNULL_CLASS/2d',
+        # true dependencies
         guard_op = guard_node.op
         for arg in guard_op.getarglist():
             tracker.depends_on_arg(arg, guard_node)
-
-        variables = []
-        for dep in guard_node.depends():
-            op = dep.to.op
-            for arg in op.getarglist():
-                if isinstance(arg, Box):
-                    variables.append(arg)
-            if op.result:
-                variables.append(op.result)
-        #
-        for var in variables:
-            try:
-                def_node = tracker.definition(var)
-                for dep in def_node.provides():
-                    if guard_node.is_before(dep.to) and dep.because_of(var):
-                        guard_node.edge_to(dep.to, var, label='prev('+str(var)+')')
-            except KeyError:
-                pass
+        # dependencies to uses of arguments it protects
+        self.guard_argument_protection(guard_node, tracker)
         # handle fail args
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():
@@ -595,38 +619,11 @@ class DependencyGraph(object):
                         descr = guard_op.getdescr()
                         if at.is_before(guard_node) and \
                            not isinstance(descr, compile.ResumeAtLoopHeaderDescr):
-                            at.edge_to(guard_node, arg, label="fail")
+                            at.edge_to(guard_node, arg, failarg=True, label="fail")
                 except KeyError:
                     assert False
-        #
-        # guards check overflow or raise are directly dependent
-        # find the first non guard operation
-        prev_op_idx = guard_node.opidx - 1
-        while prev_op_idx > 0:
-            prev_node = self.nodes[prev_op_idx]
-            if prev_node.op.is_guard():
-                prev_op_idx -= 1
-            else:
-                break
-        prev_node = self.nodes[prev_op_idx]
-        guard_op = guard_node.getoperation()
-        prev_op = prev_node.getoperation()
-        if guard_op.is_guard_exception() and prev_op.can_raise():
-            self.guard_inhert(prev_node, guard_node)
-        elif guard_op.is_guard_overflow() and prev_op.is_ovf():
-            self.guard_inhert(prev_node, guard_node)
-        elif guard_op.getopnum() == rop.GUARD_NOT_FORCED and prev_op.can_raise():
-            self.guard_inhert(prev_node, guard_node)
-        elif guard_op.getopnum() == rop.GUARD_NOT_FORCED_2 and prev_op.can_raise():
-            self.guard_inhert(prev_node, guard_node)
 
-    def guard_inhert(self, at, to):
-        at.edge_to(to, None, label='inhert')
-        for dep in at.provides():
-            if to.is_before(dep.to):
-                to.edge_to(dep.to, None, label='inhert')
-
-    def _build_non_pure_dependencies(self, node, tracker):
+    def build_non_pure_dependencies(self, node, tracker):
         op = node.op
         if node.loads_from_complex_object():
             # If this complex object load operation loads an index that has been

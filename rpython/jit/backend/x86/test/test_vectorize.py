@@ -47,7 +47,7 @@ class TestAssembler(BaseTestAssembler):
             asm.mc.AND_rr(ecx.value, edx.value)
             asm.mc.ADD(eax, ecx)
 
-            asm.mc.PSRLDQ_xi((xmm7.value, 4))
+            asm.mc.PSRLDQ_xi(xmm7.value, 4)
             asm.mc.MOVDQ_rx(ecx.value, xmm7.value)
             asm.mc.AND_rr(ecx.value, edx.value)
             asm.mc.ADD(eax, ecx)

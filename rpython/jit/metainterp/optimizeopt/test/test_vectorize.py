@@ -1058,12 +1058,12 @@ class BaseTestVectorize(VecTestHelper):
         guard_not_invalidated() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
         guard_early_exit() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
         i50 = int_add(i28, 1) 
-        i48 = int_add(i41, 8) 
         i46 = int_add(i44, 8) 
+        i48 = int_add(i41, 8) 
         i51 = int_add(i37, 8) 
         i52 = int_ge(i50, i18) 
-        i54 = int_add(i41, 16) 
         i55 = int_add(i44, 16) 
+        i54 = int_add(i41, 16) 
         i56 = int_add(i37, 16) 
         i53 = int_add(i28, 2) 
         i57 = int_ge(i53, i18) 
