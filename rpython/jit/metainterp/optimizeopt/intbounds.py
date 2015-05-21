@@ -124,12 +124,17 @@ class OptIntBounds(Optimization):
             r.getintbound().intersect(b)
 
     def optimize_INT_ADD(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+        v1 = self.getvalue(arg1)
+        v2 = self.getvalue(arg2)
 
+        if v1.is_constant():
+            arg1, arg2 = arg2, arg1
+            v1, v2 = v2, v1
         if v2.is_constant():
             try:
-                prod_op = self.optimizer.producer[op.getarg(0)]
+                prod_op = self.optimizer.producer[arg1]
                 if prod_op.getopnum() == rop.INT_ADD:
                     prod_v1 = self.getvalue(prod_op.getarg(0))
                     prod_v2 = self.getvalue(prod_op.getarg(1))
@@ -140,27 +145,7 @@ class OptIntBounds(Optimization):
                             arg2 = ConstInt(sum)
                             op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
                     elif prod_v1.is_constant():
-                        sum = v2.box.getint() + prod_v1.box.getint()
-                        if is_valid_int(sum):
-                            arg1 = prod_op.getarg(1)
-                            arg2 = ConstInt(sum)
-                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
-            except KeyError:
-                pass
-        if v1.is_constant():
-            try:
-                prod_op = self.optimizer.producer[op.getarg(1)]
-                if prod_op.getopnum() == rop.INT_ADD:
-                    prod_v1 = self.getvalue(prod_op.getarg(0))
-                    prod_v2 = self.getvalue(prod_op.getarg(1))
-                    if prod_v2.is_constant():
-                        sum = v1.box.getint() + prod_v2.box.getint()
-                        if is_valid_int(sum):
-                            arg1 = prod_op.getarg(0)
-                            arg2 = ConstInt(sum)
-                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
-                    elif prod_v1.is_constant():
-                        sum = v1.box.getint() + prod_v1.box.getint()
+                        sum = arg2.getint() + prod_v1.box.getint()
                         if is_valid_int(sum):
                             arg1 = prod_op.getarg(1)
                             arg2 = ConstInt(sum)
