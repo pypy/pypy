@@ -171,7 +171,7 @@ class CachedField(object):
                 elif op.result is not None:
                     shortboxes.add_potential(op)
 
-class BogusPureField(JitException):
+class BogusImmutableField(JitException):
     pass
 
 
@@ -504,7 +504,7 @@ class OptHeap(Optimization):
                                 op.getdescr()):
             os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
                      (op.getdescr().repr_of_descr()))
-            raise BogusPureField
+            raise BogusImmutableField
         #
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
@@ -557,7 +557,7 @@ class OptHeap(Optimization):
                                 op.getdescr()):
             os.write(2, '[bogus immutable array declaration: %s]\n' %
                      (op.getdescr().repr_of_descr()))
-            raise BogusPureField
+            raise BogusImmutableField
         #
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():

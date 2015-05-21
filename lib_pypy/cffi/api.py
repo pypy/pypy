@@ -109,6 +109,11 @@ class FFI(object):
             if override:
                 for cache in self._function_caches:
                     cache.clear()
+            finishlist = self._parser._recomplete
+            if finishlist:
+                self._parser._recomplete = []
+                for tp in finishlist:
+                    tp.finish_backend_type(self, finishlist)
 
     def dlopen(self, name, flags=0):
         """Load and return a dynamic library identified by 'name'.

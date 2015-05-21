@@ -4856,7 +4856,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusPureField
+        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
         ops = """
         [p3]
         p1 = escape()
@@ -4864,7 +4864,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """
