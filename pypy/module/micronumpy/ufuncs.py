@@ -12,7 +12,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import keepalive_until_here
 
 from pypy.module.micronumpy import loop, constants as NPY
-from pypy.module.micronumpy.descriptor import get_dtype_cache, decode_w_dtype
+from pypy.module.micronumpy.descriptor import (
+    get_dtype_cache, decode_w_dtype, num2dtype)
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
@@ -269,7 +270,7 @@ class W_Ufunc(W_Root):
                         num = NPY.ULONG
                     else:
                         num = NPY.LONG
-            dtype = get_dtype_cache(space).dtypes_by_num[num]
+            dtype = num2dtype(space, num)
 
         if self.identity is None:
             for i in range(shapelen):

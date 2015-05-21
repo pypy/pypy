@@ -12,7 +12,7 @@ from .types import (
     promotion_table)
 from .descriptor import (
     get_dtype_cache, as_dtype, is_scalar_w, variable_dtype, new_string_dtype,
-    new_unicode_dtype)
+    new_unicode_dtype, num2dtype)
 
 @jit.unroll_safe
 def result_type(space, __args__):
@@ -143,7 +143,7 @@ def can_cast_scalar(space, from_type, value, target, casting):
     dtypenum, altnum = value.min_dtype()
     if target.is_unsigned():
         dtypenum = altnum
-    dtype = get_dtype_cache(space).dtypes_by_num[dtypenum]
+    dtype = num2dtype(space, dtypenum)
     return can_cast_type(space, dtype, target, casting)
 
 def as_scalar(space, w_obj):
@@ -155,7 +155,7 @@ def min_scalar_type(space, w_a):
     dtype = w_array.get_dtype()
     if w_array.is_scalar() and dtype.is_number():
         num, alt_num = w_array.get_scalar_value().min_dtype()
-        return get_dtype_cache(space).dtypes_by_num[num]
+        return num2dtype(space, num)
     else:
         return dtype
 
@@ -174,7 +174,7 @@ def find_binop_result_dtype(space, dt1, dt2):
 def _promote_types(space, dt1, dt2):
     num = promotion_table[dt1.num][dt2.num]
     if num != -1:
-        return get_dtype_cache(space).dtypes_by_num[num]
+        return num2dtype(space, num)
 
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:

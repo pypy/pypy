@@ -35,8 +35,8 @@ long_double_size = 8
 def new_dtype_getter(num):
     @specialize.memo()
     def _get_dtype(space):
-        from pypy.module.micronumpy.descriptor import get_dtype_cache
-        return get_dtype_cache(space).dtypes_by_num[num]
+        from pypy.module.micronumpy.descriptor import num2dtype
+        return num2dtype(space, num)
 
     def descr__new__(space, w_subtype, w_value=None):
         from pypy.module.micronumpy.ctors import array
@@ -144,7 +144,7 @@ class W_GenericBox(W_NumpyObject):
         return self
 
     def get_flags(self):
-        return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS | 
+        return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
                 NPY.ARRAY_WRITEABLE | NPY.ARRAY_OWNDATA)
 
     def item(self, space):

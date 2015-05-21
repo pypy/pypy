@@ -1003,6 +1003,9 @@ class DtypeCache(object):
 def get_dtype_cache(space):
     return space.fromcache(DtypeCache)
 
+def num2dtype(space, num):
+    return get_dtype_cache(space).dtypes_by_num[num]
+
 def as_dtype(space, w_arg, allow_None=True):
     from pypy.module.micronumpy.casting import find_dtype_for_scalar
     # roughly equivalent to CNumPy's PyArray_DescrConverter2
