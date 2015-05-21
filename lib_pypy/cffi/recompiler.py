@@ -581,10 +581,11 @@ class Recompiler:
 
     def _generate_cpy_function_collecttype(self, tp, name):
         self._do_collect_type(tp.as_raw_function())
-        if tp.ellipsis:
+        if tp.ellipsis and not self.target_is_python:
             self._do_collect_type(tp)
 
     def _generate_cpy_function_decl(self, tp, name):
+        assert not self.target_is_python
         assert isinstance(tp, model.FunctionPtrType)
         if tp.ellipsis:
             # cannot support vararg functions better than this: check for its
@@ -702,7 +703,7 @@ class Recompiler:
         prnt()
 
     def _generate_cpy_function_ctx(self, tp, name):
-        if tp.ellipsis:
+        if tp.ellipsis and not self.target_is_python:
             self._generate_cpy_constant_ctx(tp, name)
             return
         type_index = self._typesdict[tp.as_raw_function()]
