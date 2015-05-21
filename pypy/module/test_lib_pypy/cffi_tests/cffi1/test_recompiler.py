@@ -762,3 +762,18 @@ def test_address_of_global_var():
     py.test.raises(AttributeError, ffi.addressof, lib, 'unknown_var')
     py.test.raises(AttributeError, ffi.addressof, lib, "FOOBAR")
     assert ffi.addressof(lib, 'FetchRectBottom') == lib.FetchRectBottom
+
+def test_defines__CFFI_():
+    # Check that we define the macro _CFFI_ automatically.
+    # It should be done before including Python.h, so that PyPy's Python.h
+    # can check for it.
+    ffi = FFI()
+    ffi.cdef("""
+        #define CORRECT 1
+    """)
+    lib = verify(ffi, "test_defines__CFFI_", """
+    #ifdef _CFFI_
+    #    define CORRECT 1
+    #endif
+    """)
+    assert lib.CORRECT == 1

@@ -1,3 +1,4 @@
+#define _CFFI_
 #include <Python.h>
 #ifdef __cplusplus
 extern "C" {
