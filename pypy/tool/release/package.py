@@ -54,7 +54,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
     modules = ['_sqlite3_build.py', '_audioop_build.py']
-    if not sys.platform == 'win32':
+    env = os.environ.copy()
+    if sys.platform == 'win32':
+        # obscure. Add the location of pypy_c so Python27.lib can be found
+        env['LIB'] = env.get('LIB', '') + ';' + str(pypy_c.dirpath())
+    else:
         modules += ['_curses_build.py', '_syslog_build.py', '_gdbm_build.py',
                     '_pwdgrp_build.py']
     if not options.no_tk:
@@ -68,7 +72,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
             cwd = None
         print >> sys.stderr, '*', ' '.join(args)
         try:
-            subprocess.check_call(args, cwd=cwd)
+            subprocess.check_call(args, cwd=cwd, env=env)
         except subprocess.CalledProcessError:
             print >>sys.stderr, """Building {0} bindings failed.
 You can either install development headers package or
@@ -142,6 +146,12 @@ def create_package(basedir, options):
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
+        src,tgt = binaries[0]
+        pypyw = src.new(purebasename=src.purebasename + 'w')
+        if pypyw.exists():
+            tgt = py.path.local(tgt)
+            binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename))
+            print "Picking %s" % str(pypyw)
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
         win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
