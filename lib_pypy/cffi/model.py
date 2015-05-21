@@ -293,7 +293,7 @@ class StructOrUnionOrEnum(BaseTypeByIdentity):
 
 class StructOrUnion(StructOrUnionOrEnum):
     fixedlayout = None
-    completed = False
+    completed = 0
     partial = False
     packed = False
 
@@ -351,12 +351,13 @@ class StructOrUnion(StructOrUnionOrEnum):
                                           "for '%s'" % (self.name,))
             return
         BType = ffi._cached_btypes[self]
-        if self.fldtypes is None:
-            return    # not completing it: it's an opaque struct
         #
         self.completed = 1
         #
-        if self.fixedlayout is None:
+        if self.fldtypes is None:
+            pass    # not completing it: it's an opaque struct
+            #
+        elif self.fixedlayout is None:
             fldtypes = [tp.get_cached_btype(ffi, finishlist)
                         for tp in self.fldtypes]
             lst = list(zip(self.fldnames, fldtypes, self.fldbitsize))
