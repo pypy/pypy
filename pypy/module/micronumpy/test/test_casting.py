@@ -133,6 +133,13 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.promote_types('i4', 'S8') == np.dtype('S11')
         assert np.promote_types('f4', 'S8') == np.dtype('S32')
 
+    def test_result_type(self):
+        import numpy as np
+        assert np.result_type(np.uint8, np.int8) == np.int16
+        assert np.result_type(np.uint16(1), np.int8(0)) == np.int32
+        assert np.result_type(np.uint16(1), np.int8(0), np.uint8) == np.uint8
+        assert np.result_type(-1, np.uint8, 1) == np.int16
+
 def test_can_cast_same_type(space):
     dt_bool = get_dtype_cache(space).w_booldtype
     assert can_cast_type(space, dt_bool, dt_bool, 'no')

@@ -37,6 +37,12 @@ def result_type(space, __args__):
             dtypes_w.append(dtype)
     return find_result_type(space, arrays_w, dtypes_w)
 
+simple_kind_ordering = {
+    Bool.kind: 0, ULong.kind: 1, Long.kind: 1,
+    Float64.kind: 2, Complex64.kind: 2,
+    NPY.STRINGLTR: 3, NPY.STRINGLTR2: 3,
+    UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3}
+
 
 def find_result_type(space, arrays_w, dtypes_w):
     # equivalent to PyArray_ResultType
@@ -50,17 +56,18 @@ def find_result_type(space, arrays_w, dtypes_w):
     max_array_kind = 0
     for w_array in arrays_w:
         if w_array.is_scalar():
-            kind = kind_ordering[w_array.get_dtype().kind]
+            kind = simple_kind_ordering[w_array.get_dtype().kind]
             if kind > max_scalar_kind:
                 max_scalar_kind = kind
         else:
             all_scalars = False
-            kind = kind_ordering[w_array.get_dtype().kind]
+            kind = simple_kind_ordering[w_array.get_dtype().kind]
             if kind > max_array_kind:
                 max_array_kind = kind
     if arrays_w:
         for dtype in dtypes_w:
-            kind = kind_ordering[dtype.kind]
+            all_scalars = False
+            kind = simple_kind_ordering[dtype.kind]
             if kind > max_array_kind:
                 max_array_kind = kind
     use_min_scalar = bool(arrays_w) and not all_scalars and max_array_kind >= max_scalar_kind
