@@ -129,6 +129,13 @@ class OptIntBounds(Optimization):
         v1 = self.getvalue(arg1)
         v2 = self.getvalue(arg2)
 
+        # Optimize for addition chains in code "b = a + 1; c = b + 1" by
+        # detecting the int_add chain, and swapping with "b = a + 1;
+        # c = a + 2". If b is not used elsewhere, the backend eliminates
+        # it.
+
+        # either v1 or v2 can be a constant, swap the arguments around if
+        # v1 is the constant
         if v1.is_constant():
             arg1, arg2 = arg2, arg1
             v1, v2 = v2, v1
@@ -139,18 +146,22 @@ class OptIntBounds(Optimization):
                 pass
             else:
                 if prod_op.getopnum() == rop.INT_ADD:
-                    prod_v1 = self.getvalue(prod_op.getarg(0))
-                    prod_v2 = self.getvalue(prod_op.getarg(1))
+                    prod_arg1 = prod_op.getarg(0)
+                    prod_arg2 = prod_op.getarg(1)
+                    prod_v1 = self.getvalue(prod_arg1)
+                    prod_v2 = self.getvalue(prod_arg2)
+
+                    # same thing here: prod_v1 or prod_v2 can be a
+                    # constant
+                    if prod_v1.is_constant():
+                        prod_arg1, prod_arg2 = prod_arg2, prod_arg1
+                        prod_v1, prod_v2 = prod_v2, prod_v1
                     if prod_v2.is_constant():
                         sum = v2.box.getint() + prod_v2.box.getint()
+                        # the sum might not be a valid int if the values
+                        # added are very large
                         if is_valid_int(sum):
-                            arg1 = prod_op.getarg(0)
-                            arg2 = ConstInt(sum)
-                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
-                    elif prod_v1.is_constant():
-                        sum = arg2.getint() + prod_v1.box.getint()
-                        if is_valid_int(sum):
-                            arg1 = prod_op.getarg(1)
+                            arg1 = prod_arg1
                             arg2 = ConstInt(sum)
                             op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
 
