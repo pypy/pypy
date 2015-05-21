@@ -7,8 +7,6 @@ from rpython.flowspace.model import checkgraph
 from rpython.conftest import option
 
 class TestStoreSink(object):
-    type_system = 'lltype'
-
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)

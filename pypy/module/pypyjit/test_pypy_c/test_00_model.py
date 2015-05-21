@@ -384,6 +384,25 @@ class TestOpMatcher_(object):
         """
         assert not self.match(loop, expected)
 
+    def test_match_optional_op(self):
+        loop = """
+            i1 = int_add(i0, 1)
+        """
+        expected = """
+            guard_not_invalidated?
+            i1 = int_add(i0, 1)
+        """
+        assert self.match(loop, expected)
+        #
+        loop = """
+            i1 = int_add(i0, 1)
+        """
+        expected = """
+            i1 = int_add(i0, 1)
+            guard_not_invalidated?
+        """
+        assert self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
     def test_run_function(self):

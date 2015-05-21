@@ -99,6 +99,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
             self._excinfo = debug_excs[0]
+        self.value = self.operr.errorstr(self.space)  # XXX
 
     def __repr__(self):
         return "<AppExceptionInfo %s>" % self.operr.errorstr(self.space)

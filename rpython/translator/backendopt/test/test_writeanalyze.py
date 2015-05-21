@@ -7,8 +7,6 @@ from rpython.conftest import option
 
 
 class BaseTest(object):
-
-    type_system = 'lltype'
     Analyzer = WriteAnalyzer
 
     def translate(self, func, sig):

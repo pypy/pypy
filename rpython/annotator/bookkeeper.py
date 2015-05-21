@@ -111,8 +111,7 @@ class Bookkeeper(object):
 
             for pbc, args_s in self.emulated_pbc_calls.itervalues():
                 args = simple_args(args_s)
-                self.consider_call_site_for_pbc(pbc, args,
-                                                s_ImpossibleValue, None)
+                pbc.consider_call_site(args, s_ImpossibleValue, None)
             self.emulated_pbc_calls = {}
         finally:
             self.leave()
@@ -163,15 +162,7 @@ class Bookkeeper(object):
             if s_result is None:
                 s_result = s_ImpossibleValue
             args = call_op.build_args(args_s)
-            self.consider_call_site_for_pbc(s_callable, args,
-                                            s_result, call_op)
-
-    def consider_call_site_for_pbc(self, s_callable, args, s_result,
-                                   call_op):
-        descs = list(s_callable.descriptions)
-        family = descs[0].getcallfamily()
-        s_callable.getKind().consider_call_site(self, family, descs, args,
-                                                s_result, call_op)
+            s_callable.consider_call_site(args, s_result, call_op)
 
     def getuniqueclassdef(self, cls):
         """Get the ClassDef associated with the given user cls.

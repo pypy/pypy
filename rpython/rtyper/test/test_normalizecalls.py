@@ -237,25 +237,6 @@ the callers of these functions are:
         import re
         assert re.match(msg, excinfo.value.args[0])
 
-    def test_methods_with_named_arg_call(self):
-        class Base:
-            def fn(self, y):
-                raise NotImplementedError
-        class Sub1(Base):
-            def fn(self, y):
-                return 1 + y
-        class Sub2(Base):
-            def fn(self, x):    # different name!
-                return x - 2
-        def dummyfn(n):
-            if n == 1:
-                s = Sub1()
-            else:
-                s = Sub2()
-            return s.fn(*(n,))
-
-        py.test.raises(TyperError, self.rtype, dummyfn, [int], int)
-
 
 class PBase:
     def fn(self):

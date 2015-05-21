@@ -157,12 +157,11 @@ class ExtFuncEntry(ExtRegistryEntry):
         r_result = rtyper.getrepr(s_result)
         ll_result = r_result.lowleveltype
         name = getattr(self, 'name', None) or self.instance.__name__
-        method_name = rtyper.type_system.name[:2] + 'typeimpl'
         fake_method_name = rtyper.type_system.name[:2] + 'typefakeimpl'
-        impl = getattr(self, method_name, None)
-        fakeimpl = getattr(self, fake_method_name, self.instance)
+        impl = getattr(self, 'lltypeimpl', None)
+        fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
-            if hasattr(self, fake_method_name):
+            if hasattr(self, 'lltypefakeimpl'):
                 # If we have both an llimpl and an llfakeimpl,
                 # we need a wrapper that selects the proper one and calls it
                 from rpython.tool.sourcetools import func_with_new_name

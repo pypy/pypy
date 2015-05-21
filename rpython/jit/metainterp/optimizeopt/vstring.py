@@ -597,6 +597,7 @@ class OptString(optimizer.Optimization):
         vright.ensure_nonnull()
         value = self.make_vstring_concat(op.result, op, mode)
         value.setup(vleft, vright)
+        self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
@@ -626,6 +627,7 @@ class OptString(optimizer.Optimization):
         #
         value = self.make_vstring_slice(op.result, op, mode)
         value.setup(vstr, vstart, self.getvalue(lengthbox))
+        self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_EQUAL(self, op, mode):

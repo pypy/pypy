@@ -36,7 +36,10 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
     def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
+        try:
+            funcobj = op.args[0].value._obj
+        except lltype.DelayedPointer:
+            return True
         if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
         return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
@@ -247,6 +250,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
+
+        self.check_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()
@@ -536,6 +541,24 @@ class BaseFrameworkGCTransformer(GCTransformer):
         for TP, func in custom_trace_funcs:
             self.gcdata._has_got_custom_trace(self.get_type_id(TP))
             specialize.arg(2)(func)
+
+    def check_custom_trace_funcs(self, gc, rtyper):
+        # detect if one of the custom trace functions uses the GC
+        # (it must not!)
+        for TP, func in rtyper.custom_trace_funcs:
+            def no_op_callback(obj, arg):
+                pass
+            def ll_check_no_collect(obj):
+                func(gc, obj, no_op_callback, None)
+            annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
+            graph1 = annhelper.getgraph(ll_check_no_collect, [SomeAddress()],
+                                        annmodel.s_None)
+            annhelper.finish()
+            collect_analyzer = CollectAnalyzer(self.translator)
+            if collect_analyzer.analyze_direct_call(graph1):
+                raise Exception(
+                    "the custom trace hook %r for %r can cause "
+                    "the GC to be called!" % (func, TP))
 
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)

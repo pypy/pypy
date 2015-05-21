@@ -354,6 +354,25 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert s.const == 3
 
+    def test_star_unpack_list(self):
+        def g():
+            pass
+        def f(l):
+            return g(*l)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError):
+            a.build_types(f, [[int]])
+
+    def test_star_unpack_and_keywords(self):
+        def g(a, b, c=0, d=0):
+            return a + b + c + d
+
+        def f(a, b):
+            return g(a, *(b,), d=5)
+        a = self.RPythonAnnotator()
+        s_result = a.build_types(f, [int, int])
+        assert isinstance(s_result, annmodel.SomeInteger)
+
     def test_pbc_attr_preserved_on_instance(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.preserve_pbc_attr_on_instance, [bool])

@@ -1176,6 +1176,10 @@ class MIFrame(object):
         if have_debug_prints():
             loc = jitdriver_sd.warmstate.get_location_str(greenkey)
             debug_print(loc)
+        #
+        # Note: the logger hides the jd_index argument, so we see in the logs:
+        #    debug_merge_point(portal_call_depth, current_call_id, 'location')
+        #
         args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
@@ -1774,7 +1778,7 @@ class MetaInterp(object):
         return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
     def newframe(self, jitcode, greenkey=None):
-        if jitcode.is_portal:
+        if jitcode.jitdriver_sd:
             self.portal_call_depth += 1
             self.call_ids.append(self.current_call_id)
             self.current_call_id += 1
@@ -1792,7 +1796,7 @@ class MetaInterp(object):
     def popframe(self):
         frame = self.framestack.pop()
         jitcode = frame.jitcode
-        if jitcode.is_portal:
+        if jitcode.jitdriver_sd:
             self.portal_call_depth -= 1
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
@@ -1856,17 +1860,14 @@ class MetaInterp(object):
         portal_call_depth = -1
         for frame in self.framestack:
             jitcode = frame.jitcode
-            assert jitcode.is_portal == len([
-                jd for jd in self.staticdata.jitdrivers_sd
-                   if jd.mainjitcode is jitcode])
-            if jitcode.is_portal:
+            if jitcode.jitdriver_sd:
                 portal_call_depth += 1
         if portal_call_depth != self.portal_call_depth:
             print "portal_call_depth problem!!!"
             print portal_call_depth, self.portal_call_depth
             for frame in self.framestack:
                 jitcode = frame.jitcode
-                if jitcode.is_portal:
+                if jitcode.jitdriver_sd:
                     print "P",
                 else:
                     print " ",

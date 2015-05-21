@@ -276,6 +276,30 @@ class BaseTestSQLite:
         exc = raises(ValueError, cur.execute, "select 2\0")
         assert str(exc.value) == "the query contains a null character"
 
+    def test_close_in_del_ordering(self):
+        import gc
+        class SQLiteBackend(object):
+            success = False
+            def __init__(self):
+                self.connection = _sqlite3.connect(":memory:")
+            def close(self):
+                self.connection.close()
+            def __del__(self):
+                self.close()
+                SQLiteBackend.success = True
+            def create_db_if_needed(self):
+                conn = self.connection
+                cursor = conn.cursor()
+                cursor.execute("""
+                    create table if not exists nameoftable(value text)
+                """)
+                cursor.close()
+                conn.commit()
+        SQLiteBackend().create_db_if_needed()
+        gc.collect()
+        gc.collect()
+        assert SQLiteBackend.success
+
 
 class TestSQLiteHost(BaseTestSQLite):
     def setup_class(cls):

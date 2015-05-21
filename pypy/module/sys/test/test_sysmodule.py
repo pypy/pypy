@@ -621,7 +621,7 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 
         thread_id = _thread.get_ident()
         def other_thread():
-            print("thread started")
+            #print("thread started")
             lock2.release()
             lock1.acquire()
         lock1 = _thread.allocate_lock()

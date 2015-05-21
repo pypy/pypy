@@ -1501,15 +1501,8 @@ def PySeqIter_Check(space, op):
 def PyCallIter_Check(space, op):
     """Return true if the type of op is PyCallIter_Type."""
     raise NotImplementedError
-    
 
-@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.INT_real], PyObject)
-def PyLong_FromUnicode(space, u, length, base):
-    """Convert a sequence of Unicode digits to a Python integer value.  The Unicode
-    string is first encoded to a byte string using PyUnicode_EncodeDecimal()
-    and then converted using PyLong_FromString()."""
-    raise NotImplementedError
-    
+
 
 @cpython_api([PyObject], rffi.SIZE_T, error=-1)
 def PyLong_AsSize_t(space, pylong):
@@ -1519,7 +1512,7 @@ def PyLong_AsSize_t(space, pylong):
     Raise OverflowError if the value of pylong is out of range for a
     size_t."""
     raise NotImplementedError
-    
+
 
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyMapping_DelItemString(space, o, key):

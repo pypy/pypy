@@ -596,6 +596,19 @@ class W_UnicodeBox(W_CharacterBox):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
 
+class W_ObjectBox(W_GenericBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.OBJECT)
+
+    def __init__(self, w_obj):
+        self.w_obj = w_obj
+
+    def convert_to(self, space, dtype):
+        if dtype.is_bool():
+            return W_BoolBox(space.bool_w(self.w_obj))
+        return self # XXX
+
+    def descr__getattr__(self, space, w_key):
+        return space.getattr(self.w_obj, w_key)
 
 W_GenericBox.typedef = TypeDef("numpy.generic",
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
@@ -844,3 +857,9 @@ W_UnicodeBox.typedef = TypeDef("numpy.str_", (W_CharacterBox.typedef, W_UnicodeO
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
     __len__ = interp2app(W_UnicodeBox.descr_len),
 )
+
+W_ObjectBox.typedef = TypeDef("numpy.object_", W_ObjectBox.typedef,
+    __new__ = interp2app(W_ObjectBox.descr__new__.im_func),
+    __getattr__ = interp2app(W_ObjectBox.descr__getattr__),
+)
+

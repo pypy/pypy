@@ -146,6 +146,12 @@ class AppTestFunctionIntrospection:
         assert 日本.__name__ == '日本'
         """
 
+    def test_set_name(self):
+        def f(): pass
+        f.__name__ = 'g'
+        assert f.func_name == 'g'
+        raises(TypeError, "f.__name__ = u'g'")
+
 
 class AppTestFunction:
     def test_simple_call(self):

@@ -207,12 +207,17 @@ pyinteractive.py supports most of the options that CPython supports too (in addi
 large amount of options that can be used to customize pyinteractive.py).
 As an example of using PyPy from the command line, you could type::
 
-    python pyinteractive.py -c "from test import pystone; pystone.main(10)"
+    python pyinteractive.py --withmod-time -c "from test import pystone; pystone.main(10)"
 
 Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
-    python pyinteractive.py ../../lib-python/2.7/test/pystone.py 10
+    python pyinteractive.py --withmod-time ../../lib-python/2.7/test/pystone.py 10
+
+The ``--withmod-xxx`` option enables the built-in module ``xxx``.  By
+default almost none of them are, because initializing them takes time.
+If you want anyway to enable all built-in modules, you can use
+``--allworkingmodules``.
 
 See our :doc:`configuration sections <config/index>` for details about what all the commandline
 options do.

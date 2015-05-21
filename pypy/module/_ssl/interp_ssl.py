@@ -79,7 +79,9 @@ constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
 if HAVE_TLSv1_2:
     constants["PROTOCOL_TLSv1_1"] = PY_SSL_VERSION_TLS1_1
+    constants["OP_NO_TLSv1_1"] = SSL_OP_NO_TLSv1_1
     constants["PROTOCOL_TLSv1_2"] = PY_SSL_VERSION_TLS1_2
+    constants["OP_NO_TLSv1_2"] = SSL_OP_NO_TLSv1_2
 
 # protocol options
 constants["OP_ALL"] = SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
