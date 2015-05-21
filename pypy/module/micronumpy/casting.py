@@ -1,7 +1,6 @@
 """Functions and helpers for converting between dtypes"""
 
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import LONG_BIT
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt, OperationError
 
@@ -37,12 +36,6 @@ def result_type(space, __args__):
             dtypes_w.append(dtype)
     return find_result_type(space, arrays_w, dtypes_w)
 
-simple_kind_ordering = {
-    Bool.kind: 0, ULong.kind: 1, Long.kind: 1,
-    Float64.kind: 2, Complex64.kind: 2,
-    NPY.STRINGLTR: 3, NPY.STRINGLTR2: 3,
-    UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3}
-
 
 def find_result_type(space, arrays_w, dtypes_w):
     # equivalent to PyArray_ResultType
@@ -51,6 +44,53 @@ def find_result_type(space, arrays_w, dtypes_w):
     elif not arrays_w and len(dtypes_w) == 1:
         return dtypes_w[0]
     result = None
+    if not _use_min_scalar(arrays_w, dtypes_w):
+        for w_array in arrays_w:
+            if result is None:
+                result = w_array.get_dtype()
+            else:
+                result = _promote_types(space, result, w_array.get_dtype())
+        for dtype in dtypes_w:
+            if result is None:
+                result = dtype
+            else:
+                result = _promote_types(space, result, dtype)
+    else:
+        small_unsigned = False
+        for w_array in arrays_w:
+            dtype = w_array.get_dtype()
+            small_unsigned_scalar = False
+            if w_array.is_scalar() and dtype.is_number():
+                num, alt_num = w_array.get_scalar_value().min_dtype()
+                small_unsigned_scalar = (num != alt_num)
+                dtype = num2dtype(space, num)
+            if result is None:
+                result = dtype
+                small_unsigned = small_unsigned_scalar
+            else:
+                result, small_unsigned = _promote_types_su(
+                    space, result, dtype,
+                    small_unsigned, small_unsigned_scalar)
+        for dtype in dtypes_w:
+            if result is None:
+                result = dtype
+                small_unsigned = False
+            else:
+                result, small_unsigned = _promote_types_su(
+                    space, result, dtype,
+                    small_unsigned, False)
+    return result
+
+simple_kind_ordering = {
+    Bool.kind: 0, ULong.kind: 1, Long.kind: 1,
+    Float64.kind: 2, Complex64.kind: 2,
+    NPY.STRINGLTR: 3, NPY.STRINGLTR2: 3,
+    UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3}
+
+def _use_min_scalar(arrays_w, dtypes_w):
+    """Helper for find_result_type()"""
+    if not arrays_w:
+        return False
     all_scalars = True
     max_scalar_kind = 0
     max_array_kind = 0
@@ -64,50 +104,12 @@ def find_result_type(space, arrays_w, dtypes_w):
             kind = simple_kind_ordering[w_array.get_dtype().kind]
             if kind > max_array_kind:
                 max_array_kind = kind
-    if arrays_w:
-        for dtype in dtypes_w:
-            all_scalars = False
-            kind = simple_kind_ordering[dtype.kind]
-            if kind > max_array_kind:
-                max_array_kind = kind
-    use_min_scalar = bool(arrays_w) and not all_scalars and max_array_kind >= max_scalar_kind
-    if not use_min_scalar:
-        for w_array in arrays_w:
-            if result is None:
-                result = w_array.get_dtype()
-            else:
-                result = _promote_types(space, result, w_array.get_dtype())
-        for dtype in dtypes_w:
-            if result is None:
-                result = dtype
-            else:
-                result = _promote_types(space, result, dtype)
-    else:
-        small_unsigned = False
-        alt_result = None
-        for w_array in arrays_w:
-            dtype = w_array.get_dtype()
-            small_unsigned_scalar = False
-            if w_array.is_scalar() and dtype.is_number():
-                num, alt_num = w_array.get_scalar_value().min_dtype()
-                small_unsigned_scalar = (num != alt_num)
-                dtype = num2dtype(space, num)
-            if result is None:
-                result = dtype
-                small_unsigned = small_unsigned_scalar
-            else:
-                result, small_unsigned = _promote_types_su(
-                        space, result, dtype,
-                        small_unsigned, small_unsigned_scalar)
-        for dtype in dtypes_w:
-            if result is None:
-                result = dtype
-                small_unsigned = False
-            else:
-                result, small_unsigned = _promote_types_su(
-                        space, result, dtype,
-                        small_unsigned, False)
-    return result
+    for dtype in dtypes_w:
+        all_scalars = False
+        kind = simple_kind_ordering[dtype.kind]
+        if kind > max_array_kind:
+            max_array_kind = kind
+    return not all_scalars and max_array_kind >= max_scalar_kind
 
 
 @unwrap_spec(casting=str)
@@ -265,7 +267,6 @@ def _promote_types_su(space, dt1, dt2, su1, su2):
     else:
         su = su1 and (su2 or not dt2.is_signed())
     return _promote_types(space, dt1, dt2), su
-
 
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
