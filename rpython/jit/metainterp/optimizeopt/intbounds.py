@@ -135,6 +135,9 @@ class OptIntBounds(Optimization):
         if v2.is_constant():
             try:
                 prod_op = self.optimizer.producer[arg1]
+            except KeyError:
+                pass
+            else:
                 if prod_op.getopnum() == rop.INT_ADD:
                     prod_v1 = self.getvalue(prod_op.getarg(0))
                     prod_v2 = self.getvalue(prod_op.getarg(1))
@@ -150,8 +153,6 @@ class OptIntBounds(Optimization):
                             arg1 = prod_op.getarg(1)
                             arg2 = ConstInt(sum)
                             op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
-            except KeyError:
-                pass
 
         self.emit_operation(op)
         r = self.getvalue(op.result)
