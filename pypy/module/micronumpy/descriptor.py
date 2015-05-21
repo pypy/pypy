@@ -164,6 +164,20 @@ class W_Dtype(W_Root):
     def is_native(self):
         return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
 
+    def as_signed(self, space):
+        """Convert from an unsigned integer dtype to its signed partner"""
+        if self.is_unsigned():
+            return num2dtype(space, self.num - 1)
+        else:
+            return self
+
+    def as_unsigned(self, space):
+        """Convert from a signed integer dtype to its unsigned partner"""
+        if self.is_signed():
+            return num2dtype(space, self.num + 1)
+        else:
+            return self
+
     def get_float_dtype(self, space):
         assert self.is_complex()
         dtype = get_dtype_cache(space).component_dtypes[self.num]

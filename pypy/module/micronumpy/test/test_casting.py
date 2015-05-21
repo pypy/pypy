@@ -1,7 +1,8 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.descriptor import get_dtype_cache
+from pypy.module.micronumpy.descriptor import get_dtype_cache, num2dtype
 from pypy.module.micronumpy.casting import (
-    find_binop_result_dtype, can_cast_type)
+    find_binop_result_dtype, can_cast_type, _promote_types_su)
+import pypy.module.micronumpy.constants as NPY
 
 
 class AppTestNumSupport(BaseNumpyAppTest):
@@ -139,6 +140,20 @@ def test_can_cast_same_type(space):
     assert can_cast_type(space, dt_bool, dt_bool, 'safe')
     assert can_cast_type(space, dt_bool, dt_bool, 'same_kind')
     assert can_cast_type(space, dt_bool, dt_bool, 'unsafe')
+
+def test_promote_types_su(space):
+    dt_int8 = num2dtype(space, NPY.BYTE)
+    dt_uint8 = num2dtype(space, NPY.UBYTE)
+    dt_int16 = num2dtype(space, NPY.SHORT)
+    dt_uint16 = num2dtype(space, NPY.USHORT)
+    # The results must be signed
+    assert _promote_types_su(space, dt_int8, dt_int16, False, False) == (dt_int16, False)
+    assert _promote_types_su(space, dt_int8, dt_int16, True, False) == (dt_int16, False)
+    assert _promote_types_su(space, dt_int8, dt_int16, False, True) == (dt_int16, False)
+
+    # The results may be unsigned
+    assert _promote_types_su(space, dt_int8, dt_int16, True, True) == (dt_int16, True)
+    assert _promote_types_su(space, dt_uint8, dt_int16, False, True) == (dt_uint16, True)
 
 
 class TestCoercion(object):

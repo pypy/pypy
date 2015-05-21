@@ -63,8 +63,7 @@ def find_result_type(space, arrays_w, dtypes_w):
             kind = kind_ordering[dtype.kind]
             if kind > max_array_kind:
                 max_array_kind = kind
-    #use_min_scalar = bool(arrays_w) and not all_scalars and max_array_kind >= max_scalar_kind
-    use_min_scalar = False
+    use_min_scalar = bool(arrays_w) and not all_scalars and max_array_kind >= max_scalar_kind
     if not use_min_scalar:
         for w_array in arrays_w:
             if result is None:
@@ -76,6 +75,31 @@ def find_result_type(space, arrays_w, dtypes_w):
                 result = dtype
             else:
                 result = _promote_types(space, result, dtype)
+    else:
+        small_unsigned = False
+        alt_result = None
+        for w_array in arrays_w:
+            dtype = w_array.get_dtype()
+            small_unsigned_scalar = False
+            if w_array.is_scalar() and dtype.is_number():
+                num, alt_num = w_array.get_scalar_value().min_dtype()
+                small_unsigned_scalar = (num != alt_num)
+                dtype = num2dtype(space, num)
+            if result is None:
+                result = dtype
+                small_unsigned = small_unsigned_scalar
+            else:
+                result, small_unsigned = _promote_types_su(
+                        space, result, dtype,
+                        small_unsigned, small_unsigned_scalar)
+        for dtype in dtypes_w:
+            if result is None:
+                result = dtype
+                small_unsigned = False
+            else:
+                result, small_unsigned = _promote_types_su(
+                        space, result, dtype,
+                        small_unsigned, False)
     return result
 
 
@@ -214,6 +238,27 @@ def _promote_types(space, dt1, dt2):
         if can_cast_type(space, dt1, dt2, casting='equiv'):
             return dt1
     raise oefmt(space.w_TypeError, "invalid type promotion")
+
+def _promote_types_su(space, dt1, dt2, su1, su2):
+    """Like _promote_types(), but handles the small_unsigned flag as well"""
+    if su1:
+        if dt2.is_bool() or dt2.is_unsigned():
+            dt1 = dt1.as_unsigned(space)
+        else:
+            dt1 = dt1.as_signed(space)
+    elif su2:
+        if dt1.is_bool() or dt1.is_unsigned():
+            dt2 = dt2.as_unsigned(space)
+        else:
+            dt2 = dt2.as_signed(space)
+    if dt1.elsize < dt2.elsize:
+        su = su2 and (su1 or not dt1.is_signed())
+    elif dt1.elsize == dt2.elsize:
+        su = su1 and su2
+    else:
+        su = su1 and (su2 or not dt2.is_signed())
+    return _promote_types(space, dt1, dt2), su
+
 
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
