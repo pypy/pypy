@@ -1257,11 +1257,3 @@ class AppTestNewShortcut:
         assert type.__ne__(dict, 42) is NotImplemented
         assert type.__eq__(int, int) is True
         assert type.__eq__(int, dict) is False
-
-    def test_cmp_on_types(self):
-        class X(type):
-            def __cmp__(self, other):
-                return -1
-        class Y:
-            __metaclass__ = X
-        assert (Y < Y) is True
