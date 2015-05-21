@@ -9,7 +9,7 @@ from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
-        MemoryRef, Scheduler, SchedulerData, Node)
+        MemoryRef, Scheduler, SchedulerData, Node, IndexVar)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -111,7 +111,8 @@ class VectorizingOptimizer(Optimizer):
         self.combine_packset()
         self.schedule()
 
-        self.collapse_index_guards()
+        gso = GuardStrengthenOpt(self.dependency_graph.index_vars)
+        gso.propagate_all_forward(self.loop)
 
     def emit_operation(self, op):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -399,6 +400,8 @@ class VectorizingOptimizer(Optimizer):
 
     def unpack_from_vector(self, op, sched_data):
         args = op.getarglist()
+        if op.is_guard():
+            py.test.set_trace()
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
                 self._unpack_from_vector(args, i, arg, sched_data)
@@ -427,9 +430,7 @@ class VectorizingOptimizer(Optimizer):
     def analyse_index_calculations(self):
         if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
             return
-
         self.dependency_graph = graph = DependencyGraph(self.loop)
-
         label_node = graph.getnode(0)
         ee_guard_node = graph.getnode(self.early_exit_idx)
         guards = graph.guards
@@ -437,7 +438,6 @@ class VectorizingOptimizer(Optimizer):
             if guard_node is ee_guard_node:
                 continue
             modify_later = []
-            valid_trans = True
             last_prev_node = None
             for path in guard_node.iterate_paths(ee_guard_node, True):
                 prev_node = path.second()
@@ -453,7 +453,7 @@ class VectorizingOptimizer(Optimizer):
                         #   |
                         #  (g)
                         # this graph yields 2 paths from (g), thus (a) is
-                        # remembered and skipped
+                        # remembered and skipped the second time visited
                         continue
                     modify_later.append((prev_node, guard_node))
                 else:
@@ -461,10 +461,13 @@ class VectorizingOptimizer(Optimizer):
                         path.set_schedule_priority(10)
                         modify_later.append((path.last_but_one(), None))
                     else:
-                        valid_trans = False
+                        # transformation is invalid.
+                        # exit and do not enter else branch!
                         break
                 last_prev_node = prev_node
-            if valid_trans:
+            else:
+                # transformation is valid, modify the graph and execute
+                # this guard earlier
                 for a,b in modify_later:
                     if b is not None:
                         a.remove_edge_to(b)
@@ -478,53 +481,187 @@ class VectorizingOptimizer(Optimizer):
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
                 guard_node.relax_guard_to(ee_guard_node)
 
-    def collapse_index_guards(self):
-        strongest_guards = {}
-        strongest_guards_var = {}
-        index_vars = self.dependency_graph.index_vars
-        comparison_vars = self.dependency_graph.comparison_vars
-        operations = self.loop.operations
-        var_for_guard = {}
-        for i in range(len(operations)-1, -1, -1):
-            op = operations[i]
-            if op.is_guard():
-                for arg in op.getarglist():
-                    var_for_guard[arg] = True
-                    try:
-                        comparison = comparison_vars[arg]
-                        for index_var in list(comparison.getindex_vars()):
-                            if not index_var:
-                                continue
-                            var = index_var.getvariable()
-                            strongest_known = strongest_guards_var.get(var, None)
-                            if not strongest_known:
-                                strongest_guards_var[var] = index_var
-                                continue
-                            if index_var.less(strongest_known):
-                                strongest_guards_var[var] = strongest_known
-                                strongest_guards[op] = strongest_known
-                    except KeyError:
-                        pass
+class Guard(object):
+    """ An object wrapper around a guard. Helps to determine
+        if one guard implies another
+    """
+    def __init__(self, op, cmp_op, lhs, rhs):
+        self.op = op
+        self.cmp_op = cmp_op
+        self.lhs = lhs
+        self.rhs = rhs
+        self.emitted = False
+        self.stronger = False
 
+    def implies(self, guard, opt):
+        print self.cmp_op, "=>", guard.cmp_op, "?"
+        my_key = opt._get_key(self.cmp_op)
+        ot_key = opt._get_key(guard.cmp_op)
+
+        if my_key[1] == ot_key[1]:
+            # same operation
+            lc = self.compare(self.lhs, guard.lhs)
+            rc = self.compare(self.rhs, guard.rhs)
+            print "compare", self.lhs, guard.lhs, lc
+            print "compare", self.rhs, guard.rhs, rc
+            opnum = my_key[1]
+            # x < y  = -1,-2,...
+            # x == y = 0
+            # x > y  = 1,2,...
+            if opnum == rop.INT_LT:
+                return (lc > 0 and rc >= 0) or (lc == 0 and rc >= 0)
+            if opnum == rop.INT_LE:
+                return (lc >= 0 and rc >= 0) or (lc == 0 and rc >= 0)
+            if opnum == rop.INT_GT:
+                return (lc < 0 and rc >= 0) or (lc == 0 and rc > 0)
+            if opnum == rop.INT_GE:
+                return (lc <= 0 and rc >= 0) or (lc == 0 and rc >= 0)
+        return False
+
+    def compare(self, key1, key2):
+        if isinstance(key1, Box):
+            assert isinstance(key2, Box)
+            assert key1 is key2 # key of hash enforces this
+            return 0
+        #
+        if isinstance(key1, ConstInt):
+            assert isinstance(key2, ConstInt)
+            v1 = key1.value
+            v2 = key2.value
+            if v1 == v2:
+                return 0
+            elif v1 < v2:
+                return -1
+            else:
+                return 1
+        #
+        if isinstance(key1, IndexVar):
+            assert isinstance(key2, IndexVar)
+            return key1.compare(key2)
+        #
+        raise RuntimeError("cannot compare: " + str(key1) + " <=> " + str(key2))
+
+    def emit_varops(self, opt, var):
+        if isinstance(var, IndexVar):
+            box = var.emit_operations(opt)
+            opt._same_as[var] = box
+            return box
+        else:
+            return var
+
+    def emit_operations(self, opt):
+        lhs, opnum, rhs = opt._get_key(self.cmp_op)
+        # create trace instructions for the index
+        box_lhs = self.emit_varops(opt, self.lhs)
+        box_rhs = self.emit_varops(opt, self.rhs)
+        box_result = self.cmp_op.result.clonebox()
+        opt.emit_operation(ResOperation(opnum, [box_lhs, box_rhs], box_result))
+        # guard
+        guard = self.op.clone()
+        guard.setarg(0, box_result)
+        opt.emit_operation(guard)
+
+class GuardStrengthenOpt(object):
+    def __init__(self, index_vars):
+        self.index_vars = index_vars
+        self._newoperations = []
+        self._same_as = {}
+
+    def find_compare_guard_bool(self, boolarg, operations, index):
+        i = index - 1
+        # most likely hit in the first iteration
+        while i > 0:
+            op = operations[i]
+            if op.result and op.result == boolarg:
+                return op
+            i -= 1
+
+        raise RuntimeError("guard_true/false first arg not defined")
+
+    def _get_key(self, cmp_op):
+        if cmp_op and rop.INT_LT <= cmp_op.getopnum() <= rop.INT_GE:
+            lhs_arg = cmp_op.getarg(0)
+            rhs_arg = cmp_op.getarg(1)
+            lhs_index_var = self.index_vars.get(lhs_arg, None)
+            rhs_index_var = self.index_vars.get(rhs_arg, None)
+
+            cmp_opnum = cmp_op.getopnum()
+            # get the key, this identifies the guarded operation
+            if lhs_index_var and rhs_index_var:
+                key = (lhs_index_var.getvariable(), cmp_opnum, rhs_index_var.getvariable())
+            elif lhs_index_var:
+                key = (lhs_index_var.getvariable(), cmp_opnum, rhs_arg)
+            elif rhs_index_var:
+                key = (lhs_arg, cmp_opnum, rhs_index_var)
+            else:
+                key = (lhs_arg, cmp_opnum, rhs_arg)
+            return key
+        return None
+
+
+    def get_key(self, guard_bool, operations, i):
+        cmp_op = self.find_compare_guard_bool(guard_bool.getarg(0), operations, i)
+        return self._get_key(cmp_op)
+
+    def propagate_all_forward(self, loop):
+        """ strengthens the guards that protect an integral value """
+        strongest_guards = {}
+        # index_vars = self.dependency_graph.index_vars
+        # comparison_vars = self.dependency_graph.comparison_vars
+        # the guards are ordered. guards[i] is before guards[j] iff i < j
+        operations = loop.operations
+        last_guard = None
+        for i,op in enumerate(operations):
+            op = operations[i]
+            if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+                cmp_op = self.find_compare_guard_bool(op.getarg(0), operations, i)
+                key = self._get_key(cmp_op)
+                if key:
+                    lhs_arg = cmp_op.getarg(0)
+                    lhs = self.index_vars.get(lhs_arg, lhs_arg)
+                    rhs_arg = cmp_op.getarg(1)
+                    rhs = self.index_vars.get(rhs_arg, rhs_arg)
+                    strongest = strongest_guards.get(key, None)
+                    if not strongest:
+                        strongest_guards[key] = Guard(op, cmp_op, lhs, rhs)
+                    else:
+                        guard = Guard(op, cmp_op, lhs, rhs)
+                        if guard.implies(strongest, self):
+                            guard.stronger = True
+                            strongest_guards[key] = guard
+        #
         last_op_idx = len(operations)-1
-        for op in operations:
-            if op.is_guard():
-                stronger_guard = strongest_guards.get(op, None)
-                if stronger_guard:
-                    # there is a stronger guard
+        for i,op in enumerate(operations):
+            op = operations[i]
+            if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+                key = self.get_key(op, operations, i)
+                if key:
+                    strongest = strongest_guards.get(key, None)
+                    if not strongest or not strongest.stronger:
+                        # If the key is not None and there _must_ be a strongest
+                        # guard. If strongest is None, this operation implies the
+                        # strongest guard that has been already been emitted.
+                        self.emit_operation(op)
+                        continue
+                    elif strongest.emitted:
+                        continue
+                    strongest.emit_operations(self)
+                    strongest.emitted = True
                     continue
-                else:
-                    self.emit_operation(op)
+            if op.result:
+                # emit a same_as op if a box uses the same index variable
+                index_var = self.index_vars.get(op.result, None)
+                box = self._same_as.get(index_var, None)
+                if box:
+                    self.emit_operation(ResOperation(rop.SAME_AS, [box], op.result))
                     continue
-            if op.is_always_pure() and op.result:
-                try:
-                    var_index = index_vars[op.result]
-                    var_index.adapt_operation(op)
-                except KeyError:
-                    pass
             self.emit_operation(op)
 
-        self.loop.operations = self._newoperations[:]
+        loop.operations = self._newoperations[:]
+
+    def emit_operation(self, op):
+        self._newoperations.append(op)
+
 
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util

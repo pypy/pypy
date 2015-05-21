@@ -2,7 +2,7 @@ import py
 
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import (rop, GuardResOp)
+from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box, Const, BoxFloat
@@ -83,6 +83,9 @@ class Node(object):
         self.emitted = False
         self.schedule_position = -1
         self.priority = 0
+        # save the operation that produces the result for the first argument
+        # only for guard_true/guard_false
+        self.guard_bool_bool_node = None
 
     def getoperation(self):
         return self.op
@@ -531,8 +534,7 @@ class DependencyGraph(object):
                 self.build_non_pure_dependencies(node, tracker)
         # pass 2 correct guard dependencies
         for guard_node in self.guards:
-            op = guard_node.getoperation()
-            self.build_guard_dependencies(guard_node, op.getopnum(), tracker)
+            self.build_guard_dependencies(guard_node, tracker)
         # pass 3 find schedulable nodes
         jump_node = self.nodes[jump_pos]
         label_node = self.nodes[label_pos]
@@ -559,9 +561,15 @@ class DependencyGraph(object):
         if guard_opnum in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             for dep in guard_node.depends():
                 op = dep.to.getoperation()
-                for arg in op.getarglist():
-                    if isinstance(arg, Box):
-                        self.guard_exit_dependence(guard_node, arg, tracker)
+                if op.returns_bool_result() and op.result == guard_op.getarg(0):
+                    guard_node.guard_bool_bool_node = dep.to
+                    for arg in op.getarglist():
+                        if isinstance(arg, Box):
+                            self.guard_exit_dependence(guard_node, arg, tracker)
+                    break
+            else:
+                raise RuntimeError("guard_true/false has no operation that " \
+                                   "returns the bool for the arg 0")
         elif guard_op.is_foldable_guard():
             # these guards carry their protected variables directly as a parameter
             for arg in guard_node.getoperation().getarglist():
@@ -598,12 +606,12 @@ class DependencyGraph(object):
             if guard_node.is_before(dep.to) and dep.because_of(var):
                 guard_node.edge_to(dep.to, var, label='guard_exit('+str(var)+')')
 
-    def build_guard_dependencies(self, guard_node, guard_opnum, tracker):
-        if guard_opnum >= rop.GUARD_NOT_INVALIDATED:
+    def build_guard_dependencies(self, guard_node, tracker):
+        guard_op = guard_node.op
+        if guard_op.getopnum() >= rop.GUARD_NOT_INVALIDATED:
             # ignore invalidated & future condition guard & early exit
             return
         # true dependencies
-        guard_op = guard_node.op
         for arg in guard_op.getarglist():
             tracker.depends_on_arg(arg, guard_node)
         # dependencies to uses of arguments it protects
@@ -969,6 +977,33 @@ class IndexVar(object):
         mycoeff = self.coefficient_mul // self.coefficient_div
         othercoeff = other.coefficient_mul // other.coefficient_div
         return mycoeff + self.constant - (othercoeff + other.constant)
+
+    def emit_operations(self, opt):
+        box = self.var
+        if self.coefficient_mul != 1:
+            box_result = box.clonebox()
+            opt.emit_operation(ResOperation(rop.INT_MUL, [box, ConstInt(self.coefficient_mul)], box_result))
+            box = box_result
+        if self.coefficient_div != 1:
+            box_result = box.clonebox()
+            opt.emit_operation(ResOperation(rop.INT_FLOORDIV, [box, ConstInt(self.coefficient_div)], box_result))
+            box = box_result
+        if self.constant != 0:
+            box_result = box.clonebox()
+            opt.emit_operation(ResOperation(rop.INT_ADD, [box, ConstInt(self.constant)], box_result))
+            box = box_result
+        return box
+
+    def compare(self, other):
+        assert isinstance(other, IndexVar)
+        v1 = (self.coefficient_mul // self.coefficient_div) + self.constant
+        v2 = (other.coefficient_mul // other.coefficient_div) + other.constant
+        if v1 == v2:
+            return 0
+        elif v1 < v2:
+            return -1
+        else:
+            return 1
 
     def __repr__(self):
         if self.is_identity():
