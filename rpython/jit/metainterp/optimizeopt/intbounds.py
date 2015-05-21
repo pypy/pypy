@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport import symbolic
-from rpython.rlib.rarithmetic import is_valid_int
+from rpython.rlib.rarithmetic import intmask
 
 
 def get_integer_min(is_unsigned, byte_size):
@@ -157,13 +157,10 @@ class OptIntBounds(Optimization):
                         prod_arg1, prod_arg2 = prod_arg2, prod_arg1
                         prod_v1, prod_v2 = prod_v2, prod_v1
                     if prod_v2.is_constant():
-                        sum = v2.box.getint() + prod_v2.box.getint()
-                        # the sum might not be a valid int if the values
-                        # added are very large
-                        if is_valid_int(sum):
-                            arg1 = prod_arg1
-                            arg2 = ConstInt(sum)
-                            op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+                        sum = intmask(v2.box.getint() + prod_v2.box.getint())
+                        arg1 = prod_arg1
+                        arg2 = ConstInt(sum)
+                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
 
         self.emit_operation(op)
         r = self.getvalue(op.result)
