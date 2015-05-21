@@ -846,11 +846,12 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
         if sys.platform == 'win32':
-            # Make sure we have a test_1w.exe and it does not use stdout, stderr
+            # Make sure we have a test_1w.exe
+            # Since stdout, stderr are piped, we will get output
             exe = cbuilder.executable_name
             wexe = exe.new(purebasename=exe.purebasename + 'w')
             out, err = cbuilder.cmdexec("a b", exe = wexe)
-            assert out == ''
+            assert out == "3"
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if
