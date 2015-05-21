@@ -45,13 +45,13 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     orig_ops = loop.operations
     try:
         debug_start("vec-opt-loop")
-        metainterp_sd.logger_opt.log_loop(loop.inputargs, loop.operations, "unroll", -2, 0, "pre vectorize")
+        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, "unroll", -2, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
 
-        metainterp_sd.logger_opt.log_loop(loop.inputargs, loop.operations, "vec", -2, 0, "post vectorize")
+        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, "vec", -2, None, "post vectorize")
     except NotAVectorizeableLoop:
         # vectorization is not possible
         loop.operations = orig_ops
