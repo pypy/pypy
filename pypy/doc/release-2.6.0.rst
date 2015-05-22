@@ -54,11 +54,14 @@ This release supports **x86** machines on most common operating systems
 as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
 While we support 32 bit python on Windows, work on the native Windows 64
-bit python is still stalling, we would welcome a volunteer
-to `handle that`_.
+bit python is still stalling, we would welcome a volunteer 
+to `handle that`_. We also welcome developers with other operating systems or
+`dynamic languages`_ to see what RPython can do for them.
 
 .. _`pypy and cpython 2.7.x`: http://speed.pypy.org
+.. _`OpenBSD`: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`dynamic language`_: http://pypyjs.org
 
 Highlights 
 ==========
