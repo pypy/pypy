@@ -928,7 +928,9 @@ class DtypeCache(object):
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with
         # higher numbers
-        for dtype in reversed(self.builtin_dtypes):
+        # However, Long/ULong always take precedence over Intxx
+        for dtype in reversed(
+                [self.w_longdtype, self.w_ulongdtype] + self.builtin_dtypes):
             dtype.fields = None  # mark these as builtin
             self.dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.get_name()] = dtype
