@@ -7,7 +7,8 @@ extern "C" {
 #include "parse_c_type.h"
 
 /* this block of #ifs should be kept exactly identical between
-   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py
+   and cffi/_cffi_include.h */
 #if defined(_MSC_VER)
 # include <malloc.h>   /* for alloca() */
 # if _MSC_VER < 1600   /* MSVC < 2010 */
