@@ -13,6 +13,7 @@ def setup_module(mod):
     #define BIGPOS 420000000000L
     #define BIGNEG -420000000000L
     int add42(int x) { return x + 42; }
+    int add43(int x, ...) { return x; }
     int globalvar42 = 1234;
     struct foo_s;
     typedef struct bar_s { int x; signed char a[]; } bar_t;
@@ -38,6 +39,7 @@ def setup_module(mod):
     #define BIGPOS 420000000000L
     #define BIGNEG -420000000000L
     int add42(int);
+    int add43(int, ...);
     int globalvar42;
     int no_such_function(int);
     int no_such_globalvar;
@@ -68,6 +70,13 @@ def test_function():
     lib = ffi.dlopen(extmod)
     assert lib.add42(-10) == 32
     assert type(lib.add42) is _cffi_backend.FFI.CData
+
+def test_function_with_varargs():
+    import _cffi_backend
+    from re_python_pysrc import ffi
+    lib = ffi.dlopen(extmod)
+    assert lib.add43(45, ffi.cast("int", -5)) == 45
+    assert type(lib.add43) is _cffi_backend.FFI.CData
 
 def test_dlclose():
     import _cffi_backend

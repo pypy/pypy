@@ -101,6 +101,7 @@ class Parser(object):
         self._override = False
         self._packed = False
         self._int_constants = {}
+        self._recomplete = []
 
     def _parse(self, csource):
         csource, macros = _preprocess(csource)
@@ -555,6 +556,9 @@ class Parser(object):
                 raise NotImplementedError("%s: using both bitfields and '...;'"
                                           % (tp,))
         tp.packed = self._packed
+        if tp.completed:    # must be re-completed: it is not opaque any more
+            tp.completed = 0
+            self._recomplete.append(tp)
         return tp
 
     def _make_partial(self, tp, nested):
@@ -604,19 +608,21 @@ class Parser(object):
 
     def _build_enum_type(self, explicit_name, decls):
         if decls is not None:
-            enumerators1 = [enum.name for enum in decls.enumerators]
-            enumerators = [s for s in enumerators1
-                             if not _r_enum_dotdotdot.match(s)]
-            partial = len(enumerators) < len(enumerators1)
-            enumerators = tuple(enumerators)
+            partial = False
+            enumerators = []
             enumvalues = []
             nextenumvalue = 0
-            for enum in decls.enumerators[:len(enumerators)]:
+            for enum in decls.enumerators:
+                if _r_enum_dotdotdot.match(enum.name):
+                    partial = True
+                    continue
                 if enum.value is not None:
                     nextenumvalue = self._parse_constant(enum.value)
+                enumerators.append(enum.name)
                 enumvalues.append(nextenumvalue)
                 self._add_constants(enum.name, nextenumvalue)
                 nextenumvalue += 1
+            enumerators = tuple(enumerators)
             enumvalues = tuple(enumvalues)
             tp = model.EnumType(explicit_name, enumerators, enumvalues)
             tp.partial = partial

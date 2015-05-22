@@ -765,6 +765,11 @@ def test_nonfull_enum_syntax2():
     assert ffi.string(ffi.cast('enum ee2', -1239)) == 'EE4'
     assert ffi.string(ffi.cast('enum ee2', -1238)) == 'EE5'
 
+def test_nonfull_enum_bug3():
+    ffi = FFI()
+    ffi.cdef("enum ee2 { EE4=..., EE5=... };")
+    ffi.cdef("enum ee6 { EE7=10, EE8=..., EE9=... };")
+
 def test_get_set_errno():
     ffi = FFI()
     ffi.cdef("int foo(int);")

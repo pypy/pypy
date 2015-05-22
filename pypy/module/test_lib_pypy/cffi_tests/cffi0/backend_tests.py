@@ -1704,3 +1704,13 @@ class BackendTests:
         assert lib.DOT_HEX == 0x100
         assert lib.DOT_HEX2 == 0x10
         assert lib.DOT_UL == 1000
+
+    def test_opaque_struct_becomes_nonopaque(self):
+        # Issue #193: if we use a struct between the first cdef() where it is
+        # declared and another cdef() where its fields are defined, then the
+        # definition was ignored.
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("struct foo_s;")
+        py.test.raises(TypeError, ffi.new, "struct foo_s *")
+        ffi.cdef("struct foo_s { int x; };")
+        ffi.new("struct foo_s *")

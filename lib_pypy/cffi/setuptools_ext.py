@@ -76,7 +76,7 @@ def _add_c_module(dist, ffi, module_name, source, source_extension, kwds):
     from cffi import recompiler
 
     allsources = ['$PLACEHOLDER']
-    allsources.extend(kwds.get('sources', []))
+    allsources.extend(kwds.pop('sources', []))
     ext = Extension(name=module_name, sources=allsources, **kwds)
 
     def make_mod(tmpdir):
