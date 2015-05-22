@@ -45,13 +45,12 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     orig_ops = loop.operations
     try:
         debug_start("vec-opt-loop")
-        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, "unroll", -2, None, "pre vectorize")
+        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
         opt.propagate_all_forward()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
-
-        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, "vec", -2, None, "post vectorize")
+        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
     except NotAVectorizeableLoop:
         # vectorization is not possible
         loop.operations = orig_ops
@@ -62,6 +61,9 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
             from rpython.rtyper.lltypesystem import lltype
             from rpython.rtyper.lltypesystem.lloperation import llop
             llop.debug_print_traceback(lltype.Void)
+        else:
+            import py
+            py.test.set_trace()
     finally:
         debug_stop("vec-opt-loop")
 
@@ -400,20 +402,21 @@ class VectorizingOptimizer(Optimizer):
 
     def unpack_from_vector(self, op, sched_data):
         args = op.getarglist()
-        if op.is_guard():
-            py.test.set_trace()
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
-                self._unpack_from_vector(args, i, arg, sched_data)
+                argument = self._unpack_from_vector(i, arg, sched_data)
+                if arg is not argument:
+                    op.setarg(i, argument)
         if op.is_guard():
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
                 if arg and isinstance(arg, Box):
-                    self._unpack_from_vector(fail_args, i, arg, sched_data)
+                    argument = self._unpack_from_vector(i, arg, sched_data)
+                    if arg is not argument:
+                        fail_args[i] = argument
 
-    def _unpack_from_vector(self, args, i, arg, sched_data):
+    def _unpack_from_vector(self, i, arg, sched_data):
         arg = sched_data.unpack_rename(arg)
-        args[i] = arg
         (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
         if vbox:
             arg_cloned = arg.clonebox()
@@ -425,7 +428,8 @@ class VectorizingOptimizer(Optimizer):
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.emit_operation(unpack_op)
             sched_data.rename_unpacked(arg, arg_cloned)
-            args[i] = arg_cloned
+            arg = arg_cloned
+        return arg
 
     def analyse_index_calculations(self):
         if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
@@ -494,7 +498,10 @@ class Guard(object):
         self.stronger = False
 
     def implies(self, guard, opt):
-        print self.cmp_op, "=>", guard.cmp_op, "?"
+        #print self.cmp_op, "=>", guard.cmp_op, "?"
+        if self.op.getopnum() != guard.op.getopnum():
+            return False
+
         my_key = opt._get_key(self.cmp_op)
         ot_key = opt._get_key(guard.cmp_op)
 
@@ -502,9 +509,11 @@ class Guard(object):
             # same operation
             lc = self.compare(self.lhs, guard.lhs)
             rc = self.compare(self.rhs, guard.rhs)
-            print "compare", self.lhs, guard.lhs, lc
-            print "compare", self.rhs, guard.rhs, rc
-            opnum = my_key[1]
+            #print "compare", self.lhs, guard.lhs, lc
+            #print "compare", self.rhs, guard.rhs, rc
+            opnum = self.get_compare_opnum()
+            if opnum == -1:
+                return False
             # x < y  = -1,-2,...
             # x == y = 0
             # x > y  = 1,2,...
@@ -517,6 +526,13 @@ class Guard(object):
             if opnum == rop.INT_GE:
                 return (lc <= 0 and rc >= 0) or (lc == 0 and rc >= 0)
         return False
+
+    def get_compare_opnum(self):
+        opnum = self.op.getopnum()
+        if opnum == rop.GUARD_TRUE:
+            return self.cmp_op.getopnum()
+        else:
+            return self.cmp_op.boolinverse
 
     def compare(self, key1, key2):
         if isinstance(key1, Box):
@@ -596,7 +612,7 @@ class GuardStrengthenOpt(object):
             else:
                 key = (lhs_arg, cmp_opnum, rhs_arg)
             return key
-        return None
+        return (None, 0, None)
 
 
     def get_key(self, guard_bool, operations, i):
@@ -606,8 +622,7 @@ class GuardStrengthenOpt(object):
     def propagate_all_forward(self, loop):
         """ strengthens the guards that protect an integral value """
         strongest_guards = {}
-        # index_vars = self.dependency_graph.index_vars
-        # comparison_vars = self.dependency_graph.comparison_vars
+        implied_guards = {}
         # the guards are ordered. guards[i] is before guards[j] iff i < j
         operations = loop.operations
         last_guard = None
@@ -616,7 +631,7 @@ class GuardStrengthenOpt(object):
             if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
                 cmp_op = self.find_compare_guard_bool(op.getarg(0), operations, i)
                 key = self._get_key(cmp_op)
-                if key:
+                if key[0] is not None:
                     lhs_arg = cmp_op.getarg(0)
                     lhs = self.index_vars.get(lhs_arg, lhs_arg)
                     rhs_arg = cmp_op.getarg(1)
@@ -629,13 +644,18 @@ class GuardStrengthenOpt(object):
                         if guard.implies(strongest, self):
                             guard.stronger = True
                             strongest_guards[key] = guard
+                        elif strongest.implies(guard, self):
+                            implied_guards[op] = True
         #
         last_op_idx = len(operations)-1
         for i,op in enumerate(operations):
             op = operations[i]
             if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+                if implied_guards.get(op, False):
+                    # this guard is implied, thus removed
+                    continue
                 key = self.get_key(op, operations, i)
-                if key:
+                if key[0] is not None:
                     strongest = strongest_guards.get(key, None)
                     if not strongest or not strongest.stronger:
                         # If the key is not None and there _must_ be a strongest
@@ -651,10 +671,14 @@ class GuardStrengthenOpt(object):
             if op.result:
                 # emit a same_as op if a box uses the same index variable
                 index_var = self.index_vars.get(op.result, None)
-                box = self._same_as.get(index_var, None)
-                if box:
-                    self.emit_operation(ResOperation(rop.SAME_AS, [box], op.result))
-                    continue
+                if index_var:
+                    box = self._same_as.get(index_var, None)
+                    if box:
+                        self.emit_operation(ResOperation(rop.SAME_AS, [box], op.result))
+                        continue
+                    else:
+                        index_var.emit_operations(self, op.result)
+                        continue
             self.emit_operation(op)
 
         loop.operations = self._newoperations[:]
@@ -760,6 +784,9 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_INT_ADD:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), PT_INT_GENERIC),
     rop.VEC_INT_SUB:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), PT_INT_GENERIC),
     rop.VEC_INT_MUL:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), PT_INT_GENERIC),
+    rop.VEC_INT_AND:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), PT_INT_GENERIC),
+    rop.VEC_INT_OR:      OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), PT_INT_GENERIC),
+    rop.VEC_INT_XOR:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), PT_INT_GENERIC),
     rop.VEC_INT_SIGNEXT: OpToVectorOp((PT_INT_GENERIC,), PT_INT_GENERIC, result_vsize_arg=1),
 
     rop.VEC_FLOAT_ADD:   OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), PT_FLOAT_GENERIC),
@@ -887,13 +914,16 @@ class VecScheduleData(SchedulerData):
         #
         vop.result = vbox
         i = self.pack_off
-        off = 0 # assumption. the result is always placed at index [0,...,x]
+        off = 0 # XXX assumption. the result is always placed at index [0,...,x]
         end = i + self.pack_ops
         while i < end:
             op = ops[i].getoperation()
-            self.box_to_vbox[op.result] = (off, vbox)
+            self.box_in_vector(op.result, off, vbox)
             i += 1
             off += 1
+
+    def box_in_vector(self, box, off, vector):
+        self.box_to_vbox[box] = (off, vector)
 
     def vector_arg(self, vop, argidx, arg_ptype):
         ops = self.pack.operations
@@ -977,7 +1007,7 @@ class VecScheduleData(SchedulerData):
             # at a new position
             for j in range(i):
                 arg = args[j]
-                self.box_to_vbox[arg] = (j, new_box)
+                self.box_in_vector(arg, j, new_box)
         _, vbox = self.box_to_vbox.get(args[0], (-1, None))
         return vbox
 

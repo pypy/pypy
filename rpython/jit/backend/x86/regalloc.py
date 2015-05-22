@@ -1509,13 +1509,13 @@ class RegAlloc(BaseRegalloc):
     consider_vec_raw_store = consider_vec_setarrayitem_raw
 
     def consider_vec_arith(self, op):
-        count = op.getarg(2)
-        assert isinstance(count, ConstInt)
-        itemsize = self.assembler.cpu.vector_register_size // count.value
+        lhs = op.getarg(1)
+        assert isinstance(lhs, BoxVector)
+        size = lhs.item_size
         args = op.getarglist()
         loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [loc0, loc1, imm(itemsize)], loc0)
+        self.perform(op, [loc0, loc1, imm(size)], loc0)
 
     consider_vec_int_add = consider_vec_arith
     consider_vec_int_sub = consider_vec_arith
@@ -1526,15 +1526,18 @@ class RegAlloc(BaseRegalloc):
     del consider_vec_arith
 
     def consider_vec_logic(self, op):
-        count = op.getarg(2)
-        assert isinstance(count, ConstInt)
-        itemsize = self.assembler.cpu.vector_register_size // count.value
+        lhs = op.getarg(1)
+        assert isinstance(lhs, BoxVector)
+        size = lhs.item_size
         args = op.getarglist()
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
-        self.perform(op, [loc0, loc1, imm(itemsize)], loc0)
+        self.perform(op, [loc0, loc1, imm(size)], loc0)
 
     consider_vec_float_eq = consider_vec_logic
+    consider_vec_int_and = consider_vec_logic
+    consider_vec_int_or = consider_vec_logic
+    consider_vec_int_xor = consider_vec_logic
     del consider_vec_logic
 
     def consider_vec_int_pack(self, op):

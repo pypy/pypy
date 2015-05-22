@@ -1065,37 +1065,6 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(self.parse_loop(ops))
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
-    def test_call_prohibits_vectorization(self):
-        ops = """
-        [p31, i32, p3, i33, f10, p24, p34, p35, i19, p5, i36, p37, i28, f13, i29, i15]
-        guard_early_exit() [p5,p37,p34,p3,p24,i32,p35,i36,i33,f10,p31,i19]
-        f38 = raw_load(i28, i33, descr=floatarraydescr)
-        guard_not_invalidated()[p5,p37,p34,p3,p24,f38,i32,p35,i36,i33,None,p31,i19]
-        i39 = int_add(i33, 8) 
-        f40 = float_mul(f38, 0.0)
-        i41 = float_eq(f40, f40)
-        guard_true(i41) [p5,p37,p34,p3,p24,f13,f38,i39,i32,p35,i36,None,None,p31,i19]
-        f42 = call(111, f38, f13, descr=writeadescr)
-        i43 = call(222, 333, descr=writeadescr)
-        f44 = float_mul(f42, 0.0)
-        i45 = float_eq(f44, f44)
-        guard_true(i45) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
-        i46 = int_is_true(i43)
-        guard_false(i46) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
-        raw_store(i29, i36, f42, descr=floatarraydescr)
-        i47 = int_add(i19, 1)
-        i48 = int_add(i36, 8)
-        i49 = int_ge(i47, i15)
-        guard_false(i49) [p5,p37,p34,p3,p24,i47,f38,i48,i39,i32,p35,None,None,None,p31,None]
-        jump(p31, i32, p3, i39, f38, p24, p34, p35, i47, p5, i48, p37, i28, f13, i29, i15)
-        """
-        try:
-            vopt = self.vectorize(self.parse_loop(ops))
-            self.debug_print_operations(vopt.loop)
-            py.test.fail("this loop should not be vectorized")
-        except NotAVectorizeableLoop:
-            pass
-
     def test_shrink_vector_size(self):
         ops = """
         [p0,p1,i1]
@@ -1186,6 +1155,102 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectorize(self.parse_loop(ops))
         self.assert_equal(vopt.loop, self.parse_loop(opt))
+
+    def test_call_prohibits_vectorization(self):
+        # think about this
+        py.test.skip("")
+        ops = """
+        [p31, i32, p3, i33, f10, p24, p34, p35, i19, p5, i36, p37, i28, f13, i29, i15]
+        guard_early_exit() [p5,p37,p34,p3,p24,i32,p35,i36,i33,f10,p31,i19]
+        f38 = raw_load(i28, i33, descr=floatarraydescr)
+        guard_not_invalidated()[p5,p37,p34,p3,p24,f38,i32,p35,i36,i33,None,p31,i19]
+        i39 = int_add(i33, 8) 
+        f40 = float_mul(f38, 0.0)
+        i41 = float_eq(f40, f40)
+        guard_true(i41) [p5,p37,p34,p3,p24,f13,f38,i39,i32,p35,i36,None,None,p31,i19]
+        f42 = call(111, f38, f13, descr=writeadescr)
+        i43 = call(222, 333, descr=writeadescr)
+        f44 = float_mul(f42, 0.0)
+        i45 = float_eq(f44, f44)
+        guard_true(i45) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
+        i46 = int_is_true(i43)
+        guard_false(i46) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
+        raw_store(i29, i36, f42, descr=floatarraydescr)
+        i47 = int_add(i19, 1)
+        i48 = int_add(i36, 8)
+        i49 = int_ge(i47, i15)
+        guard_false(i49) [p5,p37,p34,p3,p24,i47,f38,i48,i39,i32,p35,None,None,None,p31,None]
+        jump(p31, i32, p3, i39, f38, p24, p34, p35, i47, p5, i48, p37, i28, f13, i29, i15)
+        """
+        try:
+            vopt = self.vectorize(self.parse_loop(ops))
+            self.debug_print_operations(vopt.loop)
+            py.test.fail("this loop should not be vectorized")
+        except NotAVectorizeableLoop:
+            pass
+
+    def test_reduction_basic(self):
+        trace = """
+        [p0, p1, p2, p3, p4]
+        label(p5, i6, p2, i7, p1, p8, i9, i10, f11, i12, i13, i14)
+        guard_early_exit() [p2, p1, p5, f11, i9, i6, i10, i7, p8]
+        f15 = raw_load(i12, i10, descr=floatarraydescr)
+        guard_not_invalidated() [p2, p1, f15, p5, f11, i9, i6, i10, i7, p8]
+        f16 = float_add(f11, f15)
+        raw_store(i13, i7, f16, descr=floatarraydescr)
+        i18 = int_add(i7, 8)
+        i20 = int_add(i9, 1)
+        i22 = int_add(i10, 8)
+        i23 = int_ge(i20, i14)
+        guard_false(i23) [p2, p1, i20, i18, f16, i22, p5, None, None, i6, None, None, p8]
+        jump(p5, i6, p2, i18, p1, p8, i20, i22, f16, i12, i13, i14)
+        """
+        pass # TODO
+        trace = """
+        # Loop unroll (pre vectorize) : -2 with 23 ops
+[i0, i1, p2, p3, p4, p5, p6, p7, p8, p9]
+label(i1, p2, p3, p10, i11, p7, i12, p6, p8, p13, i14, i15, i16, i17, i18, i19, i20, i21, i22, i23, descr=TargetToken(140567134602960))
+debug_merge_point(0, 0, '(numpy_axis_reduce: no get_printable_location)')
+guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7fd857537510>) [i1, p8, p7, p6, p3, p2, p10, p13, i12, i14, i15, i11]
+f24 = raw_load(i16, i15, descr=<ArrayF 8>)
+guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7fd857563a90>) [i1, p8, p7, p6, p3, p2, f24, p10, p13, i12, i14, i15, i11]
+i26 = int_add(i15, 8)
+i27 = getarrayitem_gc(p10, i1, descr=<ArrayS 8>)
+i28 = int_is_zero(i27)
+guard_false(i28, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fd85753f550>) [i1, p8, p7, p6, p3, p2, f24, i26, p10, p13, i12, i14, None, i11]
+f30 = raw_load(i17, i12, descr=<ArrayF 8>)
+f31 = float_add(f30, f24)
+raw_store(i18, i12, f31, descr=<ArrayF 8>)
+i33 = int_add(i11, 1)
+i34 = getarrayitem_gc(p10, i19, descr=<ArrayS 8>)
+i35 = int_lt(i34, i20)
+guard_true(i35, descr=<rpython.jit.metainterp.compile.ResumeGuardTrueDescr object at 0x7fd857537290>) [i1, p8, p7, p6, p3, p2, i21, i34, i12, i33, i19, p10, f31, None, i26, None, p13, None, i14, None, i11]
+i37 = int_add(i34, 1)
+setarrayitem_gc(p10, i19, i37, descr=<ArrayS 8>)
+i38 = int_add(i12, i22)
+i39 = int_ge(i33, i23)
+guard_false(i39, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fd8575487d0>) [i1, p8, p7, p6, p3, p2, i38, i33, None, None, i26, p10, p13, None, i14, None, None]
+debug_merge_point(0, 0, '(numpy_axis_reduce: no get_printable_location)')
+jump(i1, p2, p3, p10, i33, p7, i38, p6, p8, p13, i14, i26, i16, i17, i18, i19, i20, i21, i22, i23, descr=TargetToken(140567134602960))
+        """
+        trace = """ # fail fail RuntimeError('guard_true/false has no operation that returns the bool for the arg 0',)
+        # Loop unroll (pre vectorize) : -2 with 14 ops
+        [p0, p1, p2]
+        label(p3, i4, p2, i5, i6, i7, descr=TargetToken(140567130056592))
+        debug_merge_point(0, 0, '(numpy_reduce: no get_printable_location)')
+        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7fd855dc6bd0>) [p2, p3, i4, i5]
+        f8 = raw_load(i6, i5, descr=<ArrayF 8>)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7fd855dbcad0>) [p2, f8, p3, i4, i5]
+        i9 = cast_float_to_int(f8)
+        i11 = int_and(i9, 255)
+        guard_false(i11, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fd855dca390>) [p2, p3, i4, i5]
+        i13 = int_add(i4, 1)
+        i15 = int_add(i5, 8)
+        i16 = int_ge(i13, i7)
+        guard_false(i16, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fd8560c6150>) [p2, i13, i15, p3, None, None]
+        debug_merge_point(0, 0, '(numpy_reduce: no get_printable_location)')
+        jump(p3, i13, p2, i15, i6, i7, descr=TargetToken(140567130056592))
+        """
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

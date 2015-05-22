@@ -5,7 +5,8 @@ from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt, BoxInt, Box, Const, BoxFloat
+from rpython.jit.metainterp.history import (BoxPtr, ConstPtr, ConstInt, BoxInt,
+    Box, Const, BoxFloat, AbstractValue)
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
@@ -53,8 +54,7 @@ class Path(object):
             count -= 1
         while i < count: 
             op = self.path[i].getoperation()
-            if not op.has_no_side_effect() \
-               and op.getopnum() != rop.GUARD_EARLY_EXIT:
+            if op.getopnum() != rop.GUARD_EARLY_EXIT and not op.is_always_pure():
                 return False
             i += 1
         return True
@@ -131,7 +131,7 @@ class Node(object):
 
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
-            print "debug: tried to put edge from: ", self.op, "to:", to.op
+            #debug_print "debug: tried to put edge from: ", self.op, "to:", to.op
             return
         dep = self.depends_on(to)
         if not dep:
@@ -568,8 +568,12 @@ class DependencyGraph(object):
                             self.guard_exit_dependence(guard_node, arg, tracker)
                     break
             else:
-                raise RuntimeError("guard_true/false has no operation that " \
-                                   "returns the bool for the arg 0")
+                # in this case the guard protects an integer
+                # example:
+                # i = int_and(j, 255)
+                # guard_true(i) [...]
+                pass
+
         elif guard_op.is_foldable_guard():
             # these guards carry their protected variables directly as a parameter
             for arg in guard_node.getoperation().getarglist():
@@ -906,7 +910,10 @@ class CompareOperation(object):
     def adapt_operation(self, op):
         pass
 
-class IndexVar(object):
+class IndexVar(AbstractValue):
+    """ IndexVar is an AbstractValue only to ensure that a box can be assigned
+        to the same variable as an index var.
+    """
     def __init__(self, var):
         self.var = var
         self.coefficient_mul = 1
@@ -978,20 +985,26 @@ class IndexVar(object):
         othercoeff = other.coefficient_mul // other.coefficient_div
         return mycoeff + self.constant - (othercoeff + other.constant)
 
-    def emit_operations(self, opt):
+    def emit_operations(self, opt, result_box=None):
         box = self.var
+        last_op = None
         if self.coefficient_mul != 1:
             box_result = box.clonebox()
-            opt.emit_operation(ResOperation(rop.INT_MUL, [box, ConstInt(self.coefficient_mul)], box_result))
+            last_op = ResOperation(rop.INT_MUL, [box, ConstInt(self.coefficient_mul)], box_result)
+            opt.emit_operation(last_op)
             box = box_result
         if self.coefficient_div != 1:
             box_result = box.clonebox()
-            opt.emit_operation(ResOperation(rop.INT_FLOORDIV, [box, ConstInt(self.coefficient_div)], box_result))
+            last_op = ResOperation(rop.INT_FLOORDIV, [box, ConstInt(self.coefficient_div)], box_result)
+            opt.emit_operation(last_op)
             box = box_result
         if self.constant != 0:
             box_result = box.clonebox()
-            opt.emit_operation(ResOperation(rop.INT_ADD, [box, ConstInt(self.constant)], box_result))
+            last_op = ResOperation(rop.INT_ADD, [box, ConstInt(self.constant)], box_result)
+            opt.emit_operation(last_op)
             box = box_result
+        if result_box is not None:
+            last_op.result = box = result_box
         return box
 
     def compare(self, other):

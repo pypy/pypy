@@ -2523,28 +2523,37 @@ class Assembler386(BaseAssembler):
             raise NotImplementedError("did not implement integer mul")
 
     def genop_vec_int_add(self, op, arglocs, resloc):
-        loc0, loc1, itemsize_loc = arglocs
-        itemsize = itemsize_loc.value
-        if itemsize == 1:
+        loc0, loc1, size_loc = arglocs
+        size = size_loc.value
+        if size == 1:
             self.mc.PADDB(loc0, loc1)
-        elif itemsize == 2:
+        elif size == 2:
             self.mc.PADDW(loc0, loc1)
-        elif itemsize == 4:
+        elif size == 4:
             self.mc.PADDD(loc0, loc1)
-        elif itemsize == 8:
+        elif size == 8:
             self.mc.PADDQ(loc0, loc1)
 
     def genop_vec_int_sub(self, op, arglocs, resloc):
-        loc0, loc1, itemsize_loc = arglocs
-        itemsize = itemsize_loc.value
-        if itemsize == 1:
+        loc0, loc1, size_loc = arglocs
+        size = size_loc.value
+        if size == 1:
             self.mc.PSUBB(loc0, loc1)
-        elif itemsize == 2:
+        elif size == 2:
             self.mc.PSUBW(loc0, loc1)
-        elif itemsize == 4:
+        elif size == 4:
             self.mc.PSUBD(loc0, loc1)
-        elif itemsize == 8:
+        elif size == 8:
             self.mc.PSUBQ(loc0, loc1)
+
+    def genop_vec_int_and(self, op, arglocs, resloc):
+        self.mc.PAND(resloc, arglocs[0])
+
+    def genop_vec_int_or(self, op, arglocs, resloc):
+        self.mc.POR(resloc, arglocs[0])
+
+    def genop_vec_int_xor(self, op, arglocs, resloc):
+        self.mc.PXOR(resloc, arglocs[0])
 
     genop_vec_float_arith = """
     def genop_vec_float_{type}(self, op, arglocs, resloc):
