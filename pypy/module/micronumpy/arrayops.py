@@ -137,19 +137,8 @@ def concatenate(space, w_args, w_axis=None):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "all the input array dimensions except for the "
                     "concatenation axis must match exactly"))
-        a_dt = arr.get_dtype()
-        if dtype.is_record() and a_dt.is_record():
-            # Record types must match
-            for f in dtype.fields:
-                if f not in a_dt.fields or \
-                             dtype.fields[f] != a_dt.fields[f]:
-                    raise OperationError(space.w_TypeError,
-                               space.wrap("invalid type promotion"))
-        elif dtype.is_record() or a_dt.is_record():
-            raise OperationError(space.w_TypeError,
-                        space.wrap("invalid type promotion"))
-        dtype = find_binop_result_dtype(space, dtype,
-                                                      arr.get_dtype())
+
+    dtype = find_result_type(space, args_w, [])
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
     res = W_NDimArray.from_shape(space, shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
