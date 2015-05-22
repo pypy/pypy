@@ -322,7 +322,3 @@ def scalar2dtype(space, w_obj):
     elif space.isinstance_w(w_obj, space.w_str):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     return object_dtype
-
-def find_dtype_for_scalar(space, w_obj, current_guess=None):
-    dtype = scalar2dtype(space, w_obj)
-    return find_binop_result_dtype(space, dtype, current_guess)
