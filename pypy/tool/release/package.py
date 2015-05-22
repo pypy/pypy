@@ -54,11 +54,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
     modules = ['_sqlite3_build.py', '_audioop_build.py']
-    env = os.environ.copy()
-    if sys.platform == 'win32':
-        # obscure. Add the location of pypy_c so Python27.lib can be found
-        env['LIB'] = env.get('LIB', '') + ';' + str(pypy_c.dirpath())
-    else:
+    if not sys.platform == 'win32':
         modules += ['_curses_build.py', '_syslog_build.py', '_gdbm_build.py',
                     '_pwdgrp_build.py']
     if not options.no_tk:
@@ -72,7 +68,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
             cwd = None
         print >> sys.stderr, '*', ' '.join(args)
         try:
-            subprocess.check_call(args, cwd=cwd, env=env)
+            subprocess.check_call(args, cwd=cwd)
         except subprocess.CalledProcessError:
             print >>sys.stderr, """Building {0} bindings failed.
 You can either install development headers package or
