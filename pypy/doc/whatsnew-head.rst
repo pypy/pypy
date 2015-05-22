@@ -117,4 +117,12 @@ Finish implementation of ndarray.flags, including str() and repr()
 
 .. branch: cffi-1.0
 
+branch cffi-1.0
 PyPy now includes CFFI 1.0.
+
+.. branch: pypyw
+
+branch pypyw
+PyPy on windows provides a non-console pypyw.exe as well as pypy.exe.
+Similar to pythonw.exe, any use of stdout, stderr without redirection
+will crash.

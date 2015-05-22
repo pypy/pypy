@@ -293,7 +293,7 @@ class CStandaloneBuilder(CBuilder):
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def cmdexec(self, args='', env=None, err=False, expect_crash=False):
+    def cmdexec(self, args='', env=None, err=False, expect_crash=False, exe=None):
         assert self._compiled
         if sys.platform == 'win32':
             #Prevent opening a dialog box
@@ -314,9 +314,10 @@ class CStandaloneBuilder(CBuilder):
             envrepr = ''
         else:
             envrepr = ' [env=%r]' % (env,)
-        log.cmdexec('%s %s%s' % (self.executable_name, args, envrepr))
-        res = self.translator.platform.execute(self.executable_name, args,
-                                               env=env)
+        if exe is None:
+            exe = self.executable_name
+        log.cmdexec('%s %s%s' % (exe, args, envrepr))
+        res = self.translator.platform.execute(exe, args, env=env)
         if sys.platform == 'win32':
             SetErrorMode(old_mode)
         if res.returncode != 0:

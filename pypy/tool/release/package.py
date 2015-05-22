@@ -142,6 +142,12 @@ def create_package(basedir, options):
     pypydir.ensure('include', dir=True)
 
     if sys.platform == 'win32':
+        src,tgt = binaries[0]
+        pypyw = src.new(purebasename=src.purebasename + 'w')
+        if pypyw.exists():
+            tgt = py.path.local(tgt)
+            binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename))
+            print "Picking %s" % str(pypyw)
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
         win_extras = ['libpypy-c.dll', 'sqlite3.dll']
         if not options.no_tk:
