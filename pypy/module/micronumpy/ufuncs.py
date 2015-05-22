@@ -510,8 +510,7 @@ class W_Ufunc1(W_Ufunc):
 
         else:
             raise oefmt(space.w_TypeError,
-                "No loop matching the specified signature was found "
-                "for ufunc %s", self.name)
+                "ufunc '%s' not supported for the input types", self.name)
 
     def allowed_types(self, space):
         dtypes = []
@@ -716,8 +715,7 @@ class W_Ufunc2(W_Ufunc):
 
         else:
             raise oefmt(space.w_TypeError,
-                "No loop matching the specified signature was found "
-                "for ufunc %s", self.name)
+                "ufunc '%s' not supported for the input types", self.name)
 
     def allowed_types(self, space):
         dtypes = []
