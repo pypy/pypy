@@ -201,7 +201,7 @@ def can_cast_scalar(space, from_type, value, target, casting):
     return can_cast_type(space, dtype, target, casting)
 
 def as_scalar(space, w_obj):
-    dtype = find_dtype_for_scalar(space, w_obj)
+    dtype = scalar2dtype(space, w_obj)
     return dtype.coerce(space, w_obj)
 
 def min_scalar_type(space, w_a):
@@ -289,8 +289,7 @@ def _promote_types_su(space, dt1, dt2, su1, su2):
         su = su1 and (su2 or not dt2.is_signed())
     return _promote_types(space, dt1, dt2), su
 
-
-def find_dtype_for_scalar(space, w_obj, current_guess=None):
+def scalar2dtype(space, w_obj):
     from .boxes import W_GenericBox
     bool_dtype = get_dtype_cache(space).w_booldtype
     long_dtype = get_dtype_cache(space).w_longdtype
@@ -300,34 +299,30 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     float_dtype = get_dtype_cache(space).w_float64dtype
     object_dtype = get_dtype_cache(space).w_objectdtype
     if isinstance(w_obj, W_GenericBox):
-        dtype = w_obj.get_dtype(space)
-        return find_binop_result_dtype(space, dtype, current_guess)
+        return w_obj.get_dtype(space)
 
     if space.isinstance_w(w_obj, space.w_bool):
-        return find_binop_result_dtype(space, bool_dtype, current_guess)
+        return bool_dtype
     elif space.isinstance_w(w_obj, space.w_int):
-        return find_binop_result_dtype(space, long_dtype, current_guess)
+        return long_dtype
     elif space.isinstance_w(w_obj, space.w_long):
         try:
             space.int_w(w_obj)
         except OperationError, e:
             if e.match(space, space.w_OverflowError):
                 if space.is_true(space.le(w_obj, space.wrap(0))):
-                    return find_binop_result_dtype(space, int64_dtype,
-                                               current_guess)
-                return find_binop_result_dtype(space, uint64_dtype,
-                                               current_guess)
+                    return int64_dtype
+                return uint64_dtype
             raise
-        return find_binop_result_dtype(space, int64_dtype, current_guess)
+        return int64_dtype
     elif space.isinstance_w(w_obj, space.w_float):
-        return find_binop_result_dtype(space, float_dtype, current_guess)
+        return float_dtype
     elif space.isinstance_w(w_obj, space.w_complex):
         return complex_dtype
     elif space.isinstance_w(w_obj, space.w_str):
-        if current_guess is None:
-            return variable_dtype(space, 'S%d' % space.len_w(w_obj))
-        elif current_guess.num == NPY.STRING:
-            if current_guess.elsize < space.len_w(w_obj):
-                return variable_dtype(space, 'S%d' % space.len_w(w_obj))
-        return current_guess
+        return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     return object_dtype
+
+def find_dtype_for_scalar(space, w_obj, current_guess=None):
+    dtype = scalar2dtype(space, w_obj)
+    return find_binop_result_dtype(space, dtype, current_guess)

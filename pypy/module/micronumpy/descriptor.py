@@ -1021,15 +1021,14 @@ def num2dtype(space, num):
     return get_dtype_cache(space).dtypes_by_num[num]
 
 def as_dtype(space, w_arg, allow_None=True):
-    from pypy.module.micronumpy.casting import find_dtype_for_scalar
+    from pypy.module.micronumpy.casting import scalar2dtype
     # roughly equivalent to CNumPy's PyArray_DescrConverter2
     if not allow_None and space.is_none(w_arg):
         raise TypeError("Cannot create dtype from None here")
     if isinstance(w_arg, W_NDimArray):
         return w_arg.get_dtype()
     elif is_scalar_w(space, w_arg):
-        result = find_dtype_for_scalar(space, w_arg)
-        assert result is not None  # XXX: not guaranteed
+        result = scalar2dtype(space, w_arg)
         return result
     else:
         return space.interp_w(W_Dtype,
