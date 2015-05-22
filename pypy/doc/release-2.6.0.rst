@@ -67,13 +67,13 @@ Highlights
 
 * Improved object pinning in the garbage collector
 
-* Support for numpy's ```object``` dtype via a garbage collector hook
+* Support for numpy's ``object`` dtype via a garbage collector hook
 
 * Support for numpy.can_cast and numpy.min_scalar_type as well as beginning
   a refactoring of the internal casting rules in numpy
 
 * Better support for numpy subtypes, via the __array_interface__,
-   __array_priority__, and __array_wrap__ methods (still a work-in-progress)
+  __array_priority__, and __array_wrap__ methods (still a work-in-progress)
 
 * Better support for numpy ndarray.flags
 
@@ -98,7 +98,7 @@ Highlights
   #pypy.
 
 .. _`vmprof2`: https://vmprof.readthedocs.org
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.1.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.0.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!
@@ -107,5 +107,5 @@ Cheers
 
 The PyPy Team
 
-.. _`experiments`: http://morepypy.blogspot.com/2015/02/experiments-in-pyrlang-with-rpython.html
+.. _`experiments`: https://morepypy.blogspot.com/2015/02/experiments-in-pyrlang-with-rpython.html
 .. _`benchmarks`: https://mithrandi.net/blog/2015/03/axiom-benchmark-results-on-pypy-2-5-0
