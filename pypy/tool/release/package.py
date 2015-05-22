@@ -50,16 +50,23 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 
+cffi_build_scripts = {
+    "sqlite3": "_sqlite3_build.py",
+    "audioop": "_audioop_build.py",
+    "tk": "_tkinter/tklib_build.py",
+    "curses": "_curses_build.py" if sys.platform != "win32" else None,
+    "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
+    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
+    "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
+    "xx": None,    # for testing: 'None' should be completely ignored
+    }
+
 def create_cffi_import_libraries(pypy_c, options, basedir):
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
-    modules = ['_sqlite3_build.py', '_audioop_build.py']
-    if not sys.platform == 'win32':
-        modules += ['_curses_build.py', '_syslog_build.py', '_gdbm_build.py',
-                    '_pwdgrp_build.py']
-    if not options.no_tk:
-        modules.append('_tkinter/tklib_build.py')
-    for module in modules:
+    for key, module in sorted(cffi_build_scripts.items()):
+        if module is None or getattr(options, 'no_' + key):
+            continue
         if module.endswith('.py'):
             args = [str(pypy_c), module]
             cwd = str(basedir.join('lib_pypy'))
@@ -70,9 +77,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
         try:
             subprocess.check_call(args, cwd=cwd)
         except subprocess.CalledProcessError:
-            print >>sys.stderr, """Building {0} bindings failed.
+            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
 You can either install development headers package or
-add --without-{0} option to skip packaging binary CFFI extension.""".format(module)
+add --without-{0} option to skip packaging this binary CFFI extension.""".format(key)
             raise MissingDependenciesError(module)
 
 def pypy_runs(pypy_c, quiet=False):
@@ -109,8 +116,7 @@ def create_package(basedir, options):
         try:
             create_cffi_import_libraries(pypy_c, options, basedir)
         except MissingDependenciesError:
-            # This is a non-fatal error
-            retval = -1
+            return 1, None
 
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
@@ -280,11 +286,18 @@ def package(*args):
         pypy_exe = 'pypy'
     parser = argparse.ArgumentParser()
     args = list(args)
-    args[0] = str(args[0])
-    parser.add_argument('--without-tk', dest='no_tk', action='store_true',
-        help='build and package the cffi tkinter module')
+    if args:
+        args[0] = str(args[0])
+    else:
+        args.append('--help')
+    for key, module in sorted(cffi_build_scripts.items()):
+        if module is not None:
+            parser.add_argument('--without-' + key,
+                    dest='no_' + key,
+                    action='store_true',
+                    help='do not build and package the %r cffi module' % (key,))
     parser.add_argument('--without-cffi', dest='no_cffi', action='store_true',
-        help='do not pre-import any cffi modules')
+        help='skip building *all* the cffi modules listed above')
     parser.add_argument('--nostrip', dest='nostrip', action='store_true',
         help='do not strip the exe, making it ~10MB larger')
     parser.add_argument('--rename_pypy_c', dest='pypy_c', type=str, default=pypy_exe,
