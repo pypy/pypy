@@ -126,3 +126,8 @@ branch pypyw
 PyPy on windows provides a non-console pypyw.exe as well as pypy.exe.
 Similar to pythonw.exe, any use of stdout, stderr without redirection
 will crash.
+
+.. branch: fold-arith-ops
+
+branch fold-arith-ops
+remove multiple adds on add chains ("1 + 1 + 1 + ...")

@@ -1,5 +1,5 @@
 
-/* See doc/parse_c_type.rst in the source of CFFI for more information */
+/* See doc/misc/parse_c_type.rst in the source of CFFI for more information */
 
 typedef void *_cffi_opcode_t;
 
