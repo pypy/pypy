@@ -118,6 +118,15 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.can_cast(1., np.complex64)
         assert not np.can_cast(1e50, np.complex64)
 
+    def test_can_cast_record(self):
+        import numpy as np
+        rec1 = np.dtype([('x', int), ('y', float)])
+        rec2 = np.dtype([('x', float), ('y', float)])
+        rec3 = np.dtype([('y', np.float64), ('x', float)])
+        assert not np.can_cast(rec1, rec2, 'equiv')
+        assert np.can_cast(rec2, rec3, 'equiv')
+        assert np.can_cast(rec1, rec2)
+
     def test_min_scalar_type(self):
         import numpy as np
         assert np.min_scalar_type(2**8 - 1) == np.dtype('uint8')

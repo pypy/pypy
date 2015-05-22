@@ -141,6 +141,11 @@ kind_ordering = {
 
 def can_cast_type(space, origin, target, casting):
     # equivalent to PyArray_CanCastTypeTo
+    if origin == target:
+        return True
+    if origin.is_record() or target.is_record():
+        return can_cast_record(space, origin, target, casting)
+
     if casting == 'no':
         return origin.eq(space, target)
     elif casting == 'equiv':
@@ -155,6 +160,22 @@ def can_cast_type(space, origin, target, casting):
         return False
     else:  # 'safe'
         return origin.can_cast_to(target)
+
+def can_cast_record(space, origin, target, casting):
+    if origin is target:
+        return True
+    if origin.fields is None or target.fields is None:
+        return False
+    if len(origin.fields) != len(target.fields):
+        return False
+    for name, (offset, orig_field) in origin.fields.iteritems():
+        if name not in target.fields:
+            return False
+        target_field = target.fields[name][1]
+        if not can_cast_type(space, orig_field, target_field, casting):
+            return False
+    return True
+
 
 def can_cast_array(space, w_from, target, casting):
     # equivalent to PyArray_CanCastArrayTo
