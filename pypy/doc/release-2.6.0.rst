@@ -65,43 +65,50 @@ to `handle that`_. We also welcome developers with other operating systems or
 .. _`dynamic languages`: http://pypyjs.org
 
 Highlights 
-==========
+===========
 
-* Improve support for TLS 1.1 and 1.2
+* Python compatibility:
 
-* Improved object pinning in the garbage collector
+  * Improve support for TLS 1.1 and 1.2
 
-* Support for numpy's ``object`` dtype via a garbage collector hook
+  * Windows downloads now package a pypyw.exe in addition to pypy.exe
 
-* Support for numpy.can_cast and numpy.min_scalar_type as well as beginning
-  a refactoring of the internal casting rules in numpy
+  * Support for the PYTHONOPTIMIZE environment variable (impacting builtin's
+    __debug__ property)
 
-* Better support for numpy subtypes, via the __array_interface__,
-  __array_priority__, and __array_wrap__ methods (still a work-in-progress)
+  * Issues reported with our previous release were resolved_ after reports from users on
+    our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
+    #pypy.
 
-* Better support for numpy ndarray.flags
+* New features:
 
-* Windows downloads now package a pypyw.exe in addition to pypy.exe
+  * Add preliminary support for a new lightweight statistical profiler
+    `vmprof`_.
 
-* Add preliminary support for a new lightweight statistical profiler `vmprof2`_,
-  currently disabled until we work out the last JIT issues
+* Numpy:
 
-* Remove debug attributes from frames used in tracing, moving them to a debug
-  object created on demand
+  * Support for numpy's ``object`` dtype via a garbage collector hook
 
-* Internal refactoring and cleanups leading to improved JIT performance
+  * Support for numpy.can_cast and numpy.min_scalar_type as well as beginning
+    a refactoring of the internal casting rules in numpy
 
-* Support for the PYTHONOPTIMIZE environment variable (impacting builtin's
-  __debug__ property)
+  * Better support for numpy subtypes, via the __array_interface__,
+    __array_priority__, and __array_wrap__ methods (still a work-in-progress)
 
-* We continue to improve the JIT's optimizations. Our benchmark suite is now
-  over 7 times faster than cpython
+  * Better support for numpy ndarray.flags
 
-* Issues reported with our previous release were resolved_ after reports from users on
-  our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
-  #pypy.
+* Performance improvements:
 
-.. _`vmprof2`: https://vmprof.readthedocs.org
+  * Slight improvement in frame sizes, improving some benchmarks
+
+  * Internal refactoring and cleanups leading to improved JIT performance
+
+  * Improved IO performance of ``zlib`` and ``bz2`` modules
+
+  * We continue to improve the JIT's optimizations. Our benchmark suite is now
+    over 7 times faster than cpython
+
+.. _`vmprof`: https://vmprof.readthedocs.org
 .. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.0.html
 
 Please try it out and let us know what you think. We welcome
