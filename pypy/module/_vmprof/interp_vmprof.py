@@ -27,7 +27,7 @@ eci_kwds = dict(
     include_dirs = [SRC],
     includes = ['vmprof.h', 'trampoline.h'],
     separate_module_files = [SRC.join('trampoline.asmgcc.s')],
-    libraries = ['unwind'],
+    libraries = ['dl'],
     
     post_include_bits=["""
         void pypy_vmprof_init(void);
@@ -73,6 +73,9 @@ vmprof_enable = rffi.llexternal("vmprof_enable",
 vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
                                  compilation_info=eci,
                                 save_err=rffi.RFFI_SAVE_ERRNO)
+vmprof_get_error = rffi.llexternal("vmprof_get_error", [], rffi.CCHARP,
+                                   compilation_info=eci,
+                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
 vmprof_register_virtual_function = rffi.llexternal(
     "vmprof_register_virtual_function",
