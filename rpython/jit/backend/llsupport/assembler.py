@@ -6,7 +6,7 @@ from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
-from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
+from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
@@ -120,9 +120,7 @@ class BaseAssembler(object):
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
+            self.set_debug(have_debug_prints_for('jit-backend-counts'))
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
                                               flavor='raw',
