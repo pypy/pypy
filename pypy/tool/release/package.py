@@ -78,8 +78,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
             subprocess.check_call(args, cwd=cwd)
         except subprocess.CalledProcessError:
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
-You can either install development headers package or
-add --without-{0} option to skip packaging this binary CFFI extension.""".format(key)
+You can either install development headers package,
+add the --without-{0} option to skip packaging this
+binary CFFI extension, or say --without-cffi.""".format(key)
             raise MissingDependenciesError(module)
 
 def pypy_runs(pypy_c, quiet=False):
@@ -121,18 +122,17 @@ def create_package(basedir, options):
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
-    libpypy_name = 'libpypy-c.so' if not sys.platform.startswith('darwin') else 'libpypy-c.dylib'
-    libpypy_c = pypy_c.new(basename=libpypy_name)
-    if libpypy_c.check():
-        # check that this libpypy_c is really needed
-        os.rename(str(libpypy_c), str(libpypy_c) + '~')
-        try:
-            if pypy_runs(pypy_c, quiet=True):
-                raise Exception("It seems that %r runs without needing %r.  "
-                                "Please check and remove the latter" %
-                                (str(pypy_c), str(libpypy_c)))
-        finally:
-            os.rename(str(libpypy_c) + '~', str(libpypy_c))
+
+    if (sys.platform != 'win32' and    # handled below
+        os.path.getsize(str(pypy_c)) < 500000):
+        # This pypy-c is very small, so it means it relies on libpypy_c.so.
+        # If it would be bigger, it wouldn't.  That's a hack.
+        libpypy_name = ('libpypy-c.so' if not sys.platform.startswith('darwin')
+                                       else 'libpypy-c.dylib')
+        libpypy_c = pypy_c.new(basename=libpypy_name)
+        if not libpypy_c.check():
+            raise PyPyCNotFound('Expected pypy to be mostly in %r, but did '
+                                'not find it' % (str(libpypy_c),))
         binaries.append((libpypy_c, libpypy_name))
     #
     builddir = options.builddir
@@ -192,7 +192,9 @@ tk85.dll and tcl85.dll found, expecting to find runtime in ..\\lib
 directory next to the dlls, as per build instructions."""
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
-        
+
+    print '* Binaries:', [source.relto(str(basedir))
+                          for source, target in binaries]
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
