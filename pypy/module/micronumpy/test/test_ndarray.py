@@ -1084,6 +1084,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a * a
         for i in range(5):
             assert b[i] == i * i
+        assert a.dtype.num == b.dtype.num
         assert b.dtype is a.dtype
 
         a = numpy.array(range(5), dtype=bool)
