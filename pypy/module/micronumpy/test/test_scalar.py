@@ -3,6 +3,30 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
+    def test_integer_types(self):
+        import numpy as np
+        _32BIT = np.dtype('int').itemsize == 4
+        if _32BIT:
+            assert np.int32 is np.dtype('l').type
+            assert np.uint32 is np.dtype('L').type
+            assert np.intp is np.dtype('i').type
+            assert np.uintp is np.dtype('I').type
+            assert np.int64 is np.dtype('q').type
+            assert np.uint64 is np.dtype('Q').type
+        else:
+            assert np.int32 is np.dtype('i').type
+            assert np.uint32 is np.dtype('I').type
+            assert np.intp is np.dtype('l').type
+            assert np.uintp is np.dtype('L').type
+            assert np.int64 is np.dtype('l').type
+            assert np.uint64 is np.dtype('L').type
+        assert np.int_ is np.dtype('l').type
+        assert np.uint is np.dtype('L').type
+        assert np.dtype('intp') == np.dtype('int')
+        assert np.dtype('uintp') == np.dtype('uint')
+        assert np.dtype('i') is not np.dtype('l') is not np.dtype('q')
+        assert np.dtype('I') is not np.dtype('L') is not np.dtype('Q')
+
     def test_init(self):
         import numpy as np
         import math
