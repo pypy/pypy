@@ -950,7 +950,7 @@ class DtypeCache(object):
             intp_dtype = self.w_longdtype
             uintp_dtype = self.w_ulongdtype
         self.dtypes_by_name['p'] = self.dtypes_by_name['intp'] = intp_dtype
-        self.dtypes_by_name['p'] = self.dtypes_by_name['uintp'] = uintp_dtype
+        self.dtypes_by_name['P'] = self.dtypes_by_name['uintp'] = uintp_dtype
 
         typeinfo_full = {
             'LONGLONG': self.w_int64dtype,
