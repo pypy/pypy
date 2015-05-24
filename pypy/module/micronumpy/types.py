@@ -390,7 +390,7 @@ class Bool(BaseType, Primitive):
     def to_builtin_type(self, space, w_item):
         return space.wrap(self.unbox(w_item))
 
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         return "True" if self.unbox(box) else "False"
 
     @staticmethod
@@ -456,7 +456,7 @@ class Integer(Primitive):
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
 
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         return str(self.for_computation(self.unbox(box)))
 
     @staticmethod
@@ -730,7 +730,7 @@ class Float(Primitive):
             return self.box(rfloat.NAN)
         return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         return float2string(self.for_computation(self.unbox(box)), "g",
                             rfloat.DTSF_STR_PRECISION)
 
@@ -1136,7 +1136,7 @@ class ComplexFloating(object):
         w_obj.__init__(w_tmpobj.real, w_tmpobj.imag)
         return w_obj
 
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         real, imag = self.for_computation(self.unbox(box))
         imag_str = str_format(imag)
         if not rfloat.isfinite(imag):
@@ -1866,7 +1866,7 @@ class ObjectType(Primitive, BaseType):
         w_obj = self.space.newcomplex(real, imag)
         return self.BoxType(w_obj)
 
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         return self.space.str_w(self.space.repr(self.unbox(box)))
 
     def runpack_str(self, space, s):
@@ -2126,11 +2126,13 @@ class StringType(FlexibleType):
             dtype = arr.dtype
         return boxes.W_StringBox(arr, i + offset, dtype)
 
-    def str_format(self, item):
+    def str_format(self, item, add_quotes=True):
         builder = StringBuilder()
-        builder.append("'")
+        if add_quotes:
+            builder.append("'")
         builder.append(self.to_str(item))
-        builder.append("'")
+        if add_quotes:
+            builder.append("'")
         return builder.build()
 
     # XXX move the rest of this to base class when UnicodeType is supported
@@ -2213,7 +2215,7 @@ class UnicodeType(FlexibleType):
     def read(self, arr, i, offset, dtype=None):
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
-    def str_format(self, item):
+    def str_format(self, item, add_quotes=True):
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
     def to_builtin_type(self, space, box):
@@ -2318,7 +2320,7 @@ class VoidType(FlexibleType):
         return boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         assert isinstance(box, boxes.W_VoidBox)
         arr = self.readarray(box.arr, box.ofs, 0, box.dtype)
         return arr.dump_data(prefix='', suffix='')
@@ -2429,7 +2431,7 @@ class RecordType(FlexibleType):
         return space.newtuple(items)
 
     @jit.unroll_safe
-    def str_format(self, box):
+    def str_format(self, box, add_quotes=True):
         assert isinstance(box, boxes.W_VoidBox)
         pieces = ["("]
         first = True
@@ -2441,7 +2443,7 @@ class RecordType(FlexibleType):
             else:
                 pieces.append(", ")
             val = tp.read(box.arr, box.ofs, ofs, subdtype)
-            pieces.append(tp.str_format(val))
+            pieces.append(tp.str_format(val, add_quotes=add_quotes))
         pieces.append(")")
         return "".join(pieces)
 

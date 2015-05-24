@@ -16,26 +16,47 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypeStructOrUnion(W_CType):
-    _immutable_fields_ = ['alignment?', 'fields_list?[*]', 'fields_dict?',
-                          'custom_field_pos?', 'with_var_array?']
+    _immutable_fields_ = ['alignment?', '_fields_list?[*]', '_fields_dict?',
+                          '_custom_field_pos?', '_with_var_array?']
+
+    # three possible states:
+    # - "opaque": for opaque C structs; self.size < 0.
+    # - "lazy": for non-opaque C structs whose _fields_list, _fields_dict,
+    #       _custom_field_pos and _with_var_array are not filled yet; can be
+    #       filled by calling force_lazy_struct().
+    #       (But self.size and .alignment are already set and won't change.)
+    # - "forced": for non-opaque C structs which are fully ready.
+
     # fields added by complete_struct_or_union():
     alignment = -1
-    fields_list = None
-    fields_dict = None
-    custom_field_pos = False
-    with_var_array = False
+    _fields_list = None
+    _fields_dict = None
+    _custom_field_pos = False
+    _with_var_array = False
 
     def __init__(self, space, name):
         W_CType.__init__(self, space, -1, name, len(name))
 
     def check_complete(self, w_errorcls=None):
-        if self.fields_dict is None:
+        # Check ONLY that are are not opaque.  Complain if we are.
+        if self.size < 0:
             space = self.space
             raise oefmt(w_errorcls or space.w_TypeError,
                         "'%s' is opaque or not completed yet", self.name)
 
+    def force_lazy_struct(self):
+        # Force a "lazy" struct to become "forced"; complain if we are "opaque".
+        if self._fields_list is None:
+            self.check_complete()
+            #
+            from pypy.module._cffi_backend import realize_c_type
+            realize_c_type.do_realize_lazy_struct(self)
+
     def _alignof(self):
         self.check_complete(w_errorcls=self.space.w_ValueError)
+        if self.alignment == -1:
+            self.force_lazy_struct()
+            assert self.alignment > 0
         return self.alignment
 
     def _fget(self, attrchar):
@@ -43,9 +64,10 @@ class W_CTypeStructOrUnion(W_CType):
             space = self.space
             if self.size < 0:
                 return space.w_None
-            result = [None] * len(self.fields_list)
-            for fname, field in self.fields_dict.iteritems():
-                i = self.fields_list.index(field)
+            self.force_lazy_struct()
+            result = [None] * len(self._fields_list)
+            for fname, field in self._fields_dict.iteritems():
+                i = self._fields_list.index(field)
                 result[i] = space.newtuple([space.wrap(fname),
                                             space.wrap(field)])
             return space.newlist(result)
@@ -65,10 +87,10 @@ class W_CTypeStructOrUnion(W_CType):
         return ob
 
     def typeoffsetof_field(self, fieldname, following):
-        self.check_complete()
+        self.force_lazy_struct()
         space = self.space
         try:
-            cfield = self.fields_dict[fieldname]
+            cfield = self._fields_dict[fieldname]
         except KeyError:
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
         if cfield.bitshift >= 0:
@@ -95,19 +117,20 @@ class W_CTypeStructOrUnion(W_CType):
         lambda self, cdata, w_ob, optvarsize: jit.isvirtual(w_ob)
     )
     def convert_struct_from_object(self, cdata, w_ob, optvarsize):
+        self.force_lazy_struct()
         self._check_only_one_argument_for_union(w_ob)
 
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
             lst_w = space.listview(w_ob)
-            if len(lst_w) > len(self.fields_list):
+            if len(lst_w) > len(self._fields_list):
                 raise oefmt(space.w_ValueError,
                             "too many initializers for '%s' (got %d)",
                             self.name, len(lst_w))
             for i in range(len(lst_w)):
-                optvarsize = self.fields_list[i].write_v(cdata, lst_w[i],
-                                                         optvarsize)
+                optvarsize = self._fields_list[i].write_v(cdata, lst_w[i],
+                                                          optvarsize)
             return optvarsize
 
         elif space.isinstance_w(w_ob, space.w_dict):
@@ -116,7 +139,7 @@ class W_CTypeStructOrUnion(W_CType):
                 w_key = lst_w[i]
                 key = space.str_w(w_key)
                 try:
-                    cf = self.fields_dict[key]
+                    cf = self._fields_dict[key]
                 except KeyError:
                     space.raise_key_error(w_key)
                     assert 0
@@ -133,10 +156,14 @@ class W_CTypeStructOrUnion(W_CType):
 
     @jit.elidable
     def _getcfield_const(self, attr):
-        return self.fields_dict[attr]
+        return self._fields_dict[attr]
 
     def getcfield(self, attr):
-        if self.fields_dict is not None:
+        ready = self._fields_dict is not None
+        if not ready and self.size >= 0:
+            self.force_lazy_struct()
+            ready = True
+        if ready:
             self = jit.promote(self)
             attr = jit.promote_string(attr)
             try:

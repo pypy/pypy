@@ -142,6 +142,24 @@ class W_CType(W_Root):
         raise oefmt(space.w_ValueError, "ctype '%s' is of unknown alignment",
                     self.name)
 
+    def direct_typeoffsetof(self, w_field_or_index, following=0):
+        space = self.space
+        try:
+            fieldname = space.str_w(w_field_or_index)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            try:
+                index = space.int_w(w_field_or_index)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise OperationError(space.w_TypeError,
+                        space.wrap("field name or array index expected"))
+            return self.typeoffsetof_index(index)
+        else:
+            return self.typeoffsetof_field(fieldname, following)
+
     def typeoffsetof_field(self, fieldname, following):
         space = self.space
         msg = "with a field name argument, expected a struct or union ctype"

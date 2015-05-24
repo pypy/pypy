@@ -193,7 +193,7 @@ class W_GenericBox(W_NumpyObject):
                     "'%T' object is not iterable", self)
 
     def descr_str(self, space):
-        return space.wrap(self.get_dtype(space).itemtype.str_format(self))
+        return space.wrap(self.get_dtype(space).itemtype.str_format(self, add_quotes=False))
 
     def descr_format(self, space, w_spec):
         return space.format(self.item(space), w_spec)

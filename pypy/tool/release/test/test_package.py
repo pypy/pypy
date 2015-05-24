@@ -1,7 +1,7 @@
 
 import py
 from pypy.conftest import pypydir
-from pypy.tool.release import package, package
+from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, sys
 
@@ -32,8 +32,9 @@ def test_dir_structure(test='test'):
     else:
         fake_pypy_c = False
     try:
-        retval, builddir = package.package(py.path.local(pypydir).dirpath(), test,
-                                   rename_pypy_c)
+        retval, builddir = package.package(
+            '--without-cffi', str(py.path.local(pypydir).dirpath()),
+            test, rename_pypy_c)
         assert retval == 0
         prefix = builddir.join(test)
         cpyver = '%d.%d' % CPYTHON_VERSION[:2]

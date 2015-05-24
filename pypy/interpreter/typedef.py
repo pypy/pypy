@@ -594,6 +594,19 @@ assert not Member.typedef.acceptable_as_base_class  # no __new__
 
 # ____________________________________________________________
 
+class ClassAttr(W_Root):
+    """For class-level attributes that need to be initialized
+    with some code.  This code is provided as a callback function
+    invoked with the space.
+    """
+    def __init__(self, function):
+        self.function = function
+
+    def __spacebind__(self, space):
+        return self.function(space)
+
+# ____________________________________________________________
+
 def generic_new_descr(W_Type):
     def descr_new(space, w_subtype, __args__):
         self = space.allocate_instance(W_Type, w_subtype)

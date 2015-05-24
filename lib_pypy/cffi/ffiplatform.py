@@ -1,4 +1,4 @@
-import os
+import sys, os
 
 
 class VerificationError(Exception):
@@ -14,7 +14,17 @@ class VerificationMissing(Exception):
 LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
                       'extra_objects', 'depends']
 
+def _hack_at_distutils():
+    # Windows-only workaround for some configurations: see
+    # https://bugs.python.org/issue23246 (Python 2.7.9)
+    if sys.platform == "win32":
+        try:
+            import setuptools    # for side-effects, patches distutils
+        except ImportError:
+            pass
+
 def get_extension(srcfilename, modname, sources=(), **kwds):
+    _hack_at_distutils()   # *before* the following import
     from distutils.core import Extension
     allsources = [srcfilename]
     allsources.extend(sources)
@@ -37,6 +47,7 @@ def compile(tmpdir, ext):
 
 def _build(tmpdir, ext):
     # XXX compact but horrible :-(
+    _hack_at_distutils()
     from distutils.core import Distribution
     import distutils.errors
     #
