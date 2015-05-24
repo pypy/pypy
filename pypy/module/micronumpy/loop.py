@@ -214,9 +214,10 @@ def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
         obj_state = obj_iter.next(obj_state)
     return cur_value
 
-reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
-                                  greens = ['shapelen', 'func', 'dtype'],
-                                  reds = 'auto')
+reduce_cum_driver = jit.JitDriver(
+    name='numpy_reduce_cum_driver',
+    greens=['shapelen', 'func', 'dtype', 'out_dtype'],
+    reds='auto')
 
 def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     obj_iter, obj_state = obj.create_iter()
@@ -230,12 +231,14 @@ def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     else:
         cur_value = identity.convert_to(space, calc_dtype)
     shapelen = len(obj.get_shape())
+    out_dtype = out.get_dtype()
     while not obj_iter.done(obj_state):
-        reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                          dtype=calc_dtype)
+        reduce_cum_driver.jit_merge_point(
+            shapelen=shapelen, func=func,
+            dtype=calc_dtype, out_dtype=out_dtype)
         rval = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         cur_value = func(calc_dtype, cur_value, rval)
-        out_iter.setitem(out_state, cur_value)
+        out_iter.setitem(out_state, out_dtype.coerce(space, cur_value))
         out_state = out_iter.next(out_state)
         obj_state = obj_iter.next(obj_state)
 
