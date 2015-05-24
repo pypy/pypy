@@ -20,7 +20,15 @@
 #endif
 
 
-#define TLPREFIX __attribute__((address_space(256)))
+#ifdef __SEG_GS     /* on a custom patched gcc */
+#  define TLPREFIX __seg_gs
+#  define _STM_RM_SUFFIX  :8
+#elif defined(__clang__)   /* on a clang, hopefully made bug-free */
+#  define TLPREFIX __attribute__((address_space(256)))
+#  define _STM_RM_SUFFIX  /* nothing */
+#else
+#  error "needs either a GCC with __seg_gs support, or a bug-freed clang"
+#endif
 
 typedef TLPREFIX struct object_s object_t;
 typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
@@ -34,11 +42,11 @@ struct stm_read_marker_s {
        'STM_SEGMENT->transaction_read_version' if and only if the
        object was read in the current transaction.  The nurseries
        also have corresponding read markers, but they are never used. */
-    uint8_t rm;
+    unsigned char rm _STM_RM_SUFFIX;
 };
 
 struct stm_segment_info_s {
-    uint8_t transaction_read_version;
+    unsigned int transaction_read_version;
     int segment_num;
     char *segment_base;
     stm_char *nursery_current;
@@ -288,6 +296,7 @@ void stm_teardown(void);
 #define STM_PUSH_ROOT(tl, p)   ((tl).shadowstack++->ss = (object_t *)(p))
 #define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))((--(tl).shadowstack)->ss))
 #define STM_POP_ROOT_RET(tl)   ((--(tl).shadowstack)->ss)
+#define STM_POP_ROOT_DROP(tl)  ((void)(--(tl).shadowstack))
 
 
 /* Every thread needs to have a corresponding stm_thread_local_t
@@ -340,8 +349,6 @@ void stm_wait_for_current_inevitable_transaction(void);
    returns: it jumps back to the stm_start_transaction(). */
 void stm_abort_transaction(void) __attribute__((noreturn));
 
-/* Turn the current transaction inevitable.
-   The stm_become_inevitable() itself may still abort. */
 #ifdef STM_NO_AUTOMATIC_SETJMP
 int stm_is_inevitable(void);
 #else
@@ -349,6 +356,10 @@ static inline int stm_is_inevitable(void) {
     return !rewind_jmp_armed(&STM_SEGMENT->running_thread->rjthread);
 }
 #endif
+
+/* Turn the current transaction inevitable.
+   stm_become_inevitable() itself may still abort the transaction instead
+   of returning. */
 static inline void stm_become_inevitable(stm_thread_local_t *tl,
                                          const char* msg) {
     assert(STM_SEGMENT->running_thread == tl);
@@ -504,7 +515,7 @@ int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
 
 #define STM_POP_MARKER(tl)   ({                 \
     object_t *_popped = STM_POP_ROOT_RET(tl);   \
-    STM_POP_ROOT_RET(tl);                       \
+    STM_POP_ROOT_DROP(tl);                      \
     _popped;                                    \
 })
 

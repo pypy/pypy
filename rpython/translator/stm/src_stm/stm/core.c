@@ -45,7 +45,6 @@ static void check_flag_write_barrier(object_t *obj)
 #endif
 }
 
-__attribute__((always_inline))
 static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
 {
     /* An overflow object is an object from the same transaction, but
@@ -79,7 +78,6 @@ static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
     }
 }
 
-__attribute__((always_inline))
 static void write_slowpath_common(object_t *obj, bool mark_card)
 {
     assert(_seems_to_be_running_transaction());
@@ -223,6 +221,7 @@ static void write_slowpath_common(object_t *obj, bool mark_card)
     check_flag_write_barrier(obj);
 }
 
+__attribute__((flatten))
 void _stm_write_slowpath(object_t *obj)
 {
     write_slowpath_common(obj, /*mark_card=*/false);
@@ -241,6 +240,7 @@ static bool obj_should_use_cards(object_t *obj)
     return (size >= _STM_MIN_CARD_OBJ_SIZE);
 }
 
+__attribute__((flatten))
 char _stm_write_slowpath_card_extra(object_t *obj)
 {
     /* the PyPy JIT calls this function directly if it finds that an
