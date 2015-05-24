@@ -863,8 +863,8 @@ class DtypeCache(object):
             NPY.UBYTE:       ['ubyte'],
             NPY.SHORT:       ['short'],
             NPY.USHORT:      ['ushort'],
-            NPY.LONG:        ['int', 'intp', 'p'],
-            NPY.ULONG:       ['uint', 'uintp', 'P'],
+            NPY.LONG:        ['int'],
+            NPY.ULONG:       ['uint'],
             NPY.LONGLONG:    ['longlong'],
             NPY.ULONGLONG:   ['ulonglong'],
             NPY.FLOAT:       ['single'],
@@ -943,6 +943,14 @@ class DtypeCache(object):
             if dtype.num in aliases:
                 for alias in aliases[dtype.num]:
                     self.dtypes_by_name[alias] = dtype
+        if self.w_longdtype.elsize == self.w_int32dtype.elsize:
+            intp_dtype = self.w_int32dtype
+            uintp_dtype = self.w_uint32dtype
+        else:
+            intp_dtype = self.w_longdtype
+            uintp_dtype = self.w_ulongdtype
+        self.dtypes_by_name['p'] = self.dtypes_by_name['intp'] = intp_dtype
+        self.dtypes_by_name['p'] = self.dtypes_by_name['uintp'] = uintp_dtype
 
         typeinfo_full = {
             'LONGLONG': self.w_int64dtype,
