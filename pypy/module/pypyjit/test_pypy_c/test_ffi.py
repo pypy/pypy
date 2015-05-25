@@ -209,7 +209,8 @@ class Test__ffi(BaseTestPyPyC):
 
     def test__cffi_call_c_int(self):
         if sys.platform == 'win32':
-            py.test.skip("XXX re-optimize _ffi for the JIT?")
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
         def main():
             import os
             try:
@@ -251,7 +252,8 @@ class Test__ffi(BaseTestPyPyC):
 
     def test__cffi_call_size_t(self):
         if sys.platform == 'win32':
-            py.test.skip("XXX re-optimize _ffi for the JIT?")
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
         def main():
             import os
             try:
