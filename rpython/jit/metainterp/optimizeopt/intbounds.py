@@ -127,13 +127,13 @@ class OptIntBounds(Optimization):
             r.intersect(b)
 
     def optimize_INT_MUL(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
         self.emit_operation(op)
-        r = self.getvalue(op)
-        b = v1.getintbound().mul_bound(v2.getintbound())
+        r = self.getintbound(op)
+        b = b1.mul_bound(b2)
         if b.bounded():
-            r.getintbound().intersect(b)
+            r.intersect(b)
 
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))

@@ -107,15 +107,16 @@ class OptRewrite(Optimization):
 
     def optimize_INT_SUB(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(arg1)
         arg2 = self.get_box_replacement(op.getarg(1))
-        if arg2.is_constant() and arg2.getint() == 0:
-            xxx
-            self.make_equal_to(op, v1)
-        elif arg1.is_constant() and arg1.getint() == 0:
+        b2 = self.getintbound(arg2)
+        if b2.equal(0):
+            self.make_equal_to(op, arg1)
+        elif b1.equal(0):
             xxx
             op = self.replace_op_with(op, rop.INT_NEG, args=[v2.box])
             self.emit_operation(op)
-        elif arg1 is arg2:
+        elif arg1.same_box(arg2):
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
@@ -123,33 +124,36 @@ class OptRewrite(Optimization):
 
     def optimize_INT_ADD(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(arg1)
         arg2 = self.get_box_replacement(op.getarg(1))
+        b2 = self.getintbound(arg2)
 
         # If one side of the op is 0 the result is the other side.
-        if arg1.is_constant() and arg1.getint() == 0:
+        if b1.equal(0):
             self.make_equal_to(op, arg2)
-        elif arg2.is_constant() and arg2.getint() == 0:
+        elif b2.equal(0):
             self.make_equal_to(op, arg1)
         else:
             self.emit_operation(op)
             self.optimizer.pure_reverse(op)
 
     def optimize_INT_MUL(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        arg1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(arg1)
+        arg2 = self.get_box_replacement(op.getarg(1))
+        b2 = self.getintbound(arg2)
 
         # If one side of the op is 1 the result is the other side.
-        if v1.is_constant() and v1.box.getint() == 1:
-            self.make_equal_to(op, v2)
-        elif v2.is_constant() and v2.box.getint() == 1:
-            self.make_equal_to(op, v1)
-        elif (v1.is_constant() and v1.box.getint() == 0) or \
-             (v2.is_constant() and v2.box.getint() == 0):
+        if b1.equal(1):
+            self.make_equal_to(op, arg2)
+        elif b2.equal(1):
+            self.make_equal_to(op, arg1)
+        elif b1.equal(0) or b2.equal(0):
             self.make_constant_int(op, 0)
         else:
-            for lhs, rhs in [(v1, v2), (v2, v1)]:
+            for lhs, rhs in [(b1, b2), (b2, b1)]:
                 if lhs.is_constant():
-                    x = lhs.box.getint()
+                    x = lhs.getint()
                     # x & (x - 1) == 0 is a quick test for power of 2
                     if x & (x - 1) == 0:
                         new_rhs = ConstInt(highest_bit(lhs.box.getint()))
