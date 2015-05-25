@@ -417,6 +417,7 @@ class MsvcPlatform(Platform):
             deps = ['main.obj']
             m.rule('wmain.c', '',
                    ['echo #define WIN32_LEAN_AND_MEAN > $@',
+                   'echo #include "stdlib.h" >> $@',
                    'echo #include "windows.h" >> $@',
                    'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
                    'echo int WINAPI WinMain( >> $@',
