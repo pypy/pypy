@@ -18,7 +18,7 @@ Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects! The three sub-projects are:
 
 * `Py3k`_ (supporting Python 3.x): We have released a Python 3.2.5 compatible version
-   we call PyPy3 2.4.0, and are working toward a Python 3.3 compatible version
+  we call PyPy3 2.4.0, and are working toward a Python 3.3 compatible version
 
 * `STM`_ (software transactional memory): We have released a first working version,
   and continue to try out new promising paths of achieving a fast multithreaded Python
@@ -35,7 +35,8 @@ so we can finish those projects! The three sub-projects are:
 We would also like to encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `Rpython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ with making
-Rpython's JIT even better.
+Rpython's JIT even better. Nine new people contributed since the last release,
+you too could be one of them.
 
 .. _`PyPy`: http://doc.pypy.org 
 .. _`Rpython`: https://rpython.readthedocs.org
