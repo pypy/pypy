@@ -133,6 +133,7 @@ class OptHeap(Optimization):
     def __init__(self):
         # mapping descr -> CachedField
         self.cached_fields = OrderedDict()
+        
         # XXXX the rest is old
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
@@ -364,7 +365,7 @@ class OptHeap(Optimization):
             return
         cf.force_lazy_setfield(self, can_cache)
 
-    def force_lazy_setarrayitem(self, arraydescr, indexvalue=None, can_cache=True):
+    def force_lazy_setarrayitem(self, arraydescr, indexop=None, can_cache=True):
         try:
             submap = self.cached_arrayitems[arraydescr]
         except KeyError:
@@ -392,6 +393,12 @@ class OptHeap(Optimization):
 
     def force_lazy_setfields_and_arrayitems_for_guard(self):
         pendingfields = []
+        for descr, cf in self.cached_fields.iteritems():
+            op = cf._lazy_setfield
+            if op is None:
+                continue
+            cf.force_lazy_setfield(self)
+        return pendingfields
         for cf in self._lazy_setfields_and_arrayitems:
             self._assert_valid_cf(cf)
             op = cf._lazy_setfield
@@ -434,34 +441,11 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # then remember the result of reading the field
         structinfo.setfield(op.getdescr(), op, self)
-
-    def xxx_optimize_GETFIELD_GC_I(self, op):
-        opinfo = self.ensure_ptr_info_arg0(op)
-        fld = opinfo.getfield(op.getdescr(), self)
-        if fld is not None:
-            self.make_equal_to(op, fld)
-            return
-        self.emit_operation(op)
-        opinfo.setfield(op.getdescr(), op, self)
-        return
-        xxx
-        return
-        structvalue = self.getvalue(op.getarg(0))
-        cf = self.field_cache(op.getdescr())
-        fieldvalue = cf.getfield_from_cache(self, structvalue)
-        if fieldvalue is not None:
-            self.make_equal_to(op, fieldvalue)
-            return
-        # default case: produce the operation
-        structvalue.ensure_nonnull()
-        self.emit_operation(op)
-        # then remember the result of reading the field
-        fieldvalue = self.getvalue(op)
-        cf.remember_field_value(structvalue, fieldvalue, op, self.optimizer)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
     def optimize_GETFIELD_GC_PURE_I(self, op):
+        xxx
         structvalue = self.getvalue(op.getarg(0))
         cf = self.field_cache(op.getdescr())
         fieldvalue = cf.getfield_from_cache(self, structvalue)
@@ -486,24 +470,24 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        self.emit_operation(op)
-        return # XXX
-        arrayvalue = self.getvalue(op.getarg(0))
-        indexvalue = self.getvalue(op.getarg(1))
+        arrayinfo = self.ensure_ptr_info_arg0(op)
+        indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexvalue.is_constant():
-            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+        if indexb.is_constant():
+            # XXXX lgt bound
+            #arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
             # use the cache on (arraydescr, index), which is a constant
-            cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
-            fieldvalue = cf.getfield_from_cache(self, arrayvalue)
+            #cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
+            #fieldvalue = cf.getfield_from_cache(self, arrayvalue)
+            fieldvalue = None
             if fieldvalue is not None:
                 self.make_equal_to(op, fieldvalue)
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue)
+            self.force_lazy_setarrayitem(op.getdescr(), op.getarg(1))
         # default case: produce the operation
-        arrayvalue.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # the remember the result of reading the array item
         if cf is not None:
@@ -513,22 +497,23 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 
     def optimize_GETARRAYITEM_GC_PURE_I(self, op):
-        arrayvalue = self.getvalue(op.getarg(0))
-        indexvalue = self.getvalue(op.getarg(1))
+        arrayinfo = self.ensure_ptr_info_arg0(op)
+        indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexvalue.is_constant():
-            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+        if indexb.is_constant():
+            #arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
             # use the cache on (arraydescr, index), which is a constant
-            cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
-            fieldvalue = cf.getfield_from_cache(self, arrayvalue)
+            #cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
+            #fieldvalue = cf.getfield_from_cache(self, arrayvalue)
+            fieldvalue = None
             if fieldvalue is not None:
                 self.make_equal_to(op, fieldvalue)
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue)
+            self.force_lazy_setarrayitem(op.getdescr(), op.getarg(1))
         # default case: produce the operation
-        arrayvalue.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
 
     optimize_GETARRAYITEM_GC_PURE_R = optimize_GETARRAYITEM_GC_PURE_I

@@ -225,7 +225,14 @@ class AbstractResOp(AbstractValue):
 
     def is_getfield(self):
         return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                              rop.GETFIELD_GC_R)
+                              rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
+                              rop.GETFIELD_GC_PURE_R, rop.GETFIELD_GC_PURE_F)
+
+    def is_getarrayitem(self):
+        return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
+                              rop.GETARRAYITEM_GC_R, rop.GETARRAYITEM_GC_PURE_I,
+                              rop.GETARRAYITEM_GC_PURE_F,
+                              rop.GETARRAYITEM_GC_PURE_R)
 
     def is_real_call(self):
         opnum = self.opnum

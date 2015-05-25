@@ -128,11 +128,19 @@ class StructPtrInfo(AbstractStructPtrInfo):
             self.flags = FLAG_VIRTUAL
     
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', '_items', '_descr')
+    _attrs_ = ('length', '_items', '_descr', 'lengthbound')
 
-    def __init__(self, descr, const, size, clear, is_virtual):
+    def __init__(self, descr, const=None, size=0, clear=False,
+                 is_virtual=False):
+        self._descr = descr
+        self.lengthbound = None
         if is_virtual:
             self.flags = FLAG_VIRTUAL
+            self._init_items(const, size, clear)
+        else:
+            self._items = None
+
+    def _init_items(self, const, size, clear):
         self.length = size
         if clear:
             self._items = [const] * size

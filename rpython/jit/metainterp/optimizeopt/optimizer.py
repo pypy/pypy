@@ -606,8 +606,10 @@ class Optimizer(Optimization):
             else:
                 opinfo = info.StructPtrInfo()
             opinfo.init_fields(op.getdescr().parent_descr)
+        elif op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC:
+            opinfo = info.ArrayPtrInfo(op.getdescr())
         else:
-            yyy
+            zzz
         arg0.set_forwarded(opinfo)
         return opinfo
 
