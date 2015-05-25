@@ -395,14 +395,17 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 value = optimizer.getvalue(box)
                 value.visitor_walk_recursive(self)
 
-        for _, box, fieldbox, _ in pending_setfields:
-            self.register_box(box)
-            self.register_box(fieldbox)
-            value = optimizer.getvalue(fieldbox)
-            value.visitor_walk_recursive(self)
+        for item in pending_setfields:
+            pass
+            #_, box, fieldbox, _ = item
+            # XXX fixme
+            #self.register_box(box)
+            #self.register_box(fieldbox)
+            #value = optimizer.getvalue(fieldbox)
+            #value.visitor_walk_recursive(self)
 
         self._number_virtuals(liveboxes, optimizer, v)
-        self._add_pending_fields(pending_setfields)
+        self._add_pending_fields([]) # XXX fixme pending_setfields)
 
         storage.rd_consts = self.memo.consts
         return liveboxes[:]

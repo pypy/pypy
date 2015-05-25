@@ -397,6 +397,12 @@ class OptHeap(Optimization):
             op = cf._lazy_setfield
             if op is None:
                 continue
+            val = op.getarg(1)
+            if val.type == 'r':
+                ptrinfo = self.getptrinfo(val)
+                if ptrinfo and ptrinfo.is_virtual():
+                    pendingfields.append(op)
+                    continue
             cf.force_lazy_setfield(self)
         return pendingfields
         for cf in self._lazy_setfields_and_arrayitems:
