@@ -122,6 +122,7 @@ class CachedField(object):
             opinfo = optheap.ensure_ptr_info_arg0(op)
             opinfo.setfield(op.getdescr(),
                             optheap.get_box_replacement(op.getarg(1)))
+            optheap.register_dirty_field(op.getdescr(), opinfo)
         elif not can_cache:
             self.invalidate()
 
