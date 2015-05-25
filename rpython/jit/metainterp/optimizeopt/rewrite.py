@@ -450,8 +450,10 @@ class OptRewrite(Optimization):
         self._optimize_nullness(op, op.getarg(0), False)
 
     def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
-        info0 = self.getptrinfo(op.getarg(0))
-        info1 = self.getptrinfo(op.getarg(1))
+        arg0 = self.get_box_replacement(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        info0 = self.getptrinfo(arg0)
+        info1 = self.getptrinfo(arg1)
         if info0 and info0.is_virtual():
             xxx
             if value1.is_virtual():
@@ -465,13 +467,13 @@ class OptRewrite(Optimization):
             self._optimize_nullness(op, op.getarg(0), expect_isnot)
         elif info0 and info0.is_null():
             self._optimize_nullness(op, op.getarg(1), expect_isnot)
-        elif value0 is value1:
+        elif arg0 is arg1:
             self.make_constant_int(op, not expect_isnot)
         else:
             if instance:
-                cls0 = value0.get_constant_class(self.optimizer.cpu)
+                cls0 = info0.get_known_class(self.optimizer.cpu)
                 if cls0 is not None:
-                    cls1 = value1.get_constant_class(self.optimizer.cpu)
+                    cls1 = info1.get_known_class(self.optimizer.cpu)
                     if cls1 is not None and not cls0.same_constant(cls1):
                         # cannot be the same object, as we know that their
                         # class is different
