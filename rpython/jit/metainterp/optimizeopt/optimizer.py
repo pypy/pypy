@@ -367,9 +367,13 @@ class Optimization(object):
     def new_const_item(self, arraydescr):
         return self.optimizer.new_const_item(arraydescr)
 
-    def pure(self, opnum, args, result):
+    def pure(self, opnum, result):
         if self.optimizer.optpure:
-            self.optimizer.optpure.pure(opnum, args, result)
+            self.optimizer.optpure.pure(opnum, result)
+
+    def pure_from_args(self, opnum, args, result):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args(opnum, args, result)
 
     def has_pure_result(self, opnum, args, descr):
         if self.optimizer.optpure:
@@ -747,21 +751,27 @@ class Optimizer(Optimization):
             return
         optpure = self.optpure
         if op.getopnum() == rop.INT_ADD:
-            optpure.pure(rop.INT_ADD, [op.getarg(1), op.getarg(0)], op)
+            optpure.pure_from_args(rop.INT_ADD, [op.getarg(1), op.getarg(0)],
+                                   op)
             # Synthesize the reverse op for optimize_default to reuse
-            optpure.pure(rop.INT_SUB, [op, op.getarg(1)], op.getarg(0))
-            optpure.pure(rop.INT_SUB, [op, op.getarg(0)], op.getarg(1))
+            optpure.pure_from_args(rop.INT_SUB, [op, op.getarg(1)],
+                                   op.getarg(0))
+            optpure.pure_from_args(rop.INT_SUB,
+                                   [op, op.getarg(0)], op.getarg(1))
         elif op.getopnum() == rop.INT_SUB:
-            optpure.pure(rop.INT_ADD, [op, op.getarg(1)], op.getarg(0))
-            optpure.pure(rop.INT_SUB, [op.getarg(0), op], op.getarg(1))
+            optpure.pure_from_args(rop.INT_ADD,
+                                   [op, op.getarg(1)], op.getarg(0))
+            optpure.pure_from_args(rop.INT_SUB,
+                                   [op.getarg(0), op], op.getarg(1))
         elif op.getopnum() == rop.FLOAT_MUL:
-            optpure.pure(rop.FLOAT_MUL, [op.getarg(1), op.getarg(0)], op)
+            optpure.pure_from_args(rop.FLOAT_MUL,
+                                   [op.getarg(1), op.getarg(0)], op)
         elif op.getopnum() == rop.FLOAT_NEG:
-            optpure.pure(rop.FLOAT_NEG, [op], op.getarg(0))
+            optpure.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
         elif op.getopnum() == rop.CAST_INT_TO_PTR:
-            optpure.pure(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
+            optpure.pure_from_args(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
         elif op.getopnum() == rop.CAST_PTR_TO_INT:
-            optpure.pure(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
+            optpure.pure_from_args(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
 
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted

@@ -871,9 +871,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = getfield_gc(p0, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
-        p2 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(descr=nodesize2)
         setfield_gc(p2, i1, descr=valuedescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         jump(i3, p1)
@@ -1565,10 +1565,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_duplicate_setfield_5(self):
-        xxx
         ops = """
         [p0, i1]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p0, p1, descr=nextdescr)
         setfield_raw(i1, i1, descr=valuedescr)    # random op with side-effects
@@ -1613,7 +1612,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         # a virtual, which we try hard to keep virtual
         ops = """
         [p1, i2, i3]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, p2, descr=nextdescr)
         guard_true(i3) []
         i4 = int_neg(i2)
@@ -1632,7 +1631,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_duplicate_setfield_residual_guard_3(self):
         ops = """
         [p1, i2, i3]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, i2, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         guard_true(i3) []
@@ -1883,7 +1882,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_nonnull(p4) []
         escape_n(p4)
         #
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         p3 = escape_r()
         setfield_gc(p2, p3, descr=nextdescr)
         jump(i0, p2)
@@ -1937,8 +1936,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_class(p3, ConstClass(node_vtable)) []
         setfield_gc(p3, p2, descr=otherdescr)
         p1a = new_with_vtable(ConstClass(node_vtable2))
-        p2a = new_with_vtable(ConstClass(node_vtable))
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p2a = new_with_vtable(descr=nodesize)
+        p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
@@ -1949,9 +1948,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_class(p2, ConstClass(node_vtable)) []
         guard_class(p3, ConstClass(node_vtable)) []
         setfield_gc(p3, p2, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
-        p2a = new_with_vtable(ConstClass(node_vtable))
+        p2a = new_with_vtable(descr=nodesize)
         jump(p2a, p3a)
         """
         py.test.skip("XXX")
@@ -1969,9 +1968,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_nonnull(12) []
         guard_class(p3, ConstClass(node_vtable)) []
         p1a = new_with_vtable(ConstClass(node_vtable2))
-        p2a = new_with_vtable(ConstClass(node_vtable))
+        p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
@@ -1981,9 +1980,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p2, p3]
         guard_class(p2, ConstClass(node_vtable)) []
         guard_class(p3, ConstClass(node_vtable)) []
-        p2a = new_with_vtable(ConstClass(node_vtable))
+        p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
         jump(p2a, p3a)
         """
@@ -1995,7 +1994,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         guard_isnull(p1) []
         #
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         jump(p2)
         """
         py.test.skip("XXX")
@@ -2008,7 +2007,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
         #
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         escape_n(p2)      # prevent it from staying Virtual
         jump(p2)
         """
@@ -2021,8 +2020,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_isnull(p2) []
         #
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        p4 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
+        p4 = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p4, descr=nextdescr)
         jump(p3)
         """
@@ -2522,7 +2521,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i1, i3]
         # first rename i3 into i4
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i3, descr=valuedescr)
         i4 = getfield_gc_i(p1, descr=valuedescr)
         #
@@ -2541,7 +2540,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_expand_fail_2(self):
         ops = """
         [i1, i2]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, p1, descr=nextdescr)
         guard_true(i1) [p1]
@@ -2560,8 +2559,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_expand_fail_3(self):
         ops = """
         [i1, i2, i3, p3]
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, 1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p2, i2, descr=valuedescr)
@@ -2585,10 +2584,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                     'i2,p1,p2', 'i2,p2,p1']:
             ops = """
             [i1, i2, i3]
-            p1 = new_with_vtable(ConstClass(node_vtable))
+            p1 = new_with_vtable(descr=nodesize)
             setfield_gc(p1, i3, descr=valuedescr)
             i4 = getfield_gc_i(p1, descr=valuedescr)   # copy of i3
-            p2 = new_with_vtable(ConstClass(node_vtable))
+            p2 = new_with_vtable(descr=nodesize)
             setfield_gc(p1, i2, descr=valuedescr)
             setfield_gc(p1, p2, descr=nextdescr)
             setfield_gc(p2, i2, descr=valuedescr)
@@ -2609,8 +2608,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_expand_fail_5(self):
         ops = """
         [i1, i2, i3, i4]
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i4, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p2, i2, descr=valuedescr)
@@ -2633,7 +2632,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0, i0, i1]
         guard_true(i0) [p0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i1, i1)
         """
@@ -2701,7 +2700,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p1a, 1, p5s, descr=arraydescr2)
         guard_true(i1) [p1a]
         p2s = new(descr=ssize)
-        p3v = new_with_vtable(ConstClass(node_vtable))
+        p3v = new_with_vtable(descr=nodesize)
         p4a = new_array(2, descr=arraydescr2)
         setfield_gc(p2s, i1, descr=adescr)
         setfield_gc(p2s, p3v, descr=bdescr)
@@ -2734,7 +2733,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_expand_fail_lazy_setfield_1(self):
         ops = """
         [p1, i2, i3]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, i2, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         guard_true(i3) []
@@ -2759,7 +2758,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_expand_fail_lazy_setfield_2(self):
         ops = """
         [i2, i3]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, i2, descr=valuedescr)
         setfield_gc(ConstPtr(myptr), p2, descr=nextdescr)
         guard_true(i3) []
@@ -3036,8 +3035,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0, i1]
         #
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         #
@@ -3062,8 +3061,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_not_forced() [i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3076,8 +3075,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0, i1]
         #
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         #
@@ -3102,8 +3101,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_not_forced() [p2, i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3122,8 +3121,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0, i1]
         #
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         #
@@ -3160,7 +3159,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_vref_virtual_after_finish(self):
         ops = """
         [i1]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         p2 = virtual_ref(p1, 7)
         escape_n(p2)
         virtual_ref_finish(p2, p1)
@@ -3175,7 +3174,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape_n(p2)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         call_may_force_n(i1, descr=mayforcevirtdescr)
