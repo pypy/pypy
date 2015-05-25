@@ -83,19 +83,19 @@ Highlights
 * New features:
 
   * Add preliminary support for a new lightweight statistical profiler
-    `vmprof`_.
+    `vmprof`_, which has been designed to accomodate profiling JITted code
 
 * Numpy:
 
-  * Support for numpy's ``object`` dtype via a garbage collector hook
+  * Support for ``object`` dtype via a garbage collector hook
 
-  * Support for numpy.can_cast and numpy.min_scalar_type as well as beginning
-    a refactoring of the internal casting rules in numpy
+  * Support for .can_cast and .min_scalar_type as well as beginning
+    a refactoring of the internal casting rules 
 
-  * Better support for numpy subtypes, via the __array_interface__,
+  * Better support for subtypes, via the __array_interface__,
     __array_priority__, and __array_wrap__ methods (still a work-in-progress)
 
-  * Better support for numpy ndarray.flags
+  * Better support for ndarray.flags
 
 * Performance improvements:
 
