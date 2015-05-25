@@ -20,12 +20,27 @@ class AppTestScalar(BaseNumpyAppTest):
             assert np.uintp is np.dtype('L').type
             assert np.int64 is np.dtype('l').type
             assert np.uint64 is np.dtype('L').type
+        assert np.int16 is np.short is np.dtype('h').type
         assert np.int_ is np.dtype('l').type
         assert np.uint is np.dtype('L').type
         assert np.dtype('intp') == np.dtype('int')
         assert np.dtype('uintp') == np.dtype('uint')
         assert np.dtype('i') is not np.dtype('l') is not np.dtype('q')
         assert np.dtype('I') is not np.dtype('L') is not np.dtype('Q')
+
+    def test_hierarchy(self):
+        import numpy
+        assert issubclass(numpy.float64, numpy.floating)
+        assert issubclass(numpy.longfloat, numpy.floating)
+        assert not issubclass(numpy.float64, numpy.longfloat)
+        assert not issubclass(numpy.longfloat, numpy.float64)
+
+    def test_mro(self):
+        import numpy
+        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
+                                       numpy.integer, numpy.number,
+                                       numpy.generic, object)
+        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
 
     def test_init(self):
         import numpy as np
