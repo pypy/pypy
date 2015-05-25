@@ -1,4 +1,5 @@
 import os
+from collections import OrderedDict
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
@@ -131,7 +132,7 @@ class OptHeap(Optimization):
 
     def __init__(self):
         # mapping descr -> CachedField
-        self.cached_fields = {}
+        self.cached_fields = OrderedDict()
         # XXXX the rest is old
         # cached array items:  {array descr: {index: CachedField}}
         self.cached_arrayitems = {}
