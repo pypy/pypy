@@ -87,6 +87,9 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def setfield(self, descr, op, optheap=None):
         self._fields[descr.index] = op
+        if optheap is not None:
+            assert not self.is_virtual()
+            optheap.register_dirty_field(descr, self)
 
     def getfield(self, descr, optheap=None):
         return self._fields[descr.index]
