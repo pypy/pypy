@@ -146,7 +146,7 @@ class VMProf(object):
         if not self.ever_enabled:
             if we_are_translated():
                 res = pypy_vmprof_init()
-                if not res:
+                if res:
                     raise OperationError(
                         space.w_IOError,
                         space.wrap(rffi.charp2str(vmprof_get_error())))
