@@ -377,10 +377,6 @@ int vmprof_set_mainloop(void* func, ptrdiff_t sp_offset,
             vmprof_error = dlerror();
             return -1;
         }
-        if (dlclose(libhandle)) {
-            vmprof_error = dlerror();
-            return -1;
-        }
     }
     return 0;
 }
