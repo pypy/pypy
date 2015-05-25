@@ -182,7 +182,8 @@ class OptPure(Optimization):
     def pure(self, opnum, args, op):
         op = self.get_box_replacement(op)
         if not isinstance(op, AbstractResOp):
-            newop = ResOperation(opnum, args)
+            newop = ResOperation(opnum, [
+                self.get_box_replacement(arg) for arg in args])
             newop.set_forwarded(op)
             op = newop
         recentops = self.getrecentops(opnum)
