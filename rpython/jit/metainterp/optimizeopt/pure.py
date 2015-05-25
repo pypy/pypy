@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
-from rpython.jit.metainterp.resoperation import rop, OpHelpers
+from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
+     ResOperation
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 
 
@@ -15,32 +16,34 @@ class RecentPureOps(object):
         self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
         self.lst[next_index] = op
 
-    def lookup1(self, box0, descr):
+    def lookup1(self, opt, box0, descr):
         for i in range(self.REMEMBER_LIMIT):
             op = self.lst[i]
             if op is None:
                 break
             if op.getarg(0).same_box(box0) and op.getdescr() is descr:
-                return op
+                return opt.get_box_replacement(op)
         return None
 
-    def lookup2(self, box0, box1, descr):
+    def lookup2(self, opt, box0, box1, descr):
         for i in range(self.REMEMBER_LIMIT):
             op = self.lst[i]
             if op is None:
                 break
             if (op.getarg(0).same_box(box0) and op.getarg(1).same_box(box1)
                 and op.getdescr() is descr):
-                return op
+                return opt.get_box_replacement(op)
         return None
 
     def lookup(self, optimizer, op):
         numargs = op.numargs()
         if numargs == 1:
-            return self.lookup1(optimizer.get_box_replacement(op.getarg(0)),
+            return self.lookup1(optimizer,
+                                optimizer.get_box_replacement(op.getarg(0)),
                                 op.getdescr())
         elif numargs == 2:
-            return self.lookup2(optimizer.get_box_replacement(op.getarg(0)),
+            return self.lookup2(optimizer,
+                                optimizer.get_box_replacement(op.getarg(0)),
                                 optimizer.get_box_replacement(op.getarg(1)),
                                 op.getdescr())
         else:
@@ -178,6 +181,10 @@ class OptPure(Optimization):
 
     def pure(self, opnum, args, op):
         op = self.get_box_replacement(op)
+        if not isinstance(op, AbstractResOp):
+            newop = ResOperation(opnum, args)
+            newop.set_forwarded(op)
+            op = newop
         recentops = self.getrecentops(opnum)
         recentops.add(op)
 

@@ -3,7 +3,7 @@ from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.history import Const, ConstInt, REF, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     IntUnbounded, ConstIntBound
+     IntUnbounded, ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp
 from rpython.jit.metainterp.optimizeopt import info
@@ -281,7 +281,7 @@ class Optimization(object):
             return fw
         assert fw is None
         assert op.type == 'i'
-        intbound = IntUnbounded()
+        intbound = IntBound(MININT, MAXINT)
         op.set_forwarded(intbound)
         return intbound
 
