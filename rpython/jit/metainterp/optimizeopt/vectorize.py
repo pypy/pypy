@@ -746,7 +746,7 @@ class OpToVectorOp(object):
     def __init__(self, arg_ptypes, result_ptype, has_descr=False,
                  arg_clone_ptype=0, 
                  needs_count_in_params=False):
-        self.arg_ptypes = list(arg_ptypes) # do not use a tuple. rpython cannot union
+        self.arg_ptypes = [a for a in arg_ptypes] # do not use a tuple. rpython cannot union
         self.result_ptype = result_ptype
         self.has_descr = has_descr
         self.arg_clone_ptype = arg_clone_ptype
@@ -780,6 +780,7 @@ class OpToVectorOp(object):
 
         off = 0
         stride = self.split_pack(pack)
+        assert stride > 0
         while off < len(pack.operations):
             ops = pack.operations[off:off+stride]
             self.transform_pack(ops, off, stride)
@@ -953,7 +954,7 @@ class OpToVectorOp(object):
             expand_op = ResOperation(expand_opnum, [arg], vbox)
             self.preamble_ops.append(expand_op)
         else:
-            resop = ResOperation(rop.VEC_BOX, [ConstInt(self.pack_ops)], vbox)
+            resop = ResOperation(rop.VEC_BOX, [ConstInt(len(ops))], vbox)
             self.preamble_ops.append(resop)
             opnum = rop.VEC_FLOAT_PACK
             if arg.type == INT:
@@ -967,9 +968,9 @@ class OpToVectorOp(object):
 
 class OpToVectorOpConv(OpToVectorOp):
     def __init__(self, intype, outtype):
-        OpToVectorOp.__init__(self, (intype,), outtype)
         self.from_size = intype.getsize()
         self.to_size = outtype.getsize()
+        OpToVectorOp.__init__(self, (intype, ), outtype)
 
     def split_pack(self, pack):
         if self.from_size > self.to_size:
@@ -992,7 +993,7 @@ class OpToVectorOpConv(OpToVectorOp):
 
 class SignExtToVectorOp(OpToVectorOp):
     def __init__(self, intype, outtype):
-        OpToVectorOp.__init__(self, (intype,), outtype)
+        OpToVectorOp.__init__(self, intype, outtype)
         self.size = -1
 
     def split_pack(self, pack):
@@ -1006,7 +1007,7 @@ class SignExtToVectorOp(OpToVectorOp):
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
         vec_reg_size = self.sched_data.vec_reg_size
         if vbox.getcount() * self.size > vec_reg_size:
-            return vec_reg_size // self.to_size
+            return vec_reg_size // self.size
         return vbox.getcount()
 
     def new_result_vector_box(self):
@@ -1029,19 +1030,22 @@ INT_RES = PT_INT_GENERIC
 FLOAT_RES = PT_FLOAT_GENERIC
 LOAD_RES = PT_GENERIC
 
+INT_OP_TO_VOP = OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES)
+FLOAT_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC, PT_FLOAT_GENERIC), FLOAT_RES)
+
 ROP_ARG_RES_VECTOR = {
-    rop.VEC_INT_ADD:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES),
-    rop.VEC_INT_SUB:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES),
-    rop.VEC_INT_MUL:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES),
-    rop.VEC_INT_AND:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES),
-    rop.VEC_INT_OR:      OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES),
-    rop.VEC_INT_XOR:     OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES),
+    rop.VEC_INT_ADD:     INT_OP_TO_VOP,
+    rop.VEC_INT_SUB:     INT_OP_TO_VOP,
+    rop.VEC_INT_MUL:     INT_OP_TO_VOP,
+    rop.VEC_INT_AND:     INT_OP_TO_VOP,
+    rop.VEC_INT_OR:      INT_OP_TO_VOP,
+    rop.VEC_INT_XOR:     INT_OP_TO_VOP,
 
     rop.VEC_INT_SIGNEXT: SignExtToVectorOp((PT_INT_GENERIC,), INT_RES),
 
-    rop.VEC_FLOAT_ADD:   OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), FLOAT_RES),
-    rop.VEC_FLOAT_SUB:   OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), FLOAT_RES),
-    rop.VEC_FLOAT_MUL:   OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), FLOAT_RES),
+    rop.VEC_FLOAT_ADD:   FLOAT_OP_TO_VOP,
+    rop.VEC_FLOAT_SUB:   FLOAT_OP_TO_VOP,
+    rop.VEC_FLOAT_MUL:   FLOAT_OP_TO_VOP,
     rop.VEC_FLOAT_EQ:    OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), INT_RES),
 
     rop.VEC_RAW_LOAD:         OpToVectorOp((), LOAD_RES, has_descr=True,
@@ -1069,8 +1073,6 @@ class VecScheduleData(SchedulerData):
         self.preamble_ops = None
         self.expansion_byte_count = -1
         self.vec_reg_size = vec_reg_size
-        self.pack_ops = -1
-        self.pack_off = -1
 
     def unpack_rename(self, arg):
         return self.unpack_rename_map.get(arg, arg)
@@ -1099,7 +1101,6 @@ class VecScheduleData(SchedulerData):
 
     def setvector_of_box(self, box, off, vector):
         self.box_to_vbox[box] = (off, vector)
-
 
 def isomorphic(l_op, r_op):
     """ Same instructions have the same operation name.
