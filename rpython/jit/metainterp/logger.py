@@ -127,7 +127,7 @@ class LogOperations(object):
         elif isinstance(arg, BoxFloat):
             return 'f' + str(mv)
         elif isinstance(arg, BoxVector):
-            return 'v' + str(mv)
+            return 'v%s[%s%d#%d]' % (str(mv), arg.item_type, arg.item_size, arg.item_count)
         elif arg is None:
             return 'None'
         else:

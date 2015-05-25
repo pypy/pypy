@@ -1509,7 +1509,7 @@ class RegAlloc(BaseRegalloc):
     consider_vec_raw_store = consider_vec_setarrayitem_raw
 
     def consider_vec_arith(self, op):
-        lhs = op.getarg(1)
+        lhs = op.getarg(0)
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
@@ -1526,7 +1526,7 @@ class RegAlloc(BaseRegalloc):
     del consider_vec_arith
 
     def consider_vec_logic(self, op):
-        lhs = op.getarg(1)
+        lhs = op.getarg(0)
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
@@ -1609,34 +1609,15 @@ class RegAlloc(BaseRegalloc):
     def consider_guard_early_exit(self, op):
         pass
 
-    def consider_vec_cast_float_to_singlefloat(self, op):
-        count = op.getarg(1)
-        assert isinstance(count, ConstInt)
-        args = op.getarglist()
-        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
-        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [loc0, imm(count.value)], result)
-
-    def consider_vec_cast_singlefloat_to_float(self, op):
-        index = op.getarg(1)
-        assert isinstance(index, ConstInt)
-        args = op.getarglist()
-        loc0 = self.make_sure_var_in_reg(op.getarg(0), args)
-        result = self.force_allocate_reg(op.result, args)
-        tmpxvar = TempBox()
-        tmploc = self.xrm.force_allocate_reg(tmpxvar)
-        self.xrm.possibly_free_var(tmpxvar)
-        self.perform(op, [loc0, tmploc, imm(index.value)], result)
-
     def consider_vec_cast_float_to_int(self, op):
-        src = op.getarg(0)
-        res = op.result
         args = op.getarglist()
-        srcloc = self.make_sure_var_in_reg(src, args)
-        resloc = self.xrm.force_result_in_reg(res, src, args)
+        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
+        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [srcloc], resloc)
 
     consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
+    consider_vec_cast_float_to_singlefloat = consider_vec_cast_float_to_int
+    consider_vec_cast_singlefloat_to_float = consider_vec_cast_float_to_int
 
     # ________________________________________
 

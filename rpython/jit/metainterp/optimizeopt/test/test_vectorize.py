@@ -872,12 +872,12 @@ class BaseTestVectorize(VecTestHelper):
         i12 = int_add(i1, {stride})
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr={descr}arraydescr)
         v2 = vec_getarrayitem_raw(p1, i0, 2, descr={descr}arraydescr)
-        v3 = {op}(v1,v2,2)
-        vec_setarrayitem_raw(p2, i0, v3, 2, descr={descr}arraydescr)
+        v3 = {op}(v1,v2)
+        vec_setarrayitem_raw(p2, i0, v3, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
         """.format(op='vec_'+op,descr=descr,stride=1)
         loop = self.parse_loop(ops)
-        vopt = self.schedule(loop,1)
+        vopt = self.schedule(loop, 1)
         self.assert_equal(loop, self.parse_loop(vops))
 
     def test_vschedule_trace_1(self):
@@ -907,8 +907,8 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i18) []
         v19 = vec_raw_load(i2, i6, 2, descr=intarraydescr) 
         v20 = vec_raw_load(i3, i6, 2, descr=intarraydescr) 
-        v21 = vec_int_add(v19, v20, 2) 
-        vec_raw_store(i4, i6, v21, 2, descr=intarraydescr) 
+        v21 = vec_int_add(v19, v20) 
+        vec_raw_store(i4, i6, v21, descr=intarraydescr) 
         jump(i13, i1, i2, i3, i4)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
@@ -925,8 +925,8 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i2)
         """
         dead_code =  '\n        '.join([
-          "i{t1} = int_add(i{t},1)\n        i{s} = int_lt(i{t1}, 102)".format(
-              i=i+1, t1=i+201, t=i+200, s=i+20)
+          "i{t1} = int_add(i0,{i})\n        i{s} = int_lt(i{t1}, 102)".format(
+              i=i+2, t1=i+201, t=i+200, s=i+20)
           for i in range(0,14)])
         opt="""
         [p0,i0]
@@ -986,7 +986,7 @@ class BaseTestVectorize(VecTestHelper):
         i5 = int_lt(i4, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
         v3 = vec_int_expand(42)
-        v2 = vec_int_mul(v1, v3, 2)
+        v2 = vec_int_mul(v1, v3)
         jump(p0,i4)
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
@@ -1015,7 +1015,7 @@ class BaseTestVectorize(VecTestHelper):
         i5 = int_lt(i4, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
         v3 = vec_float_expand(f3)
-        v2 = vec_int_mul(v1, v3, 2)
+        v2 = vec_int_mul(v1, v3)
         jump(p0,i4,f3)
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
@@ -1047,20 +1047,21 @@ class BaseTestVectorize(VecTestHelper):
         i48 = int_add(i41, 8) 
         i51 = int_add(i37, 8) 
         i52 = int_ge(i50, i18) 
-        guard_false(i52) [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
-        i55 = int_add(i46, 8) 
-        i54 = int_add(i48, 8) 
-        i56 = int_add(i51, 8) 
-        i53 = int_add(i50, 1)
-        i57 = int_ge(i53, i18) 
-        guard_false(i57) [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        i637 = int_add(i28, 2)
+        i638 = int_ge(i637, i18)
+        guard_false(i638) [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        i55 = int_add(i44, 16) 
+        i54 = int_add(i41, 16) 
+        i56 = int_add(i37, 16) 
+        i629 = same_as(i637)
+        i57 = int_ge(i629, i18) 
         v61 = vec_raw_load(i21, i44, 2, descr=floatarraydescr) 
         v62 = vec_raw_load(i4, i41, 2, descr=floatarraydescr) 
-        v63 = vec_float_add(v61, v62, 2) 
-        vec_raw_store(i0, i37, v63, 2, descr=floatarraydescr) 
+        v63 = vec_float_add(v61, v62) 
+        vec_raw_store(i0, i37, v63, descr=floatarraydescr) 
         f100 = vec_float_unpack(v61, 1, 1)
         f101 = vec_float_unpack(v62, 1, 1)
-        jump(p36, i53, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
+        jump(p36, i629, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
         """
         vopt = self.vectorize(self.parse_loop(ops))
         self.assert_equal(vopt.loop, self.parse_loop(opt))
@@ -1072,7 +1073,7 @@ class BaseTestVectorize(VecTestHelper):
         f1 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
         i2 = cast_float_to_singlefloat(f1)
         setarrayitem_raw(p1, i1, i2, descr=singlefloatarraydescr)
-        i3 = int_sub(i1, 1)
+        i3 = int_add(i1, 1)
         i4 = int_ge(i3, 36)
         guard_false(i4) []
         jump(p0, p1, i3)
@@ -1080,23 +1081,23 @@ class BaseTestVectorize(VecTestHelper):
         opt = """
         [p0, p1, i1]
         guard_early_exit() []
-        i3 = int_sub(i1, 1)
+        i3 = int_add(i1, 1)
         i4 = int_ge(i3, 36)
-        i50 = int_add(i1, -4)
+        i50 = int_add(i1, 4)
         i51 = int_ge(i50, 36)
         guard_false(i51) []
-        i5 = int_sub(i3, 1)
+        i5 = int_add(i1, 2)
         i8 = int_ge(i5, 36)
-        i6 = int_sub(i5, 1)
+        i6 = int_add(i1, 3)
         i11 = int_ge(i6, 36)
         i7 = same_as(i50)
         i14 = int_ge(i7, 36)
         v17 = vec_getarrayitem_raw(p0, i1, 2, descr=floatarraydescr)
         v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
-        v19 = vec_cast_float_to_singlefloat(v17, 2)
-        v20 = vec_cast_float_to_singlefloat(v18, 2)
+        v19 = vec_cast_float_to_singlefloat(v17)
+        v20 = vec_cast_float_to_singlefloat(v18)
         v21 = vec_float_pack(v19, v20, 2, 2)
-        vec_setarrayitem_raw(p1, i1, v21, 4, descr=singlefloatarraydescr)
+        vec_setarrayitem_raw(p1, i1, v21, descr=singlefloatarraydescr)
         jump(p0, p1, i7)
         """
         vopt = self.vectorize(self.parse_loop(ops))
@@ -1116,7 +1117,7 @@ class BaseTestVectorize(VecTestHelper):
         raw_store(p2, i4, i12, descr=singlefloatarraydescr)
         i5  = int_add(i4, 4) 
         i186 = int_lt(i5, 100) 
-        guard_false(i186) []
+        guard_true(i186) []
         jump(p0,p1,p2,i1,i5)
         """
         opt = """
@@ -1127,30 +1128,30 @@ class BaseTestVectorize(VecTestHelper):
         i186 = int_lt(i5, 100)
         i500 = int_add(i4, 16)
         i501 = int_lt(i500, 100)
-        guard_false(i501) []
-        i189 = int_add(i1, 4)
-        i187 = int_add(i5, 4)
-        i198 = int_add(i189, 4)
+        guard_true(i501) []
+        i189 = int_add(i0, 8)
+        i187 = int_add(i4, 8)
+        i198 = int_add(i0, 12)
         i188 = int_lt(i187, 100)
-        i207 = int_add(i198, 4)
-        i196 = int_add(i187, 4)
+        i207 = int_add(i0, 16)
+        i196 = int_add(i4, 12)
         i197 = int_lt(i196, 100)
         i205 = same_as(i500)
         i206 = int_lt(i205, 100)
         v228 = vec_raw_load(p0, i0, 4, descr=singlefloatarraydescr)
-        v229 = vec_cast_singlefloat_to_float(v228, 2)
+        v229 = vec_cast_singlefloat_to_float(v228)
         v230 = vec_int_unpack(v228, 2, 2)
-        v231 = vec_cast_singlefloat_to_float(v230, 2)
+        v231 = vec_cast_singlefloat_to_float(v230)
         v232 = vec_raw_load(p1, i1, 4, descr=singlefloatarraydescr)
-        v233 = vec_cast_singlefloat_to_float(v232, 2)
+        v233 = vec_cast_singlefloat_to_float(v232)
         v234 = vec_int_unpack(v232, 2, 2)
-        v235 = vec_cast_singlefloat_to_float(v234, 2)
-        v236 = vec_float_add(v229, v233, 2)
-        v237 = vec_float_add(v231, v235, 2)
-        v238 = vec_cast_float_to_singlefloat(v236, 2)
-        v239 = vec_cast_float_to_singlefloat(v237, 2)
+        v235 = vec_cast_singlefloat_to_float(v234)
+        v236 = vec_float_add(v229, v233)
+        v237 = vec_float_add(v231, v235)
+        v238 = vec_cast_float_to_singlefloat(v236)
+        v239 = vec_cast_float_to_singlefloat(v237)
         v240 = vec_float_pack(v238, v239, 2, 2)
-        vec_raw_store(p2, i4, v240, 4, descr=singlefloatarraydescr)
+        vec_raw_store(p2, i4, v240, descr=singlefloatarraydescr)
         jump(p0, p1, p2, i207, i205)
         """
         vopt = self.vectorize(self.parse_loop(ops))

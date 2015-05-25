@@ -673,9 +673,8 @@ class LLGraphCPU(model.AbstractCPU):
 
     # vector operations
     vector_arith_code = """
-    def bh_vec_{0}_{1}(self, vx, vy, count):
-        assert len(vx) == count
-        assert len(vy) == count
+    def bh_vec_{0}_{1}(self, vx, vy):
+        assert len(vx) == len(vy)
         return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
     """
     exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
@@ -686,9 +685,8 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
     exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
 
-    def bh_vec_float_eq(self, vx, vy, count):
-        assert len(vx) == count
-        assert len(vy) == count
+    def bh_vec_float_eq(self, vx, vy):
+        assert len(vx) == len(vy)
         return [_vx == _vy for _vx,_vy in zip(vx,vy)]
 
     def bh_vec_cast_float_to_singlefloat(self, vx):
@@ -706,7 +704,7 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_expand(self, x, count):
         return [x] * count
 
-    def bh_vec_int_signext(self, vx, ext, count):
+    def bh_vec_int_signext(self, vx, ext):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
     def bh_vec_getarrayitem_raw(self, struct, offset, count, descr):
@@ -715,6 +713,7 @@ class LLGraphCPU(model.AbstractCPU):
             val = self.bh_getarrayitem_raw(struct, offset + i, descr)
             values.append(val)
         return values
+
     def bh_vec_raw_load(self, struct, offset, count, descr):
         values = []
         stride = descr.get_item_size_in_bytes()
@@ -723,13 +722,14 @@ class LLGraphCPU(model.AbstractCPU):
             values.append(val)
         return values
 
-    def bh_vec_raw_store(self, struct, offset, newvalues, count, descr):
+    def bh_vec_raw_store(self, struct, offset, newvalues, descr):
         stride = descr.get_item_size_in_bytes()
-        for i in range(count):
-            self.bh_raw_store(struct, offset + i*stride, newvalues[i], descr)
-    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, count, descr):
-        for i in range(count):
-            self.bh_setarrayitem_raw(struct, offset + i, newvalues[i], descr)
+        for i,n in enumerate(newvalues):
+            self.bh_raw_store(struct, offset + i*stride, n, descr)
+
+    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr):
+        for i,n in enumerate(newvalues):
+            self.bh_setarrayitem_raw(struct, offset + i, n, descr)
 
 
     def store_fail_descr(self, deadframe, descr):

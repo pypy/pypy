@@ -2705,7 +2705,6 @@ class Assembler386(BaseAssembler):
         self.mc.CVTDQ2PD(resloc, arglocs[0])
 
     def genop_vec_cast_singlefloat_to_float(self, op, arglocs, resloc):
-        loc0, tmploc, indexloc = arglocs
         self.mc.CVTPS2PD(resloc, arglocs[0])
 
     # ________________________________________

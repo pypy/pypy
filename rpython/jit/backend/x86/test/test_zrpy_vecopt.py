@@ -19,11 +19,6 @@ def compile(f, gc, **kwds):
     if kwds['jit']:
         apply_jit(t, vectorize=True)
 
-    #cbuilder = genc.CStandaloneBuilder(t, f, t.config)
-    #cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
-    #cbuilder.compile()
-    #return cbuilder
-
 class TestVecOptX86(object):
     def test_translate(self):
         jd = JitDriver(greens = [], reds = 'auto', vectorize=True)
