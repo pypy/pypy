@@ -824,8 +824,9 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_GETARRAYITEM_RAW_I(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getrawptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
+            xxx
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
@@ -836,7 +837,7 @@ class OptVirtualize(optimizer.Optimization):
                 else:
                     self.make_equal_to(op, itemvalue)
                     return
-        value.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
     optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
 

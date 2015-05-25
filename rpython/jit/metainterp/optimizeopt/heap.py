@@ -59,9 +59,8 @@ class CachedField(object):
         structinfo = optheap.ensure_ptr_info_arg0(op)
         arg1 = optheap.get_box_replacement(op.getarg(1))
         if self.possible_aliasing(optheap, structinfo):
-            xxx
             self.force_lazy_setfield(optheap)
-            assert not self.possible_aliasing(optheap, structvalue)
+            assert not self.possible_aliasing(optheap, structinfo)
         cached_field = structinfo.getfield(op.getdescr())
         if cached_field is not None:
             cached_field = optheap.get_box_replacement(cached_field)

@@ -316,6 +316,18 @@ class Optimization(object):
             return fw
         return None
 
+    def getrawptrinfo(self, op, create=False, is_object=False):
+        assert op.type == 'i'
+        op = self.get_box_replacement(op)
+        assert op.type == 'i'
+        if isinstance(op, ConstInt):
+            return info.ConstRawInfo(op)
+        fw = op.get_forwarded()
+        if fw is not None:
+            assert isinstance(fw, info.RawPtrInfo)
+            return fw
+        return None
+
     def get_box_replacement(self, op):
         return self.optimizer.get_box_replacement(op)
 
