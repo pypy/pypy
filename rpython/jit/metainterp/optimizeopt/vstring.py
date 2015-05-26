@@ -99,6 +99,7 @@ class StrPtrInfo(info.NonNullPtrInfo):
         op = optforce.get_box_replacement(op)
         op.set_forwarded(newop)
         self.initialize_forced_string(op, optforce, op, CONST_0, self.mode)
+        return newop
 
     def initialize_forced_string(self, op, string_optimizer, targetbox,
                                  offsetbox, mode):
@@ -159,7 +160,31 @@ class VStringPlainInfo(StrPtrInfo):
         return self._is_virtual
 
     def getstrlen(self, op, string_optimizer, mode, lengthop):
-        xxx
+        if self.lgtop is None:
+            self.lgtop = ConstInt(len(self._chars))
+        return self.lgtop
+
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
+        if not self.is_virtual() and not self.is_completely_initialized():
+            return VAbstractStringValue.string_copy_parts(
+                self, string_optimizer, targetbox, offsetbox, mode)
+        else:
+            return self.initialize_forced_string(string_optimizer, targetbox,
+                                                 offsetbox, mode)
+
+    def initialize_forced_string(self, string_optimizer, targetbox,
+                                 offsetbox, mode):
+        for i in range(len(self._chars)):
+            assert not isinstance(targetbox, Const) # ConstPtr never makes sense
+            charbox = self.getitem(i) # can't be virtual
+            if charbox is not None:
+                op = ResOperation(mode.STRSETITEM, [targetbox,
+                                                    offsetbox,
+                                                    charbox])
+                string_optimizer.emit_operation(op)
+            offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
+        return offsetbox
 
 class VStringSliceInfo(StrPtrInfo):
     pass
