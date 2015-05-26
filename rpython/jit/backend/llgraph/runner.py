@@ -683,7 +683,14 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
     exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
     exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
+    exec py.code.Source(vector_arith_code.format('float','truediv','/')).compile()
     exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
+
+    def bh_vec_float_neg(self, vx):
+        return [e * -1 for e in vx]
+
+    def bh_vec_float_abs(self, vx):
+        return [abs(e) for e in vx]
 
     def bh_vec_float_eq(self, vx, vy):
         assert len(vx) == len(vy)

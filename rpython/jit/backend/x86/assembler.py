@@ -52,6 +52,8 @@ class Assembler386(BaseAssembler):
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
+        self.single_float_const_neg_addr = 0
+        self.single_float_const_abs_addr = 0
         self.malloc_slowpath = 0
         self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
@@ -92,20 +94,27 @@ class Assembler386(BaseAssembler):
         self.current_clt = None
 
     def _build_float_constants(self):
+        # 0x80000000000000008000000000000000
+        neg_const = '\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x80'
+        # 0x7FFFFFFFFFFFFFFF7FFFFFFFFFFFFFFF
+        abs_const = '\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x7F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x7F'
+        # 0x7FFFFFFF7FFFFFFF7FFFFFFF7FFFFFFF
+        single_abs_const = '\xFF\xFF\xFF\x7F\xFF\xFF\xFF\x7F\xFF\xFF\xFF\x7F\xFF\xFF\xFF\x7F'
+        # 0x80000000800000008000000080000000
+        single_neg_const = '\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80'
+        #
+        data = neg_const + neg_const + abs_const + abs_const + \
+               single_neg_const + single_abs_const
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
-        float_constants = datablockwrapper.malloc_aligned(32, alignment=16)
+        float_constants = datablockwrapper.malloc_aligned(len(data), alignment=16)
         datablockwrapper.done()
         addr = rffi.cast(rffi.CArrayPtr(lltype.Char), float_constants)
-        qword_padding = '\x00\x00\x00\x00\x00\x00\x00\x00'
-        # 0x8000000000000000
-        neg_const = '\x00\x00\x00\x00\x00\x00\x00\x80'
-        # 0x7FFFFFFFFFFFFFFF
-        abs_const = '\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x7F'
-        data = neg_const + qword_padding + abs_const + qword_padding
         for i in range(len(data)):
             addr[i] = data[i]
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
+        self.single_float_const_neg_addr = float_constants + 32
+        self.single_float_const_abs_addr = float_constants + 48
 
     def set_extra_stack_depth(self, mc, value):
         if self._is_asmgcc():
@@ -2564,11 +2573,35 @@ class Assembler386(BaseAssembler):
         elif itemsize == 8:
             self.mc.{p_op_d}(loc0, loc1)
     """
-    for op in ['add','mul','sub','div']:
+    for op in ['add','mul','sub']:
         OP = op.upper()
         _source = genop_vec_float_arith.format(type=op, p_op_s=OP+'PS',p_op_d=OP+'PD')
         exec py.code.Source(_source).compile()
     del genop_vec_float_arith
+
+    def genop_vec_float_truediv(self, op, arglocs, resloc):
+        loc0, loc1, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.DIVPS(loc0, loc1)
+        elif size == 8:
+            self.mc.DIVPD(loc0, loc1)
+
+    def genop_vec_float_abs(self, op, arglocs, resloc):
+        src, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.ANDPS(src, heap(self.single_float_const_abs_addr))
+        elif size == 8:
+            self.mc.ANDPD(src, heap(self.float_const_abs_addr))
+
+    def genop_vec_float_neg(self, op, arglocs, resloc):
+        src, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.XORPS(src, heap(self.single_float_const_neg_addr))
+        elif size == 8:
+            self.mc.XORPD(src, heap(self.float_const_neg_addr))
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
@@ -2590,15 +2623,18 @@ class Assembler386(BaseAssembler):
             self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:
-            raise NotImplementedError("sign ext missing")
+            raise NotImplementedError("sign ext missing: " + str(size) + " -> " + str(tosize))
 
     def genop_vec_float_expand(self, op, arglocs, resloc):
-        loc0, sizeloc, countloc = arglocs
-        count = countloc.value
-        if count == 1:
-            raise NotImplementedError("expand count 1")
-        elif count == 2:
-            self.mc.MOVDDUP(resloc, loc0)
+        srcloc, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            # the register allocator forces src to be the same as resloc
+            # r = (s[0], s[0], r[0], r[0])
+            # since resloc == srcloc: r = (r[0], r[0], r[0], r[0])
+            self.mc.SHUFPS_xxi(resloc.value, srcloc.value, 0)
+        elif size == 8:
+            self.mc.MOVDDUP(resloc, srcloc)
 
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs

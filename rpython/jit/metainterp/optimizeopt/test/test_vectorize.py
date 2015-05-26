@@ -1212,8 +1212,7 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_reduction_basic(self):
         trace = """
-        [p0, p1, p2, p3, p4]
-        label(p5, i6, p2, i7, p1, p8, i9, i10, f11, i12, i13, i14)
+        [p5, i6, p2, i7, p1, p8, i9, i10, f11, i12, i13, i14]
         guard_early_exit() [p2, p1, p5, f11, i9, i6, i10, i7, p8]
         f15 = raw_load(i12, i10, descr=floatarraydescr)
         guard_not_invalidated() [p2, p1, f15, p5, f11, i9, i6, i10, i7, p8]
@@ -1226,6 +1225,9 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i23) [p2, p1, i20, i18, f16, i22, p5, None, None, i6, None, None, p8]
         jump(p5, i6, p2, i18, p1, p8, i20, i22, f16, i12, i13, i14)
         """
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+        return
         pass # TODO
         trace = """
         # Loop unroll (pre vectorize) : -2 with 23 ops

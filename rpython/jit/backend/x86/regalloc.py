@@ -1523,7 +1523,20 @@ class RegAlloc(BaseRegalloc):
     consider_vec_float_add = consider_vec_arith
     consider_vec_float_sub = consider_vec_arith
     consider_vec_float_mul = consider_vec_arith
+    consider_vec_float_truediv = consider_vec_arith
     del consider_vec_arith
+
+    def consider_vec_arith_unary(self, op):
+        lhs = op.getarg(0)
+        assert isinstance(lhs, BoxVector)
+        size = lhs.item_size
+        args = op.getarglist()
+        res = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        self.perform(op, [res, imm(size)], res)
+
+    consider_vec_float_neg = consider_vec_arith_unary
+    consider_vec_float_abs = consider_vec_arith_unary
+    def consider_vec_arith_unary
 
     def consider_vec_logic(self, op):
         lhs = op.getarg(0)
@@ -1583,13 +1596,12 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_float_expand(self, op):
         args = op.getarglist()
-        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-        resloc = self.force_allocate_reg(op.result, args)
+        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         vres = op.result
         assert isinstance(vres, BoxVector)
         count = vres.getcount()
         size = vres.getsize()
-        self.perform(op, [srcloc, imm(size), imm(count)], resloc)
+        self.perform(op, [resloc, imm(size), imm(count)], resloc)
 
     def consider_vec_int_signext(self, op):
         args = op.getarglist()
