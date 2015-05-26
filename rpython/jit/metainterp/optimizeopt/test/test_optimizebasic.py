@@ -2154,8 +2154,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2]
         i1 = ptr_eq(p1, p2)
         i3 = int_add(i1, 1)
-        i3b = int_is_true(i3)
-        guard_true(i3b) []
         escape_n(i3)
         escape_n(i3)
         guard_true(i1) []
