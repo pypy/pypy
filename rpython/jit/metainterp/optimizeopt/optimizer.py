@@ -530,13 +530,9 @@ class Optimizer(Optimization):
     ##     return value
 
     def get_box_replacement(self, op):
-        orig_op = op
-        while (op.get_forwarded() is not None and
-               not op.get_forwarded().is_info_class):
-            op = op.get_forwarded()
-        if op is not orig_op:
-            orig_op.set_forwarded(op)
-        return op
+        if op is None:
+            return op
+        return op.get_box_replacement()
 
     def force_box(self, op):
         op = self.get_box_replacement(op)

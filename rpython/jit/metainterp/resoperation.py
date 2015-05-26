@@ -25,6 +25,15 @@ class AbstractValue(object):
     def set_forwarded(self, forwarded_to):
         raise Exception("oups")
 
+    def get_box_replacement(op):
+        orig_op = op
+        while (op.get_forwarded() is not None and
+               not op.get_forwarded().is_info_class):
+            op = op.get_forwarded()
+        if op is not orig_op:
+            orig_op.set_forwarded(op)
+        return op
+
 DONT_CHANGE = AbstractValue()
 
 def ResOperation(opnum, args, descr=None):

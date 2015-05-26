@@ -3168,9 +3168,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i1]
         p3 = force_token()
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         escape_n(p2)
         p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3194,9 +3194,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i1, p1]
         p3 = force_token()
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         escape_n(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)

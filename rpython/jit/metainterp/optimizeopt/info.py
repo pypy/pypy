@@ -134,10 +134,13 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
             return
         lst = self.vdescr.all_fielddescrs
         assert self.is_virtual()
-        visitor.register_virtual_fields(instbox, [box for box in self._fields])
+        visitor.register_virtual_fields(instbox,
+                                        [optimizer.get_box_replacement(box)
+                                         for box in self._fields])
         for i in range(len(lst)):
             op = self._fields[i]
             if op and op.type == 'r':
+                op = op.get_box_replacement()
                 fieldinfo = optimizer.getptrinfo(op)
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
@@ -223,7 +226,8 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         return self.length
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
-        itemops = [item for item in self._items if item]
+        itemops = [optimizer.get_box_replacement(item)
+                   for item in self._items if item]
         visitor.register_virtual_fields(instbox, itemops)
         for i in range(self.getlength()):
             itemop = self._items[i]

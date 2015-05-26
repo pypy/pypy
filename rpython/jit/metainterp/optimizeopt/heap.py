@@ -97,7 +97,10 @@ class CachedField(object):
             assert optheap.getptrinfo(op.getarg(0)) is opinfo
             return optheap.get_box_replacement(self._getvalue(op))
         else:
-            return self._getfield(opinfo, descr, optheap)
+            res = self._getfield(opinfo, descr, optheap)
+            if res is not None:
+                return res.get_box_replacement()
+            return None
 
     def _getvalue(self, op):
         return op.getarg(1)
