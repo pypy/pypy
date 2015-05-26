@@ -12,6 +12,7 @@ class RecentPureOps(object):
         self.next_index = 0
 
     def add(self, op):
+        assert isinstance(op, AbstractResOp)
         next_index = self.next_index
         self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
         self.lst[next_index] = op
@@ -180,7 +181,6 @@ class OptPure(Optimization):
         self.optimizer.optpure = self
 
     def pure(self, opnum, op):
-        op = self.get_box_replacement(op)
         recentops = self.getrecentops(opnum)
         recentops.add(op)
 

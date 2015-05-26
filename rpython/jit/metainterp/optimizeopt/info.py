@@ -49,10 +49,26 @@ class PtrInfo(AbstractInfo):
 
     
 class NonNullPtrInfo(PtrInfo):
-    _attrs_ = ()
-
+    _attrs_ = ('last_guard_pos',)
+    last_guard_pos = -1
+    
     def is_nonnull(self):
         return True
+
+    def get_known_class(self, cpu):
+        return None
+
+    def get_last_guard(self, optimizer):
+        if self.last_guard_pos == -1:
+            return None
+        return optimizer._newoperations[self.last_guard_pos]
+
+    def reset_last_guard_pos(self):
+        self.last_guard_pos = -1
+
+    def mark_last_guard(self, optimizer):
+        self.last_guard_pos = len(optimizer._newoperations) - 1
+        assert self.get_last_guard(optimizer).is_guard()
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
     _attrs_ = ('flags',)
@@ -111,7 +127,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         return count
 
 class InstancePtrInfo(AbstractStructPtrInfo):
-    _attrs_ = ('_known_class')
+    _attrs_ = ('_known_class',)
     _fields = None
 
     def __init__(self, known_class=None, is_virtual=False):
@@ -121,7 +137,7 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def get_known_class(self, cpu):
         return self._known_class
-    
+
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, is_virtual=False):
         if is_virtual:
@@ -260,6 +276,9 @@ class ConstPtrInfo(PtrInfo):
         if not self._const.nonnull():
             return None
         return cpu.ts.cls_of_box(self._const)
+
+    def get_last_guard(self, optimizer):
+        return None
     
 class XPtrOptInfo(AbstractInfo):
     _attrs_ = ('_tag', 'known_class', 'last_guard_pos', 'lenbound')

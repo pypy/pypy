@@ -295,12 +295,11 @@ class Optimization(object):
             return ptrinfo.getnullness()
         assert False
 
-    def make_constant_class(self, op, class_const):
+    def make_constant_class(self, op, class_const, update_last_guard=True):
         op = self.get_box_replacement(op)
-        opinfo = op.get_forwarded()
-        if opinfo is not None:
-            return opinfo
         opinfo = info.InstancePtrInfo(class_const)
+        if update_last_guard:
+            opinfo.mark_last_guard(self.optimizer)
         op.set_forwarded(opinfo)
         return opinfo
 
@@ -466,7 +465,7 @@ class Optimizer(Optimization):
         self.optimizations  = optimizations
 
     def replace_guard(self, op, value):
-        assert isinstance(value, PtrOptValue)
+        assert isinstance(value, info.InstancePtrInfo)
         if value.last_guard_pos == -1:
             return
         self.replaces_guard[op] = value.last_guard_pos
@@ -598,6 +597,10 @@ class Optimizer(Optimization):
         opinfo = arg0.get_forwarded()
         if isinstance(opinfo, info.AbstractVirtualPtrInfo):
             return opinfo
+        elif opinfo is not None:
+            last_guard_pos = opinfo.last_guard_pos
+        else:
+            last_guard_pos = -1
         assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
         if op.is_getfield() or op.getopnum() == rop.SETFIELD_GC:
             is_object = op.getdescr().parent_descr.is_object()
@@ -608,8 +611,11 @@ class Optimizer(Optimization):
             opinfo.init_fields(op.getdescr().parent_descr)
         elif op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC:
             opinfo = info.ArrayPtrInfo(op.getdescr())
+        elif op.getopnum() == rop.GUARD_CLASS:
+            opinfo = info.InstancePtrInfo()
         else:
-            zzz
+            xxx
+        opinfo.last_guard_pos = last_guard_pos
         arg0.set_forwarded(opinfo)
         return opinfo
 
