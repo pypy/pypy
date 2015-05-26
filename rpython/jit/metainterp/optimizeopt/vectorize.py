@@ -1114,7 +1114,6 @@ def isomorphic(l_op, r_op):
         return True
     return False
 
-
 class PackSet(object):
 
     def __init__(self, dependency_graph, operations, unroll_count,

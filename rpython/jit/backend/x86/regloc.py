@@ -675,7 +675,9 @@ class LocationCodeBuilder(object):
     SQRTSD = _binaryop('SQRTSD')
 
     ANDPD = _binaryop('ANDPD')
+    ANDPS = _binaryop('ANDPS')
     XORPD = _binaryop('XORPD')
+    XORPS = _binaryop('XORPS')
 
     PADDQ = _binaryop('PADDQ')
     PADDD = _binaryop('PADDD')

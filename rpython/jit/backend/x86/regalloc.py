@@ -99,7 +99,7 @@ class X86XMMRegisterManager(RegisterManager):
 
     def expand_single_float(self, f):
         adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
-        fs = f.getfloatstorage()
+        fs = rffi.cast(lltype.SingleFloat, f.getfloatstorage())
         rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[0] = fs
         rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[1] = fs
         rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[2] = fs
@@ -1561,7 +1561,7 @@ class RegAlloc(BaseRegalloc):
 
     consider_vec_float_neg = consider_vec_arith_unary
     consider_vec_float_abs = consider_vec_arith_unary
-    def consider_vec_arith_unary
+    del consider_vec_arith_unary
 
     def consider_vec_logic(self, op):
         lhs = op.getarg(0)

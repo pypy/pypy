@@ -2,8 +2,8 @@ import py
 import pytest
 
 from rpython.rlib.objectmodel import instantiate
-from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, FakeMetaInterpStaticData, convert_old_style_to_targets)
+from rpython.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
+        FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt import optimize_trace
