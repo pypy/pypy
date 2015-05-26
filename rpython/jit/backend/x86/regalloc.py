@@ -1599,9 +1599,8 @@ class RegAlloc(BaseRegalloc):
         resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         vres = op.result
         assert isinstance(vres, BoxVector)
-        count = vres.getcount()
         size = vres.getsize()
-        self.perform(op, [resloc, imm(size), imm(count)], resloc)
+        self.perform(op, [resloc, imm(size)], resloc)
 
     def consider_vec_int_signext(self, op):
         args = op.getarglist()
