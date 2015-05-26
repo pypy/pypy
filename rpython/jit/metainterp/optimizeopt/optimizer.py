@@ -297,10 +297,19 @@ class Optimization(object):
 
     def make_constant_class(self, op, class_const, update_last_guard=True):
         op = self.get_box_replacement(op)
-        opinfo = info.InstancePtrInfo(class_const)
+        opinfo = op.get_forwarded()
+        if isinstance(opinfo, info.InstancePtrInfo):
+            opinfo._known_class = class_const
+        else:
+            if opinfo is not None:
+                last_guard_pos = opinfo.last_guard_pos
+            else:
+                last_guard_pos = -1
+            opinfo = info.InstancePtrInfo(class_const)
+            opinfo.last_guard_pos = last_guard_pos
+            op.set_forwarded(opinfo)
         if update_last_guard:
             opinfo.mark_last_guard(self.optimizer)
-        op.set_forwarded(opinfo)
         return opinfo
 
     def getptrinfo(self, op, create=False, is_object=False):

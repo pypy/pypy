@@ -376,13 +376,13 @@ class OptRewrite(Optimization):
                 # on the same box.
                 self.optimizer.replace_guard(op, info)
                 self.emit_operation(op)
-                self.make_constant_class(op.getarg(0), expectedclassbox,
-                                         False)
+                self.make_constant_class(op.getarg(0), expectedclassbox, False)
                 return
         self.emit_operation(op)
         self.make_constant_class(op.getarg(0), expectedclassbox)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
+        xxx
         value = self.getvalue(op.getarg(0))
         if value.is_null():
             r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
