@@ -334,7 +334,7 @@ class ConstPtrInfo(PtrInfo):
     def get_constant_string_spec(self, optforce, mode):
         return self._unpack_str(mode)
     
-    def getstrlen(self, op, string_optimizer, mode, ignored):
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return ConstInt(len(self._unpack_str(mode)))
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,

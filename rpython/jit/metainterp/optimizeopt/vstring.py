@@ -87,7 +87,7 @@ class StrPtrInfo(info.NonNullPtrInfo):
                 optforce.get_box_replacement(op).set_forwarded(c_s)
                 return
         self._is_virtual = False
-        lengthbox = self.getstrlen(op, optforce, self.mode, None)
+        lengthbox = self.getstrlen(op, optforce, self.mode)
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
         if not we_are_translated():
             newop.name = 'FORCE'
@@ -104,19 +104,19 @@ class StrPtrInfo(info.NonNullPtrInfo):
         return self.string_copy_parts(op, string_optimizer, targetbox,
                                       offsetbox, mode)
 
-    def getstrlen(self, op, string_optimizer, mode, lengthop):
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         if self.lgtop is not None:
             return self.lgtop
-        if string_optimizer is None:
-            return None
         assert not self.is_virtual()
-        if lengthop is not None:
-            xxx
-            box = self.force_box(op, string_optimizer)
-            lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
-                mode.STRLEN, [box])
-        else:
-            lengthop = ResOperation(mode.STRLEN, [op])
+        #if lengthop is not None:
+        #    xxx
+        #    box = self.force_box(op, string_optimizer)
+        #    lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
+        #        mode.STRLEN, [box])
+        #else:
+        if not create_ops:
+            return None
+        lengthop = ResOperation(mode.STRLEN, [op])
         self.lgtop = lengthop
         string_optimizer.emit_operation(lengthop)
         return lengthop
@@ -126,7 +126,7 @@ class StrPtrInfo(info.NonNullPtrInfo):
          # Copies the pointer-to-string 'self' into the target string
          # given by 'targetbox', at the specified offset.  Returns the offset
          # at the end of the copy.
-         lengthbox = self.getstrlen(op, string_optimizer, mode, None)
+         lengthbox = self.getstrlen(op, string_optimizer, mode)
          srcbox = self.force_box(op, string_optimizer)
          return copy_str_content(string_optimizer, srcbox, targetbox,
                                  CONST_0, offsetbox, lengthbox, mode)
@@ -149,7 +149,7 @@ class VStringPlainInfo(StrPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def getstrlen(self, op, string_optimizer, mode, lengthop):
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         if self.lgtop is None:
             self.lgtop = ConstInt(len(self._chars))
         return self.lgtop
@@ -190,18 +190,20 @@ class VStringConcatInfo(StrPtrInfo):
     def is_virtual(self):
         return self._is_virtual
 
-    def getstrlen(self, op, string_optimizer, mode, ignored):
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         if self.lgtop is not None:
             return self.lgtop
         lefti = string_optimizer.getptrinfo(self.vleft)
-        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode, None)
+        len1box = lefti.getstrlen(self.vleft, string_optimizer, mode,
+                                  create_ops)
         if len1box is None:
             return None
         righti = string_optimizer.getptrinfo(self.vright)
-        len2box = righti.getstrlen(self.vright, string_optimizer, mode, None)
+        len2box = righti.getstrlen(self.vright, string_optimizer, mode,
+                                   create_ops)
         if len2box is None:
             return None
-        self.lgtop = _int_add(string_optimizer, len1box, len2box)
+        self.lgtop = _int_add(string_optimizer, len1box, len2box, create_ops)
             # ^^^ may still be None, if string_optimizer is None
         return self.lgtop
 
@@ -527,7 +529,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
         offsetbox = nextoffsetbox
     return offsetbox
 
-def _int_add(string_optimizer, box1, box2):
+def _int_add(string_optimizer, box1, box2, create_ops=True):
     if isinstance(box1, ConstInt):
         if box1.value == 0:
             return box2
@@ -535,7 +537,7 @@ def _int_add(string_optimizer, box1, box2):
             return ConstInt(box1.value + box2.value)
     elif isinstance(box2, ConstInt) and box2.value == 0:
         return box1
-    if string_optimizer is None:
+    if not create_ops:
         return None
     op = ResOperation(rop.INT_ADD, [box1, box2])
     string_optimizer.send_extra_operation(op)
@@ -653,13 +655,14 @@ class OptString(optimizer.Optimization):
                 if result is not None:
                     return result
         #
-        if isinstance(value, VStringConcatValue) and vindex.is_constant():
-            len1box = value.left.getstrlen(self, mode, None)
+        if isinstance(sinfo, VStringConcatInfo) and vindex.is_constant():
+            leftinfo = self.getptrinfo(sinfo.vleft)
+            len1box = leftinfo.getstrlen(sinfo.vleft, self, mode)
             if isinstance(len1box, ConstInt):
-                index = vindex.box.getint()
+                index = vindex.getint()
                 len1 = len1box.getint()
                 if index < len1:
-                    return self.strgetitem(value.left, vindex, mode)
+                    return self.strgetitem(sinfo.vleft, leftinfo, vindex, mode)
                 else:
                     vindex = optimizer.ConstantIntValue(ConstInt(index - len1))
                     return self.strgetitem(value.right, vindex, mode)
@@ -824,11 +827,13 @@ class OptString(optimizer.Optimization):
         return True
 
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
-        v1 = self.getvalue(op.getarg(1))
-        v2 = self.getvalue(op.getarg(2))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        arg2 = self.get_box_replacement(op.getarg(2))
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
         #
-        l1box = v1.getstrlen(None, mode, None)
-        l2box = v2.getstrlen(None, mode, None)
+        l1box = i1.getstrlen(arg1, self, mode, create_ops=False)
+        l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and
@@ -837,7 +842,7 @@ class OptString(optimizer.Optimization):
             self.make_constant(op, CONST_0)
             return True
         #
-        if self.handle_str_equal_level1(v1, v2, op, mode):
+        if self.handle_str_equal_level1(arg1, arg2, op, mode):
             return True
         if self.handle_str_equal_level1(v2, v1, op, mode):
             return True
@@ -856,8 +861,10 @@ class OptString(optimizer.Optimization):
             return True
         return False
 
-    def handle_str_equal_level1(self, v1, v2, resultop, mode):
-        l2box = v2.getstrlen(None, mode, None)
+    def handle_str_equal_level1(self, arg1, arg2, resultop, mode):
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
+        l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
                 lengthbox = v1.getstrlen(self, mode, None)
@@ -868,15 +875,14 @@ class OptString(optimizer.Optimization):
                 seo(op)
                 return True
             if l2box.value == 1:
-                l1box = v1.getstrlen(None, mode, None)
+                l1box = i1.getstrlen(arg1, self, mode, False)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
-                    vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
-                    vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+                    vchar1 = self.strgetitem(arg1, i1, optimizer.CONST_0, mode)
+                    vchar2 = self.strgetitem(arg2, i2, optimizer.CONST_0, mode)
                     seo = self.optimizer.send_extra_operation
                     op = self.optimizer.replace_op_with(resultop, rop.INT_EQ,
-                          [vchar1.force_box(self), vchar2.force_box(self)],
-                        descr=DONT_CHANGE)
+                                [vchar1, vchar2], descr=DONT_CHANGE)
                     seo(op)
                     return True
                 if isinstance(v1, VStringSliceValue):
