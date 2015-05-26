@@ -250,14 +250,24 @@ class OptRewrite(Optimization):
         self.optimizer.pure_reverse(op)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
-        box = self.get_box_replacement(op.getarg(0))
-        if box.is_constant():
-            assert isinstance(box, Const)
-            if not box.same_constant(constbox):
-                r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) was proven '
-                                  'to always fail' % r)
-            return
+        box = op.getarg(0)
+        if box.type == 'i':
+            intbound = self.getintbound(box)
+            if intbound.is_constant():
+                if not intbound.getint() == constbox.getint():
+                    r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
+                        op)
+                    raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) was '
+                                      'proven to always fail' % r)
+                return
+        elif box.type == 'r':
+            box = self.get_box_replacement(box)
+            if box.is_constant():
+                if not box.same_constant(constbox):
+                    raise InvalidLoop('A GUARD_VALUE (%s) was proven '
+                                      'to always fail' % r)
+                return
+                    
         if emit_operation:
             self.emit_operation(op)
         self.make_constant(box, constbox)

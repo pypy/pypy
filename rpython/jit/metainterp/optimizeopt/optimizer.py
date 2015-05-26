@@ -561,9 +561,14 @@ class Optimizer(Optimization):
     def clear_newoperations(self):
         self._newoperations = []
 
-    def make_equal_to(self, op, oldop):
-        assert op.get_forwarded() is None
-        op.set_forwarded(oldop)
+    def make_equal_to(self, op, newop):
+        opinfo = op.get_forwarded()
+        if opinfo is not None:
+            assert isinstance(opinfo, info.AbstractInfo)
+            op.set_forwarded(newop)
+            newop.set_forwarded(opinfo)
+        else:
+            op.set_forwarded(newop)
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         newop = op.copy_and_change(newopnum, args, descr)

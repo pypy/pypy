@@ -22,7 +22,7 @@ class RecentPureOps(object):
             op = self.lst[i]
             if op is None:
                 break
-            if op.getarg(0).same_box(box0) and op.getdescr() is descr:
+            if opt.get_box_replacement(op.getarg(0)).same_box(box0) and op.getdescr() is descr:
                 return opt.get_box_replacement(op)
         return None
 
@@ -31,7 +31,7 @@ class RecentPureOps(object):
             op = self.lst[i]
             if op is None:
                 break
-            if (op.getarg(0).same_box(box0) and op.getarg(1).same_box(box1)
+            if (opt.get_box_replacement(op.getarg(0)).same_box(box0) and opt.get_box_replacement(op.getarg(1)).same_box(box1)
                 and op.getdescr() is descr):
                 return opt.get_box_replacement(op)
         return None
