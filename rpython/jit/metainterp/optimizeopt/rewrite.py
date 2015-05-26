@@ -7,8 +7,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
     CONST_0, CONST_1)
-from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL,\
-     ArrayPtrInfo
+from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers

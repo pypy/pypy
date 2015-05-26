@@ -85,11 +85,11 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self.flags = 0
         self._fields = [None] * len(self._fields)
 
-    def setfield(self, descr, op, optheap=None):
+    def setfield(self, descr, op, cf=None):
         self._fields[descr.index] = op
-        if optheap is not None:
+        if cf is not None:
             assert not self.is_virtual()
-            optheap.register_dirty_field(descr, self)
+            cf.register_dirty_field(self)
 
     def getfield(self, descr, optheap=None):
         return self._fields[descr.index]
@@ -128,17 +128,19 @@ class StructPtrInfo(AbstractStructPtrInfo):
             self.flags = FLAG_VIRTUAL
     
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', '_items', '_descr', 'lengthbound')
+    _attrs_ = ('length', '_items', '_descr', 'lenbound')
+
+    flags = 0
+    _items = None
+    lenbound = None
+    length = -1
 
     def __init__(self, descr, const=None, size=0, clear=False,
                  is_virtual=False):
         self._descr = descr
-        self.lengthbound = None
         if is_virtual:
             self.flags = FLAG_VIRTUAL
             self._init_items(const, size, clear)
-        else:
-            self._items = None
 
     def _init_items(self, const, size, clear):
         self.length = size
@@ -162,10 +164,19 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 count += 1
         return count
 
-    def setitem_virtual(self, index, item):
+    def setitem(self, index, item, cf):
+        if self._items is None:
+            self._items = [None] * (index + 1)
+        if index >= len(self._items):
+            self._items = self._items + [None] * (index - len(self._items) + 1)
         self._items[index] = item
+        if cf is not None:
+            assert not self.is_virtual()
+            cf.register_dirty_field(self)
 
-    def getitem_virtual(self, index):
+    def getitem(self, index):
+        if self._items is None or index >= len(self._items):
+            return None
         return self._items[index]
 
     def getlength(self):
