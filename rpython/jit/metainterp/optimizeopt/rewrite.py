@@ -526,32 +526,28 @@ class OptRewrite(Optimization):
             arraydescr = extrainfo.write_descrs_arrays[0]
             if arraydescr.is_array_of_structs():
                 return False       # not supported right now
-            
-            xxx
-            from rpython.jit.metainterp.optimizeopt.virtualize import VArrayValue
+
             # XXX fish fish fish
             for index in range(length.getint()):
-                if source_value.is_virtual():
-                    assert isinstance(source_value, VArrayValue)
-                    val = source_value.getitem(index + source_start)
+                if source_info and source_info.is_virtual():
+                    val = source_info.getitem(index + source_start)
                 else:
                     opnum = OpHelpers.getarrayitem_for_descr(arraydescr)
                     newop = ResOperation(opnum,
                                       [op.getarg(1),
                                        ConstInt(index + source_start)],
                                        descr=arraydescr)
-                    newop.is_source_op = True
                     self.optimizer.send_extra_operation(newop)
-                    val = self.getvalue(newop)
+                    val = newop
                 if val is None:
                     continue
-                if dest_value.is_virtual():
-                    dest_value.setitem(index + dest_start, val)
+                if dest_info and dest_info.is_virtual():
+                    dest_info.setitem(index + dest_start, val)
                 else:
                     newop = ResOperation(rop.SETARRAYITEM_GC,
                                          [op.getarg(2),
                                           ConstInt(index + dest_start),
-                                          val.get_key_box()],
+                                          val],
                                          descr=arraydescr)
                     self.emit_operation(newop)
             return True
