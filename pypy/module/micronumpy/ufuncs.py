@@ -428,7 +428,7 @@ def safe_casting_mode(casting):
         return casting
 
 class W_Ufunc1(W_Ufunc):
-    _immutable_fields_ = ["func", "bool_result"]
+    _immutable_fields_ = ["func", "bool_result", "dtypes"]
     nin = 1
     nout = 1
     nargs = 2
@@ -495,7 +495,7 @@ class W_Ufunc1(W_Ufunc):
         if arg_dtype.is_object():
             return arg_dtype, arg_dtype
         in_casting = safe_casting_mode(casting)
-        for dt_in, dt_out in self.allowed_types(space):
+        for dt_in, dt_out in self.dtypes:
             if use_min_scalar:
                 if not can_cast_array(space, w_arg, dt_in, in_casting):
                     continue
@@ -511,30 +511,6 @@ class W_Ufunc1(W_Ufunc):
         else:
             raise oefmt(space.w_TypeError,
                 "ufunc '%s' not supported for the input types", self.name)
-
-    def allowed_types(self, space):
-        dtypes = []
-        cache = get_dtype_cache(space)
-        if not self.promote_bools and not self.promote_to_float:
-            dtypes.append((cache.w_booldtype, cache.w_booldtype))
-        if not self.promote_to_float:
-            for dt in cache.integer_dtypes:
-                dtypes.append((dt, dt))
-        if not self.int_only:
-            for dt in cache.float_dtypes:
-                dtypes.append((dt, dt))
-            for dt in cache.complex_dtypes:
-                if self.complex_to_float:
-                    if dt.num == NPY.CFLOAT:
-                        dt_out = get_dtype_cache(space).w_float32dtype
-                    else:
-                        dt_out = get_dtype_cache(space).w_float64dtype
-                    dtypes.append((dt, dt_out))
-                else:
-                    dtypes.append((dt, dt))
-        if self.bool_result:
-            dtypes = [(dt_in, cache.w_booldtype) for dt_in, _ in dtypes]
-        return dtypes
 
 
 class W_Ufunc2(W_Ufunc):
@@ -1332,10 +1308,39 @@ class UfuncState(object):
             bool_result=extra_kwargs.get("bool_result", False),
         )
         if nin == 1:
-            ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
+            ufunc = unary_ufunc(space, func, ufunc_name, **extra_kwargs)
         elif nin == 2:
             ufunc = W_Ufunc2(func, ufunc_name, **extra_kwargs)
         setattr(self, ufunc_name, ufunc)
+
+def unary_ufunc(space, func, ufunc_name, **kwargs):
+    ufunc = W_Ufunc1(func, ufunc_name, **kwargs)
+    ufunc.dtypes = _ufunc1_dtypes(ufunc, space)
+    return ufunc
+
+def _ufunc1_dtypes(ufunc, space):
+    dtypes = []
+    cache = get_dtype_cache(space)
+    if not ufunc.promote_bools and not ufunc.promote_to_float:
+        dtypes.append((cache.w_booldtype, cache.w_booldtype))
+    if not ufunc.promote_to_float:
+        for dt in cache.integer_dtypes:
+            dtypes.append((dt, dt))
+    if not ufunc.int_only:
+        for dt in cache.float_dtypes:
+            dtypes.append((dt, dt))
+        for dt in cache.complex_dtypes:
+            if ufunc.complex_to_float:
+                if dt.num == NPY.CFLOAT:
+                    dt_out = get_dtype_cache(space).w_float32dtype
+                else:
+                    dt_out = get_dtype_cache(space).w_float64dtype
+                dtypes.append((dt, dt_out))
+            else:
+                dtypes.append((dt, dt))
+    if ufunc.bool_result:
+        dtypes = [(dt_in, cache.w_booldtype) for dt_in, _ in dtypes]
+    return dtypes
 
 
 def get(space):

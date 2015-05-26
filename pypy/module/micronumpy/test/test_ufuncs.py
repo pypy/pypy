@@ -1,5 +1,5 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.ufuncs import W_UfuncGeneric, W_Ufunc1
+from pypy.module.micronumpy.ufuncs import W_UfuncGeneric, unary_ufunc
 from pypy.module.micronumpy.support import _parse_signature
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 from pypy.module.micronumpy.base import W_NDimArray
@@ -58,16 +58,16 @@ class TestGenericUfuncOperation(object):
         dt_bool = get_dtype_cache(space).w_booldtype
         dt_float16 = get_dtype_cache(space).w_float16dtype
         dt_int32 = get_dtype_cache(space).w_int32dtype
-        ufunc = W_Ufunc1(None, 'x', int_only=True)
+        ufunc = unary_ufunc(space, None, 'x', int_only=True)
         assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_bool, dt_bool)
-        assert ufunc.allowed_types(space)  # XXX: shouldn't contain too much stuff
+        assert ufunc.dtypes  # XXX: shouldn't contain too much stuff
 
-        ufunc = W_Ufunc1(None, 'x', promote_to_float=True)
+        ufunc = unary_ufunc(space, None, 'x', promote_to_float=True)
         assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_float16, dt_float16)
         assert ufunc._calc_dtype(space, dt_bool, casting='same_kind') == (dt_float16, dt_float16)
         raises(OperationError, ufunc._calc_dtype, space, dt_bool, casting='no')
 
-        ufunc = W_Ufunc1(None, 'x')
+        ufunc = unary_ufunc(space, None, 'x')
         assert ufunc._calc_dtype(space, dt_int32, out=None) == (dt_int32, dt_int32)
 
 class AppTestUfuncs(BaseNumpyAppTest):
