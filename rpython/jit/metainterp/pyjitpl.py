@@ -438,9 +438,7 @@ class MIFrame(object):
 
     @arguments("descr")
     def opimpl_new_with_vtable(self, sizedescr):
-        cpu = self.metainterp.cpu
-        cls = heaptracker.descr2vtable(cpu, sizedescr)
-        return self.metainterp.execute_new_with_vtable(ConstInt(cls))
+        return self.metainterp.execute_new_with_vtable(descr=sizedescr)
 
     @arguments("box", "descr")
     def opimpl_new_array(self, lengthbox, itemsizedescr):
@@ -2024,9 +2022,8 @@ class MetaInterp(object):
         if op.type != 'v':
             return op
 
-    def execute_new_with_vtable(self, known_class):
-        resbox = self.execute_and_record(rop.NEW_WITH_VTABLE, None,
-                                         known_class)
+    def execute_new_with_vtable(self, descr):
+        resbox = self.execute_and_record(rop.NEW_WITH_VTABLE, descr)
         self.heapcache.new(resbox)
         self.heapcache.class_now_known(resbox)
         return resbox

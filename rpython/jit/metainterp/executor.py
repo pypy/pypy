@@ -227,11 +227,8 @@ def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
     else:
         return BoxInt(cpu.bh_raw_load_i(addr, offset, arraydescr))
 
-def exec_new_with_vtable(cpu, clsbox):
-    from rpython.jit.codewriter import heaptracker
-    vtable = clsbox.getint()
-    descr = heaptracker.vtable2descr(cpu, vtable)
-    return cpu.bh_new_with_vtable(vtable, descr)
+def exec_new_with_vtable(cpu, descr):
+    return cpu.bh_new_with_vtable(descr)
 
 def do_new_with_vtable(cpu, _, clsbox):
     return exec_new_with_vtable(cpu, clsbox)

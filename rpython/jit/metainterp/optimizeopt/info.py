@@ -1,4 +1,5 @@
 
+from rpython.rlib.objectmodel import specialize
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop
 from rpython.jit.metainterp.history import ConstInt
@@ -18,8 +19,6 @@ MODE_STRUCT = '\x04'
 INFO_NULL = 0
 INFO_NONNULL = 1
 INFO_UNKNOWN = 2
-
-FLAG_VIRTUAL = 1
 
 class AbstractInfo(AbstractValue):
     is_info_class = True
@@ -71,9 +70,11 @@ class NonNullPtrInfo(PtrInfo):
         assert self.get_last_guard(optimizer).is_guard()
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
-    _attrs_ = ('flags',)
+    _attrs_ = ('_cached_vinfo', 'vdescr')
+    # XXX merge _cached_vinfo with vdescr
 
-    flags = 0
+    _cached_vinfo = None
+    vdescr = None
 
     def force_box(self, op, optforce):
         if self.is_virtual():
@@ -82,13 +83,13 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             newop = optforce.getlastop()
             op.set_forwarded(newop)
             newop.set_forwarded(self)
-            self.flags &= ~FLAG_VIRTUAL # clean the virtual flag
+            self.vdescr = None
             self._force_elements(newop, optforce)
             return newop
         return op
 
     def is_virtual(self):
-        return self.flags & FLAG_VIRTUAL
+        return self.vdescr is not None
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_fields',)
@@ -97,8 +98,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self._fields = [None] * len(descr.all_fielddescrs)
 
     def clear_cache(self):
-        assert self.flags & FLAG_VIRTUAL == 0
-        self.flags = 0
+        assert not self.is_virtual()
         self._fields = [None] * len(self._fields)
 
     def setfield(self, descr, op, optheap=None, cf=None):
@@ -130,32 +130,45 @@ class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
     _fields = None
 
-    def __init__(self, known_class=None, is_virtual=False):
+    def __init__(self, known_class=None, vdescr=None):
         self._known_class = known_class
-        if is_virtual:
-            self.flags = FLAG_VIRTUAL
+        self.vdescr = vdescr
 
     def get_known_class(self, cpu):
         return self._known_class
 
+    def visitor_walk_recursive(self, instbox, visitor):
+        if visitor.already_seen_virtual(instbox):
+            return
+        #lst = op.getdescr().parent_descr.all_fielddescrs
+        assert self.is_virtual()
+        visitor.register_virtual_fields(instbox,
+                                        [box for box in self._fields if box])
+        #for i in range(len(lst)):
+        #    descr = lst[descr]
+        #    fieldvalue = self._fields[ofs]
+        #    fieldvalue.visitor_walk_recursive(visitor)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        fielddescrs = self.vdescr.all_fielddescrs
+        assert self.is_virtual()
+        return visitor.visit_virtual(self.vdescr, fielddescrs)
+
 class StructPtrInfo(AbstractStructPtrInfo):
-    def __init__(self, is_virtual=False):
-        if is_virtual:
-            self.flags = FLAG_VIRTUAL
+    def __init__(self, vdescr=None):
+        self.vdescr = vdescr
     
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', '_items', '_descr', 'lenbound')
+    _attrs_ = ('length', '_items', 'lenbound')
 
-    flags = 0
     _items = None
     lenbound = None
     length = -1
 
-    def __init__(self, descr, const=None, size=0, clear=False,
-                 is_virtual=False):
-        self._descr = descr
-        if is_virtual:
-            self.flags = FLAG_VIRTUAL
+    def __init__(self, const=None, size=0, clear=False, vdescr=None):
+        self.vdescr = vdescr
+        if vdescr is not None:
             self._init_items(const, size, clear)
 
     def _init_items(self, const, size, clear):
@@ -199,11 +212,10 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         return self.length
 
 class ArrayStructInfo(ArrayPtrInfo):
-    def __init__(self, descr, size, is_virtual):
+    def __init__(self, size, vdescr=None):
         self.length = size
-        lgt = len(descr.all_interiorfielddescrs)
-        if is_virtual:
-            self.flags = FLAG_VIRTUAL
+        lgt = len(vdescr.all_interiorfielddescrs)
+        self.vdescr = vdescr
         self._items = [None] * (size * lgt)
 
     def _compute_index(self, index, fielddescr):

@@ -159,9 +159,8 @@ class MyMetaInterp:
         self.trace.append((opnum, list(argboxes), resvalue, descr))
         return op
 
-    def execute_new_with_vtable(self, known_class):
-        return self.execute_and_record(rop.NEW_WITH_VTABLE, None,
-                                       known_class)
+    def execute_new_with_vtable(self, descr=None):
+        return self.execute_and_record(rop.NEW_WITH_VTABLE, descr)
 
     def execute_new(self, typedescr):
         return self.execute_and_record(rop.NEW, typedescr)

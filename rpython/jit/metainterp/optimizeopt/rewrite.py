@@ -213,11 +213,10 @@ class OptRewrite(Optimization):
             v2 = self.get_box_replacement(rhs)
 
             if v1.is_constant():
-                xxxx
-                if v1.box.getfloatstorage() == 1.0:
+                if v1.getfloatstorage() == 1.0:
                     self.make_equal_to(op, v2)
                     return
-                elif v1.box.getfloatstorage() == -1.0:
+                elif v1.getfloatstorage() == -1.0:
                     newop = self.replace_op_with(op, rop.FLOAT_NEG, args=[rhs])
                     self.emit_operation(newop)
                     return
@@ -227,12 +226,12 @@ class OptRewrite(Optimization):
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
         arg2 = op.getarg(1)
-        v2 = self.getvalue(arg2)
+        v2 = self.get_box_replacement(arg2)
 
         # replace "x / const" by "x * (1/const)" if possible
         newop = op
         if v2.is_constant():
-            divisor = v2.box.getfloatstorage()
+            divisor = v2.getfloatstorage()
             fraction = math.frexp(divisor)[0]
             # This optimization is valid for powers of two
             # but not for zeroes, some denormals and NaN:

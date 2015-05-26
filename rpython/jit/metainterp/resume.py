@@ -289,23 +289,21 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         self.snapshot_storage = snapshot_storage
         self.memo = memo
 
-    def make_virtual_info(self, value, fieldnums):
-        from rpython.jit.metainterp.optimizeopt.virtualize import AbstractVirtualValue
-        assert isinstance(value, AbstractVirtualValue)
+    def make_virtual_info(self, descr, info, fieldnums):
         assert fieldnums is not None
-        vinfo = value._cached_vinfo
+        vinfo = info._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):
             return vinfo
-        vinfo = value.visitor_dispatch_virtual_type(self)
+        vinfo = info.visitor_dispatch_virtual_type(self)
         vinfo.set_content(fieldnums)
-        value._cached_vinfo = vinfo
+        info._cached_vinfo = vinfo
         return vinfo
 
     def visit_not_virtual(self, value):
         assert 0, "unreachable"
 
-    def visit_virtual(self, known_class, fielddescrs):
-        return VirtualInfo(known_class, fielddescrs)
+    def visit_virtual(self, descr, fielddescrs):
+        return VirtualInfo(descr, fielddescrs)
 
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructInfo(typedescr, fielddescrs)
@@ -392,20 +390,20 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 liveboxes[i] = box
             else:
                 assert tagbits == TAGVIRTUAL
-                value = optimizer.getvalue(box)
-                value.visitor_walk_recursive(self)
+                info = optimizer.getptrinfo(box)
+                info.visitor_walk_recursive(box, self)
 
-        for item in pending_setfields:
-            pass
-            #_, box, fieldbox, _ = item
-            # XXX fixme
-            #self.register_box(box)
-            #self.register_box(fieldbox)
-            #value = optimizer.getvalue(fieldbox)
-            #value.visitor_walk_recursive(self)
+        for setfield_op in pending_setfields:
+            box = setfield_op.getarg(0)
+            fieldbox = setfield_op.getarg(1)
+            self.register_box(box)
+            self.register_box(fieldbox)
+            info = optimizer.getptrinfo(fieldbox)
+            assert info is not None and info.is_virtual()
+            info.visitor_walk_recursive(fieldbox, self)
 
         self._number_virtuals(liveboxes, optimizer, v)
-        self._add_pending_fields([]) # XXX fixme pending_setfields)
+        self._add_pending_fields(pending_setfields)
 
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
@@ -450,10 +448,12 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             memo.nvholes += length - len(vfieldboxes)
             for virtualbox, fieldboxes in vfieldboxes.iteritems():
                 num, _ = untag(self.liveboxes[virtualbox])
-                value = optimizer.getvalue(virtualbox)
+                info = optimizer.getptrinfo(virtualbox)
+                assert info.is_virtual()
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
-                vinfo = self.make_virtual_info(value, fieldnums)
+                descr = info.vdescr
+                vinfo = self.make_virtual_info(descr, info, fieldnums)
                 # if a new vinfo instance is made, we get the fieldnums list we
                 # pass in as an attribute. hackish.
                 if vinfo.fieldnums is not fieldnums:
@@ -478,19 +478,23 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             n = len(pending_setfields)
             rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
             for i in range(n):
-                descr, box, fieldbox, itemindex = pending_setfields[i]
+                op = pending_setfields[i]
+                box = op.getarg(0)
+                fieldbox = op.getarg(1)
+                descr = op.getdescr()
+                #descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
                 # the index is limited to 2147483647 (64-bit machines only)
-                if itemindex > 2147483647:
-                    raise TagOverflow
-                itemindex = rffi.cast(rffi.INT, itemindex)
+                #if itemindex > 2147483647:
+                #    raise TagOverflow
+                #itemindex = rffi.cast(rffi.INT, itemindex)
                 #
                 rd_pendingfields[i].lldescr = lldescr
                 rd_pendingfields[i].num = num
                 rd_pendingfields[i].fieldnum = fieldnum
-                rd_pendingfields[i].itemindex = itemindex
+                rd_pendingfields[i].itemindex = rffi.cast(rffi.INT, 0) # XXXX itemindex
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -538,13 +542,13 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(untag(self.fieldnums[i])))
 
 class VirtualInfo(AbstractVirtualStructInfo):
-    def __init__(self, known_class, fielddescrs):
+    def __init__(self, descr, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
-        self.known_class = known_class
+        self.descr = descr
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        struct = decoder.allocate_with_vtable(self.known_class)
+        struct = decoder.allocate_with_vtable(descr=self.descr)
         decoder.virtuals_cache.set_ptr(index, struct)
         return self.setfields(decoder, struct)
 
@@ -1008,8 +1012,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         virtualref_boxes = self.consume_virtualref_boxes(numb, end)
         return virtualizable_boxes, virtualref_boxes
 
-    def allocate_with_vtable(self, known_class):
-        return self.metainterp.execute_new_with_vtable(known_class)
+    def allocate_with_vtable(self, descr=None):
+        return self.metainterp.execute_new_with_vtable(descr=descr)
 
     def allocate_struct(self, typedescr):
         return self.metainterp.execute_new(typedescr)
