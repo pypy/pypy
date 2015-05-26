@@ -127,7 +127,8 @@ class CachedField(object):
             # field.
             opinfo = optheap.ensure_ptr_info_arg0(op)
             opinfo.setfield(op.getdescr(),
-                            optheap.get_box_replacement(op.getarg(1)))
+                            optheap.get_box_replacement(op.getarg(1)),
+                            optheap, self)
         elif not can_cache:
             self.invalidate()
 
@@ -389,7 +390,7 @@ class OptHeap(Optimization):
         except KeyError:
             return
         for idx, cf in submap.iteritems():
-            if indexvalue is None or indexvalue.getintbound().contains(idx):
+            if indexop is None or indexop.getintbound().contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
     def _assert_valid_cf(self, cf):
@@ -464,8 +465,7 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # then remember the result of reading the field
-        structinfo.setfield(op.getdescr(), self.get_box_replacement(op), self,
-                            cf)
+        structinfo.setfield(op.getdescr(), op, self, cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
@@ -509,7 +509,6 @@ class OptHeap(Optimization):
                 self.make_equal_to(op, field)
                 return
         else:
-            xxx
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(), op.getarg(1))
         # default case: produce the operation
