@@ -208,6 +208,9 @@ class Test__ffi(BaseTestPyPyC):
         """, ignore_ops=['guard_not_invalidated'])
 
     def test__cffi_call_c_int(self):
+        if sys.platform == 'win32':
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
         def main():
             import os
             try:
@@ -248,6 +251,9 @@ class Test__ffi(BaseTestPyPyC):
         """ % extra, ignore_ops=['guard_not_invalidated'])
 
     def test__cffi_call_size_t(self):
+        if sys.platform == 'win32':
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
         def main():
             import os
             try:

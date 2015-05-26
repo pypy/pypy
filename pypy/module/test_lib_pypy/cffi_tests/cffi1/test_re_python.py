@@ -26,8 +26,11 @@ def setup_module(mod):
     tmpdir.ensure(dir=1)
     c_file = tmpdir.join('_test_re_python.c')
     c_file.write(SRC)
-    ext = ffiplatform.get_extension(str(c_file), '_test_re_python',
-                                    export_symbols=['add42', 'globalvar42'])
+    ext = ffiplatform.get_extension(
+        str(c_file),
+        '_test_re_python',
+        export_symbols=['add42', 'add43', 'globalvar42']
+    )
     outputfilename = ffiplatform.compile(str(tmpdir), ext)
     mod.extmod = outputfilename
     mod.tmpdir = tmpdir

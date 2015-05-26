@@ -27,15 +27,15 @@ eci_kwds = dict(
     include_dirs = [SRC],
     includes = ['vmprof.h', 'trampoline.h'],
     separate_module_files = [SRC.join('trampoline.asmgcc.s')],
-    libraries = ['unwind'],
+    libraries = ['dl'],
     
     post_include_bits=["""
-        void pypy_vmprof_init(void);
+        int pypy_vmprof_init(void);
     """],
     
     separate_module_sources=["""
-        void pypy_vmprof_init(void) {
-            vmprof_set_mainloop(pypy_execute_frame_trampoline, 0,
+        int pypy_vmprof_init(void) {
+            return vmprof_set_mainloop(pypy_execute_frame_trampoline, 0,
                                 NULL);
         }
     """],
@@ -63,7 +63,7 @@ pypy_execute_frame_trampoline = rffi.llexternal(
     _nowrapper=True, sandboxsafe=True,
     random_effects_on_gcobjs=True)
 
-pypy_vmprof_init = rffi.llexternal("pypy_vmprof_init", [], lltype.Void,
+pypy_vmprof_init = rffi.llexternal("pypy_vmprof_init", [], rffi.INT,
                                    compilation_info=eci)
 vmprof_enable = rffi.llexternal("vmprof_enable",
                                 [rffi.INT, rffi.LONG, rffi.INT,
@@ -73,6 +73,9 @@ vmprof_enable = rffi.llexternal("vmprof_enable",
 vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
                                  compilation_info=eci,
                                 save_err=rffi.RFFI_SAVE_ERRNO)
+vmprof_get_error = rffi.llexternal("vmprof_get_error", [], rffi.CCHARP,
+                                   compilation_info=eci,
+                                   save_err=rffi.RFFI_SAVE_ERRNO)
 
 vmprof_register_virtual_function = rffi.llexternal(
     "vmprof_register_virtual_function",
@@ -142,7 +145,11 @@ class VMProf(object):
         self.write_header(fileno, period_usec)
         if not self.ever_enabled:
             if we_are_translated():
-                pypy_vmprof_init()
+                res = pypy_vmprof_init()
+                if res:
+                    raise OperationError(
+                        space.w_IOError,
+                        space.wrap(rffi.charp2str(vmprof_get_error())))
             self.ever_enabled = True
         self.gather_all_code_objs(space)
         space.register_code_callback(vmprof_register_code)

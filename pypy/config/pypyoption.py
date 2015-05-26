@@ -39,7 +39,6 @@ working_modules.update([
 ])
 
 if sys.platform.startswith('linux') and sys.maxint > 2147483647:
-  if 0:     # XXX disabled until we fix the absurd .so mess
     working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()

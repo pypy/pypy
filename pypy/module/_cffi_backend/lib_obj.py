@@ -12,7 +12,7 @@ from pypy.module._cffi_backend import cffi_opcode, cglob
 from pypy.module._cffi_backend.realize_c_type import getop, getarg
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
-from pypy.module._cffi_backend.structwrapper import W_StructWrapper
+from pypy.module._cffi_backend.wrapper import W_FunctionWrapper
 
 
 class W_LibObject(W_Root):
@@ -49,7 +49,7 @@ class W_LibObject(W_Root):
             num += 1
         self.ffi.included_ffis_libs = includes[:]
 
-    def _build_cpython_func(self, g):
+    def _build_cpython_func(self, g, fnname):
         # Build a function: in the PyPy version, these are all equivalent
         # and 'g->address' is a pointer to a function of exactly the
         # C type specified --- almost: arguments that are structs or
@@ -64,10 +64,8 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        w_cdata = W_CData(self.space, ptr, w_ct)
-        if locs is not None:
-            w_cdata = W_StructWrapper(w_cdata, locs, rawfunctype)
-        return w_cdata
+        return W_FunctionWrapper(self.space, ptr, w_ct,
+                                 locs, rawfunctype, fnname)
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -100,7 +98,7 @@ class W_LibObject(W_Root):
                 op == cffi_opcode.OP_CPYTHON_BLTN_N or
                 op == cffi_opcode.OP_CPYTHON_BLTN_O):
                 # A function
-                w_result = self._build_cpython_func(g)
+                w_result = self._build_cpython_func(g, attr)
                 #
             elif op == cffi_opcode.OP_GLOBAL_VAR:
                 # A global variable of the exact type specified here
@@ -210,7 +208,7 @@ class W_LibObject(W_Root):
         #
         if ((isinstance(w_value, W_CData) and
                 isinstance(w_value.ctype, W_CTypeFunc))
-            or isinstance(w_value, W_StructWrapper)):
+            or isinstance(w_value, W_FunctionWrapper)):
             # '&func' is 'func' in C, for a constant function 'func'
             return w_value
         #
