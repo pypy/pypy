@@ -46,6 +46,9 @@ class PtrInfo(AbstractInfo):
             return INFO_NONNULL
         return INFO_UNKNOWN
 
+    def same_info(self, other):
+        return self is other
+
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
@@ -309,6 +312,11 @@ class ConstPtrInfo(PtrInfo):
         if not self._const.nonnull():
             return None
         return cpu.ts.cls_of_box(self._const)
+
+    def same_info(self, other):
+        if not isinstance(other, ConstPtrInfo):
+            return False
+        return self._const.same_constant(other._const)
 
     def get_last_guard(self, optimizer):
         return None

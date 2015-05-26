@@ -52,8 +52,8 @@ class CachedField(object):
         # the same or a different structure at runtime.
         # XXX constants?
         return (self._lazy_setfield is not None
-                and (optheap.getptrinfo(self._lazy_setfield.getarg(0))
-                     is not opinfo))
+                and (not optheap.getptrinfo(
+                    self._lazy_setfield.getarg(0)).same_info(opinfo)))
 
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
