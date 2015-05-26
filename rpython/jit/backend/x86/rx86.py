@@ -918,10 +918,10 @@ define_modrm_modes('MOVSD_x*', ['\xF2', rex_nw, '\x0F\x10', register(1,8)], regt
 define_modrm_modes('MOVSD_*x', ['\xF2', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
 define_modrm_modes('MOVSS_x*', ['\xF3', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
 define_modrm_modes('MOVSS_*x', ['\xF3', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
-define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)],
-                   regtype='XMM')
-define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
-                   regtype='XMM')
+define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)], regtype='XMM')
+define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)], regtype='XMM')
+define_modrm_modes('MOVAPS_x*', [        rex_nw, '\x0F\x28', register(1,8)], regtype='XMM')
+define_modrm_modes('MOVAPS_*x', [        rex_nw, '\x0F\x29', register(2,8)], regtype='XMM')
 
 define_modrm_modes('MOVDQA_x*', ['\x66', rex_nw, '\x0F\x6F', register(1, 8)], regtype='XMM')
 define_modrm_modes('MOVDQA_*x', ['\x66', rex_nw, '\x0F\x7F', register(2, 8)], regtype='XMM')

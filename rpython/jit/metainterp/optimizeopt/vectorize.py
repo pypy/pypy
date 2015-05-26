@@ -736,7 +736,7 @@ class PackType(PrimitiveTypeMixin):
         assert isinstance(box, BoxVector)
         if count == -1:
             count = box.item_count
-        return PackType(box.item_type, box.item_size, box.signed, count)
+        return PackType(box.item_type, box.item_size, box.item_signed, count)
 
     def clone(self):
         return PackType(self.type, self.size, self.signed, self.count)
@@ -957,8 +957,10 @@ class OpToVectorOp(object):
                 opnum = rop.VEC_INT_PACK
             for i,op in enumerate(ops):
                 arg = op.getoperation().getarg(argidx)
+                new_box = vbox.clonebox()
                 resop = ResOperation(opnum,
-                                     [vbox,ConstInt(i),arg], None)
+                                     [vbox,ConstInt(i),arg], new_box)
+                vbox = new_box
                 self.preamble_ops.append(resop)
         return vbox
 

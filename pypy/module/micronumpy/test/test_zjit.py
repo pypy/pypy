@@ -323,20 +323,9 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_cumsum(self):
-        py.test.skip()
         result = self.run("cumsum")
         assert result == 15
         self.check_trace_count(1)
-        self.check_simple_loop({
-            'float_add': 1,
-            'guard_false': 1,
-            'guard_not_invalidated': 1,
-            'int_add': 3,
-            'int_ge': 1,
-            'jump': 1,
-            'raw_load': 1,
-            'raw_store': 1,
-        })
 
     def define_axissum():
         return """

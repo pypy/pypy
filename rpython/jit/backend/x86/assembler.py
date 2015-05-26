@@ -2696,7 +2696,7 @@ class Assembler386(BaseAssembler):
                         # if source is a normal register (unpack)
                         assert count == 1
                         assert si == 0
-                        self.mc.MOVSD(X86_64_XMM_SCRATCH_REG, srcloc)
+                        self.mc.MOVAPS(X86_64_XMM_SCRATCH_REG, srcloc)
                         src = X86_64_XMM_SCRATCH_REG.value
                     select = ((si & 0x3) << 6)|((ri & 0x3) << 4)
                     self.mc.INSERTPS_xxi(resloc.value, src, select)
@@ -2719,15 +2719,17 @@ class Assembler386(BaseAssembler):
                 else:
                     assert srcidx == 1
                     if residx == 0:
-                        source = resloc.value
-                        if resloc.value != srcloc.value:
-                            self.mc.MOVUPD(resloc, srcloc)
-                        # r = (s[1], r[0])
-                        self.mc.SHUFPD_xxi(resloc.value, source, 1)
+                        # r = (s[1], r[1])
+                        if resloc != srcloc:
+                            self.mc.UNPCKHPD(resloc, srcloc)
+                        self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
                     else:
                         assert residx == 1
                         # r = (r[0], s[1])
-                        self.mc.SHUFPD_xxi(resloc.value, srcloc.value, 2)
+                        if resloc != srcloc:
+                            self.mc.SHUFPS_xxi(resloc.value, resloc.value, 1)
+                            self.mc.UNPCKHPD(resloc, srcloc)
+                        # if they are equal nothing is to be done
 
     genop_vec_float_unpack = genop_vec_float_pack
 
