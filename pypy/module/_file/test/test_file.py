@@ -280,6 +280,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         # well as of _io.FileIO at least in CPython 3.3.  This is
         # *not* the behavior of _io.FileIO in CPython 3.4 or 3.5;
         # see CPython's issue #21090.
+        import sys
         try:
             from posix import openpty, fdopen, write, close
         except ImportError:
@@ -288,9 +289,18 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         write(write_fd, 'Abc\n')
         close(write_fd)
         f = fdopen(read_fd)
-        s = f.read()
-        assert s == 'Abc\r\n'
-        raises(IOError, f.read)
+        # behavior on Linux: f.read() returns 'Abc\r\n', then the next time
+        # it raises IOError.  Behavior on OS/X (Python 2.7.5): the close()
+        # above threw away the buffer, and f.read() always returns ''.
+        if sys.platform.startswith('linux'):
+            s = f.read()
+            assert s == 'Abc\r\n'
+            raises(IOError, f.read)
+        else:
+            s = f.read()
+            assert s == ''
+            s = f.read()
+            assert s == ''
         f.close()
 
 
