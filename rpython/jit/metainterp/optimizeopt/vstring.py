@@ -491,12 +491,13 @@ class OptString(optimizer.Optimization):
         self._optimize_STRLEN(op, mode_unicode)
 
     def _optimize_STRLEN(self, op, mode):
-        value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode, op)
-        if op in self.optimizer.values:
-            assert self.getvalue(op) is self.getvalue(lengthbox)
-        elif op is not lengthbox:
-            self.make_equal_to(op, self.getvalue(lengthbox))
+        #value = self.getvalue(op.getarg(0))
+        #lengthbox = value.getstrlen(self, mode, op)
+        #if op in self.optimizer.values:
+        #    assert self.getvalue(op) is self.getvalue(lengthbox)
+        #elif op is not lengthbox:
+        #    self.make_equal_to(op, self.getvalue(lengthbox))
+        self.emit_operation(op)
 
     def optimize_COPYSTRCONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_string)

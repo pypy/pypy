@@ -623,6 +623,8 @@ class Optimizer(Optimization):
             opinfo = info.ArrayPtrInfo(op.getdescr())
         elif op.getopnum() == rop.GUARD_CLASS:
             opinfo = info.InstancePtrInfo()
+        elif op.getopnum() in (rop.STRLEN, rop.UNICODELEN):
+            opinfo = info.StrPtrInfo()
         else:
             xxx
         opinfo.last_guard_pos = last_guard_pos

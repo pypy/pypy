@@ -382,21 +382,13 @@ class OptIntBounds(Optimization):
 
     def optimize_STRLEN(self, op):
         self.emit_operation(op)
-        array = self.getvalue(op.getarg(0))
-        result = self.getvalue(op)
-        array.make_len_gt(MODE_STR, op.getdescr(), -1)
-        array.getlenbound().bound.intersect(result.getintbound())
-        assert isinstance(result, IntOptValue)
-        result.intbound = array.getlenbound().bound
+        array = self.ensure_ptr_info_arg0(op)
+        self.get_box_replacement(op).set_forwarded(array.getlenbound())
 
     def optimize_UNICODELEN(self, op):
         self.emit_operation(op)
-        array = self.getvalue(op.getarg(0))
-        result = self.getvalue(op)
-        array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
-        array.getlenbound().bound.intersect(result.getintbound())
-        assert isinstance(result, IntOptValue)        
-        result.intbound = array.getlenbound().bound
+        array = self.ensure_ptr_info_arg0(op)
+        self.get_box_replacement(op).set_forwarded(array.getlenbound())
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)
