@@ -3,6 +3,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop
 from rpython.jit.metainterp.history import ConstInt
+from rpython.rtyper.lltypesystem import rstr, lltype
 
 """ The tag field on PtrOptInfo has a following meaning:
 
@@ -325,6 +326,24 @@ class ConstPtrInfo(PtrInfo):
 
     def get_last_guard(self, optimizer):
         return None
+
+    def _unpack_str(self, mode):
+        return mode.hlstr(lltype.cast_opaque_ptr(
+            lltype.Ptr(mode.LLTYPE), self._const.getref_base()))
+    
+    def getstrlen(self, op, string_optimizer, mode, ignored):
+        return ConstInt(len(self._unpack_str(mode)))
+
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
+        from rpython.jit.metainterp.optimizeopt import vstring
+        from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
+
+        lgt = self.getstrlen(op, string_optimizer, mode, None)
+        return vstring.copy_str_content(string_optimizer, self._const,
+                                        targetbox, CONST_0, offsetbox,
+                                        lgt, mode)
+
     
 class XPtrOptInfo(AbstractInfo):
     _attrs_ = ('_tag', 'known_class', 'last_guard_pos', 'lenbound')

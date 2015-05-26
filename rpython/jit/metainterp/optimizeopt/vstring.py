@@ -68,27 +68,10 @@ class StrPtrInfo(info.NonNullPtrInfo):
                 self.lenbound = intutils.ConstIntBound(self.length)
         return self.lenbound
 
-    def get_constant_string_spec(self, mode):
-        if self.is_constant():
-            xxx
-        return None
-
     def force_box(self, op, optforce):
         if not self.is_virtual():
             return op
         self._is_virtual = False
-        if self.mode is mode_string:
-            s = self.get_constant_string_spec(mode_string)
-            if s is not None:
-                c_s = get_const_ptr_for_string(s)
-                self.make_constant(c_s)
-                return
-        else:
-            s = self.get_constant_string_spec(mode_unicode)
-            if s is not None:
-                c_s = get_const_ptr_for_unicode(s)
-                self.make_constant(c_s)
-                return
         lengthbox = self.getstrlen(op, optforce, self.mode, None)
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
         if not we_are_translated():
@@ -109,14 +92,6 @@ class StrPtrInfo(info.NonNullPtrInfo):
     def getstrlen(self, op, string_optimizer, mode, lengthop):
         if self.lgtop is not None:
             return self.lgtop
-        if mode is mode_string:
-            s = self.get_constant_string_spec(mode_string)
-            if s is not None:
-                return ConstInt(len(s))
-        else:
-            s = self.get_constant_string_spec(mode_unicode)
-            if s is not None:
-                return ConstInt(len(s))
         if string_optimizer is None:
             return None
         assert not self.is_virtual()
