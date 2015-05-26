@@ -81,6 +81,31 @@ class X86XMMRegisterManager(RegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
+    def expand_float(self, var, const):
+        assert isinstance(var, BoxVector)
+        if var.getsize() == 4:
+            loc = self.expand_single_float(const)
+        else:
+            loc = self.expand_double_float(const)
+        self.reg_bindings[var] = loc
+        return loc
+
+    def expand_double_float(self, f):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        fs = f.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = fs
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = fs
+        return ConstFloatLoc(adr)
+
+    def expand_single_float(self, f):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        fs = f.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[0] = fs
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[1] = fs
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[2] = fs
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[3] = fs
+        return ConstFloatLoc(adr)
+
     def call_result_location(self, v):
         return xmm0
 
@@ -1513,7 +1538,7 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
-        loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [loc0, loc1, imm(size)], loc0)
 
@@ -1543,8 +1568,8 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform(op, [loc0, loc1, imm(size)], loc0)
 
     consider_vec_float_eq = consider_vec_logic
@@ -1595,11 +1620,14 @@ class RegAlloc(BaseRegalloc):
     consider_vec_float_unpack = consider_vec_int_unpack
 
     def consider_vec_float_expand(self, op):
+        arg = op.getarg(0)
+        if isinstance(arg, Const):
+            resloc = self.xrm.expand_float(op.result, arg)
+            return
         args = op.getarglist()
-        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        vres = op.result
-        assert isinstance(vres, BoxVector)
-        size = vres.getsize()
+        resloc = self.xrm.force_result_in_reg(op.result, arg, args)
+        assert isinstance(op.result, BoxVector)
+        size = op.result.getsize()
         self.perform(op, [resloc, imm(size)], resloc)
 
     def consider_vec_int_signext(self, op):
