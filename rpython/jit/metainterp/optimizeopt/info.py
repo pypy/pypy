@@ -126,6 +126,19 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 count += 1
         return count
 
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        if visitor.already_seen_virtual(instbox):
+            return
+        lst = self.vdescr.all_fielddescrs
+        assert self.is_virtual()
+        visitor.register_virtual_fields(instbox, [box for box in self._fields])
+        for i in range(len(lst)):
+            op = self._fields[i]
+            if op and op.type == 'r':
+                fieldinfo = optimizer.getptrinfo(op)
+                if fieldinfo and fieldinfo.is_virtual():
+                    fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
+
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
     _fields = None
@@ -137,18 +150,6 @@ class InstancePtrInfo(AbstractStructPtrInfo):
     def get_known_class(self, cpu):
         return self._known_class
 
-    def visitor_walk_recursive(self, instbox, visitor):
-        if visitor.already_seen_virtual(instbox):
-            return
-        #lst = op.getdescr().parent_descr.all_fielddescrs
-        assert self.is_virtual()
-        visitor.register_virtual_fields(instbox,
-                                        [box for box in self._fields if box])
-        #for i in range(len(lst)):
-        #    descr = lst[descr]
-        #    fieldvalue = self._fields[ofs]
-        #    fieldvalue.visitor_walk_recursive(visitor)
-
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         fielddescrs = self.vdescr.all_fielddescrs
@@ -158,9 +159,15 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, vdescr=None):
         self.vdescr = vdescr
-    
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        fielddescrs = self.vdescr.all_fielddescrs
+        assert self.is_virtual()
+        return visitor.visit_vstruct(self.vdescr, fielddescrs)
+
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', '_items', 'lenbound')
+    _attrs_ = ('length', '_items', 'lenbound', '_clear')
 
     _items = None
     lenbound = None
@@ -170,6 +177,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         self.vdescr = vdescr
         if vdescr is not None:
             self._init_items(const, size, clear)
+        self._clear = clear
 
     def _init_items(self, const, size, clear):
         self.length = size
@@ -210,6 +218,19 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def getlength(self):
         return self.length
+
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        itemops = [item for item in self._items if item]
+        visitor.register_virtual_fields(instbox, itemops)
+        for i in range(self.getlength()):
+            itemop = self._items[i]
+            if itemop is not None and itemop.type == 'r':
+                xxxx
+                itemvalue.visitor_walk_recursive(visitor)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_varray(self.vdescr, self._clear)
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, size, vdescr=None):

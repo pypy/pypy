@@ -391,7 +391,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             else:
                 assert tagbits == TAGVIRTUAL
                 info = optimizer.getptrinfo(box)
-                info.visitor_walk_recursive(box, self)
+                info.visitor_walk_recursive(box, self, optimizer)
 
         for setfield_op in pending_setfields:
             box = setfield_op.getarg(0)
@@ -400,7 +400,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             self.register_box(fieldbox)
             info = optimizer.getptrinfo(fieldbox)
             assert info is not None and info.is_virtual()
-            info.visitor_walk_recursive(fieldbox, self)
+            info.visitor_walk_recursive(fieldbox, self, optimizer)
 
         self._number_virtuals(liveboxes, optimizer, v)
         self._add_pending_fields(pending_setfields)
@@ -482,6 +482,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 box = op.getarg(0)
                 fieldbox = op.getarg(1)
                 descr = op.getdescr()
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    xxx
                 #descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
@@ -494,7 +496,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 rd_pendingfields[i].lldescr = lldescr
                 rd_pendingfields[i].num = num
                 rd_pendingfields[i].fieldnum = fieldnum
-                rd_pendingfields[i].itemindex = rffi.cast(rffi.INT, 0) # XXXX itemindex
+                rd_pendingfields[i].itemindex = rffi.cast(rffi.INT, -1) # XXXX itemindex
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -531,7 +533,9 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def setfields(self, decoder, struct):
         for i in range(len(self.fielddescrs)):
             descr = self.fielddescrs[i]
-            decoder.setfield(struct, self.fieldnums[i], descr)
+            num = self.fieldnums[i]
+            if not tagged_eq(num, UNINITIALIZED):
+                decoder.setfield(struct, num, descr)
         return struct
 
     def debug_prints(self):
