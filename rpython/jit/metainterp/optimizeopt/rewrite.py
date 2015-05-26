@@ -582,17 +582,19 @@ class OptRewrite(Optimization):
         pass # just remove it
 
     def optimize_INT_FLOORDIV(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        arg0 = op.getarg(0)
+        b1 = self.getintbound(arg0)
+        arg1 = op.getarg(1)
+        b2 = self.getintbound(arg1)
 
-        if v2.is_constant() and v2.box.getint() == 1:
-            self.make_equal_to(op.result, v1)
+        if b2.is_constant() and b2.getint() == 1:
+            self.make_equal_to(op, arg0)
             return
-        elif v1.is_constant() and v1.box.getint() == 0:
+        elif b1.is_constant() and b1.getint() == 0:
             self.make_constant_int(op, 0)
             return
-        if v1.getintbound().known_ge(IntBound(0, 0)) and v2.is_constant():
-            val = v2.box.getint()
+        if b1.known_ge(IntBound(0, 0)) and b2.is_constant():
+            val = b2.getint()
             if val & (val - 1) == 0 and val > 0: # val == 2**shift
                 op = op.copy_and_change(rop.INT_RSHIFT,
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
