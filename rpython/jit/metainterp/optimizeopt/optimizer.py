@@ -465,7 +465,7 @@ class Optimizer(Optimization):
         self.optimizations  = optimizations
 
     def replace_guard(self, op, value):
-        assert isinstance(value, info.InstancePtrInfo)
+        assert isinstance(value, info.NonNullPtrInfo)
         if value.last_guard_pos == -1:
             return
         self.replaces_guard[op] = value.last_guard_pos
