@@ -68,9 +68,24 @@ class StrPtrInfo(info.NonNullPtrInfo):
                 self.lenbound = intutils.ConstIntBound(self.length)
         return self.lenbound
 
+    def get_constant_string_spec(self, string_optimizer, mode):
+        return None # can't be constant
+
     def force_box(self, op, optforce):
         if not self.is_virtual():
             return op
+        if self.mode is mode_string:
+            s = self.get_constant_string_spec(optforce, mode_string)
+            if s is not None:
+                c_s = get_const_ptr_for_string(s)
+                optforce.get_box_replacement(op).set_forwarded(c_s)
+                return
+        else:
+            s = self.get_constant_string_spec(optforce, mode_unicode)
+            if s is not None:
+                c_s = get_const_ptr_for_unicode(s)
+                optforce.get_box_replacement(op).set_forwarded(c_s)
+                return
         self._is_virtual = False
         lengthbox = self.getstrlen(op, optforce, self.mode, None)
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
@@ -189,6 +204,18 @@ class VStringConcatInfo(StrPtrInfo):
         self.lgtop = _int_add(string_optimizer, len1box, len2box)
             # ^^^ may still be None, if string_optimizer is None
         return self.lgtop
+
+    @specialize.arg(1)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        ileft = string_optimizer.getptrinfo(self.vleft)
+        s1 = ileft.get_constant_string_spec(string_optimizer, mode)
+        if s1 is None:
+            return None
+        iright = string_optimizer.getptrinfo(self.vright)
+        s2 = iright.get_constant_string_spec(string_optimizer, mode)
+        if s2 is None:
+            return None
+        return s1 + s2
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):

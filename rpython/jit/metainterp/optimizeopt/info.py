@@ -330,6 +330,9 @@ class ConstPtrInfo(PtrInfo):
     def _unpack_str(self, mode):
         return mode.hlstr(lltype.cast_opaque_ptr(
             lltype.Ptr(mode.LLTYPE), self._const.getref_base()))
+
+    def get_constant_string_spec(self, optforce, mode):
+        return self._unpack_str(mode)
     
     def getstrlen(self, op, string_optimizer, mode, ignored):
         return ConstInt(len(self._unpack_str(mode)))
