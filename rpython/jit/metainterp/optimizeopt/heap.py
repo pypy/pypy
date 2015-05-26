@@ -40,9 +40,9 @@ class CachedField(object):
     def register_dirty_field(self, info):
         self.cached_infos.append(info)
 
-    def invalidate(self):
+    def invalidate(self, descr):
         for info in self.cached_infos:
-            info._fields = [None] * len(info._fields)
+            info._fields[descr.index] = None
         self.cached_infos = []
 
 
@@ -60,7 +60,7 @@ class CachedField(object):
         structinfo = optheap.ensure_ptr_info_arg0(op)
         arg1 = optheap.get_box_replacement(op.getarg(1))
         if self.possible_aliasing(optheap, structinfo):
-            self.force_lazy_setfield(optheap)
+            self.force_lazy_setfield(optheap, op.getdescr())
             assert not self.possible_aliasing(optheap, structinfo)
         cached_field = self._getfield(structinfo, op.getdescr(), optheap)
         if cached_field is not None:
@@ -91,7 +91,7 @@ class CachedField(object):
     def getfield_from_cache(self, optheap, opinfo, descr):
         # Returns the up-to-date field's value, or None if not cached.
         if self.possible_aliasing(optheap, opinfo):
-            self.force_lazy_setfield(optheap)
+            self.force_lazy_setfield(optheap, descr)
         if self._lazy_setfield is not None:
             op = self._lazy_setfield
             assert optheap.getptrinfo(op.getarg(0)) is opinfo
@@ -105,14 +105,14 @@ class CachedField(object):
     def _getfield(self, opinfo, descr, optheap):
         return opinfo.getfield(descr, optheap)
 
-    def force_lazy_setfield(self, optheap, can_cache=True):
+    def force_lazy_setfield(self, optheap, descr, can_cache=True):
         op = self._lazy_setfield
         if op is not None:
             # This is the way _lazy_setfield is usually reset to None.
             # Now we clear _cached_fields, because actually doing the
             # setfield might impact any of the stored result (because of
             # possible aliasing).
-            self.invalidate()
+            self.invalidate(descr)
             self._lazy_setfield = None
             if optheap.postponed_op:
                 for a in op.getarglist():
@@ -128,7 +128,7 @@ class CachedField(object):
             opinfo = optheap.ensure_ptr_info_arg0(op)
             self._setfield(op, opinfo, optheap)
         elif not can_cache:
-            self.invalidate()
+            self.invalidate(descr)
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(1))
@@ -149,7 +149,7 @@ class ArrayCachedField(CachedField):
         arg = optheap.get_box_replacement(op.getarg(2))
         opinfo.setitem(self.index, arg, self)
 
-    def invalidate(self):
+    def invalidate(self, descr):
         for info in self.cached_infos:
             info._items = None
         self.cached_infos = []
@@ -222,7 +222,7 @@ class OptHeap(Optimization):
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
         for descr, cf in self.cached_fields.iteritems():
-            cf.invalidate()
+            cf.invalidate(descr)
         self.cached_arrayitems.clear()
         self.cached_dict_reads.clear()
 
@@ -392,7 +392,7 @@ class OptHeap(Optimization):
             cf = self.cached_fields[descr]
         except KeyError:
             return
-        cf.force_lazy_setfield(self, can_cache)
+        cf.force_lazy_setfield(self, descr, can_cache)
 
     def force_lazy_setarrayitem(self, arraydescr, indexb=None, can_cache=True):
         try:
@@ -401,7 +401,7 @@ class OptHeap(Optimization):
             return
         for idx, cf in submap.iteritems():
             if indexb is None or indexb.contains(idx):
-                cf.force_lazy_setfield(self, can_cache)
+                cf.force_lazy_setfield(self, idx, can_cache)
 
     def _assert_valid_cf(self, cf):
         # check that 'cf' is in cached_fields or cached_arrayitems
@@ -414,11 +414,12 @@ class OptHeap(Optimization):
                     assert 0, "'cf' not in cached_fields/cached_arrayitems"
 
     def force_all_lazy_setfields_and_arrayitems(self):
-        for cf in self.cached_fields.itervalues():
-            cf.force_lazy_setfield(self)
+        # XXX fix the complexity here
+        for descr, cf in self.cached_fields.iteritems():
+            cf.force_lazy_setfield(self, descr)
         for submap in self.cached_arrayitems.itervalues():
-            for cf in submap.itervalues():
-                cf.force_lazy_setfield(self)
+            for index, cf in submap.iteritems():
+                cf.force_lazy_setfield(self, index)
 
     def force_lazy_setfields_and_arrayitems_for_guard(self):
         pendingfields = []
@@ -432,7 +433,7 @@ class OptHeap(Optimization):
                 if ptrinfo and ptrinfo.is_virtual():
                     pendingfields.append(op)
                     continue
-            cf.force_lazy_setfield(self)
+            cf.force_lazy_setfield(self, descr)
         return pendingfields
         for cf in self._lazy_setfields_and_arrayitems:
             self._assert_valid_cf(cf)
@@ -461,7 +462,7 @@ class OptHeap(Optimization):
                 pendingfields.append((op.getdescr(), value.box,
                                       fieldvalue.get_key_box(), itemindex))
             else:
-                cf.force_lazy_setfield(self)
+                cf.force_lazy_setfield(self, descr)
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
