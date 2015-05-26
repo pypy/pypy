@@ -464,7 +464,8 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # then remember the result of reading the field
-        structinfo.setfield(op.getdescr(), self.get_box_replacement(op), cf)
+        structinfo.setfield(op.getdescr(), self.get_box_replacement(op), self,
+                            cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 

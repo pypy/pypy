@@ -787,7 +787,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                item = opinfo.getitem_virtual(indexbox.getint())
+                item = opinfo.getitem(indexbox.getint())
                 if item is None:   # reading uninitialized array items?
                     assert False, "can't read uninitialized items"
                     itemvalue = value.constvalue     # bah, just return 0
@@ -809,8 +809,8 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                opinfo.setitem_virtual(indexbox.getint(),
-                                       self.get_box_replacement(op.getarg(2)))
+                opinfo.setitem(indexbox.getint(),
+                               self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)

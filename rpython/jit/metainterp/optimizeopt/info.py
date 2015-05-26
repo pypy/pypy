@@ -85,7 +85,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self.flags = 0
         self._fields = [None] * len(self._fields)
 
-    def setfield(self, descr, op, cf=None):
+    def setfield(self, descr, op, optheap=None, cf=None):
         self._fields[descr.index] = op
         if cf is not None:
             assert not self.is_virtual()
@@ -164,7 +164,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 count += 1
         return count
 
-    def setitem(self, index, item, cf):
+    def setitem(self, index, item, cf=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
@@ -243,9 +243,9 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_info(descr, optheap)
         return info.getfield(descr)
 
-    def setfield(self, descr, op, optheap=None):
+    def setfield(self, descr, op, optheap=None, cf=None):
         info = self._get_info(descr, optheap)
-        info.setfield(descr, op, optheap)
+        info.setfield(descr, op, optheap, cf)
 
     def is_null(self):
         return not bool(self._const.getref_base())
