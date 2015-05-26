@@ -157,7 +157,7 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
             txt2 = txt2[width:]
     print '-' * totwidth
 
-    for op1, op2 in zip(oplist1, oplist2):
+    for i_count, (op1, op2) in enumerate(zip(oplist1, oplist2)):
         assert op1.getopnum() == op2.getopnum()
         assert op1.numargs() == op2.numargs()
         for i in range(op1.numargs()):

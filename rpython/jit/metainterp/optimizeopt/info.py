@@ -86,8 +86,9 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             newop = optforce.getlastop()
             op.set_forwarded(newop)
             newop.set_forwarded(self)
+            descr = self.vdescr
             self.vdescr = None
-            self._force_elements(newop, optforce)
+            self._force_elements(newop, optforce, descr)
             return newop
         return op
 
@@ -113,10 +114,9 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def getfield(self, descr, optheap=None):
         return self._fields[descr.index]
 
-    def _force_elements(self, op, optforce):
+    def _force_elements(self, op, optforce, descr):
         if self._fields is None:
             return 0
-        descr = op.getdescr()
         count = 0
         for i, flddescr in enumerate(descr.all_fielddescrs):
             fld = self._fields[i]
@@ -189,7 +189,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         else:
             self._items = [None] * size
 
-    def _force_elements(self, op, optforce):
+    def _force_elements(self, op, optforce, descr):
         arraydescr = op.getdescr()
         count = 0
         for i in range(self.length):
@@ -254,7 +254,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         index = self._compute_index(index, fielddescr)
         return self._items[index]
 
-    def _force_elements(self, op, optforce):
+    def _force_elements(self, op, optforce, descr):
         i = 0
         fielddescrs = op.getdescr().all_interiorfielddescrs
         count = 0

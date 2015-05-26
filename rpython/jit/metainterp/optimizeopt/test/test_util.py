@@ -292,6 +292,7 @@ class LLtypeMixin(object):
 
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
+    vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, False)
 
     register_known_gctype(cpu, node_vtable,  NODE)
     register_known_gctype(cpu, node_vtable2, NODE2)

@@ -601,19 +601,21 @@ class OptVirtualize(optimizer.Optimization):
         # get some constants
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
+        vref_descr = vrefinfo.descr
         descr_virtual_token = vrefinfo.descr_virtual_token
         descr_forced = vrefinfo.descr_forced
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
         # but the point is that doing so does not force the original structure.
-        newop = ResOperation(rop.NEW_WITH_VTABLE, [c_cls])
-        vrefvalue = self.make_virtual(c_cls, newop)
-        self.optimizer.values[op] = vrefvalue
+        newop = ResOperation(rop.NEW_WITH_VTABLE, [], descr=vref_descr)
+        vrefvalue = self.make_virtual(c_cls, newop, vref_descr)
+        op.set_forwarded(newop)
+        newop.set_forwarded(vrefvalue)
         token = ResOperation(rop.FORCE_TOKEN, [])
         self.emit_operation(token)
-        vrefvalue.setfield(descr_virtual_token, self.getvalue(token))
-        vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CVAL_NULLREF)
+        vrefvalue.setfield(descr_virtual_token, token)
+        vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CONST_NULLREF)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # This operation is used in two cases.  In normal cases, it

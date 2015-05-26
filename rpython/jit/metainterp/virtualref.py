@@ -30,6 +30,7 @@ class VirtualRefInfo:
         self.descr_virtual_token = fielddescrof(self.JIT_VIRTUAL_REF,
                                                 'virtual_token')
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')
+        self.descr = self.cpu.sizeof(self.JIT_VIRTUAL_REF, False)
         #
         # record the type JIT_VIRTUAL_REF explicitly in the rtyper, too
         if hasattr(self.warmrunnerdesc, 'rtyper'):    # <-- for tests
