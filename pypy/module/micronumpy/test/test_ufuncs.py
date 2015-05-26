@@ -1012,6 +1012,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert np.equal.reduce([1, 2], dtype=dtype) == True
             assert np.equal.reduce([1, 2, 0], dtype=dtype) == False
 
+    def test_reduce_fmax(self):
+        import numpy as np
+        assert np.fmax.reduce(np.arange(11).astype('b')) == 10
+
     def test_reduceND(self):
         from numpy import add, arange
         a = arange(12).reshape(3, 4)

@@ -282,8 +282,9 @@ class W_Ufunc(W_Root):
 
         if cumulative:
             dtype = self.find_binop_type(space, dtype)
-        elif self.bool_result:
-            dtype = get_dtype_cache(space).w_booldtype
+        else:
+            _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
+                                                   casting='unsafe')
         call__array_wrap__ = True
         if shapelen > 1 and axis < shapelen:
             temp = None
