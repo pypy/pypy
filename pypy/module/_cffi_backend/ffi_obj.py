@@ -201,13 +201,13 @@ field or array item inside the given structure or array, recursively
 in case of nested structures or arrays.
 
 3. ffi.addressof(<library>, "name") returns the address of the named
-global variable."""
+function or global variable."""
         #
         from pypy.module._cffi_backend.lib_obj import W_LibObject
         space = self.space
         if isinstance(w_arg, W_LibObject) and len(args_w) == 1:
             # case 3 in the docstring
-            return w_arg.address_of_global_var(space.str_w(args_w[0]))
+            return w_arg.address_of_func_or_global_var(space.str_w(args_w[0]))
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
         if len(args_w) == 0:

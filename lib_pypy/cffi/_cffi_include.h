@@ -51,6 +51,11 @@ extern "C" {
 # endif
 #endif
 
+#ifdef __GNUC__
+# define _CFFI_UNUSED_FN  __attribute__((unused))
+#else
+# define _CFFI_UNUSED_FN  /* nothing */
+#endif
 
 /**********  CPython-specific section  **********/
 #ifndef PYPY_VERSION
@@ -82,7 +87,8 @@ extern "C" {
             PyLong_FromLongLong((long long)x)))
 
 #define _cffi_to_c_int(o, type)                                          \
-    (sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
+    ((type)(                                                             \
+     sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
                                          : (type)_cffi_to_c_i8(o)) :     \
      sizeof(type) == 2 ? (((type)-1) > 0 ? (type)_cffi_to_c_u16(o)       \
                                          : (type)_cffi_to_c_i16(o)) :    \
@@ -90,7 +96,7 @@ extern "C" {
                                          : (type)_cffi_to_c_i32(o)) :    \
      sizeof(type) == 8 ? (((type)-1) > 0 ? (type)_cffi_to_c_u64(o)       \
                                          : (type)_cffi_to_c_i64(o)) :    \
-     (Py_FatalError("unsupported size for type " #type), (type)0))
+     (Py_FatalError("unsupported size for type " #type), (type)0)))
 
 #define _cffi_to_c_i8                                                    \
                  ((int(*)(PyObject *))_cffi_exports[1])
@@ -181,6 +187,20 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
     return NULL;
 }
 
+_CFFI_UNUSED_FN
+static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
+                                    const char *fnname)
+{
+    if (PyTuple_GET_SIZE(args_tuple) != expected) {
+        PyErr_Format(PyExc_TypeError,
+                     "%.150s() takes exactly %zd arguments (%zd given)",
+                     fnname, expected, PyTuple_GET_SIZE(args_tuple));
+        return NULL;
+    }
+    return &PyTuple_GET_ITEM(args_tuple, 0);   /* pointer to the first item,
+                                                  the others follow */
+}
+
 #endif
 /**********  end CPython-specific section  **********/
 
@@ -199,12 +219,6 @@ static PyObject *_cffi_init(const char *module_name, Py_ssize_t version,
 #define _cffi_check_int(got, got_nonpos, expected)      \
     ((got_nonpos) == (expected <= 0) &&                 \
      (got) == (unsigned long long)expected)
-
-#ifdef __GNUC__
-# define _CFFI_UNUSED_FN  __attribute__((unused))
-#else
-# define _CFFI_UNUSED_FN  /* nothing */
-#endif
 
 #ifdef __cplusplus
 }

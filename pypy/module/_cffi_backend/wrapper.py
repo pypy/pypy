@@ -22,13 +22,15 @@ class W_FunctionWrapper(W_Root):
     """
     _immutable_ = True
 
-    def __init__(self, space, fnptr, ctype, locs, rawfunctype, fnname):
+    def __init__(self, space, fnptr, directfnptr, ctype,
+                 locs, rawfunctype, fnname):
         assert isinstance(ctype, W_CTypeFunc)
         assert ctype.cif_descr is not None     # not for '...' functions
         assert locs is None or len(ctype.fargs) == len(locs)
         #
         self.space = space
         self.fnptr = fnptr
+        self.directfnptr = directfnptr
         self.ctype = ctype
         self.locs = locs
         self.rawfunctype = rawfunctype

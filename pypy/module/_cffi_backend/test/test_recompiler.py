@@ -9,11 +9,14 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 @unwrap_spec(cdef=str, module_name=str, source=str)
 def prepare(space, cdef, module_name, source, w_includes=None):
     try:
+        import cffi
         from cffi import FFI            # <== the system one, which
-        from cffi import recompiler     # needs to be at least cffi 1.0.0
+        from cffi import recompiler     # needs to be at least cffi 1.0.4
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
+    if cffi.__version_info__ < (1, 0, 4):
+        py.test.skip("system cffi module needs to be at least 1.0.4")
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
@@ -739,7 +742,6 @@ class AppTestRecompiler:
         #
         raises(AttributeError, ffi.addressof, lib, 'unknown_var')
         raises(AttributeError, ffi.addressof, lib, "FOOBAR")
-        assert ffi.addressof(lib, 'FetchRectBottom') == lib.FetchRectBottom
 
     def test_defines__CFFI_(self):
         # Check that we define the macro _CFFI_ automatically.
@@ -782,3 +784,18 @@ class AppTestRecompiler:
         assert str(e5.value) == "foo2() takes exactly 2 arguments (0 given)"
         assert str(e6.value) == "foo2() takes exactly 2 arguments (1 given)"
         assert str(e7.value) == "foo2() takes exactly 2 arguments (3 given)"
+
+    def test_address_of_function(self):
+        ffi, lib = self.prepare(
+            "long myfunc(long x);",
+            "test_addressof_function",
+            "char myfunc(char x) { return (char)(x + 42); }")
+        assert lib.myfunc(5) == 47
+        assert lib.myfunc(0xABC05) == 47
+        assert not isinstance(lib.myfunc, ffi.CData)
+        assert ffi.typeof(lib.myfunc) == ffi.typeof("long(*)(long)")
+        addr = ffi.addressof(lib, 'myfunc')
+        assert addr(5) == 47
+        assert addr(0xABC05) == 47
+        assert isinstance(addr, ffi.CData)
+        assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
