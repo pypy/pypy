@@ -133,15 +133,21 @@ class StrPtrInfo(info.NonNullPtrInfo):
 
 class VStringPlainInfo(StrPtrInfo):
     _attrs_ = ('mode', '_is_virtual')
+
+    _chars = None
     
     def __init__(self, mode, is_virtual, length):
-        if is_virtual:
-            assert length != -1
+        if length != -1:
             self._chars = [None] * length
         StrPtrInfo.__init__(self, mode, is_virtual, length)
 
     def setitem(self, index, item):
         self._chars[index] = item
+
+    def setup_slice(self, longerlist, start, stop):
+        assert 0 <= start <= stop <= len(longerlist)
+        self._chars = longerlist[start:stop]
+        # slice the 'longerlist', which may also contain Nones
 
     def getitem(self, index):
         return self._chars[index]
@@ -160,10 +166,10 @@ class VStringPlainInfo(StrPtrInfo):
             return VAbstractStringValue.string_copy_parts(
                 self, string_optimizer, targetbox, offsetbox, mode)
         else:
-            return self.initialize_forced_string(string_optimizer, targetbox,
-                                                 offsetbox, mode)
+            return self.initialize_forced_string(op, string_optimizer,
+                                                 targetbox, offsetbox, mode)
 
-    def initialize_forced_string(self, string_optimizer, targetbox,
+    def initialize_forced_string(self, op, string_optimizer, targetbox,
                                  offsetbox, mode):
         for i in range(len(self._chars)):
             assert not isinstance(targetbox, Const) # ConstPtr never makes sense
@@ -177,7 +183,39 @@ class VStringPlainInfo(StrPtrInfo):
         return offsetbox
 
 class VStringSliceInfo(StrPtrInfo):
-    pass
+    def __init__(self, s, start, length, mode):
+        self.s = s
+        self.start = start
+        self.lgtop = length
+        self.mode = mode
+        self._is_virtual = True
+
+    def is_virtual(self):
+        return self._is_virtual
+
+    def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
+                          mode):
+        return copy_str_content(string_optimizer, self.s, targetbox,
+                                self.start, offsetbox, self.lgtop, mode)
+
+    @specialize.arg(1)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        vstart = string_optimizer.getintbound(self.start)
+        vlength = string_optimizer.getintbound(self.lgtop)
+        if vstart.is_constant() and vlength.is_constant():
+            xxx
+            s1 = self.vstr.get_constant_string_spec(mode)
+            if s1 is None:
+                return None
+            start = self.vstart.box.getint()
+            length = self.vlength.box.getint()
+            assert start >= 0
+            assert length >= 0
+            return s1[start : start + length]
+        return None
+
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
+        return self.lgtop
 
 class VStringConcatInfo(StrPtrInfo):
     _attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')
@@ -583,9 +621,9 @@ class OptString(optimizer.Optimization):
         self.make_equal_to(op, vvalue)
         return vvalue
 
-    def make_vstring_slice(self, source_op, mode):
-        vvalue = VStringSliceValue(source_op, mode)
-        self.make_equal_to(source_op, vvalue)
+    def make_vstring_slice(self, op, strbox, startbox, mode, lengthbox):
+        vvalue = VStringSliceInfo(strbox, startbox, lengthbox, mode)
+        self.make_equal_to(op, vvalue)
         return vvalue
 
     def optimize_NEWSTR(self, op):
@@ -631,46 +669,41 @@ class OptString(optimizer.Optimization):
         self._optimize_STRGETITEM(op, mode_unicode)
 
     def _optimize_STRGETITEM(self, op, mode):
-        strinfo = self.getptrinfo(op.getarg(0))
-        vindex = self.getintbound(op.getarg(1))
-        res = self.strgetitem(op, strinfo, vindex, mode, op)
+        res = self.strgetitem(op, op.getarg(0), op.getarg(1), mode)
         if res is not None:
             self.make_equal_to(op, res)
 
-    def strgetitem(self, op, sinfo, vindex, mode, resbox=None):
-        self.make_nonnull(op.getarg(0))
+    def strgetitem(self, op, s, index, mode):
+        self.make_nonnull_str(s, mode)
+        sinfo = self.getptrinfo(s)
         #
         if isinstance(sinfo, VStringSliceInfo) and sinfo.is_virtual(): # slice
-            xxx
-            fullindexbox = _int_add(self,
-                                    value.vstart.force_box(self),
-                                    vindex.force_box(self))
-            value = value.vstr
-            vindex = self.getvalue(fullindexbox)
+            index = _int_add(self.optimizer, sinfo.start, index)
+            s = sinfo.s
+            sinfo = self.getptrinfo(sinfo.s)
         #
         if isinstance(sinfo, VStringPlainInfo):
             # even if no longer virtual
+            vindex = self.getintbound(index)
             if vindex.is_constant():
                 result = sinfo.getitem(vindex.getint())
                 if result is not None:
                     return result
         #
+        vindex = self.getintbound(index)
         if isinstance(sinfo, VStringConcatInfo) and vindex.is_constant():
             leftinfo = self.getptrinfo(sinfo.vleft)
             len1box = leftinfo.getstrlen(sinfo.vleft, self, mode)
             if isinstance(len1box, ConstInt):
-                index = vindex.getint()
+                raw_index = vindex.getint()
                 len1 = len1box.getint()
-                if index < len1:
-                    return self.strgetitem(sinfo.vleft, leftinfo, vindex, mode)
+                if raw_index < len1:
+                    return self.strgetitem(op, sinfo.vleft, index, mode)
                 else:
-                    vindex = ConstInt(index - len1)
-                    rightinf = self.getptrinfo(sinfo.vright)
-                    return self.strgetitem(sinfo.vright, rightinf, vindex, mode)
+                    index = ConstInt(raw_index - len1)
+                    return self.strgetitem(op, sinfo.vright, index, mode)
         #
-        xxx
-        resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode, resbox)
-        return self.getvalue(resbox)
+        _strgetitem(self, s, index, mode, op)
 
     def optimize_STRLEN(self, op):
         self._optimize_STRLEN(op, mode_string)
@@ -799,32 +832,28 @@ class OptString(optimizer.Optimization):
         return True
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
-        vstr = self.getvalue(op.getarg(1))
-        vstart = self.getvalue(op.getarg(2))
-        vstop = self.getvalue(op.getarg(3))
+        self.make_nonnull_str(op.getarg(1), mode)
+        vstr = self.getptrinfo(op.getarg(1))
+        vstart = self.getintbound(op.getarg(2))
+        vstop = self.getintbound(op.getarg(3))
         #
-        #if (isinstance(vstr, VStringPlainValue) and vstart.is_constant()
-        #    and vstop.is_constant()):
-        #    value = self.make_vstring_plain(op.result, op, mode)
-        #    value.setup_slice(vstr._chars, vstart.box.getint(),
-        #                      vstop.box.getint())
-        #    return True
+        if (isinstance(vstr, VStringPlainInfo) and vstart.is_constant()
+            and vstop.is_constant()):
+            value = self.make_vstring_plain(op, mode, -1)
+            value.setup_slice(vstr._chars, vstart.getint(),
+                              vstop.getint())
+            return True
         #
-        vstr.ensure_nonnull()
-        lengthbox = _int_sub(self, vstop.force_box(self),
-                                   vstart.force_box(self))
+        startbox = op.getarg(2)
+        strbox = op.getarg(1)
+        lengthbox = _int_sub(self.optimizer, op.getarg(3), op.getarg(2))
         #
-        if isinstance(vstr, VStringSliceValue):
+        if isinstance(vstr, VStringSliceInfo):
             # double slicing  s[i:j][k:l]
-            vintermediate = vstr
-            vstr = vintermediate.vstr
-            startbox = _int_add(self,
-                                vintermediate.vstart.force_box(self),
-                                vstart.force_box(self))
-            vstart = self.getvalue(startbox)
+            strbox = vstr.s
+            startbox = _int_add(self.optimizer, vstr.start, startbox)
         #
-        value = self.make_vstring_slice(op, mode)
-        value.setup(vstr, vstart, self.getvalue(lengthbox))
+        self.make_vstring_slice(op, strbox, startbox, mode, lengthbox)
         return True
 
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
@@ -879,8 +908,8 @@ class OptString(optimizer.Optimization):
                 l1box = i1.getstrlen(arg1, self, mode, False)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
-                    vchar1 = self.strgetitem(arg1, i1, optimizer.CONST_0, mode)
-                    vchar2 = self.strgetitem(arg2, i2, optimizer.CONST_0, mode)
+                    vchar1 = self.strgetitem(resultop, arg1, optimizer.CONST_0, mode)
+                    vchar2 = self.strgetitem(resultop, arg2, optimizer.CONST_0, mode)
                     seo = self.optimizer.send_extra_operation
                     op = self.optimizer.replace_op_with(resultop, rop.INT_EQ,
                                 [vchar1, vchar2], descr=DONT_CHANGE)
