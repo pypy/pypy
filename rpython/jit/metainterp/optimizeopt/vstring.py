@@ -664,8 +664,9 @@ class OptString(optimizer.Optimization):
                 if index < len1:
                     return self.strgetitem(sinfo.vleft, leftinfo, vindex, mode)
                 else:
-                    vindex = optimizer.ConstantIntValue(ConstInt(index - len1))
-                    return self.strgetitem(value.right, vindex, mode)
+                    vindex = ConstInt(index - len1)
+                    rightinf = self.getptrinfo(sinfo.vright)
+                    return self.strgetitem(sinfo.vright, rightinf, vindex, mode)
         #
         xxx
         resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode, resbox)
