@@ -1032,6 +1032,7 @@ LOAD_RES = PT_GENERIC
 
 INT_OP_TO_VOP = OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES)
 FLOAT_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC, PT_FLOAT_GENERIC), FLOAT_RES)
+FLOAT_SINGLE_ARG_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC,), FLOAT_RES)
 
 ROP_ARG_RES_VECTOR = {
     rop.VEC_INT_ADD:     INT_OP_TO_VOP,
@@ -1046,6 +1047,9 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_FLOAT_ADD:   FLOAT_OP_TO_VOP,
     rop.VEC_FLOAT_SUB:   FLOAT_OP_TO_VOP,
     rop.VEC_FLOAT_MUL:   FLOAT_OP_TO_VOP,
+    rop.VEC_FLOAT_TRUEDIV:   FLOAT_OP_TO_VOP,
+    rop.VEC_FLOAT_ABS:   FLOAT_SINGLE_ARG_OP_TO_VOP,
+    rop.VEC_FLOAT_NEG:   FLOAT_SINGLE_ARG_OP_TO_VOP,
     rop.VEC_FLOAT_EQ:    OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), INT_RES),
 
     rop.VEC_RAW_LOAD:         OpToVectorOp((), LOAD_RES, has_descr=True,
@@ -1091,7 +1095,7 @@ class VecScheduleData(SchedulerData):
         op0 = pack.operations[0].getoperation()
         tovector = ROP_ARG_RES_VECTOR.get(op0.vector, None)
         if tovector is None:
-            raise NotImplementedError("vecop map entry missing. trans: pack -> vop")
+            raise NotImplementedError("missing vecop for '" + op0.getopname() + "'")
         oplist = []
         tovector.as_vector_operation(pack, self, oplist)
         return oplist

@@ -1190,6 +1190,26 @@ class BaseTestVectorize(VecTestHelper):
         except NotAVectorizeableLoop:
             pass
 
+    def test_truediv_abs_neg_float(self):
+        ops = """
+        [f9,p10,i11,p4,i12,p2,p5,p13,i14,p7,i15,p8,i16,f17,i18,i19]
+        guard_early_exit() [p8, p7, p5, p4, p2, f9, i12, i11, p10, i15, i14, p13]
+        f20 = raw_load(i16, i12, descr=floatarraydescr)
+        guard_not_invalidated() [p8, p7, p5, p4, p2, f20, None, i12, i11, p10, i15, i14, p13]
+        i23 = int_add(i12, 8)
+        f24 = float_truediv(f20, f17)
+        f25 = float_abs(f20)
+        f26 = float_neg(f20)
+        raw_store(i18, i15, f24, descr=floatarraydescr)
+        i26 = int_add(i14, 1)
+        i28 = int_add(i15, 8)
+        i29 = int_ge(i26, i19)
+        guard_false(i29) [p8, p7, p5, p4, p2, f20, i23, i28, None, p13]
+        jump(f20, p10, i11, p4, i23, p2, p5, p13, i26, p7, i28, p8, i16, f17, i18, i19)
+        """
+        opt = self.vectorize(self.parse_loop(ops))
+        self.debug_print_operations(opt.loop)
+
     def test_reduction_basic(self):
         trace = """
         [p0, p1, p2, p3, p4]
