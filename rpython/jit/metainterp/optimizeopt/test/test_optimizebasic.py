@@ -1189,8 +1189,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i1, p0]
-        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         p1 = new_array(i1, descr=arraydescr)
+        setarrayitem_gc(p0, 0, i1, descr=arraydescr)
         jump(i1, p1)
         """
         self.optimize_loop(ops, expected)
@@ -1557,9 +1557,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         #
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, i4, descr=nextdescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         jump(p1, i1, i2, p3)
         """
         self.optimize_loop(ops, expected)

@@ -40,7 +40,7 @@ class CachedField(object):
     def register_dirty_field(self, info):
         self.cached_infos.append(info)
 
-    def invalidate(self, descr):
+    def invalidate(self):
         for info in self.cached_infos:
             info._fields = [None] * len(info._fields)
         self.cached_infos = []
@@ -62,7 +62,7 @@ class CachedField(object):
         if self.possible_aliasing(optheap, structinfo):
             self.force_lazy_setfield(optheap)
             assert not self.possible_aliasing(optheap, structinfo)
-        cached_field = structinfo.getfield(op.getdescr())
+        cached_field = self._getfield(structinfo, op.getdescr(), optheap)
         if cached_field is not None:
             cached_field = optheap.get_box_replacement(cached_field)
 
@@ -112,7 +112,7 @@ class CachedField(object):
             # Now we clear _cached_fields, because actually doing the
             # setfield might impact any of the stored result (because of
             # possible aliasing).
-            self.invalidate(op.getdescr())
+            self.invalidate()
             self._lazy_setfield = None
             if optheap.postponed_op:
                 for a in op.getarglist():
@@ -126,11 +126,13 @@ class CachedField(object):
             # back in the cache: the value of this particular structure's
             # field.
             opinfo = optheap.ensure_ptr_info_arg0(op)
-            opinfo.setfield(op.getdescr(),
-                            optheap.get_box_replacement(op.getarg(1)),
-                            optheap, self)
+            self._setfield(op, opinfo, optheap)
         elif not can_cache:
             self.invalidate()
+
+    def _setfield(self, op, opinfo, optheap):
+        arg = optheap.get_box_replacement(op.getarg(1))
+        opinfo.setfield(op.getdescr(), arg, optheap, self)
 
 class ArrayCachedField(CachedField):
     def __init__(self, index):
@@ -138,11 +140,19 @@ class ArrayCachedField(CachedField):
         CachedField.__init__(self)
 
     def _getvalue(self, op):
-        xxx
-        return op.getarg(1)
+        return op.getarg(2)
 
     def _getfield(self, opinfo, descr, optheap):
         return opinfo.getitem(self.index)
+
+    def _setfield(self, op, opinfo, optheap):
+        arg = optheap.get_box_replacement(op.getarg(2))
+        opinfo.setitem(self.index, arg, self)
+
+    def invalidate(self):
+        for info in self.cached_infos:
+            info._items = None
+        self.cached_infos = []
 
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
@@ -212,7 +222,7 @@ class OptHeap(Optimization):
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
         for descr, cf in self.cached_fields.iteritems():
-            cf.invalidate(descr)
+            cf.invalidate()
         self.cached_arrayitems.clear()
         self.cached_dict_reads.clear()
 
@@ -384,13 +394,13 @@ class OptHeap(Optimization):
             return
         cf.force_lazy_setfield(self, can_cache)
 
-    def force_lazy_setarrayitem(self, arraydescr, indexop=None, can_cache=True):
+    def force_lazy_setarrayitem(self, arraydescr, indexb=None, can_cache=True):
         try:
             submap = self.cached_arrayitems[arraydescr]
         except KeyError:
             return
         for idx, cf in submap.iteritems():
-            if indexop is None or indexop.getintbound().contains(idx):
+            if indexb is None or indexb.contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
     def _assert_valid_cf(self, cf):
@@ -404,11 +414,11 @@ class OptHeap(Optimization):
                     assert 0, "'cf' not in cached_fields/cached_arrayitems"
 
     def force_all_lazy_setfields_and_arrayitems(self):
-        for cf in self.cached_fields.values():
+        for cf in self.cached_fields.itervalues():
             cf.force_lazy_setfield(self)
-        #for cf in self._lazy_setfields_and_arrayitems:
-        #    self._assert_valid_cf(cf)
-        #    cf.force_lazy_setfield(self)
+        for submap in self.cached_arrayitems.itervalues():
+            for cf in submap.itervalues():
+                cf.force_lazy_setfield(self)
 
     def force_lazy_setfields_and_arrayitems_for_guard(self):
         pendingfields = []
@@ -510,7 +520,8 @@ class OptHeap(Optimization):
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr(), op.getarg(1))
+            self.force_lazy_setarrayitem(op.getdescr(),
+                                         self.getintbound(op.getarg(1)))
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
@@ -535,7 +546,7 @@ class OptHeap(Optimization):
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr(), op.getarg(1))
+            self.force_lazy_setarrayitem(op.getdescr(), self.getintbound(op.getarg(1)))
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
@@ -544,25 +555,24 @@ class OptHeap(Optimization):
     optimize_GETARRAYITEM_GC_PURE_F = optimize_GETARRAYITEM_GC_PURE_I
 
     def optimize_SETARRAYITEM_GC(self, op):
-        self.emit_operation(op)
-        return
-        opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
-        if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
-                                op.getdescr()):
-            os.write(2, '[bogus immutable array declaration: %s]\n' %
-                     (op.getdescr().repr_of_descr()))
-            raise BogusPureField
+        #opnum = OpHelpers.getarrayitem_pure_for_descr(op.getdescr())
+        #if self.has_pure_result(opnum, [op.getarg(0), op.getarg(1)],
+        #                        op.getdescr()):
+        #    os.write(2, '[bogus immutable array declaration: %s]\n' %
+        #             (op.getdescr().repr_of_descr()))
+        #    raise BogusPureField
         #
-        indexvalue = self.getvalue(op.getarg(1))
-        if indexvalue.is_constant():
-            arrayvalue = self.getvalue(op.getarg(0))
-            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+        indexb = self.getintbound(op.getarg(1))
+        if indexb.is_constant():
+            #arrayinfo = self.ensure_ptr_info_arg0(op)
+            # arraybound
+            #arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
             # use the cache on (arraydescr, index), which is a constant
-            cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
+            cf = self.arrayitem_cache(op.getdescr(), indexb.getint())
             cf.do_setfield(self, op)
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue, can_cache=False)
+            self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
             # and then emit the operation
             self.emit_operation(op)
 
