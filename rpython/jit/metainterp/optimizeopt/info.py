@@ -172,25 +172,6 @@ class StructPtrInfo(AbstractStructPtrInfo):
         assert self.is_virtual()
         return visitor.visit_vstruct(self.vdescr, fielddescrs)
 
-class StrPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', 'lenbound')
-
-    length = -1
-    lenbound = None
-    
-    def __init__(self):
-        pass
-
-    def getlenbound(self):
-        from rpython.jit.metainterp.optimizeopt import intutils
-
-        if self.lenbound is None:
-            if self.length == -1:
-                self.lenbound = intutils.IntBound(0, intutils.MAXINT)
-            else:
-                self.lenbound = intutils.ConstIntBound(self.length)
-        return self.lenbound
-
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('length', '_items', 'lenbound', '_clear')
 

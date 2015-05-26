@@ -392,9 +392,9 @@ class OptIntBounds(Optimization):
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)
-        v1 = self.getvalue(op)
-        v1.getintbound().make_ge(IntLowerBound(0))
-        v1.getintbound().make_lt(IntUpperBound(256))
+        v1 = self.getintbound(op)
+        v1.make_ge(IntLowerBound(0))
+        v1.make_lt(IntUpperBound(256))
 
     def optimize_GETFIELD_RAW_I(self, op):
         self.emit_operation(op)
@@ -428,8 +428,8 @@ class OptIntBounds(Optimization):
 
     def optimize_UNICODEGETITEM(self, op):
         self.emit_operation(op)
-        v1 = self.getvalue(op)
-        v1.getintbound().make_ge(IntLowerBound(0))
+        b1 = self.getintbound(op)
+        b1.make_ge(IntLowerBound(0))
 
     def make_int_lt(self, box1, box2):
         b1 = self.getintbound(box1)

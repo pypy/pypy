@@ -360,6 +360,9 @@ class Optimization(object):
     def make_nonnull(self, op):
         return self.optimizer.make_nonnull(op)
 
+    def make_nonnull_str(self, op, mode):
+        return self.optimizer.make_nonnull_str(op, mode)
+
     def get_constant_box(self, box):
         return self.optimizer.get_constant_box(box)
 
@@ -548,6 +551,9 @@ class Optimizer(Optimization):
         box = self.get_box_replacement(box)
         if isinstance(box, Const):
             return box
+        if (box.type == 'i' and box.get_forwarded() and
+            box.get_forwarded().is_constant()):
+            return ConstInt(box.get_forwarded().getint())
         #self.ensure_imported(value)
 
     def get_newoperations(self):
@@ -600,7 +606,20 @@ class Optimizer(Optimization):
             return
         op.set_forwarded(info.NonNullPtrInfo())
 
+    def make_nonnull_str(self, op, mode):
+        from rpython.jit.metainterp.optimizeopt import vstring
+        
+        op = self.get_box_replacement(op)
+        if op.is_constant():
+            return
+        opinfo = op.get_forwarded()
+        if isinstance(opinfo, vstring.StrPtrInfo):
+            return
+        op.set_forwarded(vstring.StrPtrInfo(mode))
+
     def ensure_ptr_info_arg0(self, op):
+        from rpython.jit.metainterp.optimizeopt import vstring
+        
         arg0 = self.get_box_replacement(op.getarg(0))
         if arg0.is_constant():
             return info.ConstPtrInfo(arg0)
@@ -623,8 +642,10 @@ class Optimizer(Optimization):
             opinfo = info.ArrayPtrInfo(op.getdescr())
         elif op.getopnum() == rop.GUARD_CLASS:
             opinfo = info.InstancePtrInfo()
-        elif op.getopnum() in (rop.STRLEN, rop.UNICODELEN):
-            opinfo = info.StrPtrInfo()
+        elif op.getopnum() in (rop.STRLEN,):
+            opinfo = vstring.StrPtrInfo(vstring.mode_string)            
+        elif op.getopnum() in (rop.UNICODELEN,):
+            opinfo = vstring.StrPtrInfo(vstring.mode_unicode)
         else:
             xxx
         opinfo.last_guard_pos = last_guard_pos
