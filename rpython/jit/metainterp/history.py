@@ -127,6 +127,10 @@ class AbstractValue(object):
     def same_box(self, other):
         return self is other
 
+    def same_shape(self, other):
+        # only structured containers can compare their shape (vector box)
+        return True
+
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -391,8 +395,8 @@ class Box(AbstractValue):
                 t = 'b'
             self._str = '%s%d' % (t, Box._counter)
             if self.type == VECTOR:
-                self._str += '[%s%d#%d]' % (self.item_type, self.item_size * 8,
-                                            self.item_count)
+                self._str = '%s%d[%s%d#%d]' % (t, Box._counter, self.item_type,
+                                               self.item_size * 8, self.item_count)
             Box._counter += 1
         return self._str
 
@@ -551,19 +555,19 @@ class BoxVector(Box, PrimitiveTypeMixin):
     _attrs_ = ('item_type','item_count','item_size','signed')
     _extended_display = False
 
-    def __init__(self, item_type=FLOAT, item_count=2, item_size=8, signed=True):
+    def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False):
         assert item_type in (FLOAT, INT)
         self.item_type = item_type
         self.item_count = item_count
         self.item_size = item_size
-        self.signed = signed
+        self.item_signed = item_signed
 
     def gettype(self):
         return self.item_type
     def getsize(self):
         return self.item_size
     def getsigned(self):
-        return self.signed
+        return self.item_signed
     def getcount(self):
         return self.item_count
 
@@ -571,7 +575,7 @@ class BoxVector(Box, PrimitiveTypeMixin):
         raise NotImplementedError("cannot forget value of vector")
 
     def clonebox(self):
-        return BoxVector(self.item_type, self.item_count, self.item_size, self.signed)
+        return BoxVector(self.item_type, self.item_count, self.item_size, self.item_signed)
 
     def constbox(self):
         raise NotImplementedError("not possible to have a constant vector box")
@@ -581,6 +585,24 @@ class BoxVector(Box, PrimitiveTypeMixin):
 
     def repr_rpython(self):
         return repr_rpython(self, 'bv')
+
+    def same_shape(self, other):
+        if not isinstance(other, BoxVector):
+            return False
+        #
+        if other.item_size == -1 or self.item_size == -1:
+            # fallback for tests that do not specify the size
+            return True
+        #
+        if self.item_type != other.item_type:
+            return False
+        if self.item_size != other.item_size:
+            return False
+        if self.item_count != other.item_count:
+            return False
+        if self.item_signed != other.item_signed:
+            return False
+        return True
 
 # ____________________________________________________________
 

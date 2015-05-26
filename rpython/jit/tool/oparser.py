@@ -3,6 +3,8 @@
 in a nicer fashion
 """
 
+import re
+
 from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
@@ -121,8 +123,20 @@ class OpParser(object):
             box = ts.BoxRef()
             _box_counter_more_than(self.model, elem[1:])
         elif elem.startswith('v'):
-            box = self.model.BoxVector()
-            _box_counter_more_than(self.model, elem[1:])
+            pattern = re.compile('.*\[(-?)(i|f)(\d+)#(\d+)\]')
+            match = pattern.match(elem)
+            if match:
+                item_type = match.group(2)[0]
+                item_size = int(match.group(3)) // 8
+                item_count = int(match.group(4))
+                item_signed = match.group(1) == 's'
+                box = self.model.BoxVector(item_type, item_count, item_size, item_signed)
+                lbracket = elem.find('[')
+                number = elem[1:lbracket]
+            else:
+                box = self.model.BoxVector()
+                number = elem[1:]
+            _box_counter_more_than(self.model, number)
         else:
             for prefix, boxclass in self.boxkinds.iteritems():
                 if elem.startswith(prefix):

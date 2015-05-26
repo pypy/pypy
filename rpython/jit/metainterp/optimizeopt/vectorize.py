@@ -743,16 +743,12 @@ class PackType(PrimitiveTypeMixin):
 
 
 class OpToVectorOp(object):
-    def __init__(self, arg_ptypes, result_ptype, has_descr=False,
-                 arg_clone_ptype=0, 
-                 needs_count_in_params=False):
+    def __init__(self, arg_ptypes, result_ptype):
         self.arg_ptypes = [a for a in arg_ptypes] # do not use a tuple. rpython cannot union
         self.result_ptype = result_ptype
-        self.has_descr = has_descr
-        self.arg_clone_ptype = arg_clone_ptype
-        self.needs_count_in_params = needs_count_in_params
         self.preamble_ops = None
         self.sched_data = None
+        self.pack = None
 
     def is_vector_arg(self, i):
         if i < 0 or i >= len(self.arg_ptypes):
@@ -760,17 +756,11 @@ class OpToVectorOp(object):
         return self.arg_ptypes[i] is not None
 
     def pack_ptype(self, op):
-        opnum = op.vector
-        args = op.getarglist()
-        result = op.result
-        if self.has_descr:
-            descr = op.getdescr()
-            return PackType.by_descr(descr, self.sched_data.vec_reg_size)
-        if self.arg_clone_ptype >= 0:
-            arg = args[self.arg_clone_ptype]
-            _, vbox = self.sched_data.box_to_vbox.get(arg, (-1, None))
-            if vbox:
-                return PackType.of(vbox)
+        _, vbox = self.getvector_of_box(op.getarg(0))
+        if vbox:
+            return PackType.of(vbox)
+        else:
+            raise RuntimeError("fatal: box %s is not in a vector box" % (arg,))
 
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
@@ -783,9 +773,11 @@ class OpToVectorOp(object):
         assert stride > 0
         while off < len(pack.operations):
             ops = pack.operations[off:off+stride]
+            self.pack = Pack(ops)
             self.transform_pack(ops, off, stride)
             off += stride
 
+        self.pack = None
         self.preamble_ops = None
         self.sched_data = None
         self.ptype = None
@@ -797,43 +789,47 @@ class OpToVectorOp(object):
             return vec_reg_size // self.ptype.getsize()
         return pack_count
 
+    def before_argument_transform(self, args):
+        pass
+
     def transform_pack(self, ops, off, stride):
-        op = ops[0].getoperation()
+        op = self.pack.operations[0].getoperation()
         args = op.getarglist()
-        if self.needs_count_in_params:
-            args.append(ConstInt(len(ops)))
+        #
+        self.before_argument_transform(args)
+        #
         result = op.result
-        descr = op.getdescr()
         for i,arg in enumerate(args):
             if self.is_vector_arg(i):
-                args[i] = self.transform_argument(ops, args[i], i, off, stride)
+                args[i] = self.transform_argument(args[i], i, off)
         #
-        result = self.transform_result(ops, result, off)
+        result = self.transform_result(result, off)
         #
-        vop = ResOperation(op.vector, args, result, descr)
+        vop = ResOperation(op.vector, args, result, op.getdescr())
         self.preamble_ops.append(vop)
 
-    def transform_result(self, ops, result, off):
+    def transform_result(self, result, off):
         if result is None:
             return None
         vbox = self.new_result_vector_box()
         #
         # mark the position and the vbox in the hash
-        for i, node in enumerate(ops):
+        for i, node in enumerate(self.pack.operations):
             op = node.getoperation()
             self.sched_data.setvector_of_box(op.result, i, vbox)
         return vbox
 
     def new_result_vector_box(self):
         size = self.ptype.getsize()
-        count = self.ptype.getcount()
+        count = min(self.ptype.getcount(), len(self.pack.operations))
         return BoxVector(self.ptype.gettype(), count, size, self.ptype.signed)
 
-    def transform_argument(self, ops, arg, argidx, off, count):
+    def transform_argument(self, arg, argidx, off):
+        ops = self.pack.operations
         box_pos, vbox = self.sched_data.getvector_of_box(arg)
         if not vbox:
             # constant/variable expand this box
-            vbox = self.ptype.new_vector_box(count)
+            vbox = self.ptype.new_vector_box(len(ops))
             vbox = self.expand_box_to_vector_box(vbox, ops, arg, argidx)
             box_pos = 0
 
@@ -1017,6 +1013,25 @@ class SignExtToVectorOp(OpToVectorOp):
             count = vec_reg_size // self.size
         return BoxVector(self.result_ptype.gettype(), count, self.size, self.ptype.signed)
 
+PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
+
+class LoadToVectorLoad(OpToVectorOp):
+    def __init__(self):
+        OpToVectorOp.__init__(self, (), PT_GENERIC)
+
+    def pack_ptype(self, op):
+        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+
+    def before_argument_transform(self, args):
+        args.append(ConstInt(len(self.pack.operations)))
+
+class StoreToVectorStore(OpToVectorOp):
+    def __init__(self):
+        OpToVectorOp.__init__(self, (None, None, PT_GENERIC), None)
+        self.has_descr = True
+
+    def pack_ptype(self, op):
+        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
 PT_FLOAT = PackType(FLOAT, 4, False)
 PT_DOUBLE = PackType(FLOAT, 8, False)
@@ -1024,15 +1039,16 @@ PT_FLOAT_GENERIC = PackType(INT, -1, True)
 PT_INT64 = PackType(INT, 8, True)
 PT_INT32 = PackType(INT, 4, True)
 PT_INT_GENERIC = PackType(INT, -1, True)
-PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, True)
+PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 
 INT_RES = PT_INT_GENERIC
 FLOAT_RES = PT_FLOAT_GENERIC
-LOAD_RES = PT_GENERIC
 
 INT_OP_TO_VOP = OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES)
 FLOAT_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC, PT_FLOAT_GENERIC), FLOAT_RES)
 FLOAT_SINGLE_ARG_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC,), FLOAT_RES)
+LOAD_TRANS = LoadToVectorLoad()
+STORE_TRANS = StoreToVectorStore()
 
 ROP_ARG_RES_VECTOR = {
     rop.VEC_INT_ADD:     INT_OP_TO_VOP,
@@ -1052,17 +1068,10 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_FLOAT_NEG:   FLOAT_SINGLE_ARG_OP_TO_VOP,
     rop.VEC_FLOAT_EQ:    OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), INT_RES),
 
-    rop.VEC_RAW_LOAD:         OpToVectorOp((), LOAD_RES, has_descr=True,
-                                           arg_clone_ptype=-2,
-                                           needs_count_in_params=True
-                                          ),
-    rop.VEC_GETARRAYITEM_RAW: OpToVectorOp((), LOAD_RES,
-                                           has_descr=True,
-                                           arg_clone_ptype=-2,
-                                           needs_count_in_params=True
-                                          ),
-    rop.VEC_RAW_STORE:        OpToVectorOp((None,None,PT_GENERIC,), None, has_descr=True, arg_clone_ptype=2),
-    rop.VEC_SETARRAYITEM_RAW: OpToVectorOp((None,None,PT_GENERIC,), None, has_descr=True, arg_clone_ptype=2),
+    rop.VEC_RAW_LOAD:         LOAD_TRANS,
+    rop.VEC_GETARRAYITEM_RAW: LOAD_TRANS,
+    rop.VEC_RAW_STORE:        STORE_TRANS,
+    rop.VEC_SETARRAYITEM_RAW: STORE_TRANS,
 
     rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOpConv(PT_DOUBLE, PT_FLOAT),
     rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOpConv(PT_FLOAT, PT_DOUBLE),
