@@ -5,8 +5,6 @@ from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
     IntLowerBound, IntUpperBound, ConstIntBound)
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
-from rpython.jit.metainterp.optimizeopt.info import MODE_ARRAY, MODE_STR,\
-     MODE_UNICODE
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.optimizeopt import vstring
