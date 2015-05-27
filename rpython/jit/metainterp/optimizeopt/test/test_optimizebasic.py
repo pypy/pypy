@@ -40,6 +40,7 @@ def test_store_final_boxes_in_guard():
     assert fdescr.rd_consts == []
 
 def test_sharing_field_lists_of_virtual():
+    py.test.skip("needs to be rewritten")
     class FakeOptimizer(object):
         class optimizer(object):
             class cpu(object):
