@@ -656,10 +656,10 @@ class BaseRegalloc(object):
         if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
             operations[i + 1].getopnum() != rop.GUARD_FALSE):
             return False
-        if operations[i + 1].getarg(0) is not op.result:
+        if operations[i + 1].getarg(0) is not op:
             return False
-        if (self.longevity[op.result][1] > i + 1 or
-            op.result in operations[i + 1].getfailargs()):
+        if (self.longevity[op][1] > i + 1 or
+            op in operations[i + 1].getfailargs()):
             return False
         return True
 

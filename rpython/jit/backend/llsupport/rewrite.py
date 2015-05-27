@@ -116,7 +116,7 @@ class GcRewriterAssembler(object):
         if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
             operations[i + 1].getopnum() != rop.GUARD_FALSE):
             return False
-        if operations[i + 1].getarg(0) is not op.result:
+        if operations[i + 1].getarg(0) is not op:
             return False
         return True
 
@@ -170,7 +170,7 @@ class GcRewriterAssembler(object):
     def consider_setarrayitem_gc(self, op):
         array_box = op.getarg(0)
         index_box = op.getarg(1)
-        if isinstance(array_box, BoxPtr) and isinstance(index_box, ConstInt):
+        if not isinstance(array_box, ConstPtr) and index_box.is_constant():
             try:
                 intset = self.setarrayitems_occurred[array_box]
             except KeyError:
@@ -382,7 +382,7 @@ class GcRewriterAssembler(object):
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""
         self.emitting_an_operation_that_can_collect()
-        op = ResOperation(rop.CALL_MALLOC_GC, args, v_result, descr)
+        op = ResOperation(rop.CALL_MALLOC_GC, args, descr)
         self.newops.append(op)
         # In general, don't add v_result to write_barrier_applied:
         # v_result might be a large young array.
