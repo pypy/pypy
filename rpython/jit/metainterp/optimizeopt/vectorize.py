@@ -20,6 +20,10 @@ class NotAVectorizeableLoop(JitException):
     def __str__(self):
         return 'NotAVectorizeableLoop()'
 
+class NotAProfitableLoop(JitException):
+    def __str__(self):
+        return 'NotAProfitableLoop()'
+
 def debug_print_operations(loop):
     """ NOT_RPYTHON """
     if not we_are_translated():
@@ -571,6 +575,13 @@ class Guard(object):
         guard = self.op.clone()
         guard.setarg(0, box_result)
         opt.emit_operation(guard)
+        #if guard.getfailargs():
+        #    py.test.set_trace()
+        #    failargs = guard.getfailargs()
+        #    for i,arg in enumerate(failargs):
+        #        same_as = opt._same_as.get(arg, None)
+        #        if same_as:
+        #            failargs[i] = same_as
 
 class GuardStrengthenOpt(object):
     def __init__(self, index_vars):

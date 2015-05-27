@@ -2,7 +2,7 @@ import py
 
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
-        Pack)
+        Pack, NotAProfitableLoop)
 from rpython.jit.metainterp.optimizeopt.dependency import Node
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
@@ -58,9 +58,25 @@ class SchedulerBaseTest(DependencyBaseTest):
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse("""
         v1[i32#4] = vec_raw_load(p0, i0, 4, descr=float)
-        v1[i32#2] = vec_raw_load(p0, i4, 2, descr=float)
+        i14 = vec_raw_load(p0, i4, descr=float)
+        i15 = vec_raw_load(p0, i5, descr=float)
         """)
         self.assert_equal(loop2, loop3)
+
+    def test_cost_model_reject_only_load_vectorizable(self):
+        loop1 = self.parse("""
+        f10 = raw_load(p0, i0, descr=double)
+        f11 = raw_load(p0, i1, descr=double)
+        i1 = int_add(1,1)
+        guard_true(i1) [f10]
+        guard_true(i1) [f11]
+        """)
+        try:
+            pack1 = self.pack(loop1, 0, 6)
+            loop2 = self.schedule(loop1, [pack1])
+            py.test.fail("this loops should have bailed out")
+        except NotAProfitableLoop:
+            pass
 
 class TestLLType(SchedulerBaseTest, LLtypeMixin):
     pass

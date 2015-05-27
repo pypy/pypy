@@ -1210,6 +1210,33 @@ class BaseTestVectorize(VecTestHelper):
         opt = self.vectorize(self.parse_loop(ops))
         self.debug_print_operations(opt.loop)
 
+    def test_axis_sum(self):
+        trace = """
+        [i1, p10, i11, p8, i12, p3, p4, p13, i14, i15, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23]
+        guard_early_exit() [i1, p9, p8, p6, p4, p3, i11, i15, p13, i12, i14, p10]
+        f24 = raw_load(i16, i12, descr=floatarraydescr)
+        guard_not_invalidated() [i1, p9, p8, p6, p4, p3, f24, i11, i15, p13, i12, i14, p10]
+        i26 = int_add(i12, 8)
+        i27 = getarrayitem_gc(p13, i1, descr=floatarraydescr)
+        i28 = int_is_zero(i27)
+        guard_false(i28) [i1, p9, p8, p6, p4, p3, f24, i26, i11, i15, p13, None, i14, p10]
+        f30 = raw_load(i17, i15, descr=floatarraydescr)
+        f31 = float_add(f30, f24)
+        raw_store(i18, i15, f31, descr=floatarraydescr)
+        i33 = int_add(i14, 1)
+        i34 = getarrayitem_gc(p13, i19, descr=floatarraydescr)
+        i35 = int_lt(i34, i20)
+        guard_true(i35) [i1, p9, p8, p6, p4, p3, i21, i34, i15, i33, i19, p13, f31, None, i26, i11, None, None, None, i14, p10]
+        i37 = int_add(i34, 1)
+        setarrayitem_gc(p13, i19, i37, descr=floatarraydescr)
+        i38 = int_add(i15, i22)
+        i39 = int_ge(i33, i23)
+        guard_false(i39) [i1, p9, p8, p6, p4, p3, i33, i38, None, None, i26, i11, None, p13, None, None, p10]
+        jump(i1, p10, i11, p8, i26, p3, p4, p13, i33, i38, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23)
+        """
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
     def test_reduction_basic(self):
         trace = """
         [p5, i6, p2, i7, p1, p8, i9, i10, f11, i12, i13, i14]

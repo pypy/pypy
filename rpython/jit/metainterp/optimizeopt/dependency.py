@@ -529,6 +529,9 @@ class DependencyGraph(object):
                 for arg in op.getarglist():
                     tracker.depends_on_arg(arg, node)
             elif op.is_guard():
+                if len(self.guards) > 0:
+                    last_guard = self.guards[-1]
+                    last_guard.edge_to(node, "guardorder")
                 self.guards.append(node)
             else:
                 self.build_non_pure_dependencies(node, tracker)
@@ -615,6 +618,9 @@ class DependencyGraph(object):
         if guard_op.getopnum() >= rop.GUARD_NOT_INVALIDATED:
             # ignore invalidated & future condition guard & early exit
             return
+        descr = guard_op.getdescr()
+        if isinstance(descr, compile.ResumeAtLoopHeaderDescr):
+            return
         # true dependencies
         for arg in guard_op.getarglist():
             tracker.depends_on_arg(arg, guard_node)
@@ -628,9 +634,7 @@ class DependencyGraph(object):
                 try:
                     for at in tracker.redefinitions(arg):
                         # later redefinitions are prohibited
-                        descr = guard_op.getdescr()
-                        if at.is_before(guard_node) and \
-                           not isinstance(descr, compile.ResumeAtLoopHeaderDescr):
+                        if at.is_before(guard_node):
                             at.edge_to(guard_node, arg, failarg=True, label="fail")
                 except KeyError:
                     assert False
@@ -671,6 +675,11 @@ class DependencyGraph(object):
                         tracker.depends_on_arg(arg, node)
                 if destroyed:
                     tracker.define(arg, node, argcell=argcell)
+            # it must be assumed that a side effect operation must not be executed
+            # before the last guard operation
+            if len(self.guards) > 0:
+                last_guard = self.guards[-1]
+                last_guard.edge_to(node, "sideeffect")
 
     def __repr__(self):
         graph = "graph([\n"

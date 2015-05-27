@@ -2727,7 +2727,7 @@ class Assembler386(BaseAssembler):
                         assert residx == 1
                         # r = (r[0], s[1])
                         if resloc != srcloc:
-                            self.mc.SHUFPS_xxi(resloc.value, resloc.value, 1)
+                            self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
                             self.mc.UNPCKHPD(resloc, srcloc)
                         # if they are equal nothing is to be done
 
