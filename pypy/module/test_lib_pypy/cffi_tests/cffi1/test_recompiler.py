@@ -479,8 +479,11 @@ def test_module_name_in_package():
     old_sys_path = sys.path[:]
     try:
         package_dir = udir.join('test_module_name_in_package')
+        for name in os.listdir(str(udir)):
+            assert not name.startswith('test_module_name_in_package.')
         assert os.path.isdir(str(package_dir))
         assert len(os.listdir(str(package_dir))) > 0
+        assert os.path.exists(str(package_dir.join('mymod.c')))
         package_dir.join('__init__.py').write('')
         #
         sys.path.insert(0, str(udir))

@@ -1159,9 +1159,14 @@ def make_c_source(ffi, module_name, preamble, target_c_file):
 def make_py_source(ffi, module_name, target_py_file):
     return _make_c_or_py_source(ffi, module_name, None, target_py_file)
 
-def _get_extension(module_name, c_file, kwds):
-    source_name = ffiplatform.maybe_relative_path(c_file)
-    return ffiplatform.get_extension(source_name, module_name, **kwds)
+def _modname_to_file(outputdir, modname, extension):
+    parts = modname.split('.')
+    try:
+        os.makedirs(os.path.join(outputdir, *parts[:-1]))
+    except OSError:
+        pass
+    parts[-1] += extension
+    return os.path.join(outputdir, *parts), parts
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', **kwds):
@@ -1171,17 +1176,26 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
         ffi._apply_windows_unicode(kwds)
     if preamble is not None:
         if c_file is None:
-            c_file = os.path.join(tmpdir, module_name + source_extension)
-        ext = _get_extension(module_name, c_file, kwds)
+            c_file, parts = _modname_to_file(tmpdir, module_name,
+                                             source_extension)
+            ext_c_file = os.path.join(*parts)
+        else:
+            ext_c_file = c_file
+        ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
         updated = make_c_source(ffi, module_name, preamble, c_file)
         if call_c_compiler:
-            outputfilename = ffiplatform.compile(tmpdir, ext)
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                outputfilename = ffiplatform.compile('.', ext)
+            finally:
+                os.chdir(cwd)
             return outputfilename
         else:
             return ext, updated
     else:
         if c_file is None:
-            c_file = os.path.join(tmpdir, module_name + '.py')
+            c_file, _ = _modname_to_file(tmpdir, module_name, '.py')
         updated = make_py_source(ffi, module_name, c_file)
         if call_c_compiler:
             return c_file
