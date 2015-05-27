@@ -327,6 +327,11 @@ class ConstPtrInfo(PtrInfo):
     def get_last_guard(self, optimizer):
         return None
 
+    def is_constant(self):
+        return True
+
+    # --------------------- vstring -------------------
+
     def _unpack_str(self, mode):
         return mode.hlstr(lltype.cast_opaque_ptr(
             lltype.Ptr(mode.LLTYPE), self._const.getref_base()))

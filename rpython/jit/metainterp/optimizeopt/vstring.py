@@ -160,6 +160,14 @@ class VStringPlainInfo(StrPtrInfo):
             self.lgtop = ConstInt(len(self._chars))
         return self.lgtop
 
+    @specialize.arg(1)
+    def get_constant_string_spec(self, optforce, mode):
+        for c in self._chars:
+            if c is None or not c.is_constant():
+                return None
+        return mode.emptystr.join([mode.chr(c.getint())
+                                   for c in self._chars])
+
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
         if not self.is_virtual() and not self.is_completely_initialized():
@@ -538,14 +546,19 @@ class XVStringSliceInfo(VAbstractStringInfo):
 
 
 def copy_str_content(string_optimizer, srcbox, targetbox,
-                     srcoffsetbox, offsetbox, lengthbox, mode, need_next_offset=True):
-    if isinstance(srcbox, ConstPtr) and isinstance(srcoffsetbox, Const):
+                     srcoffsetbox, offsetbox, lengthbox, mode,
+                     need_next_offset=True):
+    srcbox = string_optimizer.get_box_replacement(srcbox)
+    srcoffset = string_optimizer.getintbound(srcoffsetbox)
+    lgt = string_optimizer.getintbound(lengthbox)
+    if isinstance(srcbox, ConstPtr) and srcoffset.is_constant():
         M = 5
     else:
         M = 2
-    if isinstance(lengthbox, ConstInt) and lengthbox.value <= M:
+    if lgt.is_constant() and lgt.getint() <= M:
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
+        xxx
         for i in range(lengthbox.value):
             charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
@@ -555,6 +568,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
                                                                            charbox]))
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
     else:
+        uuu
         if need_next_offset:
             nextoffsetbox = _int_add(string_optimizer, offsetbox, lengthbox)
         else:
@@ -703,7 +717,7 @@ class OptString(optimizer.Optimization):
                     index = ConstInt(raw_index - len1)
                     return self.strgetitem(op, sinfo.vright, index, mode)
         #
-        _strgetitem(self, s, index, mode, op)
+        return _strgetitem(self, s, index, mode, op)
 
     def optimize_STRLEN(self, op):
         self._optimize_STRLEN(op, mode_string)
@@ -732,24 +746,25 @@ class OptString(optimizer.Optimization):
         assert op.getarg(2).type == INT
         assert op.getarg(3).type == INT
         assert op.getarg(4).type == INT
-        src = self.getvalue(op.getarg(0))
-        dst = self.getvalue(op.getarg(1))
-        srcstart = self.getvalue(op.getarg(2))
-        dststart = self.getvalue(op.getarg(3))
-        length = self.getvalue(op.getarg(4))
-        dst_virtual = (isinstance(dst, VStringPlainValue) and dst.is_virtual())
+        src = self.getptrinfo(op.getarg(0))
+        dst = self.getptrinfo(op.getarg(1))
+        srcstart = self.getintbound(op.getarg(2))
+        dststart = self.getintbound(op.getarg(3))
+        length = self.getintbound(op.getarg(4))
+        dst_virtual = (isinstance(dst, VStringPlainInfo) and dst.is_virtual())
 
-        if length.is_constant() and length.box.getint() == 0:
+        if length.is_constant() and length.getint() == 0:
             return
-        elif ((src.is_virtual() or src.is_constant()) and
+        elif ((str and (src.is_virtual() or src.is_constant())) and
               srcstart.is_constant() and dststart.is_constant() and
               length.is_constant() and
-              (length.force_box(self).getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
-            src_start = srcstart.force_box(self).getint()
-            dst_start = dststart.force_box(self).getint()
-            actual_length = length.force_box(self).getint()
+              (length.getint() < 20 or ((src.is_virtual() or src.is_constant()) and dst_virtual))):
+            src_start = srcstart.getint()
+            dst_start = dststart.getint()
+            actual_length = length.getint()
             for index in range(actual_length):
-                vresult = self.strgetitem(src, optimizer.ConstantIntValue(ConstInt(index + src_start)), mode)
+                vresult = self.strgetitem(None, op.getarg(0),
+                                          ConstInt(index + src_start), mode)
                 if dst_virtual:
                     dst.setitem(index + dst_start, vresult)
                 else:
@@ -760,14 +775,9 @@ class OptString(optimizer.Optimization):
                     ])
                     self.emit_operation(new_op)
         else:
-            copy_str_content(self,
-                src.force_box(self),
-                dst.force_box(self),
-                srcstart.force_box(self),
-                dststart.force_box(self),
-                length.force_box(self),
-                mode, need_next_offset=False
-            )
+            copy_str_content(self, op.getarg(0), op.getarg(1), op.getarg(2),
+                             op.getarg(3), op.getarg(4), mode,
+                             need_next_offset=False)
 
     def optimize_CALL_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
