@@ -127,6 +127,10 @@ def test_include_1():
     sub_ffi.set_source('re_python_pysrc', None)
     sub_ffi.emit_python_code(str(tmpdir.join('_re_include_1.py')))
     #
+    if sys.version_info[:2] >= (3, 3):
+        import importlib
+        importlib.invalidate_caches()  # issue 197 (but can't reproduce myself)
+    #
     from _re_include_1 import ffi
     assert ffi.integer_const('FOOBAR') == -42
     assert ffi.integer_const('FOOBAZ') == -43

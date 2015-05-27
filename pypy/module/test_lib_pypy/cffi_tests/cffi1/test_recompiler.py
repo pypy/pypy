@@ -479,8 +479,11 @@ def test_module_name_in_package():
     old_sys_path = sys.path[:]
     try:
         package_dir = udir.join('test_module_name_in_package')
+        for name in os.listdir(str(udir)):
+            assert not name.startswith('test_module_name_in_package.')
         assert os.path.isdir(str(package_dir))
         assert len(os.listdir(str(package_dir))) > 0
+        assert os.path.exists(str(package_dir.join('mymod.c')))
         package_dir.join('__init__.py').write('')
         #
         sys.path.insert(0, str(udir))
@@ -761,7 +764,6 @@ def test_address_of_global_var():
     #
     py.test.raises(AttributeError, ffi.addressof, lib, 'unknown_var')
     py.test.raises(AttributeError, ffi.addressof, lib, "FOOBAR")
-    assert ffi.addressof(lib, 'FetchRectBottom') == lib.FetchRectBottom
 
 def test_defines__CFFI_():
     # Check that we define the macro _CFFI_ automatically.
@@ -777,3 +779,48 @@ def test_defines__CFFI_():
     #endif
     """)
     assert lib.CORRECT == 1
+
+def test_unpack_args():
+    ffi = FFI()
+    ffi.cdef("void foo0(void); void foo1(int); void foo2(int, int);")
+    lib = verify(ffi, "test_unpack_args", """
+    void foo0(void) { }
+    void foo1(int x) { }
+    void foo2(int x, int y) { }
+    """)
+    assert 'foo0' in repr(lib.foo0)
+    assert 'foo1' in repr(lib.foo1)
+    assert 'foo2' in repr(lib.foo2)
+    lib.foo0()
+    lib.foo1(42)
+    lib.foo2(43, 44)
+    e1 = py.test.raises(TypeError, lib.foo0, 42)
+    e2 = py.test.raises(TypeError, lib.foo0, 43, 44)
+    e3 = py.test.raises(TypeError, lib.foo1)
+    e4 = py.test.raises(TypeError, lib.foo1, 43, 44)
+    e5 = py.test.raises(TypeError, lib.foo2)
+    e6 = py.test.raises(TypeError, lib.foo2, 42)
+    e7 = py.test.raises(TypeError, lib.foo2, 45, 46, 47)
+    assert str(e1.value) == "foo0() takes no arguments (1 given)"
+    assert str(e2.value) == "foo0() takes no arguments (2 given)"
+    assert str(e3.value) == "foo1() takes exactly one argument (0 given)"
+    assert str(e4.value) == "foo1() takes exactly one argument (2 given)"
+    assert str(e5.value) == "foo2() takes exactly 2 arguments (0 given)"
+    assert str(e6.value) == "foo2() takes exactly 2 arguments (1 given)"
+    assert str(e7.value) == "foo2() takes exactly 2 arguments (3 given)"
+
+def test_address_of_function():
+    ffi = FFI()
+    ffi.cdef("long myfunc(long x);")
+    lib = verify(ffi, "test_addressof_function", """
+        char myfunc(char x) { return (char)(x + 42); }
+    """)
+    assert lib.myfunc(5) == 47
+    assert lib.myfunc(0xABC05) == 47
+    assert not isinstance(lib.myfunc, ffi.CData)
+    assert ffi.typeof(lib.myfunc) == ffi.typeof("long(*)(long)")
+    addr = ffi.addressof(lib, 'myfunc')
+    assert addr(5) == 47
+    assert addr(0xABC05) == 47
+    assert isinstance(addr, ffi.CData)
+    assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")

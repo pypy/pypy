@@ -64,7 +64,7 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, w_ct,
+        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn, w_ct,
                                  locs, rawfunctype, fnname)
 
     @jit.elidable_promote()
@@ -104,7 +104,7 @@ class W_LibObject(W_Root):
                 # A global variable of the exact type specified here
                 w_ct = realize_c_type.realize_c_type(
                     self.ffi, self.ctx.c_types, getarg(g.c_type_op))
-                g_size = rffi.getintfield(g, 'c_size')
+                g_size = rffi.cast(lltype.Signed, g.c_size_or_direct_fn)
                 if g_size != w_ct.size and g_size != 0 and w_ct.size > 0:
                     raise oefmt(self.ffi.w_FFIError,
                             "global variable '%s' should be %d bytes "
@@ -197,7 +197,7 @@ class W_LibObject(W_Root):
                    for i in range(total)]
         return space.newlist(names_w)
 
-    def address_of_global_var(self, varname):
+    def address_of_func_or_global_var(self, varname):
         # rebuild a string object from 'varname', to do typechecks and
         # to force a unicode back to a plain string
         space = self.space
@@ -206,9 +206,15 @@ class W_LibObject(W_Root):
             # regular case: a global variable
             return w_value.address()
         #
-        if ((isinstance(w_value, W_CData) and
-                isinstance(w_value.ctype, W_CTypeFunc))
-            or isinstance(w_value, W_FunctionWrapper)):
+        if isinstance(w_value, W_FunctionWrapper):
+            # '&func' returns a regular cdata pointer-to-function
+            if w_value.directfnptr:
+                return W_CData(space, w_value.directfnptr, w_value.ctype)
+            else:
+                return w_value    # backward compatibility
+        #
+        if (isinstance(w_value, W_CData) and
+                isinstance(w_value.ctype, W_CTypeFunc)):
             # '&func' is 'func' in C, for a constant function 'func'
             return w_value
         #

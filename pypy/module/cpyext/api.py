@@ -427,6 +427,7 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
+    'PyStructSequence_UnnamedField',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 

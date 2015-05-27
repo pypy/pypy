@@ -1,5 +1,5 @@
 
-/* See doc/parse_c_type.rst in the source of CFFI for more information */
+/* See doc/misc/parse_c_type.rst in the source of CFFI for more information */
 
 typedef void *_cffi_opcode_t;
 
@@ -83,7 +83,8 @@ struct _cffi_global_s {
     const char *name;
     void *address;
     _cffi_opcode_t type_op;
-    size_t size;             // 0 if unknown
+    void *size_or_direct_fn;  // OP_GLOBAL_VAR: size, or 0 if unknown
+                              // OP_CPYTHON_BLTN_*: addr of direct function
 };
 
 struct _cffi_getconst_s {

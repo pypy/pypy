@@ -23,7 +23,7 @@ GLOBAL_S = rffi.CStruct('_cffi_global_s',
                        ('name', rffi.CCHARP),
                        ('address', rffi.VOIDP),
                        ('type_op', _CFFI_OPCODE_T),
-                       ('size', rffi.SIZE_T))
+                       ('size_or_direct_fn', rffi.CCHARP))
 CDL_INTCONST_S = lltype.Struct('cdl_intconst_s',
                        ('value', rffi.ULONGLONG),
                        ('neg', rffi.INT))
