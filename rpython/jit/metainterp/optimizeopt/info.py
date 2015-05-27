@@ -50,6 +50,9 @@ class PtrInfo(AbstractInfo):
     def same_info(self, other):
         return self is other
 
+    def getstrlen(self, arg, opt, mode, create_ops=True):
+        return None
+
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
@@ -340,7 +343,10 @@ class ConstPtrInfo(PtrInfo):
         return self._unpack_str(mode)
     
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
-        return ConstInt(len(self._unpack_str(mode)))
+        s = self._unpack_str(mode)
+        if not s:
+            return None
+        return ConstInt(len(s))
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):

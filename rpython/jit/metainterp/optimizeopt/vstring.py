@@ -895,7 +895,7 @@ class OptString(optimizer.Optimization):
         if self.handle_str_equal_level2(arg2, arg1, op, mode):
             return True
         #
-        if i1.is_nonnull() and i2.is_nonnull():
+        if i1 and i1.is_nonnull() and i2 and i2.is_nonnull():
             if l1box is not None and l2box is not None and l1box.same_box(l2box):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
@@ -925,28 +925,29 @@ class OptString(optimizer.Optimization):
                     l1box = i1.getstrlen(arg1, self, mode, False)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
-                    vchar1 = self.strgetitem(resultop, arg1, optimizer.CONST_0, mode)
-                    vchar2 = self.strgetitem(resultop, arg2, optimizer.CONST_0, mode)
+                    vchar1 = self.strgetitem(None, arg1, optimizer.CONST_0,
+                                             mode)
+                    vchar2 = self.strgetitem(None, arg2, optimizer.CONST_0,
+                                             mode)
                     seo = self.optimizer.send_extra_operation
                     op = self.optimizer.replace_op_with(resultop, rop.INT_EQ,
                                 [vchar1, vchar2], descr=DONT_CHANGE)
                     seo(op)
                     return True
                 if isinstance(i1, VStringSliceInfo):
-                    vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+                    vchar = self.strgetitem(None, arg2, optimizer.CONST_0,
+                                            mode)
                     do = EffectInfo.OS_STREQ_SLICE_CHAR
-                    self.generate_modified_call(do, [v1.vstr.force_box(self),
-                                                     v1.vstart.force_box(self),
-                                                     v1.vlength.force_box(self),
-                                                     vchar.force_box(self)],
+                    self.generate_modified_call(do, [i1.s, i1.start,
+                                                     i1.lgtop, vchar],
                                                      resultop, mode)
                     return True
         #
         if i2 and i2.is_null():
-            if i1.is_nonnull():
+            if i1 and i1.is_nonnull():
                 self.make_constant(resultop, CONST_0)
                 return True
-            if i1.is_null():
+            if i1 and i1.is_null():
                 self.make_constant(resultop, CONST_1)
                 return True
             op = self.optimizer.replace_op_with(resultop, rop.PTR_EQ,
@@ -976,15 +977,13 @@ class OptString(optimizer.Optimization):
                                                 resultbox, mode)
                     return True
             #
-        if i1.is_virtual() and isinstance(i1, VStringSliceInfo):
-            if v2.is_nonnull():
+        if isinstance(i1, VStringSliceInfo) and i1.is_virtual():
+            if i2 and i2.is_nonnull():
                 do = EffectInfo.OS_STREQ_SLICE_NONNULL
             else:
                 do = EffectInfo.OS_STREQ_SLICE_CHECKNULL
-            self.generate_modified_call(do, [v1.vstr.force_box(self),
-                                             v1.vstart.force_box(self),
-                                             v1.vlength.force_box(self),
-                                             v2.force_box(self)], resultbox, mode)
+            self.generate_modified_call(do, [i1.s, i1.start, i1.lgtop,
+                                             arg2], resultbox, mode)
             return True
         return False
 
