@@ -652,7 +652,7 @@ class BaseBackendTest(Runner):
 
 
     def test_field_basic(self):
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box, d = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         assert not fielddescr.is_pointer_field()
         #
@@ -683,7 +683,7 @@ class BaseBackendTest(Runner):
         assert res == 1331
 
         #
-        u_box, U_box = self.alloc_instance(self.U)
+        u_box, U_box, d = self.alloc_instance(self.U)
         fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
         assert fielddescr2.is_pointer_field()
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, u_box],
@@ -716,7 +716,7 @@ class BaseBackendTest(Runner):
 
 
     def test_passing_guards(self):
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box, d = self.alloc_instance(self.T)
         nullbox = self.null_instance()
         all = [(rop.GUARD_TRUE, [InputArgInt(1)]),
                (rop.GUARD_FALSE, [InputArgInt(0)]),
@@ -735,7 +735,7 @@ class BaseBackendTest(Runner):
 
 
     def test_passing_guard_class(self):
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box, d = self.alloc_instance(self.T)
         #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
         assert not self.guard_failed
@@ -743,7 +743,7 @@ class BaseBackendTest(Runner):
         assert not self.guard_failed
 
     def test_failing_guards(self):
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box, d = self.alloc_instance(self.T)
         nullbox = self.null_instance()
         all = [(rop.GUARD_TRUE, [InputArgInt(0)]),
                (rop.GUARD_FALSE, [InputArgInt(1)]),
@@ -760,8 +760,8 @@ class BaseBackendTest(Runner):
             assert self.guard_failed
 
     def test_failing_guard_class(self):
-        t_box, T_box = self.alloc_instance(self.T)
-        u_box, U_box = self.alloc_instance(self.U)
+        t_box, T_box, _ = self.alloc_instance(self.T)
+        u_box, U_box, _ = self.alloc_instance(self.U)
         null_box = self.null_instance()
         for opname, args in [(rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
@@ -773,8 +773,8 @@ class BaseBackendTest(Runner):
             assert self.guard_failed
 
     def test_ooops(self):
-        u1_box, U_box = self.alloc_instance(self.U)
-        u2_box, U_box = self.alloc_instance(self.U)
+        u1_box, U_box, _ = self.alloc_instance(self.U)
+        u2_box, U_box, _ = self.alloc_instance(self.U)
         r = self.execute_operation(rop.PTR_EQ, [u1_box,
                                                 clone(u1_box)], 'int')
         assert r == 1
@@ -967,7 +967,7 @@ class BaseBackendTest(Runner):
                              ('k', lltype.Float),
                              ('p', lltype.Ptr(TP)))
         a_box, A = self.alloc_array_of(ITEM, 15)
-        s_box, S = self.alloc_instance(TP)
+        s_box, S, _ = self.alloc_instance(TP)
         vsdescr = self.cpu.interiorfielddescrof(A, 'vs')
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
@@ -1816,7 +1816,8 @@ class LLtypeBackendTest(BaseBackendTest):
             t.parent.parent.parent.typeptr = vtable_for_T
         t_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
-        return t_box, T_box
+        descr = cpu.sizeof(T, True)
+        return t_box, T_box, descr
 
     def null_instance(self):
         return InputArgRef(lltype.nullptr(llmemory.GCREF.TO))
@@ -1913,7 +1914,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_new_plain_struct(self):
         cpu = self.cpu
         S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
-        sizedescr = cpu.sizeof(S)
+        sizedescr = cpu.sizeof(S, False)
         r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         r2 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         assert r1 != r2
@@ -1931,12 +1932,12 @@ class LLtypeBackendTest(BaseBackendTest):
 
     def test_new_with_vtable(self):
         cpu = self.cpu
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box, descr = self.alloc_instance(self.T)
         vtable = llmemory.cast_adr_to_ptr(
             llmemory.cast_int_to_adr(T_box.getint()), heaptracker.VTABLETYPE)
         heaptracker.register_known_gctype(cpu, vtable, self.T)
-        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ref')
-        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [T_box], 'ref')
+        r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [], 'ref', descr)
+        r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [], 'ref', descr)
         assert r1 != r2
         descr1 = cpu.fielddescrof(self.S, 'chr1')
         descr2 = cpu.fielddescrof(self.S, 'chr2')
@@ -2431,8 +2432,7 @@ class LLtypeBackendTest(BaseBackendTest):
         finaldescr = BasicFinalDescr(0)
         loop = parse("""
         [i1]
-        i2 = call_release_gil_i(ConstInt(0), ConstClass(func_adr), i1,
-                                descr=calldescr)
+        i2 = call_release_gil_i(0, ConstClass(func_adr), i1, descr=calldescr)
         guard_not_forced(descr=faildescr) [i1, i2]
         finish(i2, descr=finaldescr)
         """, namespace=locals())
@@ -3361,15 +3361,15 @@ class LLtypeBackendTest(BaseBackendTest):
         #    descrfld_ry)
         #assert rs.y == a
         #
-        descrsize = cpu.sizeof(S)
+        descrsize = cpu.sizeof(S, False)
         x = cpu.bh_new(descrsize)
         lltype.cast_opaque_ptr(lltype.Ptr(S), x)    # type check
         #
-        descrsize2 = cpu.sizeof(rclass.OBJECT)
+        descrsize2 = cpu.sizeof(rclass.OBJECT, True)
         vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         vtable2_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable2))
         heaptracker.register_known_gctype(cpu, vtable2, rclass.OBJECT)
-        x = cpu.bh_new_with_vtable(vtable2_int, descrsize2)
+        x = cpu.bh_new_with_vtable(descrsize2)
         lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), x)    # type check
         # well...
         #assert x.getref(rclass.OBJECTPTR).typeptr == vtable2
@@ -4290,7 +4290,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 42
 
     def test_wrong_guard_nonnull_class(self):
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box, _ = self.alloc_instance(self.T)
         null_box = self.null_instance()
         faildescr = BasicFailDescr(42)
         operations = [
