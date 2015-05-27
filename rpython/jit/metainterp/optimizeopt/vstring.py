@@ -386,7 +386,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
     if lgt.is_constant() and lgt.getint() <= M:
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
-        for i in range(lengthbox.getint()):
+        for i in range(lgt.getint()):
             charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
             assert not isinstance(targetbox, Const)# ConstPtr never makes sense

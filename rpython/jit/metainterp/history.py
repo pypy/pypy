@@ -671,8 +671,7 @@ class TreeLoop(object):
     @staticmethod
     def check_consistency_of(inputargs, operations):
         for box in inputargs:
-            assert (not isinstance(box, Const),
-                   "Loop.inputargs contains %r" % (box,))
+            assert not isinstance(box, Const), "Loop.inputargs contains %r" % (box,)
         seen = dict.fromkeys(inputargs)
         assert len(seen) == len(inputargs), (
                "duplicate Box in the Loop.inputargs")
