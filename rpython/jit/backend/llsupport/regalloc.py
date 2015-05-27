@@ -633,7 +633,7 @@ class BaseRegalloc(object):
         locs = []
         base_ofs = self.assembler.cpu.get_baseofs_of_frame_field()
         for box in inputargs:
-            assert isinstance(box, Box)
+            assert not isinstance(box, Const)
             loc = self.fm.get_new_loc(box)
             locs.append(loc.value - base_ofs)
         if looptoken.compiled_loop_token is not None:
@@ -641,9 +641,8 @@ class BaseRegalloc(object):
             looptoken.compiled_loop_token._ll_initial_locs = locs
 
     def can_merge_with_next_guard(self, op, i, operations):
-        if (op.getopnum() == rop.CALL_MAY_FORCE or
-            op.getopnum() == rop.CALL_ASSEMBLER or
-            op.getopnum() == rop.CALL_RELEASE_GIL):
+        if (op.is_call_may_force() or op.is_call_assembler() or
+            op.is_call_release_gil()):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
         if not op.is_comparison():
@@ -682,16 +681,13 @@ def compute_vars_longevity(inputargs, operations):
     # never appear in the assembler or it does not matter if they appear on
     # stack or in registers. Main example is loop arguments that go
     # only to guard operations or to jump or to finish
-    produced = {}
     last_used = {}
     last_real_usage = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
-        if op.result:
-            if op.result not in last_used and op.has_no_side_effect():
+        if op.type != 'v':
+            if op not in last_used and op.has_no_side_effect():
                 continue
-            assert op.result not in produced
-            produced[op.result] = i
         opnum = op.getopnum()
         for j in range(op.numargs()):
             arg = op.getarg(j)
@@ -711,14 +707,14 @@ def compute_vars_longevity(inputargs, operations):
                     last_used[arg] = i
     #
     longevity = {}
-    for arg in produced:
-        if arg in last_used:
+    for i, arg in enumerate(operations):
+        if arg.type != 'v' and arg in last_used:
             assert isinstance(arg, Box)
-            assert produced[arg] < last_used[arg]
-            longevity[arg] = (produced[arg], last_used[arg])
+            assert i < last_used[arg]
+            longevity[arg] = (i, last_used[arg])
             del last_used[arg]
     for arg in inputargs:
-        assert isinstance(arg, Box)
+        assert not isinstance(arg, Const)
         if arg not in last_used:
             longevity[arg] = (-1, -1)
         else:

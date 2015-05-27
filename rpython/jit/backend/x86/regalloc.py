@@ -187,8 +187,8 @@ class RegAlloc(BaseRegalloc):
             var = op.getarg(i)
             if var is not None: # xxx kludgy
                 self.possibly_free_var(var)
-        if op.result:
-            self.possibly_free_var(op.result)
+        if op.type != 'v':
+            self.possibly_free_var(op)
 
     def possibly_free_vars(self, vars):
         for var in vars:
@@ -316,7 +316,7 @@ class RegAlloc(BaseRegalloc):
             self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
-            if op.has_no_side_effect() and op.result not in self.longevity:
+            if op.has_no_side_effect() and op not in self.longevity:
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue

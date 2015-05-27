@@ -269,7 +269,14 @@ class AbstractResOp(AbstractValue):
         return (opnum == rop.CALL_PURE_I or
                 opnum == rop.CALL_PURE_R or
                 opnum == rop.CALL_PURE_N or
-                opnum == rop.CALL_PURE_F)        
+                opnum == rop.CALL_PURE_F)
+
+    def is_call_release_gil(self):
+        opnum = self.opnum
+        # no R returning call_release_gil
+        return (opnum == rop.CALL_RELEASE_GIL_I or
+                opnum == rop.CALL_RELEASE_GIL_F or
+                opnum == rop.CALL_RELEASE_GIL_N)
 
     def is_ovf(self):
         return rop._OVF_FIRST <= self.getopnum() <= rop._OVF_LAST
