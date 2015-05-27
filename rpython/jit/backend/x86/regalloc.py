@@ -8,7 +8,7 @@ from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
-     RegisterManager, TempBox, compute_vars_longevity, is_comparison_or_ovf_op,
+     RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
      valid_addressing_size)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
@@ -21,8 +21,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, INT, REF, FLOAT, TargetToken)
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    ConstFloat, INT, REF, FLOAT, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
@@ -442,7 +442,7 @@ class RegAlloc(BaseRegalloc):
             argloc = self.loc(y)
         #
         args = op.getarglist()
-        loc = self.rm.force_result_in_reg(op.result, x, args)
+        loc = self.rm.force_result_in_reg(op, x, args)
         return loc, argloc
 
     def _consider_binop(self, op):

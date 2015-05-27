@@ -1,7 +1,7 @@
 import os
-from rpython.jit.metainterp.history import Const, Box, REF, JitCellToken
+from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, AbstractValue
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -10,7 +10,7 @@ try:
 except ImportError:
     OrderedDict = dict # too bad
 
-class TempBox(Box):
+class TempVar(AbstractValue):
     def __init__(self):
         pass
 
@@ -304,7 +304,7 @@ class RegisterManager(object):
 
     def _check_type(self, v):
         if not we_are_translated() and self.box_types is not None:
-            assert isinstance(v, TempBox) or v.type in self.box_types
+            assert isinstance(v, TempVar) or v.type in self.box_types
 
     def possibly_free_var(self, v):
         """ If v is stored in a register and v is not used beyond the
@@ -442,7 +442,7 @@ class RegisterManager(object):
         Will not spill a variable from 'forbidden_vars'.
         """
         self._check_type(v)
-        if isinstance(v, TempBox):
+        if isinstance(v, TempVar):
             self.longevity[v] = (self.position, self.position)
         loc = self.try_allocate_reg(v, selected_reg,
                                     need_lower_byte=need_lower_byte)
@@ -691,7 +691,7 @@ def compute_vars_longevity(inputargs, operations):
         opnum = op.getopnum()
         for j in range(op.numargs()):
             arg = op.getarg(j)
-            if not isinstance(arg, Box):
+            if isinstance(arg, Const):
                 continue
             if arg not in last_used:
                 last_used[arg] = i
@@ -702,14 +702,14 @@ def compute_vars_longevity(inputargs, operations):
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
-                assert isinstance(arg, Box)
+                assert not isinstance(arg, Const)
                 if arg not in last_used:
                     last_used[arg] = i
     #
     longevity = {}
     for i, arg in enumerate(operations):
         if arg.type != 'v' and arg in last_used:
-            assert isinstance(arg, Box)
+            assert not isinstance(arg, Const)
             assert i < last_used[arg]
             longevity[arg] = (i, last_used[arg])
             del last_used[arg]
