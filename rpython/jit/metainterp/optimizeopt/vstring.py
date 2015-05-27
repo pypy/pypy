@@ -867,13 +867,17 @@ class OptString(optimizer.Optimization):
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
         arg1 = self.get_box_replacement(op.getarg(1))
         arg2 = self.get_box_replacement(op.getarg(2))
-        self.make_nonnull_str(arg1, mode)
-        self.make_nonnull_str(arg2, mode)
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
         #
-        l1box = i1.getstrlen(arg1, self, mode, create_ops=False)
-        l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+        if i1:
+            l1box = i1.getstrlen(arg1, self, mode, create_ops=False)
+        else:
+            l1box = None
+        if i2:
+            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
+        else:
+            l2box = None
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and
@@ -903,7 +907,10 @@ class OptString(optimizer.Optimization):
     def handle_str_equal_level1(self, arg1, arg2, resultop, mode):
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
-        l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+        l2box = None
+        l1box = None
+        if i2:
+            l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
                 lengthbox = v1.getstrlen(self, mode, None)
@@ -914,7 +921,8 @@ class OptString(optimizer.Optimization):
                 seo(op)
                 return True
             if l2box.value == 1:
-                l1box = i1.getstrlen(arg1, self, mode, False)
+                if i1:
+                    l1box = i1.getstrlen(arg1, self, mode, False)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
                     vchar1 = self.strgetitem(resultop, arg1, optimizer.CONST_0, mode)
@@ -924,7 +932,7 @@ class OptString(optimizer.Optimization):
                                 [vchar1, vchar2], descr=DONT_CHANGE)
                     seo(op)
                     return True
-                if isinstance(v1, VStringSliceValue):
+                if isinstance(i1, VStringSliceInfo):
                     vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
                     do = EffectInfo.OS_STREQ_SLICE_CHAR
                     self.generate_modified_call(do, [v1.vstr.force_box(self),
@@ -934,7 +942,7 @@ class OptString(optimizer.Optimization):
                                                      resultop, mode)
                     return True
         #
-        if i2.is_null():
+        if i2 and i2.is_null():
             if i1.is_nonnull():
                 self.make_constant(resultop, CONST_0)
                 return True
@@ -952,19 +960,20 @@ class OptString(optimizer.Optimization):
     def handle_str_equal_level2(self, arg1, arg2, resultbox, mode):
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
-        l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+        l2box = None
+        if i2:
+            l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
         if l2box:
             l2info = self.getintbound(l2box)
             if l2info.is_constant():
                 if l2info.getint() == 1:
-                    vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
-                    if v1.is_nonnull():
+                    vchar = self.strgetitem(None, arg2, optimizer.CONST_0, mode)
+                    if i1 and i1.is_nonnull():
                         do = EffectInfo.OS_STREQ_NONNULL_CHAR
                     else:
                         do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
-                    self.generate_modified_call(do, [v1.force_box(self),
-                                                     vchar.force_box(self)], resultbox,
-                                                mode)
+                    self.generate_modified_call(do, [arg1, vchar],
+                                                resultbox, mode)
                     return True
             #
         if i1.is_virtual() and isinstance(i1, VStringSliceInfo):
