@@ -1027,6 +1027,7 @@ class DtypeCache(object):
 def get_dtype_cache(space):
     return space.fromcache(DtypeCache)
 
+@jit.elidable
 def num2dtype(space, num):
     return get_dtype_cache(space).dtypes_by_num[num]
 
