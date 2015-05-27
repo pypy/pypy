@@ -318,116 +318,9 @@ class VStringConcatInfo(StrPtrInfo):
 #                                 CONST_0, offsetbox, lengthbox, mode)
 
 
-class VAbstractStringInfo(virtualize.AbstractVirtualInfo):
-    _attrs_ = ('mode',)
 
-    def __init__(self, source_op, mode):
-        virtualize.AbstractVirtualValue.__init__(self, source_op)
-        self.mode = mode
-
-    def _really_force(self, optforce):
-        if self.mode is mode_string:
-            s = self.get_constant_string_spec(mode_string)
-            if s is not None:
-                c_s = get_const_ptr_for_string(s)
-                self.make_constant(c_s)
-                return
-        else:
-            s = self.get_constant_string_spec(mode_unicode)
-            if s is not None:
-                c_s = get_const_ptr_for_unicode(s)
-                self.make_constant(c_s)
-                return
-        assert self.source_op is not None
-        lengthbox = self.getstrlen(optforce, self.mode, None)
-        op = ResOperation(self.mode.NEWSTR, [lengthbox])
-        if not we_are_translated():
-            op.name = 'FORCE'
-        optforce.emit_operation(op)
-        self.box = optforce.getlastop()
-        self.initialize_forced_string(optforce, self.box, CONST_0, self.mode)
-
-    def initialize_forced_string(self, string_optimizer, targetbox,
-                                 offsetbox, mode):
-        return self.string_copy_parts(string_optimizer, targetbox,
-                                      offsetbox, mode)
-
-
-class XVStringPlainInfo(VAbstractStringInfo):
+class XVStringPlainInfo(object):
     """A string built with newstr(const)."""
-    _lengthbox = None     # cache only
-
-    def setup(self, size):
-        # in this list, None means: "it's probably uninitialized so far,
-        # but maybe it was actually filled."  So to handle this case,
-        # strgetitem cannot be virtual-ized and must be done as a residual
-        # operation.  By contrast, any non-None value means: we know it
-        # is initialized to this value; strsetitem() there makes no sense.
-        # Also, as long as self.is_virtual(), then we know that no-one else
-        # could have written to the string, so we know that in this case
-        # "None" corresponds to "really uninitialized".
-        assert size <= MAX_CONST_LEN
-        self._chars = [None] * size
-
-    def shrink(self, length):
-        assert length >= 0
-        del self._chars[length:]
-
-    def setup_slice(self, longerlist, start, stop):
-        assert 0 <= start <= stop <= len(longerlist)
-        self._chars = longerlist[start:stop]
-        # slice the 'longerlist', which may also contain Nones
-
-    def getstrlen(self, _, mode, lengthbox):
-        if self._lengthbox is None:
-            self._lengthbox = ConstInt(len(self._chars))
-        return self._lengthbox
-
-    def getitem(self, index):
-        return self._chars[index]     # may return None!
-
-    def setitem(self, index, charvalue):
-        assert self.is_virtual()
-        assert isinstance(charvalue, optimizer.OptValue)
-        assert self._chars[index] is None, (
-            "setitem() on an already-initialized location")
-        self._chars[index] = charvalue
-
-    def is_completely_initialized(self):
-        for c in self._chars:
-            if c is None:
-                return False
-        return True
-
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        for c in self._chars:
-            if c is None or not c.is_constant():
-                return None
-        return mode.emptystr.join([mode.chr(c.box.getint())
-                                   for c in self._chars])
-
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        if not self.is_virtual() and not self.is_completely_initialized():
-            return VAbstractStringValue.string_copy_parts(
-                self, string_optimizer, targetbox, offsetbox, mode)
-        else:
-            return self.initialize_forced_string(string_optimizer, targetbox,
-                                                 offsetbox, mode)
-
-    def initialize_forced_string(self, string_optimizer, targetbox,
-                                 offsetbox, mode):
-        for i in range(len(self._chars)):
-            assert not isinstance(targetbox, Const) # ConstPtr never makes sense
-            charvalue = self.getitem(i)
-            if charvalue is not None:
-                charbox = charvalue.force_box(string_optimizer)
-                op = ResOperation(mode.STRSETITEM, [targetbox,
-                                                    offsetbox,
-                                                    charbox])
-                string_optimizer.emit_operation(op)
-            offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
-        return offsetbox
 
     def _visitor_walk_recursive(self, visitor):
         charboxes = []
@@ -447,44 +340,8 @@ class XVStringPlainInfo(VAbstractStringInfo):
         return visitor.visit_vstrplain(self.mode is mode_unicode)
 
 
-class XVStringConcatInfo(VAbstractStringInfo):
+class XVStringConcatInfo(object):
     """The concatenation of two other strings."""
-    _attrs_ = ('left', 'right', 'lengthbox')
-
-    lengthbox = None     # or the computed length
-
-    def setup(self, left, right):
-        self.left = left
-        self.right = right
-
-    def getstrlen(self, string_optimizer, mode, lengthbox):
-        if self.lengthbox is None:
-            len1box = self.left.getstrlen(string_optimizer, mode, None)
-            if len1box is None:
-                return None
-            len2box = self.right.getstrlen(string_optimizer, mode, None)
-            if len2box is None:
-                return None
-            self.lengthbox = _int_add(string_optimizer, len1box, len2box)
-            # ^^^ may still be None, if string_optimizer is None
-        return self.lengthbox
-
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        s1 = self.left.get_constant_string_spec(mode)
-        if s1 is None:
-            return None
-        s2 = self.right.get_constant_string_spec(mode)
-        if s2 is None:
-            return None
-        return s1 + s2
-
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        offsetbox = self.left.string_copy_parts(string_optimizer, targetbox,
-                                                offsetbox, mode)
-        offsetbox = self.right.string_copy_parts(string_optimizer, targetbox,
-                                                 offsetbox, mode)
-        return offsetbox
 
     def _visitor_walk_recursive(self, visitor):
         # we don't store the lengthvalue in guards, because the
@@ -500,37 +357,7 @@ class XVStringConcatInfo(VAbstractStringInfo):
         return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 
-class XVStringSliceInfo(VAbstractStringInfo):
-    """A slice."""
-    _attrs_ = ('vstr', 'vstart', 'vlength')
-
-    def setup(self, vstr, vstart, vlength):
-        self.vstr = vstr
-        self.vstart = vstart
-        self.vlength = vlength
-
-    def getstrlen(self, optforce, mode, lengthbox):
-        return self.vlength.force_box(optforce)
-
-    @specialize.arg(1)
-    def get_constant_string_spec(self, mode):
-        if self.vstart.is_constant() and self.vlength.is_constant():
-            s1 = self.vstr.get_constant_string_spec(mode)
-            if s1 is None:
-                return None
-            start = self.vstart.box.getint()
-            length = self.vlength.box.getint()
-            assert start >= 0
-            assert length >= 0
-            return s1[start : start + length]
-        return None
-
-    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        lengthbox = self.getstrlen(string_optimizer, mode, None)
-        return copy_str_content(string_optimizer,
-                                self.vstr.force_box(string_optimizer), targetbox,
-                                self.vstart.force_box(string_optimizer), offsetbox,
-                                lengthbox, mode)
+class XVStringSliceInfo(object):
 
     def _visitor_walk_recursive(self, visitor):
         boxes = [self.vstr.get_key_box(),
