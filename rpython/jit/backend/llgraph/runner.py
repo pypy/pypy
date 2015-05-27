@@ -1065,9 +1065,8 @@ class LLFrame(object):
         else:
             stats.add_merge_point_location(args[1:])
 
-    def execute_new_with_vtable(self, _, vtable):
-        descr = heaptracker.vtable2descr(self.cpu, vtable)
-        return self.cpu.bh_new_with_vtable(vtable, descr)
+    def execute_new_with_vtable(self, descr):
+        return self.cpu.bh_new_with_vtable(descr)
 
     def execute_force_token(self, _):
         return self

@@ -844,13 +844,14 @@ class Optimizer(Optimization):
     # dissabled and unrolling emits some SAME_AS ops to setup the
     # optimizier state. These needs to always be optimized out.
     def optimize_SAME_AS_I(self, op):
-        self.make_equal_to(op, self.getvalue(op.getarg(0)))
+        self.make_equal_to(op, op.getarg(0))
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
 
     def optimize_MARK_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.optimizer.opaque_pointers[value] = True
+        #value = self.getvalue(op.getarg(0))
+        #self.optimizer.opaque_pointers[value] = True
+        pass # XXX what do we do with that?
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)

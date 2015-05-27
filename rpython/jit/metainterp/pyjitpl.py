@@ -2828,7 +2828,7 @@ class MetaInterp(object):
         arg_consts = [executor.constant_from_op(a) for a in op.getarglist()]
         self.call_pure_results[arg_consts] = resbox_as_const
         opnum = OpHelpers.call_pure_for_descr(op.getdescr())
-        newop = op._copy_and_change(opnum, args=op.getarglist())
+        newop = op.copy_and_change(opnum, args=op.getarglist())
         self.history.operations[-1] = newop
         return newop
 
