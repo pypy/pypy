@@ -10,7 +10,7 @@ from pypy.module._cffi_backend import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func, cgc, structwrapper
+from pypy.module._cffi_backend import cbuffer, func, cgc, wrapper
 from pypy.module._cffi_backend import cffi_opcode
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
@@ -201,13 +201,13 @@ field or array item inside the given structure or array, recursively
 in case of nested structures or arrays.
 
 3. ffi.addressof(<library>, "name") returns the address of the named
-global variable."""
+function or global variable."""
         #
         from pypy.module._cffi_backend.lib_obj import W_LibObject
         space = self.space
         if isinstance(w_arg, W_LibObject) and len(args_w) == 1:
             # case 3 in the docstring
-            return w_arg.address_of_global_var(space.str_w(args_w[0]))
+            return w_arg.address_of_func_or_global_var(space.str_w(args_w[0]))
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_CDATA)
         if len(args_w) == 0:
@@ -478,7 +478,7 @@ Parse the C type given as a string and return the
 corresponding <ctype> object.
 It can also be used on 'cdata' instance to get its C type."""
         #
-        if isinstance(w_arg, structwrapper.W_StructWrapper):
+        if isinstance(w_arg, wrapper.W_FunctionWrapper):
             return w_arg.typeof(self)
         return self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CDATA)
 

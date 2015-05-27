@@ -4614,6 +4614,58 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected)
 
+    def test_str_equal_none3(self):
+        ops = """
+        []
+        p5 = newstr(0)
+        i0 = call(0, NULL, p5, descr=strequaldescr)
+        escape(i0)
+        jump()
+        """
+        expected = """
+        []
+        escape(0)
+        jump()
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none4(self):
+        ops = """
+        [p1]
+        p5 = newstr(0)
+        i0 = call(0, p5, p1, descr=strequaldescr)
+        escape(i0)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        # can't optimize more: p1 may be NULL!
+        i0 = call(0, s"", p1, descr=strequaldescr)
+        escape(i0)
+        jump(p1)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none5(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1) []
+        p5 = newstr(0)
+        i0 = call(0, p5, p1, descr=strequaldescr)
+        escape(i0)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1) []
+        # p1 is not NULL, so the string comparison (p1=="") becomes:
+        i6 = strlen(p1)
+        i0 = int_eq(i6, 0)
+        escape(i0)
+        jump(p1)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
     def test_str_equal_nonnull1(self):
         ops = """
         [p1]
