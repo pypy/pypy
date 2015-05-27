@@ -1148,8 +1148,14 @@ def _make_c_or_py_source(ffi, module_name, preamble, target_file):
                 raise IOError
         return False     # already up-to-date
     except IOError:
-        with open(target_file, 'w') as f1:
+        tmp_file = '%s.~%d' % (target_file, os.getpid())
+        with open(tmp_file, 'w') as f1:
             f1.write(output)
+        try:
+            os.rename(tmp_file, target_file)
+        except OSError:
+            os.unlink(target_file)
+            os.rename(tmp_file, target_file)
         return True
 
 def make_c_source(ffi, module_name, preamble, target_c_file):
@@ -1169,7 +1175,7 @@ def _modname_to_file(outputdir, modname, extension):
     return os.path.join(outputdir, *parts), parts
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
-              c_file=None, source_extension='.c', **kwds):
+              c_file=None, source_extension='.c', extradir=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
@@ -1178,6 +1184,8 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
         if c_file is None:
             c_file, parts = _modname_to_file(tmpdir, module_name,
                                              source_extension)
+            if extradir:
+                parts = [extradir] + parts
             ext_c_file = os.path.join(*parts)
         else:
             ext_c_file = c_file
