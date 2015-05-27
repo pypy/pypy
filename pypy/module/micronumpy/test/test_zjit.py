@@ -285,7 +285,7 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_pow(self):
-        py.test.skip()
+        py.test.skip("Not implemented CDefinedIntSymbolic('RPY_TLOFS_rpy_errno')")
         result = self.run("pow")
         assert result == 29 ** 2
         self.check_trace_count(1)
@@ -299,7 +299,7 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_pow_int(self):
-        py.test.skip()
+        py.test.skip("Not implemented CDefinedIntSymbolic('RPY_TLOFS_rpy_errno')")
         result = self.run("pow_int")
         assert result == 15 ** 2
         self.check_trace_count(4)  # extra one for the astype
@@ -335,52 +335,10 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_axissum(self):
-        py.test.skip()
         result = self.run("axissum")
         assert result == 30
         # XXX note - the bridge here is fairly crucial and yet it's pretty
         #            bogus. We need to improve the situation somehow.
-        self.check_trace_count(2)
-        self.check_simple_loop({
-            'float_add': 1,
-            'getarrayitem_gc': 2,
-            'guard_false': 2,
-            'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 4,
-            'int_ge': 1,
-            'int_is_zero': 1,
-            'int_lt': 1,
-            'jump': 1,
-            'raw_load': 2,
-            'raw_store': 1,
-            'setarrayitem_gc': 1,
-        })
-        self.check_resops({
-            'float_add': 2,
-            'getarrayitem_gc': 5,
-            'getarrayitem_gc_pure': 7,
-            'getfield_gc': 5,
-            'getfield_gc_pure': 51,
-            'guard_class': 3,
-            'guard_false': 12,
-            'guard_nonnull': 11,
-            'guard_nonnull_class': 3,
-            'guard_not_invalidated': 2,
-            'guard_true': 10,
-            'guard_value': 6,
-            'int_add': 13,
-            'int_ge': 4,
-            'int_is_true': 3,
-            'int_is_zero': 4,
-            'int_le': 2,
-            'int_lt': 3,
-            'int_sub': 1,
-            'jump': 2,
-            'raw_load': 4,
-            'raw_store': 2,
-            'setarrayitem_gc': 4,
-        })
 
     def define_reduce():
         return """

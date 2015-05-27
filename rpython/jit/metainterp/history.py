@@ -552,7 +552,7 @@ class PrimitiveTypeMixin(object):
 
 class BoxVector(Box, PrimitiveTypeMixin):
     type = VECTOR
-    _attrs_ = ('item_type','item_count','item_size','signed')
+    _attrs_ = ('item_type','item_count','item_size','item_signed')
     _extended_display = False
 
     def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False):

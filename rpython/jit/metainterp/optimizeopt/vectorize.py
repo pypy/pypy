@@ -609,7 +609,6 @@ class GuardStrengthenOpt(object):
             return key
         return (None, 0, None)
 
-
     def get_key(self, guard_bool, operations, i):
         cmp_op = self.find_compare_guard_bool(guard_bool.getarg(0), operations, i)
         return self._get_key(cmp_op)
@@ -672,8 +671,9 @@ class GuardStrengthenOpt(object):
                         self.emit_operation(ResOperation(rop.SAME_AS, [box], op.result))
                         continue
                     else:
-                        index_var.emit_operations(self, op.result)
-                        continue
+                        if not index_var.is_identity():
+                            index_var.emit_operations(self, op.result)
+                            continue
             self.emit_operation(op)
 
         loop.operations = self._newoperations[:]
@@ -756,11 +756,11 @@ class OpToVectorOp(object):
         return self.arg_ptypes[i] is not None
 
     def pack_ptype(self, op):
-        _, vbox = self.getvector_of_box(op.getarg(0))
+        _, vbox = self.sched_data.getvector_of_box(op.getarg(0))
         if vbox:
             return PackType.of(vbox)
         else:
-            raise RuntimeError("fatal: box %s is not in a vector box" % (arg,))
+            raise RuntimeError("fatal: box %s is not in a vector box" % (op.getarg(0),))
 
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
@@ -852,7 +852,7 @@ class OpToVectorOp(object):
         # The instruction takes less items than the vector has.
         # Unpack if not at off 0
         if off != 0 and box_pos != 0:
-            vbox = self.unpack(vbox, off, count, arg_ptype)
+            vbox = self.unpack(vbox, off, len(ops), arg_ptype)
         #
         return vbox
 

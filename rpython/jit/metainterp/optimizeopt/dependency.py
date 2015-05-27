@@ -986,6 +986,7 @@ class IndexVar(AbstractValue):
         return mycoeff + self.constant - (othercoeff + other.constant)
 
     def emit_operations(self, opt, result_box=None):
+        assert not self.is_identity()
         box = self.var
         last_op = None
         if self.coefficient_mul != 1:

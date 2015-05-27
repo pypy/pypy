@@ -300,6 +300,9 @@ class WarmEnterState(object):
     def set_param_vectorize(self, value):
         self.vectorize = bool(value)
 
+    def set_param_vectorize_user(self, value):
+        self.vectorize_user = bool(value)
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         cell.flags |= JC_DONT_TRACE_HERE

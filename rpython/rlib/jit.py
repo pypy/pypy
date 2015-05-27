@@ -552,7 +552,8 @@ PARAMETER_DOCS = {
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
-    'vectorize': 'turn on the vectorization optimization. requires sse4.1',
+    'vectorize': 'turn on the vectorization optimization (vecopt). requires sse4.1',
+    'vectorize_user': 'turn on the vecopt for the python user program. requires sse4.1',
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -568,6 +569,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
               'vectorize': 0,
+              'vectorize_user': 0,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
