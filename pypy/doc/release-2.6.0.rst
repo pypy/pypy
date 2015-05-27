@@ -13,6 +13,10 @@ You can download the PyPy 2.6.0 release here:
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
 volunteers and contributors.  
+
+We would like to thank Yury V. Zaytsev and David Wilson who recently started
+running nightly builds on Windows and MacOSX buildbots.
+
 We've shown quite a bit of progress, but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects! The three sub-projects are:
