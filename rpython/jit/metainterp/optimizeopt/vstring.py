@@ -5,7 +5,8 @@ from rpython.jit.metainterp.optimizeopt import optimizer, virtualize
 from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation, DONT_CHANGE
+from rpython.jit.metainterp.resoperation import rop, ResOperation, DONT_CHANGE,\
+     AbstractResOp
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
@@ -558,17 +559,14 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
     if lgt.is_constant() and lgt.getint() <= M:
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
-        xxx
-        for i in range(lengthbox.value):
+        for i in range(lengthbox.getint()):
             charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
             assert not isinstance(targetbox, Const)# ConstPtr never makes sense
-            string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
-                                                                           offsetbox,
-                                                                           charbox]))
+            string_optimizer.emit_operation(ResOperation(mode.STRSETITEM,
+                    [targetbox, offsetbox, charbox]))
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
     else:
-        uuu
         if need_next_offset:
             nextoffsetbox = _int_add(string_optimizer, offsetbox, lengthbox)
         else:
@@ -684,7 +682,7 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRGETITEM(self, op, mode):
         res = self.strgetitem(op, op.getarg(0), op.getarg(1), mode)
-        if res is not None:
+        if res is not None and not isinstance(res, AbstractResOp):
             self.make_equal_to(op, res)
 
     def strgetitem(self, op, s, index, mode):
@@ -869,6 +867,8 @@ class OptString(optimizer.Optimization):
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
         arg1 = self.get_box_replacement(op.getarg(1))
         arg2 = self.get_box_replacement(op.getarg(2))
+        self.make_nonnull_str(arg1, mode)
+        self.make_nonnull_str(arg2, mode)
         i1 = self.getptrinfo(arg1)
         i2 = self.getptrinfo(arg2)
         #
@@ -884,20 +884,19 @@ class OptString(optimizer.Optimization):
         #
         if self.handle_str_equal_level1(arg1, arg2, op, mode):
             return True
-        if self.handle_str_equal_level1(v2, v1, op, mode):
+        if self.handle_str_equal_level1(arg2, arg1, op, mode):
             return True
-        if self.handle_str_equal_level2(v1, v2, op, mode):
+        if self.handle_str_equal_level2(arg1, arg2, op, mode):
             return True
-        if self.handle_str_equal_level2(v2, v1, op, mode):
+        if self.handle_str_equal_level2(arg2, arg1, op, mode):
             return True
         #
-        if v1.is_nonnull() and v2.is_nonnull():
+        if i1.is_nonnull() and i2.is_nonnull():
             if l1box is not None and l2box is not None and l1box.same_box(l2box):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
                 do = EffectInfo.OS_STREQ_NONNULL
-            self.generate_modified_call(do, [v1.force_box(self),
-                                             v2.force_box(self)], op, mode)
+            self.generate_modified_call(do, [arg1, arg2], op, mode)
             return True
         return False
 
@@ -935,37 +934,40 @@ class OptString(optimizer.Optimization):
                                                      resultop, mode)
                     return True
         #
-        if v2.is_null():
-            if v1.is_nonnull():
+        if i2.is_null():
+            if i1.is_nonnull():
                 self.make_constant(resultop, CONST_0)
                 return True
-            if v1.is_null():
+            if i1.is_null():
                 self.make_constant(resultop, CONST_1)
                 return True
             op = self.optimizer.replace_op_with(resultop, rop.PTR_EQ,
-                                                [v1.force_box(self),
-                                                 llhelper.CONST_NULL],
-                descr=DONT_CHANGE)
+                                                [arg1, llhelper.CONST_NULL],
+                                                descr=DONT_CHANGE)
             self.emit_operation(op)
             return True
         #
         return False
 
-    def handle_str_equal_level2(self, v1, v2, resultbox, mode):
-        l2box = v2.getstrlen(None, mode, None)
-        if isinstance(l2box, ConstInt):
-            if l2box.value == 1:
-                vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
-                if v1.is_nonnull():
-                    do = EffectInfo.OS_STREQ_NONNULL_CHAR
-                else:
-                    do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
-                self.generate_modified_call(do, [v1.force_box(self),
-                                                 vchar.force_box(self)], resultbox,
-                                            mode)
-                return True
-        #
-        if v1.is_virtual() and isinstance(v1, VStringSliceValue):
+    def handle_str_equal_level2(self, arg1, arg2, resultbox, mode):
+        i1 = self.getptrinfo(arg1)
+        i2 = self.getptrinfo(arg2)
+        l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+        if l2box:
+            l2info = self.getintbound(l2box)
+            if l2info.is_constant():
+                if l2info.getint() == 1:
+                    vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+                    if v1.is_nonnull():
+                        do = EffectInfo.OS_STREQ_NONNULL_CHAR
+                    else:
+                        do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
+                    self.generate_modified_call(do, [v1.force_box(self),
+                                                     vchar.force_box(self)], resultbox,
+                                                mode)
+                    return True
+            #
+        if i1.is_virtual() and isinstance(i1, VStringSliceInfo):
             if v2.is_nonnull():
                 do = EffectInfo.OS_STREQ_SLICE_NONNULL
             else:
