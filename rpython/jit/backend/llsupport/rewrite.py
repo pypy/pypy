@@ -44,12 +44,32 @@ class GcRewriterAssembler(object):
     def __init__(self, gc_ll_descr, cpu):
         self.gc_ll_descr = gc_ll_descr
         self.cpu = cpu
-        self.newops = []
+        self._newops = []
         self.known_lengths = {}
         self.write_barrier_applied = {}
         self.delayed_zero_setfields = {}
         self.last_zero_arrays = []
         self.setarrayitems_occurred = {}   # {box: {set-of-indexes}}
+
+    def get_box_replacement(self, op):
+        while op.get_forwarded():
+            op = op.get_forwarded()
+        return op
+
+    def emit_op(self, op):
+        if op.type != 'v':
+            op = self.get_box_replacement(op)
+            # XXX specialize on number of args
+            for i in range(op.numargs()):
+                orig_arg = op.getarg(i)
+                arg = self.get_box_replacement(orig_arg)
+                if orig_arg is not arg:
+                    xxx
+        self._newops.append(op)
+
+    def replace_op_with(self, op, newop):
+        assert not op.get_forwarded()
+        op.set_forwarded(newop)
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -102,8 +122,8 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
                 self.emit_pending_zeros()
             #
-            self.newops.append(op)
-        return self.newops
+            self.emit_op(op)
+        return self._newops
 
     def could_merge_with_next_guard(self, op, i, operations):
         # return True in cases where the operation and the following guard
@@ -206,11 +226,11 @@ class GcRewriterAssembler(object):
         self.clear_gc_fields(descr, op)
 
     def handle_new_array(self, arraydescr, op, kind=FLAG_ARRAY):
-        v_length = op.getarg(0)
+        v_length = self.get_box_replacement(op.getarg(0))
         total_size = -1
         if isinstance(v_length, ConstInt):
             num_elem = v_length.getint()
-            self.known_lengths[op.result] = num_elem
+            self.known_lengths[op] = num_elem
             try:
                 var_size = ovfcheck(arraydescr.itemsize * num_elem)
                 total_size = ovfcheck(arraydescr.basesize + var_size)
@@ -220,7 +240,8 @@ class GcRewriterAssembler(object):
             total_size = arraydescr.basesize
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
               self.gen_malloc_nursery_varsize(arraydescr.itemsize,
-              v_length, op.result, arraydescr, kind=kind)):
+              v_length, op, arraydescr, kind=kind)):
+            xxx
             # note that we cannot initialize tid here, because the array
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
@@ -229,12 +250,14 @@ class GcRewriterAssembler(object):
                                          v_length, op.getopnum())
             return
         if (total_size >= 0 and
-                self.gen_malloc_nursery(total_size, op.result)):
+                self.gen_malloc_nursery(total_size, op)):
+            xxx
             self.gen_initialize_tid(op.result, arraydescr.tid)
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
         elif self.gc_ll_descr.kind == 'boehm':
-            self.gen_boehm_malloc_array(arraydescr, v_length, op.result)
+            self.gen_boehm_malloc_array(arraydescr, v_length, op)
         else:
+            zzz
             opnum = op.getopnum()
             if opnum == rop.NEW_ARRAY or opnum == rop.NEW_ARRAY_CLEAR:
                 self.gen_malloc_array(arraydescr, v_length, op.result)
@@ -244,7 +267,7 @@ class GcRewriterAssembler(object):
                 self.gen_malloc_unicode(v_length, op.result)
             else:
                 raise NotImplementedError(op.getopname())
-        self.clear_varsize_gc_fields(kind, op.getdescr(), op.result, v_length,
+        self.clear_varsize_gc_fields(kind, op.getdescr(), op, v_length,
                                      op.getopnum())
 
     def handle_clear_array_contents(self, arraydescr, v_arr, v_length):
@@ -383,7 +406,7 @@ class GcRewriterAssembler(object):
         """Generate a CALL_MALLOC_GC with the given args."""
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_GC, args, descr)
-        self.newops.append(op)
+        self.emit_op(op)
         # In general, don't add v_result to write_barrier_applied:
         # v_result might be a large young array.
 

@@ -157,7 +157,8 @@ class BaseFakeCPU(object):
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
         class FakeCPU(BaseFakeCPU):
-            def sizeof(self, STRUCT):
+            def sizeof(self, STRUCT, is_object):
+                assert is_object
                 return SizeDescrWithVTable(102, gc_fielddescrs=[])
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
