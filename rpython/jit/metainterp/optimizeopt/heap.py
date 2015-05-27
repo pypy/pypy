@@ -590,7 +590,7 @@ class OptHeap(Optimization):
         # NB: emitting the GETFIELD_GC_PURE is only safe because the
         # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
         # registered.
-        structvalue = self.getvalue(op.getarg(0))
+        structvalue = self.ensure_ptr_info_arg0(op)
         if not structvalue.is_constant():
             self._remove_guard_not_invalidated = True
             return    # not a constant at all; ignore QUASIIMMUT_FIELD
@@ -601,7 +601,8 @@ class OptHeap(Optimization):
         # check that the value is still correct; it could have changed
         # already between the tracing and now.  In this case, we mark the loop
         # as invalid
-        if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
+        if not qmutdescr.is_still_valid_for(
+                self.get_box_replacement(op.getarg(0))):
             raise InvalidLoop('quasi immutable field changed during tracing')
         # record as an out-of-line guard
         if self.optimizer.quasi_immutable_deps is None:

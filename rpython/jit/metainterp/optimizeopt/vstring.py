@@ -657,9 +657,9 @@ class OptString(optimizer.Optimization):
             if old_op is not None:
                 self.optimizer.make_equal_to(old_op, vvalue)
         else:
-            self.getvalue(op).ensure_nonnull()
+            self.make_nonnull_str(op, mode)
             self.emit_operation(op)
-            self.pure(mode.STRLEN, [op], op.getarg(0))
+            self.pure_from_args(mode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
         value = self.getptrinfo(op.getarg(0))
@@ -767,9 +767,8 @@ class OptString(optimizer.Optimization):
                     dst.setitem(index + dst_start, vresult)
                 else:
                     new_op = ResOperation(mode.STRSETITEM, [
-                        dst.force_box(self),
-                        ConstInt(index + dst_start),
-                        vresult.force_box(self),
+                        op.getarg(1), ConstInt(index + dst_start),
+                        vresult,
                     ])
                     self.emit_operation(new_op)
         else:
@@ -819,8 +818,10 @@ class OptString(optimizer.Optimization):
         # More generally, supporting non-constant but virtual cases is
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
-        varg = self.getvalue(op.getarg(1))
-        s = varg.get_constant_string_spec(mode_string)
+        varg = self.getptrinfo(op.getarg(1))
+        s = None
+        if varg:
+            s = varg.get_constant_string_spec(self, mode_string)
         if s is None:
             return False
         try:
@@ -910,10 +911,14 @@ class OptString(optimizer.Optimization):
         l2box = None
         l1box = None
         if i2:
-            l2box = i2.getstrlen(arg1, self, mode, create_ops=False)
+            l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
-                lengthbox = v1.getstrlen(self, mode, None)
+                # XXXX fix after merge to default, but this is not proven
+                #      just yet
+                self.make_nonnull_str(arg1, mode)
+                i1 = self.getptrinfo(arg1)
+                lengthbox = i1.getstrlen(arg1, self, mode)
                 seo = self.optimizer.send_extra_operation
                 op = self.replace_op_with(resultop, rop.INT_EQ,
                                           [lengthbox, CONST_0],

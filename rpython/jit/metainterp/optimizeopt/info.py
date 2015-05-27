@@ -344,7 +344,7 @@ class ConstPtrInfo(PtrInfo):
     
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         s = self._unpack_str(mode)
-        if not s:
+        if s is None:
             return None
         return ConstInt(len(s))
 

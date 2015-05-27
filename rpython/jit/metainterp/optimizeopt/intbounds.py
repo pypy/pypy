@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.info import MODE_ARRAY, MODE_STR,\
      MODE_UNICODE
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
-
+from rpython.jit.metainterp.optimizeopt import vstring
 
 def get_integer_min(is_unsigned, byte_size):
     if is_unsigned:
@@ -382,12 +382,14 @@ class OptIntBounds(Optimization):
 
     def optimize_STRLEN(self, op):
         self.emit_operation(op)
-        array = self.ensure_ptr_info_arg0(op)
+        self.make_nonnull_str(op.getarg(0), vstring.mode_string)
+        array = self.getptrinfo(op.getarg(0))
         self.get_box_replacement(op).set_forwarded(array.getlenbound())
 
     def optimize_UNICODELEN(self, op):
         self.emit_operation(op)
-        array = self.ensure_ptr_info_arg0(op)
+        self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
+        array = self.getptrinfo(op.getarg(0))
         self.get_box_replacement(op).set_forwarded(array.getlenbound())
 
     def optimize_STRGETITEM(self, op):
