@@ -57,14 +57,17 @@ class GcRewriterAssembler(object):
         return op
 
     def emit_op(self, op):
-        if op.type != 'v':
-            op = self.get_box_replacement(op)
-            # XXX specialize on number of args
-            for i in range(op.numargs()):
-                orig_arg = op.getarg(i)
-                arg = self.get_box_replacement(orig_arg)
-                if orig_arg is not arg:
-                    xxx
+        op = self.get_box_replacement(op)
+        # XXX specialize on number of args
+        replaced = False
+        for i in range(op.numargs()):
+            orig_arg = op.getarg(i)
+            arg = self.get_box_replacement(orig_arg)
+            if orig_arg is not arg:
+                if not replaced:
+                    op = op.copy_and_change(op.getopnum())
+                    replaced = True
+                op.setarg(i, arg)
         self._newops.append(op)
 
     def replace_op_with(self, op, newop):
@@ -147,14 +150,13 @@ class GcRewriterAssembler(object):
         if opnum == rop.NEW:
             self.handle_new_fixedsize(op.getdescr(), op)
         elif opnum == rop.NEW_WITH_VTABLE:
-            classint = op.getarg(0).getint()
-            descr = heaptracker.vtable2descr(self.cpu, classint)
+            descr = op.getdescr()
             self.handle_new_fixedsize(descr, op)
             if self.gc_ll_descr.fielddescr_vtable is not None:
                 op = ResOperation(rop.SETFIELD_GC,
-                                  [op.result, ConstInt(classint)], None,
+                                  [op, ConstInt(descr.get_vtable())],
                                   descr=self.gc_ll_descr.fielddescr_vtable)
-                self.newops.append(op)
+                self.emit_op(op)
         elif opnum == rop.NEW_ARRAY or opnum == rop.NEW_ARRAY_CLEAR:
             descr = op.getdescr()
             assert isinstance(descr, ArrayDescr)
@@ -220,7 +222,7 @@ class GcRewriterAssembler(object):
         assert isinstance(descr, SizeDescr)
         size = descr.size
         if self.gen_malloc_nursery(size, op):
-            self.gen_initialize_tid(op.result, descr.tid)
+            self.gen_initialize_tid(op, descr.tid)
         else:
             self.gen_malloc_fixedsize(size, descr.tid, op)
         self.clear_gc_fields(descr, op)
@@ -399,13 +401,14 @@ class GcRewriterAssembler(object):
         for v, d in self.delayed_zero_setfields.iteritems():
             for ofs in d.iterkeys():
                 op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)
-                self.newops.append(op)
+                self.emit_op(op)
         self.delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_GC, args, descr)
+        self.replace_op_with(v_result, op)
         self.emit_op(op)
         # In general, don't add v_result to write_barrier_applied:
         # v_result might be a large young array.
@@ -529,29 +532,28 @@ class GcRewriterAssembler(object):
                 self._op_malloc_nursery.setarg(0, ConstInt(total_size))
                 op = ResOperation(rop.INT_ADD,
                                   [self._v_last_malloced_nursery,
-                                   ConstInt(self._previous_size)],
-                                  v_result)
+                                   ConstInt(self._previous_size)])
         if op is None:
             # if we failed to merge with a previous MALLOC_NURSERY, emit one
             self.emitting_an_operation_that_can_collect()
             op = ResOperation(rop.CALL_MALLOC_NURSERY,
-                              [ConstInt(size)],
-                              v_result)
+                              [ConstInt(size)])
+            self.replace_op_with(v_result, op)
             self._op_malloc_nursery = op
         #
-        self.newops.append(op)
+        self.emit_op(op)
         self._previous_size = size
-        self._v_last_malloced_nursery = v_result
-        self.write_barrier_applied[v_result] = None
+        self._v_last_malloced_nursery = op
+        self.write_barrier_applied[op] = None
         return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:
             # produce a SETFIELD to initialize the GC header
             op = ResOperation(rop.SETFIELD_GC,
-                              [v_newgcobj, ConstInt(tid)], None,
+                              [v_newgcobj, ConstInt(tid)],
                               descr=self.gc_ll_descr.fielddescr_tid)
-            self.newops.append(op)
+            self.emit_op(op)
 
     def gen_initialize_len(self, v_newgcobj, v_length, arraylen_descr):
         # produce a SETFIELD to initialize the array length

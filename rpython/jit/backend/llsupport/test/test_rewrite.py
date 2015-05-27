@@ -28,13 +28,13 @@ class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
-        sdescr = get_size_descr(self.gc_ll_descr, S)
+        sdescr = get_size_descr(self.cpu, self.gc_ll_descr, S, False)
         sdescr.tid = 1234
         #
         T = lltype.GcStruct('T', ('y', lltype.Signed),
                                  ('z', lltype.Ptr(S)),
                                  ('t', lltype.Signed))
-        tdescr = get_size_descr(self.gc_ll_descr, T)
+        tdescr = get_size_descr(self.cpu, self.gc_ll_descr, T, False)
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         #
@@ -54,13 +54,14 @@ class RewriteTests(object):
         clendescr = cdescr.lendescr
         #
         E = lltype.GcStruct('Empty')
-        edescr = get_size_descr(self.gc_ll_descr, E)
+        edescr = get_size_descr(self.cpu, self.gc_ll_descr, E, False)
         edescr.tid = 9000
         #
         vtable_descr = self.gc_ll_descr.fielddescr_vtable
         O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
                                  ('x', lltype.Signed))
         o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        o_descr = self.cpu.sizeof(O, True)
         register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
@@ -111,7 +112,10 @@ class RewriteTests(object):
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
                                                         [])
-        equaloplists(operations, expected.operations)
+        remap = {}
+        for a, b in zip(ops.inputargs, expected.inputargs):
+            remap[b] = a
+        equaloplists(operations, expected.operations, remap=remap)
         lltype.free(frame_info, flavor='raw')
 
 class FakeTracker(object):
@@ -159,7 +163,8 @@ class TestBoehm(RewriteTests):
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT, is_object):
                 assert is_object
-                return SizeDescrWithVTable(102, gc_fielddescrs=[])
+                return SizeDescrWithVTable(102, gc_fielddescrs=[],
+                                           vtable=12)
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -230,13 +235,13 @@ class TestBoehm(RewriteTests):
     def test_new_with_vtable(self):
         self.check_rewrite("""
             []
-            p0 = new_with_vtable(ConstClass(o_vtable))
+            p0 = new_with_vtable(descr=o_descr)
             jump()
         """, """
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
                                 descr=malloc_fixedsize_descr)
-            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
+            setfield_gc(p0, 12, descr=vtable_descr)
             jump()
         """)
 
@@ -295,7 +300,7 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.malloc_zero_filled = False
         #
         class FakeCPU(BaseFakeCPU):
-            def sizeof(self, STRUCT):
+            def sizeof(self, STRUCT, is_object):
                 descr = SizeDescrWithVTable(104, gc_fielddescrs=[])
                 descr.tid = 9315
                 return descr

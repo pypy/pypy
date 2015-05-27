@@ -36,11 +36,13 @@ class SizeDescr(AbstractDescr):
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def __init__(self, size, count_fields_if_immut=-1,
-                 gc_fielddescrs=None, all_fielddescrs=None):
+                 gc_fielddescrs=None, all_fielddescrs=None,
+                 vtable=0):
         self.size = size
         self.count_fields_if_immut = count_fields_if_immut
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
+        self.vtable = vtable
 
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
@@ -58,9 +60,12 @@ class SizeDescrWithVTable(SizeDescr):
     def is_object(self):
         return True
 
+    def get_vtable(self):
+        return self.vtable
+
 BaseSizeDescr = SizeDescr
 
-def get_size_descr(gccache, STRUCT):
+def get_size_descr(cpu, gccache, STRUCT, is_object):
     cache = gccache._cache_size
     try:
         return cache[STRUCT]
@@ -70,9 +75,12 @@ def get_size_descr(gccache, STRUCT):
         gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
         all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
         if heaptracker.has_gcstruct_a_vtable(STRUCT):
+            assert is_object
             sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
-                                            gc_fielddescrs, all_fielddescrs)
+                                            gc_fielddescrs, all_fielddescrs,
+                heaptracker.get_vtable_for_gcstruct(cpu, GCSTRUCT))
         else:
+            assert not is_object
             sizedescr = SizeDescr(size, count_fields_if_immut,
                                   gc_fielddescrs, all_fielddescrs)
         gccache.init_size_descr(STRUCT, sizedescr)
