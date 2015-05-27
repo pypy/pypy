@@ -1,0 +1,4 @@
+* certain cases where VirtualArray or VirtualStructArray is forced (but
+  heap.py is not notified about fields being dirty)
+* arraylen_gc is not handling length bound optimization at all
+* mark_opaque_pointer is ignored
