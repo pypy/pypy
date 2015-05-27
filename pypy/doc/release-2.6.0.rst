@@ -1,10 +1,11 @@
-=========================
-PyPy 2.6.0 - XXXXXXXXXXXX
-=========================
+========================
+PyPy 2.6.0 - Cameo Charm
+========================
 
 We're pleased to announce PyPy 2.6.0, only two months after PyPy 2.5.1.
 We are particulary happy to update `cffi`_ to version 1.0, which makes the
-popular ctypes-alternative even easier to use.
+popular ctypes-alternative even easier to use, and to support the new vmprof_
+statistical profiler.
 
 You can download the PyPy 2.6.0 release here:
 
@@ -14,7 +15,7 @@ We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
 volunteers and contributors.  
 
-We would like to thank Yury V. Zaytsev and David Wilson who recently started
+Thanks also to Yury V. Zaytsev and David Wilson who recently started
 running nightly builds on Windows and MacOSX buildbots.
 
 We've shown quite a bit of progress, but we're slowly running out of funds.
