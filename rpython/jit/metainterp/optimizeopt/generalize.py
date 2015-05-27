@@ -11,11 +11,12 @@ class GeneralizationStrategy(object):
 
 class KillHugeIntBounds(GeneralizationStrategy):
     def apply(self):
-        for v in self.optimizer.values.values():
-            if v.is_constant():
-                continue
-            if isinstance(v, IntOptValue):
-                if v.intbound.lower < MININT / 2:
-                    v.intbound.lower = MININT
-                if v.intbound.upper > MAXINT / 2:
-                    v.intbound.upper = MAXINT
+        pass
+        #for v in self.optimizer.values.values():
+        #    if v.is_constant():
+        #        continue
+        #    if isinstance(v, IntOptValue):
+        #        if v.intbound.lower < MININT / 2:
+        #            v.intbound.lower = MININT
+        #        if v.intbound.upper > MAXINT / 2:
+        #            v.intbound.upper = MAXINT
