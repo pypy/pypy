@@ -868,3 +868,18 @@ class AppTestRecompiler:
             "extern const int external_foo;",
             extra_source=extra_c_source)
         assert lib.external_foo == 42
+
+    def test_call_with_incomplete_structs(self):
+        ffi, lib = self.prepare(
+            "typedef struct {...;} foo_t; "
+            "foo_t myglob; "
+            "foo_t increment(foo_t s); "
+            "double getx(foo_t s);",
+            'test_call_with_incomplete_structs', """
+            typedef double foo_t;
+            double myglob = 42.5;
+            double getx(double x) { return x; }
+            double increment(double x) { return x + 1; }
+        """)
+        assert lib.getx(lib.myglob) == 42.5
+        assert lib.getx(lib.increment(lib.myglob)) == 43.5
