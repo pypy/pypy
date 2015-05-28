@@ -108,13 +108,11 @@ def _add_c_module(dist, ffi, module_name, source, source_extension, kwds):
 def _add_py_module(dist, ffi, module_name):
     from distutils.dir_util import mkpath
     from distutils.command.build_py import build_py
+    from distutils.command.build_ext import build_ext
     from distutils import log
     from cffi import recompiler
 
-    def make_mod(tmpdir):
-        module_path = module_name.split('.')
-        module_path[-1] += '.py'
-        py_file = os.path.join(tmpdir, *module_path)
+    def generate_mod(py_file):
         log.info("generating cffi module %r" % py_file)
         mkpath(os.path.dirname(py_file))
         updated = recompiler.make_py_source(ffi, module_name, py_file)
@@ -125,9 +123,25 @@ def _add_py_module(dist, ffi, module_name):
     class build_py_make_mod(base_class):
         def run(self):
             base_class.run(self)
-            make_mod(self.build_lib)
+            module_path = module_name.split('.')
+            module_path[-1] += '.py'
+            generate_mod(os.path.join(self.build_lib, *module_path))
     dist.cmdclass['build_py'] = build_py_make_mod
 
+    # the following is only for "build_ext -i"
+    base_class_2 = dist.cmdclass.get('build_ext', build_ext)
+    class build_ext_make_mod(base_class_2):
+        def run(self):
+            base_class_2.run(self)
+            if self.inplace:
+                # from get_ext_fullpath() in distutils/command/build_ext.py
+                module_path = module_name.split('.')
+                package = '.'.join(module_path[:-1])
+                build_py = self.get_finalized_command('build_py')
+                package_dir = build_py.get_package_dir(package)
+                file_name = module_path[-1] + '.py'
+                generate_mod(os.path.join(package_dir, file_name))
+    dist.cmdclass['build_ext'] = build_ext_make_mod
 
 def cffi_modules(dist, attr, value):
     assert attr == 'cffi_modules'

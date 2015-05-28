@@ -505,7 +505,7 @@ class FFI(object):
                             "modules")
         mkpath(tmpdir)
         ext, updated = recompile(self, module_name,
-                                 source, tmpdir=tmpdir,
+                                 source, tmpdir=tmpdir, extradir=tmpdir,
                                  source_extension=source_extension,
                                  call_c_compiler=False, **kwds)
         if verbose:

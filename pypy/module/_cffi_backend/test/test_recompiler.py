@@ -66,6 +66,9 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     """)
     ffiobject = space.getitem(w_res, space.wrap(0))
     ffiobject._test_recompiler_source_ffi = ffi
+    if not hasattr(space, '_cleanup_ffi'):
+        space._cleanup_ffi = []
+    space._cleanup_ffi.append(ffiobject)
     return w_res
 
 
@@ -84,6 +87,10 @@ class AppTestRecompiler:
         """)
 
     def teardown_method(self, meth):
+        if hasattr(self.space, '_cleanup_ffi'):
+            for ffi in self.space._cleanup_ffi:
+                del ffi.cached_types     # try to prevent cycles
+            del self.space._cleanup_ffi
         self.space.appexec([self._w_modules], """(old_modules):
             import sys
             for key in sys.modules.keys():
@@ -799,3 +806,46 @@ class AppTestRecompiler:
         assert addr(0xABC05) == 47
         assert isinstance(addr, ffi.CData)
         assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
+
+    def test_issue198(self):
+        ffi, lib = self.prepare("""
+            typedef struct{...;} opaque_t;
+            const opaque_t CONSTANT;
+            int toint(opaque_t);
+        """, 'test_issue198', """
+            typedef int opaque_t;
+            #define CONSTANT ((opaque_t)42)
+            static int toint(opaque_t o) { return o; }
+        """)
+        def random_stuff():
+            pass
+        assert lib.toint(lib.CONSTANT) == 42
+        random_stuff()
+        assert lib.toint(lib.CONSTANT) == 42
+
+    def test_constant_is_not_a_compiler_constant(self):
+        ffi, lib = self.prepare(
+            "static const float almost_forty_two;",
+            'test_constant_is_not_a_compiler_constant', """
+                static float f(void) { return 42.25; }
+                #define almost_forty_two (f())
+            """)
+        assert lib.almost_forty_two == 42.25
+
+    def test_variable_of_unknown_size(self):
+        ffi, lib = self.prepare("""
+            typedef ... opaque_t;
+            opaque_t globvar;
+        """, 'test_constant_of_unknown_size', """
+            typedef char opaque_t[6];
+            opaque_t globvar = "hello";
+        """)
+        # can't read or write it at all
+        e = raises(TypeError, getattr, lib, 'globvar')
+        assert str(e.value) == "'opaque_t' is opaque or not completed yet"
+        e = raises(TypeError, setattr, lib, 'globvar', [])
+        assert str(e.value) == "'opaque_t' is opaque or not completed yet"
+        # but we can get its address
+        p = ffi.addressof(lib, 'globvar')
+        assert ffi.typeof(p) == ffi.typeof('opaque_t *')
+        assert ffi.string(ffi.cast("char *", p), 8) == "hello"
