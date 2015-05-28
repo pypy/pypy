@@ -324,8 +324,6 @@ def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
-    if not config.translation.jit:
-        del modules['_vmprof']
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
     modules = [name for name in modules if name not in essential_modules]
