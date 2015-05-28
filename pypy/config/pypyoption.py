@@ -285,7 +285,6 @@ def set_pypy_opt_level(config, level):
     """Apply PyPy-specific optimization suggestions on the 'config'.
     The optimizations depend on the selected level and possibly on the backend.
     """
-    config.__dict__['_level'] = level
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
         config.objspace.std.suggest(withrangelist=True)
@@ -325,7 +324,7 @@ def enable_allworkingmodules(config):
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
-    if config._level != 'jit':
+    if not config.translation.jit:
         del modules['_vmprof']
     # ignore names from 'essential_modules', notably 'exceptions', which
     # may not be present in config.objspace.usemodules at all
