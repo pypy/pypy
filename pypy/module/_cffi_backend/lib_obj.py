@@ -129,11 +129,15 @@ class W_LibObject(W_Root):
                 fetch_funcptr = rffi.cast(
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
-                assert fetch_funcptr
-                assert w_ct.size > 0
-                ptr = lltype.malloc(rffi.CCHARP.TO, w_ct.size, flavor='raw')
-                self.ffi._finalizer.free_mems.append(ptr)
-                fetch_funcptr(ptr)
+                if w_ct.size <= 0:
+                    raise oefmt(space.w_SystemError,
+                                "constant has no known size")
+                if not fetch_funcptr:   # for dlopen() style
+                    ptr = self.cdlopen_fetch(attr)
+                else:
+                    ptr = lltype.malloc(rffi.CCHARP.TO, w_ct.size, flavor='raw')
+                    self.ffi._finalizer.free_mems.append(ptr)
+                    fetch_funcptr(ptr)
                 w_result = w_ct.convert_to_object(ptr)
                 #
             elif op == cffi_opcode.OP_DLOPEN_FUNC:
