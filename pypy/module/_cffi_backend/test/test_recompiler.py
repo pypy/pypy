@@ -822,3 +822,30 @@ class AppTestRecompiler:
         assert lib.toint(lib.CONSTANT) == 42
         random_stuff()
         assert lib.toint(lib.CONSTANT) == 42
+
+    def test_constant_is_not_a_compiler_constant(self):
+        ffi, lib = self.prepare(
+            "static const float almost_forty_two;",
+            'test_constant_is_not_a_compiler_constant', """
+                static float f(void) { return 42.25; }
+                #define almost_forty_two (f())
+            """)
+        assert lib.almost_forty_two == 42.25
+
+    def test_variable_of_unknown_size(self):
+        ffi, lib = self.prepare("""
+            typedef ... opaque_t;
+            opaque_t globvar;
+        """, 'test_constant_of_unknown_size', """
+            typedef char opaque_t[6];
+            opaque_t globvar = "hello";
+        """)
+        # can't read or write it at all
+        e = raises(TypeError, getattr, lib, 'globvar')
+        assert str(e.value) == "'opaque_t' is opaque or not completed yet"
+        e = raises(TypeError, setattr, lib, 'globvar', [])
+        assert str(e.value) == "'opaque_t' is opaque or not completed yet"
+        # but we can get its address
+        p = ffi.addressof(lib, 'globvar')
+        assert ffi.typeof(p) == ffi.typeof('opaque_t *')
+        assert ffi.string(ffi.cast("char *", p), 8) == "hello"
