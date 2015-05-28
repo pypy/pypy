@@ -141,6 +141,14 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.promote_types('>i8', '<c8') == np.dtype('complex128')
         assert np.promote_types('i4', 'S8') == np.dtype('S11')
         assert np.promote_types('f4', 'S8') == np.dtype('S32')
+        assert np.promote_types('?', '?') is np.dtype('?')
+        assert np.promote_types('?', 'float64') is np.dtype('float64')
+        assert np.promote_types('float64', '?') is np.dtype('float64')
+        assert np.promote_types('i', 'b') is np.dtype('i')
+        assert np.promote_types('i', '?') is np.dtype('i')
+        assert np.promote_types('c8', 'f8') is np.dtype('c16')
+        assert np.promote_types('c8', 'longdouble') == np.dtype('clongdouble')
+        assert np.promote_types('c16', 'longdouble') == np.dtype('clongdouble')
 
     def test_result_type(self):
         import numpy as np
@@ -170,24 +178,3 @@ def test_promote_types_su(space):
     # The results may be unsigned
     assert _promote_types_su(space, dt_int8, dt_int16, True, True) == (dt_int16, True)
     assert _promote_types_su(space, dt_uint8, dt_int16, False, True) == (dt_uint16, True)
-
-
-class TestCoercion(object):
-    def test_promote_types(self, space):
-        bool_dtype = get_dtype_cache(space).w_booldtype
-        int8_dtype = get_dtype_cache(space).w_int8dtype
-        int32_dtype = get_dtype_cache(space).w_int32dtype
-        float64_dtype = get_dtype_cache(space).w_float64dtype
-        c64_dtype = get_dtype_cache(space).w_complex64dtype
-        c128_dtype = get_dtype_cache(space).w_complex128dtype
-        cld_dtype = get_dtype_cache(space).w_complexlongdtype
-        fld_dtype = get_dtype_cache(space).w_floatlongdtype
-
-        assert promote_types(space, bool_dtype, bool_dtype) is bool_dtype
-        assert promote_types(space, bool_dtype, float64_dtype) is float64_dtype
-        assert promote_types(space, float64_dtype, bool_dtype) is float64_dtype
-        assert promote_types(space, int32_dtype, int8_dtype) is int32_dtype
-        assert promote_types(space, int32_dtype, bool_dtype) is int32_dtype
-        assert promote_types(space, c64_dtype, float64_dtype) is c128_dtype
-        #assert promote_types(space, c64_dtype, fld_dtype) == cld_dtype
-        #assert promote_types(space, c128_dtype, fld_dtype) == cld_dtype
