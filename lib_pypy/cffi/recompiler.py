@@ -11,7 +11,7 @@ except NameError:    # Python 3
 
 
 class GlobalExpr:
-    def __init__(self, name, address, type_op, size=0, check_value=None):
+    def __init__(self, name, address, type_op, size=0, check_value=0):
         self.name = name
         self.address = address
         self.type_op = type_op
@@ -23,11 +23,6 @@ class GlobalExpr:
             self.name, self.address, self.type_op.as_c_expr(), self.size)
 
     def as_python_expr(self):
-        if not isinstance(self.check_value, int_type):
-            raise ffiplatform.VerificationError(
-                "ffi.dlopen() will not be able to figure out the value of "
-                "constant %r (only integer constants are supported, and only "
-                "if their value are specified in the cdef)" % (self.name,))
         return "b'%s%s',%d" % (self.type_op.as_python_bytes(), self.name,
                                self.check_value)
 
@@ -747,7 +742,7 @@ class Recompiler:
             meth_kind = OP_CPYTHON_BLTN_V   # 'METH_VARARGS'
         self._lsts["global"].append(
             GlobalExpr(name, '_cffi_f_%s' % name,
-                       CffiOp(meth_kind, type_index), check_value=0,
+                       CffiOp(meth_kind, type_index),
                        size='_cffi_d_%s' % name))
 
     # ----------
@@ -971,7 +966,7 @@ class Recompiler:
 
     def _generate_cpy_constant_collecttype(self, tp, name):
         is_int = isinstance(tp, model.PrimitiveType) and tp.is_integer_type()
-        if not is_int:
+        if not is_int or self.target_is_python:
             self._do_collect_type(tp)
 
     def _generate_cpy_constant_decl(self, tp, name):
@@ -979,9 +974,14 @@ class Recompiler:
         self._generate_cpy_const(is_int, name, tp)
 
     def _generate_cpy_constant_ctx(self, tp, name):
-        if isinstance(tp, model.PrimitiveType) and tp.is_integer_type():
+        if (not self.target_is_python and
+                isinstance(tp, model.PrimitiveType) and tp.is_integer_type()):
             type_op = CffiOp(OP_CONSTANT_INT, -1)
         else:
+            if not tp.sizeof_enabled():
+                raise ffiplatform.VerificationError(
+                    "constant '%s' is of type '%s', whose size is not known"
+                    % (name, tp._get_c_name()))
             type_index = self._typesdict[tp]
             type_op = CffiOp(OP_CONSTANT, type_index)
         self._lsts["global"].append(
@@ -1034,6 +1034,10 @@ class Recompiler:
 
     def _generate_cpy_macro_ctx(self, tp, name):
         if tp == '...':
+            if self.target_is_python:
+                raise ffiplatform.VerificationError(
+                    "cannot use the syntax '...' in '#define %s ...' when "
+                    "using the ABI mode" % (name,))
             check_value = None
         else:
             check_value = tp     # an integer
@@ -1066,7 +1070,7 @@ class Recompiler:
         else:
             size = 0
         self._lsts["global"].append(
-            GlobalExpr(name, '&%s' % name, type_op, size, 0))
+            GlobalExpr(name, '&%s' % name, type_op, size))
 
     # ----------
     # emitting the opcodes for individual types

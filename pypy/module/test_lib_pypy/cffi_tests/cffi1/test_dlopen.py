@@ -20,27 +20,20 @@ ffi = _cffi_backend.FFI('test_simple',
 )
 """
 
-def test_invalid_global_constant():
+def test_global_constant():
     ffi = FFI()
-    ffi.cdef("static const int BB;")
-    target = udir.join('test_invalid_global_constants.py')
-    e = py.test.raises(VerificationError, make_py_source, ffi,
-                       'test_invalid_global_constants', str(target))
-    assert str(e.value) == (
-        "ffi.dlopen() will not be able to figure out "
-        "the value of constant 'BB' (only integer constants are "
-        "supported, and only if their value are specified in the cdef)")
+    ffi.cdef("static const long BB; static const float BF = 12;")
+    target = udir.join('test_valid_global_constant.py')
+    make_py_source(ffi, 'test_valid_global_constant', str(target))
+    assert target.read() == r"""# auto-generated file
+import _cffi_backend
 
-def test_invalid_global_constant_2():
-    ffi = FFI()
-    ffi.cdef("static const float BB = 12;")
-    target = udir.join('test_invalid_global_constants_2.py')
-    e = py.test.raises(VerificationError, make_py_source, ffi,
-                       'test_invalid_global_constants_2', str(target))
-    assert str(e.value) == (
-        "ffi.dlopen() will not be able to figure out "
-        "the value of constant 'BB' (only integer constants are "
-        "supported, and only if their value are specified in the cdef)")
+ffi = _cffi_backend.FFI('test_valid_global_constant',
+    _version = 0x2601,
+    _types = b'\x00\x00\x0D\x01\x00\x00\x09\x01',
+    _globals = (b'\x00\x00\x01\x1DBB',0,b'\x00\x00\x00\x1DBF',0),
+)
+"""
 
 def test_invalid_global_constant_3():
     ffi = FFI()
@@ -54,10 +47,8 @@ def test_invalid_dotdotdot_in_macro():
     target = udir.join('test_invalid_dotdotdot_in_macro.py')
     e = py.test.raises(VerificationError, make_py_source, ffi,
                        'test_invalid_dotdotdot_in_macro', str(target))
-    assert str(e.value) == (
-        "ffi.dlopen() will not be able to figure out "
-        "the value of constant 'FOO' (only integer constants are "
-        "supported, and only if their value are specified in the cdef)")
+    assert str(e.value) == ("macro FOO: cannot use the syntax '...' in "
+                            "'#define FOO ...' when using the ABI mode")
 
 def test_typename():
     ffi = FFI()
