@@ -721,6 +721,17 @@ def compute_vars_longevity(inputargs, operations):
             longevity[arg] = (0, last_used[arg])
             del last_used[arg]
     assert len(last_used) == 0
+
+    if not we_are_translated():
+        produced = {}
+        for arg in inputargs:
+            produced[arg] = None
+        for op in operations:
+            for arg in op.getarglist():
+                if not isinstance(arg, Const):
+                    assert arg in produced
+            produced[op] = None
+    
     return longevity, last_real_usage
 
 def is_comparison_or_ovf_op(opnum):

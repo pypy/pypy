@@ -2749,7 +2749,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 if kind in 'uis':
                     b1 = InputArgInt()
                 elif kind in 'fUI':
-                    b1 = BoxFloat()
+                    b1 = InputArgFloat()
                 else:
                     assert 0, kind
                 argboxes.append(b1)
@@ -2785,26 +2785,24 @@ class LLtypeBackendTest(BaseBackendTest):
                 load = rnd.random() < load_factor
                 loadcodes.append(' ^'[load])
                 if load:
-                    b2 = b1.clonebox()
-                    ops.insert(rnd.randrange(0, len(ops)+1),
-                               ResOperation(rop.SAME_AS, [b1], b2))
+                    b2 = ResOperation(rop.SAME_AS_I, [b1])
+                    ops.insert(rnd.randrange(0, len(ops)+1), b2)
                     b1 = b2
                 insideboxes.append(b1)
             loadcodes = ''.join(loadcodes)
             print loadcodes
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL,
-                             [ConstInt(0)] + insideboxes, None,
+                ResOperation(rop.CALL_RELEASE_GIL_N,
+                             [ConstInt(0)] + insideboxes,
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [], None, descr=BasicFinalDescr(0))
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
+                ResOperation(rop.FINISH, [], descr=BasicFinalDescr(0))
                 ]
             ops[-2].setfailargs([])
             # keep alive a random subset of the insideboxes
             for b1 in insideboxes:
                 if rnd.random() < keepalive_factor:
-                    ops.insert(-1, ResOperation(rop.SAME_AS, [b1],
-                                                b1.clonebox()))
+                    ops.insert(-1, ResOperation(rop.SAME_AS_I, [b1]))
             looptoken = JitCellToken()
             self.cpu.compile_loop(argboxes, ops, looptoken)
             #

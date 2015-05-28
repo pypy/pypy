@@ -61,7 +61,7 @@ class SizeDescrWithVTable(SizeDescr):
         return True
 
     def get_vtable(self):
-        return self.vtable
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self.vtable))
 
 BaseSizeDescr = SizeDescr
 
@@ -74,13 +74,13 @@ def get_size_descr(cpu, gccache, STRUCT, is_object):
         count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
         gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
         all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
-        if heaptracker.has_gcstruct_a_vtable(STRUCT):
-            assert is_object
+        if is_object: #heaptracker.has_gcstruct_a_vtable(STRUCT):
+            #assert is_object
             sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
                                             gc_fielddescrs, all_fielddescrs,
-                heaptracker.get_vtable_for_gcstruct(cpu, GCSTRUCT))
+                heaptracker.get_vtable_for_gcstruct(cpu, STRUCT))
         else:
-            assert not is_object
+            #assert not is_object
             sizedescr = SizeDescr(size, count_fields_if_immut,
                                   gc_fielddescrs, all_fielddescrs)
         gccache.init_size_descr(STRUCT, sizedescr)

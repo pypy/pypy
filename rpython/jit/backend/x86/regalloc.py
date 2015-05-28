@@ -401,7 +401,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_guard_exception(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
-        box = TempBox()
+        box = TempVar()
         args = op.getarglist()
         loc1 = self.rm.force_allocate_reg(box, args)
         if op in self.longevity:
@@ -853,7 +853,7 @@ class RegAlloc(BaseRegalloc):
     consider_call_assembler_n = _consider_call_assembler
 
     def consider_cond_call_gc_wb(self, op):
-        assert op.type != 'v'
+        assert op.type == 'v'
         args = op.getarglist()
         N = len(args)
         # we force all arguments in a reg (unless they are Consts),
@@ -875,7 +875,7 @@ class RegAlloc(BaseRegalloc):
                     self.rm.force_spill_var(box)
                     assert box not in self.rm.reg_bindings
         #
-        assert op.type != 'v'
+        assert op.type == 'v'
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
         loc_cond = self.make_sure_var_in_reg(args[0], args)
