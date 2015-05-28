@@ -24,6 +24,8 @@ class Evaluator(object):
 class FakeLoopToken(object):
     pass
 
+o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
         S = lltype.GcStruct('S', ('x', lltype.Signed),
@@ -60,8 +62,8 @@ class RewriteTests(object):
         vtable_descr = self.gc_ll_descr.fielddescr_vtable
         O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
                                  ('x', lltype.Signed))
-        o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         o_descr = self.cpu.sizeof(O, True)
+        o_vtable = globals()['o_vtable']
         register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
@@ -164,7 +166,7 @@ class TestBoehm(RewriteTests):
             def sizeof(self, STRUCT, is_object):
                 assert is_object
                 return SizeDescrWithVTable(102, gc_fielddescrs=[],
-                                           vtable=12)
+                                           vtable=o_vtable)
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -241,7 +243,7 @@ class TestBoehm(RewriteTests):
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
                                 descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 12, descr=vtable_descr)
+            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
         """)
 

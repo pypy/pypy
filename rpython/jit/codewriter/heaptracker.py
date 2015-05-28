@@ -69,8 +69,9 @@ def setup_cache_gcstruct2vtable(cpu):
     if not hasattr(cpu, '_cache_gcstruct2vtable'):
         cache = {}
         cache.update(testing_gcstruct2vtable)
-        for rinstance in cpu.rtyper.instance_reprs.values():
-            cache[rinstance.lowleveltype.TO] = rinstance.rclass.getvtable()
+        if cpu.rtyper:
+            for rinstance in cpu.rtyper.instance_reprs.values():
+                cache[rinstance.lowleveltype.TO] = rinstance.rclass.getvtable()
         cpu._cache_gcstruct2vtable = cache
 
 def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):

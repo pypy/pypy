@@ -7,6 +7,7 @@ from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
 from rpython.jit.metainterp.optimizeopt import intbounds
+from rpython.rtyper import rclass
 
 
 class GcCache(object):
@@ -37,7 +38,7 @@ class SizeDescr(AbstractDescr):
 
     def __init__(self, size, count_fields_if_immut=-1,
                  gc_fielddescrs=None, all_fielddescrs=None,
-                 vtable=0):
+                 vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
         self.size = size
         self.count_fields_if_immut = count_fields_if_immut
         self.gc_fielddescrs = gc_fielddescrs

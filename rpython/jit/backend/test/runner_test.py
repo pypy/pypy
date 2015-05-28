@@ -2861,15 +2861,16 @@ class LLtypeBackendTest(BaseBackendTest):
                         rffi.RFFI_SAVE_ERRNO | rffi.RFFI_ALT_ERRNO,
                         ]:
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
-            ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+            inputargs = [InputArgInt() for i in range(7)]
+            op0 = ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs,
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+
+            ops = [
+                op0,
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
+                ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(0))
             ]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
@@ -2932,15 +2933,15 @@ class LLtypeBackendTest(BaseBackendTest):
                         rffi.RFFI_ZERO_ERRNO_BEFORE | rffi.RFFI_ALT_ERRNO,
                         ]:
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
-            ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+            inputargs = [InputArgInt() for i in range(7)]
+            op0 = ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs,
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+
+            ops = [
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
+                ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(0))
             ]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
@@ -3136,15 +3137,16 @@ class LLtypeBackendTest(BaseBackendTest):
                        ]:
             use_alt_errno = saveerr & rffi.RFFI_ALT_ERRNO
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
-            ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+            inputargs = [InputArgInt() for i in range(7)]
+            op0 = ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs,
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+
+            ops = [
+                op0,
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
+                ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(0))
             ]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()

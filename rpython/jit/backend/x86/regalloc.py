@@ -896,7 +896,7 @@ class RegAlloc(BaseRegalloc):
         #
         # We need edi as a temporary, but otherwise don't save any more
         # register.  See comments in _build_malloc_slowpath().
-        tmp_box = TempBox()
+        tmp_box = TempVar()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
@@ -909,7 +909,7 @@ class RegAlloc(BaseRegalloc):
 
     def consider_call_malloc_nursery_varsize_frame(self, op):
         size_box = op.getarg(0)
-        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        assert not isinstance(size_box, Const) # we cannot have a const here!
         # sizeloc must be in a register, but we can free it now
         # (we take care explicitly of conflicts with eax or edi)
         sizeloc = self.rm.make_sure_var_in_reg(size_box)
@@ -917,7 +917,7 @@ class RegAlloc(BaseRegalloc):
         # the result will be in eax
         self.rm.force_allocate_reg(op, selected_reg=eax)
         # we need edi as a temporary
-        tmp_box = TempBox()
+        tmp_box = TempVar()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)
@@ -935,11 +935,11 @@ class RegAlloc(BaseRegalloc):
             # for boehm, this function should never be called
         arraydescr = op.getdescr()
         length_box = op.getarg(2)
-        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        assert not isinstance(length_box, Const) # we cannot have a const here!
         # the result will be in eax
         self.rm.force_allocate_reg(op, selected_reg=eax)
         # we need edi as a temporary
-        tmp_box = TempBox()
+        tmp_box = TempVar()
         self.rm.force_allocate_reg(tmp_box, selected_reg=edi)
         gcmap = self.get_gcmap([eax, edi]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)

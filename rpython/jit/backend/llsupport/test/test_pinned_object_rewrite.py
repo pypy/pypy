@@ -116,20 +116,21 @@ class TestFramework(RewriteTests):
             lambda cpu: True)
         #
         class FakeCPU(BaseFakeCPU):
-            def sizeof(self, STRUCT):
+            def sizeof(self, STRUCT, is_object):
                 descr = SizeDescrWithVTable(104)
                 descr.tid = 9315
+                descr.vtable = 12
                 return descr
         self.cpu = FakeCPU()
 
     def test_simple_getfield(self):
         self.check_rewrite("""
             []
-            i0 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i0 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
-            i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
+            p1 = getarrayitem_gc_r(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
+            i0 = getfield_gc_i(p1, descr=pinned_obj_my_int_descr)
             """)
         assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 1
 
