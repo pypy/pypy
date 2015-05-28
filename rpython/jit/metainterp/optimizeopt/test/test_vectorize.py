@@ -57,10 +57,10 @@ class VecTestHelper(DependencyBaseTest):
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
-        opt.analyse_index_calculations()
-        if opt.dependency_graph is not None:
-            self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
-            opt.schedule()
+        #opt.analyse_index_calculations()
+        #if opt.dependency_graph is not None:
+        #    self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
+        #    opt.schedule()
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
         self.debug_print_operations(opt.loop)
@@ -1293,6 +1293,25 @@ class BaseTestVectorize(VecTestHelper):
         i17 = int_ge(i14, i8)
         guard_false(i17) [p2, i16, f9, i14, None, None, None, p3]
         jump(p3, i14, p2, i16, f9, i7, i8)
+        """
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
+
+    def test_abc(self):
+        trace ="""
+        [p0, p1, p5, i6, i7, p3, p8, i9, i10, i11, i12, i13, i14, p15]
+        guard_early_exit() [p3, p1, p0, i9, p5, p8, i6, i7, i10]
+        f16 = raw_load(i11, i7, descr=floatarraydescr)
+        guard_not_invalidated() [p3, p1, p0, f16, i9, p5, p8, i6, i7, i10]
+        raw_store(i12, i10, f16, descr=floatarraydescr)
+        i18 = int_add(i9, 1)
+        i19 = int_add(i10, i13)
+        i21 = int_add(i7, 8)
+        i22 = int_ge(i18, i14)
+        guard_false(i22) [p3, p1, p0, i21, i19, i18, None, p5, p8, i6, None, None]
+        i24 = arraylen_gc(p15, descr=floatarraydescr)
+        jump(p0, p1, p5, i6, i21, p3, p8, i18, i19, i11, i12, i13, i14, p15)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)

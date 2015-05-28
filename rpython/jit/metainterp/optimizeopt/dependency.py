@@ -631,7 +631,7 @@ class DependencyGraph(object):
 
     def build_guard_dependencies(self, guard_node, tracker):
         guard_op = guard_node.op
-        if guard_op.getopnum() >= rop.GUARD_NOT_INVALIDATED:
+        if guard_op.getopnum() >= rop.GUARD_FUTURE_CONDITION:
             # ignore invalidated & future condition guard & early exit
             return
         # true dependencies
