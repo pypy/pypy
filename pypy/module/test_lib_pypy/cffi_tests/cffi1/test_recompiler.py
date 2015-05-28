@@ -881,7 +881,7 @@ def test_variable_of_unknown_size():
     # but we can get its address
     p = ffi.addressof(lib, 'globvar')
     assert ffi.typeof(p) == ffi.typeof('opaque_t *')
-    assert ffi.string(ffi.cast("char *", p), 8) == "hello"
+    assert ffi.string(ffi.cast("char *", p), 8) == b"hello"
 
 def test_constant_of_value_unknown_to_the_compiler():
     extra_c_source = udir.join(

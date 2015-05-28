@@ -167,7 +167,7 @@ def test_global_const_int():
 def test_global_const_nonint():
     from re_python_pysrc import ffi
     lib = ffi.dlopen(extmod)
-    assert ffi.string(lib.globalconsthello, 8) == "hello"
+    assert ffi.string(lib.globalconsthello, 8) == b"hello"
     py.test.raises(AttributeError, ffi.addressof, lib, 'globalconsthello')
 
 def test_rtld_constants():

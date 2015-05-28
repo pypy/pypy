@@ -982,8 +982,12 @@ class Recompiler:
                 raise ffiplatform.VerificationError(
                     "constant '%s' is of type '%s', whose size is not known"
                     % (name, tp._get_c_name()))
+            if self.target_is_python:
+                const_kind = OP_DLOPEN_CONST
+            else:
+                const_kind = OP_CONSTANT
             type_index = self._typesdict[tp]
-            type_op = CffiOp(OP_CONSTANT, type_index)
+            type_op = CffiOp(const_kind, type_index)
         self._lsts["global"].append(
             GlobalExpr(name, '_cffi_const_%s' % name, type_op))
 

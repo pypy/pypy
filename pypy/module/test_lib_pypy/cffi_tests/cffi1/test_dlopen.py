@@ -31,7 +31,7 @@ import _cffi_backend
 ffi = _cffi_backend.FFI('test_valid_global_constant',
     _version = 0x2601,
     _types = b'\x00\x00\x0D\x01\x00\x00\x09\x01',
-    _globals = (b'\x00\x00\x01\x1DBB',0,b'\x00\x00\x00\x1DBF',0),
+    _globals = (b'\x00\x00\x01\x25BB',0,b'\x00\x00\x00\x25BF',0),
 )
 """
 

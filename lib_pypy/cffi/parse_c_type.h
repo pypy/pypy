@@ -25,6 +25,7 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_OP_CONSTANT_INT   31
 #define _CFFI_OP_GLOBAL_VAR     33
 #define _CFFI_OP_DLOPEN_FUNC    35
+#define _CFFI_OP_DLOPEN_CONST   37
 
 #define _CFFI_PRIM_VOID          0
 #define _CFFI_PRIM_BOOL          1
