@@ -1,7 +1,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.descriptor import get_dtype_cache, num2dtype
 from pypy.module.micronumpy.casting import (
-    find_binop_result_dtype, can_cast_type, _promote_types_su)
+    promote_types, can_cast_type, _promote_types_su)
 import pypy.module.micronumpy.constants as NPY
 
 
@@ -173,7 +173,7 @@ def test_promote_types_su(space):
 
 
 class TestCoercion(object):
-    def test_binops(self, space):
+    def test_promote_types(self, space):
         bool_dtype = get_dtype_cache(space).w_booldtype
         int8_dtype = get_dtype_cache(space).w_int8dtype
         int32_dtype = get_dtype_cache(space).w_int32dtype
@@ -183,11 +183,11 @@ class TestCoercion(object):
         cld_dtype = get_dtype_cache(space).w_complexlongdtype
         fld_dtype = get_dtype_cache(space).w_floatlongdtype
 
-        assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype) is float64_dtype
-        assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
-        assert find_binop_result_dtype(space, int32_dtype, int8_dtype) is int32_dtype
-        assert find_binop_result_dtype(space, int32_dtype, bool_dtype) is int32_dtype
-        assert find_binop_result_dtype(space, c64_dtype, float64_dtype) is c128_dtype
-        #assert find_binop_result_dtype(space, c64_dtype, fld_dtype) == cld_dtype
-        #assert find_binop_result_dtype(space, c128_dtype, fld_dtype) == cld_dtype
+        assert promote_types(space, bool_dtype, bool_dtype) is bool_dtype
+        assert promote_types(space, bool_dtype, float64_dtype) is float64_dtype
+        assert promote_types(space, float64_dtype, bool_dtype) is float64_dtype
+        assert promote_types(space, int32_dtype, int8_dtype) is int32_dtype
+        assert promote_types(space, int32_dtype, bool_dtype) is int32_dtype
+        assert promote_types(space, c64_dtype, float64_dtype) is c128_dtype
+        #assert promote_types(space, c64_dtype, fld_dtype) == cld_dtype
+        #assert promote_types(space, c128_dtype, fld_dtype) == cld_dtype

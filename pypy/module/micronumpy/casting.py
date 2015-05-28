@@ -49,12 +49,12 @@ def find_result_type(space, arrays_w, dtypes_w):
             if result is None:
                 result = w_array.get_dtype()
             else:
-                result = _promote_types(space, result, w_array.get_dtype())
+                result = promote_types(space, result, w_array.get_dtype())
         for dtype in dtypes_w:
             if result is None:
                 result = dtype
             else:
-                result = _promote_types(space, result, dtype)
+                result = promote_types(space, result, dtype)
     else:
         small_unsigned = False
         for w_array in arrays_w:
@@ -213,19 +213,21 @@ def min_scalar_type(space, w_a):
     else:
         return dtype
 
-def promote_types(space, w_type1, w_type2):
+def w_promote_types(space, w_type1, w_type2):
     dt1 = as_dtype(space, w_type1, allow_None=False)
     dt2 = as_dtype(space, w_type2, allow_None=False)
-    return _promote_types(space, dt1, dt2)
+    return promote_types(space, dt1, dt2)
 
 def find_binop_result_dtype(space, dt1, dt2):
     if dt2 is None:
         return dt1
     if dt1 is None:
         return dt2
-    return _promote_types(space, dt1, dt2)
+    return promote_types(space, dt1, dt2)
 
-def _promote_types(space, dt1, dt2):
+def promote_types(space, dt1, dt2):
+    """Return the smallest dtype to which both input dtypes can be safely cast"""
+    # Equivalent to PyArray_PromoteTypes
     num = promotion_table[dt1.num][dt2.num]
     if num != -1:
         return num2dtype(space, num)
@@ -270,7 +272,7 @@ def _promote_types(space, dt1, dt2):
     raise oefmt(space.w_TypeError, "invalid type promotion")
 
 def _promote_types_su(space, dt1, dt2, su1, su2):
-    """Like _promote_types(), but handles the small_unsigned flag as well"""
+    """Like promote_types(), but handles the small_unsigned flag as well"""
     if su1:
         if dt2.is_bool() or dt2.is_unsigned():
             dt1 = dt1.as_unsigned(space)
@@ -287,7 +289,7 @@ def _promote_types_su(space, dt1, dt2, su1, su2):
         su = su1 and su2
     else:
         su = su1 and (su2 or not dt2.is_signed())
-    return _promote_types(space, dt1, dt2), su
+    return promote_types(space, dt1, dt2), su
 
 def scalar2dtype(space, w_obj):
     from .boxes import W_GenericBox

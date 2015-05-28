@@ -20,7 +20,7 @@ from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
-from .casting import can_cast_type, find_result_type, _promote_types
+from .casting import can_cast_type, find_result_type, promote_types
 from .boxes import W_GenericBox, W_ObjectBox
 
 def done_if_true(dtype, val):
@@ -659,7 +659,7 @@ class W_Ufunc2(W_Ufunc):
     def find_specialization(self, space, l_dtype, r_dtype, out, casting):
         if self.simple_binary:
             if out is None and not (l_dtype.is_object() or r_dtype.is_object()):
-                dtype = _promote_types(space, l_dtype, r_dtype)
+                dtype = promote_types(space, l_dtype, r_dtype)
                 return dtype, dtype, self.func
         return self._find_specialization(space, l_dtype, r_dtype, out, casting)
 
