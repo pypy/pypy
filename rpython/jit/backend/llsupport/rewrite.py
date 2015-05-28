@@ -305,7 +305,7 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            size = ResOperation(rop.GETFIELD_RAW,
+            size = ResOperation(rop.GETFIELD_RAW_I,
                                     [history.ConstInt(frame_info)],
                                descr=descrs.jfi_frame_depth)
             self.emit_op(size)
@@ -378,7 +378,7 @@ class GcRewriterAssembler(object):
             args = [frame]
         call_asm = ResOperation(op.getopnum(), args,
                                   op.getdescr())
-        self.replace_op_with(op, call_asm)
+        self.replace_op_with(self.get_box_replacement(op), call_asm)
         self.emit_op(call_asm)
 
     # ----------

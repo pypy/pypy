@@ -624,7 +624,7 @@ class RegAlloc(BaseRegalloc):
     def consider_cast_float_to_singlefloat(self, op):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
         loc1 = self.rm.force_allocate_reg(op)
-        tmpxvar = TempBox()
+        tmpxvar = TempVar()
         loctmp = self.xrm.force_allocate_reg(tmpxvar)   # may be equal to loc0
         self.xrm.possibly_free_var(tmpxvar)
         self.perform(op, [loc0, loctmp], loc1)
@@ -1455,7 +1455,7 @@ class RegAlloc(BaseRegalloc):
             if IS_X86_64:
                 null_loc = X86_64_XMM_SCRATCH_REG
             else:
-                null_box = TempBox()
+                null_box = TempVar()
                 null_loc = self.xrm.force_allocate_reg(null_box)
                 self.xrm.possibly_free_var(null_box)
             self.perform_discard(op, [base_loc, startindex_loc,
@@ -1467,7 +1467,7 @@ class RegAlloc(BaseRegalloc):
             # address that we will pass as first argument to memset().
             # It can be in the same register as either one, but not in
             # args[2], because we're still needing the latter.
-            dstaddr_box = TempBox()
+            dstaddr_box = TempVar()
             dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, [args[2]])
             itemsize_loc = imm(itemsize)
             dst_addr = self.assembler._get_interiorfield_addr(
@@ -1485,7 +1485,7 @@ class RegAlloc(BaseRegalloc):
                     # we need a register that is different from dstaddr_loc,
                     # but which can be identical to length_loc (as usual,
                     # only if the length_box is not used by future operations)
-                    bytes_box = TempBox()
+                    bytes_box = TempVar()
                     bytes_loc = self.rm.force_allocate_reg(bytes_box,
                                                            [dstaddr_box])
                     b_adr = self.assembler._get_interiorfield_addr(

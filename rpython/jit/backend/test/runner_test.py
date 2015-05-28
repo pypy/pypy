@@ -3375,10 +3375,7 @@ class LLtypeBackendTest(BaseBackendTest):
         x = cpu.bh_new(descrsize)
         lltype.cast_opaque_ptr(lltype.Ptr(S), x)    # type check
         #
-        descrsize2 = cpu.sizeof(rclass.OBJECT, True)
-        vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        vtable2_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable2))
-        heaptracker.register_known_gctype(cpu, vtable2, rclass.OBJECT)
+        _, T, descrsize2 = self.alloc_instance(rclass.OBJECT)
         x = cpu.bh_new_with_vtable(descrsize2)
         lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), x)    # type check
         # well...
@@ -3534,7 +3531,7 @@ class LLtypeBackendTest(BaseBackendTest):
             EffectInfo.MOST_GENERAL)
         ops = '''
         [i0]
-        i11 = call_assembler(i0, descr=looptoken)
+        i11 = call_assembler_i(i0, descr=looptoken)
         guard_not_forced()[]
         finish(i11)
         '''
@@ -4050,10 +4047,10 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.setup_once()    # xxx redo it, because we added
                                  # propagate_exception
         i0 = InputArgInt()
-        p0 = BoxPtr()
+        p0 = ResOperation(rop.NEWUNICODE, [i0])
         operations = [
-            ResOperation(rop.NEWUNICODE, [i0], p0),
-            ResOperation(rop.FINISH, [p0], None, descr=BasicFinalDescr(1))
+            p0,
+            ResOperation(rop.FINISH, [p0], descr=BasicFinalDescr(1))
             ]
         inputargs = [i0]
         looptoken = JitCellToken()
@@ -4175,7 +4172,7 @@ class LLtypeBackendTest(BaseBackendTest):
         targettoken = TargetToken()
         ops = """
         [i2]
-        i0 = same_as(i2)    # but forced to be in a register
+        i0 = same_as_i(i2)    # but forced to be in a register
         label(i0, descr=targettoken)
         i1 = int_add(i0, i0)
         guard_true(i1, descr=faildescr) [i1]
@@ -4707,8 +4704,8 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
         S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
-        tdescr = self.cpu.sizeof(T)
-        sdescr = self.cpu.sizeof(S)
+        tdescr = self.cpu.sizeof(T, False)
+        sdescr = self.cpu.sizeof(S, False)
         fielddescr = self.cpu.fielddescrof(S, 'x')
         loop = parse("""
         []
@@ -4741,7 +4738,7 @@ class LLtypeBackendTest(BaseBackendTest):
         ofs_p, _ = symbolic.get_field_token(S, 'p', False)
         #
         self.execute_operation(rop.ZERO_PTR_FIELD, [
-            BoxPtr(s_ref), ConstInt(ofs_p)],   # OK for now to assume that the
+            InputArgRef(s_ref), ConstInt(ofs_p)],   # OK for now to assume that the
             'void')                            # 2nd argument is a constant
         #
         assert s.x == -1296321
@@ -4779,7 +4776,7 @@ class LLtypeBackendTest(BaseBackendTest):
                         if cls1 == cls2 and start == length:
                             lengthbox = startbox    # same box!
                         self.execute_operation(rop.ZERO_ARRAY,
-                                               [BoxPtr(a_ref),
+                                               [InputArgRef(a_ref),
                                                 startbox,
                                                 lengthbox],
                                            'void', descr=arraydescr)

@@ -610,10 +610,10 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
-    def bh_new_with_vtable(self, vtable, sizedescr):
+    def bh_new_with_vtable(self, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
-            self.write_int_at_mem(res, self.vtable_offset, WORD, vtable)
+            self.write_int_at_mem(res, self.vtable_offset, WORD, sizedescr.get_vtable())
         return res
 
     def bh_new_raw_buffer(self, size):

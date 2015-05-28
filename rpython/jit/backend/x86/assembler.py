@@ -2061,9 +2061,9 @@ class Assembler386(BaseAssembler):
         return jmp_location
 
     def _call_assembler_load_result(self, op, result_loc):
-        if op.result is not None:
+        if op.type != 'v':
             # load the return value from the dead frame's value index 0
-            kind = op.result.type
+            kind = op.type
             descr = self.cpu.getarraydescr_for_frame(kind)
             ofs = self.cpu.unpack_arraydescr(descr)
             if kind == FLOAT:
