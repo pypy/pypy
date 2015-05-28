@@ -114,14 +114,14 @@ class __extend__(pyframe.PyFrame):
                 # dispatch_bytecode(), causing the real exception to be
                 # raised after the exception handler block was popped.
                 try:
-                    trace = self.w_f_trace
+                    trace = self.get_w_f_trace()
                     if trace is not None:
-                        self.w_f_trace = None
+                        self.getorcreatedebug().w_f_trace = None
                     try:
                         ec.bytecode_trace_after_exception(self)
                     finally:
                         if trace is not None:
-                            self.w_f_trace = trace
+                            self.getorcreatedebug().w_f_trace = trace
                 except OperationError, e:
                     operr = e
             pytraceback.record_application_traceback(
@@ -455,7 +455,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.locals_stack_w[varindex]
+        w_value = self.locals_cells_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
@@ -475,7 +475,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.locals_stack_w[varindex] = w_newvalue
+        self.locals_cells_stack_w[varindex] = w_newvalue
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
@@ -487,7 +487,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         try:
             w_value = cell.get()
         except ValueError:
@@ -498,11 +498,11 @@ class __extend__(pyframe.PyFrame):
     def STORE_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         w_newvalue = self.popvalue()
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         cell.set(w_newvalue)
 
     def DELETE_DEREF(self, varindex, next_instr):
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         try:
             cell.get()
         except ValueError:
@@ -523,7 +523,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         w_value = self.space.wrap(cell)
         self.pushvalue(w_value)
 
@@ -684,10 +684,10 @@ class __extend__(pyframe.PyFrame):
         raise operror
 
     def LOAD_LOCALS(self, oparg, next_instr):
-        self.pushvalue(self.w_locals)
+        self.pushvalue(self.getorcreatedebug().w_locals)
 
     def STORE_LOCALS(self, oparg, next_instr):
-        self.w_locals = self.popvalue()
+        self.getorcreatedebug().w_locals = self.popvalue()
 
     def exec_(self, w_prog, w_globals, w_locals):
         """The builtins.exec function."""
@@ -709,8 +709,8 @@ class __extend__(pyframe.PyFrame):
         space.call_method(w_globals, 'setdefault', space.wrap('__builtins__'),
                           space.wrap(self.get_builtin()))
 
-        plain = (self.w_locals is not None and
-                 space.is_w(w_locals, self.w_locals))
+        plain = (self.get_w_locals() is not None and
+                 space.is_w(w_locals, self.get_w_locals()))
         if plain:
             w_locals = self.getdictscope()
         code.exec_code(space, w_globals, w_locals)
@@ -761,12 +761,13 @@ class __extend__(pyframe.PyFrame):
     def STORE_NAME(self, varindex, next_instr):
         varname = self.getname_u(varindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.w_locals, varname, w_newvalue)
+        self.space.setitem_str(self.getorcreatedebug().w_locals, varname,
+                               w_newvalue)
 
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
         try:
-            self.space.delitem(self.w_locals, w_varname)
+            self.space.delitem(self.getorcreatedebug().w_locals, w_varname)
         except OperationError, e:
             # catch KeyErrors and turn them into NameErrors
             if not e.match(self.space, self.space.w_KeyError):
@@ -834,8 +835,9 @@ class __extend__(pyframe.PyFrame):
     def LOAD_NAME(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         varname = self.space.identifier_w(w_varname)
-        if self.w_locals is not self.w_globals:
-            w_value = self.space.finditem_str(self.w_locals, varname)
+        if self.getorcreatedebug().w_locals is not self.w_globals:
+            w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
+                                              varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
@@ -868,12 +870,12 @@ class __extend__(pyframe.PyFrame):
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
-        if self.locals_stack_w[varindex] is None:
+        if self.locals_cells_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             raise oefmt(self.space.w_UnboundLocalError,
                         "local variable '%s' referenced before assignment",
                         varname)
-        self.locals_stack_w[varindex] = None
+        self.locals_cells_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -971,7 +973,11 @@ class __extend__(pyframe.PyFrame):
         if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))
-        w_locals = self.w_locals
+        d = self.getdebug()
+        if d is None:
+            w_locals = None
+        else:
+            w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
         w_globals = self.w_globals
@@ -1148,7 +1154,7 @@ class __extend__(pyframe.PyFrame):
         args = self.argument_factory(arguments, keywords, keywords_w, w_star,
                                      w_starstar)
         w_function  = self.popvalue()
-        if self.is_being_profiled and function.is_builtin_code(w_function):
+        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
             w_result = self.space.call_args_and_c_profile(self, w_function,
                                                           args)
         else:

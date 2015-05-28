@@ -22,9 +22,8 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     # handle array_priority
     # w_lhs and w_rhs could be of different ndarray subtypes. Numpy does:
     # 1. if __array_priorities__ are equal and one is an ndarray and the
-    #        other is a subtype,  flip the order
-    # 2. elif rhs.__array_priority__ is higher, flip the order
-    # Now return the subtype of the first one
+    #        other is a subtype,  return a subtype
+    # 2. elif rhs.__array_priority__ is higher, return the type of rhs
 
     w_ndarray = space.gettypefor(W_NDimArray)
     lhs_type = space.type(w_lhs)
@@ -38,10 +37,15 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
         rhs_type = space.type(w_rhs.base)
         rhs_for_subtype = w_rhs.base
-    if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
-        lhs_for_subtype = rhs_for_subtype
 
-    # TODO handle __array_priorities__ and maybe flip the order
+    w_highpriority = w_lhs
+    highpriority_subtype = lhs_for_subtype
+    if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
+        highpriority_subtype = rhs_for_subtype
+        w_highpriority = w_rhs
+    if support.is_rhs_priority_higher(space, w_lhs, w_rhs):
+        highpriority_subtype = rhs_for_subtype
+        w_highpriority = w_rhs
 
     if w_lhs.get_size() == 1:
         w_left = w_lhs.get_scalar_value().convert_to(space, calc_dtype)
@@ -60,9 +64,11 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         right_iter.track_index = False
 
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype,
-                                     w_instance=lhs_for_subtype)
-    out_iter, out_state = out.create_iter(shape)
+        w_ret = W_NDimArray.from_shape(space, shape, res_dtype,
+                                     w_instance=highpriority_subtype)
+    else:
+        w_ret = out
+    out_iter, out_state = w_ret.create_iter(shape)
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -76,7 +82,9 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
             space, res_dtype))
         out_state = out_iter.next(out_state)
-    return out
+    if out is None:
+        w_ret = space.call_method(w_highpriority, '__array_wrap__', w_ret)
+    return w_ret
 
 call1_driver = jit.JitDriver(
     name='numpy_call1',
@@ -88,8 +96,10 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
     obj_iter.track_index = False
 
     if out is None:
-        out = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
-    out_iter, out_state = out.create_iter(shape)
+        w_ret = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
+    else:
+        w_ret = out
+    out_iter, out_state = w_ret.create_iter(shape)
     shapelen = len(shape)
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
@@ -98,7 +108,9 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         out_iter.setitem(out_state, func(calc_dtype, elem).convert_to(space, res_dtype))
         out_state = out_iter.next(out_state)
         obj_state = obj_iter.next(obj_state)
-    return out
+    if out is None:
+        w_ret = space.call_method(w_obj, '__array_wrap__', w_ret)
+    return w_ret
 
 call_many_to_one_driver = jit.JitDriver(
     name='numpy_call_many_to_one',
@@ -209,7 +221,7 @@ def _setslice(space, shape, target, source):
     while not target_iter.done(target_state):
         setslice_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
         val = source_iter.getitem(source_state)
-        if dtype.is_str_or_unicode():
+        if dtype.is_str_or_unicode() or dtype.is_record():
             val = dtype.coerce(space, val)
         else:
             val = val.convert_to(space, dtype)

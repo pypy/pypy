@@ -572,6 +572,7 @@ class WarmEnterState(object):
         JitCell = self.make_jitcell_subclass()
         jd = self.jitdriver_sd
         cpu = self.cpu
+        rtyper = self.warmrunnerdesc.rtyper
 
         def can_inline_callable(greenkey):
             greenargs = unwrap_greenkey(greenkey)
@@ -597,7 +598,6 @@ class WarmEnterState(object):
             def should_unroll_one_iteration(greenkey):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             inline_ptr = jd._should_unroll_one_iteration_ptr
             def should_unroll_one_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
@@ -631,7 +631,6 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 return missing
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
             # the following missing text should not be seen, as it is
             # returned only if debug_prints are currently not enabled,
@@ -655,7 +654,6 @@ class WarmEnterState(object):
             def confirm_enter_jit(*args):
                 return True
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def confirm_enter_jit(*args):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
@@ -668,10 +666,15 @@ class WarmEnterState(object):
             def can_never_inline(*greenargs):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def can_never_inline(*greenargs):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
                                                       can_never_inline_ptr)
                 return fn(*greenargs)
         self.can_never_inline = can_never_inline
+        get_unique_id_ptr = self.jitdriver_sd._get_unique_id_ptr
+        def get_unique_id(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
+            fn = support.maybe_on_top_of_llinterp(rtyper, get_unique_id_ptr)
+            return fn(*greenargs)
+        self.get_unique_id = get_unique_id

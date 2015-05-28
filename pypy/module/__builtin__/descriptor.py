@@ -61,7 +61,7 @@ def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
         if code.co_argcount == 0:
             raise OperationError(space.w_SystemError, space.wrap(
                     "super(): no arguments"))
-        w_obj = frame.locals_stack_w[0]
+        w_obj = frame.locals_cells_stack_w[0]
         if not w_obj:
             raise OperationError(space.w_SystemError, space.wrap(
                     "super(): arg[0] deleted"))
@@ -74,7 +74,7 @@ def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
             raise OperationError(space.w_SystemError, space.wrap(
                     "super(): __class__ cell not found"))
         # a kind of LOAD_DEREF
-        cell = frame.cells[len(code.co_cellvars) + index]
+        cell = frame._getcell(len(code.co_cellvars) + index)
         w_starttype = cell.get()
         w_obj_or_type = w_obj
 

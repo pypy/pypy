@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import rffi
+from rpython.jit.backend.x86.arch import IS_X86_64
 
 BYTE_REG_FLAG = 0x20
 NO_BASE_REGISTER = -1
@@ -454,6 +455,11 @@ def shifts(mod_field):
 class AbstractX86CodeBuilder(object):
     """Abstract base class."""
 
+    def __init__(self):
+        self.frame_positions = []
+        self.frame_assignments = []
+        self.force_frame_size(self.WORD)
+
     def writechar(self, char):
         raise NotImplementedError
 
@@ -471,6 +477,24 @@ class AbstractX86CodeBuilder(object):
         self.writechar(chr((imm >> 16) & 0xFF))
         self.writechar(chr((imm >> 24) & 0xFF))
 
+    def force_frame_size(self, frame_size):
+        self.frame_positions.append(self.get_relative_pos())
+        self.frame_assignments.append(frame_size)
+        self._frame_size = frame_size
+
+    def stack_frame_size_delta(self, delta):
+        "Called when we generate an instruction that changes the value of ESP"
+        self._frame_size += delta
+        self.frame_positions.append(self.get_relative_pos()) 
+        self.frame_assignments.append(self._frame_size)
+        assert self._frame_size >= self.WORD
+
+    def check_stack_size_at_ret(self):
+        if IS_X86_64:
+            assert self._frame_size == self.WORD
+            if not we_are_translated():
+                self._frame_size = None
+
     # ------------------------------ MOV ------------------------------
 
     MOV_ri = insn(register(1), '\xB8', immediate(2))
@@ -481,13 +505,23 @@ class AbstractX86CodeBuilder(object):
     INC_m = insn(rex_w, '\xFF', orbyte(0), mem_reg_plus_const(1))
     INC_j = insn(rex_w, '\xFF', orbyte(0), abs_(1))
 
-    ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
+    AD1_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
     OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
     AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)
-    SUB_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8 = common_modes(5)
+    SU1_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8 = common_modes(5)
     SBB_ri,SBB_rr,SBB_rb,_,_,SBB_rm,SBB_rj,_,_ = common_modes(3)
     XOR_ri,XOR_rr,XOR_rb,_,_,XOR_rm,XOR_rj,_,_ = common_modes(6)
     CMP_ri,CMP_rr,CMP_rb,CMP_bi,CMP_br,CMP_rm,CMP_rj,_,_ = common_modes(7)
+
+    def ADD_ri(self, reg, immed):
+        self.AD1_ri(reg, immed)
+        if reg == R.esp:
+            self.stack_frame_size_delta(-immed)
+
+    def SUB_ri(self, reg, immed):
+        self.SU1_ri(reg, immed)
+        if reg == R.esp:
+            self.stack_frame_size_delta(+immed)
 
     CMP_mi8 = insn(rex_w, '\x83', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     CMP_mi32 = insn(rex_w, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
@@ -538,29 +572,64 @@ class AbstractX86CodeBuilder(object):
     # ------------------------------ Misc stuff ------------------------------
 
     NOP = insn('\x90')
-    RET = insn('\xC3')
-    RET16_i = insn('\xC2', immediate(1, 'h'))
+    RE1 = insn('\xC3')
+    RE116_i = insn('\xC2', immediate(1, 'h'))
 
-    PUSH_r = insn(rex_nw, register(1), '\x50')
-    PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
-    PUSH_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
-    PUSH_i8 = insn('\x6A', immediate(1, 'b'))
-    PUSH_i32 = insn('\x68', immediate(1, 'i'))
-    def PUSH_i(mc, immed):
+    def RET(self):
+        self.check_stack_size_at_ret()
+        self.RE1()
+
+    def RET16_i(self, immed):
+        self.check_stack_size_at_ret()
+        self.RE116_i(immed)
+
+    PUS1_r = insn(rex_nw, register(1), '\x50')
+    PUS1_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
+    PUS1_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
+    PUS1_i8 = insn('\x6A', immediate(1, 'b'))
+    PUS1_i32 = insn('\x68', immediate(1, 'i'))
+
+    def PUSH_r(self, reg):
+        self.PUS1_r(reg)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_b(self, ofs):
+        self.PUS1_b(ofs)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_m(self, ofs):
+        self.PUS1_m(ofs)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_i(self, immed):
         if single_byte(immed):
-            mc.PUSH_i8(immed)
+            self.PUS1_i8(immed)
         else:
-            mc.PUSH_i32(immed)
+            self.PUS1_i32(immed)
+        self.stack_frame_size_delta(+self.WORD)
 
-    POP_r = insn(rex_nw, register(1), '\x58')
-    POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
+    PO1_r = insn(rex_nw, register(1), '\x58')
+    PO1_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
+
+    def POP_r(self, reg):
+        self.PO1_r(reg)
+        self.stack_frame_size_delta(-self.WORD)
+
+    def POP_b(self, ofs):
+        self.PO1_b(ofs)
+        self.stack_frame_size_delta(-self.WORD)
 
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
-    LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
+    LE1_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
     LEA32_rb = insn(rex_w, '\x8D', register(1,8),stack_bp(2,force_32bits=True))
     LEA_ra = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_scaled_reg_plus_const(2))
     LEA_rm = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_const(2))
     LEA_rj = insn(rex_w, '\x8D', register(1, 8), abs_(2))
+
+    def LEA_rs(self, reg, ofs):
+        self.LE1_rs(reg, ofs)
+        if reg == R.esp:
+            self.stack_frame_size_delta(-ofs)
 
     CALL_l = insn('\xE8', relative(1))
     CALL_r = insn(rex_nw, '\xFF', register(1), chr(0xC0 | (2<<3)))
@@ -572,14 +641,29 @@ class AbstractX86CodeBuilder(object):
     # register-register exchange.
     XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
 
-    JMP_l = insn('\xE9', relative(1))
-    JMP_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
+    JM1_l = insn('\xE9', relative(1))
+    JM1_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
     # FIXME: J_il8 and JMP_l8 assume the caller will do the appropriate
     # calculation to find the displacement, but J_il does it for the caller.
     # We need to be consistent.
-    JMP_l8 = insn('\xEB', immediate(1, 'b'))
+    JM1_l8 = insn('\xEB', immediate(1, 'b'))
     J_il8 = insn(immediate(1, 'o'), '\x70', immediate(2, 'b'))
     J_il = insn('\x0F', immediate(1,'o'), '\x80', relative(2))
+
+    def JMP_l(self, rel):
+        self.JM1_l(rel)
+        if not we_are_translated():
+            self._frame_size = None
+
+    def JMP_r(self, reg):
+        self.JM1_r(reg)
+        if not we_are_translated():
+            self._frame_size = None
+
+    def JMP_l8(self, rel):
+        self.JM1_l8(rel)
+        if not we_are_translated():
+            self._frame_size = None
 
     SET_ir = insn(rex_fw, '\x0F', immediate(1,'o'),'\x90', byte_register(2), '\xC0')
 

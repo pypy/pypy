@@ -82,6 +82,13 @@ class AppTestSorting(BaseNumpyAppTest):
             #assert (a == b).all(), \
             #    'a,orig,dtype %r,%r,%r' % (a,c,dtype)
 
+    def test_sort_noncontiguous(self):
+        from numpy import array
+        x = array([[2, 10], [1, 11]])
+        assert (x[:, 0].argsort() == [1, 0]).all()
+        x[:, 0].sort()
+        assert (x == [[1, 10], [2, 11]]).all()
+
 # tests from numpy/tests/test_multiarray.py
     def test_sort_corner_cases(self):
         # test ordering for floats and complex containing nans. It is only

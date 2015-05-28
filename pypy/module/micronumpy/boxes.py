@@ -143,6 +143,10 @@ class W_GenericBox(W_NumpyObject):
     def get_scalar_value(self):
         return self
 
+    def get_flags(self):
+        return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS | 
+                NPY.ARRAY_WRITEABLE | NPY.ARRAY_OWNDATA)
+
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
@@ -196,6 +200,9 @@ class W_GenericBox(W_NumpyObject):
 
     def descr_hash(self, space):
         return space.hash(self.item(space))
+
+    def descr___array_priority__(self, space):
+        return space.wrap(0.0)
 
     def descr_index(self, space):
         return space.index(self.item(space))
@@ -668,6 +675,8 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
 
     __hash__ = interp2app(W_GenericBox.descr_hash),
 
+    __array_priority__ = GetSetProperty(W_GenericBox.descr___array_priority__),
+
     tolist = interp2app(W_GenericBox.item),
     item = interp2app(W_GenericBox.descr_item),
     transpose = interp2app(W_GenericBox.descr_transpose),
@@ -862,4 +871,3 @@ W_ObjectBox.typedef = TypeDef("numpy.object_", W_ObjectBox.typedef,
     __new__ = interp2app(W_ObjectBox.descr__new__.im_func),
     __getattr__ = interp2app(W_ObjectBox.descr__getattr__),
 )
-

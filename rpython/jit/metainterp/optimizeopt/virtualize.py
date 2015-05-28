@@ -347,6 +347,7 @@ class VArrayValue(AbstractVArrayValue):
                               [box, ConstInt(index), subbox], None,
                                descr=self.arraydescr)
             optforce.emit_operation(op)
+        optforce.pure(rop.ARRAYLEN_GC, [box], ConstInt(len(self._items)))
 
     @specialize.argtype(1)
     def _visitor_dispatch_virtual_type(self, visitor):

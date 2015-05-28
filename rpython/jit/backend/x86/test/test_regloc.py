@@ -10,10 +10,18 @@ from rpython.rlib.rarithmetic import intmask
 import py.test
 
 class LocationCodeBuilder32(CodeBuilder32, LocationCodeBuilder):
-    pass
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 class LocationCodeBuilder64(CodeBuilder64, LocationCodeBuilder):
-    pass
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 cb32 = LocationCodeBuilder32
 cb64 = LocationCodeBuilder64
@@ -97,13 +105,17 @@ def test_relocation():
         assert ''.join([buf[i] for i in range(length)]) == expected
         lltype.free(buf, flavor='raw')
 
+class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
+    def check_stack_size_at_ret(self):
+        pass
+        
 def test_follow_jump_instructions_32():
     buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
     raw = rffi.cast(lltype.Signed, buf)
-    mc = codebuf.MachineCodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     mc.RET()
     mc.copy_to_raw_memory(raw)
-    mc = codebuf.MachineCodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     assert follow_jump(raw) == raw
     mc.JMP(imm(raw))
     mc.copy_to_raw_memory(raw + 20)
@@ -112,7 +124,7 @@ def test_follow_jump_instructions_32():
     assert buf[22] == '\xFF'
     assert buf[23] == '\xFF'
     assert buf[24] == '\xFF'
-    mc = codebuf.MachineCodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     assert follow_jump(raw + 20) == raw
     mc.JMP(imm(raw))
     mc.copy_to_raw_memory(raw + 40)

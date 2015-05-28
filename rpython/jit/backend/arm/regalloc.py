@@ -373,6 +373,12 @@ class Regalloc(BaseRegalloc):
         return gcmap
 
     # ------------------------------------------------------------
+    def perform_enter_portal_frame(self, op):
+        self.assembler.enter_portal_frame(op)
+
+    def perform_leave_portal_frame(self, op):
+        self.assembler.leave_portal_frame(op)
+
     def perform_extra(self, op, args, fcond):
         return self.assembler.regalloc_emit_extra(op, args, fcond, self)
 
@@ -1149,6 +1155,8 @@ class Regalloc(BaseRegalloc):
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
     prepare_op_keepalive = void
+    prepare_op_enter_portal_frame = void
+    prepare_op_leave_portal_frame = void
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None

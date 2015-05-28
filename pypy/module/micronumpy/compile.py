@@ -68,6 +68,7 @@ class FakeSpace(ObjSpace):
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
     w_object = W_TypeObject("object")
+    w_buffer = W_TypeObject("buffer")
 
     def __init__(self):
         """NOT_RPYTHON"""
@@ -203,6 +204,12 @@ class FakeSpace(ObjSpace):
         assert isinstance(w_obj, BoolObject)
         return bool(w_obj.intval)
 
+    def gt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) > self.int_w(w_rhs))
+
+    def lt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) < self.int_w(w_rhs))
+
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
@@ -235,8 +242,7 @@ class FakeSpace(ObjSpace):
 
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
-        return None
-        #return getattr(w_obj, 'descr_' + s)(self, *args)
+        return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):

@@ -67,6 +67,8 @@ class AbstractX86CPU(AbstractLLCPU):
     @rgc.no_release_gil
     def setup_once(self):
         self.profile_agent.startup()
+        if self.HAS_CODEMAP:
+            self.codemap.setup()
         self.assembler.setup_once()
 
     @rgc.no_release_gil
@@ -90,11 +92,6 @@ class AbstractX86CPU(AbstractLLCPU):
         data = ''.join(data)
         lines = machine_code_dump(data, addr, self.backend_name, label_list)
         print ''.join(lines)
-
-    def compile_loop(self, inputargs, operations, looptoken, log=True,
-                     name='', logger=None):
-        return self.assembler.assemble_loop(inputargs, operations, looptoken, log,
-                                            name, logger)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
@@ -162,5 +159,6 @@ class CPU_X86_64(AbstractX86CPU):
     CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
 
     IS_64_BIT = True
+    HAS_CODEMAP = True
 
 CPU = CPU386
