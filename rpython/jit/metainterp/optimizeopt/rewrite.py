@@ -149,22 +149,22 @@ class OptRewrite(Optimization):
         elif b1.equal(0) or b2.equal(0):
             self.make_constant_int(op, 0)
         else:
-            for lhs, rhs in [(b1, b2), (b2, b1)]:
-                if lhs.is_constant():
-                    x = lhs.getint()
+            for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
+                lh_info = self.getintbound(lhs)
+                if lh_info.is_constant():
+                    x = lh_info.getint()
                     # x & (x - 1) == 0 is a quick test for power of 2
                     if x & (x - 1) == 0:
-                        new_rhs = ConstInt(highest_bit(lhs.box.getint()))
-                        op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
+                        new_rhs = ConstInt(highest_bit(lh_info.getint()))
+                        op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
                         break
             self.emit_operation(op)
 
     def optimize_UINT_FLOORDIV(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        b2 = self.getintbound(op.getarg(1))
 
-        if v2.is_constant() and v2.box.getint() == 1:
-            self.make_equal_to(op, v1)
+        if b2.is_constant() and b2.getint() == 1:
+            self.make_equal_to(op, op.getarg(0))
         else:
             self.emit_operation(op)
 

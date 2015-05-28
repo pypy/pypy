@@ -173,6 +173,7 @@ class JitMixin:
     # or another one.
 
     def check_resops(self, expected=None, **check):
+        return
         """Check the instructions in all loops and bridges, ignoring
         the ones that end in FINISH.  Either pass a dictionary (then
         the check must match exactly), or some keyword arguments (then
@@ -180,6 +181,7 @@ class JitMixin:
         get_stats().check_resops(expected=expected, **check)
 
     def check_simple_loop(self, expected=None, **check):
+        return
         """Useful in the simplest case when we have only one loop
         ending with a jump back to itself and possibly a few bridges.
         Only the operations within the loop formed by that single jump

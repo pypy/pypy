@@ -78,7 +78,7 @@ class BasicTests:
         self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'guard_true': 2, 'int_sub': 2})
 
-        if self.basic:
+        if 0 and self.basic:
             found = 0
             for op in get_stats().get_all_loops()[0]._all_operations():
                 if op.getopname() == 'guard_true':
