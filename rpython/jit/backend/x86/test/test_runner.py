@@ -425,7 +425,7 @@ class TestX86(LLtypeBackendTest):
         targettoken = TargetToken()
         loop = parse("""
         [i0]
-        label(i0)
+        label(i0, descr=targettoken)
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 9)
         jump(i1, descr=targettoken)
