@@ -161,6 +161,11 @@ class Node(object):
         self.adjacent_list = []
         self.adjacent_list_back = []
 
+    def exits_early(self):
+        if self.op.is_guard():
+            return isinstance(self.op.getdescr(), compile.ResumeAtLoopHeaderDescr)
+        return False
+
     def is_guard_early_exit(self):
         return self.op.getopnum() == rop.GUARD_EARLY_EXIT
 
@@ -529,9 +534,12 @@ class DependencyGraph(object):
                 for arg in op.getarglist():
                     tracker.depends_on_arg(arg, node)
             elif op.is_guard():
-                if len(self.guards) > 0:
-                    last_guard = self.guards[-1]
-                    last_guard.edge_to(node, "guardorder")
+                if node.exits_early():
+                    pass
+                else:
+                    if len(self.guards) > 0:
+                        last_guard = self.guards[-1]
+                        last_guard.edge_to(node, "guardorder")
                 self.guards.append(node)
             else:
                 self.build_non_pure_dependencies(node, tracker)
@@ -618,14 +626,15 @@ class DependencyGraph(object):
         if guard_op.getopnum() >= rop.GUARD_NOT_INVALIDATED:
             # ignore invalidated & future condition guard & early exit
             return
-        descr = guard_op.getdescr()
-        if isinstance(descr, compile.ResumeAtLoopHeaderDescr):
-            return
         # true dependencies
         for arg in guard_op.getarglist():
             tracker.depends_on_arg(arg, guard_node)
         # dependencies to uses of arguments it protects
         self.guard_argument_protection(guard_node, tracker)
+        #
+        descr = guard_op.getdescr()
+        if isinstance(descr, compile.ResumeAtLoopHeaderDescr):
+            return
         # handle fail args
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():

@@ -134,7 +134,7 @@ class OpParser(object):
                 lbracket = elem.find('[')
                 number = elem[1:lbracket]
             else:
-                box = self.model.BoxVector()
+                box = self.model.BoxVector('f',-1,-1,False)
                 number = elem[1:]
             _box_counter_more_than(self.model, number)
         else:

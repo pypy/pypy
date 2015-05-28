@@ -173,16 +173,15 @@ class VectorizingOptimizer(Optimizer):
         orig_jump_args = jump_op.getarglist()[:]
         # it is assumed that #label_args == #jump_args
         label_arg_count = len(orig_jump_args)
-        rename_map = {}
+        renamer = Renamer()
         for i in range(0, unroll_count):
             # fill the map with the renaming boxes. keys are boxes from the label
             for i in range(label_arg_count):
                 la = label_op.getarg(i)
                 ja = jump_op.getarg(i)
-                if ja in rename_map:
-                    ja = rename_map[ja]
+                ja = renamer.rename_box(ja)
                 if la != ja:
-                    rename_map[la] = ja
+                    renamer.start_renaming(la, ja)
             #
             for oi, op in enumerate(operations):
                 if op.getopnum() in prohibit_opnums:
@@ -192,16 +191,13 @@ class VectorizingOptimizer(Optimizer):
                     # every result assigns a new box, thus creates an entry
                     # to the rename map.
                     new_assigned_box = copied_op.result.clonebox()
-                    rename_map[copied_op.result] = new_assigned_box
+                    renamer.start_renaming(copied_op.result, new_assigned_box)
                     copied_op.result = new_assigned_box
                 #
                 args = copied_op.getarglist()
                 for i, arg in enumerate(args):
-                    try:
-                        value = rename_map[arg]
-                        copied_op.setarg(i, value)
-                    except KeyError:
-                        pass
+                    value = renamer.rename_box(arg)
+                    copied_op.setarg(i, value)
                 # not only the arguments, but also the fail args need
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
@@ -209,10 +205,15 @@ class VectorizingOptimizer(Optimizer):
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
                     if oi < ee_pos:
-                        #self.clone_failargs(copied_op, ee_guard, rename_map)
+                        # do not clone the arguments, it is already an early exit
                         pass
                     else:
-                        self.clone_failargs(copied_op, copied_op, rename_map)
+                        copied_op.rd_snapshot = \
+                          renamer.rename_rd_snapshot(copied_op.rd_snapshot,
+                                                     clone=True)
+                        renamed_failargs = renamer.rename_failargs(copied_op,
+                                                                   clone=True)
+                        copied_op.setfailargs(renamed_failargs)
                 #
                 self.emit_unrolled_operation(copied_op)
 
@@ -221,43 +222,10 @@ class VectorizingOptimizer(Optimizer):
         # must look like this: label(i(X+1)) ... jump(i(X+2))
         args = jump_op.getarglist()
         for i, arg in enumerate(args):
-            try:
-                value = rename_map[arg]
-                jump_op.setarg(i, value)
-            except KeyError:
-                pass
+            value = renamer.rename_box(arg)
+            jump_op.setarg(i, value)
 
         self.emit_unrolled_operation(jump_op)
-
-    def clone_failargs(self, guard, target_guard, rename_map):
-        snapshot = self.clone_snapshot(target_guard.rd_snapshot, rename_map)
-        guard.rd_snapshot = snapshot
-        if guard.getfailargs():
-            args = target_guard.getfailargs()[:]
-            for i,arg in enumerate(args):
-                try:
-                    value = rename_map[arg]
-                    args[i] = value
-                except KeyError:
-                    pass
-            guard.setfailargs(args)
-
-    def clone_snapshot(self, snapshot, rename_map):
-        # snapshots are nested like the MIFrames
-        if snapshot is None:
-            return None
-        boxes = snapshot.boxes
-        new_boxes = boxes[:]
-        for i,box in enumerate(boxes):
-            try:
-                value = rename_map[box]
-                new_boxes[i] = value
-            except KeyError:
-                pass
-
-        snapshot = Snapshot(self.clone_snapshot(snapshot.prev, rename_map),
-                            new_boxes)
-        return snapshot
 
     def linear_find_smallest_type(self, loop):
         # O(#operations)
@@ -487,15 +455,65 @@ class VectorizingOptimizer(Optimizer):
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
                 guard_node.relax_guard_to(ee_guard_node)
 
+class Renamer(object):
+    def __init__(self):
+        self.rename_map = {}
+
+    def rename_box(self, box):
+        return self.rename_map.get(box, box)
+
+    def start_renaming(self, var, tovar):
+        self.rename_map[var] = tovar
+
+    def rename(self, op):
+        for i, arg in enumerate(op.getarglist()):
+            arg = self.rename_map.get(arg, arg)
+            op.setarg(i, arg)
+
+        if op.is_guard():
+            op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot)
+            self.rename_failargs(op)
+
+        return True
+
+    def rename_failargs(self, guard, clone=False):
+        if guard.getfailargs() is not None:
+            if clone:
+                args = guard.getfailargs()[:]
+            else:
+                args = guard.getfailargs()
+            for i,arg in enumerate(args):
+                value = self.rename_map.get(arg,arg)
+                args[i] = value
+            return args
+        return None
+
+    def rename_rd_snapshot(self, snapshot, clone=False):
+        # snapshots are nested like the MIFrames
+        if snapshot is None:
+            return None
+        if clone:
+            boxes = snapshot.boxes[:]
+        else:
+            boxes = snapshot.boxes
+        for i,box in enumerate(boxes):
+            value = self.rename_map.get(box,box)
+            boxes[i] = value
+        #
+        rec_snap = self.rename_rd_snapshot(snapshot.prev, clone)
+        return Snapshot(rec_snap, boxes)
+
 class Guard(object):
     """ An object wrapper around a guard. Helps to determine
         if one guard implies another
     """
-    def __init__(self, op, cmp_op, lhs, rhs):
+    def __init__(self, op, cmp_op, lhs, lhs_arg, rhs, rhs_arg):
         self.op = op
         self.cmp_op = cmp_op
         self.lhs = lhs
         self.rhs = rhs
+        self.lhs_arg = lhs_arg
+        self.rhs_arg = rhs_arg
         self.emitted = False
         self.stronger = False
 
@@ -556,10 +574,10 @@ class Guard(object):
         #
         raise RuntimeError("cannot compare: " + str(key1) + " <=> " + str(key2))
 
-    def emit_varops(self, opt, var):
+    def emit_varops(self, opt, var, old_arg):
         if isinstance(var, IndexVar):
             box = var.emit_operations(opt)
-            opt._same_as[var] = box
+            opt.renamer.start_renaming(old_arg, box)
             return box
         else:
             return var
@@ -567,21 +585,14 @@ class Guard(object):
     def emit_operations(self, opt):
         lhs, opnum, rhs = opt._get_key(self.cmp_op)
         # create trace instructions for the index
-        box_lhs = self.emit_varops(opt, self.lhs)
-        box_rhs = self.emit_varops(opt, self.rhs)
+        box_lhs = self.emit_varops(opt, self.lhs, self.lhs_arg)
+        box_rhs = self.emit_varops(opt, self.rhs, self.rhs_arg)
         box_result = self.cmp_op.result.clonebox()
         opt.emit_operation(ResOperation(opnum, [box_lhs, box_rhs], box_result))
         # guard
         guard = self.op.clone()
         guard.setarg(0, box_result)
         opt.emit_operation(guard)
-        #if guard.getfailargs():
-        #    py.test.set_trace()
-        #    failargs = guard.getfailargs()
-        #    for i,arg in enumerate(failargs):
-        #        same_as = opt._same_as.get(arg, None)
-        #        if same_as:
-        #            failargs[i] = same_as
 
 class GuardStrengthenOpt(object):
     def __init__(self, index_vars):
@@ -643,15 +654,19 @@ class GuardStrengthenOpt(object):
                     rhs = self.index_vars.get(rhs_arg, rhs_arg)
                     strongest = strongest_guards.get(key, None)
                     if not strongest:
-                        strongest_guards[key] = Guard(op, cmp_op, lhs, rhs)
-                    else:
-                        guard = Guard(op, cmp_op, lhs, rhs)
+                        strongest_guards[key] = Guard(op, cmp_op,
+                                                      lhs, lhs_arg,
+                                                      rhs, rhs_arg)
+                    else: # implicit index(strongest) < index(current)
+                        guard = Guard(op, cmp_op,
+                                      lhs, lhs_arg, rhs, rhs_arg)
                         if guard.implies(strongest, self):
                             guard.stronger = True
                             strongest_guards[key] = guard
                         elif strongest.implies(guard, self):
                             implied_guards[op] = True
         #
+        self.renamer = Renamer()
         last_op_idx = len(operations)-1
         for i,op in enumerate(operations):
             op = operations[i]
@@ -677,19 +692,15 @@ class GuardStrengthenOpt(object):
                 # emit a same_as op if a box uses the same index variable
                 index_var = self.index_vars.get(op.result, None)
                 if index_var:
-                    box = self._same_as.get(index_var, None)
-                    if box:
-                        self.emit_operation(ResOperation(rop.SAME_AS, [box], op.result))
+                    if not index_var.is_identity():
+                        index_var.emit_operations(self, op.result)
                         continue
-                    else:
-                        if not index_var.is_identity():
-                            index_var.emit_operations(self, op.result)
-                            continue
             self.emit_operation(op)
 
         loop.operations = self._newoperations[:]
 
     def emit_operation(self, op):
+        self.renamer.rename(op)
         self._newoperations.append(op)
 
 
