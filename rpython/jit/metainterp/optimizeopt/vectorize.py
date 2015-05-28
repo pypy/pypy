@@ -507,14 +507,15 @@ class Guard(object):
     """ An object wrapper around a guard. Helps to determine
         if one guard implies another
     """
-    def __init__(self, op, cmp_op, lhs, lhs_arg, rhs, rhs_arg):
+    def __init__(self, index, op, cmp_op, lhs, lhs_arg, rhs, rhs_arg):
+        self.index = index
         self.op = op
         self.cmp_op = cmp_op
         self.lhs = lhs
         self.rhs = rhs
         self.lhs_arg = lhs_arg
         self.rhs_arg = rhs_arg
-        self.emitted = False
+        self.implied = False
         self.stronger = False
 
     def implies(self, guard, opt):
@@ -638,7 +639,7 @@ class GuardStrengthenOpt(object):
     def propagate_all_forward(self, loop):
         """ strengthens the guards that protect an integral value """
         strongest_guards = {}
-        implied_guards = {}
+        guards = {}
         # the guards are ordered. guards[i] is before guards[j] iff i < j
         operations = loop.operations
         last_guard = None
@@ -652,44 +653,43 @@ class GuardStrengthenOpt(object):
                     lhs = self.index_vars.get(lhs_arg, lhs_arg)
                     rhs_arg = cmp_op.getarg(1)
                     rhs = self.index_vars.get(rhs_arg, rhs_arg)
-                    strongest = strongest_guards.get(key, None)
-                    if not strongest:
-                        strongest_guards[key] = Guard(op, cmp_op,
-                                                      lhs, lhs_arg,
-                                                      rhs, rhs_arg)
+                    other = strongest_guards.get(key, None)
+                    if not other:
+                        guard = Guard(i, op, cmp_op,
+                                      lhs, lhs_arg,
+                                      rhs, rhs_arg)
+                        strongest_guards[key] = guard
+                        # nothing known, at this position emit the guard
+                        guards[i] = guard
                     else: # implicit index(strongest) < index(current)
-                        guard = Guard(op, cmp_op,
+                        guard = Guard(i, op, cmp_op,
                                       lhs, lhs_arg, rhs, rhs_arg)
-                        if guard.implies(strongest, self):
-                            guard.stronger = True
+                        if guard.implies(other, self):
                             strongest_guards[key] = guard
-                        elif strongest.implies(guard, self):
-                            implied_guards[op] = True
+                            guard.stronger = True
+                            guard.index = other.index
+                            guards[other.index] = guard
+                            # do not mark as emit
+                            continue
+                        elif other.implies(guard, self):
+                            guard.implied = True
+                        # mark as emit
+                        guards[i] = guard
+        strongest_guards = None
         #
         self.renamer = Renamer()
         last_op_idx = len(operations)-1
         for i,op in enumerate(operations):
             op = operations[i]
             if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
-                if implied_guards.get(op, False):
-                    # this guard is implied, thus removed
+                guard = guards.get(i, None)
+                if not guard or guard.implied:
+                    # this guard is implied or marked as not emitted (= None)
                     continue
-                key = self.get_key(op, operations, i)
-                if key[0] is not None:
-                    strongest = strongest_guards.get(key, None)
-                    if not strongest or not strongest.stronger:
-                        # If the key is not None and there _must_ be a strongest
-                        # guard. If strongest is None, this operation implies the
-                        # strongest guard that has been already been emitted.
-                        self.emit_operation(op)
-                        continue
-                    elif strongest.emitted:
-                        continue
-                    strongest.emit_operations(self)
-                    strongest.emitted = True
+                if guard.stronger:
+                    guard.emit_operations(self)
                     continue
             if op.result:
-                # emit a same_as op if a box uses the same index variable
                 index_var = self.index_vars.get(op.result, None)
                 if index_var:
                     if not index_var.is_identity():
@@ -981,7 +981,7 @@ class OpToVectorOp(object):
                 arg = op.getoperation().getarg(argidx)
                 new_box = vbox.clonebox()
                 resop = ResOperation(opnum,
-                                     [vbox,ConstInt(i),arg], new_box)
+                                     [vbox,arg,ConstInt(i),ConstInt(0)], new_box)
                 vbox = new_box
                 self.preamble_ops.append(resop)
         return vbox

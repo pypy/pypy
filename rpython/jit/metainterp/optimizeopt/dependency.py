@@ -392,6 +392,10 @@ class DefTracker(object):
     def __init__(self, graph):
         self.graph = graph
         self.defs = {}
+        self.non_pure = []
+
+    def add_non_pure(self, node):
+        self.non_pure.append(node)
 
     def define(self, arg, node, argcell=None):
         if isinstance(arg, Const):
@@ -537,9 +541,13 @@ class DependencyGraph(object):
                 if node.exits_early():
                     pass
                 else:
+                    # consider cross iterations?
                     if len(self.guards) > 0:
                         last_guard = self.guards[-1]
                         last_guard.edge_to(node, "guardorder")
+                    for nonpure in tracker.non_pure:
+                        nonpure.edge_to(node, failarg=True)
+                    tracker.non_pure = []
                 self.guards.append(node)
             else:
                 self.build_non_pure_dependencies(node, tracker)
@@ -689,6 +697,8 @@ class DependencyGraph(object):
             if len(self.guards) > 0:
                 last_guard = self.guards[-1]
                 last_guard.edge_to(node, "sideeffect")
+            # and the next guard instruction
+            tracker.add_non_pure(node)
 
     def __repr__(self):
         graph = "graph([\n"

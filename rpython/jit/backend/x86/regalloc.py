@@ -1579,20 +1579,20 @@ class RegAlloc(BaseRegalloc):
     del consider_vec_logic
 
     def consider_vec_int_pack(self, op):
-        index = op.getarg(1)
-        arg = op.getarg(2)
+        # new_res = vec_int_pack(res, src, index, count)
+        arg = op.getarg(1)
+        index = op.getarg(2)
+        count = op.getarg(3)
         assert isinstance(index, ConstInt)
+        assert isinstance(count, ConstInt)
         args = op.getarglist()
         srcloc = self.make_sure_var_in_reg(arg, args)
         resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        residx = 0
+        residx = index.value # where to put it in result?
+        srcidx = 0
         assert isinstance(op.result, BoxVector)
-        args = op.getarglist()
         size = op.result.getsize()
-        count = 1
-        if isinstance(arg, BoxVector):
-            count = arg.getcount()
-        arglocs = [resloc, srcloc, imm(index.value), imm(0), imm(count), imm(size)]
+        arglocs = [resloc, srcloc, imm(residx), imm(srcidx), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
 
     consider_vec_float_pack = consider_vec_int_pack

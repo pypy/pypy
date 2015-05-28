@@ -2696,7 +2696,7 @@ class Assembler386(BaseAssembler):
                         # if source is a normal register (unpack)
                         assert count == 1
                         assert si == 0
-                        self.mc.MOVAPS(X86_64_XMM_SCRATCH_REG, srcloc)
+                        self.mc.move(X86_64_XMM_SCRATCH_REG, srcloc)
                         src = X86_64_XMM_SCRATCH_REG.value
                     select = ((si & 0x3) << 6)|((ri & 0x3) << 4)
                     self.mc.INSERTPS_xxi(resloc.value, src, select)
