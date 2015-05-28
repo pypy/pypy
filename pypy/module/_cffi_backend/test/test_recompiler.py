@@ -7,7 +7,8 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
-def prepare(space, cdef, module_name, source, w_includes=None):
+def prepare(space, cdef, module_name, source, w_includes=None,
+            w_extra_source=None):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -45,9 +46,13 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     ffi.emit_c_code(c_file)
 
     base_module_name = module_name.split('.')[-1]
+    sources = []
+    if w_extra_source is not None:
+        sources.append(space.str_w(w_extra_source))
     ext = ffiplatform.get_extension(c_file, module_name,
             include_dirs=[str(rdir)],
-            export_symbols=['_cffi_pypyinit_' + base_module_name])
+            export_symbols=['_cffi_pypyinit_' + base_module_name],
+            sources=sources)
     ffiplatform.compile(str(rdir), ext)
 
     for extension in ['so', 'pyd', 'dylib']:
@@ -79,6 +84,8 @@ class AppTestRecompiler:
         if cls.runappdirect:
             py.test.skip("not a test for -A")
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
+        cls.w_udir = cls.space.wrap(str(udir))
+        cls.w_os_sep = cls.space.wrap(os.sep)
 
     def setup_method(self, meth):
         self._w_modules = self.space.appexec([], """():
@@ -849,3 +856,15 @@ class AppTestRecompiler:
         p = ffi.addressof(lib, 'globvar')
         assert ffi.typeof(p) == ffi.typeof('opaque_t *')
         assert ffi.string(ffi.cast("char *", p), 8) == "hello"
+
+    def test_constant_of_value_unknown_to_the_compiler(self):
+        extra_c_source = self.udir + self.os_sep + (
+            'extra_test_constant_of_value_unknown_to_the_compiler.c')
+        with open(extra_c_source, 'w') as f:
+            f.write('const int external_foo = 42;\n')
+        ffi, lib = self.prepare(
+            "const int external_foo;",
+            'test_constant_of_value_unknown_to_the_compiler',
+            "extern const int external_foo;",
+            extra_source=extra_c_source)
+        assert lib.external_foo == 42
