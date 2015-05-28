@@ -66,6 +66,9 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     """)
     ffiobject = space.getitem(w_res, space.wrap(0))
     ffiobject._test_recompiler_source_ffi = ffi
+    if not hasattr(space, '_cleanup_ffi'):
+        space._cleanup_ffi = []
+    space._cleanup_ffi.append(ffiobject)
     return w_res
 
 
@@ -84,6 +87,10 @@ class AppTestRecompiler:
         """)
 
     def teardown_method(self, meth):
+        if hasattr(self.space, '_cleanup_ffi'):
+            for ffi in self.space._cleanup_ffi:
+                del ffi.cached_types     # try to prevent cycles
+            del self.space._cleanup_ffi
         self.space.appexec([self._w_modules], """(old_modules):
             import sys
             for key in sys.modules.keys():
@@ -799,3 +806,19 @@ class AppTestRecompiler:
         assert addr(0xABC05) == 47
         assert isinstance(addr, ffi.CData)
         assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
+
+    def test_issue198(self):
+        ffi, lib = self.prepare("""
+            typedef struct{...;} opaque_t;
+            const opaque_t CONSTANT;
+            int toint(opaque_t);
+        """, 'test_issue198', """
+            typedef int opaque_t;
+            #define CONSTANT ((opaque_t)42)
+            static int toint(opaque_t o) { return o; }
+        """)
+        def random_stuff():
+            pass
+        assert lib.toint(lib.CONSTANT) == 42
+        random_stuff()
+        assert lib.toint(lib.CONSTANT) == 42

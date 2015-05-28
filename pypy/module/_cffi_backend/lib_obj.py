@@ -131,9 +131,10 @@ class W_LibObject(W_Root):
                     g.c_address)
                 assert fetch_funcptr
                 assert w_ct.size > 0
-                with lltype.scoped_alloc(rffi.CCHARP.TO, w_ct.size) as ptr:
-                    fetch_funcptr(ptr)
-                    w_result = w_ct.convert_to_object(ptr)
+                ptr = lltype.malloc(rffi.CCHARP.TO, w_ct.size, flavor='raw')
+                self.ffi._finalizer.free_mems.append(ptr)
+                fetch_funcptr(ptr)
+                w_result = w_ct.convert_to_object(ptr)
                 #
             elif op == cffi_opcode.OP_DLOPEN_FUNC:
                 # For dlopen(): the function of the given 'name'.  We use
