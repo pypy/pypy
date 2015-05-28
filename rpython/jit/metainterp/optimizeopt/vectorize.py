@@ -35,10 +35,7 @@ def debug_print_operations(loop):
         for i,op in enumerate(loop.operations):
             print "[",str(i).center(2," "),"]",op,
             if op.is_guard():
-                if op.rd_snapshot is not None:
-                    print ps(op.rd_snapshot)
-                else:
-                    print op.getfailargs()
+                print op.getfailargs()
             else:
                 print ""
 
@@ -356,13 +353,14 @@ class VectorizingOptimizer(Optimizer):
         self.clear_newoperations()
         sched_data = VecScheduleData(self.metainterp_sd.cpu.vector_register_size)
         scheduler = Scheduler(self.dependency_graph, sched_data)
+        renamer = Renamer()
         while scheduler.has_more():
             position = len(self._newoperations)
             ops = scheduler.next(position)
             for op in ops:
                 if self.tried_to_pack:
-                    self.unpack_from_vector(op, sched_data)
-                self.emit_operation(op)
+                    self.unpack_from_vector(op, sched_data, renamer)
+                self.emit_operation(op), op.getfailargs()
 
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
@@ -370,26 +368,27 @@ class VectorizingOptimizer(Optimizer):
         self.loop.operations = self._newoperations[:]
         self.clear_newoperations()
 
-    def unpack_from_vector(self, op, sched_data):
+    def unpack_from_vector(self, op, sched_data, renamer):
+        renamer.rename(op)
         args = op.getarglist()
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
-                argument = self._unpack_from_vector(i, arg, sched_data)
+                argument = self._unpack_from_vector(i, arg, sched_data, renamer)
                 if arg is not argument:
                     op.setarg(i, argument)
         if op.is_guard():
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
                 if arg and isinstance(arg, Box):
-                    argument = self._unpack_from_vector(i, arg, sched_data)
+                    argument = self._unpack_from_vector(i, arg, sched_data, renamer)
                     if arg is not argument:
                         fail_args[i] = argument
 
-    def _unpack_from_vector(self, i, arg, sched_data):
-        arg = sched_data.unpack_rename(arg)
+    def _unpack_from_vector(self, i, arg, sched_data, renamer):
         (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
         if vbox:
             arg_cloned = arg.clonebox()
+            renamer.start_renaming(arg, arg_cloned)
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = rop.VEC_FLOAT_UNPACK
@@ -397,8 +396,7 @@ class VectorizingOptimizer(Optimizer):
                 opnum = rop.VEC_INT_UNPACK
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.emit_operation(unpack_op)
-            sched_data.rename_unpacked(arg, arg_cloned)
-            arg = arg_cloned
+            return arg_cloned
         return arg
 
     def analyse_index_calculations(self):
@@ -665,16 +663,26 @@ class GuardStrengthenOpt(object):
                         guard = Guard(i, op, cmp_op,
                                       lhs, lhs_arg, rhs, rhs_arg)
                         if guard.implies(other, self):
+                            op.setfailargs(other.op.getfailargs())
+                            op.setdescr(other.op.getdescr())
+                            op.rd_frame_info_list = other.op.rd_frame_info_list
+                            op.rd_snapshot = other.op.rd_snapshot
+
                             strongest_guards[key] = guard
                             guard.stronger = True
                             guard.index = other.index
                             guards[other.index] = guard
+
                             # do not mark as emit
                             continue
                         elif other.implies(guard, self):
                             guard.implied = True
                         # mark as emit
                         guards[i] = guard
+                else:
+                    # emit non guard_true/false guards
+                    guards[i] = Guard(i, op, None, None, None, None, None)
+
         strongest_guards = None
         #
         self.renamer = Renamer()
@@ -702,7 +710,6 @@ class GuardStrengthenOpt(object):
     def emit_operation(self, op):
         self.renamer.rename(op)
         self._newoperations.append(op)
-
 
 def must_unpack_result_to_exec(op, target_op):
     # TODO either move to resop or util
@@ -1106,16 +1113,9 @@ ROP_ARG_RES_VECTOR = {
 class VecScheduleData(SchedulerData):
     def __init__(self, vec_reg_size):
         self.box_to_vbox = {}
-        self.unpack_rename_map = {}
         self.preamble_ops = None
         self.expansion_byte_count = -1
         self.vec_reg_size = vec_reg_size
-
-    def unpack_rename(self, arg):
-        return self.unpack_rename_map.get(arg, arg)
-
-    def rename_unpacked(self, arg, argdest):
-        self.unpack_rename_map[arg] = argdest
 
     def as_vector_operation(self, pack):
         op_count = len(pack.operations)

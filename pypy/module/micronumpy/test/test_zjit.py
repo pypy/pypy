@@ -347,7 +347,6 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_reduce_compile_only_once(self):
-        py.test.skip('TODO')
         self.compile_graph()
         reset_jit()
         i = self.code_mapping['reduce']
@@ -358,7 +357,6 @@ class TestNumpyJit(Jit386Mixin):
         assert len(get_stats().loops) == 1
 
     def test_reduce_axis_compile_only_once(self):
-        py.test.skip('TODO')
         self.compile_graph()
         reset_jit()
         i = self.code_mapping['axissum']
@@ -375,22 +373,12 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_prod(self):
-        py.test.skip('TODO')
         result = self.run("prod")
         expected = 1
         for i in range(30):
             expected *= i * 2
         assert result == expected
         self.check_trace_count(1)
-        self.check_simple_loop({
-            'float_mul': 1,
-            'guard_false': 1,
-            'guard_not_invalidated': 1,
-            'int_add': 2,
-            'int_ge': 1,
-            'jump': 1,
-            'raw_load': 1,
-        })
 
     def define_max():
         return """
@@ -400,38 +388,9 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_max(self):
-        py.test.skip('TODO')
         result = self.run("max")
         assert result == 128
         self.check_trace_count(3)
-        self.check_simple_loop({
-            'float_ge': 1,
-            'float_ne': 1,
-            'guard_false': 3,
-            'guard_not_invalidated': 1,
-            'int_add': 2,
-            'int_ge': 1,
-            'jump': 1,
-            'raw_load': 1,
-        })
-        self.check_resops({
-            'float_ge': 2,
-            'float_ne': 2,
-            'getfield_gc': 4,
-            'getfield_gc_pure': 30,
-            'guard_class': 1,
-            'guard_false': 8,
-            'guard_nonnull': 2,
-            'guard_nonnull_class': 2,
-            'guard_not_invalidated': 2,
-            'guard_true': 7,
-            'guard_value': 2,
-            'int_add': 8,
-            'int_ge': 4,
-            'int_is_true': 3,
-            'jump': 3,
-            'raw_load': 2,
-        })
 
     def define_min():
         return """
@@ -441,20 +400,9 @@ class TestNumpyJit(Jit386Mixin):
         """
 
     def test_min(self):
-        py.test.skip('TODO')
         result = self.run("min")
         assert result == -128
         self.check_trace_count(1)
-        self.check_simple_loop({
-            'float_le': 1,
-            'guard_false': 1,
-            'guard_not_invalidated': 1,
-            'guard_true': 1,
-            'int_add': 2,
-            'int_ge': 1,
-            'jump': 1,
-            'raw_load': 1,
-        })
 
     def define_any():
         return """

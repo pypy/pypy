@@ -1278,6 +1278,25 @@ class BaseTestVectorize(VecTestHelper):
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
 
+    def test_max(self):
+        trace = """
+        [p3, i4, p2, i5, f6, i7, i8]
+        guard_early_exit() [p2, f6, i4, i5, p3]
+        f9 = raw_load(i7, i5, descr=floatarraydescr)
+        guard_not_invalidated() [p2, f9, f6, i4, i5, p3]
+        i10 = float_ge(f6, f9)
+        guard_false(i10) [p2, f9, f6, None, i4, i5, p3]
+        i12 = float_ne(f6, f6)
+        guard_false(i12) [p2, f9, f6, None, i4, i5, p3]
+        i14 = int_add(i4, 1)
+        i16 = int_add(i5, 8)
+        i17 = int_ge(i14, i8)
+        guard_false(i17) [p2, i16, f9, i14, None, None, None, p3]
+        jump(p3, i14, p2, i16, f9, i7, i8)
+        """
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
     def test_reduction_basic(self):
         trace = """
         [p5, i6, p2, i7, p1, p8, i9, i10, f11, i12, i13, i14]
