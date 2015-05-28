@@ -276,6 +276,8 @@ class PyPyTarget(object):
             config.objspace.usemodules.pypyjit = True
         elif config.objspace.usemodules.pypyjit:
             config.translation.jit = True
+        else:
+            config.objspace.usemodules._vmprof = False
 
         if config.translation.sandbox:
             config.objspace.lonepycfiles = False
