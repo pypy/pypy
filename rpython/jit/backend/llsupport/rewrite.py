@@ -28,7 +28,7 @@ class GcRewriterAssembler(object):
      - Add COND_CALLs to the write barrier before SETFIELD_GC and
        SETARRAYITEM_GC operations.
 
-    'write_barrier_applied' contains a dictionary of variable -> None.
+    '_write_barrier_applied' contains a dictionary of variable -> None.
     If a variable is in the dictionary, next setfields can be called without
     a write barrier.  The idea is that an object that was freshly allocated
     or already write_barrier'd don't need another write_barrier if there
@@ -45,11 +45,38 @@ class GcRewriterAssembler(object):
         self.gc_ll_descr = gc_ll_descr
         self.cpu = cpu
         self._newops = []
-        self.known_lengths = {}
-        self.write_barrier_applied = {}
-        self.delayed_zero_setfields = {}
+        self._known_lengths = {}
+        self._write_barrier_applied = {}
+        self._delayed_zero_setfields = {}
         self.last_zero_arrays = []
-        self.setarrayitems_occurred = {}   # {box: {set-of-indexes}}
+        self._setarrayitems_occurred = {}   # {box: {set-of-indexes}}
+
+    def remember_known_length(self, op, val):
+        self._known_lengths[op] = val
+
+    def remember_setarrayitem_occured(self, op, index):
+        op = self.get_box_replacement(op)
+        try:
+            subs = self._setarrayitems_occurred[op]
+        except KeyError:
+            subs = {}
+            self._setarrayitems_occurred[op] = subs
+        subs[index] = None
+
+    def setarrayitems_occurred(self, op):
+        return self._setarrayitems_occurred[self.get_box_replacement(op)]
+
+    def known_length(self, op, default):
+        return self._known_lengths.get(op, default)
+
+    def delayed_zero_setfields(self, op):
+        op = self.get_box_replacement(op)
+        try:
+            d = self._delayed_zero_setfields[op]
+        except KeyError:
+            d = {}
+            self._delayed_zero_setfields[op] = d
+        return d
 
     def get_box_replacement(self, op):
         while op.get_forwarded():
@@ -96,7 +123,7 @@ class GcRewriterAssembler(object):
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
-                self.known_lengths.clear()
+                self._known_lengths.clear()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -173,11 +200,7 @@ class GcRewriterAssembler(object):
     def clear_gc_fields(self, descr, result):
         if self.gc_ll_descr.malloc_zero_filled:
             return
-        try:
-            d = self.delayed_zero_setfields[result]
-        except KeyError:
-            d = {}
-            self.delayed_zero_setfields[result] = d
+        d = self.delayed_zero_setfields(result)
         for fielddescr in descr.gc_fielddescrs:
             ofs = self.cpu.unpack_fielddescr(fielddescr)
             d[ofs] = None
@@ -185,7 +208,8 @@ class GcRewriterAssembler(object):
     def consider_setfield_gc(self, op):
         offset = self.cpu.unpack_fielddescr(op.getdescr())
         try:
-            del self.delayed_zero_setfields[op.getarg(0)][offset]
+            del self._delayed_zero_setfields[
+                self.get_box_replacement(op.getarg(0))][offset]
         except KeyError:
             pass
 
@@ -193,11 +217,7 @@ class GcRewriterAssembler(object):
         array_box = op.getarg(0)
         index_box = op.getarg(1)
         if not isinstance(array_box, ConstPtr) and index_box.is_constant():
-            try:
-                intset = self.setarrayitems_occurred[array_box]
-            except KeyError:
-                intset = self.setarrayitems_occurred[array_box] = {}
-            intset[index_box.getint()] = None
+            self.remember_setarrayitem_occured(array_box, index_box.getint())
 
     def clear_varsize_gc_fields(self, kind, descr, result, v_length, opnum):
         if self.gc_ll_descr.malloc_zero_filled:
@@ -214,9 +234,9 @@ class GcRewriterAssembler(object):
             hash_descr = self.gc_ll_descr.unicode_hash_descr
         else:
             return
-        op = ResOperation(rop.SETFIELD_GC, [result, self.c_zero], None,
+        op = ResOperation(rop.SETFIELD_GC, [result, self.c_zero],
                           descr=hash_descr)
-        self.newops.append(op)
+        self.emit_op(op)
 
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
@@ -232,7 +252,7 @@ class GcRewriterAssembler(object):
         total_size = -1
         if isinstance(v_length, ConstInt):
             num_elem = v_length.getint()
-            self.known_lengths[op] = num_elem
+            self.remember_known_length(op, num_elem)
             try:
                 var_size = ovfcheck(arraydescr.itemsize * num_elem)
                 total_size = ovfcheck(arraydescr.basesize + var_size)
@@ -243,30 +263,27 @@ class GcRewriterAssembler(object):
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
               self.gen_malloc_nursery_varsize(arraydescr.itemsize,
               v_length, op, arraydescr, kind=kind)):
-            xxx
             # note that we cannot initialize tid here, because the array
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
-            self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
-            self.clear_varsize_gc_fields(kind, op.getdescr(), op.result,
+            self.gen_initialize_len(op, v_length, arraydescr.lendescr)
+            self.clear_varsize_gc_fields(kind, op.getdescr(), op,
                                          v_length, op.getopnum())
             return
         if (total_size >= 0 and
                 self.gen_malloc_nursery(total_size, op)):
-            xxx
-            self.gen_initialize_tid(op.result, arraydescr.tid)
-            self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
+            self.gen_initialize_tid(op, arraydescr.tid)
+            self.gen_initialize_len(op, v_length, arraydescr.lendescr)
         elif self.gc_ll_descr.kind == 'boehm':
             self.gen_boehm_malloc_array(arraydescr, v_length, op)
         else:
-            zzz
             opnum = op.getopnum()
             if opnum == rop.NEW_ARRAY or opnum == rop.NEW_ARRAY_CLEAR:
-                self.gen_malloc_array(arraydescr, v_length, op.result)
+                self.gen_malloc_array(arraydescr, v_length, op)
             elif opnum == rop.NEWSTR:
-                self.gen_malloc_str(v_length, op.result)
+                self.gen_malloc_str(v_length, op)
             elif opnum == rop.NEWUNICODE:
-                self.gen_malloc_unicode(v_length, op.result)
+                self.gen_malloc_unicode(v_length, op)
             else:
                 raise NotImplementedError(op.getopname())
         self.clear_varsize_gc_fields(kind, op.getdescr(), op, v_length,
@@ -279,52 +296,56 @@ class GcRewriterAssembler(object):
         # the ZERO_ARRAY operation will be optimized according to what
         # SETARRAYITEM_GC we see before the next allocation operation.
         # See emit_pending_zeros().
-        o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length], None,
+        o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
                          descr=arraydescr)
-        self.newops.append(o)
+        self.emit_op(o)
         if isinstance(v_length, ConstInt):
-            self.last_zero_arrays.append(o)
+            self.last_zero_arrays.append(self._newops[-1])
 
-    def gen_malloc_frame(self, frame_info, frame, size_box):
+    def gen_malloc_frame(self, frame_info):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            op0 = ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
-                               size_box,
+            size = ResOperation(rop.GETFIELD_RAW,
+                                    [history.ConstInt(frame_info)],
                                descr=descrs.jfi_frame_depth)
-            self.newops.append(op0)
-            op1 = ResOperation(rop.NEW_ARRAY, [size_box], frame,
+            self.emit_op(size)
+            frame = ResOperation(rop.NEW_ARRAY, [size],
                                descr=descrs.arraydescr)
-            self.handle_new_array(descrs.arraydescr, op1)
+            self.handle_new_array(descrs.arraydescr, frame)
+            return self.get_box_replacement(frame)
         else:
             # we read size in bytes here, not the length
-            op0 = ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
-                               size_box,
+            size = ResOperation(rop.GETFIELD_RAW_I,
+                                [history.ConstInt(frame_info)],
                                descr=descrs.jfi_frame_size)
-            self.newops.append(op0)
-            self.gen_malloc_nursery_varsize_frame(size_box, frame)
+            self.emit_op(size)
+            frame = self.gen_malloc_nursery_varsize_frame(size)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
-            length_box = history.BoxInt()
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
+            length = ResOperation(rop.GETFIELD_RAW_I,
+                                  [history.ConstInt(frame_info)],
+                                  descr=descrs.jfi_frame_depth)
             extra_ops = [
-                ResOperation(rop.GETFIELD_RAW, [history.ConstInt(frame_info)],
-                             length_box, descr=descrs.jfi_frame_depth),
+                length,
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
-                             None, descr=descrs.jf_extra_stack_depth),
+                             descr=descrs.jf_extra_stack_depth),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             None, descr=descrs.jf_savedata),
+                             descr=descrs.jf_savedata),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             None, descr=descrs.jf_force_descr),
+                             descr=descrs.jf_force_descr),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             None, descr=descrs.jf_descr),
+                             descr=descrs.jf_descr),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             None, descr=descrs.jf_guard_exc),
+                             descr=descrs.jf_guard_exc),
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             None, descr=descrs.jf_forward),
+                             descr=descrs.jf_forward),
             ]
-            self.newops += extra_ops
-            self.gen_initialize_len(frame, length_box,
+            for op in extra_ops:
+                self.emit_op(op)
+            self.gen_initialize_len(frame, length,
                                     descrs.arraydescr.lendescr)
+            return self.get_box_replacement(frame)
 
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
@@ -332,12 +353,10 @@ class GcRewriterAssembler(object):
         assert isinstance(loop_token, history.JitCellToken)
         jfi = loop_token.compiled_loop_token.frame_info
         llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
-        size_box = history.BoxInt()
-        frame = history.BoxPtr()
-        self.gen_malloc_frame(llfi, frame, size_box)
+        frame = self.gen_malloc_frame(llfi)
         op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstInt(llfi)],
-                           None, descr=descrs.jf_frame_info)
-        self.newops.append(op2)
+                           descr=descrs.jf_frame_info)
+        self.emit_op(op2)
         arglist = op.getarglist()
         index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):
@@ -345,10 +364,10 @@ class GcRewriterAssembler(object):
             assert self.cpu.JITFRAME_FIXED_SIZE & 1 == 0
             _, itemsize, _ = self.cpu.unpack_arraydescr_size(descr)
             index = index_list[i] // itemsize # index is in bytes
-            self.newops.append(ResOperation(rop.SETARRAYITEM_GC,
+            self.emit_op(ResOperation(rop.SETARRAYITEM_GC,
                                             [frame, ConstInt(index),
                                              arg],
-                                            None, descr))
+                                            descr))
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
@@ -357,8 +376,10 @@ class GcRewriterAssembler(object):
             args = [frame, arglist[jd.index_of_virtualizable]]
         else:
             args = [frame]
-        self.newops.append(ResOperation(rop.CALL_ASSEMBLER, args,
-                                        op.result, op.getdescr()))
+        call_asm = ResOperation(op.getopnum(), args,
+                                  op.getdescr())
+        self.replace_op_with(op, call_asm)
+        self.emit_op(call_asm)
 
     # ----------
 
@@ -369,8 +390,14 @@ class GcRewriterAssembler(object):
         # a write barrier as usual.
         # it also writes down all the pending zero ptr fields
         self._op_malloc_nursery = None
-        self.write_barrier_applied.clear()
+        self._write_barrier_applied.clear()
         self.emit_pending_zeros()
+
+    def write_barrier_applied(self, op):
+        return self.get_box_replacement(op) in self._write_barrier_applied
+
+    def remember_write_barrier(self, op):
+        self._write_barrier_applied[self.get_box_replacement(op)] = None
 
     def emit_pending_zeros(self):
         # First, try to rewrite the existing ZERO_ARRAY operations from
@@ -380,7 +407,7 @@ class GcRewriterAssembler(object):
             assert op.getopnum() == rop.ZERO_ARRAY
             box = op.getarg(0)
             try:
-                intset = self.setarrayitems_occurred[box]
+                intset = self.setarrayitems_occurred(box)
             except KeyError:
                 continue
             assert op.getarg(1).getint() == 0   # always 'start=0' initially
@@ -395,14 +422,15 @@ class GcRewriterAssembler(object):
             op.setarg(2, ConstInt(stop - start))
             # ^^ may be ConstInt(0); then the operation becomes a no-op
         del self.last_zero_arrays[:]
-        self.setarrayitems_occurred.clear()
+        self._setarrayitems_occurred.clear()
         #
         # Then write the ZERO_PTR_FIELDs that are still pending
-        for v, d in self.delayed_zero_setfields.iteritems():
+        for v, d in self._delayed_zero_setfields.iteritems():
+            v = self.get_box_replacement(v)
             for ofs in d.iterkeys():
                 op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)
                 self.emit_op(op)
-        self.delayed_zero_setfields.clear()
+        self._delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
         """Generate a CALL_MALLOC_GC with the given args."""
@@ -431,7 +459,7 @@ class GcRewriterAssembler(object):
         self._gen_call_malloc_gc(args, v_result, descr)
         # mark 'v_result' as freshly malloced, so not needing a write barrier
         # (this is always true because it's a fixed-size object)
-        self.write_barrier_applied[v_result] = None
+        self.remember_write_barrier(v_result)
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
@@ -495,23 +523,24 @@ class GcRewriterAssembler(object):
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
                           [ConstInt(kind), ConstInt(itemsize), v_length],
-                          v_result, descr=arraydescr)
-        self.newops.append(op)
+                          descr=arraydescr)
+        self.replace_op_with(v_result, op)
+        self.emit_op(op)
         # don't record v_result into self.write_barrier_applied:
         # it can be a large, young array with card marking, and then
         # the GC relies on the write barrier being called
         return True
 
-    def gen_malloc_nursery_varsize_frame(self, sizebox, v_result):
+    def gen_malloc_nursery_varsize_frame(self, sizebox):
         """ Generate CALL_MALLOC_NURSERY_VARSIZE_FRAME
         """
         self.emitting_an_operation_that_can_collect()
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
-                          [sizebox],
-                          v_result)
+                          [sizebox])
 
-        self.newops.append(op)
-        self.write_barrier_applied[v_result] = None
+        self.emit_op(op)
+        self.remember_write_barrier(op)
+        return op
 
     def gen_malloc_nursery(self, size, v_result):
         """Try to generate or update a CALL_MALLOC_NURSERY.
@@ -533,6 +562,7 @@ class GcRewriterAssembler(object):
                 op = ResOperation(rop.INT_ADD,
                                   [self._v_last_malloced_nursery,
                                    ConstInt(self._previous_size)])
+                self.replace_op_with(v_result, op)
         if op is None:
             # if we failed to merge with a previous MALLOC_NURSERY, emit one
             self.emitting_an_operation_that_can_collect()
@@ -544,7 +574,7 @@ class GcRewriterAssembler(object):
         self.emit_op(op)
         self._previous_size = size
         self._v_last_malloced_nursery = op
-        self.write_barrier_applied[op] = None
+        self.remember_write_barrier(op)
         return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
@@ -557,41 +587,39 @@ class GcRewriterAssembler(object):
 
     def gen_initialize_len(self, v_newgcobj, v_length, arraylen_descr):
         # produce a SETFIELD to initialize the array length
-        op = ResOperation(rop.SETFIELD_GC,
-                          [v_newgcobj, v_length], None,
-                          descr=arraylen_descr)
-        self.newops.append(op)
+        self.emit_op(ResOperation(rop.SETFIELD_GC, [v_newgcobj, v_length],
+                     descr=arraylen_descr))
 
     # ----------
 
     def handle_write_barrier_setfield(self, op):
         val = op.getarg(0)
-        if val not in self.write_barrier_applied:
+        if not self.write_barrier_applied(val):
             v = op.getarg(1)
-            if (isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                               rgc.needs_write_barrier(v.value))):
+            if (not isinstance(v, ConstPtr) or
+                rgc.needs_write_barrier(v.value)):
                 self.gen_write_barrier(val)
                 #op = op.copy_and_change(rop.SETFIELD_RAW)
-        self.newops.append(op)
+        self.emit_op(op)
 
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
-        if val not in self.write_barrier_applied:
+        if not self.write_barrier_applied(val):
             v = op.getarg(2)
-            if (isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                         rgc.needs_write_barrier(v.value))):
+            if (not isinstance(v, ConstPtr) or
+                rgc.needs_write_barrier(v.value)):
                 self.gen_write_barrier_array(val, op.getarg(1))
                 #op = op.copy_and_change(rop.SET{ARRAYITEM,INTERIORFIELD}_RAW)
-        self.newops.append(op)
+        self.emit_op(op)
 
     handle_write_barrier_setinteriorfield = handle_write_barrier_setarrayitem
 
     def gen_write_barrier(self, v_base):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
         args = [v_base]
-        self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
+        self.emit_op(ResOperation(rop.COND_CALL_GC_WB, args,
                                         descr=write_barrier_descr))
-        self.write_barrier_applied[v_base] = None
+        self.remember_write_barrier(v_base)
 
     def gen_write_barrier_array(self, v_base, v_index):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
@@ -600,12 +628,12 @@ class GcRewriterAssembler(object):
             # big, then produce a regular write_barrier.  If it's unknown or
             # too big, produce instead a write_barrier_from_array.
             LARGE = 130
-            length = self.known_lengths.get(v_base, LARGE)
+            length = self.known_length(v_base, LARGE)
             if length >= LARGE:
                 # unknown or too big: produce a write_barrier_from_array
                 args = [v_base, v_index]
-                self.newops.append(
-                    ResOperation(rop.COND_CALL_GC_WB_ARRAY, args, None,
+                self.emit_op(
+                    ResOperation(rop.COND_CALL_GC_WB_ARRAY, args,
                                  descr=write_barrier_descr))
                 # a WB_ARRAY is not enough to prevent any future write
                 # barriers, so don't add to 'write_barrier_applied'!
