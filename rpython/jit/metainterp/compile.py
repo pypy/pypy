@@ -333,7 +333,13 @@ def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                                             original_loop_token, log=log,
                                             logger=metainterp_sd.logger_ops)
 
+def forget_optimization_info(lst):
+    for item in lst:
+        item.set_forwarded(None)
+
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
+    forget_optimization_info(loop.operations)
+    forget_optimization_info(loop.inputargs)
     vinfo = jitdriver_sd.virtualizable_info
     if vinfo is not None:
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
@@ -388,6 +394,8 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
+    forget_optimization_info(operations)
+    forget_optimization_info(inputargs)
     if not we_are_translated():
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)

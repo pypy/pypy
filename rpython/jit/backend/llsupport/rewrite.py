@@ -95,6 +95,11 @@ class GcRewriterAssembler(object):
                     op = op.copy_and_change(op.getopnum())
                     replaced = True
                 op.setarg(i, arg)
+        if op.is_guard():
+            if not replaced:
+                op = op.copy_and_change(op.getopnum())
+            op.setfailargs([self.get_box_replacement(a)
+                            for a in op.getfailargs()])
         self._newops.append(op)
 
     def replace_op_with(self, op, newop):
