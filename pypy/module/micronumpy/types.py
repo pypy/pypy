@@ -2498,6 +2498,8 @@ def _setup():
             if issubclass(tp, ComplexFloating):
                 all_complex_types.append((tp, 'complex'))
                 complex_types.append(tp)
+    for l in [float_types, int_types, complex_types]:
+        l.sort(key=lambda tp: tp.num)
 _setup()
 del _setup
 
@@ -2577,9 +2579,8 @@ for tp1 in [Bool] + number_types:
                 if _can_cast(tp1, tp3) and _can_cast(tp2, tp3):
                     if result is None:
                         result = tp3
-                    else:
-                        if _can_cast(tp3, result):
-                            result = tp3
+                    elif _can_cast(tp3, result) and not _can_cast(result, tp3):
+                        result = tp3
             promotes(tp1, tp2, result)
 
 
