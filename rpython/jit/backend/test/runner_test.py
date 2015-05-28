@@ -2645,6 +2645,14 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.rarithmetic import r_singlefloat
         from rpython.translator.c import primitive
 
+        def same_as_for_box(b):
+            if b.type == 'i':
+                return rop.SAME_AS_I
+            elif b.type == 'f':
+                return rop.SAME_AS_F
+            else:
+                assert False
+
         cpu = self.cpu
         rnd = random.Random(525)
 
@@ -2785,7 +2793,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 load = rnd.random() < load_factor
                 loadcodes.append(' ^'[load])
                 if load:
-                    b2 = ResOperation(rop.SAME_AS_I, [b1])
+                    b2 = ResOperation(same_as_for_box(b1), [b1])
                     ops.insert(rnd.randrange(0, len(ops)+1), b2)
                     b1 = b2
                 insideboxes.append(b1)
@@ -2802,7 +2810,7 @@ class LLtypeBackendTest(BaseBackendTest):
             # keep alive a random subset of the insideboxes
             for b1 in insideboxes:
                 if rnd.random() < keepalive_factor:
-                    ops.insert(-1, ResOperation(rop.SAME_AS_I, [b1]))
+                    ops.insert(-1, ResOperation(same_as_for_box(b1), [b1]))
             looptoken = JitCellToken()
             self.cpu.compile_loop(argboxes, ops, looptoken)
             #
@@ -2865,7 +2873,7 @@ class LLtypeBackendTest(BaseBackendTest):
             op0 = ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
                                  + inputargs,
-                             descr=calldescr),
+                             descr=calldescr)
 
             ops = [
                 op0,
@@ -2937,9 +2945,10 @@ class LLtypeBackendTest(BaseBackendTest):
             op0 = ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
                                  + inputargs,
-                             descr=calldescr),
+                             descr=calldescr)
 
             ops = [
+                op0,
                 ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
                 ResOperation(rop.FINISH, [op0], descr=BasicFinalDescr(0))
             ]
@@ -3141,7 +3150,7 @@ class LLtypeBackendTest(BaseBackendTest):
             op0 = ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
                                  + inputargs,
-                             descr=calldescr),
+                             descr=calldescr)
 
             ops = [
                 op0,
