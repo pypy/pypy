@@ -397,7 +397,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if block.auto_inserted_return and depth != 0:
                 os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
                     self.compile_info.filename, self.name, self.first_lineno))
-                #raise StackDepthComputationError   # fatal error
+                raise StackDepthComputationError   # fatal error
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):
@@ -418,9 +418,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH):
-                    if jump_op == ops.SETUP_WITH:
-                        target_depth -= 1     # ignore the w_result just pushed
-                    target_depth += 3         # add [exc_type, exc, unroller]
+                    if jump_op == ops.SETUP_FINALLY:
+                        target_depth += 3
+                    elif jump_op == ops.SETUP_EXCEPT:
+                        target_depth += 4
+                    elif jump_op == ops.SETUP_WITH:
+                        target_depth += 2
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
@@ -597,13 +600,13 @@ _static_opcode_stack_effects = {
     ops.LOAD_BUILD_CLASS: 1,
     ops.STORE_LOCALS: -1,
     ops.POP_BLOCK: 0,
-    ops.POP_EXCEPT: 0,
-    ops.END_FINALLY: -3,     # assume always 3: we pretend that SETUP_FINALLY
-                             # pushes 3.  In truth, it would only push 1 and
+    ops.POP_EXCEPT: -1,
+    ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
+                             # pushes 4.  In truth, it would only push 1 and
                              # the corresponding END_FINALLY only pops 1.
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
-    ops.SETUP_EXCEPT: 4,
+    ops.SETUP_EXCEPT: 0,
 
     ops.RETURN_VALUE: -1,
     ops.YIELD_VALUE: 0,

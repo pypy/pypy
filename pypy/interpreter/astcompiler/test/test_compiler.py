@@ -478,6 +478,14 @@ class TestCompiler:
         yield self.st, decl, 'A,A1,A2,B2,C,C1,C2,D1,E,G,G1,G2,N1', \
                              (6,6 ,4 ,1 ,5,5 ,5 ,3 ,8,2,2 ,2 ,7 )
 
+    def test_try_except(self):
+        yield self.simple_test, """
+        x = 42
+        try:
+            pass
+        except:
+            x = 0
+        """, 'x', 42
 
     def test_try_except_finally(self):
         yield self.simple_test, """
