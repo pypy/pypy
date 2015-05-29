@@ -205,7 +205,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 count += 1
         return count
 
-    def setitem(self, index, item, cf=None):
+    def setitem(self, index, item, cf=None, optheap=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):

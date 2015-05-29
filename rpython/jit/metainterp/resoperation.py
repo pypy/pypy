@@ -1055,6 +1055,18 @@ class OpHelpers(object):
         return rop.CALL_ASSEMBLER_N
 
     @staticmethod
+    def call_loopinvariant_for_descr(descr):
+        tp = descr.get_result_type()
+        if tp == 'i':
+            return rop.CALL_LOOPINVARIANT_I
+        elif tp == 'r':
+            return rop.CALL_LOOPINVARIANT_R
+        elif tp == 'f':
+            return rop.CALL_LOOPINVARIANT_F
+        assert tp == 'v'
+        return rop.CALL_LOOPINVARIANT_N
+
+    @staticmethod
     def getfield_pure_for_descr(descr):
         if descr.is_pointer_field():
             return rop.GETFIELD_GC_PURE_R

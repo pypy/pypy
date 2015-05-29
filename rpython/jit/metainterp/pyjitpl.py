@@ -456,7 +456,12 @@ class MIFrame(object):
             # corresponds to what the cache thinks the value is
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         op, arraydescr, arraybox, indexbox)
-            assert resvalue == tobox.getref_base()
+            if op == 'i':
+                assert resvalue == tobox.getint()
+            elif op == 'r':
+                assert resvalue == tobox.getref_base()
+            elif op == 'f':
+                assert resvalue == tobox.getfloat()
             return tobox
         resop = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
@@ -1568,7 +1573,9 @@ class MIFrame(object):
             else:
                 effect = effectinfo.extraeffect
                 if effect == effectinfo.EF_LOOPINVARIANT:
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
+                    opnum = OpHelpers.call_loopinvariant_for_descr(descr)
+                    return self.execute_varargs(opnum,
+                                                allboxes,
                                                 descr, False, False)
                 exc = effectinfo.check_can_raise()
                 pure = effectinfo.check_is_elidable()

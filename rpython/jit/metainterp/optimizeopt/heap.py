@@ -321,10 +321,10 @@ class OptHeap(Optimization):
         #
         from rpython.rtyper.lltypesystem.rordereddict import FLAG_LOOKUP
         from rpython.rtyper.lltypesystem.rordereddict import FLAG_STORE
-        flag_value = self.getvalue(op.getarg(4))
+        flag_value = self.getintbound(op.getarg(4))
         if not flag_value.is_constant():
             return False
-        flag = flag_value.get_constant_int()
+        flag = flag_value.getint()
         if flag != FLAG_LOOKUP and flag != FLAG_STORE:
             return False
         #
@@ -344,11 +344,11 @@ class OptHeap(Optimization):
             res_v = d[key]
         except KeyError:
             if flag == FLAG_LOOKUP:
-                d[key] = self.getvalue(op)
+                d[key] = op
             return False
         else:
             if flag != FLAG_LOOKUP:
-                if not res_v.getintbound().known_ge(IntBound(0, 0)):
+                if not self.getintbound(res_v).known_ge(IntBound(0, 0)):
                     return False
             self.make_equal_to(op, res_v)
             self.last_emitted_operation = REMOVED
