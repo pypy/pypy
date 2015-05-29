@@ -762,6 +762,8 @@ class History(object):
 
     def record_default_val(self, opnum, argboxes, descr=None):
         op = ResOperation(opnum, argboxes, descr)
+        assert op.is_same_as()
+        op.copy_value_from(argboxes[0])
         self.operations.append(op)
         return op        
 

@@ -232,6 +232,9 @@ class AbstractResOp(AbstractValue):
     def is_call(self):
         return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST
 
+    def is_same_as(self):
+        return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
+
     def is_getfield(self):
         return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
                               rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
