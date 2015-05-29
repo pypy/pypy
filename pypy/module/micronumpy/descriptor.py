@@ -1031,5 +1031,4 @@ def is_scalar_w(space, w_arg):
             space.isinstance_w(w_arg, space.w_int) or
             space.isinstance_w(w_arg, space.w_float) or
             space.isinstance_w(w_arg, space.w_complex) or
-            space.isinstance_w(w_arg, space.w_long) or
             space.isinstance_w(w_arg, space.w_bool))

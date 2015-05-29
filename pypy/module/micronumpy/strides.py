@@ -186,7 +186,7 @@ def find_shape_and_elems(space, w_iterable, dtype):
 
 def _find_shape_and_elems(space, w_iterable, is_rec_type):
     shape = [space.len_w(w_iterable)]
-    if space.isinstance_w(w_iterable, space.w_buffer):
+    if space.isinstance_w(w_iterable, space.w_memoryview):
         batch = [space.wrap(0)] * shape[0]
         for i in range(shape[0]):
             batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))

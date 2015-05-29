@@ -195,7 +195,7 @@ def PyLong_FromUnicode(space, u, length, base):
     out of range, ValueError will be raised."""
     w_value = space.wrap(rffi.wcharpsize2unicode(u, length))
     w_base = space.wrap(rffi.cast(lltype.Signed, base))
-    return space.call_function(space.w_long, w_value, w_base)
+    return space.call_function(space.w_int, w_value, w_base)
 
 @cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):
