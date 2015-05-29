@@ -180,10 +180,11 @@ class W_GenericBox(W_NumpyObject):
 
     def descr_getitem(self, space, w_item):
         from pypy.module.micronumpy.base import convert_to_array
-        if space.is_w(w_item, space.w_Ellipsis) or \
-                (space.isinstance_w(w_item, space.w_tuple) and
-                    space.len_w(w_item) == 0):
+        if space.is_w(w_item, space.w_Ellipsis):
             return convert_to_array(space, self)
+        elif (space.isinstance_w(w_item, space.w_tuple) and
+                    space.len_w(w_item) == 0):
+            return self
         raise OperationError(space.w_IndexError, space.wrap(
             "invalid index to scalar variable"))
 

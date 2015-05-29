@@ -143,7 +143,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round(decimals=1) == 13.4
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
-        assert b.round(decimals=5) is b
+        raises(TypeError,  b.round, decimals=5)
 
     def test_astype(self):
         import numpy as np
@@ -222,10 +222,14 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_indexing(self):
         import numpy as np
         v = np.int32(2)
-        for b in [v[()], v[...]]:
-            assert isinstance(b, np.ndarray)
-            assert b.shape == ()
-            assert b == v
+        b = v[()]
+        assert isinstance(b, np.int32)
+        assert b.shape == ()
+        assert b == v
+        b = v[...]
+        assert isinstance(b, np.ndarray)
+        assert b.shape == ()
+        assert b == v
         raises(IndexError, "v['blah']")
 
     def test_realimag(self):
