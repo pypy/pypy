@@ -132,8 +132,10 @@ class AbstractResOp(AbstractValue):
 
     @specialize.argtype(1)
     def setvalue(self, value):
-        if isinstance(value, int):
+        if lltype.typeOf(value) == lltype.Signed:
             self._resint = value
+        elif type(value) == bool:
+            self._resint = int(value)
         elif isinstance(value, float):
             self._resfloat = value
         elif value is None:

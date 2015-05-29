@@ -436,11 +436,14 @@ class OptHeap(Optimization):
                 # SETFIELD_GC or SETARRAYITEM_GC.
                 opinfo = self.getptrinfo(op.getarg(0))
                 assert not opinfo.is_virtual()      # it must be a non-virtual
-                fieldinfo = self.getptrinfo(op.getarg(2))
-                if fieldinfo.is_virtual():
-                    pendingfields.append(op)
+                if op.getarg(2).type == 'r':
+                    fieldinfo = self.getptrinfo(op.getarg(2))
+                    if fieldinfo.is_virtual():
+                        pendingfields.append(op)
+                    else:
+                        cf.force_lazy_setfield(self, descr)
                 else:
-                    cf.force_lazy_setfield(self, descr)
+                    cf.force_lazy_setfield(self, descr)                    
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):

@@ -423,9 +423,9 @@ class OptRewrite(Optimization):
 
     def optimize_COND_CALL(self, op):
         arg = op.getarg(0)
-        val = self.getvalue(arg)
-        if val.is_constant():
-            if val.box.same_constant(CONST_0):
+        b = self.getintbound(arg)
+        if b.is_constant():
+            if b.getint() == 0:
                 self.last_emitted_operation = REMOVED
                 return
             opnum = OpHelpers.call_for_type(op)
@@ -472,7 +472,10 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, not expect_isnot)
         else:
             if instance:
-                cls0 = info0.get_known_class(self.optimizer.cpu)
+                if info0 is None:
+                    cls0 = None
+                else:
+                    cls0 = info0.get_known_class(self.optimizer.cpu)
                 if cls0 is not None:
                     cls1 = info1.get_known_class(self.optimizer.cpu)
                     if cls1 is not None and not cls0.same_constant(cls1):

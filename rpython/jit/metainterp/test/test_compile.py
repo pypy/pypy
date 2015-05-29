@@ -71,9 +71,9 @@ def test_compile_loop():
     #
     loop = parse('''
     [p1]
-    i1 = getfield_gc(p1, descr=valuedescr)
+    i1 = getfield_gc_i(p1, descr=valuedescr)
     i2 = int_add(i1, 1)
-    p2 = new_with_vtable(ConstClass(node_vtable))
+    p2 = new_with_vtable(descr=nodesize)
     setfield_gc(p2, i2, descr=valuedescr)
     jump(p2)
     ''', namespace=LLtypeMixin.__dict__.copy())

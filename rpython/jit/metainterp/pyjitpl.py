@@ -615,14 +615,20 @@ class MIFrame(object):
         return sbox
 
     @arguments("box", "box", "descr", "descr")
-    def _opimpl_getlistitem_gc_any(self, listbox, indexbox,
+    def opimpl_getlistitem_gc_i(self, listbox, indexbox,
                                    itemsdescr, arraydescr):
-        arraybox = self._opimpl_getfield_gc_any(listbox, itemsdescr)
-        return self._opimpl_getarrayitem_gc_any(arraybox, indexbox, arraydescr)
-
-    opimpl_getlistitem_gc_i = _opimpl_getlistitem_gc_any
-    opimpl_getlistitem_gc_r = _opimpl_getlistitem_gc_any
-    opimpl_getlistitem_gc_f = _opimpl_getlistitem_gc_any
+        arraybox = self.opimpl_getfield_gc_r(listbox, itemsdescr)
+        return self.opimpl_getarrayitem_gc_i(arraybox, indexbox, arraydescr)
+    @arguments("box", "box", "descr", "descr")
+    def opimpl_getlistitem_gc_r(self, listbox, indexbox,
+                                   itemsdescr, arraydescr):
+        arraybox = self.opimpl_getfield_gc_r(listbox, itemsdescr)
+        return self.opimpl_getarrayitem_gc_r(arraybox, indexbox, arraydescr)
+    @arguments("box", "box", "descr", "descr")
+    def opimpl_getlistitem_gc_f(self, listbox, indexbox,
+                                   itemsdescr, arraydescr):
+        arraybox = self.opimpl_getfield_gc_r(listbox, itemsdescr)
+        return self.opimpl_getarrayitem_gc_f(arraybox, indexbox, arraydescr)
 
     @arguments("box", "box", "box", "descr", "descr")
     def _opimpl_setlistitem_gc_any(self, listbox, indexbox, valuebox,
@@ -668,7 +674,7 @@ class MIFrame(object):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             resbox = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC_PURE_I, fielddescr, box)
-            return resbox.constbox()
+            return ConstInt(resbox)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE_I, box, fielddescr, 'i')
 
