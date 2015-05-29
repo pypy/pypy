@@ -896,7 +896,7 @@ class __extend__(W_NDimArray):
     # --------------------- operations ----------------------------
     # TODO: support all kwargs like numpy ufunc_object.c
     sig = None
-    cast = None
+    cast = 'unsafe'
     extobj = None
 
 
@@ -1013,6 +1013,7 @@ class __extend__(W_NDimArray):
         return space.newtuple([w_quotient, w_remainder])
 
     def descr_dot(self, space, w_other, w_out=None):
+        from .casting import find_result_type
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -1027,8 +1028,7 @@ class __extend__(W_NDimArray):
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
-        dtype = ufuncs.find_binop_result_dtype(space, self.get_dtype(),
-                                               other.get_dtype())
+        dtype = find_result_type(space, [self, other], [])
         if self.get_size() < 1 and other.get_size() < 1:
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))

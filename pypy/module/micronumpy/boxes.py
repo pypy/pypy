@@ -35,8 +35,8 @@ long_double_size = 8
 def new_dtype_getter(num):
     @specialize.memo()
     def _get_dtype(space):
-        from pypy.module.micronumpy.descriptor import get_dtype_cache
-        return get_dtype_cache(space).dtypes_by_num[num]
+        from pypy.module.micronumpy.descriptor import num2dtype
+        return num2dtype(space, num)
 
     def descr__new__(space, w_subtype, w_value=None):
         from pypy.module.micronumpy.ctors import array
@@ -144,7 +144,7 @@ class W_GenericBox(W_NumpyObject):
         return self
 
     def get_flags(self):
-        return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS | 
+        return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
                 NPY.ARRAY_WRITEABLE | NPY.ARRAY_OWNDATA)
 
     def item(self, space):
@@ -180,10 +180,11 @@ class W_GenericBox(W_NumpyObject):
 
     def descr_getitem(self, space, w_item):
         from pypy.module.micronumpy.base import convert_to_array
-        if space.is_w(w_item, space.w_Ellipsis) or \
-                (space.isinstance_w(w_item, space.w_tuple) and
-                    space.len_w(w_item) == 0):
+        if space.is_w(w_item, space.w_Ellipsis):
             return convert_to_array(space, self)
+        elif (space.isinstance_w(w_item, space.w_tuple) and
+                    space.len_w(w_item) == 0):
+            return self
         raise OperationError(space.w_IndexError, space.wrap(
             "invalid index to scalar variable"))
 
@@ -239,7 +240,7 @@ class W_GenericBox(W_NumpyObject):
 
     # TODO: support all kwargs in ufuncs like numpy ufunc_object.c
     sig = None
-    cast = None
+    cast = 'unsafe'
     extobj = None
 
     def _unaryop_impl(ufunc_name):

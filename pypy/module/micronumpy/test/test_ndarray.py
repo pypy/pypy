@@ -997,7 +997,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = [1, 2] + array([1, 2])
         assert (r == [2, 4]).all()
 
-    def test_inline_op_scalar(self):
+    def test_inplace_op_scalar(self):
         from numpy import array
         for op in [
                 '__iadd__',
@@ -1016,7 +1016,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             getattr(a, op).__call__(2)
             assert id(a) == id(b)
 
-    def test_inline_op_array(self):
+    def test_inplace_op_array(self):
         from numpy import array
         for op in [
                 '__iadd__',
@@ -1039,6 +1039,14 @@ class AppTestNumArray(BaseNumpyAppTest):
             reg_op = op.replace('__i', '__')
             for i in range(5):
                 assert a[i] == getattr(c[i], reg_op).__call__(d[i])
+
+    def test_inplace_cast(self):
+        import numpy as np
+        a = np.zeros(5, dtype=np.float64)
+        b = np.zeros(5, dtype=np.complex64)
+        a += b
+        assert a.sum() == 0
+        assert a.dtype is np.dtype(np.float64)
 
     def test_add_list(self):
         from numpy import array, ndarray
@@ -1084,6 +1092,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a * a
         for i in range(5):
             assert b[i] == i * i
+        assert a.dtype.num == b.dtype.num
         assert b.dtype is a.dtype
 
         a = numpy.array(range(5), dtype=bool)
@@ -1828,7 +1837,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert y.base is x
         assert y.strides == (-2048, 64, 8)
         y[:] = 1000
-        assert x[-1, 0, 0] == 1000 
+        assert x[-1, 0, 0] == 1000
 
         a = empty([3, 2, 1], dtype='float64')
         b = a.view(dtype('uint32'))
@@ -1953,7 +1962,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
         a = concatenate((array([1]), array(['abc'])))
-        assert str(a.dtype) == '|S3'
+        if dtype('l').itemsize == 4:  # 32-bit platform
+            assert str(a.dtype) == '|S11'
+        else:
+            assert str(a.dtype) == '|S21'
         a = concatenate((array([]), array(['abc'])))
         assert a[0] == 'abc'
         a = concatenate((['abcdef'], ['abc']))
@@ -3864,7 +3876,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
                    ([4, 5, 6], [5.5, 6.5, 7.5, 8.5, 9.5])], dtype=d)
 
         assert len(list(a[0])) == 2
-        
+
         mdtype = dtype([('a', bool), ('b', bool), ('c', bool)])
         a = array([0, 0, 0, 1, 1])
         # this creates a value of (x, x, x) in b for each x in a

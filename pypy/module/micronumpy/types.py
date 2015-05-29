@@ -40,7 +40,7 @@ if not we_are_translated():
             assert offset < storage._obj.getlength()
         except AttributeError:
             pass
-        return _raw_storage_setitem_unaligned(storage, offset, value) 
+        return _raw_storage_setitem_unaligned(storage, offset, value)
 
     def raw_storage_getitem_unaligned(T, storage, offset):
         assert offset >=0
@@ -48,7 +48,7 @@ if not we_are_translated():
             assert offset < storage._obj.getlength()
         except AttributeError:
             pass
-        return _raw_storage_getitem_unaligned(T, storage, offset) 
+        return _raw_storage_getitem_unaligned(T, storage, offset)
 '''
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -134,6 +134,7 @@ def raw_binary_op(func):
 
 class BaseType(object):
     _immutable_fields_ = ['native', 'space']
+    strlen = 0  # chars needed to print any possible value of the type
 
     def __init__(self, space, native=True):
         assert isinstance(space, ObjSpace)
@@ -152,10 +153,6 @@ class BaseType(object):
     @classmethod
     def basesize(cls):
         return rffi.sizeof(cls.T)
-
-    def can_cast_to(self, other):
-        # equivalent to PyArray_CanCastSafely
-        return casting_table[self.num][other.num]
 
 class Primitive(object):
     _mixin_ = True
@@ -354,6 +351,7 @@ class Bool(BaseType, Primitive):
     char = NPY.BOOLLTR
     BoxType = boxes.W_BoolBox
     format_code = "?"
+    strlen = 5  # "False"
 
     _True = BoxType(True)
     _False = BoxType(False)
@@ -439,7 +437,9 @@ class Bool(BaseType, Primitive):
     @specialize.argtype(1)
     def round(self, v, decimals=0):
         if decimals != 0:
-            return v
+            # numpy incompatible message
+            raise oefmt(self.space.w_TypeError,
+                "Cannot use float math on bool dtype")
         return Float64(self.space).box(self.unbox(v))
 
 class Integer(Primitive):
@@ -719,6 +719,7 @@ class ULong(BaseType, Integer):
 
 class Float(Primitive):
     _mixin_ = True
+    strlen = 32
 
     def _coerce(self, space, w_item):
         if w_item is None:
@@ -1045,7 +1046,7 @@ class Float(Primitive):
         else:
             return x
 
-class Float16(BaseType, Float):
+class Float16(Float, BaseType):
     _STORAGE_T = rffi.USHORT
     T = rffi.SHORT
     num = NPY.HALF
@@ -1090,7 +1091,7 @@ class Float16(BaseType, Float):
             hbits = byteswap(hbits)
         raw_storage_setitem_unaligned(storage, i + offset, hbits)
 
-class Float32(BaseType, Float):
+class Float32(Float, BaseType):
     T = rffi.FLOAT
     num = NPY.FLOAT
     kind = NPY.FLOATINGLTR
@@ -1099,7 +1100,7 @@ class Float32(BaseType, Float):
     format_code = "f"
     max_value = 3.4e38
 
-class Float64(BaseType, Float):
+class Float64(Float, BaseType):
     T = rffi.DOUBLE
     num = NPY.DOUBLE
     kind = NPY.FLOATINGLTR
@@ -1110,6 +1111,7 @@ class Float64(BaseType, Float):
 
 class ComplexFloating(object):
     _mixin_ = True
+    strlen = 64
 
     def _coerce(self, space, w_item):
         if w_item is None:
@@ -1719,7 +1721,7 @@ class Complex128(ComplexFloating, BaseType):
     ComponentType = Float64
 
 if boxes.long_double_size == 8:
-    class FloatLong(BaseType, Float):
+    class FloatLong(Float, BaseType):
         T = rffi.DOUBLE
         num = NPY.LONGDOUBLE
         kind = NPY.FLOATINGLTR
@@ -1737,7 +1739,7 @@ if boxes.long_double_size == 8:
         ComponentType = FloatLong
 
 elif boxes.long_double_size in (12, 16):
-    class FloatLong(BaseType, Float):
+    class FloatLong(Float, BaseType):
         T = rffi.LONGDOUBLE
         num = NPY.LONGDOUBLE
         kind = NPY.FLOATINGLTR
@@ -2475,6 +2477,7 @@ int_types = []
 all_complex_types = []
 complex_types = []
 
+_REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
 def _setup():
     # compute alignment
     for tp in globals().values():
@@ -2486,56 +2489,22 @@ def _setup():
             if issubclass(tp, Integer):
                 all_int_types.append((tp, 'int'))
                 int_types.append(tp)
+                elsize = tp(ObjSpace()).get_element_size()
+                tp.strlen = _REQ_STRLEN[elsize]
+                if tp.kind == NPY.SIGNEDLTR:
+                    tp.strlen += 1
             if issubclass(tp, ComplexFloating):
                 all_complex_types.append((tp, 'complex'))
                 complex_types.append(tp)
+    for l in [float_types, int_types, complex_types]:
+        l.sort(key=lambda tp: tp.num)
 _setup()
 del _setup
 
-casting_table = [[False] * NPY.NTYPES for _ in range(NPY.NTYPES)]
 number_types = int_types + float_types + complex_types
-all_types = number_types + [ObjectType, StringType, UnicodeType, VoidType]
+all_types = [Bool] + number_types + [ObjectType, StringType, UnicodeType, VoidType]
 
-def enable_cast(type1, type2):
-    casting_table[type1.num][type2.num] = True
 
-for tp in all_types:
-    enable_cast(tp, tp)
-    if tp.num != NPY.DATETIME:
-        enable_cast(Bool, tp)
-    enable_cast(tp, ObjectType)
-    enable_cast(tp, VoidType)
-enable_cast(StringType, UnicodeType)
-#enable_cast(Bool, TimeDelta)
-
-for tp in number_types:
-    enable_cast(tp, StringType)
-    enable_cast(tp, UnicodeType)
-
-for tp1 in int_types:
-    for tp2 in int_types:
-        if tp1.signed:
-            if tp2.signed and tp1.basesize() <= tp2.basesize():
-                enable_cast(tp1, tp2)
-        else:
-            if tp2.signed and tp1.basesize() < tp2.basesize():
-                enable_cast(tp1, tp2)
-            elif not tp2.signed and tp1.basesize() <= tp2.basesize():
-                enable_cast(tp1, tp2)
-for tp1 in int_types:
-    for tp2 in float_types + complex_types:
-        size1 = tp1.basesize()
-        size2 = tp2.basesize()
-        if (size1 < 8 and size2 > size1) or (size1 >= 8 and size2 >= size1):
-            enable_cast(tp1, tp2)
-for tp1 in float_types:
-    for tp2 in float_types + complex_types:
-        if tp1.basesize() <= tp2.basesize():
-            enable_cast(tp1, tp2)
-for tp1 in complex_types:
-    for tp2 in complex_types:
-        if tp1.basesize() <= tp2.basesize():
-            enable_cast(tp1, tp2)
 
 _int_types = [(Int8, UInt8), (Int16, UInt16), (Int32, UInt32),
         (Int64, UInt64), (Long, ULong)]

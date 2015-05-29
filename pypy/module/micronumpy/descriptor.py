@@ -8,7 +8,6 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, compute_hash, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-from rpython.rlib.signature import finishsigs, signature, types as ann
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -29,22 +28,18 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     """ agree on dtype from a list of arrays. if out is allocated,
     use it's dtype, otherwise allocate a new one with agreed dtype
     """
-    from pypy.module.micronumpy.ufuncs import find_binop_result_dtype
+    from .casting import find_result_type
 
     if not space.is_none(out):
         return out
-    dtype = None
-    for w_arr in w_arr_list:
-        if not space.is_none(w_arr):
-            dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    arr_w = [w_arr for w_arr in w_arr_list if not space.is_none(w_arr)]
+    dtype = find_result_type(space, arr_w, [])
     assert dtype is not None
     out = W_NDimArray.from_shape(space, shape, dtype)
     return out
 
 
-_REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
 
-@finishsigs
 class W_Dtype(W_Root):
     _immutable_fields_ = [
         "itemtype?", "w_box_type", "byteorder?", "names?", "fields?",
@@ -98,41 +93,6 @@ class W_Dtype(W_Root):
     def box_complex(self, real, imag):
         return self.itemtype.box_complex(real, imag)
 
-    @signature(ann.self(), ann.self(), returns=ann.bool())
-    def can_cast_to(self, other):
-        # equivalent to PyArray_CanCastTo
-        result = self.itemtype.can_cast_to(other.itemtype)
-        if result:
-            if self.num == NPY.STRING:
-                if other.num == NPY.STRING:
-                    return self.elsize <= other.elsize
-                elif other.num == NPY.UNICODE:
-                    return self.elsize * 4 <= other.elsize
-            elif self.num == NPY.UNICODE and other.num == NPY.UNICODE:
-                return self.elsize <= other.elsize
-            elif other.num in (NPY.STRING, NPY.UNICODE):
-                if other.num == NPY.STRING:
-                    char_size = 1
-                else:  # NPY.UNICODE
-                    char_size = 4
-                if other.elsize == 0:
-                    return True
-                if self.is_bool():
-                    return other.elsize >= 5 * char_size
-                elif self.is_unsigned():
-                    if self.elsize > 8 or self.elsize < 0:
-                        return False
-                    else:
-                        return (other.elsize >=
-                                _REQ_STRLEN[self.elsize] * char_size)
-                elif self.is_signed():
-                    if self.elsize > 8 or self.elsize < 0:
-                        return False
-                    else:
-                        return (other.elsize >=
-                                (_REQ_STRLEN[self.elsize] + 1) * char_size)
-        return result
-
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 
@@ -161,6 +121,9 @@ class W_Dtype(W_Root):
     def is_str(self):
         return self.num == NPY.STRING
 
+    def is_unicode(self):
+        return self.num == NPY.UNICODE
+
     def is_object(self):
         return self.num == NPY.OBJECT
 
@@ -175,6 +138,20 @@ class W_Dtype(W_Root):
 
     def is_native(self):
         return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
+
+    def as_signed(self, space):
+        """Convert from an unsigned integer dtype to its signed partner"""
+        if self.is_unsigned():
+            return num2dtype(space, self.num - 1)
+        else:
+            return self
+
+    def as_unsigned(self, space):
+        """Convert from a signed integer dtype to its unsigned partner"""
+        if self.is_signed():
+            return num2dtype(space, self.num + 1)
+        else:
+            return self
 
     def get_float_dtype(self, space):
         assert self.is_complex()
@@ -309,20 +286,24 @@ class W_Dtype(W_Root):
         return space.wrap(not self.eq(space, w_other))
 
     def descr_le(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(self.can_cast_to(w_other))
+        return space.wrap(can_cast_to(self, w_other))
 
     def descr_ge(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(w_other.can_cast_to(self))
+        return space.wrap(can_cast_to(w_other, self))
 
     def descr_lt(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(self.can_cast_to(w_other) and not self.eq(space, w_other))
+        return space.wrap(can_cast_to(self, w_other) and not self.eq(space, w_other))
 
     def descr_gt(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(w_other.can_cast_to(self) and not self.eq(space, w_other))
+        return space.wrap(can_cast_to(w_other, self) and not self.eq(space, w_other))
 
     def _compute_hash(self, space, x):
         from rpython.rlib.rarithmetic import intmask
@@ -861,8 +842,8 @@ class DtypeCache(object):
             NPY.UBYTE:       ['ubyte'],
             NPY.SHORT:       ['short'],
             NPY.USHORT:      ['ushort'],
-            NPY.LONG:        ['int', 'intp', 'p'],
-            NPY.ULONG:       ['uint', 'uintp', 'P'],
+            NPY.LONG:        ['int'],
+            NPY.ULONG:       ['uint'],
             NPY.LONGLONG:    ['longlong'],
             NPY.ULONGLONG:   ['ulonglong'],
             NPY.FLOAT:       ['single'],
@@ -904,17 +885,20 @@ class DtypeCache(object):
             NPY.CDOUBLE:     self.w_float64dtype,
             NPY.CLONGDOUBLE: self.w_floatlongdtype,
         }
-        self.builtin_dtypes = [
-            self.w_booldtype,
+        integer_dtypes = [
             self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype,
-            self.w_longdtype, self.w_ulongdtype,
             self.w_int32dtype, self.w_uint32dtype,
-            self.w_int64dtype, self.w_uint64dtype,
-            ] + float_dtypes + complex_dtypes + [
-            self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
-            self.w_objectdtype,
-        ]
+            self.w_longdtype, self.w_ulongdtype,
+            self.w_int64dtype, self.w_uint64dtype]
+        self.builtin_dtypes = ([self.w_booldtype] + integer_dtypes +
+            float_dtypes + complex_dtypes + [
+                self.w_stringdtype, self.w_unicodedtype, self.w_voiddtype,
+                self.w_objectdtype,
+            ])
+        self.integer_dtypes = integer_dtypes
+        self.float_dtypes = float_dtypes
+        self.complex_dtypes = complex_dtypes
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.elsize, dtype)
             for dtype in float_dtypes
@@ -923,7 +907,9 @@ class DtypeCache(object):
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with
         # higher numbers
-        for dtype in reversed(self.builtin_dtypes):
+        # However, Long/ULong always take precedence over Intxx
+        for dtype in reversed(
+                [self.w_longdtype, self.w_ulongdtype] + self.builtin_dtypes):
             dtype.fields = None  # mark these as builtin
             self.dtypes_by_num[dtype.num] = dtype
             self.dtypes_by_name[dtype.get_name()] = dtype
@@ -936,6 +922,14 @@ class DtypeCache(object):
             if dtype.num in aliases:
                 for alias in aliases[dtype.num]:
                     self.dtypes_by_name[alias] = dtype
+        if self.w_longdtype.elsize == self.w_int32dtype.elsize:
+            intp_dtype = self.w_int32dtype
+            uintp_dtype = self.w_uint32dtype
+        else:
+            intp_dtype = self.w_longdtype
+            uintp_dtype = self.w_ulongdtype
+        self.dtypes_by_name['p'] = self.dtypes_by_name['intp'] = intp_dtype
+        self.dtypes_by_name['P'] = self.dtypes_by_name['uintp'] = uintp_dtype
 
         typeinfo_full = {
             'LONGLONG': self.w_int64dtype,
@@ -1012,16 +1006,19 @@ class DtypeCache(object):
 def get_dtype_cache(space):
     return space.fromcache(DtypeCache)
 
+@jit.elidable
+def num2dtype(space, num):
+    return get_dtype_cache(space).dtypes_by_num[num]
+
 def as_dtype(space, w_arg, allow_None=True):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
+    from pypy.module.micronumpy.casting import scalar2dtype
     # roughly equivalent to CNumPy's PyArray_DescrConverter2
     if not allow_None and space.is_none(w_arg):
         raise TypeError("Cannot create dtype from None here")
     if isinstance(w_arg, W_NDimArray):
         return w_arg.get_dtype()
     elif is_scalar_w(space, w_arg):
-        result = find_dtype_for_scalar(space, w_arg)
-        assert result is not None  # XXX: not guaranteed
+        result = scalar2dtype(space, w_arg)
         return result
     else:
         return space.interp_w(W_Dtype,
