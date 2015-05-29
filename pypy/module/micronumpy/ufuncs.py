@@ -20,7 +20,8 @@ from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
-from .casting import can_cast_type, find_result_type, promote_types
+from .casting import (
+    can_cast_type, can_cast_to, find_result_type, promote_types)
 from .boxes import W_GenericBox, W_ObjectBox
 
 def done_if_true(dtype, val):
@@ -668,14 +669,14 @@ class W_Ufunc2(W_Ufunc):
         if dtype.is_object():
             return dtype
         for dt_in, dt_out in self.dtypes:
-            if dtype.can_cast_to(dt_in):
+            if can_cast_to(dtype, dt_in):
                 if dt_out == dt_in:
                     return dt_in
                 else:
                     dtype = dt_out
                     break
         for dt_in, dt_out in self.dtypes:
-            if dtype.can_cast_to(dt_in) and dt_out == dt_in:
+            if can_cast_to(dtype, dt_in) and dt_out == dt_in:
                 return dt_in
         raise ValueError(
             "could not find a matching type for %s.accumulate, "

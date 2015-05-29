@@ -8,7 +8,6 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, compute_hash, we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-from rpython.rlib.signature import finishsigs, signature, types as ann
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -41,7 +40,6 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
 
 
 
-@finishsigs
 class W_Dtype(W_Root):
     _immutable_fields_ = [
         "itemtype?", "w_box_type", "byteorder?", "names?", "fields?",
@@ -94,29 +92,6 @@ class W_Dtype(W_Root):
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
         return self.itemtype.box_complex(real, imag)
-
-    @signature(ann.self(), ann.self(), returns=ann.bool())
-    def can_cast_to(self, other):
-        # equivalent to PyArray_CanCastTo
-        result = self.itemtype.can_cast_to(other.itemtype)
-        if result:
-            if self.num == NPY.STRING:
-                if other.num == NPY.STRING:
-                    return self.elsize <= other.elsize
-                elif other.num == NPY.UNICODE:
-                    return self.elsize * 4 <= other.elsize
-            elif self.num == NPY.UNICODE and other.num == NPY.UNICODE:
-                return self.elsize <= other.elsize
-            elif other.num in (NPY.STRING, NPY.UNICODE):
-                if other.num == NPY.STRING:
-                    char_size = 1
-                else:  # NPY.UNICODE
-                    char_size = 4
-                if other.elsize == 0:
-                    return True
-                if self.is_int():
-                    return other.elsize >= self.itemtype.strlen * char_size
-        return result
 
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
@@ -311,20 +286,24 @@ class W_Dtype(W_Root):
         return space.wrap(not self.eq(space, w_other))
 
     def descr_le(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(self.can_cast_to(w_other))
+        return space.wrap(can_cast_to(self, w_other))
 
     def descr_ge(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(w_other.can_cast_to(self))
+        return space.wrap(can_cast_to(w_other, self))
 
     def descr_lt(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(self.can_cast_to(w_other) and not self.eq(space, w_other))
+        return space.wrap(can_cast_to(self, w_other) and not self.eq(space, w_other))
 
     def descr_gt(self, space, w_other):
+        from .casting import can_cast_to
         w_other = as_dtype(space, w_other)
-        return space.wrap(w_other.can_cast_to(self) and not self.eq(space, w_other))
+        return space.wrap(can_cast_to(w_other, self) and not self.eq(space, w_other))
 
     def _compute_hash(self, space, x):
         from rpython.rlib.rarithmetic import intmask

@@ -154,11 +154,6 @@ class BaseType(object):
     def basesize(cls):
         return rffi.sizeof(cls.T)
 
-    def can_cast_to(self, other):
-        # equivalent to PyArray_CanCastSafely
-        from .casting import casting_table
-        return casting_table[self.num][other.num]
-
 class Primitive(object):
     _mixin_ = True
 

@@ -1,17 +1,19 @@
 """Functions and helpers for converting between dtypes"""
 
 from rpython.rlib import jit
+from rpython.rlib.signature import signature, types as ann
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt, OperationError
 
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
 from .types import (
-    Bool, ULong, Long, Float64, Complex64, StringType, UnicodeType, VoidType, ObjectType,
+    BaseType, Bool, ULong, Long, Float64, Complex64,
+    StringType, UnicodeType, VoidType, ObjectType,
     int_types, float_types, complex_types, number_types, all_types)
 from .descriptor import (
-    get_dtype_cache, as_dtype, is_scalar_w, variable_dtype, new_string_dtype,
-    new_unicode_dtype, num2dtype)
+    W_Dtype, get_dtype_cache, as_dtype, is_scalar_w, variable_dtype,
+    new_string_dtype, new_unicode_dtype, num2dtype)
 
 @jit.unroll_safe
 def result_type(space, __args__):
@@ -153,13 +155,13 @@ def can_cast_type(space, origin, target, casting):
     elif casting == 'unsafe':
         return True
     elif casting == 'same_kind':
-        if origin.can_cast_to(target):
+        if can_cast_to(origin, target):
             return True
         if origin.kind in kind_ordering and target.kind in kind_ordering:
             return kind_ordering[origin.kind] <= kind_ordering[target.kind]
         return False
     else:  # 'safe'
-        return origin.can_cast_to(target)
+        return can_cast_to(origin, target)
 
 def can_cast_record(space, origin, target, casting):
     if origin is target:
@@ -325,6 +327,37 @@ def scalar2dtype(space, w_obj):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     return object_dtype
 
+@signature(ann.instance(W_Dtype), ann.instance(W_Dtype), returns=ann.bool())
+def can_cast_to(dt1, dt2):
+    """Return whether dtype `dt1` can be cast safely to `dt2`"""
+    # equivalent to PyArray_CanCastTo
+    from .casting import can_cast_itemtype
+    result = can_cast_itemtype(dt1.itemtype, dt2.itemtype)
+    if result:
+        if dt1.num == NPY.STRING:
+            if dt2.num == NPY.STRING:
+                return dt1.elsize <= dt2.elsize
+            elif dt2.num == NPY.UNICODE:
+                return dt1.elsize * 4 <= dt2.elsize
+        elif dt1.num == NPY.UNICODE and dt2.num == NPY.UNICODE:
+            return dt1.elsize <= dt2.elsize
+        elif dt2.num in (NPY.STRING, NPY.UNICODE):
+            if dt2.num == NPY.STRING:
+                char_size = 1
+            else:  # NPY.UNICODE
+                char_size = 4
+            if dt2.elsize == 0:
+                return True
+            if dt1.is_int():
+                return dt2.elsize >= dt1.itemtype.strlen * char_size
+    return result
+
+
+@signature(ann.instance(BaseType), ann.instance(BaseType), returns=ann.bool())
+def can_cast_itemtype(tp1, tp2):
+    # equivalent to PyArray_CanCastSafely
+    return casting_table[tp1.num][tp2.num]
+
 #_________________________
 
 
@@ -334,6 +367,7 @@ def enable_cast(type1, type2):
     casting_table[type1.num][type2.num] = True
 
 def _can_cast(type1, type2):
+    """NOT_RPYTHON: operates on BaseType subclasses"""
     return casting_table[type1.num][type2.num]
 
 for tp in all_types:
