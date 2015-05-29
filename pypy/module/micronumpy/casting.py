@@ -260,10 +260,10 @@ def promote_types(space, dt1, dt2):
             if dt2.elsize >= 4 * dt1.elsize:
                 return dt2
             else:
-                return new_unicode_dtype(space, 4 * dt1.elsize)
+                return new_unicode_dtype(space, dt1.elsize)
         else:  # dt1 is numeric
-            dt1_size = 4 * dt1.itemtype.strlen
-            if dt1_size > dt2.elsize:
+            dt1_size = dt1.itemtype.strlen
+            if 4 * dt1_size > dt2.elsize:
                 return new_unicode_dtype(space, dt1_size)
             else:
                 return dt2

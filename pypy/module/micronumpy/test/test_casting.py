@@ -141,6 +141,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.promote_types('>i8', '<c8') == np.dtype('complex128')
         assert np.promote_types('i4', 'S8') == np.dtype('S11')
         assert np.promote_types('f4', 'S8') == np.dtype('S32')
+        assert np.promote_types('f4', 'U8') == np.dtype('U32')
         assert np.promote_types('?', '?') is np.dtype('?')
         assert np.promote_types('?', 'float64') is np.dtype('float64')
         assert np.promote_types('float64', '?') is np.dtype('float64')
