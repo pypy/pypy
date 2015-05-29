@@ -404,16 +404,6 @@ class OptHeap(Optimization):
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_setfield(self, idx, can_cache)
 
-    def _assert_valid_cf(self, cf):
-        # check that 'cf' is in cached_fields or cached_arrayitems
-        if not we_are_translated():
-            if cf not in self.cached_fields.values():
-                for submap in self.cached_arrayitems.values():
-                    if cf in submap.values():
-                        break
-                else:
-                    assert 0, "'cf' not in cached_fields/cached_arrayitems"
-
     def force_all_lazy_setfields_and_arrayitems(self):
         # XXX fix the complexity here
         for descr, cf in self.cached_fields.items():
@@ -435,35 +425,22 @@ class OptHeap(Optimization):
                     pendingfields.append(op)
                     continue
             cf.force_lazy_setfield(self, descr)
-        return pendingfields
-        for cf in self._lazy_setfields_and_arrayitems:
-            self._assert_valid_cf(cf)
-            op = cf._lazy_setfield
-            if op is None:
-                continue
-            # the only really interesting case that we need to handle in the
-            # guards' resume data is that of a virtual object that is stored
-            # into a field of a non-virtual object.  Here, 'op' in either
-            # SETFIELD_GC or SETARRAYITEM_GC.
-            value = self.getvalue(op.getarg(0))
-            assert not value.is_virtual()      # it must be a non-virtual
-            fieldvalue = self.getvalue(op.getarglist()[-1])
-            if fieldvalue.is_virtual():
-                # this is the case that we leave to resume.py
-                opnum = op.getopnum()
-                if opnum == rop.SETFIELD_GC:
-                    itemindex = -1
-                elif opnum == rop.SETARRAYITEM_GC:
-                    indexvalue = self.getvalue(op.getarg(1))
-                    assert indexvalue.is_constant()
-                    itemindex = indexvalue.box.getint()
-                    assert itemindex >= 0
+        for descr, submap in self.cached_arrayitems.iteritems():
+            for index, cf in submap.iteritems():
+                op = cf._lazy_setfield
+                if op is None:
+                    continue
+                # the only really interesting case that we need to handle in the
+                # guards' resume data is that of a virtual object that is stored
+                # into a field of a non-virtual object.  Here, 'op' in either
+                # SETFIELD_GC or SETARRAYITEM_GC.
+                opinfo = self.getptrinfo(op.getarg(0))
+                assert not opinfo.is_virtual()      # it must be a non-virtual
+                fieldinfo = self.getptrinfo(op.getarg(2))
+                if fieldinfo.is_virtual():
+                    pendingfields.append(op)
                 else:
-                    assert 0
-                pendingfields.append((op.getdescr(), value.box,
-                                      fieldvalue.get_key_box(), itemindex))
-            else:
-                cf.force_lazy_setfield(self, descr)
+                    cf.force_lazy_setfield(self, descr)
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):

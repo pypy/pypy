@@ -395,7 +395,10 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         for setfield_op in pending_setfields:
             box = setfield_op.getarg(0)
-            fieldbox = setfield_op.getarg(1)
+            if setfield_op.getopnum() == rop.SETFIELD_GC:
+                fieldbox = setfield_op.getarg(1)
+            else:
+                fieldbox = setfield_op.getarg(2)
             self.register_box(box)
             self.register_box(fieldbox)
             info = optimizer.getptrinfo(fieldbox)
@@ -480,10 +483,13 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             for i in range(n):
                 op = pending_setfields[i]
                 box = op.getarg(0)
-                fieldbox = op.getarg(1)
                 descr = op.getdescr()
                 if op.getopnum() == rop.SETARRAYITEM_GC:
-                    xxx
+                    fieldbox = op.getarg(2)
+                    itemindex = op.getarg(1).getint()
+                else:
+                    fieldbox = op.getarg(1)
+                    itemindex = -1
                 #descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
@@ -496,7 +502,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 rd_pendingfields[i].lldescr = lldescr
                 rd_pendingfields[i].num = num
                 rd_pendingfields[i].fieldnum = fieldnum
-                rd_pendingfields[i].itemindex = rffi.cast(rffi.INT, -1) # XXXX itemindex
+                rd_pendingfields[i].itemindex = rffi.cast(rffi.INT, itemindex)
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
