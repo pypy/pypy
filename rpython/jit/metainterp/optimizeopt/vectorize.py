@@ -201,10 +201,12 @@ class VectorizingOptimizer(Optimizer):
                 if copied_op.is_guard():
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
-                    descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
-                    olddescr = copied_op.getdescr()
-                    descr.copy_all_attributes_from(olddescr)
-                    copied_op.setdescr(descr)
+                    if not isinstance(target_guard.getdescr(), ResumeAtLoopHeaderDescr):
+                        # do not overwrite resume at loop header
+                        descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
+                        olddescr = copied_op.getdescr()
+                        descr.copy_all_attributes_from(olddescr)
+                        copied_op.setdescr(descr)
 
                     if oi < ee_pos:
                         # do not clone the arguments, it is already an early exit
@@ -871,6 +873,15 @@ class OpToVectorOp(object):
             vbox = self.expand_box_to_vector_box(vbox, ops, arg, argidx)
             box_pos = 0
 
+        enforced_type = self.ptype
+        # convert type f -> i, i -> f
+        # if enforced_type.gettype() != vbox.gettype():
+        #     raise NotImplementedError("cannot yet convert between types")
+
+        # convert size i64 -> i32, i32 -> i64, ...
+        if enforced_type.getsize() != vbox.getsize():
+            vbox = self.extend(vbox, self.ptype)
+
         # use the input as an indicator for the pack type
         arg_ptype = PackType.of(vbox)
         packable = self.sched_data.vec_reg_size // arg_ptype.getsize()
@@ -884,24 +895,30 @@ class OpToVectorOp(object):
         elif packed > packable:
             # the argument has more items than the operation is able to process!
             vbox = self.unpack(vbox, off, packable, arg_ptype)
-            vbox = self.extend(vbox, arg_ptype)
-            # continue to handle the rest of the vbox
         #
-        # The instruction takes less items than the vector has.
-        # Unpack if not at off 0
         if off != 0 and box_pos != 0:
+            # The original box is at a position != 0 but it
+            # is required to be at position 0. Unpack it!
             vbox = self.unpack(vbox, off, len(ops), arg_ptype)
         #
         return vbox
 
-    def extend(self, vbox, arg_ptype):
+    def extend(self, vbox, newtype):
         if vbox.item_count * vbox.item_size == self.sched_data.vec_reg_size:
             return vbox
-        size = arg_ptype.getsize()
-        assert (vbox.item_count * size) == self.sched_data.vec_reg_size
-        opnum = rop.VEC_INT_SIGNEXT
-        vbox_cloned = arg_ptype.new_vector_box(vbox.item_count)
-        op = ResOperation(opnum, [vbox, ConstInt(size), ConstInt(vbox.item_count)], vbox_cloned)
+        assert vbox.gettype() == newtype.gettype()
+        assert (vbox.item_count * newtype.getsize()) == \
+               self.sched_data.vec_reg_size
+        if vbox.gettype() == INT:
+            return self.extend_int(vbox, newtype)
+        else:
+            raise NotImplementedError("cannot yet extend float")
+
+    def extend_int(self, vbox, newtype):
+        vbox_cloned = newtype.new_vector_box(vbox.item_count)
+        op = ResOperation(rop.VEC_INT_SIGNEXT, 
+                          [vbox, ConstInt(newtype.getsize())],
+                          vbox_cloned)
         self.preamble_ops.append(op)
         return vbox_cloned
 

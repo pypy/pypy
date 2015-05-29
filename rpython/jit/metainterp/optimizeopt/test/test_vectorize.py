@@ -1300,18 +1300,19 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_abc(self):
         trace ="""
-        [p0, p1, p5, i6, i7, p3, p8, i9, i10, i11, i12, i13, i14, p15]
-        guard_early_exit() [p3, p1, p0, i9, p5, p8, i6, i7, i10]
-        f16 = raw_load(i11, i7, descr=floatarraydescr)
-        guard_not_invalidated() [p3, p1, p0, f16, i9, p5, p8, i6, i7, i10]
-        raw_store(i12, i10, f16, descr=floatarraydescr)
-        i18 = int_add(i9, 1)
-        i19 = int_add(i10, i13)
-        i21 = int_add(i7, 8)
-        i22 = int_ge(i18, i14)
-        guard_false(i22) [p3, p1, p0, i21, i19, i18, None, p5, p8, i6, None, None]
-        i24 = arraylen_gc(p15, descr=floatarraydescr)
-        jump(p0, p1, p5, i6, i21, p3, p8, i18, i19, i11, i12, i13, i14, p15)
+        [p0, p9, i10, p2, i11, p12, i13, p7, i14, f15, p5, p6, i16, f17, i18, i19]
+        guard_early_exit() [p7, p6, p5, p2, p0, i10, i14, i11, p12, i13, f15, p9]
+        i20 = raw_load(i16, i11, descr=floatarraydescr)
+        guard_not_invalidated() [p7, p6, p5, p2, p0, i20, i10, i14, i11, p12, i13, None, p9]
+        f22 = cast_int_to_float(i20)
+        i24 = int_add(i11, 8)
+        f25 = float_add(f22, f17)
+        raw_store(i18, i14, f25, descr=floatarraydescr)
+        i27 = int_add(i13, 1)
+        i29 = int_add(i14, 8)
+        i30 = int_ge(i27, i19)
+        guard_false(i30) [p7, p6, p5, p2, p0, i24, i27, i29, f22, i10, None, None, p12, None, None, p9]
+        jump(p0, p9, i10, p2, i24, p12, i27, p7, i29, f22, p5, p6, i16, f17, i18, i19)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
