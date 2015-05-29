@@ -574,6 +574,7 @@ LL_OPERATIONS = {
     'debug_reraise_traceback': LLOp(),
     'debug_print_traceback':   LLOp(),
     'debug_nonnull_pointer':   LLOp(canrun=True),
+    'debug_forked':            LLOp(),
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
