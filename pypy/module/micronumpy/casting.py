@@ -7,8 +7,8 @@ from pypy.interpreter.error import oefmt, OperationError
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import constants as NPY
 from .types import (
-    Bool, ULong, Long, Float64, Complex64, UnicodeType, VoidType, ObjectType,
-    promotion_table)
+    Bool, ULong, Long, Float64, Complex64, StringType, UnicodeType, VoidType, ObjectType,
+    int_types, float_types, complex_types, number_types, all_types)
 from .descriptor import (
     get_dtype_cache, as_dtype, is_scalar_w, variable_dtype, new_string_dtype,
     new_unicode_dtype, num2dtype)
@@ -324,3 +324,84 @@ def scalar2dtype(space, w_obj):
     elif space.isinstance_w(w_obj, space.w_str):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
     return object_dtype
+
+#_________________________
+
+
+casting_table = [[False] * NPY.NTYPES for _ in range(NPY.NTYPES)]
+
+def enable_cast(type1, type2):
+    casting_table[type1.num][type2.num] = True
+
+def _can_cast(type1, type2):
+    return casting_table[type1.num][type2.num]
+
+for tp in all_types:
+    enable_cast(tp, tp)
+    if tp.num != NPY.DATETIME:
+        enable_cast(Bool, tp)
+    enable_cast(tp, ObjectType)
+    enable_cast(tp, VoidType)
+enable_cast(StringType, UnicodeType)
+#enable_cast(Bool, TimeDelta)
+
+for tp in number_types:
+    enable_cast(tp, StringType)
+    enable_cast(tp, UnicodeType)
+
+for tp1 in int_types:
+    for tp2 in int_types:
+        if tp1.signed:
+            if tp2.signed and tp1.basesize() <= tp2.basesize():
+                enable_cast(tp1, tp2)
+        else:
+            if tp2.signed and tp1.basesize() < tp2.basesize():
+                enable_cast(tp1, tp2)
+            elif not tp2.signed and tp1.basesize() <= tp2.basesize():
+                enable_cast(tp1, tp2)
+for tp1 in int_types:
+    for tp2 in float_types + complex_types:
+        size1 = tp1.basesize()
+        size2 = tp2.basesize()
+        if (size1 < 8 and size2 > size1) or (size1 >= 8 and size2 >= size1):
+            enable_cast(tp1, tp2)
+for tp1 in float_types:
+    for tp2 in float_types + complex_types:
+        if tp1.basesize() <= tp2.basesize():
+            enable_cast(tp1, tp2)
+for tp1 in complex_types:
+    for tp2 in complex_types:
+        if tp1.basesize() <= tp2.basesize():
+            enable_cast(tp1, tp2)
+
+promotion_table = [[-1] * NPY.NTYPES for _ in range(NPY.NTYPES)]
+def promotes(tp1, tp2, tp3):
+    if tp3 is None:
+        num = -1
+    else:
+        num = tp3.num
+    promotion_table[tp1.num][tp2.num] = num
+
+
+for tp in all_types:
+    promotes(tp, ObjectType, ObjectType)
+    promotes(ObjectType, tp, ObjectType)
+
+for tp1 in [Bool] + number_types:
+    for tp2 in [Bool] + number_types:
+        if tp1 is tp2:
+            promotes(tp1, tp1, tp1)
+        elif _can_cast(tp1, tp2):
+            promotes(tp1, tp2, tp2)
+        elif _can_cast(tp2, tp1):
+            promotes(tp1, tp2, tp1)
+        else:
+            # Brute-force search for the least upper bound
+            result = None
+            for tp3 in number_types:
+                if _can_cast(tp1, tp3) and _can_cast(tp2, tp3):
+                    if result is None:
+                        result = tp3
+                    elif _can_cast(tp3, result) and not _can_cast(result, tp3):
+                        result = tp3
+            promotes(tp1, tp2, result)
