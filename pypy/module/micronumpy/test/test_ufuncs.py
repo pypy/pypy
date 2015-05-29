@@ -129,6 +129,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (res[1] == a).all()
 
     def test_frompyfunc_outerloop(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def int_times2(in_array, out_array):
             assert in_array.dtype == int
             in_flat = in_array.flat
@@ -141,7 +145,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             out_flat = out_array.flat
             for i in range(in_array.size):
                 out_flat[i] = in_flat[i] * 2
-        from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([int_times2, double_times2], 1, 1,
                             signature='()->()',
                             dtypes=[dtype(int), dtype(int),
@@ -160,12 +163,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ac1 = ufunc(ac)
 
     def test_frompyfunc_2d_sig(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def times_2(in_array, out_array):
             assert len(in_array.shape) == 2
             assert in_array.shape == out_array.shape
             out_array[:] = in_array * 2
 
-        from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,n)->(n,m)',
                             dtypes=[dtype(int), dtype(int)],
@@ -194,11 +200,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (ai2 == aiV * 2).all()
 
     def test_frompyfunc_needs_nditer(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def summer(in0):
             print 'in summer, in0=',in0,'in0.shape=',in0.shape
             return in0.sum()
 
-        from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([summer], 1, 1,
                             signature='(m,m)->()',
                             dtypes=[dtype(int), dtype(int)],
@@ -209,13 +218,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert ao.size == 3
 
     def test_frompyfunc_sig_broadcast(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def sum_along_0(in_array, out_array):
             out_array[...] = in_array.sum(axis=0)
 
         def add_two(in0, in1, out):
             out[...] = in0 + in1
 
-        from numpy import frompyfunc, dtype, arange
         ufunc_add = frompyfunc(add_two, 2, 1,
                             signature='(m,n),(m,n)->(m,n)',
                             dtypes=[dtype(int), dtype(int), dtype(int)],
@@ -233,7 +245,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert aout.shape == (3, 3)
 
     def test_frompyfunc_fortran(self):
+        import sys
         import numpy as np
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def tofrom_fortran(in0, out0):
             out0[:] = in0.T
 
@@ -352,6 +367,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # test on the base-class dtypes: int, bool, float, complex, object
         # We need this test since they have no common base class.
         import numpy as np
+        not_implemented = set(['ldexp', 'frexp', 'cbrt', 'spacing',
+            'hypot', 'modf', 'remainder', 'nextafter'])
         def find_uncallable_ufuncs(dtype):
             uncallable = set()
             array = np.array(1, dtype)
@@ -371,16 +388,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
             return uncallable
         assert find_uncallable_ufuncs('int') == set()
         assert find_uncallable_ufuncs('bool') == set(['sign'])
-        assert find_uncallable_ufuncs('float') == set(
+        uncallable = find_uncallable_ufuncs('float')
+        uncallable = uncallable.difference(not_implemented)
+        assert uncallable == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'left_shift', 'right_shift', 'invert'])
-        assert find_uncallable_ufuncs('complex') == set(
+        uncallable = find_uncallable_ufuncs('complex')
+        uncallable = uncallable.difference(not_implemented)
+        assert uncallable == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
                  'fabs', 'fmod', 'invert', 'mod',
                  'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
                  'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
-        assert find_uncallable_ufuncs('object') == set(
+        uncallable = find_uncallable_ufuncs('object')
+        uncallable = uncallable.difference(not_implemented)
+        assert uncallable == set(
                 ['isnan', 'logaddexp2', 'copysign', 'isfinite', 'signbit',
                  'isinf', 'logaddexp'])
 
