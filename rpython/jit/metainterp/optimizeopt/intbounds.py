@@ -351,9 +351,9 @@ class OptIntBounds(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_FORCE_GE_ZERO(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.getintbound().known_ge(IntBound(0, 0)):
-            self.make_equal_to(op, value)
+        b = self.getintbound(op.getarg(0))
+        if b.known_ge(IntBound(0, 0)):
+            self.make_equal_to(op, op.getarg(0))
         else:
             self.emit_operation(op)
 

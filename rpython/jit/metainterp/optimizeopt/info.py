@@ -99,12 +99,16 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self._fields = [None] * len(self._fields)
 
     def setfield(self, descr, op, optheap=None, cf=None):
+        if self._fields is None:
+            self.init_fields(descr.parent_descr)
         self._fields[descr.index] = op
         if cf is not None:
             assert not self.is_virtual()
             cf.register_dirty_field(self)
 
     def getfield(self, descr, optheap=None):
+        if self._fields is None:
+            self.init_fields(descr.parent_descr)
         return self._fields[descr.index]
 
     def _force_elements(self, op, optforce, descr):
