@@ -321,7 +321,7 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    modules = working_modules
+    modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

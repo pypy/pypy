@@ -15,6 +15,8 @@ def setup_module(mod):
     int add42(int x) { return x + 42; }
     int add43(int x, ...) { return x; }
     int globalvar42 = 1234;
+    const int globalconst42 = 4321;
+    const char *const globalconsthello = "hello";
     struct foo_s;
     typedef struct bar_s { int x; signed char a[]; } bar_t;
     enum foo_e { AA, BB, CC };
@@ -29,7 +31,8 @@ def setup_module(mod):
     ext = ffiplatform.get_extension(
         str(c_file),
         '_test_re_python',
-        export_symbols=['add42', 'add43', 'globalvar42']
+        export_symbols=['add42', 'add43', 'globalvar42',
+                        'globalconst42', 'globalconsthello']
     )
     outputfilename = ffiplatform.compile(str(tmpdir), ext)
     mod.extmod = outputfilename
@@ -44,6 +47,8 @@ def setup_module(mod):
     int add42(int);
     int add43(int, ...);
     int globalvar42;
+    const int globalconst42;
+    const char *const globalconsthello = "hello";
     int no_such_function(int);
     int no_such_globalvar;
     struct foo_s;
@@ -127,6 +132,10 @@ def test_include_1():
     sub_ffi.set_source('re_python_pysrc', None)
     sub_ffi.emit_python_code(str(tmpdir.join('_re_include_1.py')))
     #
+    if sys.version_info[:2] >= (3, 3):
+        import importlib
+        importlib.invalidate_caches()  # issue 197 (but can't reproduce myself)
+    #
     from _re_include_1 import ffi
     assert ffi.integer_const('FOOBAR') == -42
     assert ffi.integer_const('FOOBAZ') == -43
@@ -148,6 +157,18 @@ def test_global_var():
     assert p[0] == 1239
     p[0] -= 1
     assert lib.globalvar42 == 1238
+
+def test_global_const_int():
+    from re_python_pysrc import ffi
+    lib = ffi.dlopen(extmod)
+    assert lib.globalconst42 == 4321
+    py.test.raises(AttributeError, ffi.addressof, lib, 'globalconst42')
+
+def test_global_const_nonint():
+    from re_python_pysrc import ffi
+    lib = ffi.dlopen(extmod)
+    assert ffi.string(lib.globalconsthello, 8) == b"hello"
+    py.test.raises(AttributeError, ffi.addressof, lib, 'globalconsthello')
 
 def test_rtld_constants():
     from re_python_pysrc import ffi

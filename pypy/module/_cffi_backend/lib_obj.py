@@ -122,18 +122,26 @@ class W_LibObject(W_Root):
                 w_result = realize_c_type.realize_global_int(self.ffi, g,
                                                              index)
                 #
-            elif op == cffi_opcode.OP_CONSTANT:
+            elif (op == cffi_opcode.OP_CONSTANT or
+                  op == cffi_opcode.OP_DLOPEN_CONST):
                 # A constant which is not of integer type
                 w_ct = realize_c_type.realize_c_type(
                     self.ffi, self.ctx.c_types, getarg(g.c_type_op))
                 fetch_funcptr = rffi.cast(
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
-                assert fetch_funcptr
-                assert w_ct.size > 0
-                with lltype.scoped_alloc(rffi.CCHARP.TO, w_ct.size) as ptr:
+                if w_ct.size <= 0:
+                    raise oefmt(space.w_SystemError,
+                                "constant has no known size")
+                if not fetch_funcptr:   # for dlopen() style
+                    assert op == cffi_opcode.OP_DLOPEN_CONST
+                    ptr = self.cdlopen_fetch(attr)
+                else:
+                    assert op == cffi_opcode.OP_CONSTANT
+                    ptr = lltype.malloc(rffi.CCHARP.TO, w_ct.size, flavor='raw')
+                    self.ffi._finalizer.free_mems.append(ptr)
                     fetch_funcptr(ptr)
-                    w_result = w_ct.convert_to_object(ptr)
+                w_result = w_ct.convert_to_object(ptr)
                 #
             elif op == cffi_opcode.OP_DLOPEN_FUNC:
                 # For dlopen(): the function of the given 'name'.  We use
