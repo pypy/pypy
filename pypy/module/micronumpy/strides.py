@@ -229,11 +229,15 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     shape2 = w_arr2.get_shape()
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
+        def format_shape(shape):
+            if len(shape) > 1:
+                return ",".join([str(x) for x in shape])
+            else:
+                return '%d,' % shape[0]
         raise OperationError(space.w_ValueError,
             space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
-                ",".join([str(x) for x in shape1]),
-                ",".join([str(x) for x in shape2]),
-            ))
+                format_shape(shape1), format_shape(shape2)),
+            )
         )
     if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
         raise OperationError(space.w_ValueError,
