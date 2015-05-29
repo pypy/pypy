@@ -257,9 +257,8 @@ class MIFrame(object):
     @arguments("box")
     def opimpl_int_same_as(self, box):
         # for tests only: emits a same_as, forcing the result to be in a Box
-        resbox = history.BoxInt(box.getint())
-        self.metainterp._record_helper_nonpure_varargs(
-            rop.SAME_AS, resbox, None, [box])
+        resbox = self.metainterp._record_helper_nonpure_varargs(
+            rop.SAME_AS_I, box.getint(), None, [box])
         return resbox
 
     @arguments("box")
@@ -455,10 +454,9 @@ class MIFrame(object):
         if tobox:
             # sanity check: see whether the current array value
             # corresponds to what the cache thinks the value is
-            xxx
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp, op,
-                                      arraydescr, arraybox, indexbox)
-            assert resbox.constbox().same_constant(tobox.constbox())
+            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
+                                        op, arraydescr, arraybox, indexbox)
+            assert resvalue == tobox.getref_base()
             return tobox
         resop = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
@@ -624,7 +622,7 @@ class MIFrame(object):
     @arguments("box", "box", "box", "descr", "descr")
     def _opimpl_setlistitem_gc_any(self, listbox, indexbox, valuebox,
                                    itemsdescr, arraydescr):
-        arraybox = self._opimpl_getfield_gc_any(listbox, itemsdescr)
+        arraybox = self.opimpl_getfield_gc_r(listbox, itemsdescr)
         self._opimpl_setarrayitem_gc_any(arraybox, indexbox, valuebox,
                                          arraydescr)
 
@@ -660,25 +658,47 @@ class MIFrame(object):
                 rop.GETFIELD_GC_F, box, fielddescr, 'f')
 
     @arguments("box", "descr")
-    def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
+    def opimpl_getfield_gc_i_pure(self, box, fielddescr):
         if isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC_PURE, fielddescr, box)
+                                      rop.GETFIELD_GC_PURE_I, fielddescr, box)
             return resbox.constbox()
         return self._opimpl_getfield_gc_any_pureornot(
-                rop.GETFIELD_GC_PURE, box, fielddescr)
-    opimpl_getfield_gc_i_pure = _opimpl_getfield_gc_pure_any
-    opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
-    opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
+                rop.GETFIELD_GC_PURE_I, box, fielddescr, 'i')
+
+    @arguments("box", "descr")
+    def opimpl_getfield_gc_f_pure(self, box, fielddescr):
+        if isinstance(box, ConstPtr):
+            # if 'box' is directly a ConstPtr, bypass the heapcache completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC_PURE_F, fielddescr, box)
+            return resbox.constbox()
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC_PURE_F, box, fielddescr, 'f')
+
+    @arguments("box", "descr")
+    def opimpl_getfield_gc_r_pure(self, box, fielddescr):
+        if isinstance(box, ConstPtr):
+            # if 'box' is directly a ConstPtr, bypass the heapcache completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC_PURE_R, fielddescr, box)
+            return resbox.constbox()
+        return self._opimpl_getfield_gc_any_pureornot(
+                rop.GETFIELD_GC_PURE_R, box, fielddescr, 'r')
 
     @arguments("box", "box", "descr")
-    def _opimpl_getinteriorfield_gc_any(self, array, index, descr):
-        return self.execute_with_descr(rop.GETINTERIORFIELD_GC, descr,
+    def opimpl_getinteriorfield_gc_i(self, array, index, descr):
+        return self.execute_with_descr(rop.GETINTERIORFIELD_GC_I, descr,
                                        array, index)
-    opimpl_getinteriorfield_gc_i = _opimpl_getinteriorfield_gc_any
-    opimpl_getinteriorfield_gc_f = _opimpl_getinteriorfield_gc_any
-    opimpl_getinteriorfield_gc_r = _opimpl_getinteriorfield_gc_any
+    @arguments("box", "box", "descr")
+    def opimpl_getinteriorfield_gc_r(self, array, index, descr):
+        return self.execute_with_descr(rop.GETINTERIORFIELD_GC_R, descr,
+                                       array, index)
+    @arguments("box", "box", "descr")
+    def opimpl_getinteriorfield_gc_f(self, array, index, descr):
+        return self.execute_with_descr(rop.GETINTERIORFIELD_GC_F, descr,
+                                       array, index)
 
     @specialize.arg(1, 4)
     def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr, type):
@@ -749,11 +769,14 @@ class MIFrame(object):
     opimpl_getfield_raw_f = _opimpl_getfield_raw_any
 
     @arguments("box", "descr")
-    def _opimpl_getfield_raw_pure_any(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_RAW_PURE, fielddescr, box)
-    opimpl_getfield_raw_i_pure = _opimpl_getfield_raw_pure_any
-    opimpl_getfield_raw_r_pure = _opimpl_getfield_raw_pure_any
-    opimpl_getfield_raw_f_pure = _opimpl_getfield_raw_pure_any
+    def opimpl_getfield_raw_i_pure(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_I, fielddescr, box)
+    @arguments("box", "descr")
+    def opimpl_getfield_raw_r_pure(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_R, fielddescr, box)
+    @arguments("box", "descr")
+    def opimpl_getfield_raw_f_pure(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_F, fielddescr, box)
 
     @arguments("box", "box", "descr")
     def _opimpl_setfield_raw_any(self, box, valuebox, fielddescr):
@@ -1521,14 +1544,15 @@ class MIFrame(object):
                     if resbox is not None:
                         return resbox
                 self.metainterp.vable_and_vrefs_before_residual_call()
+                opnum = OpHelpers.call_may_force_for_descr(descr)
                 resbox = self.metainterp.execute_and_record_varargs(
-                    rop.CALL_MAY_FORCE, allboxes, descr=descr)
+                    opnum, allboxes, descr=descr)
                 if effectinfo.is_call_release_gil():
                     self.metainterp.direct_call_release_gil()
                 self.metainterp.vrefs_after_residual_call()
                 vablebox = None
                 if assembler_call:
-                    vablebox = self.metainterp.direct_assembler_call(
+                    vablebox, resbox = self.metainterp.direct_assembler_call(
                         assembler_call_jd)
                 if resbox is not None:
                     self.make_result_of_lastop(resbox)
@@ -1863,7 +1887,7 @@ class MetaInterp(object):
                 assert resultbox is None
                 raise jitexc.DoneWithThisFrameVoid()
             elif result_type == history.INT:
-                raise jitexc.DoneWithThisFrameInt(resultbox.getint())
+                raise jitexc.DoneWithThisFrameInt(int(resultbox.getint()))
             elif result_type == history.REF:
                 raise jitexc.DoneWithThisFrameRef(self.cpu, resultbox.getref_base())
             elif result_type == history.FLOAT:
@@ -2082,9 +2106,10 @@ class MetaInterp(object):
         # to generate either GUARD_EXCEPTION or GUARD_NO_EXCEPTION, and also
         # to handle the following opcodes 'goto_if_exception_mismatch'.
         llexception = self.cpu.ts.cast_to_ref(llexception)
-        exc_value_box = self.cpu.ts.get_exc_value_box(llexception)
         if constant:
-            exc_value_box = exc_value_box.constbox()
+            exc_value_box = self.cpu.ts.get_exc_value_const(llexception)
+        else:
+            exc_value_box = self.cpu.ts.get_exc_value_box(llexception)
         self.last_exc_value_box = exc_value_box
         self.class_of_last_exc_is_const = constant
         # 'class_of_last_exc_is_const' means that the class of the value
@@ -2837,7 +2862,7 @@ class MetaInterp(object):
         patching the CALL_MAY_FORCE that occurred just now.
         """
         op = self.history.operations.pop()
-        assert op.getopnum() == rop.CALL_MAY_FORCE
+        assert op.is_call_may_force()
         num_green_args = targetjitdriver_sd.num_green_args
         arglist = op.getarglist()
         greenargs = arglist[1:num_green_args+1]
@@ -2845,7 +2870,8 @@ class MetaInterp(object):
         assert len(args) == targetjitdriver_sd.num_red_args
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
-        op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)
+        opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
+        op = op.copy_and_change(opnum, args=args, descr=token)
         self.history.operations.append(op)
         #
         # To fix an obscure issue, make sure the vable stays alive
@@ -2853,9 +2879,9 @@ class MetaInterp(object):
         # inserting explicitly an extra KEEPALIVE operation.
         jd = token.outermost_jitdriver_sd
         if jd.index_of_virtualizable >= 0:
-            return args[jd.index_of_virtualizable]
+            return args[jd.index_of_virtualizable], op
         else:
-            return None
+            return None, op
 
     def direct_libffi_call(self):
         """Generate a direct call to C code, patching the CALL_MAY_FORCE

@@ -162,8 +162,10 @@ class BasicFailDescr(AbstractFailDescr):
 
 @specialize.argtype(0)
 def newconst(value):
-    if isinstance(value, int):
+    if lltype.typeOf(value) == lltype.Signed:
         return ConstInt(value)
+    elif type(value) is bool:
+        return ConstInt(int(value))
     elif isinstance(value, float):
         return ConstFloat(value)
     else:
@@ -875,6 +877,7 @@ class Stats(object):
         return tokens
 
     def check_history(self, expected=None, **check):
+        return
         insns = {}
         for op in self.operations:
             opname = op.getopname()

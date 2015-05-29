@@ -264,6 +264,9 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
+    def send_extra_operation(self, op):
+        self.optimizer.send_extra_operation(op)
+
     def propagate_forward(self, op):
         raise NotImplementedError
 

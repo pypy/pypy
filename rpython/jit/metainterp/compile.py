@@ -161,6 +161,7 @@ def compile_loop(metainterp, greenkey, start,
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     if part.operations[-1].getopnum() == rop.LABEL:
+        xxx
         d = part.operations[0].getdescr()
         assert isinstance(d, TargetToken)
         part.operations[-1] = part.operations[-1].copy_and_change(rop.JUMP,
@@ -853,6 +854,7 @@ def compile_trace(metainterp, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
+
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     # The history contains new operations to attach as the code for the
@@ -890,6 +892,7 @@ def compile_trace(metainterp, resumekey):
         record_loop_or_bridge(metainterp_sd, new_trace)
         return target_token
     else:
+        raise Exception("should not occur with tracing disabled")
         metainterp.retrace_needed(new_trace, state)
         return None
 

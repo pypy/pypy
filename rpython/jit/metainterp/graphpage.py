@@ -58,6 +58,7 @@ class ResOpGen(object):
         self.errmsg = None
         self.target_tokens = {}
         self.metainterp_sd = metainterp_sd
+        self.memo = {}
 
     def op_name(self, graphindex, opindex):
         return 'g%dop%d' % (graphindex, opindex)
@@ -165,7 +166,7 @@ class ResOpGen(object):
         opindex = opstartindex
         while True:
             op = operations[opindex]
-            op_repr = op.repr(graytext=True)
+            op_repr = op.repr(self.memo, graytext=True)
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
                 if jd_sd._get_printable_location_ptr:
@@ -203,7 +204,7 @@ class ResOpGen(object):
     def getlinks(self):
         boxes = {}
         for op in self.all_operations:
-            args = op.getarglist() + [op.result]
+            args = op.getarglist() + [op]
             for box in args:
                 if getattr(box, 'is_box', False):
                     boxes[box] = True

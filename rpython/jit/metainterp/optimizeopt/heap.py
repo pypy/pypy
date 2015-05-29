@@ -93,7 +93,6 @@ class CachedField(object):
             self.force_lazy_setfield(optheap, descr)
         if self._lazy_setfield is not None:
             op = self._lazy_setfield
-            assert optheap.getptrinfo(op.getarg(0)) is opinfo
             return optheap.get_box_replacement(self._getvalue(op))
         else:
             res = self._getfield(opinfo, descr, optheap)
@@ -145,11 +144,11 @@ class ArrayCachedField(CachedField):
         return op.getarg(2)
 
     def _getfield(self, opinfo, descr, optheap):
-        return opinfo.getitem(self.index)
+        return opinfo.getitem(self.index, optheap)
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(2))
-        opinfo.setitem(self.index, arg, self)
+        opinfo.setitem(self.index, arg, self, optheap)
 
     def invalidate(self, descr):
         for info in self.cached_infos:
@@ -483,15 +482,14 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
     def optimize_GETFIELD_GC_PURE_I(self, op):
-        xxx
-        structvalue = self.getvalue(op.getarg(0))
+        structinfo = self.ensure_ptr_info_arg0(op)
         cf = self.field_cache(op.getdescr())
-        fieldvalue = cf.getfield_from_cache(self, structvalue)
-        if fieldvalue is not None:
-            self.make_equal_to(op, fieldvalue)
+        field = cf.getfield_from_cache(self, structinfo, op.getdescr())
+        if field is not None:
+            self.make_equal_to(op, field)
             return
         # default case: produce the operation
-        structvalue.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
     optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
@@ -530,7 +528,8 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # the remember the result of reading the array item
         if cf is not None:
-            arrayinfo.setitem(indexb.getint(), self.get_box_replacement(op), cf)
+            arrayinfo.setitem(indexb.getint(), self.get_box_replacement(op), cf,
+                              self)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 

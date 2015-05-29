@@ -40,7 +40,7 @@ def build_opt_chain(metainterp_sd, enable_opts):
                 o = opt()
                 optimizations.append(o)
 
-    if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
+    if 1 or ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
         or 'heap' not in enable_opts or 'unroll' not in enable_opts
         or 'pure' not in enable_opts):
         optimizations.append(OptSimplify(unroll))

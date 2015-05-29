@@ -2,7 +2,7 @@
 from rpython.rlib.objectmodel import specialize
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.rtyper.lltypesystem import lltype
 
 
@@ -215,7 +215,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             assert not self.is_virtual()
             cf.register_dirty_field(self)
 
-    def getitem(self, index):
+    def getitem(self, index, optheap=None):
         if self._items is None or index >= len(self._items):
             return None
         return self._items[index]
@@ -229,9 +229,11 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         visitor.register_virtual_fields(instbox, itemops)
         for i in range(self.getlength()):
             itemop = self._items[i]
-            if itemop is not None and itemop.type == 'r':
-                xxxx
-                itemvalue.visitor_walk_recursive(visitor)
+            if (itemop is not None and itemop.type == 'r' and
+                not isinstance(itemop, Const)):
+                ptrinfo = optimizer.getptrinfo(itemop)
+                if ptrinfo and ptrinfo.is_virtual():
+                    ptrinfo.visitor_walk_recursive(itemop, visitor, optimizer)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -289,9 +291,25 @@ class ConstPtrInfo(PtrInfo):
             optheap.const_infos[ref] = info
         return info
 
+    def _get_array_info(self, optheap):
+        ref = self._const.getref_base()
+        info = optheap.const_infos.get(ref, None)
+        if info is None:
+            info = ArrayPtrInfo()
+            optheap.const_infos[ref] = info
+        return info        
+
     def getfield(self, descr, optheap=None):
         info = self._get_info(descr, optheap)
         return info.getfield(descr)
+
+    def getitem(self, index, optheap=None):
+        info = self._get_array_info(optheap)
+        return info.getitem(index)
+
+    def setitem(self, index, op, cf, optheap=None):
+        info = self._get_array_info(optheap)
+        info.setitem(index, op, cf)
 
     def setfield(self, descr, op, optheap=None, cf=None):
         info = self._get_info(descr, optheap)

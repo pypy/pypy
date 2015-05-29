@@ -1341,9 +1341,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
                 end_vref -= 1
             self.consume_virtualref_info(vrefinfo, numb, end_vref)
 
-    def allocate_with_vtable(self, known_class):
+    def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable
-        return exec_new_with_vtable(self.cpu, known_class)
+        return exec_new_with_vtable(self.cpu, descr)
 
     def allocate_struct(self, typedescr):
         return self.cpu.bh_new(typedescr)

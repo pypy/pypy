@@ -923,8 +923,7 @@ class OptVirtualize(optimizer.Optimization):
                                                 op.getdescr(),
                                        self.get_box_replacement(op.getarg(2)))
                 return
-        xxx
-        value.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
 
 

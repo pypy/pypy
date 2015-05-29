@@ -428,6 +428,10 @@ class RefOp(object):
     def setref_base(self, refval):
         self._resref = refval
 
+    def getref(self, PTR):
+        return lltype.cast_opaque_ptr(PTR, self.getref_base())
+    getref._annspecialcase_ = 'specialize:arg(1)'
+
     def copy_value_from(self, other):
         self.setref_base(other.getref_base())
 
@@ -754,7 +758,7 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0/r',
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
-    'MARK_OPAQUE_PTR/1b/n',
+    'MARK_OPAQUE_PTR/1/n',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -1025,6 +1029,30 @@ class OpHelpers(object):
             return rop.CALL_PURE_F
         assert tp == 'v'
         return rop.CALL_PURE_N
+
+    @staticmethod
+    def call_may_force_for_descr(descr):
+        tp = descr.get_result_type()
+        if tp == 'i':
+            return rop.CALL_MAY_FORCE_I
+        elif tp == 'r':
+            return rop.CALL_MAY_FORCE_R
+        elif tp == 'f':
+            return rop.CALL_MAY_FORCE_F
+        assert tp == 'v'
+        return rop.CALL_MAY_FORCE_N
+
+    @staticmethod
+    def call_assembler_for_descr(descr):
+        tp = descr.get_result_type()
+        if tp == 'i':
+            return rop.CALL_ASSEMBLER_I
+        elif tp == 'r':
+            return rop.CALL_ASSEMBLER_R
+        elif tp == 'f':
+            return rop.CALL_ASSEMBLER_F
+        assert tp == 'v'
+        return rop.CALL_ASSEMBLER_N
 
     @staticmethod
     def getfield_pure_for_descr(descr):
