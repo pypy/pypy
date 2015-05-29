@@ -116,13 +116,7 @@ class Node(object):
         olddescr = op.getdescr()
         descr = compile.ResumeAtLoopHeaderDescr()
         if olddescr:
-            assert isinstance(olddescr, compile.ResumeGuardDescr)
-            descr.rd_consts = olddescr.rd_consts 
-            descr.rd_pendingfields = olddescr.rd_pendingfields
-            descr.rd_virtuals = olddescr.rd_virtuals
-            descr.rd_numb = olddescr.rd_numb
-            descr.rd_count = olddescr.rd_count
-            descr.rd_frame_info_list = olddescr.rd_frame_info_list
+            descr.copy_all_attributes_from(olddescr)
         #
         tgt_op.setdescr(descr)
         tgt_op.rd_snapshot = op.rd_snapshot
@@ -544,7 +538,7 @@ class DependencyGraph(object):
                     # consider cross iterations?
                     if len(self.guards) > 0:
                         last_guard = self.guards[-1]
-                        last_guard.edge_to(node, "guardorder")
+                        last_guard.edge_to(node, failarg=True, label="guardorder")
                     for nonpure in tracker.non_pure:
                         nonpure.edge_to(node, failarg=True)
                     tracker.non_pure = []

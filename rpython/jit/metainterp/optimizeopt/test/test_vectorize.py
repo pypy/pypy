@@ -57,10 +57,10 @@ class VecTestHelper(DependencyBaseTest):
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
-        #opt.analyse_index_calculations()
-        #if opt.dependency_graph is not None:
-        #    self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
-        #    opt.schedule()
+        opt.analyse_index_calculations()
+        if opt.dependency_graph is not None:
+            self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
+            opt.schedule()
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
         self.debug_print_operations(opt.loop)

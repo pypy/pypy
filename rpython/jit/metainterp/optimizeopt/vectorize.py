@@ -3,7 +3,7 @@ import py
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
+from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr, invent_fail_descr_for_op
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
         BoxVector, TargetToken, JitCellToken, Box, PrimitiveTypeMixin)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
@@ -201,6 +201,11 @@ class VectorizingOptimizer(Optimizer):
                 if copied_op.is_guard():
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
+                    descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
+                    olddescr = copied_op.getdescr()
+                    descr.copy_all_attributes_from(olddescr)
+                    copied_op.setdescr(descr)
+
                     if oi < ee_pos:
                         # do not clone the arguments, it is already an early exit
                         pass
@@ -360,7 +365,7 @@ class VectorizingOptimizer(Optimizer):
             for op in ops:
                 if self.tried_to_pack:
                     self.unpack_from_vector(op, sched_data, renamer)
-                self.emit_operation(op), op.getfailargs()
+                self.emit_operation(op)
 
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
@@ -550,6 +555,16 @@ class Guard(object):
         else:
             return self.cmp_op.boolinverse
 
+    def inhert_attributes(self, other):
+        self.stronger = True
+        self.index = other.index
+
+        descr = self.op.getdescr()
+        descr.copy_all_attributes_from(other.op.getdescr())
+        self.op.rd_frame_info_list = other.op.rd_frame_info_list
+        self.op.rd_snapshot = other.op.rd_snapshot
+        self.op.setfailargs(other.op.getfailargs())
+
     def compare(self, key1, key2):
         if isinstance(key1, Box):
             assert isinstance(key2, Box)
@@ -663,16 +678,10 @@ class GuardStrengthenOpt(object):
                         guard = Guard(i, op, cmp_op,
                                       lhs, lhs_arg, rhs, rhs_arg)
                         if guard.implies(other, self):
-                            op.setfailargs(other.op.getfailargs())
-                            op.setdescr(other.op.getdescr())
-                            op.rd_frame_info_list = other.op.rd_frame_info_list
-                            op.rd_snapshot = other.op.rd_snapshot
+                            guard.inhert_attributes(other)
 
                             strongest_guards[key] = guard
-                            guard.stronger = True
-                            guard.index = other.index
                             guards[other.index] = guard
-
                             # do not mark as emit
                             continue
                         elif other.implies(guard, self):

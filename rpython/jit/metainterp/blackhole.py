@@ -547,7 +547,6 @@ class BlackholeInterpreter(object):
         return a
     @arguments("f", returns="f")
     def bhimpl_float_copy(a):
-        import py; py.test.set_trace()
         return a
 
     @arguments("i")

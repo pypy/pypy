@@ -7,6 +7,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp import history
 from rpython.rlib.jit import JitDriver, hint, set_param
 from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib import rfloat
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
@@ -127,6 +128,31 @@ class VectorizeTests:
             return res
         res = self.meta_interp(f, [i])
         assert res == f(i) == 3
+
+    def test_vectorize_max(self):
+        myjitdriver = JitDriver(greens = [],
+                                reds = 'auto',
+                                vectorize=True)
+        def fmax(v1, v2):
+            return v1 if v1 >= v2 or rfloat.isnan(v2) else v2
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d):
+            i = 0
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            for j in range(d):
+                va[j] = float(j)
+            va[13] = 128.0
+            m = -128.0
+            while i < d:
+                myjitdriver.jit_merge_point()
+                a = va[i]
+                m = fmax(a, m)
+                i += 1
+            lltype.free(va, flavor='raw')
+            return m
+        res = self.meta_interp(f, [30])
+        assert res == f(30) == 128
+
 
 class VectorizeLLtypeTests(VectorizeTests):
     pass
