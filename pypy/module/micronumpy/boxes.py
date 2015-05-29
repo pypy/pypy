@@ -240,7 +240,7 @@ class W_GenericBox(W_NumpyObject):
 
     # TODO: support all kwargs in ufuncs like numpy ufunc_object.c
     sig = None
-    cast = None
+    cast = 'unsafe'
     extobj = None
 
     def _unaryop_impl(ufunc_name):

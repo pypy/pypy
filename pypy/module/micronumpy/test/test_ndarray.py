@@ -997,7 +997,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = [1, 2] + array([1, 2])
         assert (r == [2, 4]).all()
 
-    def test_inline_op_scalar(self):
+    def test_inplace_op_scalar(self):
         from numpy import array
         for op in [
                 '__iadd__',
@@ -1016,7 +1016,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             getattr(a, op).__call__(2)
             assert id(a) == id(b)
 
-    def test_inline_op_array(self):
+    def test_inplace_op_array(self):
         from numpy import array
         for op in [
                 '__iadd__',
@@ -1039,6 +1039,14 @@ class AppTestNumArray(BaseNumpyAppTest):
             reg_op = op.replace('__i', '__')
             for i in range(5):
                 assert a[i] == getattr(c[i], reg_op).__call__(d[i])
+
+    def test_inplace_cast(self):
+        import numpy as np
+        a = np.zeros(5, dtype=np.float64)
+        b = np.zeros(5, dtype=np.complex64)
+        a += b
+        assert a.sum() == 0
+        assert a.dtype is np.dtype(np.float64)
 
     def test_add_list(self):
         from numpy import array, ndarray

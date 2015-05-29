@@ -424,6 +424,7 @@ def _has_reflected_op(space, w_obj, op):
     return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
 
 def safe_casting_mode(casting):
+    assert casting is not None
     if casting in ('unsafe', 'same_kind'):
         return 'safe'
     else:
