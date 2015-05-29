@@ -185,7 +185,6 @@ def find_shape_and_elems(space, w_iterable, dtype):
 
 
 def _find_shape_and_elems(space, w_iterable, is_rec_type):
-    from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
     if space.isinstance_w(w_iterable, space.w_buffer):
         batch = [space.wrap(0)] * shape[0]
