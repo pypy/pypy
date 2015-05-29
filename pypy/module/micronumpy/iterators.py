@@ -116,6 +116,16 @@ class ArrayIter(object):
                 factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
         self.factors = factors
 
+    def matches_range(self, other_iter):
+        assert isinstance(other_iter, ArrayIter)
+        return self.size == other_iter.size and \
+               self.contiguous == other_iter.contiguous and \
+               self.ndim_m1 == other_iter.ndim_m1 and \
+               self.shape_m1 == other_iter.shape_m1 and \
+               self.strides == other_iter.strides and \
+               self.factors == other_iter.factors and \
+               self.backstrides == other_iter.backstrides
+
     @jit.unroll_safe
     def reset(self, state=None, mutate=False):
         index = 0
