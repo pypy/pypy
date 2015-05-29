@@ -413,7 +413,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = np.empty_like(a, dtype='i4')
         assert b.shape == a.shape
         assert b.dtype == np.dtype('i4')
-        assert b[0,0] != 1
+        # assert b[0,0] != 1 # no guarantees on values in b
         b = np.empty_like([1,2,3])
         assert b.shape == (3,)
         assert b.dtype == np.int_
@@ -667,9 +667,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import arange
         a = arange(10)
         exc = raises(IndexError, "a[ErrorIndex()] == 0")
-        assert exc.value.message == 'cannot convert index to integer'
+        assert exc.value.message.startswith('only integers, slices')
         exc = raises(IndexError, "a[ErrorInt()] == 0")
-        assert exc.value.message == 'cannot convert index to integer'
+        assert exc.value.message.startswith('only integers, slices')
 
     def test_setslice_array(self):
         from numpy import array
@@ -785,9 +785,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, dtype, int_
         a = array(3)
         exc = raises(IndexError, "a[0]")
-        assert exc.value[0] == "0-d arrays can't be indexed"
+        assert exc.value[0] == "too many indices for array"
         exc = raises(IndexError, "a[0] = 5")
-        assert exc.value[0] == "0-d arrays can't be indexed"
+        assert exc.value[0] == "too many indices for array"
         assert a.size == 1
         assert a.shape == ()
         assert a.dtype is dtype(int)
@@ -2156,16 +2156,14 @@ class AppTestNumArray(BaseNumpyAppTest):
                       [7, 8, 9]])
         assert (a[np.array(0)] == a[0]).all()
         assert (a[np.array(1)] == a[1]).all()
-        assert (a[np.array(True)] == a[1]).all()
-        assert (a[np.array(False)] == a[0]).all()
+        exc = raises(IndexError, "a[np.array(True)]")
+        assert exc.value.message == 'in the future, 0-d boolean arrays will be interpreted as a valid boolean index'
         exc = raises(IndexError, "a[np.array(1.1)]")
         assert exc.value.message == 'arrays used as indices must be of ' \
                                     'integer (or boolean) type'
 
         a[np.array(1)] = a[2]
         assert a[1][1] == 8
-        a[np.array(True)] = a[0]
-        assert a[1][1] == 2
         exc = raises(IndexError, "a[np.array(1.1)] = a[2]")
         assert exc.value.message == 'arrays used as indices must be of ' \
                                     'integer (or boolean) type'
@@ -2174,8 +2172,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import arange, array
         b = arange(10)
         assert (b[array([True, False, True])] == [0, 2]).all()
-        raises(ValueError, "array([1, 2])[array([True, True, True])]")
-        raises(ValueError, "b[array([[True, False], [True, False]])]")
+        raises(IndexError, "array([1, 2])[array([True, True, True])]")
+        raises(IndexError, "b[array([[True, False], [True, False]])]")
         a = array([[1,2,3],[4,5,6],[7,8,9]],int)
         c = array([True,False,True],bool)
         b = a[c]
@@ -2186,7 +2184,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = arange(5)
         b[array([True, False, True])] = [20, 21, 0, 0, 0, 0, 0]
         assert (b == [20, 1, 21, 3, 4]).all()
-        raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
+        raises(IndexError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
     def test_weakref(self):
         import _weakref
@@ -2433,12 +2431,19 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_ellipsis_indexing(self):
         import numpy as np
+        import sys
         a = np.array(1.5)
-        assert a[...] is a
+        if '__pypy__' in sys.builtin_module_names:
+            assert a[...] is a
+        else:
+            assert a[...].base is a
         a[...] = 2.5
         assert a == 2.5
         a = np.array([1, 2, 3])
-        assert a[...] is a
+        if '__pypy__' in sys.builtin_module_names:
+            assert a[...] is a
+        else:
+            assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
 
@@ -3604,7 +3609,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         arr['x'] = 2
         assert arr['x'] == 2
         exc = raises(IndexError, "arr[3L]")
-        assert exc.value.message == "0-d arrays can't be indexed"
+        assert exc.value.message == "too many indices for array"
         exc = raises(ValueError, "arr['xx'] = 2")
         assert exc.value.message == "field named xx not found"
         assert arr['y'].dtype == a
@@ -3807,8 +3812,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a[0, 0] = 500
         assert (a[0, 0, 0] == 500).all()
         assert a[0, 0, 0].shape == (10,)
-        exc = raises(ValueError, "a[0, 0]['z']")
-        assert exc.value.message == 'field named z not found'
+        exc = raises(IndexError, "a[0, 0]['z']")
+        assert exc.value.message.startswith('only integers, slices')
 
         import sys
         a = array(1.5, dtype=float)
@@ -3976,7 +3981,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_create_from_memory(self):
         import numpy as np
-        dat = np.array(__builtins__.buffer('1.0'), dtype=np.float64)
+        import sys
+        builtins = getattr(__builtins__, '__dict__', __builtins__)
+        _buffer = builtins.get('buffer')
+        dat = np.array(_buffer('1.0'), dtype=np.float64)
         assert (dat == [49.0, 46.0, 48.0]).all()
 
 

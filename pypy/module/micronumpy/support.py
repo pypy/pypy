@@ -19,7 +19,9 @@ def index_w(space, w_obj):
         try:
             return space.int_w(space.int(w_obj))
         except OperationError:
-            raise oefmt(space.w_IndexError, "cannot convert index to integer")
+            raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                "boolean arrays are valid indices")
 
 
 @jit.unroll_safe

@@ -100,10 +100,10 @@ class __extend__(W_NDimArray):
 
     def getitem_filter(self, space, arr):
         if arr.ndims() > 1 and arr.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "index out of range for array"))
         size = loop.count_all_true(arr)
         if arr.ndims() == 1:
@@ -116,10 +116,10 @@ class __extend__(W_NDimArray):
 
     def setitem_filter(self, space, idx, val):
         if idx.ndims() > 1 and idx.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "index out of range for array"))
         size = loop.count_all_true(idx)
         if size > val.get_size() and val.get_size() != 1:
@@ -205,9 +205,13 @@ class __extend__(W_NDimArray):
     def descr_getitem(self, space, w_idx):
         if space.is_w(w_idx, space.w_Ellipsis):
             return self
-        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
-                and w_idx.ndims() > 0:
-            w_ret = self.getitem_filter(space, w_idx)
+        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
+            if w_idx.ndims() > 0:
+                w_ret = self.getitem_filter(space, w_idx)
+            else:
+                raise oefmt(space.w_IndexError,
+                        "in the future, 0-d boolean arrays will be "
+                        "interpreted as a valid boolean index")
         else:
             try:
                 w_ret = self.implementation.descr_getitem(space, self, w_idx)

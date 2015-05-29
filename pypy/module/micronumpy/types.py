@@ -437,9 +437,8 @@ class Bool(BaseType, Primitive):
     @specialize.argtype(1)
     def round(self, v, decimals=0):
         if decimals != 0:
-            # numpy incompatible message
-            raise oefmt(self.space.w_TypeError,
-                "Cannot use float math on bool dtype")
+            # numpy 1.9.0 compatible
+            return v
         return Float64(self.space).box(self.unbox(v))
 
 class Integer(Primitive):

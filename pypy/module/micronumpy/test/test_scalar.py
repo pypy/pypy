@@ -141,9 +141,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        assert b.round(decimals=5) is b
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
-        raises(TypeError,  b.round, decimals=5)
 
     def test_astype(self):
         import numpy as np
