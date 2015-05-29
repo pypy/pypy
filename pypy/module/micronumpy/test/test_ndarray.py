@@ -1954,7 +1954,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = concatenate((a[:3], a[-3:]))
         assert (b == [2, 6, 10, 2, 6, 10]).all()
         a = concatenate((array([1]), array(['abc'])))
-        assert str(a.dtype) == '|S21'
+        if dtype('l').itemsize == 4:  # 32-bit platform
+            assert str(a.dtype) == '|S11'
+        else:
+            assert str(a.dtype) == '|S21'
         a = concatenate((array([]), array(['abc'])))
         assert a[0] == 'abc'
         a = concatenate((['abcdef'], ['abc']))
