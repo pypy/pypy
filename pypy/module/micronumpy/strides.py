@@ -220,24 +220,6 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type):
         batch = new_batch
 
 
-def _dtype_guess(space, dtype, w_elem):
-    from .casting import scalar2dtype, find_binop_result_dtype
-    if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-        w_elem = w_elem.get_scalar_value()
-    elem_dtype = scalar2dtype(space, w_elem)
-    return find_binop_result_dtype(space, elem_dtype, dtype)
-
-def find_dtype_for_seq(space, elems_w, dtype):
-    if len(elems_w) == 1:
-        w_elem = elems_w[0]
-        return _dtype_guess(space, dtype, w_elem)
-    return _find_dtype_for_seq(space, elems_w, dtype)
-
-def _find_dtype_for_seq(space, elems_w, dtype):
-    for w_elem in elems_w:
-        dtype = _dtype_guess(space, dtype, w_elem)
-    return dtype
-
 
 @jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
