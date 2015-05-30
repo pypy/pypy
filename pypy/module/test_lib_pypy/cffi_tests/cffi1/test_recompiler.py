@@ -875,9 +875,11 @@ def test_variable_of_unknown_size():
     """)
     # can't read or write it at all
     e = py.test.raises(TypeError, getattr, lib, 'globvar')
-    assert str(e.value) == "cdata 'opaque_t' is opaque"
+    assert str(e.value) in ["cdata 'opaque_t' is opaque",
+                            "'opaque_t' is opaque or not completed yet"] #pypy
     e = py.test.raises(TypeError, setattr, lib, 'globvar', [])
-    assert str(e.value) == "'opaque_t' is opaque"
+    assert str(e.value) in ["'opaque_t' is opaque",
+                            "'opaque_t' is opaque or not completed yet"] #pypy
     # but we can get its address
     p = ffi.addressof(lib, 'globvar')
     assert ffi.typeof(p) == ffi.typeof('opaque_t *')

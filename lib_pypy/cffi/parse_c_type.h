@@ -78,6 +78,7 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_PRIM_UINTMAX      47
 
 #define _CFFI__NUM_PRIM         48
+#define _CFFI__UNKNOWN_PRIM    (-1)
 
 
 struct _cffi_global_s {
