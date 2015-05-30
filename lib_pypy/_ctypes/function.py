@@ -278,7 +278,7 @@ class CFuncPtr(_CData):
                         for argtype, arg in zip(argtypes, args)]
             try:
                 return to_call(*args)
-            except SystemExit, e:
+            except SystemExit as e:
                 handle_system_exit(e)
                 raise
         return f
@@ -306,12 +306,12 @@ class CFuncPtr(_CData):
 
             try:
                 newargs = self._convert_args_for_callback(argtypes, args)
-            except (UnicodeError, TypeError, ValueError), e:
+            except (UnicodeError, TypeError, ValueError) as e:
                 raise ArgumentError(str(e))
             try:
                 try:
                     res = self.callable(*newargs)
-                except SystemExit, e:
+                except SystemExit as e:
                     handle_system_exit(e)
                     raise
             except:
@@ -575,7 +575,7 @@ class CFuncPtr(_CData):
             for i, argtype in enumerate(argtypes):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
@@ -586,7 +586,7 @@ class CFuncPtr(_CData):
             for i, arg in enumerate(extra):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(None, arg)
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
