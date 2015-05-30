@@ -1088,7 +1088,8 @@ class Recompiler:
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, prim_index)
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
-        s = '_cffi_prim_int(sizeof(%s), ((%s)-1) <= 0)' % (tp.name, tp.name)
+        s = '_cffi_prim_int(sizeof(%s), (((%s)-1) << 0) <= 0)' % (
+            tp.name, tp.name)
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):
