@@ -214,8 +214,8 @@ class MIFrame(object):
             resbox = history.BoxInt(0)
             record_break = True
 
-        self.metainterp.heapcache.reset_keep_likely_virtuals()
-        rstm.possible_transaction_break(0)
+        if rstm.possible_transaction_break(0) or record_break:
+            self.metainterp.heapcache.reset_keep_likely_virtuals()
 
         if record_break:
             mi = self.metainterp

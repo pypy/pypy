@@ -65,6 +65,8 @@ def possible_transaction_break(keep):
     if rgc.stm_is_enabled():
         if llop.stm_should_break_transaction(lltype.Bool, keep):
             break_transaction()
+            return True
+    return False
 
 def hint_commit_soon():
     """As the name says, just a hint. Maybe calling it
