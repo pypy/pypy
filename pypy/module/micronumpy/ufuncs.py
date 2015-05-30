@@ -604,12 +604,9 @@ class W_Ufunc2(W_Ufunc):
                             w_rdtype.get_name(), w_ldtype.get_name(),
                             self.name)
 
-        if self.are_common_types(w_ldtype, w_rdtype):
-            if not w_lhs.is_scalar() and w_rhs.is_scalar():
-                w_rdtype = w_ldtype
-            elif w_lhs.is_scalar() and not w_rhs.is_scalar():
-                w_ldtype = w_rdtype
-        calc_dtype, dt_out, func = self.find_specialization(space, w_ldtype, w_rdtype, out, casting)
+        calc_dtype, dt_out, func = self.find_specialization(
+            space, w_ldtype, w_rdtype, out, casting, w_lhs, w_rhs)
+
         if (isinstance(w_lhs, W_GenericBox) and
                 isinstance(w_rhs, W_GenericBox) and out is None):
             return self.call_scalar(space, w_lhs, w_rhs, calc_dtype)
@@ -658,7 +655,14 @@ class W_Ufunc2(W_Ufunc):
         dt_in, dt_out = self._calc_dtype(space, l_dtype, r_dtype, out, casting)
         return dt_in, dt_out, self.func
 
-    def find_specialization(self, space, l_dtype, r_dtype, out, casting):
+    def find_specialization(self, space, l_dtype, r_dtype, out, casting,
+                            w_arg1=None, w_arg2=None):
+        if (self.are_common_types(l_dtype, r_dtype) and
+                w_arg1 is not None and w_arg2 is not None):
+            if not w_arg1.is_scalar() and w_arg2.is_scalar():
+                r_dtype = l_dtype
+            elif w_arg1.is_scalar() and not w_arg2.is_scalar():
+                l_dtype = r_dtype
         if self.simple_binary:
             if out is None and not (l_dtype.is_object() or r_dtype.is_object()):
                 dtype = promote_types(space, l_dtype, r_dtype)
