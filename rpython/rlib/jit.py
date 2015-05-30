@@ -482,8 +482,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
               'trace_eagerness': 200,
               'decay': 40,
-              'trace_limit': 25000,  # XXX temporary: with stm, unopt traces
-                                     # XXX are much longer
+              'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
