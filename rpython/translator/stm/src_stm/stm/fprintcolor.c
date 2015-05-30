@@ -1,9 +1,7 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
-#include <stdarg.h>
 /* ------------------------------------------------------------ */
 #ifdef STM_DEBUGPRINT
 /* ------------------------------------------------------------ */
-
 
 static int threadcolor_printf(const char *format, ...)
 {
