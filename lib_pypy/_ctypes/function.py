@@ -277,7 +277,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                         for argtype, arg in zip(argtypes, args)]
             try:
                 return to_call(*args)
-            except SystemExit, e:
+            except SystemExit as e:
                 handle_system_exit(e)
                 raise
         return f
@@ -310,7 +310,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             try:
                 try:
                     res = self.callable(*newargs)
-                except SystemExit, e:
+                except SystemExit as e:
                     handle_system_exit(e)
                     raise
             except:
