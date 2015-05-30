@@ -190,6 +190,11 @@ new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
 just make sure there is a ``__del__`` method in the class to start with
 (even containing only ``pass``; replacing or overriding it later works fine).
 
+Last note: CPython tries to do a ``gc.collect()`` automatically when the
+program finishes; not PyPy.  (It is possible in both CPython and PyPy to
+design a case where several ``gc.collect()`` are needed before all objects
+die.  This makes CPython's approach only work "most of the time" anyway.)
+
 
 Subclasses of built-in types
 ----------------------------
