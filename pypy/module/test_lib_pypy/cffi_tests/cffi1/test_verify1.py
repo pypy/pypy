@@ -2206,3 +2206,27 @@ def test_define_wrong_value():
     e = py.test.raises(ffi.error, "lib.FOO")
     assert str(e.value) == ("the C compiler says 'FOO' is equal to 124 (0x7c),"
                             " but the cdef disagrees")
+
+def test_some_integer_type_for_issue73():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef int... AnIntegerWith32Bits;
+        typedef AnIntegerWith32Bits (*AFunctionReturningInteger) (void);
+        AnIntegerWith32Bits InvokeFunction(AFunctionReturningInteger);
+    """)
+    lib = ffi.verify("""
+        #ifdef __LP64__
+        typedef int AnIntegerWith32Bits;
+        #else
+        typedef long AnIntegerWith32Bits;
+        #endif
+        typedef AnIntegerWith32Bits (*AFunctionReturningInteger) (void);
+        AnIntegerWith32Bits InvokeFunction(AFunctionReturningInteger f) {
+            return f();
+        }
+    """)
+    @ffi.callback("AFunctionReturningInteger")
+    def add():
+        return 3 + 4
+    x = lib.InvokeFunction(add)
+    assert x == 7

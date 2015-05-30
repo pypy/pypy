@@ -883,3 +883,73 @@ class AppTestRecompiler:
         """)
         assert lib.getx(lib.myglob) == 42.5
         assert lib.getx(lib.increment(lib.myglob)) == 43.5
+
+    def test_struct_array_guess_length_2(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int a[...][...]; };",
+            'test_struct_array_guess_length_2',
+            "struct foo_s { int x; int a[5][8]; int y; };")
+        assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
+        s = ffi.new("struct foo_s *")
+        assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
+        assert s.a[4][7] == 0
+        raises(IndexError, 's.a[4][8]')
+        raises(IndexError, 's.a[5][0]')
+        assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
+        assert ffi.typeof(s.a[0]) == ffi.typeof("int[8]")
+
+    def test_global_var_array_2(self):
+        ffi, lib = self.prepare(
+            "int a[...][...];",
+            'test_global_var_array_2',
+            'int a[10][8];')
+        lib.a[9][7] = 123456
+        assert lib.a[9][7] == 123456
+        raises(IndexError, 'lib.a[0][8]')
+        raises(IndexError, 'lib.a[10][0]')
+        assert ffi.typeof(lib.a) == ffi.typeof("int[10][8]")
+        assert ffi.typeof(lib.a[0]) == ffi.typeof("int[8]")
+
+    def test_some_integer_type(self):
+        ffi, lib = self.prepare("""
+            typedef int... foo_t;
+            typedef unsigned long... bar_t;
+            typedef struct { foo_t a, b; } mystruct_t;
+            foo_t foobar(bar_t, mystruct_t);
+            static const bar_t mu = -20;
+            static const foo_t nu = 20;
+        """, 'test_some_integer_type', """
+            typedef unsigned long long foo_t;
+            typedef short bar_t;
+            typedef struct { foo_t a, b; } mystruct_t;
+            static foo_t foobar(bar_t x, mystruct_t s) {
+                return (foo_t)x + s.a + s.b;
+            }
+            static const bar_t mu = -20;
+            static const foo_t nu = 20;
+        """)
+        assert ffi.sizeof("foo_t") == ffi.sizeof("unsigned long long")
+        assert ffi.sizeof("bar_t") == ffi.sizeof("short")
+        maxulonglong = 2 ** 64 - 1
+        assert int(ffi.cast("foo_t", -1)) == maxulonglong
+        assert int(ffi.cast("bar_t", -1)) == -1
+        assert lib.foobar(-1, [0, 0]) == maxulonglong
+        assert lib.foobar(2 ** 15 - 1, [0, 0]) == 2 ** 15 - 1
+        assert lib.foobar(10, [20, 31]) == 61
+        assert lib.foobar(0, [0, maxulonglong]) == maxulonglong
+        raises(OverflowError, lib.foobar, 2 ** 15, [0, 0])
+        raises(OverflowError, lib.foobar, -(2 ** 15) - 1, [0, 0])
+        raises(OverflowError, ffi.new, "mystruct_t *", [0, -1])
+        assert lib.mu == -20
+        assert lib.nu == 20
+
+    def test_issue200(self):
+        ffi, lib = self.prepare("""
+            typedef void (function_t)(void*);
+            void function(void *);
+        """, 'test_issue200', """
+            static void function(void *p) { (void)p; }
+        """)
+        ffi.typeof('function_t*')
+        lib.function(ffi.NULL)
+        # assert did not crash

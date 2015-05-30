@@ -209,3 +209,18 @@ ffi = _cffi_backend.FFI('test_global_var',
     _globals = (b'\x00\x00\x00\x21myglob',0,),
 )
 """
+
+def test_bitfield():
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int y:10; short x:5; };")
+    target = udir.join('test_bitfield.py')
+    make_py_source(ffi, 'test_bitfield', str(target))
+    assert target.read() == r"""# auto-generated file
+import _cffi_backend
+
+ffi = _cffi_backend.FFI('test_bitfield',
+    _version = 0x2601,
+    _types = b'\x00\x00\x07\x01\x00\x00\x05\x01\x00\x00\x00\x09',
+    _struct_unions = ((b'\x00\x00\x00\x02\x00\x00\x00\x02foo_s',b'\x00\x00\x00\x13\x00\x00\x00\x0Ay',b'\x00\x00\x01\x13\x00\x00\x00\x05x'),),
+)
+"""

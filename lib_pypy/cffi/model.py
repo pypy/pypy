@@ -31,7 +31,10 @@ class BaseTypeByIdentity(object):
 
     def has_c_name(self):
         return '$' not in self._get_c_name()
-    
+
+    def is_integer_type(self):
+        return False
+
     def sizeof_enabled(self):
         return False
 
@@ -76,7 +79,12 @@ class VoidType(BaseType):
 void_type = VoidType()
 
 
-class PrimitiveType(BaseType):
+class BasePrimitiveType(BaseType):
+    def sizeof_enabled(self):
+        return True
+
+
+class PrimitiveType(BasePrimitiveType):
     _attrs_ = ('name',)
 
     ALL_PRIMITIVE_TYPES = {
@@ -142,11 +150,23 @@ class PrimitiveType(BaseType):
     def is_float_type(self):
         return self.ALL_PRIMITIVE_TYPES[self.name] == 'f'
 
-    def sizeof_enabled(self):
-        return True
-
     def build_backend_type(self, ffi, finishlist):
         return global_cache(self, ffi, 'new_primitive_type', self.name)
+
+
+class UnknownIntegerType(BasePrimitiveType):
+    _attrs_ = ('name',)
+
+    def __init__(self, name):
+        self.name = name
+        self.c_name_with_marker = name + '&'
+
+    def is_integer_type(self):
+        return True    # for now
+
+    def build_backend_type(self, ffi, finishlist):
+        raise NotImplementedError("integer type '%s' can only be used after "
+                                  "compilation" % self.name)
 
 
 class BaseFunctionType(BaseType):

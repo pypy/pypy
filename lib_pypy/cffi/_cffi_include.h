@@ -208,12 +208,10 @@ static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
 #define _cffi_array_len(array)   (sizeof(array) / sizeof((array)[0]))
 
 #define _cffi_prim_int(size, sign)                                      \
-    ((size) == sizeof(int) ? ((sign) ? _CFFI_PRIM_INT   : _CFFI_PRIM_UINT)   : \
-     (size) == sizeof(long)? ((sign) ? _CFFI_PRIM_LONG  : _CFFI_PRIM_ULONG)  : \
-     (size) == 1           ? ((sign) ? _CFFI_PRIM_INT8  : _CFFI_PRIM_UINT8)  : \
-     (size) == 2           ? ((sign) ? _CFFI_PRIM_INT16 : _CFFI_PRIM_UINT16) : \
-     (size) == 4           ? ((sign) ? _CFFI_PRIM_INT32 : _CFFI_PRIM_UINT32) : \
-     (size) == 8           ? ((sign) ? _CFFI_PRIM_INT64 : _CFFI_PRIM_UINT64) : \
+    ((size) == 1 ? ((sign) ? _CFFI_PRIM_INT8  : _CFFI_PRIM_UINT8)  :    \
+     (size) == 2 ? ((sign) ? _CFFI_PRIM_INT16 : _CFFI_PRIM_UINT16) :    \
+     (size) == 4 ? ((sign) ? _CFFI_PRIM_INT32 : _CFFI_PRIM_UINT32) :    \
+     (size) == 8 ? ((sign) ? _CFFI_PRIM_INT64 : _CFFI_PRIM_UINT64) :    \
      0)
 
 #define _cffi_check_int(got, got_nonpos, expected)      \

@@ -9,7 +9,7 @@ class CffiOp(object):
             assert isinstance(self.arg, str)
             return '(_cffi_opcode_t)(%s)' % (self.arg,)
         classname = CLASS_NAME[self.op]
-        return '_CFFI_OP(_CFFI_OP_%s, %d)' % (classname, self.arg)
+        return '_CFFI_OP(_CFFI_OP_%s, %s)' % (classname, self.arg)
 
     def as_python_bytes(self):
         if self.op is None:
