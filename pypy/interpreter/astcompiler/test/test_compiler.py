@@ -511,6 +511,21 @@ class TestCompiler:
         x *= 7
         """, 'x', 42
 
+    def test_with_bug(self):
+        yield self.simple_test, """
+        class ContextManager:
+            def __enter__(self, *args):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        x = 0
+        with ContextManager():
+            x = 6
+        print(None, None, None, None)
+        x *= 7
+        """, 'x', 42
+
     def test_while_loop(self):
         yield self.simple_test, """
             comments = [42]
