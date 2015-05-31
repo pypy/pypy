@@ -169,6 +169,9 @@ class StructPtrInfo(AbstractStructPtrInfo):
         assert self.is_virtual()
         return visitor.visit_vstruct(self.vdescr, fielddescrs)
 
+class RawStructPtrInfo(StructPtrInfo):
+    pass
+
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('length', '_items', 'lenbound', '_clear')
 

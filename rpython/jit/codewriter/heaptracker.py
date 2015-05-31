@@ -21,7 +21,8 @@ def int_signext(value, numbytes):
     return intmask(a)
 
 def count_fields_if_immutable(STRUCT):
-    assert isinstance(STRUCT, lltype.GcStruct)
+    if not isinstance(STRUCT, lltype.GcStruct):
+        return -1
     if STRUCT._hints.get('immutable', False):
         try:
             return _count_fields(STRUCT)
@@ -104,9 +105,10 @@ def register_known_gctype(cpu, vtable, STRUCT):
 
 def finish_registering(cpu):
     # annotation hack for small examples which have no vtable at all
-    if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
-        vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        register_known_gctype(cpu, vtable, rclass.OBJECT)
+    pass
+    #if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+    #    vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    #    register_known_gctype(cpu, vtable, rclass.OBJECT)
 
 def vtable2descr(cpu, vtable):
     assert lltype.typeOf(vtable) is lltype.Signed

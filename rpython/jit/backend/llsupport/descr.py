@@ -22,7 +22,7 @@ class GcCache(object):
         self._cache_interiorfield = {}
 
     def init_size_descr(self, STRUCT, sizedescr):
-        assert isinstance(STRUCT, lltype.GcStruct)
+        pass
 
     def init_array_descr(self, ARRAY, arraydescr):
         assert (isinstance(ARRAY, lltype.GcArray) or
@@ -74,18 +74,19 @@ def get_size_descr(cpu, gccache, STRUCT, is_object):
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
         gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
-        all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
         if is_object: #heaptracker.has_gcstruct_a_vtable(STRUCT):
             #assert is_object
             sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
-                                            gc_fielddescrs, all_fielddescrs,
+                                            gc_fielddescrs, None,
                 heaptracker.get_vtable_for_gcstruct(cpu, STRUCT))
         else:
             #assert not is_object
             sizedescr = SizeDescr(size, count_fields_if_immut,
-                                  gc_fielddescrs, all_fielddescrs)
+                                  gc_fielddescrs, None)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
+        all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
+        sizedescr.all_fielddescrs = all_fielddescrs
         return sizedescr
 
 
@@ -111,11 +112,12 @@ class FieldDescr(ArrayOrFieldDescr):
     field_size = 0
     flag = '\x00'
 
-    def __init__(self, name, offset, field_size, flag):
+    def __init__(self, name, offset, field_size, flag, index_in_parent=0):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
+        self.index = index_in_parent
 
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
@@ -166,9 +168,11 @@ def get_field_descr(gccache, STRUCT, fieldname):
         FIELDTYPE = getattr(STRUCT, fieldname)
         flag = get_type_flag(FIELDTYPE)
         name = '%s.%s' % (STRUCT._name, fieldname)
-        fielddescr = FieldDescr(name, offset, size, flag)
+        index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
+        fielddescr = FieldDescr(name, offset, size, flag, index_in_parent)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
+        fielddescr.parent_descr = get_size_descr(None, gccache, STRUCT, False)
         return fielddescr
 
 def get_type_flag(TYPE):

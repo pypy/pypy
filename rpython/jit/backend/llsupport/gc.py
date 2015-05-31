@@ -635,6 +635,8 @@ class GcLLDescr_framework(GcLLDescription):
         #self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
+        if not isinstance(S, lltype.GcStruct):
+            return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(S)
             assert not self.layoutbuilder.is_weakref_type(S)
@@ -642,6 +644,8 @@ class GcLLDescr_framework(GcLLDescription):
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def init_array_descr(self, A, descr):
+        if not isinstance(A, lltype.GcArray):
+            return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(A)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)

@@ -751,8 +751,8 @@ class OptVirtualize(optimizer.Optimization):
         self.last_emitted_operation = REMOVED
 
     def do_RAW_FREE(self, op):
-        value = self.getvalue(op.getarg(1))
-        if value.is_virtual():
+        opinfo = self.getrawptrinfo(op.getarg(1))
+        if opinfo and opinfo.is_virtual():
             return
         self.emit_operation(op)
 
@@ -844,8 +844,8 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
 
     def optimize_SETARRAYITEM_RAW(self, op):
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getrawptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
@@ -855,7 +855,7 @@ class OptVirtualize(optimizer.Optimization):
                     return
                 except InvalidRawOperation:
                     pass
-        value.ensure_nonnull()
+        self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
 
     def _unpack_raw_load_store_op(self, op, offsetbox):

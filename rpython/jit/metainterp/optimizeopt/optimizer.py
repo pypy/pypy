@@ -332,10 +332,13 @@ class Optimization(object):
         op = self.get_box_replacement(op)
         assert op.type == 'i'
         if isinstance(op, ConstInt):
-            return info.ConstRawInfo(op)
+            return info.ConstPtrInfo(op)
         fw = op.get_forwarded()
         if fw is not None:
-            assert isinstance(fw, info.RawPtrInfo)
+            if isinstance(fw, info.NonNullPtrInfo):
+                fw = info.RawStructPtrInfo()
+                op.set_forwarded(fw)
+            assert isinstance(fw, info.RawStructPtrInfo)
             return fw
         return None
 
