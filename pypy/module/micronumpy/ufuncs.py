@@ -4,23 +4,25 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.argument import Arguments
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import LONG_BIT, maxint
+from rpython.rlib.rarithmetic import LONG_BIT, maxint, _get_bitsize
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy import boxes, loop, constants as NPY
-from pypy.module.micronumpy.descriptor import (get_dtype_cache,
-            variable_dtype, decode_w_dtype)
+from rpython.rlib.rawstorage import (
+    raw_storage_setitem, free_raw_storage, alloc_raw_storage)
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import keepalive_until_here
+
+from pypy.module.micronumpy import loop, constants as NPY
+from pypy.module.micronumpy.descriptor import (
+    get_dtype_cache, decode_w_dtype, num2dtype)
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.ctors import numpify
 from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
-from pypy.module.micronumpy.support import (_parse_signature, product, 
+from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
-from rpython.rlib.rawstorage import (raw_storage_setitem, free_raw_storage,
-             alloc_raw_storage)
-from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.rarithmetic import LONG_BIT, _get_bitsize
-from rpython.rlib.objectmodel import keepalive_until_here
-
+from .casting import (
+    can_cast_type, can_cast_to, find_result_type, promote_types)
+from .boxes import W_GenericBox, W_ObjectBox
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -30,27 +32,51 @@ def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
 
-def _get_dtype(space, w_npyobj):
-    if isinstance(w_npyobj, boxes.W_GenericBox):
-        return w_npyobj.get_dtype(space)
-    else:
-        assert isinstance(w_npyobj, W_NDimArray)
-        return w_npyobj.get_dtype()
-
 def _find_array_wrap(*args, **kwds):
     '''determine an appropriate __array_wrap__ function to call for the outputs.
       If an output argument is provided, then it is wrapped
       with its own __array_wrap__ not with the one determined by
       the input arguments.
-     
+
       if the provided output argument is already an array,
       the wrapping function is None (which means no wrapping will
       be done --- not even PyArray_Return).
-     
+
       A NULL is placed in output_wrap for outputs that
       should just have PyArray_Return called.
     '''
     raise NotImplementedError()
+
+
+def array_priority(space, w_lhs, w_rhs):
+    # handle array_priority
+    # w_lhs and w_rhs could be of different ndarray subtypes. Numpy does:
+    # 1. if __array_priorities__ are equal and one is an ndarray and the
+    #        other is a subtype,  return a subtype
+    # 2. elif rhs.__array_priority__ is higher, return the type of rhs
+
+    w_ndarray = space.gettypefor(W_NDimArray)
+    lhs_type = space.type(w_lhs)
+    rhs_type = space.type(w_rhs)
+    lhs_for_subtype = w_lhs
+    rhs_for_subtype = w_rhs
+    #it may be something like a FlatIter, which is not an ndarray
+    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
+        lhs_type = space.type(w_lhs.base)
+        lhs_for_subtype = w_lhs.base
+    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
+        rhs_type = space.type(w_rhs.base)
+        rhs_for_subtype = w_rhs.base
+
+    w_highpriority = w_lhs
+    highpriority_subtype = lhs_for_subtype
+    if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
+        highpriority_subtype = rhs_for_subtype
+        w_highpriority = w_rhs
+    if is_rhs_priority_higher(space, w_lhs, w_rhs):
+        highpriority_subtype = rhs_for_subtype
+        w_highpriority = w_rhs
+    return w_highpriority, highpriority_subtype
 
 
 class W_Ufunc(W_Root):
@@ -86,7 +112,7 @@ class W_Ufunc(W_Root):
     def descr_call(self, space, __args__):
         args_w, kwds_w = __args__.unpack()
         # sig, extobj are used in generic ufuncs
-        w_subok, w_out, sig, casting, extobj = self.parse_kwargs(space, kwds_w)
+        w_subok, w_out, sig, w_casting, extobj = self.parse_kwargs(space, kwds_w)
         if space.is_w(w_out, space.w_None):
             out = None
         else:
@@ -115,6 +141,10 @@ class W_Ufunc(W_Root):
         if out is not None and not isinstance(out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                             'output must be an array'))
+        if w_casting is None:
+            casting = 'unsafe'
+        else:
+            casting = space.str_w(w_casting)
         retval = self.call(space, args_w, sig, casting, extobj)
         keepalive_until_here(args_w)
         return retval
@@ -225,15 +255,24 @@ class W_Ufunc(W_Root):
                 axis += shapelen
         assert axis >= 0
         dtype = decode_w_dtype(space, dtype)
-        if self.bool_result:
-            dtype = get_dtype_cache(space).w_booldtype
-        elif dtype is None:
-            dtype = find_unaryop_result_dtype(
-                space, obj.get_dtype(),
-                promote_to_float=self.promote_to_float,
-                promote_to_largest=self.promote_to_largest,
-                promote_bools=self.promote_bools,
-            )
+
+        if dtype is None and out is not None:
+            dtype = out.get_dtype()
+
+        if dtype is None:
+            obj_dtype = obj.get_dtype()
+            num = obj_dtype.num
+            if ((obj_dtype.is_bool() or obj_dtype.is_int()) and
+                    self.promote_to_largest):
+                if obj_dtype.is_bool():
+                    num = NPY.LONG
+                elif obj_dtype.elsize * 8 < LONG_BIT:
+                    if obj_dtype.is_unsigned():
+                        num = NPY.ULONG
+                    else:
+                        num = NPY.LONG
+            dtype = num2dtype(space, num)
+
         if self.identity is None:
             for i in range(shapelen):
                 if space.is_none(w_axis) or i == axis:
@@ -241,6 +280,12 @@ class W_Ufunc(W_Root):
                         raise oefmt(space.w_ValueError,
                             "zero-size array to reduction operation %s "
                             "which has no identity", self.name)
+
+        if cumulative:
+            dtype = self.find_binop_type(space, dtype)
+        else:
+            _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
+                                                   casting='unsafe')
         call__array_wrap__ = True
         if shapelen > 1 and axis < shapelen:
             temp = None
@@ -337,8 +382,7 @@ class W_Ufunc(W_Root):
             "outer product only supported for binary functions"))
 
     def parse_kwargs(self, space, kwds_w):
-        # we don't support casting, change it when we do
-        casting = kwds_w.pop('casting', None)
+        w_casting = kwds_w.pop('casting', None)
         w_subok = kwds_w.pop('subok', None)
         w_out = kwds_w.pop('out', space.w_None)
         sig = None
@@ -347,7 +391,7 @@ class W_Ufunc(W_Root):
         extobj_w = kwds_w.pop('extobj', get_extobj(space))
         if not space.isinstance_w(extobj_w, space.w_list) or space.len_w(extobj_w) != 3:
             raise oefmt(space.w_TypeError, "'extobj' must be a list of 3 values")
-        return w_subok, w_out, sig, casting, extobj_w
+        return w_subok, w_out, sig, w_casting, extobj_w
 
 def get_extobj(space):
         extobj_w = space.newlist([space.wrap(8192), space.wrap(0), space.w_None])
@@ -379,8 +423,15 @@ def _has_reflected_op(space, w_obj, op):
         return False
     return space.getattr(w_obj, space.wrap('__' + refops[op] + '__')) is not None
 
+def safe_casting_mode(casting):
+    assert casting is not None
+    if casting in ('unsafe', 'same_kind'):
+        return 'safe'
+    else:
+        return casting
+
 class W_Ufunc1(W_Ufunc):
-    _immutable_fields_ = ["func", "bool_result"]
+    _immutable_fields_ = ["func", "bool_result", "dtypes[*]"]
     nin = 1
     nout = 1
     nargs = 2
@@ -401,59 +452,73 @@ class W_Ufunc1(W_Ufunc):
             out = args_w[1]
             if space.is_w(out, space.w_None):
                 out = None
-        w_obj = numpify(space, w_obj)
-        dtype = _get_dtype(space, w_obj)
-        if dtype.is_flexible():
-            raise OperationError(space.w_TypeError,
-                      space.wrap('Not implemented for this type'))
-        if (self.int_only and not (dtype.is_int() or dtype.is_object()) or
-                not self.allow_bool and dtype.is_bool() or
-                not self.allow_complex and dtype.is_complex()):
-            raise oefmt(space.w_TypeError,
-                "ufunc %s not supported for the input type", self.name)
-        calc_dtype = find_unaryop_result_dtype(space,
-                                  dtype,
-                                  promote_to_float=self.promote_to_float,
-                                  promote_bools=self.promote_bools)
-        if out is not None:
-            if not isinstance(out, W_NDimArray):
+            elif out is not None and not isinstance(out, W_NDimArray):
                 raise oefmt(space.w_TypeError, 'output must be an array')
-            res_dtype = out.get_dtype()
-            #if not w_obj.get_dtype().can_cast_to(res_dtype):
-            #    raise oefmt(space.w_TypeError,
-            #        "Cannot cast ufunc %s output from dtype('%s') to dtype('%s') with casting rule 'same_kind'", self.name, w_obj.get_dtype().name, res_dtype.name)
-        elif self.bool_result:
-            res_dtype = get_dtype_cache(space).w_booldtype
-        else:
-            res_dtype = calc_dtype
-            if self.complex_to_float and calc_dtype.is_complex():
-                if calc_dtype.num == NPY.CFLOAT:
-                    res_dtype = get_dtype_cache(space).w_float32dtype
-                else:
-                    res_dtype = get_dtype_cache(space).w_float64dtype
-        if w_obj.is_scalar():
-            w_val = self.func(calc_dtype,
-                              w_obj.get_scalar_value().convert_to(space, calc_dtype))
+        w_obj = numpify(space, w_obj)
+        dtype = w_obj.get_dtype(space)
+        calc_dtype, dt_out, func = self.find_specialization(space, dtype, out, casting)
+        if isinstance(w_obj, W_GenericBox):
             if out is None:
-                if res_dtype.is_object():
-                    w_val = w_obj.get_scalar_value()
-                return w_val
-            w_val = res_dtype.coerce(space, w_val)
-            if out.is_scalar():
-                out.set_scalar_value(w_val)
+                return self.call_scalar(space, w_obj, calc_dtype)
             else:
-                out.fill(space, w_val)
-            return out
+                w_obj = W_NDimArray.from_scalar(space, w_obj)
         assert isinstance(w_obj, W_NDimArray)
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        # XXX call __array_wrap__ if out was not provided
-        return loop.call1(space, shape, self.func, calc_dtype, res_dtype,
-                          w_obj, out)
+        if out is None:
+            w_res = W_NDimArray.from_shape(
+                space, shape, dt_out, w_instance=w_obj)
+        else:
+            w_res = out
+        w_res = loop.call1(space, shape, func, calc_dtype, w_obj, w_res)
+        if out is None:
+            if w_res.is_scalar():
+                return w_res.get_scalar_value()
+            w_res = space.call_method(w_obj, '__array_wrap__', w_res)
+        return w_res
+
+    def call_scalar(self, space, w_arg, in_dtype):
+        w_val = self.func(in_dtype, w_arg.convert_to(space, in_dtype))
+        if isinstance(w_val, W_ObjectBox):
+            return w_val.w_obj
+        return w_val
+
+    def find_specialization(self, space, dtype, out, casting):
+        if dtype.is_flexible():
+            raise oefmt(space.w_TypeError, 'Not implemented for this type')
+        if (not self.allow_bool and dtype.is_bool() or
+                not self.allow_complex and dtype.is_complex()):
+            raise oefmt(space.w_TypeError,
+                "ufunc %s not supported for the input type", self.name)
+        dt_in, dt_out = self._calc_dtype(space, dtype, out, casting)
+        return dt_in, dt_out, self.func
+
+    def _calc_dtype(self, space, arg_dtype, out=None, casting='unsafe'):
+        use_min_scalar = False
+        if arg_dtype.is_object():
+            return arg_dtype, arg_dtype
+        in_casting = safe_casting_mode(casting)
+        for dt_in, dt_out in self.dtypes:
+            if use_min_scalar:
+                if not can_cast_array(space, w_arg, dt_in, in_casting):
+                    continue
+            else:
+                if not can_cast_type(space, arg_dtype, dt_in, in_casting):
+                    continue
+            if out is not None:
+                res_dtype = out.get_dtype()
+                if not can_cast_type(space, dt_out, res_dtype, casting):
+                    continue
+            return dt_in, dt_out
+
+        else:
+            raise oefmt(space.w_TypeError,
+                "ufunc '%s' not supported for the input types", self.name)
 
 
 class W_Ufunc2(W_Ufunc):
-    _immutable_fields_ = ["func", "bool_result", "done_func"]
+    _immutable_fields_ = ["func", "bool_result", "done_func", "dtypes[*]",
+                          "simple_binary"]
     nin = 2
     nout = 1
     nargs = 3
@@ -472,6 +537,10 @@ class W_Ufunc2(W_Ufunc):
             self.done_func = done_if_true
         else:
             self.done_func = None
+        self.simple_binary = (
+            allow_complex and allow_bool and not bool_result and not int_only
+            and not complex_to_float and not promote_to_float
+            and not promote_bools)
 
     def are_common_types(self, dtype1, dtype2):
         if dtype1.is_bool() or dtype2.is_bool():
@@ -484,12 +553,15 @@ class W_Ufunc2(W_Ufunc):
 
     @jit.unroll_safe
     def call(self, space, args_w, sig, casting, extobj):
-        w_obj = args_w[0]
         if len(args_w) > 2:
-            [w_lhs, w_rhs, w_out] = args_w
+            [w_lhs, w_rhs, out] = args_w
+            if space.is_none(out):
+                out = None
+            elif not isinstance(out, W_NDimArray):
+                raise oefmt(space.w_TypeError, 'output must be an array')
         else:
             [w_lhs, w_rhs] = args_w
-            w_out = None
+            out = None
         if not isinstance(w_rhs, W_NDimArray):
             # numpy implementation detail, useful for things like numpy.Polynomial
             # FAIL with NotImplemented if the other object has
@@ -501,20 +573,20 @@ class W_Ufunc2(W_Ufunc):
                 return space.w_NotImplemented
         w_lhs = numpify(space, w_lhs)
         w_rhs = numpify(space, w_rhs)
-        w_ldtype = _get_dtype(space, w_lhs)
-        w_rdtype = _get_dtype(space, w_rhs)
+        w_ldtype = w_lhs.get_dtype(space)
+        w_rdtype = w_rhs.get_dtype(space)
         if w_ldtype.is_object() or w_rdtype.is_object():
             pass
         elif w_ldtype.is_str() and w_rdtype.is_str() and \
                 self.bool_result:
             pass
         elif (w_ldtype.is_str()) and \
-                self.bool_result and w_out is None:
+                self.bool_result and out is None:
             if self.name in ('equal', 'less_equal', 'less'):
                return space.wrap(False)
-            return space.wrap(True) 
+            return space.wrap(True)
         elif (w_rdtype.is_str()) and \
-                self.bool_result and w_out is None:
+                self.bool_result and out is None:
             if self.name in ('not_equal','less', 'less_equal'):
                return space.wrap(True)
             return space.wrap(False)
@@ -537,53 +609,105 @@ class W_Ufunc2(W_Ufunc):
                 w_rdtype = w_ldtype
             elif w_lhs.is_scalar() and not w_rhs.is_scalar():
                 w_ldtype = w_rdtype
-        calc_dtype = find_binop_result_dtype(space,
-            w_ldtype, w_rdtype,
-            promote_to_float=self.promote_to_float,
-            promote_bools=self.promote_bools)
-        if (self.int_only and (not (w_ldtype.is_int() or w_ldtype.is_object()) or
-                               not (w_rdtype.is_int() or w_rdtype.is_object()) or
-                               not (calc_dtype.is_int() or calc_dtype.is_object())) or
-                not self.allow_bool and (w_ldtype.is_bool() or
-                                         w_rdtype.is_bool()) or
-                not self.allow_complex and (w_ldtype.is_complex() or
-                                            w_rdtype.is_complex())):
-            raise oefmt(space.w_TypeError,
-                "ufunc '%s' not supported for the input types", self.name)
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise oefmt(space.w_TypeError, 'output must be an array')
-        else:
-            out = w_out
-            calc_dtype = out.get_dtype()
-        if self.bool_result:
-            res_dtype = get_dtype_cache(space).w_booldtype
-        else:
-            res_dtype = calc_dtype
-        if w_lhs.is_scalar() and w_rhs.is_scalar():
-            arr = self.func(calc_dtype,
-                w_lhs.get_scalar_value().convert_to(space, calc_dtype),
-                w_rhs.get_scalar_value().convert_to(space, calc_dtype)
-            )
-            if isinstance(out, W_NDimArray):
-                if out.is_scalar():
-                    out.set_scalar_value(arr)
-                else:
-                    out.fill(space, arr)
-            else:
-                out = arr
-            return out
-        if isinstance(w_lhs, boxes.W_GenericBox):
+        calc_dtype, dt_out, func = self.find_specialization(space, w_ldtype, w_rdtype, out, casting)
+        if (isinstance(w_lhs, W_GenericBox) and
+                isinstance(w_rhs, W_GenericBox) and out is None):
+            return self.call_scalar(space, w_lhs, w_rhs, calc_dtype)
+        if isinstance(w_lhs, W_GenericBox):
             w_lhs = W_NDimArray.from_scalar(space, w_lhs)
         assert isinstance(w_lhs, W_NDimArray)
-        if isinstance(w_rhs, boxes.W_GenericBox):
+        if isinstance(w_rhs, W_GenericBox):
             w_rhs = W_NDimArray.from_scalar(space, w_rhs)
         assert isinstance(w_rhs, W_NDimArray)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(space, new_shape, self.func, calc_dtype,
-                          res_dtype, w_lhs, w_rhs, out)
+        w_highpriority, out_subtype = array_priority(space, w_lhs, w_rhs)
+        if out is None:
+            w_res = W_NDimArray.from_shape(space, new_shape, dt_out,
+                                           w_instance=out_subtype)
+        else:
+            w_res = out
+        w_res = loop.call2(space, new_shape, self.func, calc_dtype,
+                           w_lhs, w_rhs, w_res)
+        if out is None:
+            if w_res.is_scalar():
+                return w_res.get_scalar_value()
+            w_res = space.call_method(w_highpriority, '__array_wrap__', w_res)
+        return w_res
+
+    def call_scalar(self, space, w_lhs, w_rhs, in_dtype):
+        w_val = self.func(in_dtype,
+                          w_lhs.convert_to(space, in_dtype),
+                          w_rhs.convert_to(space, in_dtype))
+        if isinstance(w_val, W_ObjectBox):
+            return w_val.w_obj
+        return w_val
+
+    def _find_specialization(self, space, l_dtype, r_dtype, out, casting):
+        if (not self.allow_bool and (l_dtype.is_bool() or
+                                         r_dtype.is_bool()) or
+                not self.allow_complex and (l_dtype.is_complex() or
+                                            r_dtype.is_complex())):
+            raise oefmt(space.w_TypeError,
+                "ufunc '%s' not supported for the input types", self.name)
+        if self.bool_result:
+            # XXX: should actually pass the arrays
+            dtype = find_result_type(space, [], [l_dtype, r_dtype])
+            bool_dtype = get_dtype_cache(space).w_booldtype
+            return dtype, bool_dtype, self.func
+        dt_in, dt_out = self._calc_dtype(space, l_dtype, r_dtype, out, casting)
+        return dt_in, dt_out, self.func
+
+    def find_specialization(self, space, l_dtype, r_dtype, out, casting):
+        if self.simple_binary:
+            if out is None and not (l_dtype.is_object() or r_dtype.is_object()):
+                dtype = promote_types(space, l_dtype, r_dtype)
+                return dtype, dtype, self.func
+        return self._find_specialization(space, l_dtype, r_dtype, out, casting)
+
+    def find_binop_type(self, space, dtype):
+        """Find a valid dtype signature of the form xx->x"""
+        if dtype.is_object():
+            return dtype
+        for dt_in, dt_out in self.dtypes:
+            if can_cast_to(dtype, dt_in):
+                if dt_out == dt_in:
+                    return dt_in
+                else:
+                    dtype = dt_out
+                    break
+        for dt_in, dt_out in self.dtypes:
+            if can_cast_to(dtype, dt_in) and dt_out == dt_in:
+                return dt_in
+        raise ValueError(
+            "could not find a matching type for %s.accumulate, "
+            "requested type has type code '%s'" % (self.name, dtype.char))
+
+
+    def _calc_dtype(self, space, l_dtype, r_dtype, out=None, casting='unsafe'):
+        use_min_scalar = False
+        if l_dtype.is_object() or r_dtype.is_object():
+            dtype = get_dtype_cache(space).w_objectdtype
+            return dtype, dtype
+        in_casting = safe_casting_mode(casting)
+        for dt_in, dt_out in self.dtypes:
+            if use_min_scalar:
+                if not can_cast_array(space, w_arg, dt_in, in_casting):
+                    continue
+            else:
+                if not (can_cast_type(space, l_dtype, dt_in, in_casting) and
+                        can_cast_type(space, r_dtype, dt_in, in_casting)):
+                    continue
+            if out is not None:
+                res_dtype = out.get_dtype()
+                if not can_cast_type(space, dt_out, res_dtype, casting):
+                    continue
+            return dt_in, dt_out
+
+        else:
+            raise oefmt(space.w_TypeError,
+                "ufunc '%s' not supported for the input types", self.name)
+
 
 
 class W_UfuncGeneric(W_Ufunc):
@@ -639,15 +763,11 @@ class W_UfuncGeneric(W_Ufunc):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w, sig, casting, extobj):
-        inargs = [None] * self.nin
         if len(args_w) < self.nin:
             raise oefmt(space.w_ValueError,
                  '%s called with too few input args, expected at least %d got %d',
                  self.name, self.nin, len(args_w))
-        for i in range(self.nin):
-            inargs[i] = convert_to_array(space, args_w[i])
-        for i in inargs:
-            assert isinstance(i, W_NDimArray)
+        inargs = [convert_to_array(space, args_w[i]) for i in range(self.nin)]
         outargs = [None] * self.nout
         for i in range(len(args_w)-self.nin):
             out = args_w[i+self.nin]
@@ -779,7 +899,7 @@ class W_UfuncGeneric(W_Ufunc):
         return outargs[0]
 
     def parse_kwargs(self, space, kwargs_w):
-        w_subok, w_out, casting, sig, extobj = \
+        w_subok, w_out, sig, w_casting, extobj = \
                     W_Ufunc.parse_kwargs(self, space, kwargs_w)
         # do equivalent of get_ufunc_arguments in numpy's ufunc_object.c
         dtype_w = kwargs_w.pop('dtype', None)
@@ -806,7 +926,7 @@ class W_UfuncGeneric(W_Ufunc):
                 parsed_kw.append(kw)
         for kw in parsed_kw:
             kwargs_w.pop(kw)
-        return w_subok, w_out, sig, casting, extobj
+        return w_subok, w_out, sig, w_casting, extobj
 
     def type_resolver(self, space, inargs, outargs, type_tup, _dtypes):
         # Find a match for the inargs.dtype in _dtypes, like
@@ -1024,170 +1144,6 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
 )
 
 
-def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
-        promote_bools=False):
-    if dt2 is None:
-        return dt1
-    if dt1 is None:
-        return dt2
-
-    if dt1.num == NPY.OBJECT or dt2.num == NPY.OBJECT:
-        return get_dtype_cache(space).w_objectdtype
-
-    # dt1.num should be <= dt2.num
-    if dt1.num > dt2.num:
-        dt1, dt2 = dt2, dt1
-    # Some operations promote op(bool, bool) to return int8, rather than bool
-    if promote_bools and (dt1.kind == dt2.kind == NPY.GENBOOLLTR):
-        return get_dtype_cache(space).w_int8dtype
-
-    # Everything numeric promotes to complex
-    if dt2.is_complex() or dt1.is_complex():
-        if dt2.num == NPY.HALF:
-            dt1, dt2 = dt2, dt1
-        if dt2.num == NPY.CFLOAT:
-            if dt1.num == NPY.DOUBLE:
-                return get_dtype_cache(space).w_complex128dtype
-            elif dt1.num == NPY.LONGDOUBLE:
-                return get_dtype_cache(space).w_complexlongdtype
-            return get_dtype_cache(space).w_complex64dtype
-        elif dt2.num == NPY.CDOUBLE:
-            if dt1.num == NPY.LONGDOUBLE:
-                return get_dtype_cache(space).w_complexlongdtype
-            return get_dtype_cache(space).w_complex128dtype
-        elif dt2.num == NPY.CLONGDOUBLE:
-            return get_dtype_cache(space).w_complexlongdtype
-        else:
-            raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
-
-    if promote_to_float:
-        return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
-    # If they're the same kind, choose the greater one.
-    if dt1.kind == dt2.kind and not dt2.is_flexible():
-        if dt2.num == NPY.HALF:
-            return dt1
-        return dt2
-
-    # Everything promotes to float, and bool promotes to everything.
-    if dt2.kind == NPY.FLOATINGLTR or dt1.kind == NPY.GENBOOLLTR:
-        if dt2.num == NPY.HALF and dt1.itemtype.get_element_size() == 2:
-            return get_dtype_cache(space).w_float32dtype
-        if dt2.num == NPY.HALF and dt1.itemtype.get_element_size() >= 4:
-            return get_dtype_cache(space).w_float64dtype
-        if dt2.num == NPY.FLOAT and dt1.itemtype.get_element_size() >= 4:
-            return get_dtype_cache(space).w_float64dtype
-        return dt2
-
-    # for now this means mixing signed and unsigned
-    if dt2.kind == NPY.SIGNEDLTR:
-        # if dt2 has a greater number of bytes, then just go with it
-        if dt1.itemtype.get_element_size() < dt2.itemtype.get_element_size():
-            return dt2
-        # we need to promote both dtypes
-        dtypenum = dt2.num + 2
-    elif dt2.num == NPY.ULONGLONG or (LONG_BIT == 64 and dt2.num == NPY.ULONG):
-        # UInt64 + signed = Float64
-        dtypenum = NPY.DOUBLE
-    elif dt2.is_flexible():
-        # For those operations that get here (concatenate, stack),
-        # flexible types take precedence over numeric type
-        if dt2.is_record():
-            return dt2
-        if dt1.is_str_or_unicode():
-            if dt2.elsize >= dt1.elsize:
-                return dt2
-            return dt1
-        return dt2
-    else:
-        # increase to the next signed type
-        dtypenum = dt2.num + 1
-    newdtype = get_dtype_cache(space).dtypes_by_num[dtypenum]
-
-    if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
-            newdtype.kind == NPY.FLOATINGLTR):
-        return newdtype
-    else:
-        # we only promoted to long on 32-bit or to longlong on 64-bit
-        # this is really for dealing with the Long and Ulong dtypes
-        dtypenum += 2
-        return get_dtype_cache(space).dtypes_by_num[dtypenum]
-
-
-@jit.unroll_safe
-def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-        promote_bools=False, promote_to_largest=False):
-    if dt.is_object():
-        return dt
-    if promote_to_largest:
-        if dt.kind == NPY.GENBOOLLTR or dt.kind == NPY.SIGNEDLTR:
-            if dt.elsize * 8 < LONG_BIT:
-                return get_dtype_cache(space).w_longdtype
-        elif dt.kind == NPY.UNSIGNEDLTR:
-            if dt.elsize * 8 < LONG_BIT:
-                return get_dtype_cache(space).w_ulongdtype
-        else:
-            assert dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR
-        return dt
-    if promote_bools and (dt.kind == NPY.GENBOOLLTR):
-        return get_dtype_cache(space).w_int8dtype
-    if promote_to_float:
-        if dt.kind == NPY.FLOATINGLTR or dt.kind == NPY.COMPLEXLTR:
-            return dt
-        if dt.num >= NPY.INT:
-            return get_dtype_cache(space).w_float64dtype
-        for bytes, dtype in get_dtype_cache(space).float_dtypes_by_num_bytes:
-            if (dtype.kind == NPY.FLOATINGLTR and
-                    dtype.itemtype.get_element_size() >
-                    dt.itemtype.get_element_size()):
-                return dtype
-    return dt
-
-
-def find_dtype_for_scalar(space, w_obj, current_guess=None):
-    bool_dtype = get_dtype_cache(space).w_booldtype
-    long_dtype = get_dtype_cache(space).w_longdtype
-    int64_dtype = get_dtype_cache(space).w_int64dtype
-    uint64_dtype = get_dtype_cache(space).w_uint64dtype
-    complex_dtype = get_dtype_cache(space).w_complex128dtype
-    float_dtype = get_dtype_cache(space).w_float64dtype
-    object_dtype = get_dtype_cache(space).w_objectdtype
-    if isinstance(w_obj, boxes.W_GenericBox):
-        dtype = w_obj.get_dtype(space)
-        return find_binop_result_dtype(space, dtype, current_guess)
-
-    if space.isinstance_w(w_obj, space.w_bool):
-        return find_binop_result_dtype(space, bool_dtype, current_guess)
-    elif space.isinstance_w(w_obj, space.w_int):
-        return find_binop_result_dtype(space, long_dtype, current_guess)
-    elif space.isinstance_w(w_obj, space.w_long):
-        try:
-            space.int_w(w_obj)
-        except OperationError, e:
-            if e.match(space, space.w_OverflowError):
-                if space.is_true(space.le(w_obj, space.wrap(0))):
-                    return find_binop_result_dtype(space, int64_dtype,
-                                               current_guess)
-                return find_binop_result_dtype(space, uint64_dtype,
-                                               current_guess)
-            raise
-        return find_binop_result_dtype(space, int64_dtype, current_guess)
-    elif space.isinstance_w(w_obj, space.w_float):
-        return find_binop_result_dtype(space, float_dtype, current_guess)
-    elif space.isinstance_w(w_obj, space.w_complex):
-        return complex_dtype
-    elif space.isinstance_w(w_obj, space.w_str):
-        if current_guess is None:
-            return variable_dtype(space,
-                                               'S%d' % space.len_w(w_obj))
-        elif current_guess.num == NPY.STRING:
-            if current_guess.elsize < space.len_w(w_obj):
-                return variable_dtype(space,
-                                                   'S%d' % space.len_w(w_obj))
-        return current_guess
-    return object_dtype
-    #raise oefmt(space.w_NotImplementedError,
-    #            'unable to create dtype from objects, "%T" instance not '
-    #            'supported', w_obj)
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, nin, bool_result):
@@ -1332,10 +1288,68 @@ class UfuncState(object):
             bool_result=extra_kwargs.get("bool_result", False),
         )
         if nin == 1:
-            ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
+            ufunc = unary_ufunc(space, func, ufunc_name, **extra_kwargs)
         elif nin == 2:
-            ufunc = W_Ufunc2(func, ufunc_name, **extra_kwargs)
+            ufunc = binary_ufunc(space, func, ufunc_name, **extra_kwargs)
         setattr(self, ufunc_name, ufunc)
+
+def unary_ufunc(space, func, ufunc_name, **kwargs):
+    ufunc = W_Ufunc1(func, ufunc_name, **kwargs)
+    ufunc.dtypes = _ufunc1_dtypes(ufunc, space)
+    return ufunc
+
+def _ufunc1_dtypes(ufunc, space):
+    dtypes = []
+    cache = get_dtype_cache(space)
+    if not ufunc.promote_bools and not ufunc.promote_to_float:
+        dtypes.append((cache.w_booldtype, cache.w_booldtype))
+    if not ufunc.promote_to_float:
+        for dt in cache.integer_dtypes:
+            dtypes.append((dt, dt))
+    if not ufunc.int_only:
+        for dt in cache.float_dtypes:
+            dtypes.append((dt, dt))
+        for dt in cache.complex_dtypes:
+            if ufunc.complex_to_float:
+                if dt.num == NPY.CFLOAT:
+                    dt_out = get_dtype_cache(space).w_float32dtype
+                else:
+                    dt_out = get_dtype_cache(space).w_float64dtype
+                dtypes.append((dt, dt_out))
+            else:
+                dtypes.append((dt, dt))
+    if ufunc.bool_result:
+        dtypes = [(dt_in, cache.w_booldtype) for dt_in, _ in dtypes]
+    return dtypes
+
+def binary_ufunc(space, func, ufunc_name, **kwargs):
+    ufunc = W_Ufunc2(func, ufunc_name, **kwargs)
+    ufunc.dtypes = _ufunc2_dtypes(ufunc, space)
+    return ufunc
+
+def _ufunc2_dtypes(ufunc, space):
+    dtypes = []
+    cache = get_dtype_cache(space)
+    if not ufunc.promote_bools and not ufunc.promote_to_float:
+        dtypes.append((cache.w_booldtype, cache.w_booldtype))
+    if not ufunc.promote_to_float:
+        for dt in cache.integer_dtypes:
+            dtypes.append((dt, dt))
+    if not ufunc.int_only:
+        for dt in cache.float_dtypes:
+            dtypes.append((dt, dt))
+        for dt in cache.complex_dtypes:
+            if ufunc.complex_to_float:
+                if dt.num == NPY.CFLOAT:
+                    dt_out = get_dtype_cache(space).w_float32dtype
+                else:
+                    dt_out = get_dtype_cache(space).w_float64dtype
+                dtypes.append((dt, dt_out))
+            else:
+                dtypes.append((dt, dt))
+    if ufunc.bool_result:
+        dtypes = [(dt_in, cache.w_booldtype) for dt_in, _ in dtypes]
+    return dtypes
 
 
 def get(space):

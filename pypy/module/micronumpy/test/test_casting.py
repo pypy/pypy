@@ -1,4 +1,8 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.micronumpy.descriptor import get_dtype_cache, num2dtype
+from pypy.module.micronumpy.casting import (
+    promote_types, can_cast_type, _promote_types_su)
+import pypy.module.micronumpy.constants as NPY
 
 
 class AppTestNumSupport(BaseNumpyAppTest):
@@ -24,6 +28,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.can_cast(np.int32, np.int64)
         assert np.can_cast(np.float64, complex)
         assert not np.can_cast(np.complex64, float)
+        assert np.can_cast(np.bool_, np.bool_)
 
         assert np.can_cast('i8', 'f8')
         assert not np.can_cast('i8', 'f4')
@@ -113,9 +118,64 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert np.can_cast(1., np.complex64)
         assert not np.can_cast(1e50, np.complex64)
 
+    def test_can_cast_record(self):
+        import numpy as np
+        rec1 = np.dtype([('x', int), ('y', float)])
+        rec2 = np.dtype([('x', float), ('y', float)])
+        rec3 = np.dtype([('y', np.float64), ('x', float)])
+        assert not np.can_cast(rec1, rec2, 'equiv')
+        assert np.can_cast(rec2, rec3, 'equiv')
+        assert np.can_cast(rec1, rec2)
+
     def test_min_scalar_type(self):
         import numpy as np
         assert np.min_scalar_type(2**8 - 1) == np.dtype('uint8')
         assert np.min_scalar_type(2**64 - 1) == np.dtype('uint64')
         # XXX: np.asarray(2**64) fails with OverflowError
         # assert np.min_scalar_type(2**64) == np.dtype('O')
+
+    def test_promote_types(self):
+        import numpy as np
+        assert np.promote_types('f4', 'f8') == np.dtype('float64')
+        assert np.promote_types('i8', 'f4') == np.dtype('float64')
+        assert np.promote_types('>i8', '<c8') == np.dtype('complex128')
+        assert np.promote_types('i4', 'S8') == np.dtype('S11')
+        assert np.promote_types('f4', 'S8') == np.dtype('S32')
+        assert np.promote_types('f4', 'U8') == np.dtype('U32')
+        assert np.promote_types('?', '?') is np.dtype('?')
+        assert np.promote_types('?', 'float64') is np.dtype('float64')
+        assert np.promote_types('float64', '?') is np.dtype('float64')
+        assert np.promote_types('i', 'b') is np.dtype('i')
+        assert np.promote_types('i', '?') is np.dtype('i')
+        assert np.promote_types('c8', 'f8') is np.dtype('c16')
+        assert np.promote_types('c8', 'longdouble') == np.dtype('clongdouble')
+        assert np.promote_types('c16', 'longdouble') == np.dtype('clongdouble')
+
+    def test_result_type(self):
+        import numpy as np
+        assert np.result_type(np.uint8, np.int8) == np.int16
+        assert np.result_type(np.uint16(1), np.int8(0)) == np.int32
+        assert np.result_type(np.uint16(1), np.int8(0), np.uint8) == np.uint8
+        assert np.result_type(-1, np.uint8, 1) == np.int16
+
+def test_can_cast_same_type(space):
+    dt_bool = get_dtype_cache(space).w_booldtype
+    assert can_cast_type(space, dt_bool, dt_bool, 'no')
+    assert can_cast_type(space, dt_bool, dt_bool, 'equiv')
+    assert can_cast_type(space, dt_bool, dt_bool, 'safe')
+    assert can_cast_type(space, dt_bool, dt_bool, 'same_kind')
+    assert can_cast_type(space, dt_bool, dt_bool, 'unsafe')
+
+def test_promote_types_su(space):
+    dt_int8 = num2dtype(space, NPY.BYTE)
+    dt_uint8 = num2dtype(space, NPY.UBYTE)
+    dt_int16 = num2dtype(space, NPY.SHORT)
+    dt_uint16 = num2dtype(space, NPY.USHORT)
+    # The results must be signed
+    assert _promote_types_su(space, dt_int8, dt_int16, False, False) == (dt_int16, False)
+    assert _promote_types_su(space, dt_int8, dt_int16, True, False) == (dt_int16, False)
+    assert _promote_types_su(space, dt_int8, dt_int16, False, True) == (dt_int16, False)
+
+    # The results may be unsigned
+    assert _promote_types_su(space, dt_int8, dt_int16, True, True) == (dt_int16, True)
+    assert _promote_types_su(space, dt_uint8, dt_int16, False, True) == (dt_uint16, True)

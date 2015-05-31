@@ -220,24 +220,6 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type):
         batch = new_batch
 
 
-def find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
-    if len(elems_w) == 1:
-        w_elem = elems_w[0]
-        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-            w_elem = w_elem.get_scalar_value()
-        return find_dtype_for_scalar(space, w_elem, dtype)
-    return _find_dtype_for_seq(space, elems_w, dtype)
-
-
-def _find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
-    for w_elem in elems_w:
-        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-            w_elem = w_elem.get_scalar_value()
-        dtype = find_dtype_for_scalar(space, w_elem, dtype)
-    return dtype
-
 
 @jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
@@ -247,11 +229,15 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     shape2 = w_arr2.get_shape()
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
+        def format_shape(shape):
+            if len(shape) > 1:
+                return ",".join([str(x) for x in shape])
+            else:
+                return '%d,' % shape[0]
         raise OperationError(space.w_ValueError,
             space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
-                ",".join([str(x) for x in shape1]),
-                ",".join([str(x) for x in shape2]),
-            ))
+                format_shape(shape1), format_shape(shape2)),
+            )
         )
     if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
         raise OperationError(space.w_ValueError,

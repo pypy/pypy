@@ -1389,6 +1389,17 @@ class BackendTests:
         assert p.c == 14
         assert p.d == 14
 
+    def test_nested_field_offset_align(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            struct foo_s {
+                struct { int a; char b; };
+                union { char c; };
+            };
+        """)
+        assert ffi.offsetof("struct foo_s", "c") == 2 * SIZE_OF_INT
+        assert ffi.sizeof("struct foo_s") == 3 * SIZE_OF_INT
+
     def test_nested_anonymous_union(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
@@ -1694,4 +1705,12 @@ class BackendTests:
         assert lib.DOT_HEX2 == 0x10
         assert lib.DOT_UL == 1000
 
-
+    def test_opaque_struct_becomes_nonopaque(self):
+        # Issue #193: if we use a struct between the first cdef() where it is
+        # declared and another cdef() where its fields are defined, then the
+        # definition was ignored.
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("struct foo_s;")
+        py.test.raises(TypeError, ffi.new, "struct foo_s *")
+        ffi.cdef("struct foo_s { int x; };")
+        ffi.new("struct foo_s *")

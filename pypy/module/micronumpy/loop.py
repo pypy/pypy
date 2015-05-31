@@ -18,35 +18,7 @@ call2_driver = jit.JitDriver(
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
     reds='auto')
 
-def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
-    # handle array_priority
-    # w_lhs and w_rhs could be of different ndarray subtypes. Numpy does:
-    # 1. if __array_priorities__ are equal and one is an ndarray and the
-    #        other is a subtype,  return a subtype
-    # 2. elif rhs.__array_priority__ is higher, return the type of rhs
-
-    w_ndarray = space.gettypefor(W_NDimArray)
-    lhs_type = space.type(w_lhs)
-    rhs_type = space.type(w_rhs)
-    lhs_for_subtype = w_lhs
-    rhs_for_subtype = w_rhs
-    #it may be something like a FlatIter, which is not an ndarray
-    if not space.is_true(space.issubtype(lhs_type, w_ndarray)):
-        lhs_type = space.type(w_lhs.base)
-        lhs_for_subtype = w_lhs.base
-    if not space.is_true(space.issubtype(rhs_type, w_ndarray)):
-        rhs_type = space.type(w_rhs.base)
-        rhs_for_subtype = w_rhs.base
-
-    w_highpriority = w_lhs
-    highpriority_subtype = lhs_for_subtype
-    if space.is_w(lhs_type, w_ndarray) and not space.is_w(rhs_type, w_ndarray):
-        highpriority_subtype = rhs_for_subtype
-        w_highpriority = w_rhs
-    if support.is_rhs_priority_higher(space, w_lhs, w_rhs):
-        highpriority_subtype = rhs_for_subtype
-        w_highpriority = w_rhs
-
+def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     if w_lhs.get_size() == 1:
         w_left = w_lhs.get_scalar_value().convert_to(space, calc_dtype)
         left_iter = left_state = None
@@ -63,13 +35,9 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         right_iter, right_state = w_rhs.create_iter(shape)
         right_iter.track_index = False
 
-    if out is None:
-        w_ret = W_NDimArray.from_shape(space, shape, res_dtype,
-                                     w_instance=highpriority_subtype)
-    else:
-        w_ret = out
-    out_iter, out_state = w_ret.create_iter(shape)
+    out_iter, out_state = out.create_iter(shape)
     shapelen = len(shape)
+    res_dtype = out.get_dtype()
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      calc_dtype=calc_dtype, res_dtype=res_dtype)
@@ -82,25 +50,19 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
             space, res_dtype))
         out_state = out_iter.next(out_state)
-    if out is None:
-        w_ret = space.call_method(w_highpriority, '__array_wrap__', w_ret)
-    return w_ret
+    return out
 
 call1_driver = jit.JitDriver(
     name='numpy_call1',
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
     reds='auto')
 
-def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
+def call1(space, shape, func, calc_dtype, w_obj, w_ret):
     obj_iter, obj_state = w_obj.create_iter(shape)
     obj_iter.track_index = False
-
-    if out is None:
-        w_ret = W_NDimArray.from_shape(space, shape, res_dtype, w_instance=w_obj)
-    else:
-        w_ret = out
     out_iter, out_state = w_ret.create_iter(shape)
     shapelen = len(shape)
+    res_dtype = w_ret.get_dtype()
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
                                      calc_dtype=calc_dtype, res_dtype=res_dtype)
@@ -108,8 +70,6 @@ def call1(space, shape, func, calc_dtype, res_dtype, w_obj, out):
         out_iter.setitem(out_state, func(calc_dtype, elem).convert_to(space, res_dtype))
         out_state = out_iter.next(out_state)
         obj_state = obj_iter.next(obj_state)
-    if out is None:
-        w_ret = space.call_method(w_obj, '__array_wrap__', w_ret)
     return w_ret
 
 call_many_to_one_driver = jit.JitDriver(
@@ -181,7 +141,7 @@ def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
             vals[i] = in_iters[i].getitem(in_states[i])
         w_arglist = space.newlist(vals)
         w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
-        # w_outvals should be a tuple, but func can return a single value as well 
+        # w_outvals should be a tuple, but func can return a single value as well
         if space.isinstance_w(w_outvals, space.w_tuple):
             batch = space.listview(w_outvals)
             for i in range(len(batch)):
@@ -254,9 +214,10 @@ def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
         obj_state = obj_iter.next(obj_state)
     return cur_value
 
-reduce_cum_driver = jit.JitDriver(name='numpy_reduce_cum_driver',
-                                  greens = ['shapelen', 'func', 'dtype'],
-                                  reds = 'auto')
+reduce_cum_driver = jit.JitDriver(
+    name='numpy_reduce_cum_driver',
+    greens=['shapelen', 'func', 'dtype', 'out_dtype'],
+    reds='auto')
 
 def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     obj_iter, obj_state = obj.create_iter()
@@ -270,12 +231,14 @@ def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     else:
         cur_value = identity.convert_to(space, calc_dtype)
     shapelen = len(obj.get_shape())
+    out_dtype = out.get_dtype()
     while not obj_iter.done(obj_state):
-        reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                          dtype=calc_dtype)
+        reduce_cum_driver.jit_merge_point(
+            shapelen=shapelen, func=func,
+            dtype=calc_dtype, out_dtype=out_dtype)
         rval = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         cur_value = func(calc_dtype, cur_value, rval)
-        out_iter.setitem(out_state, cur_value)
+        out_iter.setitem(out_state, out_dtype.coerce(space, cur_value))
         out_state = out_iter.next(out_state)
         obj_state = obj_iter.next(obj_state)
 

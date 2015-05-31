@@ -24,6 +24,7 @@ types = ['bool', 'int', 'float', 'complex', 'str', 'string', 'unicode', 'object'
 for t in types:
     globals()[t + '_'] = dtype(t).type
 del types
+globals()['uint'] = dtype('uint').type
 
 types = ['Generic', 'Number', 'Integer', 'SignedInteger', 'UnsignedInteger',
          'Inexact', 'Floating', 'ComplexFloating', 'Flexible', 'Character']

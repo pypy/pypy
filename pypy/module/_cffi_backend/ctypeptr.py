@@ -199,9 +199,11 @@ class W_CTypePointer(W_CTypePtrBase):
             # a W_CDataPtrToStruct object which has a strong reference
             # to a W_CDataNewOwning that really contains the structure.
             #
-            if ctitem.with_var_array and not space.is_w(w_init, space.w_None):
-                datasize = ctitem.convert_struct_from_object(
-                    lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
+            if not space.is_w(w_init, space.w_None):
+                ctitem.force_lazy_struct()
+                if ctitem._with_var_array:
+                    datasize = ctitem.convert_struct_from_object(
+                        lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
             #
             cdatastruct = cdataobj.W_CDataNewOwning(space, datasize, ctitem)
             ptr = cdatastruct.unsafe_escaping_ptr()

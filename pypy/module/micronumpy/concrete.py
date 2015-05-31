@@ -7,11 +7,12 @@ from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from pypy.module.micronumpy import support, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
-    ArrayArgumentException
+    ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calc_backstrides, calc_start)
+    calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
+    is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.baseobjspace import W_Root
@@ -19,7 +20,8 @@ from pypy.interpreter.baseobjspace import W_Root
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
-                          'strides[*]', 'backstrides[*]', 'order', 'gcstruct']
+                          'strides[*]', 'backstrides[*]', 'order', 'gcstruct',
+                          'flags']
     start = 0
     parent = None
     flags = 0
@@ -205,7 +207,7 @@ class BaseConcreteArray(object):
                     raise ArrayArgumentException
             return self._lookup_by_index(space, view_w)
         if shape_len == 0:
-            raise oefmt(space.w_IndexError, "0-d arrays can't be indexed")
+            raise oefmt(space.w_IndexError, "too many indices for array")
         elif shape_len > 1:
             raise IndexError
         idx = support.index_w(space, w_idx)
@@ -216,7 +218,11 @@ class BaseConcreteArray(object):
         if space.isinstance_w(w_idx, space.w_str):
             idx = space.str_w(w_idx)
             dtype = self.dtype
-            if not dtype.is_record() or idx not in dtype.fields:
+            if not dtype.is_record():
+                raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                    "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                    "boolean arrays are valid indices")
+            elif idx not in dtype.fields:
                 raise oefmt(space.w_ValueError, "field named %s not found", idx)
             return RecordChunk(idx)
         elif (space.isinstance_w(w_idx, space.w_int) or
@@ -443,6 +449,11 @@ class ConcreteArray(ConcreteArrayNotOwning):
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage, start=start)
         self.gcstruct = gcstruct
+        self.flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def __del__(self):
         if self.gcstruct:
@@ -456,18 +467,39 @@ class ConcreteArrayWithBase(ConcreteArrayNotOwning):
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order,
                                         strides, backstrides, storage, start)
         self.orig_base = orig_base
+        if isinstance(orig_base, W_NumpyObject):
+            self.flags = orig_base.get_flags() & NPY.ARRAY_ALIGNED
+            self.flags |=  orig_base.get_flags() & NPY.ARRAY_WRITEABLE
+        else:
+            self.flags = 0
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def base(self):
         return self.orig_base
 
 
 class ConcreteNonWritableArrayWithBase(ConcreteArrayWithBase):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage,
+                 orig_base, start=0):
+        ConcreteArrayWithBase.__init__(self, shape, dtype, order, strides,
+                backstrides, storage, orig_base, start)
+        self.flags &= ~ NPY.ARRAY_WRITEABLE
+
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
 
 
 class NonWritableArray(ConcreteArray):
+    def __init__(self, shape, dtype, order, strides, backstrides,
+                 storage=lltype.nullptr(RAW_STORAGE), zero=True):
+        ConcreteArray.__init__(self, shape, dtype, order, strides, backstrides,
+                    storage, zero)
+        self.flags &= ~ NPY.ARRAY_WRITEABLE
+        
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
@@ -491,6 +523,12 @@ class SliceArray(BaseConcreteArray):
         self.size = support.product(shape) * self.dtype.elsize
         self.start = start
         self.orig_arr = orig_arr
+        self.flags = parent.flags & NPY.ARRAY_ALIGNED
+        self.flags |= parent.flags & NPY.ARRAY_WRITEABLE
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def base(self):
         return self.orig_arr
@@ -538,6 +576,12 @@ class SliceArray(BaseConcreteArray):
         return sort_array(self, space, w_axis, w_order)
 
 class NonWritableSliceArray(SliceArray):
+    def __init__(self, start, strides, backstrides, shape, parent, orig_arr,
+                 dtype=None):
+        SliceArray.__init__(self, start, strides, backstrides, shape, parent,
+                        orig_arr, dtype)
+        self.flags &= ~NPY.ARRAY_WRITEABLE
+
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
@@ -549,6 +593,8 @@ class VoidBoxStorage(BaseConcreteArray):
         self.gcstruct = V_OBJECTSTORE
         self.dtype = dtype
         self.size = size
+        self.flags = (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
+                     NPY.ARRAY_WRITEABLE | NPY.ARRAY_ALIGNED)
 
     def __del__(self):
         free_raw_storage(self.storage)

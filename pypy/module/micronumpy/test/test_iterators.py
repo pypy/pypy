@@ -1,5 +1,7 @@
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy.iterators import ArrayIter
+from pypy.module.micronumpy.strides import is_c_contiguous, is_f_contiguous
+from pypy.module.micronumpy import constants as NPY
 
 
 class MockArray(object):
@@ -12,6 +14,10 @@ class MockArray(object):
         self.shape = shape
         self.strides = strides
         self.start = start
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def get_shape(self):
         return self.shape

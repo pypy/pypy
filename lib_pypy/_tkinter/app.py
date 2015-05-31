@@ -1,6 +1,6 @@
 # The TkApp class.
 
-from .tklib import tklib, tkffi
+from .tklib_cffi import ffi as tkffi, lib as tklib
 from . import TclError
 from .tclobj import TclObject, FromObj, FromTclString, AsObj, TypeCache
 

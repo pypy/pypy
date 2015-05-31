@@ -100,10 +100,10 @@ class __extend__(W_NDimArray):
 
     def getitem_filter(self, space, arr):
         if arr.ndims() > 1 and arr.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "index out of range for array"))
         size = loop.count_all_true(arr)
         if arr.ndims() == 1:
@@ -116,10 +116,10 @@ class __extend__(W_NDimArray):
 
     def setitem_filter(self, space, idx, val):
         if idx.ndims() > 1 and idx.get_shape() != self.get_shape():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_IndexError, space.wrap(
                 "index out of range for array"))
         size = loop.count_all_true(idx)
         if size > val.get_size() and val.get_size() != 1:
@@ -205,9 +205,13 @@ class __extend__(W_NDimArray):
     def descr_getitem(self, space, w_idx):
         if space.is_w(w_idx, space.w_Ellipsis):
             return self
-        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
-                and w_idx.ndims() > 0:
-            w_ret = self.getitem_filter(space, w_idx)
+        elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
+            if w_idx.ndims() > 0:
+                w_ret = self.getitem_filter(space, w_idx)
+            else:
+                raise oefmt(space.w_IndexError,
+                        "in the future, 0-d boolean arrays will be "
+                        "interpreted as a valid boolean index")
         else:
             try:
                 w_ret = self.implementation.descr_getitem(space, self, w_idx)
@@ -277,7 +281,7 @@ class __extend__(W_NDimArray):
             if self.is_scalar() and dtype.is_str():
                 s.append(dtype.itemtype.to_str(i.getitem(state)))
             else:
-                s.append(dtype.itemtype.str_format(i.getitem(state)))
+                s.append(dtype.itemtype.str_format(i.getitem(state), add_quotes=True))
             state = i.next(state)
         if not self.is_scalar():
             s.append(']')
@@ -896,7 +900,7 @@ class __extend__(W_NDimArray):
     # --------------------- operations ----------------------------
     # TODO: support all kwargs like numpy ufunc_object.c
     sig = None
-    cast = None
+    cast = 'unsafe'
     extobj = None
 
 
@@ -1013,6 +1017,7 @@ class __extend__(W_NDimArray):
         return space.newtuple([w_quotient, w_remainder])
 
     def descr_dot(self, space, w_other, w_out=None):
+        from .casting import find_result_type
         if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -1027,8 +1032,7 @@ class __extend__(W_NDimArray):
             w_res = self.descr_mul(space, other)
             assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1), out)
-        dtype = ufuncs.find_binop_result_dtype(space, self.get_dtype(),
-                                               other.get_dtype())
+        dtype = find_result_type(space, [self, other], [])
         if self.get_size() < 1 and other.get_size() < 1:
             # numpy compatability
             return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
