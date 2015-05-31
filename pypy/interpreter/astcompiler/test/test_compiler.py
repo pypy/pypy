@@ -500,6 +500,17 @@ class TestCompiler:
                 x *= 7
         """, 'x', 42
 
+    def test_try_finally_bug(self):
+        yield self.simple_test, """
+        x = 0
+        try:
+            pass
+        finally:
+            x = 6
+        print(None, None, None, None)
+        x *= 7
+        """, 'x', 42
+
     def test_while_loop(self):
         yield self.simple_test, """
             comments = [42]
