@@ -824,3 +824,172 @@ def test_address_of_function():
     assert addr(0xABC05) == 47
     assert isinstance(addr, ffi.CData)
     assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
+
+def test_issue198():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef struct{...;} opaque_t;
+        const opaque_t CONSTANT;
+        int toint(opaque_t);
+    """)
+    lib = verify(ffi, 'test_issue198', """
+        typedef int opaque_t;
+        #define CONSTANT ((opaque_t)42)
+        static int toint(opaque_t o) { return o; }
+    """)
+    def random_stuff():
+        pass
+    assert lib.toint(lib.CONSTANT) == 42
+    random_stuff()
+    assert lib.toint(lib.CONSTANT) == 42
+
+def test_constant_is_not_a_compiler_constant():
+    ffi = FFI()
+    ffi.cdef("static const float almost_forty_two;")
+    lib = verify(ffi, 'test_constant_is_not_a_compiler_constant', """
+        static float f(void) { return 42.25; }
+        #define almost_forty_two (f())
+    """)
+    assert lib.almost_forty_two == 42.25
+
+def test_constant_of_unknown_size():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef ... opaque_t;
+        const opaque_t CONSTANT;
+    """)
+    e = py.test.raises(VerificationError, verify, ffi,
+                       'test_constant_of_unknown_size', "stuff")
+    assert str(e.value) == ("constant CONSTANT: constant 'CONSTANT' is of "
+                            "type 'opaque_t', whose size is not known")
+
+def test_variable_of_unknown_size():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef ... opaque_t;
+        opaque_t globvar;
+    """)
+    lib = verify(ffi, 'test_constant_of_unknown_size', """
+        typedef char opaque_t[6];
+        opaque_t globvar = "hello";
+    """)
+    # can't read or write it at all
+    e = py.test.raises(TypeError, getattr, lib, 'globvar')
+    assert str(e.value) in ["cdata 'opaque_t' is opaque",
+                            "'opaque_t' is opaque or not completed yet"] #pypy
+    e = py.test.raises(TypeError, setattr, lib, 'globvar', [])
+    assert str(e.value) in ["'opaque_t' is opaque",
+                            "'opaque_t' is opaque or not completed yet"] #pypy
+    # but we can get its address
+    p = ffi.addressof(lib, 'globvar')
+    assert ffi.typeof(p) == ffi.typeof('opaque_t *')
+    assert ffi.string(ffi.cast("char *", p), 8) == b"hello"
+
+def test_constant_of_value_unknown_to_the_compiler():
+    extra_c_source = udir.join(
+        'extra_test_constant_of_value_unknown_to_the_compiler.c')
+    extra_c_source.write('const int external_foo = 42;\n')
+    ffi = FFI()
+    ffi.cdef("const int external_foo;")
+    lib = verify(ffi, 'test_constant_of_value_unknown_to_the_compiler', """
+        extern const int external_foo;
+    """, sources=[str(extra_c_source)])
+    assert lib.external_foo == 42
+
+def test_call_with_incomplete_structs():
+    ffi = FFI()
+    ffi.cdef("typedef struct {...;} foo_t; "
+             "foo_t myglob; "
+             "foo_t increment(foo_t s); "
+             "double getx(foo_t s);")
+    lib = verify(ffi, 'test_call_with_incomplete_structs', """
+        typedef double foo_t;
+        double myglob = 42.5;
+        double getx(double x) { return x; }
+        double increment(double x) { return x + 1; }
+    """)
+    assert lib.getx(lib.myglob) == 42.5
+    assert lib.getx(lib.increment(lib.myglob)) == 43.5
+
+def test_struct_array_guess_length_2():
+    ffi = FFI()
+    ffi.cdef("struct foo_s { int a[...][...]; };")
+    lib = verify(ffi, 'test_struct_array_guess_length_2',
+                 "struct foo_s { int x; int a[5][8]; int y; };")
+    assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
+    s = ffi.new("struct foo_s *")
+    assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
+    assert s.a[4][7] == 0
+    py.test.raises(IndexError, 's.a[4][8]')
+    py.test.raises(IndexError, 's.a[5][0]')
+    assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
+    assert ffi.typeof(s.a[0]) == ffi.typeof("int[8]")
+
+def test_global_var_array_2():
+    ffi = FFI()
+    ffi.cdef("int a[...][...];")
+    lib = verify(ffi, 'test_global_var_array_2', 'int a[10][8];')
+    lib.a[9][7] = 123456
+    assert lib.a[9][7] == 123456
+    py.test.raises(IndexError, 'lib.a[0][8]')
+    py.test.raises(IndexError, 'lib.a[10][0]')
+    assert ffi.typeof(lib.a) == ffi.typeof("int[10][8]")
+    assert ffi.typeof(lib.a[0]) == ffi.typeof("int[8]")
+
+def test_some_integer_type():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef int... foo_t;
+        typedef unsigned long... bar_t;
+        typedef struct { foo_t a, b; } mystruct_t;
+        foo_t foobar(bar_t, mystruct_t);
+        static const bar_t mu = -20;
+        static const foo_t nu = 20;
+    """)
+    lib = verify(ffi, 'test_some_integer_type', """
+        typedef unsigned long long foo_t;
+        typedef short bar_t;
+        typedef struct { foo_t a, b; } mystruct_t;
+        static foo_t foobar(bar_t x, mystruct_t s) {
+            return (foo_t)x + s.a + s.b;
+        }
+        static const bar_t mu = -20;
+        static const foo_t nu = 20;
+    """)
+    assert ffi.sizeof("foo_t") == ffi.sizeof("unsigned long long")
+    assert ffi.sizeof("bar_t") == ffi.sizeof("short")
+    maxulonglong = 2 ** 64 - 1
+    assert int(ffi.cast("foo_t", -1)) == maxulonglong
+    assert int(ffi.cast("bar_t", -1)) == -1
+    assert lib.foobar(-1, [0, 0]) == maxulonglong
+    assert lib.foobar(2 ** 15 - 1, [0, 0]) == 2 ** 15 - 1
+    assert lib.foobar(10, [20, 31]) == 61
+    assert lib.foobar(0, [0, maxulonglong]) == maxulonglong
+    py.test.raises(OverflowError, lib.foobar, 2 ** 15, [0, 0])
+    py.test.raises(OverflowError, lib.foobar, -(2 ** 15) - 1, [0, 0])
+    py.test.raises(OverflowError, ffi.new, "mystruct_t *", [0, -1])
+    assert lib.mu == -20
+    assert lib.nu == 20
+
+def test_some_float_type():
+    py.test.skip("later")
+    ffi = FFI()
+    ffi.cdef("typedef double... foo_t; foo_t sum(foo_t[]);")
+    lib = verify(ffi, 'test_some_float_type', """
+        typedef float foo_t;
+        static foo_t sum(foo_t x[]) { return x[0] + x[1]; }
+    """)
+    assert lib.sum([40.0, 2.25]) == 42.25
+
+def test_issue200():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef void (function_t)(void*);
+        void function(void *);
+    """)
+    lib = verify(ffi, 'test_issue200', """
+        static void function(void *p) { (void)p; }
+    """)
+    ffi.typeof('function_t*')
+    lib.function(ffi.NULL)
+    # assert did not crash

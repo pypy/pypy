@@ -52,6 +52,7 @@ OP_CONSTANT        = 29
 OP_CONSTANT_INT    = 31
 OP_GLOBAL_VAR      = 33
 OP_DLOPEN_FUNC     = 35
+OP_DLOPEN_CONST    = 37
 
 PRIM_VOID          = 0
 PRIM_BOOL          = 1
@@ -104,6 +105,7 @@ PRIM_INTMAX        = 46
 PRIM_UINTMAX       = 47
 
 _NUM_PRIM          = 48
+_UNKNOWN_PRIM      = -1
 
 PRIMITIVE_TO_INDEX = {
     'char':               PRIM_CHAR,

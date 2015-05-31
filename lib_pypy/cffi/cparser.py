@@ -189,8 +189,8 @@ class Parser(object):
                         raise api.CDefError("typedef does not declare any name",
                                             decl)
                     if (isinstance(decl.type.type, pycparser.c_ast.IdentifierType)
-                            and decl.type.type.names == ['__dotdotdot__']):
-                        realtype = model.unknown_type(decl.name)
+                            and decl.type.type.names[-1] == '__dotdotdot__'):
+                        realtype = self._get_unknown_type(decl)
                     elif (isinstance(decl.type, pycparser.c_ast.PtrDecl) and
                           isinstance(decl.type.type, pycparser.c_ast.TypeDecl) and
                           isinstance(decl.type.type.type,
@@ -271,14 +271,12 @@ class Parser(object):
                 if tp.is_raw_function:
                     tp = self._get_type_pointer(tp)
                     self._declare('function ' + decl.name, tp)
-                elif (isinstance(tp, model.PrimitiveType) and
-                        tp.is_integer_type() and
+                elif (tp.is_integer_type() and
                         hasattr(decl, 'init') and
                         hasattr(decl.init, 'value') and
                         _r_int_literal.match(decl.init.value)):
                     self._add_integer_constant(decl.name, decl.init.value)
-                elif (isinstance(tp, model.PrimitiveType) and
-                        tp.is_integer_type() and
+                elif (tp.is_integer_type() and
                         isinstance(decl.init, pycparser.c_ast.UnaryOp) and
                         decl.init.op == '-' and
                         hasattr(decl.init.expr, 'value') and
@@ -338,7 +336,9 @@ class Parser(object):
             else:
                 length = self._parse_constant(
                     typenode.dim, partial_length_ok=partial_length_ok)
-            return model.ArrayType(self._get_type(typenode.type), length)
+            tp = self._get_type(typenode.type,
+                                partial_length_ok=(length == '...'))
+            return model.ArrayType(tp, length)
         #
         if isinstance(typenode, pycparser.c_ast.PtrDecl):
             # pointer type
@@ -639,3 +639,13 @@ class Parser(object):
                 self._declare(name, tp, included=True)
         for k, v in other._int_constants.items():
             self._add_constants(k, v)
+
+    def _get_unknown_type(self, decl):
+        typenames = decl.type.type.names
+        assert typenames[-1] == '__dotdotdot__'
+        if len(typenames) == 1:
+            return model.unknown_type(decl.name)
+        for t in typenames[:-1]:
+            if t not in ['int', 'short', 'long', 'signed', 'unsigned', 'char']:
+                raise api.FFIError(':%d: bad usage of "..."' % decl.coord.line)
+        return model.UnknownIntegerType(decl.name)

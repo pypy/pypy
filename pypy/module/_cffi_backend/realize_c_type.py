@@ -69,19 +69,27 @@ class RealizeCache:
         "intmax_t",
         "uintmax_t",
         ]
+    assert len(NAMES) == cffi_opcode._NUM_PRIM
+
     def __init__(self, space):
         self.all_primitives = [None] * cffi_opcode._NUM_PRIM
 
-def get_primitive_type(space, num):
+def get_primitive_type(ffi, num):
+    space = ffi.space
+    if not (0 <= num < cffi_opcode._NUM_PRIM):
+        if num == cffi_opcode._UNKNOWN_PRIM:
+            raise oefmt(ffi.w_FFIError, "primitive integer type with an "
+                        "unexpected size (or not an integer type at all)")
+        else:
+            raise oefmt(space.w_NotImplementedError, "prim=%d", num)
     realize_cache = space.fromcache(RealizeCache)
     w_ctype = realize_cache.all_primitives[num]
     if w_ctype is None:
         if num == cffi_opcode.PRIM_VOID:
             w_ctype = newtype.new_void_type(space)
-        elif 0 <= num < len(RealizeCache.NAMES) and RealizeCache.NAMES[num]:
-            w_ctype = newtype.new_primitive_type(space, RealizeCache.NAMES[num])
         else:
-            raise oefmt(space.w_NotImplementedError, "prim=%d", num)
+            assert RealizeCache.NAMES[num]
+            w_ctype = newtype.new_primitive_type(space, RealizeCache.NAMES[num])
         realize_cache.all_primitives[num] = w_ctype
     return w_ctype
 
@@ -296,7 +304,7 @@ def _realize_c_enum(ffi, eindex):
         return ffi.cached_types[type_index] #found already in the "primary" slot
 
     space = ffi.space
-    w_basetd = get_primitive_type(space, rffi.getintfield(e, 'c_type_prim'))
+    w_basetd = get_primitive_type(ffi, rffi.getintfield(e, 'c_type_prim'))
 
     enumerators_w = []
     enumvalues_w = []
@@ -344,7 +352,7 @@ def realize_c_type_or_func(ffi, opcodes, index):
     case = getop(op)
 
     if case == cffi_opcode.OP_PRIMITIVE:
-        x = get_primitive_type(ffi.space, getarg(op))
+        x = get_primitive_type(ffi, getarg(op))
 
     elif case == cffi_opcode.OP_POINTER:
         y = realize_c_type_or_func(ffi, opcodes, getarg(op))

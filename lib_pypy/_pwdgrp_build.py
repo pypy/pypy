@@ -11,8 +11,8 @@ ffi.set_source("_pwdgrp_cffi", """
 
 ffi.cdef("""
 
-typedef int uid_t;
-typedef int gid_t;
+typedef int... uid_t;
+typedef int... gid_t;
 
 struct passwd {
     char *pw_name;

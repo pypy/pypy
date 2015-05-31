@@ -7,7 +7,8 @@ import pypy.module.cpyext.api     # side-effect of pre-importing it
 
 
 @unwrap_spec(cdef=str, module_name=str, source=str)
-def prepare(space, cdef, module_name, source, w_includes=None):
+def prepare(space, cdef, module_name, source, w_includes=None,
+            w_extra_source=None):
     try:
         import cffi
         from cffi import FFI            # <== the system one, which
@@ -45,9 +46,13 @@ def prepare(space, cdef, module_name, source, w_includes=None):
     ffi.emit_c_code(c_file)
 
     base_module_name = module_name.split('.')[-1]
+    sources = []
+    if w_extra_source is not None:
+        sources.append(space.str_w(w_extra_source))
     ext = ffiplatform.get_extension(c_file, module_name,
             include_dirs=[str(rdir)],
-            export_symbols=['_cffi_pypyinit_' + base_module_name])
+            export_symbols=['_cffi_pypyinit_' + base_module_name],
+            sources=sources)
     ffiplatform.compile(str(rdir), ext)
 
     for extension in ['so', 'pyd', 'dylib']:
@@ -79,6 +84,8 @@ class AppTestRecompiler:
         if cls.runappdirect:
             py.test.skip("not a test for -A")
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
+        cls.w_udir = cls.space.wrap(str(udir))
+        cls.w_os_sep = cls.space.wrap(os.sep)
 
     def setup_method(self, meth):
         self._w_modules = self.space.appexec([], """():
@@ -849,3 +856,100 @@ class AppTestRecompiler:
         p = ffi.addressof(lib, 'globvar')
         assert ffi.typeof(p) == ffi.typeof('opaque_t *')
         assert ffi.string(ffi.cast("char *", p), 8) == "hello"
+
+    def test_constant_of_value_unknown_to_the_compiler(self):
+        extra_c_source = self.udir + self.os_sep + (
+            'extra_test_constant_of_value_unknown_to_the_compiler.c')
+        with open(extra_c_source, 'w') as f:
+            f.write('const int external_foo = 42;\n')
+        ffi, lib = self.prepare(
+            "const int external_foo;",
+            'test_constant_of_value_unknown_to_the_compiler',
+            "extern const int external_foo;",
+            extra_source=extra_c_source)
+        assert lib.external_foo == 42
+
+    def test_call_with_incomplete_structs(self):
+        ffi, lib = self.prepare(
+            "typedef struct {...;} foo_t; "
+            "foo_t myglob; "
+            "foo_t increment(foo_t s); "
+            "double getx(foo_t s);",
+            'test_call_with_incomplete_structs', """
+            typedef double foo_t;
+            double myglob = 42.5;
+            double getx(double x) { return x; }
+            double increment(double x) { return x + 1; }
+        """)
+        assert lib.getx(lib.myglob) == 42.5
+        assert lib.getx(lib.increment(lib.myglob)) == 43.5
+
+    def test_struct_array_guess_length_2(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int a[...][...]; };",
+            'test_struct_array_guess_length_2',
+            "struct foo_s { int x; int a[5][8]; int y; };")
+        assert ffi.sizeof('struct foo_s') == 42 * ffi.sizeof('int')
+        s = ffi.new("struct foo_s *")
+        assert ffi.sizeof(s.a) == 40 * ffi.sizeof('int')
+        assert s.a[4][7] == 0
+        raises(IndexError, 's.a[4][8]')
+        raises(IndexError, 's.a[5][0]')
+        assert ffi.typeof(s.a) == ffi.typeof("int[5][8]")
+        assert ffi.typeof(s.a[0]) == ffi.typeof("int[8]")
+
+    def test_global_var_array_2(self):
+        ffi, lib = self.prepare(
+            "int a[...][...];",
+            'test_global_var_array_2',
+            'int a[10][8];')
+        lib.a[9][7] = 123456
+        assert lib.a[9][7] == 123456
+        raises(IndexError, 'lib.a[0][8]')
+        raises(IndexError, 'lib.a[10][0]')
+        assert ffi.typeof(lib.a) == ffi.typeof("int[10][8]")
+        assert ffi.typeof(lib.a[0]) == ffi.typeof("int[8]")
+
+    def test_some_integer_type(self):
+        ffi, lib = self.prepare("""
+            typedef int... foo_t;
+            typedef unsigned long... bar_t;
+            typedef struct { foo_t a, b; } mystruct_t;
+            foo_t foobar(bar_t, mystruct_t);
+            static const bar_t mu = -20;
+            static const foo_t nu = 20;
+        """, 'test_some_integer_type', """
+            typedef unsigned long long foo_t;
+            typedef short bar_t;
+            typedef struct { foo_t a, b; } mystruct_t;
+            static foo_t foobar(bar_t x, mystruct_t s) {
+                return (foo_t)x + s.a + s.b;
+            }
+            static const bar_t mu = -20;
+            static const foo_t nu = 20;
+        """)
+        assert ffi.sizeof("foo_t") == ffi.sizeof("unsigned long long")
+        assert ffi.sizeof("bar_t") == ffi.sizeof("short")
+        maxulonglong = 2 ** 64 - 1
+        assert int(ffi.cast("foo_t", -1)) == maxulonglong
+        assert int(ffi.cast("bar_t", -1)) == -1
+        assert lib.foobar(-1, [0, 0]) == maxulonglong
+        assert lib.foobar(2 ** 15 - 1, [0, 0]) == 2 ** 15 - 1
+        assert lib.foobar(10, [20, 31]) == 61
+        assert lib.foobar(0, [0, maxulonglong]) == maxulonglong
+        raises(OverflowError, lib.foobar, 2 ** 15, [0, 0])
+        raises(OverflowError, lib.foobar, -(2 ** 15) - 1, [0, 0])
+        raises(OverflowError, ffi.new, "mystruct_t *", [0, -1])
+        assert lib.mu == -20
+        assert lib.nu == 20
+
+    def test_issue200(self):
+        ffi, lib = self.prepare("""
+            typedef void (function_t)(void*);
+            void function(void *);
+        """, 'test_issue200', """
+            static void function(void *p) { (void)p; }
+        """)
+        ffi.typeof('function_t*')
+        lib.function(ffi.NULL)
+        # assert did not crash

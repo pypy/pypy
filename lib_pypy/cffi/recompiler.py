@@ -11,7 +11,7 @@ except NameError:    # Python 3
 
 
 class GlobalExpr:
-    def __init__(self, name, address, type_op, size=0, check_value=None):
+    def __init__(self, name, address, type_op, size=0, check_value=0):
         self.name = name
         self.address = address
         self.type_op = type_op
@@ -23,11 +23,6 @@ class GlobalExpr:
             self.name, self.address, self.type_op.as_c_expr(), self.size)
 
     def as_python_expr(self):
-        if not isinstance(self.check_value, int_type):
-            raise ffiplatform.VerificationError(
-                "ffi.dlopen() will not be able to figure out the value of "
-                "constant %r (only integer constants are supported, and only "
-                "if their value are specified in the cdef)" % (self.name,))
         return "b'%s%s',%d" % (self.type_op.as_python_bytes(), self.name,
                                self.check_value)
 
@@ -149,7 +144,7 @@ class Recompiler:
                 self.cffi_types.append(tp)     # placeholder
                 for tp1 in tp.args:
                     assert isinstance(tp1, (model.VoidType,
-                                            model.PrimitiveType,
+                                            model.BasePrimitiveType,
                                             model.PointerType,
                                             model.StructOrUnionOrEnum,
                                             model.FunctionPtrType))
@@ -474,7 +469,7 @@ class Recompiler:
 
     def _convert_funcarg_to_c(self, tp, fromvar, tovar, errcode):
         extraarg = ''
-        if isinstance(tp, model.PrimitiveType):
+        if isinstance(tp, model.BasePrimitiveType):
             if tp.is_integer_type() and tp.name != '_Bool':
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
@@ -529,7 +524,7 @@ class Recompiler:
         self._prnt('  }')
 
     def _convert_expr_from_c(self, tp, var, context):
-        if isinstance(tp, model.PrimitiveType):
+        if isinstance(tp, model.BasePrimitiveType):
             if tp.is_integer_type():
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif tp.name != 'long double':
@@ -747,7 +742,7 @@ class Recompiler:
             meth_kind = OP_CPYTHON_BLTN_V   # 'METH_VARARGS'
         self._lsts["global"].append(
             GlobalExpr(name, '_cffi_f_%s' % name,
-                       CffiOp(meth_kind, type_index), check_value=0,
+                       CffiOp(meth_kind, type_index),
                        size='_cffi_d_%s' % name))
 
     # ----------
@@ -758,7 +753,9 @@ class Recompiler:
             ptr_struct_name = tp_struct.get_c_name('*')
             actual_length = '_cffi_array_len(((%s)0)->%s)' % (
                 ptr_struct_name, field_name)
-            tp_field = tp_field.resolve_length(actual_length)
+            tp_item = self._field_type(tp_struct, '%s[0]' % field_name,
+                                       tp_field.item)
+            tp_field = model.ArrayType(tp_item, actual_length)
         return tp_field
 
     def _struct_collecttype(self, tp):
@@ -776,20 +773,19 @@ class Recompiler:
         prnt('  (void)p;')
         for fname, ftype, fbitsize in tp.enumfields():
             try:
-                if (isinstance(ftype, model.PrimitiveType)
-                    and ftype.is_integer_type()) or fbitsize >= 0:
+                if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
                     prnt('  (void)((p->%s) << 1);' % fname)
-                elif (isinstance(ftype, model.ArrayType)
-                      and (ftype.length is None or ftype.length == '...')):
-                    # for C++: "int(*)tmp[] = &p->a;" errors out if p->a is
-                    # declared as "int[5]".  Instead, write "int *tmp = p->a;".
-                    prnt('  { %s = p->%s; (void)tmp; }' % (
-                        ftype.item.get_c_name('*tmp', 'field %r'%fname), fname))
-                else:
-                    # only accept exactly the type declared.
-                    prnt('  { %s = &p->%s; (void)tmp; }' % (
-                        ftype.get_c_name('*tmp', 'field %r'%fname), fname))
+                    continue
+                # only accept exactly the type declared, except that '[]'
+                # is interpreted as a '*' and so will match any array length.
+                # (It would also match '*', but that's harder to detect...)
+                while (isinstance(ftype, model.ArrayType)
+                       and (ftype.length is None or ftype.length == '...')):
+                    ftype = ftype.item
+                    fname = fname + '[0]'
+                prnt('  { %s = &p->%s; (void)tmp; }' % (
+                    ftype.get_c_name('*tmp', 'field %r'%fname), fname))
             except ffiplatform.VerificationError as e:
                 prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
@@ -970,20 +966,28 @@ class Recompiler:
         prnt()
 
     def _generate_cpy_constant_collecttype(self, tp, name):
-        is_int = isinstance(tp, model.PrimitiveType) and tp.is_integer_type()
-        if not is_int:
+        is_int = tp.is_integer_type()
+        if not is_int or self.target_is_python:
             self._do_collect_type(tp)
 
     def _generate_cpy_constant_decl(self, tp, name):
-        is_int = isinstance(tp, model.PrimitiveType) and tp.is_integer_type()
+        is_int = tp.is_integer_type()
         self._generate_cpy_const(is_int, name, tp)
 
     def _generate_cpy_constant_ctx(self, tp, name):
-        if isinstance(tp, model.PrimitiveType) and tp.is_integer_type():
+        if not self.target_is_python and tp.is_integer_type():
             type_op = CffiOp(OP_CONSTANT_INT, -1)
         else:
+            if not tp.sizeof_enabled():
+                raise ffiplatform.VerificationError(
+                    "constant '%s' is of type '%s', whose size is not known"
+                    % (name, tp._get_c_name()))
+            if self.target_is_python:
+                const_kind = OP_DLOPEN_CONST
+            else:
+                const_kind = OP_CONSTANT
             type_index = self._typesdict[tp]
-            type_op = CffiOp(OP_CONSTANT, type_index)
+            type_op = CffiOp(const_kind, type_index)
         self._lsts["global"].append(
             GlobalExpr(name, '_cffi_const_%s' % name, type_op))
 
@@ -1034,6 +1038,10 @@ class Recompiler:
 
     def _generate_cpy_macro_ctx(self, tp, name):
         if tp == '...':
+            if self.target_is_python:
+                raise ffiplatform.VerificationError(
+                    "cannot use the syntax '...' in '#define %s ...' when "
+                    "using the ABI mode" % (name,))
             check_value = None
         else:
             check_value = tp     # an integer
@@ -1048,7 +1056,8 @@ class Recompiler:
     def _global_type(self, tp, global_name):
         if isinstance(tp, model.ArrayType) and tp.length == '...':
             actual_length = '_cffi_array_len(%s)' % (global_name,)
-            tp = tp.resolve_length(actual_length)
+            tp_item = self._global_type(tp.item, '%s[0]' % global_name)
+            tp = model.ArrayType(tp_item, actual_length)
         return tp
 
     def _generate_cpy_variable_collecttype(self, tp, name):
@@ -1066,7 +1075,7 @@ class Recompiler:
         else:
             size = 0
         self._lsts["global"].append(
-            GlobalExpr(name, '&%s' % name, type_op, size, 0))
+            GlobalExpr(name, '&%s' % name, type_op, size))
 
     # ----------
     # emitting the opcodes for individual types
@@ -1077,6 +1086,11 @@ class Recompiler:
     def _emit_bytecode_PrimitiveType(self, tp, index):
         prim_index = PRIMITIVE_TO_INDEX[tp.name]
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, prim_index)
+
+    def _emit_bytecode_UnknownIntegerType(self, tp, index):
+        s = '_cffi_prim_int(sizeof(%s), (((%s)-1) << 0) <= 0)' % (
+            tp.name, tp.name)
+        self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):
         self.cffi_types[index] = CffiOp(OP_FUNCTION, self._typesdict[tp.result])

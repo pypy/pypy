@@ -24,11 +24,13 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (a.argsort() == [[1, 0], [0, 1]]).all()
         a = array(range(10) + range(10) + range(10))
         b = a.argsort()
-        assert (b[:3] == [0, 10, 20]).all()
+        assert ((b[:3] == [0, 10, 20]).all() or
+                (b[:3] == [0, 20, 10]).all())
         #trigger timsort 'run' mode which calls arg_getitem_slice
         a = array(range(100) + range(100) + range(100))
         b = a.argsort()
-        assert (b[:3] == [0, 100, 200]).all()
+        assert ((b[:3] == [0, 100, 200]).all() or
+                (b[:3] == [0, 200, 100]).all())
         a = array([[[]]]).reshape(3,4,0)
         b = a.argsort()
         assert b.size == 0
@@ -176,8 +178,10 @@ class AppTestSorting(BaseNumpyAppTest):
         assert (d == c).all(), "test sort with default axis"
 
     def test_sort_corner_cases_string_records(self):
-        skip('not implemented yet')
         from numpy import array, dtype
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            skip('not implemented yet in PyPy')
         # test string sorts.
         s = 'aaaaaaaa'
         a = array([s + chr(i) for i in range(101)])
@@ -225,8 +229,10 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_sort_objects(self):
         # test object array sorts.
-        skip('object type not supported yet')
         from numpy import empty
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            skip('not implemented yet in PyPy')
         try:
             a = empty((101,), dtype=object)
         except:
@@ -273,9 +279,10 @@ class AppTestSorting(BaseNumpyAppTest):
 
     def test_sort_order(self):
         from numpy import array, zeros
-        from sys import byteorder
+        from sys import byteorder, builtin_module_names
+        if '__pypy__' in builtin_module_names:
+            skip('not implemented yet in PyPy')
         # Test sorting an array with fields
-        skip('not implemented yet')
         x1 = array([21, 32, 14])
         x2 = array(['my', 'first', 'name'])
         x3=array([3.1, 4.5, 6.2])
