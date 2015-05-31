@@ -6,11 +6,12 @@ if sys.platform == 'win32':
 
 # Check that lib_pypy.cffi finds the correct version of _cffi_backend.
 # Otherwise, the test is skipped.  It should never be skipped when run
-# with "pypy py.test -A".
+# with "pypy py.test -A" and _curses_build.py has been run with pypy.
 try:
-    from lib_pypy import cffi; cffi.FFI()
-except (ImportError, AssertionError), e:
-    pytest.skip("no cffi module or wrong version (%s)" % (e,))
+    from lib_pypy import _curses_cffi
+except ImportError:
+    # On CPython, "pip install cffi".  On old PyPy's, no chance
+    pytest.skip("install cffi and run lib_pypy/_curses_build.py manually first")
 
 from lib_pypy import _curses
 

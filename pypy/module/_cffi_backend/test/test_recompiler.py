@@ -29,7 +29,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     rdir = udir.ensure('recompiler', dir=1)
     rdir.join('Python.h').write(
         '#define PYPY_VERSION XX\n'
-        '#define PyMODINIT_FUNC /*exported*/\n'
+        '#define PyMODINIT_FUNC /*exported*/ void\n'
         )
     path = module_name.replace('.', os.sep)
     if '.' in module_name:
@@ -953,3 +953,16 @@ class AppTestRecompiler:
         ffi.typeof('function_t*')
         lib.function(ffi.NULL)
         # assert did not crash
+
+    def test_alignment_of_longlong(self):
+        import _cffi_backend
+        BULongLong = _cffi_backend.new_primitive_type('unsigned long long')
+        x1 = _cffi_backend.alignof(BULongLong)
+        assert x1 in [4, 8]
+        #
+        ffi, lib = self.prepare(
+            "struct foo_s { unsigned long long x; };",
+            'test_alignment_of_longlong',
+            "struct foo_s { unsigned long long x; };")
+        assert ffi.alignof('unsigned long long') == x1
+        assert ffi.alignof('struct foo_s') == x1

@@ -313,10 +313,11 @@ class TestSQLitePyPy(BaseTestSQLite):
             pytest.skip("_sqlite3 requires Python 2.7")
 
         try:
-            import _cffi_backend
+            from lib_pypy import _sqlite3_cffi
         except ImportError:
             # On CPython, "pip install cffi".  On old PyPy's, no chance
-            pytest.skip("_sqlite3 requires _cffi_backend to be installed")
+            pytest.skip("install cffi and run lib_pypy/_sqlite3_build.py "
+                        "manually first")
 
         global _sqlite3
         from lib_pypy import _sqlite3
