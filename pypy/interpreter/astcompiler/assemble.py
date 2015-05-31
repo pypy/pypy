@@ -395,13 +395,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             depth = self._do_stack_depth_walk(block)
             if block.auto_inserted_return and depth != 0:
-                assert depth >= 0
-                # Disable this error for now.  On this branch the stack depth
-                # computation gives a slightly incorrect but conservative
-                # estimation of how much stack depth is actually needed.
-                #os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
-                #    self.compile_info.filename, self.name, self.first_lineno))
-                #raise StackDepthComputationError   # fatal error
+                os.write(2, "StackDepthComputationError in %s at %s:%s\n" % (
+                    self.compile_info.filename, self.name, self.first_lineno))
+                raise StackDepthComputationError   # fatal error
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth):

@@ -614,7 +614,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # second # body
                 self.visit_sequence(handler.body)
                 self.emit_op(ops.POP_BLOCK)
-                self.emit_op(ops.POP_EXCEPT)
                 self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
                 # finally
                 self.load_const(self.space.w_None)
@@ -634,9 +633,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 cleanup_body = self.use_next_block()
                 self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
                 self.visit_sequence(handler.body)
-                self.emit_op(ops.POP_EXCEPT)
                 self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
             #
+            self.emit_op(ops.POP_EXCEPT)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
