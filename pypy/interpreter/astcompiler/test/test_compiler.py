@@ -841,7 +841,7 @@ class TestCompiler:
         finally: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 3
+        assert code.co_stacksize == 4
 
     def test_stackeffect_bug4(self):
         source = """if 1:
@@ -853,7 +853,7 @@ class TestCompiler:
         with a: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 4
+        assert code.co_stacksize == 5
 
     def test_stackeffect_bug5(self):
         source = """if 1:
