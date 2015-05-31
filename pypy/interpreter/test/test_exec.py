@@ -200,14 +200,6 @@ class AppTestExecStmt:
         assert len(x) == 6
         assert ord(x[0]) == 0x0439
 
-    def test_exec_tuple(self):
-        # note: this is VERY different than testing exec("a = 42", d), because
-        # this specific case is handled specially by the AST compiler
-        d = {}
-        x = ("a = 42", d)
-        exec x
-        assert d['a'] == 42
-
     def test_issue3297(self):
         c = compile("a, b = '\U0001010F', '\\U0001010F'", "dummy", "exec")
         d = {}
