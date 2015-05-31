@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
@@ -131,6 +132,8 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
+                if (1 << (8*align-2)) > sys.maxint:
+                    align /= 2
         else:
             # a different hack when translated, to avoid seeing constants
             # of a symbolic integer type
