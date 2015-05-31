@@ -131,3 +131,11 @@ will crash.
 
 branch fold-arith-ops
 remove multiple adds on add chains ("1 + 1 + 1 + ...")
+
+.. branch: fix-result-types
+
+branch fix-result-types:
+* Refactor dtype casting and promotion rules for consistency and compatibility
+with CNumPy.
+* Refactor ufunc creation.
+* Implement np.promote_types().
