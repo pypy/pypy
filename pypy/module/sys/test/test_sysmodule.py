@@ -609,7 +609,7 @@ class AppTestSysSettracePortedFromCpython(object):
             tracer = Tracer()
             func(tracer.trace)
             sys.settrace(None)
-            compare_events(func.func_code.co_firstlineno,
+            compare_events(func.__code__.co_firstlineno,
                            tracer.events, func.events)
 
 
@@ -627,7 +627,7 @@ class AppTestSysSettracePortedFromCpython(object):
         def settrace_and_raise(tracefunc):
             try:
                 _settrace_and_raise(tracefunc)
-            except RuntimeError, exc:
+            except RuntimeError as exc:
                 pass
 
         settrace_and_raise.events = [(2, 'exception'),
