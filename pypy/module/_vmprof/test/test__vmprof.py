@@ -21,17 +21,17 @@ class AppTestVMProf(object):
             i = 0
             count = 0
             i += 5 * WORD # header
-            assert s[i] == '\x04'
+            assert s[i] == 4
             i += 1 # marker
-            assert s[i] == '\x04'
+            assert s[i] == 4
             i += 1 # length
             i += len('pypy')
             while i < len(s):
-                if s[i] == '\x03':
+                if s[i] == 3:
                     break
-                if s[i] == '\x01':
+                if s[i] == 1:
                     xxx
-                assert s[i] == '\x02'
+                assert s[i] == 2
                 i += 1
                 _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                 count += 1
@@ -41,26 +41,26 @@ class AppTestVMProf(object):
         import _vmprof
         _vmprof.enable(self.tmpfileno)
         _vmprof.disable()
-        s = open(self.tmpfilename).read()
+        s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
         assert no_of_codes > 10
         d = {}
 
-        exec """def foo():
+        exec("""def foo():
             pass
-        """ in d
+        """, d)
 
         _vmprof.enable(self.tmpfileno2)
 
-        exec """def foo2():
+        exec("""def foo2():
             pass
-        """ in d
+        """, d)
 
         _vmprof.disable()
-        s = open(self.tmpfilename2).read()
+        s = open(self.tmpfilename2, 'rb').read()
         no_of_codes2 = count(s)
-        assert "py:foo:" in s
-        assert "py:foo2:" in s
+        assert b"py:foo:" in s
+        assert b"py:foo2:" in s
         assert no_of_codes2 >= no_of_codes + 2 # some extra codes from tests
 
     def test_enable_ovf(self):
