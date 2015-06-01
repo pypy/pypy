@@ -15,7 +15,7 @@ from pypy.interpreter.argument import Arguments
 
 call2_driver = jit.JitDriver(
     name='numpy_call2',
-    greens=['shapelen', 'func', 'left_iter_index', 'right_iter_index', 'calc_dtype', 'res_dtype' ],
+    greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
     reds='auto', vectorize=True)
 
 def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
@@ -43,12 +43,9 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
 
     # TODO handle __array_priorities__ and maybe flip the order
 
-    left_iter_index = 1
-    right_iter_index = 2
     if w_lhs.get_size() == 1:
         w_left = w_lhs.get_scalar_value().convert_to(space, calc_dtype)
         left_iter = left_state = None
-        left_iter_index = -1
     else:
         w_left = None
         left_iter, left_state = w_lhs.create_iter(shape)
@@ -57,45 +54,28 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if w_rhs.get_size() == 1:
         w_right = w_rhs.get_scalar_value().convert_to(space, calc_dtype)
         right_iter = right_state = None
-        right_iter_index = -1
     else:
         w_right = None
         right_iter, right_state = w_rhs.create_iter(shape)
         right_iter.track_index = False
+
     if out is None:
         out = W_NDimArray.from_shape(space, shape, res_dtype,
                                      w_instance=lhs_for_subtype)
     out_iter, out_state = out.create_iter(shape)
-
-    iter_list = [out_iter, left_iter, right_iter]
-    state_list = [out_state, left_state, right_state]
-
-    if left_iter_index > 0 and left_iter.matches_range(out_iter):
-        left_iter_index = 0
-    if right_iter_index > 0 and right_iter.matches_range(out_iter):
-        right_iter_index = 0
-
     shapelen = len(shape)
     while not out_iter.done(out_state):
-        call2_driver.jit_merge_point(shapelen=shapelen, left_iter_index=left_iter_index,
-                                     right_iter_index=right_iter_index,
-                                     func=func, calc_dtype=calc_dtype, res_dtype=res_dtype)
-        if left_iter_index > 0:
-            iter = iter_list[left_iter_index]
-            state = state_list[left_iter_index]
-            w_left = iter.getitem(state).convert_to(space, calc_dtype)
-            if left_iter_index == 1:
-                state_list[left_iter_index] = iter.next(state)
-        if right_iter_index > 0:
-            iter = iter_list[right_iter_index]
-            state = state_list[right_iter_index]
-            w_right = iter.getitem(state).convert_to(space, calc_dtype)
-            if right_iter_index == 2:
-                state_list[right_iter_index] = iter.next(state)
+        call2_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     calc_dtype=calc_dtype, res_dtype=res_dtype)
+        if left_iter:
+            w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
+            left_state = left_iter.next(left_state)
+        if right_iter:
+            w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
+            right_state = right_iter.next(right_state)
         out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
             space, res_dtype))
-        state_list[0] = out_state = out_iter.next(out_state)
-
+        out_state = out_iter.next(out_state)
     return out
 
 call1_driver = jit.JitDriver(
