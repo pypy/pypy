@@ -1255,5 +1255,5 @@ class AppTestNewShortcut:
     def test_eq_returns_notimplemented(self):
         assert type.__eq__(int, 42) is NotImplemented
         assert type.__ne__(dict, 42) is NotImplemented
-        assert type.__eq__(int, int) is True
-        assert type.__eq__(int, dict) is False
+        assert type.__eq__(int, int) == True
+        assert type.__eq__(int, dict) is NotImplemented
