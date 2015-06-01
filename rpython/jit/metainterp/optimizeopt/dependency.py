@@ -540,7 +540,7 @@ class DependencyGraph(object):
                         last_guard = self.guards[-1]
                         last_guard.edge_to(node, failarg=True, label="guardorder")
                     for nonpure in tracker.non_pure:
-                        nonpure.edge_to(node, failarg=True)
+                        nonpure.edge_to(node, failarg=True, label="nonpure")
                     tracker.non_pure = []
                 self.guards.append(node)
             else:
@@ -690,7 +690,7 @@ class DependencyGraph(object):
             # before the last guard operation
             if len(self.guards) > 0:
                 last_guard = self.guards[-1]
-                last_guard.edge_to(node, "sideeffect")
+                last_guard.edge_to(node, label="sideeffect")
             # and the next guard instruction
             tracker.add_non_pure(node)
 

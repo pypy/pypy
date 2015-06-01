@@ -79,6 +79,7 @@ class VectorizingOptimizer(Optimizer):
         self.early_exit_idx = -1
         self.sched_data = None
         self.tried_to_pack = False
+        self.costmodel = X86_CostModel()
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
@@ -201,8 +202,8 @@ class VectorizingOptimizer(Optimizer):
                 if copied_op.is_guard():
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
+                    # do not overwrite resume at loop header
                     if not isinstance(target_guard.getdescr(), ResumeAtLoopHeaderDescr):
-                        # do not overwrite resume at loop header
                         descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
                         olddescr = copied_op.getdescr()
                         descr.copy_all_attributes_from(olddescr)
@@ -304,7 +305,7 @@ class VectorizingOptimizer(Optimizer):
                 lnode = ldep.to
                 rnode = rdep.to
                 if lnode.is_before(rnode) and self.packset.can_be_packed(lnode, rnode):
-                    savings = self.packset.estimate_savings(lnode, rnode, pack, False)
+                    savings = self.costmodel.estimate_savings(lnode, rnode, pack, False)
                     if savings >= 0:
                         self.packset.add_pair(lnode, rnode)
 
@@ -319,7 +320,7 @@ class VectorizingOptimizer(Optimizer):
                 if lnode.is_before(rnode) and \
                    self.packset.can_be_packed(lnode, rnode):
                     est_savings = \
-                        self.packset.estimate_savings(lnode, rnode, pack, True)
+                        self.costmodel.estimate_savings(lnode, rnode, pack, True)
                     if est_savings > savings:
                         savings = est_savings
                         candidate = (lnode, rnode)
@@ -476,6 +477,7 @@ class Renamer(object):
             op.setarg(i, arg)
 
         if op.is_guard():
+            assert isinstance(op, GuardResOp)
             op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot)
             self.rename_failargs(op)
 
@@ -558,14 +560,18 @@ class Guard(object):
             return self.cmp_op.boolinverse
 
     def inhert_attributes(self, other):
+        myop = self.op
+        otherop = other.op
+        assert isinstance(otherop, GuardResOp)
+        assert isinstance(myop, GuardResOp)
         self.stronger = True
         self.index = other.index
 
-        descr = self.op.getdescr()
+        descr = myop.getdescr()
         descr.copy_all_attributes_from(other.op.getdescr())
-        self.op.rd_frame_info_list = other.op.rd_frame_info_list
-        self.op.rd_snapshot = other.op.rd_snapshot
-        self.op.setfailargs(other.op.getfailargs())
+        myop.rd_frame_info_list = otherop.rd_frame_info_list
+        myop.rd_snapshot = otherop.rd_snapshot
+        myop.setfailargs(otherop.getfailargs())
 
     def compare(self, key1, key2):
         if isinstance(key1, Box):
@@ -722,11 +728,42 @@ class GuardStrengthenOpt(object):
         self.renamer.rename(op)
         self._newoperations.append(op)
 
-def must_unpack_result_to_exec(op, target_op):
-    # TODO either move to resop or util
-    if op.getoperation().vector != -1:
+class CostModel(object):
+    def estimate_savings(self, lnode, rnode, origin_pack, expand_forward):
+        """ Estimate the number of savings to add this pair.
+        Zero is the minimum value returned. This should take
+        into account the benefit of executing this instruction
+        as SIMD instruction.
+        """
+
+        lpacknode = origin_pack.left
+        if self.prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
+            return -1
+        rpacknode = origin_pack.right
+        if self.prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
+            return -1
+
+        return 0
+
+    def prohibit_packing(self, packed, inquestion):
+        """ Blocks the packing of some operations """
+        if inquestion.vector == -1:
+            return True
+        if packed.is_array_op():
+            if packed.getarg(1) == inquestion.result:
+                return True
         return False
-    return True
+
+    def must_unpack_result_to_exec(self, op, target_op):
+        # TODO either move to resop or util
+        if op.getoperation().vector != -1:
+            return False
+        return True
+
+class X86_CostModel(CostModel):
+
+    def savings(self, op, times):
+        return 0
 
 class PackType(PrimitiveTypeMixin):
     UNKNOWN_TYPE = '-'
@@ -1127,12 +1164,6 @@ class StoreToVectorStore(OpToVectorOp):
     def determine_output_type(self, op):
         return None
 
-class CostModel(object):
-    pass
-
-class X86_CostModel(CostModel):
-    pass
-
 PT_FLOAT_2 = PackType(FLOAT, 4, False, 2)
 PT_DOUBLE_2 = PackType(FLOAT, 8, False, 2)
 PT_FLOAT_GENERIC = PackType(INT, -1, True)
@@ -1244,41 +1275,6 @@ class PackSet(object):
                         return False
                 return True
         return False
-
-    def estimate_savings(self, lnode, rnode, pack, expand_forward):
-        """ Estimate the number of savings to add this pair.
-        Zero is the minimum value returned. This should take
-        into account the benefit of executing this instruction
-        as SIMD instruction.
-        """
-        savings = -1
-
-        lpacknode = pack.left
-        if self.prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
-            return -1
-        rpacknode = pack.right
-        if self.prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
-            return -1
-
-        if not expand_forward:
-            if not must_unpack_result_to_exec(lpacknode, lnode) and \
-               not must_unpack_result_to_exec(rpacknode, rnode):
-                savings += 1
-        else:
-            if not must_unpack_result_to_exec(lpacknode, lnode) and \
-               not must_unpack_result_to_exec(rpacknode, rnode):
-                savings += 1
-
-        return savings
-
-    def prohibit_packing(self, packed, inquestion):
-        if inquestion.vector == -1:
-            return True
-        if packed.is_array_op():
-            if packed.getarg(1) == inquestion.result:
-                return True
-        return False
-
 
     def combine(self, i, j):
         """ combine two packs. it is assumed that the attribute self.packs
