@@ -1,6 +1,6 @@
-=======================
-What's new in PyPy 2.5+
-=======================
+========================
+What's new in PyPy 2.6.0
+========================
 
 .. this is a revision shortly after release-2.5.1
 .. startrev: cb01edcb59414d9d93056e54ed060673d24e67c1

@@ -38,13 +38,13 @@ so we can finish those projects! The three sub-projects are:
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 We would also like to encourage new people to join the project. PyPy has many
-layers and we need help with all of them: `PyPy`_ and `Rpython`_ documentation
+layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ with making
-Rpython's JIT even better. Nine new people contributed since the last release,
+RPython's JIT even better. Nine new people contributed since the last release,
 you too could be one of them.
 
 .. _`PyPy`: http://doc.pypy.org 
-.. _`Rpython`: https://rpython.readthedocs.org
+.. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
 
@@ -115,7 +115,7 @@ Highlights
     over 7 times faster than cpython
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.0.html
+.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.6.0.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!
