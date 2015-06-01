@@ -21,7 +21,6 @@ class FakeMemoryRef(object):
         iv = self.index_var
         ov = other.index_var
         val = (int(str(ov.var)[1:]) - int(str(iv.var)[1:]))
-        print iv, ov, "adja?", val == 1
         # i0 and i1 are adjacent
         # i1 and i2 ...
         # but not i0, i2
@@ -37,13 +36,12 @@ class CostModelBaseTest(SchedulerBaseTest):
         graph = opt.dependency_graph
         for k,m in graph.memory_refs.items():
             graph.memory_refs[k] = FakeMemoryRef(m.index_var)
-            print "memory ref", k, m
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
         for pack in opt.packset.packs:
-            print "apck:"
-            print '\n'.join([str(op.getoperation()) for op in pack.operations])
+            print "pack: \n   ",
+            print '\n    '.join([str(op.getoperation()) for op in pack.operations])
             print
         return opt.costmodel.calculate_savings(opt.packset)
 
@@ -111,21 +109,17 @@ class CostModelBaseTest(SchedulerBaseTest):
 
     def test_load_arith_store(self):
         loop1 = self.parse("""
-        i10 = raw_load(p0, i0, descr=int)
-        i11 = raw_load(p0, i1, descr=int)
-        i12 = raw_load(p0, i2, descr=int)
-        i13 = raw_load(p0, i3, descr=int)
-        i15 = int_add(i10, 1)
-        i16 = int_add(i11, 1)
-        i17 = int_add(i12, 1)
-        i18 = int_add(i13, 1)
-        raw_store(p1, i4, i15, descr=int)
-        raw_store(p1, i5, i16, descr=int)
-        raw_store(p1, i6, i17, descr=int)
-        raw_store(p1, i7, i18, descr=int)
+        f10 = raw_load(p0, i0, descr=double)
+        f11 = raw_load(p0, i1, descr=double)
+        i20 = cast_float_to_int(f10)
+        i21 = cast_float_to_int(f11)
+        i30 = int_signext(i20, 4)
+        i31 = int_signext(i21, 4)
+        raw_store(p0, i3, i30, descr=int)
+        raw_store(p0, i4, i31, descr=int)
         """)
         savings = self.savings(loop1)
-        assert savings == 6
+        assert savings == 1
 
 class Test(CostModelBaseTest, LLtypeMixin):
     pass

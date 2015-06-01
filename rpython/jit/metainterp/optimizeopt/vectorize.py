@@ -40,7 +40,7 @@ def debug_print_operations(loop):
                 print ""
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
-                    inline_short_preamble, start_state):
+                    inline_short_preamble, start_state, cost_threshold):
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
@@ -48,12 +48,15 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold)
         opt.propagate_all_forward()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
     except NotAVectorizeableLoop:
         # vectorization is not possible
+        loop.operations = orig_ops
+    except NotAProfitableLoop:
+        # cost model says to skip this loop
         loop.operations = orig_ops
     except Exception as e:
         loop.operations = orig_ops
@@ -70,8 +73,8 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
-    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
-        Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, optimizations)
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, cost_threshold=0):
+        Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, [])
         self.dependency_graph = None
         self.packset = None
         self.unroll_count = 0
@@ -79,13 +82,16 @@ class VectorizingOptimizer(Optimizer):
         self.early_exit_idx = -1
         self.sched_data = None
         self.tried_to_pack = False
-        self.costmodel = X86_CostModel()
+        self.costmodel = X86_CostModel(cost_threshold)
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
         label = self.loop.operations[0]
         jump = self.loop.operations[-1]
-        if jump.getopnum() not in (rop.LABEL, rop.JUMP):
+        if jump.getopnum() not in (rop.LABEL, rop.JUMP) or \
+           label.getopnum() != rop.LABEL:
+            raise NotAVectorizeableLoop()
+        if jump.numargs() != label.numargs():
             raise NotAVectorizeableLoop()
 
         self.linear_find_smallest_type(self.loop)
@@ -721,6 +727,9 @@ class GuardStrengthenOpt(object):
         self._newoperations.append(op)
 
 class CostModel(object):
+    def __init__(self, threshold):
+        self.threshold = threshold
+
     def unpack_cost(self, index, op):
         raise NotImplementedError
 
@@ -730,28 +739,23 @@ class CostModel(object):
     def savings_for_unpacking(self, node, index):
         savings = 0
         result = node.getoperation().result
-        print node.op, "[", index, "]===>"
         for use in node.provides():
             if use.to.pack is None and use.because_of(result):
                 savings -= self.unpack_cost(index, node.getoperation())
-                print "   - ", savings, use.to.op
         return savings
 
     def calculate_savings(self, packset):
         savings = 0
         for pack in packset.packs:
             savings += self.savings_for_pack(pack.opnum, pack.opcount())
-            print
-            print "pack", savings
             op0 = pack.operations[0].getoperation()
             if op0.result:
                 for i,node in enumerate(pack.operations):
                     savings += self.savings_for_unpacking(node, i)
-                    print " +=> sss", savings
         return savings
 
     def profitable(self, packset):
-        return self.calculate_savings(packset) >= 0
+        return self.calculate_savings(packset) >= self.threshold
 
 class X86_CostModel(CostModel):
 

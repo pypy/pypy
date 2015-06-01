@@ -554,7 +554,8 @@ PARAMETER_DOCS = {
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
     'vectorize': 'turn on the vectorization optimization (vecopt). requires sse4.1',
     'vectorize_user': 'turn on the vecopt for the python user program. requires sse4.1',
-    }
+    'vec_cost': 'threshold which traces to vectorize.',
+}
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
@@ -570,6 +571,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'max_unroll_recursion': 7,
               'vectorize': 0,
               'vectorize_user': 0,
+              'vec_cost': 0,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 

@@ -539,15 +539,15 @@ class Operator(Node):
                 w_rhs = IntObject(int(w_rhs.floatval))
             assert isinstance(w_lhs, W_NDimArray)
             w_res = w_lhs.descr_getitem(interp.space, w_rhs)
-            assert isinstance(w_rhs, IntObject)
-            if isinstance(w_res, boxes.W_Float64Box):
-                print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
-            if isinstance(w_res, boxes.W_Float32Box):
-                print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
-            if isinstance(w_res, boxes.W_Int64Box):
-                print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
-            if isinstance(w_res, boxes.W_Int32Box):
-                print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
+            if isinstance(w_rhs, IntObject):
+                if isinstance(w_res, boxes.W_Float64Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
+                if isinstance(w_res, boxes.W_Float32Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", float(w_res.value)
+                if isinstance(w_res, boxes.W_Int64Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
+                if isinstance(w_res, boxes.W_Int32Box):
+                    print "access", w_lhs, "[", w_rhs.intval, "] => ", int(w_res.value)
         else:
             raise NotImplementedError
         if (not isinstance(w_res, W_NDimArray) and

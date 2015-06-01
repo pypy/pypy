@@ -126,7 +126,6 @@ class Node(object):
 
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
-            #debug_print "debug: tried to put edge from: ", self.op, "to:", to.op
             return
         dep = self.depends_on(to)
         if not dep:
