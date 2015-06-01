@@ -112,6 +112,8 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
         self.extend_packset()
         self.combine_packset()
+        if not self.costmodel.profitable(self.packset):
+            raise NotAProfitableLoop()
         self.schedule()
 
         gso = GuardStrengthenOpt(self.dependency_graph.index_vars)
@@ -284,7 +286,7 @@ class VectorizingOptimizer(Optimizer):
                 # that point forward:
                 if node_a.is_before(node_b):
                     if memref_a.is_adjacent_to(memref_b):
-                        if self.packset.can_be_packed(node_a, node_b):
+                        if self.packset.can_be_packed(node_a, node_b, None):
                             pair = Pair(node_a,node_b)
                             self.packset.packs.append(pair)
 
@@ -304,31 +306,21 @@ class VectorizingOptimizer(Optimizer):
             for rdep in pack.right.depends():
                 lnode = ldep.to
                 rnode = rdep.to
-                if lnode.is_before(rnode) and self.packset.can_be_packed(lnode, rnode):
-                    savings = self.costmodel.estimate_savings(lnode, rnode, pack, False)
-                    if savings >= 0:
+                isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
+                if isomorph and lnode.is_before(rnode):
+                    if self.packset.can_be_packed(lnode, rnode, pack):
                         self.packset.add_pair(lnode, rnode)
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
-        savings = -1
-        candidate = (None,None)
         for ldep in pack.left.provides():
             for rdep in pack.right.provides():
                 lnode = ldep.to
                 rnode = rdep.to
-                if lnode.is_before(rnode) and \
-                   self.packset.can_be_packed(lnode, rnode):
-                    est_savings = \
-                        self.costmodel.estimate_savings(lnode, rnode, pack, True)
-                    if est_savings > savings:
-                        savings = est_savings
-                        candidate = (lnode, rnode)
-        #
-        if savings >= 0:
-            assert candidate[0] is not None
-            assert candidate[1] is not None
-            self.packset.add_pair(candidate[0], candidate[1])
+                isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
+                if isomorph and lnode.is_before(rnode):
+                    if self.packset.can_be_packed(lnode, rnode, pack):
+                        self.packset.add_pair(lnode, rnode)
 
     def combine_packset(self):
         if len(self.packset.packs) == 0:
@@ -729,41 +721,54 @@ class GuardStrengthenOpt(object):
         self._newoperations.append(op)
 
 class CostModel(object):
-    def estimate_savings(self, lnode, rnode, origin_pack, expand_forward):
-        """ Estimate the number of savings to add this pair.
-        Zero is the minimum value returned. This should take
-        into account the benefit of executing this instruction
-        as SIMD instruction.
-        """
+    def unpack_cost(self, index, op):
+        raise NotImplementedError
 
-        lpacknode = origin_pack.left
-        if self.prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
-            return -1
-        rpacknode = origin_pack.right
-        if self.prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
-            return -1
+    def savings_for_pack(self, opnum, times):
+        raise NotImplementedError
 
-        return 0
+    def savings_for_unpacking(self, node, index):
+        savings = 0
+        result = node.getoperation().result
+        print node.op, "[", index, "]===>"
+        for use in node.provides():
+            if use.to.pack is None and use.because_of(result):
+                savings -= self.unpack_cost(index, node.getoperation())
+                print "   - ", savings, use.to.op
+        return savings
 
-    def prohibit_packing(self, packed, inquestion):
-        """ Blocks the packing of some operations """
-        if inquestion.vector == -1:
-            return True
-        if packed.is_array_op():
-            if packed.getarg(1) == inquestion.result:
-                return True
-        return False
+    def calculate_savings(self, packset):
+        savings = 0
+        for pack in packset.packs:
+            savings += self.savings_for_pack(pack.opnum, pack.opcount())
+            print
+            print "pack", savings
+            op0 = pack.operations[0].getoperation()
+            if op0.result:
+                for i,node in enumerate(pack.operations):
+                    savings += self.savings_for_unpacking(node, i)
+                    print " +=> sss", savings
+        return savings
 
-    def must_unpack_result_to_exec(self, op, target_op):
-        # TODO either move to resop or util
-        if op.getoperation().vector != -1:
-            return False
-        return True
+    def profitable(self, packset):
+        return self.calculate_savings(packset) >= 0
 
 class X86_CostModel(CostModel):
 
-    def savings(self, op, times):
-        return 0
+    COST_BENEFIT = {
+    }
+
+    def savings_for_pack(self, opnum, times):
+        cost, benefit_factor = X86_CostModel.COST_BENEFIT.get(opnum, (1,1))
+        return benefit_factor * times - cost
+
+    def unpack_cost(self, index, op):
+        if op.getdescr():
+            if op.getdescr().is_array_of_floats():
+                if index == 1:
+                    return 2
+        return 1
+
 
 class PackType(PrimitiveTypeMixin):
     UNKNOWN_TYPE = '-'
@@ -1242,9 +1247,7 @@ class VecScheduleData(SchedulerData):
         self.box_to_vbox[box] = (off, vector)
 
 def isomorphic(l_op, r_op):
-    """ Same instructions have the same operation name.
-    TODO what about parameters?
-    """
+    """ Subject of definition """
     if l_op.getopnum() == r_op.getopnum():
         return True
     return False
@@ -1266,13 +1269,34 @@ class PackSet(object):
         p = Pair(l,r)
         self.packs.append(p)
 
-    def can_be_packed(self, lnode, rnode):
+    def can_be_packed(self, lnode, rnode, origin_pack):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
                 for pack in self.packs:
                     if pack.left == lnode or \
                        pack.right == rnode:
                         return False
+                if origin_pack is None:
+                    return True
+                return self.profitable_pack(lnode, rnode, origin_pack)
+        return False
+
+    def profitable_pack(self, lnode, rnode, origin_pack):
+        lpacknode = origin_pack.left
+        if self.prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
+            return False
+        rpacknode = origin_pack.right
+        if self.prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
+            return False
+
+        return True
+
+    def prohibit_packing(self, packed, inquestion):
+        """ Blocks the packing of some operations """
+        if inquestion.vector == -1:
+            return True
+        if packed.is_array_op():
+            if packed.getarg(1) == inquestion.result:
                 return True
         return False
 
@@ -1313,13 +1337,21 @@ class Pack(object):
     """
     def __init__(self, ops):
         self.operations = ops
-        self.savings = 0
-        for node in self.operations:
+        for i,node in enumerate(self.operations):
             node.pack = self
+            node.pack_position = i
+
+    def opcount(self):
+        return len(self.operations)
+
+    def opnum(self):
+        assert len(self.operations) > 0
+        return self.operations[0].getoperation().getopnum()
 
     def clear(self):
         for node in self.operations:
             node.pack = None
+            node.pack_position = -1
 
     def rightmost_match_leftmost(self, other):
         assert isinstance(other, Pack)

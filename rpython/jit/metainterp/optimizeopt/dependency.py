@@ -80,6 +80,7 @@ class Node(object):
         self.adjacent_list_back = []
         self.memory_ref = None
         self.pack = None
+        self.pack_position = -1
         self.emitted = False
         self.schedule_position = -1
         self.priority = 0
@@ -962,12 +963,6 @@ class IndexVar(AbstractValue):
             self.current_end.next_nonconst = idxvar
         self.current_end = idxvar
 
-    def is_adjacent_with_runtime_check(self, other, graph):
-        return self.next_nonconst is not None and \
-               self.next_nonconst is self.current_end and \
-               self.next_nonconst.opnum == rop.INT_ADD and \
-               self.next_nonconst.is_identity()
-
     def getvariable(self):
         return self.var
 
@@ -1084,15 +1079,6 @@ class MemoryRef(object):
         stride = self.stride()
         if self.match(other):
             return abs(self.index_var.diff(other.index_var)) - stride == 0
-        return False
-
-    def is_adjacent_with_runtime_check(self, other, graph):
-        """there are many cases where the stride is variable
-           it is a priori not known if two unrolled memory accesses are
-           tightly packed"""
-        assert isinstance(other, MemoryRef)
-        if self.array == other.array and self.descr == other.descr:
-            return self.index_var.is_adjacent_with_runtime_check(other.index_var, graph)
         return False
 
     def match(self, other):
