@@ -789,44 +789,63 @@ class OpToVectorOp(object):
         self.preamble_ops = None
         self.sched_data = None
         self.pack = None
+        self.input_type = None
+        self.output_type = None
 
     def is_vector_arg(self, i):
         if i < 0 or i >= len(self.arg_ptypes):
             return False
         return self.arg_ptypes[i] is not None
 
-    def pack_ptype(self, op):
+    def getsplitsize(self):
+        return self.input_type.getsize()
+
+    def determine_input_type(self, op):
         _, vbox = self.sched_data.getvector_of_box(op.getarg(0))
         if vbox:
             return PackType.of(vbox)
         else:
             raise RuntimeError("fatal: box %s is not in a vector box" % (op.getarg(0),))
 
+    def determine_output_type(self, op):
+        return self.determine_input_type(op)
+
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
         self.preamble_ops = oplist
         op0 = pack.operations[0].getoperation()
-        self.ptype = self.pack_ptype(op0)
+        self.input_type = self.determine_input_type(op0)
+        self.output_type = self.determine_output_type(op0)
 
         off = 0
         stride = self.split_pack(pack)
+        left = len(pack.operations)
         assert stride > 0
         while off < len(pack.operations):
+            if left < stride:
+                self.preamble_ops.append(pack.operations[off].getoperation())
+                off += 1
+                continue
             ops = pack.operations[off:off+stride]
             self.pack = Pack(ops)
             self.transform_pack(ops, off, stride)
             off += stride
+            left -= stride
 
         self.pack = None
         self.preamble_ops = None
         self.sched_data = None
-        self.ptype = None
+        self.input_type = None
+        self.output_type = None
 
     def split_pack(self, pack):
         pack_count = len(pack.operations)
         vec_reg_size = self.sched_data.vec_reg_size
-        if pack_count * self.ptype.getsize() > vec_reg_size:
-            return vec_reg_size // self.ptype.getsize()
+        bytes = pack_count * self.getsplitsize()
+        if bytes > vec_reg_size:
+            return vec_reg_size // self.getsplitsize()
+        if bytes < vec_reg_size:
+            return 1
         return pack_count
 
     def before_argument_transform(self, args):
@@ -838,11 +857,11 @@ class OpToVectorOp(object):
         #
         self.before_argument_transform(args)
         #
-        result = op.result
         for i,arg in enumerate(args):
             if self.is_vector_arg(i):
                 args[i] = self.transform_argument(args[i], i, off)
         #
+        result = op.result
         result = self.transform_result(result, off)
         #
         vop = ResOperation(op.vector, args, result, op.getdescr())
@@ -860,31 +879,23 @@ class OpToVectorOp(object):
         return vbox
 
     def new_result_vector_box(self):
-        size = self.ptype.getsize()
-        count = min(self.ptype.getcount(), len(self.pack.operations))
-        return BoxVector(self.ptype.gettype(), count, size, self.ptype.signed)
+        type = self.output_type.gettype()
+        size = self.output_type.getsize()
+        count = min(self.output_type.getcount(), len(self.pack.operations))
+        signed = self.output_type.signed
+        return BoxVector(type, count, size, signed)
 
     def transform_argument(self, arg, argidx, off):
         ops = self.pack.operations
         box_pos, vbox = self.sched_data.getvector_of_box(arg)
         if not vbox:
             # constant/variable expand this box
-            vbox = self.ptype.new_vector_box(len(ops))
+            vbox = self.input_type.new_vector_box(len(ops))
             vbox = self.expand_box_to_vector_box(vbox, ops, arg, argidx)
             box_pos = 0
 
-        enforced_type = self.ptype
-        # convert type f -> i, i -> f
-        # if enforced_type.gettype() != vbox.gettype():
-        #     raise NotImplementedError("cannot yet convert between types")
-
-        # convert size i64 -> i32, i32 -> i64, ...
-        if enforced_type.getsize() != vbox.getsize():
-            vbox = self.extend(vbox, self.ptype)
-
         # use the input as an indicator for the pack type
-        arg_ptype = PackType.of(vbox)
-        packable = self.sched_data.vec_reg_size // arg_ptype.getsize()
+        packable = self.sched_data.vec_reg_size // self.input_type.getsize()
         packed = vbox.item_count
         assert packed >= 0
         assert packable >= 0
@@ -894,21 +905,24 @@ class OpToVectorOp(object):
             vbox = self._pack(vbox, packed, args, packable)
         elif packed > packable:
             # the argument has more items than the operation is able to process!
-            vbox = self.unpack(vbox, off, packable, arg_ptype)
+            vbox = self.unpack(vbox, off, packable, self.input_type)
         #
         if off != 0 and box_pos != 0:
             # The original box is at a position != 0 but it
             # is required to be at position 0. Unpack it!
-            vbox = self.unpack(vbox, off, len(ops), arg_ptype)
+            vbox = self.unpack(vbox, off, len(ops), self.input_type)
+        # convert type f -> i, i -> f
+        if self.input_type.gettype() != vbox.gettype():
+            raise NotImplementedError("cannot yet convert between types")
+        # convert size i64 -> i32, i32 -> i64, ...
+        if self.input_type.getsize() > 0 and \
+           self.input_type.getsize() != vbox.getsize():
+            vbox = self.extend(vbox, self.input_type)
         #
         return vbox
 
     def extend(self, vbox, newtype):
-        if vbox.item_count * vbox.item_size == self.sched_data.vec_reg_size:
-            return vbox
         assert vbox.gettype() == newtype.gettype()
-        assert (vbox.item_count * newtype.getsize()) == \
-               self.sched_data.vec_reg_size
         if vbox.gettype() == INT:
             return self.extend_int(vbox, newtype)
         else:
@@ -1025,6 +1039,12 @@ class OpToVectorOpConv(OpToVectorOp):
         self.to_size = outtype.getsize()
         OpToVectorOp.__init__(self, (intype, ), outtype)
 
+    def determine_input_type(self, op):
+        return self.arg_ptypes[0]
+
+    def determine_output_type(self, op):
+        return self.result_ptype
+
     def split_pack(self, pack):
         if self.from_size > self.to_size:
             # cast down
@@ -1037,12 +1057,14 @@ class OpToVectorOpConv(OpToVectorOp):
         return len(pack.operations)
 
     def new_result_vector_box(self):
+        type = self.output_type.gettype()
         size = self.to_size
-        count = self.ptype.getcount()
+        count = self.output_type.getcount()
         vec_reg_size = self.sched_data.vec_reg_size
         if count * size > vec_reg_size:
             count = vec_reg_size // size
-        return BoxVector(self.result_ptype.gettype(), count, size, self.ptype.signed)
+        signed = self.output_type.signed
+        return BoxVector(type, count, size, signed)
 
 class SignExtToVectorOp(OpToVectorOp):
     def __init__(self, intype, outtype):
@@ -1054,7 +1076,7 @@ class SignExtToVectorOp(OpToVectorOp):
         sizearg = op0.getarg(1)
         assert isinstance(sizearg, ConstInt)
         self.size = sizearg.value
-        if self.ptype.getsize() > self.size:
+        if self.input_type.getsize() > self.size:
             # cast down
             return OpToVectorOp.split_pack(self, pack)
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
@@ -1064,11 +1086,11 @@ class SignExtToVectorOp(OpToVectorOp):
         return vbox.getcount()
 
     def new_result_vector_box(self):
-        count = self.ptype.getcount()
+        count = self.input_type.getcount()
         vec_reg_size = self.sched_data.vec_reg_size
         if count * self.size > vec_reg_size:
             count = vec_reg_size // self.size
-        return BoxVector(self.result_ptype.gettype(), count, self.size, self.ptype.signed)
+        return BoxVector(self.result_ptype.gettype(), count, self.size, self.input_type.signed)
 
 PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 
@@ -1076,22 +1098,38 @@ class LoadToVectorLoad(OpToVectorOp):
     def __init__(self):
         OpToVectorOp.__init__(self, (), PT_GENERIC)
 
-    def pack_ptype(self, op):
+    def determine_input_type(self, op):
+        return None
+
+    def determine_output_type(self, op):
         return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
     def before_argument_transform(self, args):
         args.append(ConstInt(len(self.pack.operations)))
+
+    def getsplitsize(self):
+        return self.output_type.getsize()
+
+    def new_result_vector_box(self):
+        type = self.output_type.gettype()
+        size = self.output_type.getsize()
+        count = len(self.pack.operations)
+        signed = self.output_type.signed
+        return BoxVector(type, count, size, signed)
 
 class StoreToVectorStore(OpToVectorOp):
     def __init__(self):
         OpToVectorOp.__init__(self, (None, None, PT_GENERIC), None)
         self.has_descr = True
 
-    def pack_ptype(self, op):
+    def determine_input_type(self, op):
         return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
-PT_FLOAT = PackType(FLOAT, 4, False)
-PT_DOUBLE = PackType(FLOAT, 8, False)
+    def determine_output_type(self, op):
+        return None
+
+PT_FLOAT_2 = PackType(FLOAT, 4, False, 2)
+PT_DOUBLE_2 = PackType(FLOAT, 8, False, 2)
 PT_FLOAT_GENERIC = PackType(INT, -1, True)
 PT_INT64 = PackType(INT, 8, True)
 PT_INT32 = PackType(INT, 4, True)
@@ -1107,6 +1145,8 @@ FLOAT_SINGLE_ARG_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC,), FLOAT_RES)
 LOAD_TRANS = LoadToVectorLoad()
 STORE_TRANS = StoreToVectorStore()
 
+# note that the following definition is x86 machine
+# specific.
 ROP_ARG_RES_VECTOR = {
     rop.VEC_INT_ADD:     INT_OP_TO_VOP,
     rop.VEC_INT_SUB:     INT_OP_TO_VOP,
@@ -1130,10 +1170,10 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_RAW_STORE:        STORE_TRANS,
     rop.VEC_SETARRAYITEM_RAW: STORE_TRANS,
 
-    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOpConv(PT_DOUBLE, PT_FLOAT),
-    rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOpConv(PT_FLOAT, PT_DOUBLE),
-    rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOpConv(PT_DOUBLE, PT_INT32),
-    rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOpConv(PT_INT32, PT_DOUBLE),
+    rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOpConv(PT_DOUBLE_2, PT_FLOAT_2),
+    rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOpConv(PT_FLOAT_2, PT_DOUBLE_2),
+    rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOpConv(PT_DOUBLE_2, PT_INT32),
+    rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOpConv(PT_INT32, PT_DOUBLE_2),
 }
 
 class VecScheduleData(SchedulerData):
@@ -1274,7 +1314,6 @@ class Pack(object):
     def __init__(self, ops):
         self.operations = ops
         self.savings = 0
-        self.ptype = None
         for node in self.operations:
             node.pack = self
 
@@ -1287,13 +1326,6 @@ class Pack(object):
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
         return rightmost == leftmost
-
-    def size_in_bytes(self):
-        return self.ptype.get_byte_size() * len(self.operations)
-
-    def is_overloaded(self, vec_reg_byte_size):
-        size = self.size_in_bytes()
-        return size > vec_reg_byte_size
 
     def __repr__(self):
         return "Pack(%r)" % self.operations

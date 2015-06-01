@@ -123,13 +123,13 @@ class OpParser(object):
             box = ts.BoxRef()
             _box_counter_more_than(self.model, elem[1:])
         elif elem.startswith('v'):
-            pattern = re.compile('.*\[(-?)(i|f)(\d+)#(\d+)\]')
+            pattern = re.compile('.*\[(u?)(i|f)(\d+)#(\d+)\]')
             match = pattern.match(elem)
             if match:
                 item_type = match.group(2)[0]
                 item_size = int(match.group(3)) // 8
                 item_count = int(match.group(4))
-                item_signed = match.group(1) == 's'
+                item_signed = not (match.group(1) == 'u')
                 box = self.model.BoxVector(item_type, item_count, item_size, item_signed)
                 lbracket = elem.find('[')
                 number = elem[1:lbracket]
