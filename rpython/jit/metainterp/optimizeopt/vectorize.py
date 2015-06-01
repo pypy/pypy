@@ -731,7 +731,7 @@ def must_unpack_result_to_exec(op, target_op):
 class PackType(PrimitiveTypeMixin):
     UNKNOWN_TYPE = '-'
 
-    def __init__(self, type, size, signed, count=-1):
+    def __init__(self, type, size, signed, count=-1, scalar_cost=1, vector_cost=1):
         assert type in (FLOAT, INT, PackType.UNKNOWN_TYPE)
         self.type = type
         self.size = size
@@ -911,9 +911,6 @@ class OpToVectorOp(object):
             # The original box is at a position != 0 but it
             # is required to be at position 0. Unpack it!
             vbox = self.unpack(vbox, off, len(ops), self.input_type)
-        # convert type f -> i, i -> f
-        if self.input_type.gettype() != vbox.gettype():
-            raise NotImplementedError("cannot yet convert between types")
         # convert size i64 -> i32, i32 -> i64, ...
         if self.input_type.getsize() > 0 and \
            self.input_type.getsize() != vbox.getsize():
@@ -1086,11 +1083,13 @@ class SignExtToVectorOp(OpToVectorOp):
         return vbox.getcount()
 
     def new_result_vector_box(self):
+        type = self.output_type.gettype()
         count = self.input_type.getcount()
         vec_reg_size = self.sched_data.vec_reg_size
         if count * self.size > vec_reg_size:
             count = vec_reg_size // self.size
-        return BoxVector(self.result_ptype.gettype(), count, self.size, self.input_type.signed)
+        signed = self.input_type.signed
+        return BoxVector(type, count, self.size, signed)
 
 PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 
@@ -1128,11 +1127,17 @@ class StoreToVectorStore(OpToVectorOp):
     def determine_output_type(self, op):
         return None
 
+class CostModel(object):
+    pass
+
+class X86_CostModel(CostModel):
+    pass
+
 PT_FLOAT_2 = PackType(FLOAT, 4, False, 2)
 PT_DOUBLE_2 = PackType(FLOAT, 8, False, 2)
 PT_FLOAT_GENERIC = PackType(INT, -1, True)
 PT_INT64 = PackType(INT, 8, True)
-PT_INT32 = PackType(INT, 4, True)
+PT_INT32_2 = PackType(INT, 4, True, 2)
 PT_INT_GENERIC = PackType(INT, -1, True)
 PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 
@@ -1172,8 +1177,8 @@ ROP_ARG_RES_VECTOR = {
 
     rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT: OpToVectorOpConv(PT_DOUBLE_2, PT_FLOAT_2),
     rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOpConv(PT_FLOAT_2, PT_DOUBLE_2),
-    rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOpConv(PT_DOUBLE_2, PT_INT32),
-    rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOpConv(PT_INT32, PT_DOUBLE_2),
+    rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOpConv(PT_DOUBLE_2, PT_INT32_2),
+    rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOpConv(PT_INT32_2, PT_DOUBLE_2),
 }
 
 class VecScheduleData(SchedulerData):
@@ -1286,7 +1291,6 @@ class PackSet(object):
         for op in pack_j.operations[1:]:
             operations.append(op)
         self.packs[i] = pack = Pack(operations)
-        pack.ptype = pack_i.ptype
 
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
