@@ -47,6 +47,19 @@ def test_simple_random_and_fixed_order():
             print lsts
         assert lsts == (range(10),) * 5, lsts
 
+def test_add_generator():
+    lst = []
+    def do_stuff(n):
+        for i in range(n):
+            lst.append(i)
+            yield
+    tq = transaction.TransactionQueue()
+    tq.add_generator(do_stuff(10))
+    tq.run()
+    if VERBOSE:
+        print lst
+    assert lst == range(10), lst
+
 def test_raise():
     class FooError(Exception):
         pass
