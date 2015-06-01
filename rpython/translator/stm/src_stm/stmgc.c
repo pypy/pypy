@@ -18,6 +18,7 @@
 #include "stm/marker.h"
 #include "stm/rewind_setjmp.h"
 #include "stm/finalizer.h"
+#include "stm/locks.h"
 #include "stm/misc.c"
 #include "stm/list.c"
 #include "stm/smallmalloc.c"

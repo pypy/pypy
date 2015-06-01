@@ -120,6 +120,9 @@ static void forksupport_child(void)
        just release these locks early */
     s_mutex_unlock();
 
+    /* Re-init these locks; might be needed after a fork() */
+    setup_modification_locks();
+
 
     /* Unregister all other stm_thread_local_t, mostly as a way to free
        the memory used by the shadowstacks

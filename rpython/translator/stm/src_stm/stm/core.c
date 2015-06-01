@@ -50,8 +50,8 @@ static void import_objects(
     char *src_segment_base = (from_segnum >= 0 ? get_segment_base(from_segnum)
                                                : NULL);
 
-    assert(IMPLY(from_segnum >= 0, get_priv_segment(from_segnum)->modification_lock));
-    assert(STM_PSEGMENT->modification_lock);
+    assert(IMPLY(from_segnum >= 0, modification_lock_check_rdlock(from_segnum)));
+    assert(modification_lock_check_wrlock(STM_SEGMENT->segment_num));
 
     long my_segnum = STM_SEGMENT->segment_num;
     DEBUG_EXPECT_SEGFAULT(false);
@@ -131,7 +131,7 @@ static void go_to_the_past(uintptr_t pagenum,
                            struct stm_commit_log_entry_s *from,
                            struct stm_commit_log_entry_s *to)
 {
-    assert(STM_PSEGMENT->modification_lock);
+    assert(modification_lock_check_wrlock(STM_SEGMENT->segment_num));
     assert(from->rev_num >= to->rev_num);
     /* walk BACKWARDS the commit log and update the page 'pagenum',
        initially at revision 'from', until we reach the revision 'to'. */
@@ -199,8 +199,8 @@ static void handle_segfault_in_page(uintptr_t pagenum)
 
     /* before copying anything, acquire modification locks from our and
        the other segment */
-    uint64_t to_lock = (1UL << copy_from_segnum)| (1UL << my_segnum);
-    acquire_modification_lock_set(to_lock);
+    uint64_t to_lock = (1UL << copy_from_segnum);
+    acquire_modification_lock_set(to_lock, my_segnum);
     pagecopy(get_virtual_page(my_segnum, pagenum),
              get_virtual_page(copy_from_segnum, pagenum));
 
@@ -223,7 +223,7 @@ static void handle_segfault_in_page(uintptr_t pagenum)
     if (src_version->rev_num > target_version->rev_num)
         go_to_the_past(pagenum, src_version, target_version);
 
-    release_modification_lock_set(to_lock);
+    release_modification_lock_set(to_lock, my_segnum);
     release_all_privatization_locks();
 }
 
@@ -308,7 +308,7 @@ void _dbg_print_commit_log()
 
 static void reset_modified_from_backup_copies(int segment_num);  /* forward */
 
-static bool _stm_validate()
+static bool _stm_validate(void)
 {
     /* returns true if we reached a valid state, or false if
        we need to abort now */
@@ -357,7 +357,7 @@ static bool _stm_validate()
         }
 
         /* Find the set of segments we need to copy from and lock them: */
-        uint64_t segments_to_lock = 1UL << my_segnum;
+        uint64_t segments_to_lock = 0;
         cl = first_cl;
         while ((next_cl = cl->next) != NULL) {
             if (next_cl == INEV_RUNNING) {
@@ -375,8 +375,8 @@ static bool _stm_validate()
 
         /* HERE */
 
-        acquire_privatization_lock(STM_SEGMENT->segment_num);
-        acquire_modification_lock_set(segments_to_lock);
+        acquire_privatization_lock(my_segnum);
+        acquire_modification_lock_set(segments_to_lock, my_segnum);
 
 
         /* import objects from first_cl to last_cl: */
@@ -466,8 +466,8 @@ static bool _stm_validate()
         }
 
         /* done with modifications */
-        release_modification_lock_set(segments_to_lock);
-        release_privatization_lock(STM_SEGMENT->segment_num);
+        release_modification_lock_set(segments_to_lock, my_segnum);
+        release_privatization_lock(my_segnum);
     }
 
     return !needs_abort;
@@ -545,7 +545,7 @@ static void _validate_and_attach(struct stm_commit_log_entry_s *new)
                time" as the attach to commit log. Otherwise, another thread may
                see the new CL entry, import it, look for backup copies in this
                segment and find the old backup copies! */
-            acquire_modification_lock(STM_SEGMENT->segment_num);
+            acquire_modification_lock_wr(STM_SEGMENT->segment_num);
         }
 
         /* try to attach to commit log: */
@@ -559,7 +559,7 @@ static void _validate_and_attach(struct stm_commit_log_entry_s *new)
         }
 
         if (is_commit) {
-            release_modification_lock(STM_SEGMENT->segment_num);
+            release_modification_lock_wr(STM_SEGMENT->segment_num);
             /* XXX: unfortunately, if we failed to attach our CL entry,
                we have to re-add the WB_EXECUTED flags before we try to
                validate again because of said condition (s.a) */
@@ -596,7 +596,7 @@ static void _validate_and_attach(struct stm_commit_log_entry_s *new)
 
         list_clear(STM_PSEGMENT->modified_old_objects);
         STM_PSEGMENT->last_commit_log_entry = new;
-        release_modification_lock(STM_SEGMENT->segment_num);
+        release_modification_lock_wr(STM_SEGMENT->segment_num);
     }
 }
 
@@ -692,7 +692,7 @@ static void make_bk_slices_for_range(
         increment_total_allocated(slice_sz);
         memcpy(bk_slice, realobj + slice_off, slice_sz);
 
-        acquire_modification_lock(STM_SEGMENT->segment_num);
+        acquire_modification_lock_wr(STM_SEGMENT->segment_num);
         /* !! follows layout of "struct stm_undo_s" !! */
         STM_PSEGMENT->modified_old_objects = list_append3(
             STM_PSEGMENT->modified_old_objects,
@@ -700,7 +700,7 @@ static void make_bk_slices_for_range(
             (uintptr_t)bk_slice,  /* bk_addr */
             NEW_SLICE(slice_off, slice_sz));
         dprintf(("> append slice %p, off=%lu, sz=%lu\n", bk_slice, slice_off, slice_sz));
-        release_modification_lock(STM_SEGMENT->segment_num);
+        release_modification_lock_wr(STM_SEGMENT->segment_num);
 
         slice_off += slice_sz;
     }
@@ -896,6 +896,8 @@ static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
 
 static void touch_all_pages_of_obj(object_t *obj, size_t obj_size)
 {
+    /* XXX should it be simpler, just really trying to read a dummy
+       byte in each page? */
     int my_segnum = STM_SEGMENT->segment_num;
     uintptr_t end_page, first_page = ((uintptr_t)obj) / 4096UL;
 
@@ -1345,7 +1347,7 @@ static void reset_modified_from_backup_copies(int segment_num)
 #pragma push_macro("STM_SEGMENT")
 #undef STM_PSEGMENT
 #undef STM_SEGMENT
-    assert(get_priv_segment(segment_num)->modification_lock);
+    assert(modification_lock_check_wrlock(segment_num));
 
     struct stm_priv_segment_info_s *pseg = get_priv_segment(segment_num);
     struct list_s *list = pseg->modified_old_objects;
@@ -1407,9 +1409,9 @@ static void abort_data_structures_from_segment_num(int segment_num)
             _reset_object_cards(pseg, item, CARD_CLEAR, false, false);
         });
 
-    acquire_modification_lock(segment_num);
+    acquire_modification_lock_wr(segment_num);
     reset_modified_from_backup_copies(segment_num);
-    release_modification_lock(segment_num);
+    release_modification_lock_wr(segment_num);
     _verify_cards_cleared_in_all_lists(pseg);
 
     stm_thread_local_t *tl = pseg->pub.running_thread;

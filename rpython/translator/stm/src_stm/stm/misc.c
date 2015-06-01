@@ -44,7 +44,7 @@ bool _stm_was_written_card(object_t *obj)
     return obj->stm_flags & _STM_GCFLAG_CARDS_SET;
 }
 
-long _stm_count_cl_entries()
+long _stm_count_cl_entries(void)
 {
     struct stm_commit_log_entry_s *cl = &commit_log_root;
 
@@ -115,7 +115,7 @@ uint8_t _stm_get_card_value(object_t *obj, long idx)
     return cards[get_index_to_card_index(idx)].rm;
 }
 
-uint8_t _stm_get_transaction_read_version()
+uint8_t _stm_get_transaction_read_version(void)
 {
     return STM_SEGMENT->transaction_read_version;
 }
@@ -124,7 +124,7 @@ uint8_t _stm_get_transaction_read_version()
 
 static struct stm_commit_log_entry_s *_last_cl_entry;
 static long _last_cl_entry_index;
-void _stm_start_enum_last_cl_entry()
+void _stm_start_enum_last_cl_entry(void)
 {
     _last_cl_entry = &commit_log_root;
     struct stm_commit_log_entry_s *cl = &commit_log_root;
@@ -135,7 +135,7 @@ void _stm_start_enum_last_cl_entry()
     _last_cl_entry_index = 0;
 }
 
-object_t *_stm_next_last_cl_entry()
+object_t *_stm_next_last_cl_entry(void)
 {
     if (_last_cl_entry == &commit_log_root)
         return NULL;
@@ -150,7 +150,7 @@ uint64_t _stm_total_allocated(void)
 }
 
 
-void _stm_smallmalloc_sweep_test()
+void _stm_smallmalloc_sweep_test(void)
 {
     acquire_all_privatization_locks();
     _stm_smallmalloc_sweep();

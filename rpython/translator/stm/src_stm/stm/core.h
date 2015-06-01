@@ -74,11 +74,6 @@ typedef TLPREFIX struct stm_priv_segment_info_s stm_priv_segment_info_t;
 struct stm_priv_segment_info_s {
     struct stm_segment_info_s pub;
 
-    /* lock protecting from concurrent modification of
-       'modified_old_objects', page-revision-changes, ...
-       Always acquired in global order of segments to avoid deadlocks. */
-    uint8_t modification_lock;
-
     /* All the old objects (older than the current transaction) that
        the current transaction attempts to modify.  This is used to
        track the STM status: these are old objects that where written
@@ -297,7 +292,7 @@ static void synchronize_object_enqueue(object_t *obj);
 static void synchronize_objects_flush(void);
 
 static void _signal_handler(int sig, siginfo_t *siginfo, void *context);
-static bool _stm_validate();
+static bool _stm_validate(void);
 
 static inline bool was_read_remote(char *base, object_t *obj)
 {
@@ -329,7 +324,7 @@ static inline void release_privatization_lock(int segnum)
     spinlock_release(get_priv_segment(segnum)->privatization_lock);
 }
 
-static inline bool all_privatization_locks_acquired()
+static inline bool all_privatization_locks_acquired(void)
 {
 #ifndef NDEBUG
     long l;
@@ -343,7 +338,7 @@ static inline bool all_privatization_locks_acquired()
 #endif
 }
 
-static inline void acquire_all_privatization_locks()
+static inline void acquire_all_privatization_locks(void)
 {
     /* XXX: don't do for the sharing seg0 */
     long l;
@@ -352,60 +347,10 @@ static inline void acquire_all_privatization_locks()
     }
 }
 
-static inline void release_all_privatization_locks()
+static inline void release_all_privatization_locks(void)
 {
     long l;
     for (l = NB_SEGMENTS-1; l >= 0; l--) {
         release_privatization_lock(l);
-    }
-}
-
-
-
-/* Modification locks are used to prevent copying from a segment
-   where either the revision of some pages is inconsistent with the
-   rest, or the modified_old_objects list is being modified (bk_copys).
-
-   Lock ordering: acquire privatization lock around acquiring a set
-   of modification locks!
-*/
-
-static inline void acquire_modification_lock(int segnum)
-{
-    spinlock_acquire(get_priv_segment(segnum)->modification_lock);
-}
-
-static inline void release_modification_lock(int segnum)
-{
-    spinlock_release(get_priv_segment(segnum)->modification_lock);
-}
-
-static inline void acquire_modification_lock_set(uint64_t seg_set)
-{
-    assert(NB_SEGMENTS <= 64);
-    OPT_ASSERT(seg_set < (1 << NB_SEGMENTS));
-
-    /* acquire locks in global order */
-    int i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
-        if ((seg_set & (1 << i)) == 0)
-            continue;
-
-        spinlock_acquire(get_priv_segment(i)->modification_lock);
-    }
-}
-
-static inline void release_modification_lock_set(uint64_t seg_set)
-{
-    assert(NB_SEGMENTS <= 64);
-    OPT_ASSERT(seg_set < (1 << NB_SEGMENTS));
-
-    int i;
-    for (i = 0; i < NB_SEGMENTS; i++) {
-        if ((seg_set & (1 << i)) == 0)
-            continue;
-
-        assert(get_priv_segment(i)->modification_lock);
-        spinlock_release(get_priv_segment(i)->modification_lock);
     }
 }

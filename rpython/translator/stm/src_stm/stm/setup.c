@@ -127,6 +127,7 @@ void stm_setup(void)
        private range of addresses.
     */
 
+    setup_modification_locks();
     setup_sync();
     setup_nursery();
     setup_gcpage();
@@ -174,6 +175,7 @@ void stm_teardown(void)
     teardown_gcpage();
     teardown_smallmalloc();
     teardown_pages();
+    teardown_modification_locks();
 }
 
 static void _shadowstack_trap_page(char *start, int prot)

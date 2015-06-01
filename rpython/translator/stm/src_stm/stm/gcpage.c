@@ -681,7 +681,7 @@ static void sweep_small_objects(void)
     _stm_smallmalloc_sweep();
 }
 
-static void clean_up_commit_log_entries()
+static void clean_up_commit_log_entries(void)
 {
     struct stm_commit_log_entry_s *cl, *next;
 
