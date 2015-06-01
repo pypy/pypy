@@ -759,11 +759,8 @@ class CostModel(object):
 
 class X86_CostModel(CostModel):
 
-    COST_BENEFIT = {
-    }
-
     def savings_for_pack(self, opnum, times):
-        cost, benefit_factor = X86_CostModel.COST_BENEFIT.get(opnum, (1,1))
+        cost, benefit_factor = (1,1) # TODO custom values for different ops
         return benefit_factor * times - cost
 
     def unpack_cost(self, index, op):
