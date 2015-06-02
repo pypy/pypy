@@ -83,6 +83,7 @@ class LLInterpreter(object):
                     self.tracer.dump('LLException: %s\n' % (e,))
                 raise
             except Exception, e:
+                tb = sys.exc_info()[2]
                 if getattr(e, '_go_through_llinterp_uncaught_', False):
                     raise
                 log.error("AN ERROR OCCURED: %s" % (e, ))
