@@ -190,6 +190,11 @@ new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
 just make sure there is a ``__del__`` method in the class to start with
 (even containing only ``pass``; replacing or overriding it later works fine).
 
+Last note: CPython tries to do a ``gc.collect()`` automatically when the
+program finishes; not PyPy.  (It is possible in both CPython and PyPy to
+design a case where several ``gc.collect()`` are needed before all objects
+die.  This makes CPython's approach only work "most of the time" anyway.)
+
 
 Subclasses of built-in types
 ----------------------------
@@ -363,6 +368,18 @@ Miscellaneous
   True on unbound method objects but False on method-wrappers or slot
   wrappers.  On PyPy we can't tell the difference, so
   ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+
+* in pure Python, if you write ``class A(object): def f(self): pass``
+  and have a subclass ``B`` which doesn't override ``f()``, then
+  ``B.f(x)`` still checks that ``x`` is an instance of ``B``.  In
+  CPython, types written in C use a different rule.  If ``A`` is
+  written in C, any instance of ``A`` will be accepted by ``B.f(x)``
+  (and actually, ``B.f is A.f`` in this case).  Some code that could
+  work on CPython but not on PyPy includes:
+  ``datetime.datetime.strftime(datetime.date.today(), ...)`` (here,
+  ``datetime.date`` is the superclass of ``datetime.datetime``).
+  Anyway, the proper fix is arguably to use a regular method call in
+  the first place: ``datetime.date.today().strftime(...)``
 
 * the ``__dict__`` attribute of new-style classes returns a normal dict, as
   opposed to a dict proxy like in CPython. Mutating the dict will change the

@@ -188,16 +188,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         if self.value_fits_long:
             value = misc.as_long(self.space, w_ob)
             if self.value_smaller_than_long:
-                size = self.size
-                if size == 1:
-                    signextended = misc.signext(value, 1)
-                elif size == 2:
-                    signextended = misc.signext(value, 2)
-                elif size == 4:
-                    signextended = misc.signext(value, 4)
-                else:
-                    raise AssertionError("unsupported size")
-                if value != signextended:
+                if value != misc.signext(value, self.size):
                     self._overflow(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:

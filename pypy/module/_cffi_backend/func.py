@@ -50,22 +50,7 @@ def alignof(space, w_ctype):
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
-    try:
-        fieldname = space.str_w(w_field_or_index)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        try:
-            index = space.int_w(w_field_or_index)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise OperationError(space.w_TypeError,
-                    space.wrap("field name or array index expected"))
-        ctype, offset = w_ctype.typeoffsetof_index(index)
-    else:
-        ctype, offset = w_ctype.typeoffsetof_field(fieldname, following)
-    #
+    ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
     return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)

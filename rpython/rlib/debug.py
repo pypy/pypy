@@ -141,10 +141,16 @@ def have_debug_prints():
     # and False if they would not have any effect.
     return True
 
-class Entry(ExtRegistryEntry):
-    _about_ = have_debug_prints
+def have_debug_prints_for(category_prefix):
+    # returns True if debug prints are enabled for at least some
+    # category strings starting with "prefix" (must be a constant).
+    assert len(category_prefix) > 0
+    return True
 
-    def compute_result_annotation(self):
+class Entry(ExtRegistryEntry):
+    _about_ = have_debug_prints, have_debug_prints_for
+
+    def compute_result_annotation(self, s_prefix=None):
         from rpython.annotator import model as annmodel
         t = self.bookkeeper.annotator.translator
         if t.config.translation.log:
@@ -157,6 +163,12 @@ class Entry(ExtRegistryEntry):
         t = hop.rtyper.annotator.translator
         hop.exception_cannot_occur()
         if t.config.translation.log:
+            if hop.args_v:
+                [c_prefix] = hop.args_v
+                assert len(c_prefix.value) > 0
+                args = [hop.inputconst(lltype.Void, c_prefix.value)]
+                return hop.genop('have_debug_prints_for', args,
+                                 resulttype=lltype.Bool)
             return hop.genop('have_debug_prints', [], resulttype=lltype.Bool)
         else:
             return hop.inputconst(lltype.Bool, False)

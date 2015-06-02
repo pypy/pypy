@@ -207,7 +207,7 @@ class BaseConcreteArray(object):
                     raise ArrayArgumentException
             return self._lookup_by_index(space, view_w)
         if shape_len == 0:
-            raise oefmt(space.w_IndexError, "0-d arrays can't be indexed")
+            raise oefmt(space.w_IndexError, "too many indices for array")
         elif shape_len > 1:
             raise IndexError
         idx = support.index_w(space, w_idx)
@@ -218,7 +218,11 @@ class BaseConcreteArray(object):
         if space.isinstance_w(w_idx, space.w_str):
             idx = space.str_w(w_idx)
             dtype = self.dtype
-            if not dtype.is_record() or idx not in dtype.fields:
+            if not dtype.is_record():
+                raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                    "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                    "boolean arrays are valid indices")
+            elif idx not in dtype.fields:
                 raise oefmt(space.w_ValueError, "field named %s not found", idx)
             return RecordChunk(idx)
         elif (space.isinstance_w(w_idx, space.w_int) or
