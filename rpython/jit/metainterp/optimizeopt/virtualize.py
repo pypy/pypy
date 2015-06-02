@@ -543,12 +543,14 @@ class OptVirtualize(optimizer.Optimization):
         return opinfo
 
     def make_virtual_raw_memory(self, size, source_op):
+        raise Exception("unsupported")
         logops = self.optimizer.loop.logops
         vvalue = VRawBufferValue(self.optimizer.cpu, logops, size, source_op)
         self.make_equal_to(source_op, vvalue)
         return vvalue
 
     def make_virtual_raw_slice(self, rawbuffer_value, offset, source_op):
+        raise Exception("unsupported")
         vvalue = VRawSliceValue(rawbuffer_value, offset, source_op)
         self.make_equal_to(source_op, vvalue)
         return vvalue

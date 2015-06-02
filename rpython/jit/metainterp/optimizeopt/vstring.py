@@ -49,10 +49,11 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 
 
 class StrPtrInfo(info.NonNullPtrInfo):
-    _attrs_ = ('length', 'lenbound', 'lgtop', 'mode')
+    _attrs_ = ('length', 'lenbound', 'lgtop', 'mode', '_cached_vinfo')
 
     lenbound = None
     lgtop = None
+    _cached_vinfo = None
 
     def __init__(self, mode, is_virtual=False, length=-1):
         self.length = length
@@ -191,6 +192,13 @@ class VStringPlainInfo(StrPtrInfo):
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        visitor.register_virtual_fields(instbox, self._chars)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrplain(self.mode is mode_unicode)
+
 class VStringSliceInfo(StrPtrInfo):
     def __init__(self, s, start, length, mode):
         self.s = s
@@ -275,6 +283,23 @@ class VStringConcatInfo(StrPtrInfo):
         offsetbox = righti.string_copy_parts(self.vright, string_optimizer,
                                              targetbox, offsetbox, mode)
         return offsetbox
+
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        # we don't store the lengthvalue in guards, because the
+        # guard-failed code starts with a regular STR_CONCAT again
+        leftbox = self.vleft
+        rightbox = self.vright
+        visitor.register_virtual_fields(instbox, [leftbox, rightbox])
+        leftinfo = optimizer.getptrinfo(leftbox)
+        rightinfo = optimizer.getptrinfo(rightbox)
+        if leftinfo and leftinfo.is_virtual():
+            leftinfo.visitor_walk_recursive(leftbox, visitor, optimizer)
+        if rightinfo and rightinfo.is_virtual():
+            rightinfo.visitor_walk_recursive(rightbox, visitor, optimizer)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrconcat(self.mode is mode_unicode)
 
 # class __extend__(optimizer.OptValue):
 #     """New methods added to the base class OptValue for this file."""

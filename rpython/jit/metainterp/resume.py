@@ -289,7 +289,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         self.snapshot_storage = snapshot_storage
         self.memo = memo
 
-    def make_virtual_info(self, descr, info, fieldnums):
+    def make_virtual_info(self, info, fieldnums):
         assert fieldnums is not None
         vinfo = info._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):
@@ -455,8 +455,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 assert info.is_virtual()
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
-                descr = info.vdescr
-                vinfo = self.make_virtual_info(descr, info, fieldnums)
+                vinfo = self.make_virtual_info(info, fieldnums)
                 # if a new vinfo instance is made, we get the fieldnums list we
                 # pass in as an attribute. hackish.
                 if vinfo.fieldnums is not fieldnums:

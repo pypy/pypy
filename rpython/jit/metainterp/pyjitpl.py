@@ -684,7 +684,7 @@ class MIFrame(object):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC_PURE_F, fielddescr, box)
-            return ConstPtr(resvalue)
+            return ConstFloat(resvalue)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE_F, box, fielddescr, 'f')
 
@@ -694,7 +694,7 @@ class MIFrame(object):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             val = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC_PURE_R, fielddescr, box)
-            return ConstFloat(val)
+            return ConstPtr(val)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE_R, box, fielddescr, 'r')
 
