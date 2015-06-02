@@ -9,7 +9,8 @@ from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
 
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
-     get_deep_immutable_oplist, OpHelpers
+     get_deep_immutable_oplist, OpHelpers, InputArgInt, InputArgRef,\
+     InputArgFloat
 from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
     TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
@@ -949,19 +950,17 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     calls back the interpreter.  Used temporarily: a fully compiled
     version of the code may end up replacing it.
     """
-    import pdb
-    pdb.set_trace()
     jitcell_token = make_jitcell_token(jitdriver_sd)
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
     inputargs = []
     for kind in redargtypes:
         if kind == history.INT:
-            box = BoxInt()
+            box = InputArgInt()
         elif kind == history.REF:
-            box = BoxPtr()
+            box = InputArgRef()
         elif kind == history.FLOAT:
-            box = BoxFloat()
+            box = InputArgFloat()
         else:
             raise AssertionError
         inputargs.append(box)
@@ -969,28 +968,20 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     funcbox = history.ConstInt(heaptracker.adr2int(k))
     callargs = [funcbox] + greenboxes + inputargs
     #
-    result_type = jitdriver_sd.result_type
-    if result_type == history.INT:
-        result = BoxInt()
-    elif result_type == history.REF:
-        result = BoxPtr()
-    elif result_type == history.FLOAT:
-        result = BoxFloat()
-    elif result_type == history.VOID:
-        result = None
-    else:
-        assert 0, "bad result_type"
-    if result is not None:
-        finishargs = [result]
+
+    jd = jitdriver_sd
+    opnum = OpHelpers.call_for_descr(jd.portal_calldescr)
+    call_op = ResOperation(opnum, callargs, descr=jd.portal_calldescr)
+    if call_op.type != 'v' is not None:
+        finishargs = [call_op]
     else:
         finishargs = []
     #
-    jd = jitdriver_sd
     faildescr = jitdriver_sd.propagate_exc_descr
     operations = [
-        ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
-        ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),
-        ResOperation(rop.FINISH, finishargs, None, descr=jd.portal_finishtoken)
+        call_op,
+        ResOperation(rop.GUARD_NO_EXCEPTION, [], descr=faildescr),
+        ResOperation(rop.FINISH, finishargs, descr=jd.portal_finishtoken)
     ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
