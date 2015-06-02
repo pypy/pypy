@@ -495,17 +495,12 @@ class W_Ufunc1(W_Ufunc):
         return dt_in, dt_out, self.func
 
     def _calc_dtype(self, space, arg_dtype, out=None, casting='unsafe'):
-        use_min_scalar = False
         if arg_dtype.is_object():
             return arg_dtype, arg_dtype
         in_casting = safe_casting_mode(casting)
         for dt_in, dt_out in self.dtypes:
-            if use_min_scalar:
-                if not can_cast_array(space, w_arg, dt_in, in_casting):
-                    continue
-            else:
-                if not can_cast_type(space, arg_dtype, dt_in, in_casting):
-                    continue
+            if not can_cast_type(space, arg_dtype, dt_in, in_casting):
+                continue
             if out is not None:
                 res_dtype = out.get_dtype()
                 if not can_cast_type(space, dt_out, res_dtype, casting):
