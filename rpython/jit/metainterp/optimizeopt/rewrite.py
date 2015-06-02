@@ -345,14 +345,15 @@ class OptRewrite(Optimization):
         self.optimize_guard(op, CONST_0)
 
     def optimize_RECORD_KNOWN_CLASS(self, op):
-        value = self.getvalue(op.getarg(0))
+        opinfo = self.getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)
-        realclassbox = value.get_constant_class(self.optimizer.cpu)
-        if realclassbox is not None:
-            assert realclassbox.same_constant(expectedclassbox)
-            return
-        value.make_constant_class(None, expectedclassbox)
+        if opinfo is not None:
+            realclassbox = opinfo.get_known_class(self.optimizer.cpu)
+            if realclassbox is not None:
+                assert realclassbox.same_constant(expectedclassbox)
+                return
+        self.make_constant_class(op.getarg(0), expectedclassbox)
 
     def optimize_GUARD_CLASS(self, op):
         expectedclassbox = op.getarg(1)
