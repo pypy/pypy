@@ -204,6 +204,10 @@ class IntBound(AbstractInfo):
             return IntUnbounded()
 
     def contains(self, val):
+        if not isinstance(val, int):
+            if ((not self.has_lower or self.lower == MININT) and
+                not self.has_upper or self.upper == MAXINT):
+                return True # workaround for address as int
         if self.has_lower and val < self.lower:
             return False
         if self.has_upper and val > self.upper:
