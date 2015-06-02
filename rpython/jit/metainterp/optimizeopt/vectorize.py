@@ -245,7 +245,7 @@ class VectorizingOptimizer(Optimizer):
         for i,op in enumerate(loop.operations):
             if op.getopnum() == rop.GUARD_EARLY_EXIT:
                 self.early_exit_idx = i
-            if op.is_array_op():
+            if op.is_raw_array_access():
                 descr = op.getdescr()
                 if not descr.is_array_of_pointers():
                     byte_count = descr.get_item_size_in_bytes()
@@ -1296,7 +1296,7 @@ class PackSet(object):
         """ Blocks the packing of some operations """
         if inquestion.vector == -1:
             return True
-        if packed.is_array_op():
+        if packed.is_raw_array_access():
             if packed.getarg(1) == inquestion.result:
                 return True
         return False

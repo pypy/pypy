@@ -171,10 +171,14 @@ class AbstractResOp(object):
     def is_vector_arithmetic(self):
         return rop._VEC_ARITHMETIC_FIRST <= self.getopnum() <= rop._VEC_ARITHMETIC_LAST
 
-    def is_array_op(self):
-        on = self.getopnum()
-        return rop.GETARRAYITEM_GC <= on <= rop.VEC_RAW_LOAD or \
-               rop.SETARRAYITEM_GC <= on <= rop.VEC_RAW_STORE
+    def is_raw_array_access(self):
+        return self.is_raw_load() or self.is_raw_store()
+
+    def is_raw_load(self):
+        return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
+
+    def is_raw_store(self):
+        return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
 
     def is_comparison(self):
         return self.is_always_pure() and self.returns_bool_result()
@@ -530,10 +534,14 @@ _oplist = [
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
     'GETARRAYITEM_GC/2d',
+
+    '_RAW_LOAD_FIRST',
     'GETARRAYITEM_RAW/2d',
     'VEC_GETARRAYITEM_RAW/3d',
     'RAW_LOAD/2d',
     'VEC_RAW_LOAD/3d',
+    '_RAW_LOAD_LAST',
+
     'GETINTERIORFIELD_GC/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
@@ -554,10 +562,14 @@ _oplist = [
 
     'INCREMENT_DEBUG_COUNTER/1',
     'SETARRAYITEM_GC/3d',
+
+    '_RAW_STORE_FIRST',
     'SETARRAYITEM_RAW/3d',
     'VEC_SETARRAYITEM_RAW/3d',
     'RAW_STORE/3d',
     'VEC_RAW_STORE/3d',
+    '_RAW_STORE_LAST',
+
     'SETINTERIORFIELD_GC/3d',
     'SETINTERIORFIELD_RAW/3d',    # right now, only used by tests
     'SETFIELD_GC/2d',
