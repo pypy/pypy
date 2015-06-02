@@ -15,14 +15,17 @@ to change at some point.  Usually it is useful to look at the tests in
 listsort
 --------
 
-The :source:`rpython/rlib/listsort.py` module contains an implementation of the timsort sorting algorithm
-(the sort method of lists is not RPython). To use it, subclass from the
-``listsort.TimSort`` class and override the ``lt`` method to change the
-comparison behaviour. The constructor of ``TimSort`` takes a list as an
-argument, which will be sorted in place when the ``sort`` method of the
-``TimSort`` instance is called. **Warning:** currently only one type of list can
-be sorted using the ``listsort`` module in one program, otherwise the annotator
-will be confused.
+The :source:`rpython/rlib/listsort.py` module contains an implementation
+of the timsort sorting algorithm (the sort method of lists is not
+RPython). To use it, make (globally) one class by calling ``MySort =
+listsort.make_timsort_class(lt=my_comparison_func)``.  There are also
+other optional arguments, but usually you give with ``lt=...`` a
+function that compares two objects from your lists.  You need one class
+per "type" of list and per comparison function.
+
+The constructor of ``MySort`` takes a list as an argument, which will be
+sorted in place when the ``sort`` method of the ``MySort`` instance is
+called.
 
 
 nonconst
