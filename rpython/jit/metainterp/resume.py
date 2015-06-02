@@ -1055,7 +1055,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         str1box = self.decode_box(str1num, REF)
         str2box = self.decode_box(str2num, REF)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
+            rop.CALL_R, [ConstInt(func), str1box, str2box], calldescr)
 
     def slice_string(self, strnum, startnum, lengthnum):
         cic = self.metainterp.staticdata.callinfocollection

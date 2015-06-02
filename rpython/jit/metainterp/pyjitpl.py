@@ -2774,7 +2774,7 @@ class MetaInterp(object):
             self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
 
     def assert_no_exception(self):
-        assert self.last_exc_value
+        assert not self.last_exc_value
 
     def rebuild_state_after_failure(self, resumedescr, deadframe):
         vinfo = self.jitdriver_sd.virtualizable_info
