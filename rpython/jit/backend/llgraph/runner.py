@@ -915,6 +915,7 @@ class LLFrame(object):
     def execute_guard_overflow(self, descr):
         if not self.overflow_flag:
             self.fail_guard(descr)
+        return lltype.nullptr(llmemory.GCREF.TO) # I think it's fine....
 
     def execute_jump(self, descr, *args):
         raise Jump(descr._llgraph_target, args)

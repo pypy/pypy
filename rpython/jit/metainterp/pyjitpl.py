@@ -1301,7 +1301,7 @@ class MIFrame(object):
         exc_value = self.metainterp.last_exc_value
         assert exc_value
         assert self.metainterp.class_of_last_exc_is_const
-        return self.metainterp.cpu.ts.cls_of_box(ConstPtr(exc_value))
+        return self.metainterp.cpu.ts.cls_of_box(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, exc_value)))
 
     @arguments()
     def opimpl_last_exc_value(self):
@@ -2013,7 +2013,7 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        if opnum == rop.GUARD_EXCEPTION:
+        if opnum == rop.GUARD_EXCEPTION or opnum == rop.GUARD_OVERFLOW:
             guard_op = self.history.record(opnum, moreargs,
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
@@ -2749,9 +2749,12 @@ class MetaInterp(object):
                 llmemory.cast_ptr_to_adr(self.last_exc_value.typeptr)))
             op = self.generate_guard(rop.GUARD_EXCEPTION,
                                      None, [exception_box])
-            self.last_exc_box = op
-            op.setref_base(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                  self.last_exc_value))
+            val = lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value)
+            if self.class_of_last_exc_is_const:
+                self.last_exc_box = ConstPtr(val)
+            else:
+                self.last_exc_box = op
+                op.setref_base(val)
             assert op is not None
             self.class_of_last_exc_is_const = True
             self.finishframe_exception()
@@ -2760,8 +2763,12 @@ class MetaInterp(object):
 
     def handle_possible_overflow_error(self):
         if self.last_exc_value:
-            self.generate_guard(rop.GUARD_OVERFLOW, None)
+            op = self.generate_guard(rop.GUARD_OVERFLOW, None)
+            op.setref_base(lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                  self.last_exc_value))
             assert self.class_of_last_exc_is_const
+            self.last_exc_box = ConstPtr(
+                lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value))
             self.finishframe_exception()
         else:
             self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
