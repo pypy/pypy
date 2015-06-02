@@ -890,6 +890,7 @@ class OptVirtualize(optimizer.Optimization):
     optimize_RAW_LOAD_F = optimize_RAW_LOAD_I
 
     def optimize_RAW_STORE(self, op):
+        raise Exception("implement me")
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))

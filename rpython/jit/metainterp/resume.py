@@ -12,7 +12,6 @@ from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
-from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
 
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -413,6 +412,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         return liveboxes[:]
 
     def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
+        from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
+        
         # !! 'liveboxes' is a list that is extend()ed in-place !!
         memo = self.memo
         new_liveboxes = [None] * memo.num_cached_boxes()
