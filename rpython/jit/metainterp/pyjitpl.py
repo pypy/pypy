@@ -2985,9 +2985,8 @@ class MetaInterp(object):
 
     def do_not_in_trace_call(self, allboxes, descr):
         self.clear_exception()
-        resbox = executor.execute_varargs(self.cpu, self, rop.CALL,
+        executor.execute_varargs(self.cpu, self, rop.CALL_N,
                                           allboxes, descr)
-        assert resbox is None
         if self.last_exc_value_box is not None:
             # cannot trace this!  it raises, so we have to follow the
             # exception-catching path, but the trace doesn't contain
