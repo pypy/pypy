@@ -1670,8 +1670,8 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         nextbh = curbh
     firstbh = nextbh
     #
-    if metainterp.last_exc_value_box is not None:
-        current_exc = metainterp.last_exc_value_box.getref(rclass.OBJECTPTR)
+    if metainterp.last_exc_value:
+        current_exc = metainterp.last_exc_value
     else:
         current_exc = lltype.nullptr(rclass.OBJECTPTR.TO)
     if not raising_exception:
