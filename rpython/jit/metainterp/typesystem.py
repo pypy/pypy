@@ -79,14 +79,6 @@ class LLTypeHelper(TypeSystemHelper):
     def get_exception_box(self, etype):
         return history.ConstInt(etype)
 
-    def get_exc_value_box(self, evalue):
-        from rpython.jit.metainterp.resoperation import InputArgRef
-        
-        return InputArgRef(evalue)
-
-    def get_exc_value_const(self, evalue):
-        return history.ConstPtr(evalue)
-
     def get_exception_obj(self, evaluebox):
         # only works when translated
         obj = evaluebox.getref(lltype.Ptr(rclass.OBJECT))

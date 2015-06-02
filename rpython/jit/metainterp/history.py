@@ -684,7 +684,7 @@ class TreeLoop(object):
     @staticmethod
     def check_consistency_of_branch(operations, seen):
         "NOT_RPYTHON"
-        for op in operations:
+        for num, op in enumerate(operations):
             for i in range(op.numargs()):
                 box = op.getarg(i)
                 if not isinstance(box, Const):

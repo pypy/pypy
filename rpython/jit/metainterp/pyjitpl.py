@@ -326,11 +326,11 @@ class MIFrame(object):
     @arguments("label")
     def opimpl_catch_exception(self, target):
         """This is a no-op when run normally.  We can check that
-        last_exc_value_box is None; it should have been set to None
+        last_exc_value is a null ptr; it should have been set to None
         by the previous instruction.  If the previous instruction
         raised instead, finishframe_exception() should have been
         called and we would not be there."""
-        assert self.metainterp.last_exc_value_box is None
+        assert not self.metainterp.last_exc_value
 
     @arguments("label")
     def opimpl_goto(self, target):
@@ -1270,10 +1270,10 @@ class MIFrame(object):
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
         metainterp = self.metainterp
-        last_exc_value_box = metainterp.last_exc_value_box
-        assert last_exc_value_box is not None
+        last_exc_value = metainterp.last_exc_value
+        assert last_exc_value
         assert metainterp.class_of_last_exc_is_const
-        if not metainterp.cpu.ts.instanceOf(last_exc_value_box, vtablebox):
+        if not metainterp.cpu.ts.instanceOf(ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, last_exc_value)), vtablebox):
             self.pc = next_exc_target
 
     @arguments("box", "orgpc")
@@ -1284,29 +1284,30 @@ class MIFrame(object):
             self.metainterp.generate_guard(rop.GUARD_CLASS, exc_value_box,
                                            [clsbox], resumepc=orgpc)
         self.metainterp.class_of_last_exc_is_const = True
-        self.metainterp.last_exc_value_box = exc_value_box
+        self.metainterp.last_exc_value = exc_value_box.getref(rclass.OBJECTPTR)
+        self.metainterp.last_exc_box = exc_value_box
         self.metainterp.popframe()
         self.metainterp.finishframe_exception()
 
     @arguments()
     def opimpl_reraise(self):
-        assert self.metainterp.last_exc_value_box is not None
+        assert self.metainterp.last_exc_value
         self.metainterp.popframe()
         self.metainterp.finishframe_exception()
 
     @arguments()
     def opimpl_last_exception(self):
         # Same comment as in opimpl_goto_if_exception_mismatch().
-        exc_value_box = self.metainterp.last_exc_value_box
-        assert exc_value_box is not None
+        exc_value = self.metainterp.last_exc_value
+        assert exc_value
         assert self.metainterp.class_of_last_exc_is_const
-        return self.metainterp.cpu.ts.cls_of_box(exc_value_box)
+        return self.metainterp.cpu.ts.cls_of_box(ConstPtr(exc_value))
 
     @arguments()
     def opimpl_last_exc_value(self):
-        exc_value_box = self.metainterp.last_exc_value_box
-        assert exc_value_box is not None
-        return exc_value_box
+        exc_value = self.metainterp.last_exc_value
+        assert exc_value
+        return ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, exc_value))
 
     @arguments("box")
     def opimpl_debug_fatalerror(self, box):
@@ -1503,7 +1504,7 @@ class MIFrame(object):
         self.metainterp.clear_exception()
         op = self.metainterp.execute_and_record_varargs(opnum, argboxes,
                                                             descr=descr)
-        if pure and self.metainterp.last_exc_value_box is None and op:
+        if pure and not self.metainterp.last_exc_value and op:
             op = self.metainterp.record_result_of_call_pure(op)
             exc = exc and not isinstance(op, Const)
         if exc:
@@ -1868,6 +1869,7 @@ class MetaInterp(object):
     portal_call_depth = 0
     cancel_count = 0
     exported_state = None
+    last_exc_box = None
 
     def __init__(self, staticdata, jitdriver_sd):
         self.staticdata = staticdata
@@ -1878,7 +1880,7 @@ class MetaInterp(object):
         # during recursion we can also see other jitdrivers.
         self.portal_trace_positions = []
         self.free_frames_list = []
-        self.last_exc_value_box = None
+        self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
         self.partial_trace = None
         self.retracing_from = -1
@@ -1937,7 +1939,7 @@ class MetaInterp(object):
 
     def finishframe(self, resultbox):
         # handle a non-exceptional return from the current frame
-        self.last_exc_value_box = None
+        self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.popframe()
         if self.framestack:
             if resultbox is not None:
@@ -1963,7 +1965,7 @@ class MetaInterp(object):
                 assert False
 
     def finishframe_exception(self):
-        excvaluebox = self.last_exc_value_box
+        excvalue = self.last_exc_value
         while self.framestack:
             frame = self.framestack[-1]
             code = frame.bytecode
@@ -1978,10 +1980,10 @@ class MetaInterp(object):
                     raise ChangeFrame
             self.popframe()
         try:
-            self.compile_exit_frame_with_exception(excvaluebox)
+            self.compile_exit_frame_with_exception(self.last_exc_box)
         except SwitchToBlackhole, stb:
             self.aborted_tracing(stb.reason)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
+        raise jitexc.ExitFrameWithExceptionRef(self.cpu, lltype.cast_opaque_ptr(llmemory.GCREF, excvalue))
 
     def check_recursion_invariant(self):
         portal_call_depth = -1
@@ -2105,7 +2107,7 @@ class MetaInterp(object):
     @specialize.argtype(2)
     def _record_helper_nonpure_varargs(self, opnum, resvalue, descr, argboxes):
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST and
-            self.last_exc_value_box is None and
+            not self.last_exc_value and
             self._all_constants_varargs(argboxes)):
             return history.newconst(resvalue)
         # record the operation
@@ -2173,22 +2175,17 @@ class MetaInterp(object):
     def execute_ll_raised(self, llexception, constant=False):
         # Exception handling: when execute.do_call() gets an exception it
         # calls metainterp.execute_raised(), which puts it into
-        # 'self.last_exc_value_box'.  This is used shortly afterwards
+        # 'self.last_exc_value'.  This is used shortly afterwards
         # to generate either GUARD_EXCEPTION or GUARD_NO_EXCEPTION, and also
         # to handle the following opcodes 'goto_if_exception_mismatch'.
-        llexception = self.cpu.ts.cast_to_ref(llexception)
-        if constant:
-            exc_value_box = self.cpu.ts.get_exc_value_const(llexception)
-        else:
-            exc_value_box = self.cpu.ts.get_exc_value_box(llexception)
-        self.last_exc_value_box = exc_value_box
+        self.last_exc_value = llexception
         self.class_of_last_exc_is_const = constant
         # 'class_of_last_exc_is_const' means that the class of the value
         # stored in the exc_value Box can be assumed to be a Const.  This
         # is only True after a GUARD_EXCEPTION or GUARD_CLASS.
 
     def clear_exception(self):
-        self.last_exc_value_box = None
+        self.last_exc_value = lltype.nullptr(rclass.OBJECT)
 
     def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
@@ -2747,28 +2744,30 @@ class MetaInterp(object):
         self.virtualref_boxes[i+1] = self.cpu.ts.CONST_NULL
 
     def handle_possible_exception(self):
-        if self.last_exc_value_box is not None:
-            exception_box = self.cpu.ts.cls_of_box(self.last_exc_value_box)
+        if self.last_exc_value:
+            exception_box = ConstInt(heaptracker.adr2int(
+                llmemory.cast_ptr_to_adr(self.last_exc_value.typeptr)))
             op = self.generate_guard(rop.GUARD_EXCEPTION,
                                      None, [exception_box])
+            self.last_exc_box = op
+            op.setref_base(lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                  self.last_exc_value))
             assert op is not None
-            op.result = self.last_exc_value_box
             self.class_of_last_exc_is_const = True
             self.finishframe_exception()
         else:
             self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
 
     def handle_possible_overflow_error(self):
-        if self.last_exc_value_box is not None:
+        if self.last_exc_value:
             self.generate_guard(rop.GUARD_OVERFLOW, None)
-            assert isinstance(self.last_exc_value_box, Const)
             assert self.class_of_last_exc_is_const
             self.finishframe_exception()
         else:
             self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
 
     def assert_no_exception(self):
-        assert self.last_exc_value_box is None
+        assert self.last_exc_value
 
     def rebuild_state_after_failure(self, resumedescr, deadframe):
         vinfo = self.jitdriver_sd.virtualizable_info
@@ -3046,7 +3045,7 @@ class MetaInterp(object):
         self.clear_exception()
         executor.execute_varargs(self.cpu, self, rop.CALL_N,
                                           allboxes, descr)
-        if self.last_exc_value_box is not None:
+        if self.last_exc_value:
             # cannot trace this!  it raises, so we have to follow the
             # exception-catching path, but the trace doesn't contain
             # the call at all
@@ -3065,7 +3064,7 @@ class SwitchToBlackhole(jitexc.JitException):
         self.reason = reason
         self.raising_exception = raising_exception
         # ^^^ must be set to True if the SwitchToBlackhole is raised at a
-        #     point where the exception on metainterp.last_exc_value_box
+        #     point where the exception on metainterp.last_exc_value
         #     is supposed to be raised.  The default False means that it
         #     should just be copied into the blackhole interp, but not raised.
 
