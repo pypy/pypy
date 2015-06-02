@@ -329,7 +329,7 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
     for descr in vinfo.array_field_descrs:
         vable = vable_box.getref_base()
         arraylen = vinfo.get_array_length(vable, arrayindex)
-        arrayop = ResOperation(rop.GETFIELD_GC, [vable_box], descr)
+        arrayop = ResOperation(rop.GETFIELD_GC_R, [vable_box], descr)
         emit_op(extra_ops, arrayop)
         arraydescr = vinfo.array_descrs[arrayindex]
         assert i + arraylen <= len(inputargs)
@@ -337,7 +337,7 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
             opnum = OpHelpers.getarrayitem_for_descr(arraydescr)
             box = inputargs[i]
             emit_op(extra_ops,
-                ResOperation(rop.GETARRAYITEM_GC,
+                ResOperation(opnum,
                              [arrayop, ConstInt(index)],
                              descr=arraydescr))
             i += 1

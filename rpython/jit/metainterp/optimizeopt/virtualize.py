@@ -594,8 +594,8 @@ class OptVirtualize(optimizer.Optimization):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
-            value = self.getvalue(op.getarg(2))
-            if value.is_virtual():
+            opinfo = self.getptrinfo(op.getarg(2))
+            if opinfo and opinfo.is_virtual():
                 return
         self.emit_operation(op)
 

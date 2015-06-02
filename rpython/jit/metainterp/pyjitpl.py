@@ -876,7 +876,7 @@ class MIFrame(object):
         assert vinfo is not None
         token_descr = vinfo.vable_token_descr
         mi = self.metainterp
-        tokenbox = mi.execute_and_record(rop.GETFIELD_GC, token_descr, box)
+        tokenbox = mi.execute_and_record(rop.GETFIELD_GC_R, token_descr, box)
         condbox = mi.execute_and_record(rop.PTR_NE, None, tokenbox,
                                        history.CONST_NULL)
         funcbox = ConstInt(rffi.cast(lltype.Signed, vinfo.clear_vable_ptr))
@@ -945,8 +945,13 @@ class MIFrame(object):
     @arguments("box", "box", "descr", "descr", "orgpc")
     def _opimpl_getarrayitem_vable(self, box, indexbox, fdescr, adescr, pc):
         if self._nonstandard_virtualizable(pc, box, fdescr):
-            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
-            return self._opimpl_getarrayitem_gc_any(arraybox, indexbox, adescr)
+            arraybox = self.opimpl_getfield_gc_r(box, fdescr)
+            if adescr.is_array_of_pointers():
+                return self.opimpl_getarrayitem_gc_r(arraybox, indexbox, adescr)
+            elif adescr.is_array_of_floats():
+                return self.opimpl_getarrayitem_gc_f(arraybox, indexbox, adescr)
+            else:
+                return self.opimpl_getarrayitem_gc_i(arraybox, indexbox, adescr)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_arrayitem_vable_index(pc, fdescr, indexbox)
         return self.metainterp.virtualizable_boxes[index]
@@ -959,7 +964,7 @@ class MIFrame(object):
     def _opimpl_setarrayitem_vable(self, box, indexbox, valuebox,
                                    fdescr, adescr, pc):
         if self._nonstandard_virtualizable(pc, box, fdescr):
-            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
+            arraybox = self.opimpl_getfield_gc_r(box, fdescr)
             self._opimpl_setarrayitem_gc_any(arraybox, indexbox, valuebox,
                                              adescr)
             return
@@ -975,7 +980,7 @@ class MIFrame(object):
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_arraylen_vable(self, box, fdescr, adescr, pc):
         if self._nonstandard_virtualizable(pc, box, fdescr):
-            arraybox = self._opimpl_getfield_gc_any(box, fdescr)
+            arraybox = self.opimpl_getfield_gc_r(box, fdescr)
             return self.opimpl_arraylen_gc(arraybox, adescr)
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
