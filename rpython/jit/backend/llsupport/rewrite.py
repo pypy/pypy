@@ -78,7 +78,9 @@ class GcRewriterAssembler(object):
             self._delayed_zero_setfields[op] = d
         return d
 
-    def get_box_replacement(self, op):
+    def get_box_replacement(self, op, allow_none=False):
+        if allow_none and op is None:
+            return None # for failargs
         while op.get_forwarded():
             op = op.get_forwarded()
         return op
@@ -101,7 +103,7 @@ class GcRewriterAssembler(object):
             if not replaced:
                 op = op.copy_and_change(op.getopnum())
                 orig_op.set_forwarded(op)
-            op.setfailargs([self.get_box_replacement(a)
+            op.setfailargs([self.get_box_replacement(a, True)
                             for a in op.getfailargs()])
         self._newops.append(op)
 
