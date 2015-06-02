@@ -100,7 +100,7 @@ class AppTestRecompiler:
             del self.space._cleanup_ffi
         self.space.appexec([self._w_modules], """(old_modules):
             import sys
-            for key in sys.modules.keys():
+            for key in list(sys.modules.keys()):
                 if key not in old_modules:
                     del sys.modules[key]
         """)
