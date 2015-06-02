@@ -66,7 +66,7 @@ class SizeDescrWithVTable(SizeDescr):
 
 BaseSizeDescr = SizeDescr
 
-def get_size_descr(cpu, gccache, STRUCT, is_object):
+def get_size_descr(gccache, STRUCT, is_object):
     cache = gccache._cache_size
     try:
         return cache[STRUCT]
@@ -74,13 +74,13 @@ def get_size_descr(cpu, gccache, STRUCT, is_object):
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
         gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
-        if is_object: #heaptracker.has_gcstruct_a_vtable(STRUCT):
-            #assert is_object
+        if is_object:
+            assert heaptracker.has_gcstruct_a_vtable(STRUCT)
             sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
                                             gc_fielddescrs, None,
-                heaptracker.get_vtable_for_gcstruct(cpu, STRUCT))
+                heaptracker.get_vtable_for_gcstruct(gccache, STRUCT))
         else:
-            #assert not is_object
+            assert not heaptracker.has_gcstruct_a_vtable(STRUCT)
             sizedescr = SizeDescr(size, count_fields_if_immut,
                                   gc_fielddescrs, None)
         gccache.init_size_descr(STRUCT, sizedescr)
@@ -172,7 +172,8 @@ def get_field_descr(gccache, STRUCT, fieldname):
         fielddescr = FieldDescr(name, offset, size, flag, index_in_parent)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
-        fielddescr.parent_descr = get_size_descr(None, gccache, STRUCT, False)
+        fielddescr.parent_descr = get_size_descr(gccache, STRUCT,
+                                  heaptracker.has_gcstruct_a_vtable(STRUCT))
         return fielddescr
 
 def get_type_flag(TYPE):

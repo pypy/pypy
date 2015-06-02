@@ -299,7 +299,7 @@ class AbstractLLCPU(AbstractCPU):
         return rffi.cast(TYPE, x)
 
     def sizeof(self, S, is_object):
-        return get_size_descr(self, self.gc_ll_descr, S, is_object)
+        return get_size_descr(self.gc_ll_descr, S, is_object)
 
     def fielddescrof(self, STRUCT, fieldname):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)

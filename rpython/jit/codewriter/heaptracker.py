@@ -56,24 +56,24 @@ def has_gcstruct_a_vtable(GCSTRUCT):
             return False
     return True
 
-def get_vtable_for_gcstruct(cpu, GCSTRUCT):
+def get_vtable_for_gcstruct(gccache, GCSTRUCT):
     # xxx hack: from a GcStruct representing an instance's
     # lowleveltype, return the corresponding vtable pointer.
     # Returns None if the GcStruct does not belong to an instance.
     assert isinstance(GCSTRUCT, lltype.GcStruct)
     if not has_gcstruct_a_vtable(GCSTRUCT):
         return None
-    setup_cache_gcstruct2vtable(cpu)
-    return cpu._cache_gcstruct2vtable[GCSTRUCT]
+    setup_cache_gcstruct2vtable(gccache)
+    return gccache._cache_gcstruct2vtable[GCSTRUCT]
 
-def setup_cache_gcstruct2vtable(cpu):
-    if not hasattr(cpu, '_cache_gcstruct2vtable'):
+def setup_cache_gcstruct2vtable(gccache):
+    if not hasattr(gccache, '_cache_gcstruct2vtable'):
         cache = {}
         cache.update(testing_gcstruct2vtable)
-        if cpu.rtyper:
-            for rinstance in cpu.rtyper.instance_reprs.values():
+        if gccache.rtyper:
+            for rinstance in gccache.rtyper.instance_reprs.values():
                 cache[rinstance.lowleveltype.TO] = rinstance.rclass.getvtable()
-        cpu._cache_gcstruct2vtable = cache
+            gccache._cache_gcstruct2vtable = cache
 
 def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
     # only for tests that need to register the vtable of their malloc'ed

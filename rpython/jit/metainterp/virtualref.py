@@ -27,6 +27,7 @@ class VirtualRefInfo:
         adr = heaptracker.adr2int(adr)
         self.jit_virtual_ref_const_class = history.ConstInt(adr)
         fielddescrof = self.cpu.fielddescrof
+        self.cpu.gc_ll_descr._cache_gcstruct2vtable[self.JIT_VIRTUAL_REF] = self.jit_virtual_ref_vtable
         self.descr_virtual_token = fielddescrof(self.JIT_VIRTUAL_REF,
                                                 'virtual_token')
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')
