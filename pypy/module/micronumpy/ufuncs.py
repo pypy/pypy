@@ -474,7 +474,8 @@ class W_Ufunc1(W_Ufunc):
         if out is None:
             if w_res.is_scalar():
                 return w_res.get_scalar_value()
-            w_res = space.call_method(w_obj, '__array_wrap__', w_res)
+            ctxt = space.newtuple([self, space.newtuple([w_obj]), space.wrap(0)])
+            w_res = space.call_method(w_obj, '__array_wrap__', w_res, ctxt)
         return w_res
 
     def call_scalar(self, space, w_arg, in_dtype):
@@ -632,7 +633,8 @@ class W_Ufunc2(W_Ufunc):
         if out is None:
             if w_res.is_scalar():
                 return w_res.get_scalar_value()
-            w_res = space.call_method(w_highpriority, '__array_wrap__', w_res)
+            ctxt = space.newtuple([self, space.newtuple([w_lhs, w_rhs]), space.wrap(0)])
+            w_res = space.call_method(w_highpriority, '__array_wrap__', w_res, ctxt)
         return w_res
 
     def call_scalar(self, space, w_lhs, w_rhs, in_dtype):
