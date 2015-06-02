@@ -488,7 +488,8 @@ class TestNumpyJit(Jit386Mixin):
     def test_setslice(self):
         result = self.run("setslice")
         assert result == 5.5
-        self.check_vectorized(1, 0) # TODO?
+        self.check_trace_count(1)
+        self.check_vectorized(1, 1)
 
     def define_virtual_slice():
         return """

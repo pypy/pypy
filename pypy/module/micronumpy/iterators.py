@@ -145,7 +145,9 @@ class ArrayIter(object):
             jit.promote(elsize)
             offset += elsize
         elif self.ndim_m1 == 0:
-            offset += self.strides[0]
+            stride = self.strides[0]
+            jit.promote(stride)
+            offset += stride
         else:
             for i in xrange(self.ndim_m1, -1, -1):
                 idx = indices[i]

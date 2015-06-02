@@ -73,9 +73,16 @@ def call2(space, shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         if right_iter:
             w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
             right_state = right_iter.next(right_state)
-        out_iter.setitem(out_state, func(calc_dtype, w_left, w_right).convert_to(
-            space, res_dtype))
+        w_out = func(calc_dtype, w_left, w_right)
+        out_iter.setitem(out_state, w_out.convert_to(space, res_dtype))
         out_state = out_iter.next(out_state)
+        # if not set to None, the values will be loop carried, forcing
+        # the vectorization to unpack the vector registers at the end
+        # of the loop
+        if left_iter:
+            w_left = None
+        if right_iter:
+            w_right = None
     return out
 
 call1_driver = jit.JitDriver(
