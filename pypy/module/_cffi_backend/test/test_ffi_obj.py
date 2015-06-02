@@ -186,7 +186,7 @@ class AppTestFFIObj:
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
         a = ffi.new("signed char[]", [5, 6, 7])
-        assert ffi.buffer(a)[:] == '\x05\x06\x07'
+        assert ffi.buffer(a)[:] == b'\x05\x06\x07'
 
     def test_ffi_from_buffer(self):
         import _cffi_backend as _cffi1_backend
