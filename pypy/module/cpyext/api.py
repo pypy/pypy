@@ -1153,7 +1153,7 @@ def load_extension_module(space, path, name):
             return
     #
     if space.config.objspace.usemodules.cpyext:
-        also_look_for = 'init%s' % (basename,)
+        also_look_for = 'PyInit_%s' % (basename,)
         try:
             initptr = rdynload.dlsym(dll, also_look_for)
         except KeyError:
