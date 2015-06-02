@@ -487,7 +487,6 @@ class TranslationDriver(SimpleTaskEngine):
                     exename = exe.new(purebasename=exe.purebasename + 'w')
                     shutil_copy(str(exename), str(newexename))
                     ext_to_copy = ['lib', 'pdb']
->>>>>>> other
                     for ext in ext_to_copy:
                         name = soname.new(ext=ext)
                         newname = newexename.new(basename=soname.basename)
