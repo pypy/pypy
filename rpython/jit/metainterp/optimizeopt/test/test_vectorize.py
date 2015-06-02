@@ -30,12 +30,18 @@ class VecTestHelper(DependencyBaseTest):
 
     jitdriver_sd = FakeJitDriverStaticData()
 
-    def parse_loop(self, ops):
+    def parse_loop(self, ops, add_label=True):
         loop = self.parse(ops, postprocess=self.postprocess)
         token = JitCellToken()
-        loop.operations = \
-            [ResOperation(rop.LABEL, loop.inputargs, None, descr=TargetToken(token))] + \
-            loop.operations
+        pre = []
+        tt = TargetToken(token)
+        if add_label:
+            pre = [ResOperation(rop.LABEL, loop.inputargs, None, descr=tt)]
+        else:
+            for i,op in enumerate(loop.operations):
+                if op.getopnum() == rop.LABEL:
+                    op.setdescr(tt)
+        loop.operations = pre + loop.operations
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
         return loop
@@ -988,6 +994,8 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0]
+        v3 = vec_int_expand(42)
+        label(p0,i0,v3)
         guard_early_exit() [p0,i0]
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
@@ -997,12 +1005,11 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v3 = vec_int_expand(42)
         v2 = vec_int_mul(v1, v3)
-        jump(p0,i2)
+        jump(p0,i2,v3)
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        self.assert_equal(vopt.loop, self.parse_loop(opt,add_label=False))
 
     def test_variable_expansion(self):
         ops = """
@@ -1017,6 +1024,8 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0,f3]
+        v3 = vec_float_expand(f3)
+        label(p0,i0,f3,v3)
         guard_early_exit() [p0,i0]
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
@@ -1026,12 +1035,11 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v3 = vec_float_expand(f3)
         v2 = vec_int_mul(v1, v3)
-        jump(p0,i2,f3)
+        jump(p0,i2,f3,v3)
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        self.assert_equal(vopt.loop, self.parse_loop(opt, add_label=False))
 
     def test_element_f45_in_guard_failargs(self):
         ops = """

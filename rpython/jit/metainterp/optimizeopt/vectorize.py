@@ -372,7 +372,8 @@ class VectorizingOptimizer(Optimizer):
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
                 assert node.emitted
-        self.loop.operations = self._newoperations[:]
+        self.loop.operations = \
+            sched_data.prepend_invariant_operations(self._newoperations)
         self.clear_newoperations()
 
     def unpack_from_vector(self, op, sched_data, renamer):
@@ -1260,6 +1261,26 @@ class VecScheduleData(SchedulerData):
 
     def setvector_of_box(self, box, off, vector):
         self.box_to_vbox[box] = (off, vector)
+
+    def prepend_invariant_operations(self, oplist):
+        if len(self.invariant_oplist) > 0:
+            label = oplist[0]
+            assert label.getopnum() == rop.LABEL
+            jump = oplist[-1]
+            assert jump.getopnum() == rop.JUMP
+
+            label_args = label.getarglist()
+            jump_args = jump.getarglist()
+            for var in self.invariant_vector_vars:
+                label_args.append(var)
+                jump_args.append(var)
+
+            oplist[0] = label.copy_and_change(label.getopnum(), label_args, None, label.getdescr())
+            oplist[-1] = jump.copy_and_change(jump.getopnum(), jump_args, None, jump.getdescr())
+
+            return self.invariant_oplist + oplist
+
+        return oplist
 
 def isomorphic(l_op, r_op):
     """ Subject of definition """
