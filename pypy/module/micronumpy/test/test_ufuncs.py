@@ -1351,3 +1351,4 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert np.add(np.float16(0), np.complex128(0)).dtype == np.complex128
         assert np.add(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
         assert np.subtract(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
+        assert np.divide(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
