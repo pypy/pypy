@@ -178,7 +178,7 @@ class AbstractResOp(object):
         return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
 
     def is_raw_store(self):
-        return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
+        return rop._RAW_STORE_FIRST < self.getopnum() < rop._RAW_STORE_LAST
 
     def is_comparison(self):
         return self.is_always_pure() and self.returns_bool_result()

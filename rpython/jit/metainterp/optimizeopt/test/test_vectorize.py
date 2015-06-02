@@ -57,6 +57,8 @@ class VecTestHelper(DependencyBaseTest):
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
+            print ""
+            print "unroll factor: ", unroll_factor, opt.smallest_type_bytes
         opt.analyse_index_calculations()
         if opt.dependency_graph is not None:
             self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
@@ -831,6 +833,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_vector_operation(self, op, descr, stride):
         ops = """
         [p0,p1,p2,i0]
+        guard_early_exit() []
         i1 = int_add(i0, {stride})
         i10 = int_le(i1, 128)
         guard_true(i10) []
@@ -845,20 +848,14 @@ class BaseTestVectorize(VecTestHelper):
         assert len(vopt.dependency_graph.memory_refs) == 12
         assert len(vopt.packset.packs) == 4
 
-        for opindices in [(4,11,18,25),(5,12,19,26),
-                          (6,13,20,27),(7,14,21,28)]:
+        for opindices in [(5,12,19,26),(6,13,20,27),
+                          (7,14,21,28),(8,15,22,29)]:
             self.assert_has_pack_with(vopt.packset, opindices)
 
     @pytest.mark.parametrize('op,descr,stride',
-            [('int_add','char',1),
-             ('int_sub','char',1),
-             ('int_mul','char',1),
-             ('float_add','float',8),
+            [('float_add','float',8),
              ('float_sub','float',8),
              ('float_mul','float',8),
-             ('float_add','singlefloat',4),
-             ('float_sub','singlefloat',4),
-             ('float_mul','singlefloat',4),
              ('int_add','int',8),
              ('int_sub','int',8),
              ('int_mul','int',8),
@@ -1314,6 +1311,7 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
+        py.test.skip()
         trace ="""
         """
         opt = self.vectorize(self.parse_loop(trace))
@@ -1336,7 +1334,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
-        return
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

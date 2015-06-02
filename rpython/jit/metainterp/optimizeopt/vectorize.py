@@ -214,7 +214,8 @@ class VectorizingOptimizer(Optimizer):
                     if not isinstance(target_guard.getdescr(), ResumeAtLoopHeaderDescr):
                         descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
                         olddescr = copied_op.getdescr()
-                        descr.copy_all_attributes_from(olddescr)
+                        if olddescr:
+                            descr.copy_all_attributes_from(olddescr)
                         copied_op.setdescr(descr)
 
                     if oi < ee_pos:

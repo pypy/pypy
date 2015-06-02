@@ -598,22 +598,32 @@ class DependencyGraph(object):
         elif guard_opnum in (rop.GUARD_OVERFLOW, rop.GUARD_NO_OVERFLOW):
             # previous operation must be an ovf_operation
             guard_node.setpriority(100)
-            prev_node = self.nodes[guard_node.getindex()-1]
-            assert prev_node.getoperation().is_ovf()
-            prev_node.edge_to(guard_node, None, label='overflow')
-        elif guard_opnum == rop.GUARD_NOT_FORCED:
-            # previous op must be one that can raise
-            guard_node.setpriority(100)
-            prev_node = self.nodes[guard_node.getindex()-1]
-            assert prev_node.getoperation().can_raise()
-            prev_node.edge_to(guard_node, None, label='forced')
-        elif guard_opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
+            i = guard_node.getindex()-1
+            while i >= 0:
+                node = self.nodes[i]
+                op = node.getoperation()
+                if node.is_ovf():
+                    break
+                i -= 1
+            else:
+                raise AssertionError("(no)overflow: no overflowing op present")
+            node.edge_to(guard_node, None, label='overflow')
+        elif guard_opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION, rop.GUARD_NOT_FORCED):
             # previous op must be one that can raise or a not forced guard
             guard_node.setpriority(100)
-            prev_node = self.nodes[guard_node.getindex()-1]
-            prev_node.edge_to(guard_node, None, label='exception')
-            if not prev_node.getoperation().getopnum() == rop.GUARD_NOT_FORCED:
-                assert prev_node.getoperation().can_raise()
+            i = guard_node.getindex() - 1
+            while i >= 0:
+                node = self.nodes[i]
+                op = node.getoperation()
+                if op.can_raise():
+                    node.edge_to(guard_node, None, label='exception/notforced')
+                    break
+                if op.is_guard():
+                    node.edge_to(guard_node, None, label='exception/notforced')
+                    break
+                i -= 1
+            else:
+                raise AssertionError("(no)exception/not_forced: not op raises for them")
         else:
             pass # not invalidated, early exit, future condition!
 
