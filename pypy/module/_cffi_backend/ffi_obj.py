@@ -99,7 +99,7 @@ class W_FFIObject(W_Root):
         info = self.ctxobj.info
         errmsg = rffi.charp2str(info.c_error_message)
         if len(input_text) > 500:
-            raise oefmt(self.w_FFIError, errmsg)
+            raise oefmt(self.w_FFIError, "%s", errmsg)
         printable_text = ['?'] * len(input_text)
         for i in range(len(input_text)):
             if ' ' <= input_text[i] < '\x7f':
