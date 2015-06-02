@@ -430,7 +430,7 @@ class OptRewrite(Optimization):
             if b.getint() == 0:
                 self.last_emitted_operation = REMOVED
                 return
-            opnum = OpHelpers.call_for_type(op)
+            opnum = OpHelpers.call_for_type(op.type)
             op = op.copy_and_change(opnum, args=op.getarglist()[1:])
         self.emit_operation(op)
 

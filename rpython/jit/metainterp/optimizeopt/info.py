@@ -41,7 +41,7 @@ class PtrInfo(AbstractInfo):
     def same_info(self, other):
         return self is other
 
-    def getstrlen(self, arg, opt, mode, create_ops=True):
+    def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return None
 
     
@@ -218,12 +218,12 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 count += 1
         return count
 
-    def setitem(self, index, item, cf=None, optheap=None):
+    def setitem(self, index, op, cf=None, optheap=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
             self._items = self._items + [None] * (index - len(self._items) + 1)
-        self._items[index] = item
+        self._items[index] = op
         if cf is not None:
             assert not self.is_virtual()
             cf.register_dirty_field(self)

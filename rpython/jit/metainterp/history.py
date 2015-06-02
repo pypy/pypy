@@ -168,7 +168,7 @@ def newconst(value):
         return ConstPtr(lltype.nullptr(llmemory.GCREF.TO))
     elif lltype.typeOf(value) == lltype.Signed:
         return ConstInt(value)
-    elif type(value) is bool:
+    elif not we_are_translated() and type(value) is bool:
         return ConstInt(int(value))
     elif isinstance(value, float):
         return ConstFloat(value)

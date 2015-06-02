@@ -71,6 +71,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
                 self.lenbound = intutils.ConstIntBound(self.length)
         return self.lenbound
 
+    @specialize.arg(2)
     def get_constant_string_spec(self, string_optimizer, mode):
         return None # can't be constant
 
@@ -144,8 +145,8 @@ class VStringPlainInfo(StrPtrInfo):
             self._chars = [None] * length
         StrPtrInfo.__init__(self, mode, is_virtual, length)
 
-    def setitem(self, index, item, cf=None, optheap=None):
-        self._chars[index] = item
+    def setitem(self, index, op, cf=None, optheap=None):
+        self._chars[index] = op
 
     def setup_slice(self, longerlist, start, stop):
         assert 0 <= start <= stop <= len(longerlist)

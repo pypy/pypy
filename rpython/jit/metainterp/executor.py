@@ -495,34 +495,44 @@ def _execute_arglist(cpu, metainterp, opnum, argboxes, descr=None):
         check_descr(descr)
         if arity == -1:
             func = get_execute_function(opnum, -1, True)
-            return func(cpu, metainterp, argboxes, descr)
+            if func:
+                return func(cpu, metainterp, argboxes, descr)
         if arity == 0:
             func = get_execute_function(opnum, 0, True)
-            return func(cpu, metainterp, descr)
+            if func:
+                return func(cpu, metainterp, descr)
         if arity == 1:
             func = get_execute_function(opnum, 1, True)
-            return func(cpu, metainterp, argboxes[0], descr)
+            if func:
+                return func(cpu, metainterp, argboxes[0], descr)
         if arity == 2:
             func = get_execute_function(opnum, 2, True)
-            return func(cpu, metainterp, argboxes[0], argboxes[1], descr)
+            if func:
+                return func(cpu, metainterp, argboxes[0], argboxes[1], descr)
         if arity == 3:
             func = get_execute_function(opnum, 3, True)
-            return func(cpu, metainterp, argboxes[0], argboxes[1], argboxes[2],
-                        descr)
+            if func:
+                return func(cpu, metainterp, argboxes[0], argboxes[1],
+                            argboxes[2], descr)
     else:
         assert descr is None
         if arity == 1:
             func = get_execute_function(opnum, 1, False)
-            return func(cpu, metainterp, argboxes[0])
+            if func:
+                return func(cpu, metainterp, argboxes[0])
         if arity == 2:
             func = get_execute_function(opnum, 2, False)
-            return func(cpu, metainterp, argboxes[0], argboxes[1])
+            if func:
+                return func(cpu, metainterp, argboxes[0], argboxes[1])
         if arity == 3:
             func = get_execute_function(opnum, 3, False)
-            return func(cpu, metainterp, argboxes[0], argboxes[1], argboxes[2])
+            if func:
+                return func(cpu, metainterp, argboxes[0], argboxes[1],
+                            argboxes[2])
         if arity == 5:    # copystrcontent, copyunicodecontent
             func = get_execute_function(opnum, 5, False)
-            return func(cpu, metainterp, argboxes[0], argboxes[1],
+            if func:
+                return func(cpu, metainterp, argboxes[0], argboxes[1],
                         argboxes[2], argboxes[3], argboxes[4])
     raise NotImplementedError
 

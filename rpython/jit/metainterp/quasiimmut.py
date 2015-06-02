@@ -101,6 +101,11 @@ class QuasiImmut(object):
 
 
 class QuasiImmutDescr(AbstractDescr):
+    # those fields are necessary for translation without quasi immutable
+    # fields
+    struct = None
+    fielddescr = None
+    
     def __init__(self, cpu, struct, fielddescr, mutatefielddescr):
         self.cpu = cpu
         self.struct = struct
@@ -110,7 +115,8 @@ class QuasiImmutDescr(AbstractDescr):
         self.constantfieldbox = self.get_current_constant_fieldvalue()
 
     def get_parent_descr(self):
-        return self.fielddescr.get_parent_descr()
+        if self.fielddescr is not None:
+            return self.fielddescr.get_parent_descr()
 
     def get_current_constant_fieldvalue(self):
         struct = self.struct
