@@ -39,7 +39,7 @@ class SchedulerBaseTest(DependencyBaseTest):
     def pack(self, loop, l, r):
         return [Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])]
 
-    def schedule(self, loop_orig, packs, vec_reg_size=16):
+    def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False):
         loop = get_model(False).ExtendedTreeLoop("loop")
         loop.original_jitcell_token = loop_orig.original_jitcell_token
         loop.inputargs = loop_orig.inputargs
@@ -53,6 +53,8 @@ class SchedulerBaseTest(DependencyBaseTest):
                 for op in vsd.as_vector_operation(Pack(pack)):
                     ops.append(op)
         loop.operations = ops
+        if prepend_invariant:
+            loop.operations = vsd.invariant_oplist + ops
         return loop
 
     def assert_operations_match(self, loop_a, loop_b):
@@ -100,7 +102,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i11 = int_add(i1, 73)
         """)
         pack1 = self.pack(loop1, 0, 2)
-        loop2 = self.schedule(loop1, [pack1])
+        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v1[i64#2] = vec_box(2)
         v2[i64#2] = vec_int_pack(v1[i64#2], i0, 0, 1)
@@ -115,7 +117,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         f11 = float_add(f1, 73.0)
         """)
         pack1 = self.pack(loop1, 0, 2)
-        loop2 = self.schedule(loop1, [pack1])
+        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v1[f64#2] = vec_box(2)
         v2[f64#2] = vec_float_pack(v1[f64#2], f0, 0, 1)

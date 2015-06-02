@@ -941,8 +941,7 @@ class OpToVectorOp(object):
         box_pos, vbox = self.sched_data.getvector_of_box(arg)
         if not vbox:
             # constant/variable expand this box
-            vbox = self.input_type.new_vector_box(len(ops))
-            vbox = self.expand_box_to_vector_box(vbox, ops, arg, argidx)
+            vbox = self.expand(ops, arg, argidx)
             box_pos = 0
 
         # use the input as an indicator for the pack type
@@ -1049,39 +1048,43 @@ class OpToVectorOp(object):
         assert index.value + count.value <= result.item_count
         assert result.item_count > arg0.item_count
 
-    def expand_box_to_vector_box(self, vbox, nodes, arg, argidx):
-        all_same_box = True
+    def expand(self, nodes, arg, argidx):
+        vbox = self.input_type.new_vector_box(len(nodes))
+        box_type = arg.type
+        invariant_ops = self.sched_data.invariant_oplist
+        invariant_vars = self.sched_data.invariant_vector_vars
+        if isinstance(arg, BoxVector):
+            box_type = arg.item_type
+
         for i, node in enumerate(nodes):
             op = node.getoperation()
             if not arg.same_box(op.getarg(argidx)):
-                all_same_box = False
                 break
             i += 1
-
-        box_type = arg.type
-        if isinstance(arg, BoxVector):
-            box_type = arg.item_type
-        expand_opnum = rop.VEC_FLOAT_EXPAND
-        if box_type == INT:
-            expand_opnum = rop.VEC_INT_EXPAND
-
-        if all_same_box:
-            expand_op = ResOperation(expand_opnum, [arg], vbox)
-            self.preamble_ops.append(expand_op)
         else:
-            resop = ResOperation(rop.VEC_BOX, [ConstInt(len(nodes))], vbox)
-            self.preamble_ops.append(resop)
-            opnum = rop.VEC_FLOAT_PACK
-            if arg.type == INT:
-                opnum = rop.VEC_INT_PACK
-            for i,node in enumerate(nodes):
-                op = node.getoperation()
-                arg = op.getarg(argidx)
-                new_box = vbox.clonebox()
-                resop = ResOperation(opnum,
-                                     [vbox,arg,ConstInt(i),ConstInt(1)], new_box)
-                vbox = new_box
-                self.preamble_ops.append(resop)
+            expand_opnum = rop.VEC_FLOAT_EXPAND
+            if box_type == INT:
+                expand_opnum = rop.VEC_INT_EXPAND
+            op = ResOperation(expand_opnum, [arg], vbox)
+            invariant_ops.append(op)
+            invariant_vars.append(vbox)
+            return vbox
+
+        op = ResOperation(rop.VEC_BOX, [ConstInt(len(nodes))], vbox)
+        invariant_ops.append(op)
+        opnum = rop.VEC_FLOAT_PACK
+        if arg.type == INT:
+            opnum = rop.VEC_INT_PACK
+        for i,node in enumerate(nodes):
+            op = node.getoperation()
+            arg = op.getarg(argidx)
+            new_box = vbox.clonebox()
+            ci = ConstInt(i)
+            c1 = ConstInt(1)
+            op = ResOperation(opnum, [vbox,arg,ci,c1], new_box)
+            vbox = new_box
+            invariant_ops.append(op)
+        invariant_vars.append(vbox)
         return vbox
 
 class OpToVectorOpConv(OpToVectorOp):
@@ -1232,9 +1235,9 @@ ROP_ARG_RES_VECTOR = {
 class VecScheduleData(SchedulerData):
     def __init__(self, vec_reg_size):
         self.box_to_vbox = {}
-        self.preamble_ops = None
-        self.expansion_byte_count = -1
         self.vec_reg_size = vec_reg_size
+        self.invariant_oplist = []
+        self.invariant_vector_vars = []
 
     def as_vector_operation(self, pack):
         op_count = len(pack.operations)
@@ -1247,7 +1250,7 @@ class VecScheduleData(SchedulerData):
         op0 = pack.operations[0].getoperation()
         tovector = ROP_ARG_RES_VECTOR.get(op0.vector, None)
         if tovector is None:
-            raise NotImplementedError("missing vecop for '" + op0.getopname() + "'")
+            raise NotImplementedError("missing vecop for '%s'" % (op0.getopname(),))
         oplist = []
         tovector.as_vector_operation(pack, self, oplist)
         return oplist
