@@ -1382,10 +1382,9 @@ class MIFrame(object):
         vrefinfo = metainterp.staticdata.virtualref_info
         obj = box.getref_base()
         vref = vrefinfo.virtual_ref_during_tracing(obj)
-        resbox = history.BoxPtr(vref)
-        self.metainterp.heapcache.new(resbox)
         cindex = history.ConstInt(len(metainterp.virtualref_boxes) // 2)
-        metainterp.history.record(rop.VIRTUAL_REF, [box, cindex], resbox)
+        resbox = metainterp.history.record(rop.VIRTUAL_REF, [box, cindex], vref)
+        self.metainterp.heapcache.new(resbox)
         # Note: we allocate a JIT_VIRTUAL_REF here
         # (in virtual_ref_during_tracing()), in order to detect when
         # the virtual escapes during tracing already.  We record it as a
@@ -2975,7 +2974,7 @@ class MetaInterp(object):
         num_extra_guards = 0
         while True:
             op = self.history.operations[-1-num_extra_guards]
-            if op.getopnum() == rop.CALL_MAY_FORCE:
+            if op.is_call_may_force():
                 break
             assert op.is_guard()
             num_extra_guards += 1
@@ -3004,29 +3003,31 @@ class MetaInterp(object):
         for i in range(cif_description.nargs):
             kind, descr, itemsize = get_arg_descr(self.cpu,
                                                   cif_description.atypes[i])
+            ofs = cif_description.exchange_args[i]
+            assert ofs % itemsize == 0     # alignment check
             if kind == 'i':
-                box_arg = history.BoxInt()
+                box_arg = self.history.record(rop.GETARRAYITEM_RAW_I,
+                                    [box_exchange_buffer,
+                                     ConstInt(ofs // itemsize)],
+                                     0, descr)
             elif kind == 'f':
-                box_arg = history.BoxFloat()
+                box_arg = self.history.record(rop.GETARRAYITEM_RAW_F,
+                                    [box_exchange_buffer,
+                                     ConstInt(ofs // itemsize)],
+                                     0.0, descr)
             else:
                 assert kind == 'v'
                 continue
-            ofs = cif_description.exchange_args[i]
-            assert ofs % itemsize == 0     # alignment check
-            self.history.record(rop.GETARRAYITEM_RAW,
-                                [box_exchange_buffer,
-                                 ConstInt(ofs // itemsize)],
-                                box_arg, descr)
             arg_boxes.append(box_arg)
         #
-        box_result = op.result
         # for now, any call via libffi saves and restores everything
         # (that is, errno and SetLastError/GetLastError on Windows)
         # Note these flags match the ones in clibffi.ll_callback
         c_saveall = ConstInt(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
-        self.history.record(rop.CALL_RELEASE_GIL,
-                            [c_saveall, op.getarg(2)] + arg_boxes,
-                            box_result, calldescr)
+        if op.type == 'i':
+            self.history.record(rop.CALL_RELEASE_GIL,
+                                [c_saveall, op.getarg(2)] + arg_boxes,
+                                box_result, calldescr)
         #
         self.history.operations.extend(extra_guards)
         #

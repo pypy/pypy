@@ -836,6 +836,7 @@ class Optimizer(Optimization):
     def optimize_STRGETITEM(self, op):
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
+            raise Exception("implement me")
             arrayvalue = self.getvalue(op.getarg(0))
             arrayvalue.make_len_gt(MODE_STR, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
@@ -843,6 +844,7 @@ class Optimizer(Optimization):
     def optimize_UNICODEGETITEM(self, op):
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
+            raise Exception("implement me")
             arrayvalue = self.getvalue(op.getarg(0))
             arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)

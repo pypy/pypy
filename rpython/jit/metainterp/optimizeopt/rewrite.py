@@ -262,6 +262,8 @@ class OptRewrite(Optimization):
             box = self.get_box_replacement(box)
             if box.is_constant():
                 if not box.same_constant(constbox):
+                    r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
+                        op)
                     raise InvalidLoop('A GUARD_VALUE (%s) was proven '
                                       'to always fail' % r)
                 return

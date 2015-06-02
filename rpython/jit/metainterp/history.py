@@ -760,7 +760,7 @@ class History(object):
         op = ResOperation(opnum, argboxes, descr)
         if value is None:
             assert op.type == 'v'
-        elif type(value) is bool:
+        elif not we_are_translated() and type(value) is bool:
             assert op.type == 'i'
             op.setint(int(value))
         elif isinstance(value, float):

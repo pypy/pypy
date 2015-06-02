@@ -33,8 +33,9 @@ class OptSimplify(Optimization):
         pass
 
     def optimize_VIRTUAL_REF(self, op):
-        op = ResOperation(rop.SAME_AS, [op.getarg(0)], op.result)
-        self.emit_operation(op)
+        newop = ResOperation(rop.SAME_AS_R, [op.getarg(0)], op.result)
+        self.replace_op_with(op, newop)
+        self.emit_operation(newop)
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # xxx ideally we could also kill the following GUARD_NOT_INVALIDATED
