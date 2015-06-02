@@ -19,7 +19,7 @@ from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
 
 
@@ -682,9 +682,9 @@ class MIFrame(object):
     def opimpl_getfield_gc_f_pure(self, box, fielddescr):
         if isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC_PURE_F, fielddescr, box)
-            return resbox.constbox()
+            return ConstPtr(resvalue)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE_F, box, fielddescr, 'f')
 
@@ -692,9 +692,9 @@ class MIFrame(object):
     def opimpl_getfield_gc_r_pure(self, box, fielddescr):
         if isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+            val = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC_PURE_R, fielddescr, box)
-            return resbox.constbox()
+            return ConstFloat(val)
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE_R, box, fielddescr, 'r')
 
@@ -1555,9 +1555,21 @@ class MIFrame(object):
                     if resbox is not None:
                         return resbox
                 self.metainterp.vable_and_vrefs_before_residual_call()
-                opnum = OpHelpers.call_may_force_for_descr(descr)
-                resbox = self.metainterp.execute_and_record_varargs(
-                    opnum, allboxes, descr=descr)
+                tp = descr.get_result_type()
+                if tp == 'i':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
+                elif tp == 'r':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_R, allboxes, descr=descr)
+                elif tp == 'f':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
+                elif tp == 'v':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
+                else:
+                    assert False
                 if effectinfo.is_call_release_gil():
                     self.metainterp.direct_call_release_gil()
                 self.metainterp.vrefs_after_residual_call()
@@ -1565,7 +1577,7 @@ class MIFrame(object):
                 if assembler_call:
                     vablebox, resbox = self.metainterp.direct_assembler_call(
                         assembler_call_jd)
-                if resbox is not None:
+                if resbox and resbox.type != 'v':
                     self.make_result_of_lastop(resbox)
                 self.metainterp.vable_after_residual_call(funcbox)
                 self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
@@ -1578,15 +1590,42 @@ class MIFrame(object):
                 return resbox
             else:
                 effect = effectinfo.extraeffect
+                tp = descr.get_result_type()
                 if effect == effectinfo.EF_LOOPINVARIANT:
-                    opnum = OpHelpers.call_loopinvariant_for_descr(descr)
-                    return self.execute_varargs(opnum,
-                                                allboxes,
-                                                descr, False, False)
+                    if tp == 'i':
+                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
+                                                    allboxes,
+                                                    descr, False, False)
+                    elif tp == 'r':
+                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
+                                                    allboxes,
+                                                    descr, False, False)
+                    elif tp == 'f':
+                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
+                                                    allboxes,
+                                                    descr, False, False)
+                    elif tp == 'v':
+                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
+                                                    allboxes,
+                                                    descr, False, False)
+                    else:
+                        assert False
                 exc = effectinfo.check_can_raise()
                 pure = effectinfo.check_is_elidable()
-                opnum = OpHelpers.call_for_descr(descr)
-                return self.execute_varargs(opnum, allboxes, descr, exc, pure)
+                if tp == 'i':
+                    return self.execute_varargs(rop.CALL_I, allboxes, descr,
+                                                exc, pure)
+                elif tp == 'r':
+                    return self.execute_varargs(rop.CALL_R, allboxes, descr,
+                                                exc, pure)
+                elif tp == 'f':
+                    return self.execute_varargs(rop.CALL_F, allboxes, descr,
+                                                exc, pure)
+                elif tp == 'v':
+                    return self.execute_varargs(rop.CALL_N, allboxes, descr,
+                                                exc, pure)
+                else:
+                    assert False
         finally:
             debug_stop("jit-residual-call")
 
@@ -1957,7 +1996,11 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        guard_op = self.history.record(opnum, moreargs, None)
+        if opnum == rop.GUARD_EXCEPTION:
+            guard_op = self.history.record(opnum, moreargs,
+                                           lltype.nullptr(llmemory.GCREF.TO))
+        else:
+            guard_op = self.history.record(opnum, moreargs, None)            
         assert isinstance(guard_op, GuardResOp)
         self.capture_resumedata(guard_op, resumepc)
         self.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
@@ -2681,7 +2724,7 @@ class MetaInterp(object):
         vrefbox = self.virtualref_boxes[i+1]
         # record VIRTUAL_REF_FINISH just before the current CALL_MAY_FORCE
         call_may_force_op = self.history.operations.pop()
-        assert call_may_force_op.getopnum() == rop.CALL_MAY_FORCE
+        assert call_may_force_op.is_call_may_force()
         self.history.record(rop.VIRTUAL_REF_FINISH,
                             [vrefbox, virtualbox], None)
         self.history.operations.append(call_may_force_op)
@@ -2971,12 +3014,13 @@ class MetaInterp(object):
 
     def direct_call_release_gil(self):
         op = self.history.operations.pop()
-        assert op.opnum == rop.CALL_MAY_FORCE
+        assert op.is_call_may_force()
         descr = op.getdescr()
         effectinfo = descr.get_extra_info()
         realfuncaddr, saveerr = effectinfo.call_release_gil_target
         funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
         savebox = ConstInt(saveerr)
+        assert False, "not yet"
         self.history.record(rop.CALL_RELEASE_GIL,
                             [savebox, funcbox] + op.getarglist()[1:],
                             op.result, descr)

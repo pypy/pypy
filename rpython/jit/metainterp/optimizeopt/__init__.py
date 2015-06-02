@@ -59,7 +59,7 @@ def optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
                                                           loop.operations)
         optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
         if unroll:
-            xxx
+            raise Exception("unrolling disabled")
             return optimize_unroll(metainterp_sd, jitdriver_sd, loop,
                                    optimizations,
                                    inline_short_preamble, start_state,

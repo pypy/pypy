@@ -6,6 +6,7 @@ from rpython.jit.codewriter import longlong
 class AbstractValue(object):
     _repr_memo = {}
     is_info_class = False
+    _attrs_ = ()
 
     def _get_hash_(self):
         return compute_identity_hash(self)
@@ -129,21 +130,6 @@ class AbstractResOp(AbstractValue):
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop
-
-    @specialize.argtype(1)
-    def setvalue(self, value):
-        if lltype.typeOf(value) == lltype.Signed:
-            self._resint = value
-        elif type(value) == bool:
-            self._resint = int(value)
-        elif isinstance(value, float):
-            self._resfloat = value
-        elif value is None:
-            pass
-        else:
-            assert lltype.typeOf(value) == llmemory.GCREF
-            self._resref = value
-
             
     def clone(self, memo):
         args = [memo.get(arg, arg) for arg in self.getarglist()]
@@ -1122,6 +1108,10 @@ class OpHelpers(object):
         elif tp == 'f':
             return rop.CALL_F
         return rop.CALL_N
+
+    @staticmethod
+    def is_call(opnum):
+        return rop._CALL_FIRST <= opnum <= rop._CALL_LAST
 
     @staticmethod
     def is_call_assembler(opnum):

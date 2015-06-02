@@ -162,7 +162,9 @@ class BasicFailDescr(AbstractFailDescr):
 
 @specialize.argtype(0)
 def newconst(value):
-    if lltype.typeOf(value) == lltype.Signed:
+    if value is None:
+        return ConstPtr(lltype.nullptr(llmemory.GCREF.TO))
+    elif lltype.typeOf(value) == lltype.Signed:
         return ConstInt(value)
     elif type(value) is bool:
         return ConstInt(int(value))
@@ -403,7 +405,7 @@ class BoxInt(Box):
     _attrs_ = ('value',)
 
     def __init__(self, value=0):
-        xxx
+        raise Exception("boxes no longer supported")
         if not we_are_translated():
             if is_valid_int(value):
                 value = int(value)    # bool -> int
@@ -470,7 +472,7 @@ class BoxPtr(Box):
     _attrs_ = ('value',)
 
     def __init__(self, value=lltype.nullptr(llmemory.GCREF.TO)):
-        xxx
+        raise Exception("boxes no longer supported")
         assert lltype.typeOf(value) == llmemory.GCREF
         self.value = value
 
@@ -756,7 +758,21 @@ class History(object):
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
         op = ResOperation(opnum, argboxes, descr)
-        op.setvalue(value)
+        if value is None:
+            assert op.type == 'v'
+        elif type(value) is bool:
+            assert op.type == 'i'
+            op.setint(int(value))
+        elif isinstance(value, float):
+            assert op.type == 'f'
+            op.setfloatstorage(value)
+        elif lltype.typeOf(value) == lltype.Signed:
+            assert op.type == 'i'
+            op.setint(value)
+        else:
+            assert lltype.typeOf(value) == llmemory.GCREF
+            assert op.type == 'r'
+            op.setref_base(value)
         self.operations.append(op)
         return op
 

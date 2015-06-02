@@ -105,10 +105,9 @@ def register_known_gctype(cpu, vtable, STRUCT):
 
 def finish_registering(cpu):
     # annotation hack for small examples which have no vtable at all
-    pass
-    #if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
-    #    vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-    #    register_known_gctype(cpu, vtable, rclass.OBJECT)
+    if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+        vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        register_known_gctype(cpu, vtable, rclass.OBJECT)
 
 def vtable2descr(cpu, vtable):
     assert lltype.typeOf(vtable) is lltype.Signed

@@ -8,14 +8,14 @@ from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
 from rpython.conftest import option
 
-from rpython.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
+from rpython.jit.metainterp.resoperation import ResOperation, rop,\
+     get_deep_immutable_oplist, OpHelpers
 from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
     TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
-from rpython.jit.metainterp.inliner import Inliner
 
 
 def giveup():
@@ -161,7 +161,7 @@ def compile_loop(metainterp, greenkey, start,
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     if part.operations[-1].getopnum() == rop.LABEL:
-        xxx
+        raise Exception("unrolling unsupported")
         d = part.operations[0].getdescr()
         assert isinstance(d, TargetToken)
         part.operations[-1] = part.operations[-1].copy_and_change(rop.JUMP,
@@ -280,8 +280,37 @@ def compile_retrace(metainterp, greenkey, start,
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
+def get_box_replacement(op, allow_none=False):
+    if allow_none and op is None:
+        return None # for failargs
+    while op.get_forwarded():
+        op = op.get_forwarded()
+    return op
+
+def emit_op(lst, op):
+    op = get_box_replacement(op)
+    orig_op = op
+    # XXX specialize on number of args
+    replaced = False
+    for i in range(op.numargs()):
+        orig_arg = op.getarg(i)
+        arg = get_box_replacement(orig_arg)
+        if orig_arg is not arg:
+            if not replaced:
+                op = op.copy_and_change(op.getopnum())
+                orig_op.set_forwarded(op)
+                replaced = True
+            op.setarg(i, arg)
+    if op.is_guard():
+        if not replaced:
+            op = op.copy_and_change(op.getopnum())
+            orig_op.set_forwarded(op)
+        op.setfailargs([get_box_replacement(a, True)
+                        for a in op.getfailargs()])
+    lst.append(op)
+
 def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
-    xxx
+    # XXX merge with rewriting
     vinfo = jitdriver_sd.virtualizable_info
     extra_ops = []
     inputargs = loop.inputargs
@@ -291,28 +320,33 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
     for descr in vinfo.static_field_descrs:
         assert i < len(inputargs)
         box = inputargs[i]
-        extra_ops.append(
-            ResOperation(rop.GETFIELD_GC, [vable_box], box, descr))
+        opnum = OpHelpers.getfield_for_descr(descr)
+        emit_op(extra_ops,
+                ResOperation(opnum, [vable_box], descr))
+        box.set_forwarded(extra_ops[-1])
         i += 1
     arrayindex = 0
     for descr in vinfo.array_field_descrs:
         vable = vable_box.getref_base()
         arraylen = vinfo.get_array_length(vable, arrayindex)
-        arraybox = BoxPtr()
-        extra_ops.append(
-            ResOperation(rop.GETFIELD_GC, [vable_box], arraybox, descr))
+        arrayop = ResOperation(rop.GETFIELD_GC, [vable_box], descr)
+        emit_op(extra_ops, arrayop)
         arraydescr = vinfo.array_descrs[arrayindex]
         assert i + arraylen <= len(inputargs)
         for index in range(arraylen):
+            opnum = OpHelpers.getarrayitem_for_descr(arraydescr)
             box = inputargs[i]
-            extra_ops.append(
+            emit_op(extra_ops,
                 ResOperation(rop.GETARRAYITEM_GC,
-                             [arraybox, ConstInt(index)],
-                             box, descr=arraydescr))
+                             [arrayop, ConstInt(index)],
+                             descr=arraydescr))
             i += 1
+            box.set_forwarded(extra_ops[-1])
         arrayindex += 1
     assert i == len(inputargs)
-    loop.operations = extra_ops + loop.operations
+    for op in loop.operations:
+        emit_op(extra_ops, op)
+    loop.operations = extra_ops
 
 def propagate_original_jitcell_token(trace):
     for op in trace.operations:
@@ -915,7 +949,8 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
     calls back the interpreter.  Used temporarily: a fully compiled
     version of the code may end up replacing it.
     """
-    xxx
+    import pdb
+    pdb.set_trace()
     jitcell_token = make_jitcell_token(jitdriver_sd)
     nb_red_args = jitdriver_sd.num_red_args
     assert len(redargtypes) == nb_red_args
