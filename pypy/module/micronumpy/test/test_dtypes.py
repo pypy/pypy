@@ -1129,6 +1129,16 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         exc = raises(ValueError, "dtype([('a', '<i8'), ('a', '<f8')])")
         assert exc.value[0] == 'two fields with the same name'
 
+    def test_array_from_record(self):
+        import numpy as np
+        a = np.array(('???', -999, -12345678.9), 
+                     dtype=[('c', '|S3'), ('a', '<i8'), ('b', '<f8')])
+        # Change the order of the keys
+        b = np.array(a, dtype=[('a', '<i8'), ('b', '<f8'), ('c', '|S3')])
+        assert b.base is None
+        assert b.dtype.fields['a'][1] == 0
+        assert b['a'] == -999
+
     def test_create_from_dict(self):
         import numpy as np
         import sys

@@ -2363,8 +2363,16 @@ class RecordType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.base import W_NDimArray
         if isinstance(w_item, boxes.W_VoidBox):
-            return w_item
-        if w_item is not None:
+            if dtype == w_item.dtype:
+                return w_item
+            else:
+                # match up the field names
+                items_w = [None] * len(dtype.fields)
+                for i in range(len(dtype.fields)):
+                    name = dtype.names[i]
+                    if name in w_item.dtype.names:
+                        items_w[i] = w_item.descr_getitem(space, space.wrap(name))
+        elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
                 if len(dtype.fields) != space.len_w(w_item):
                     raise OperationError(space.w_ValueError, space.wrap(
