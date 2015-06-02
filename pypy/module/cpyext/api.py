@@ -1169,7 +1169,7 @@ def load_extension_module(space, path, name):
     raise oefmt(space.w_ImportError,
                 "function %s not found in library %s", look_for, path)
 
-initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
+initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 
 def load_cpyext_module(space, name, path, dll, initptr):
     from rpython.rlib import rdynload
