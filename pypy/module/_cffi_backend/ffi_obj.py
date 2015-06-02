@@ -132,7 +132,7 @@ class W_FFIObject(W_Root):
     def ffi_type(self, w_x, accept):
         space = self.space
         if (accept & ACCEPT_STRING) and (
-                space.isinstance_w(w_x, space.w_basestring)):
+                space.isinstance_w(w_x, space.w_unicode)):
             string = space.str_w(w_x)
             consider_fn_as_fnptr = (accept & CONSIDER_FN_AS_FNPTR) != 0
             if jit.isconstant(string):
