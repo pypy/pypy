@@ -157,6 +157,20 @@ which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
 
+rsre
+----
+
+The implementation of regular expressions we use for PyPy.  Note that it
+is hard to reuse in other languages: in Python, regular expressions are
+first compiled into a bytecode format by pure Python code from the
+standard library.  This lower-level module only understands this
+bytecode format.  Without a complete Python interpreter you can't
+translate the regexp syntax to the bytecode format.  (There are hacks
+for limited use cases where you have only static regexps: they can be
+precompiled during translation.  Alternatively, you could imagine
+executing a Python subprocess just to translate a regexp at runtime...)
+
+
 parsing
 -------
 
@@ -177,7 +191,8 @@ Regular Expressions
 -------------------
 
 The regular expression syntax is mostly a subset of the syntax of the `re`_
-module. By default, non-special characters match themselves. If you concatenate
+module.  *Note: this is different from rlib.rsre.*
+By default, non-special characters match themselves. If you concatenate
 regular expressions the result will match the concatenation of strings matched
 by the single regular expressions.
 
