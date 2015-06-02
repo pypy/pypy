@@ -1307,7 +1307,7 @@ class MIFrame(object):
     def opimpl_last_exc_value(self):
         exc_value = self.metainterp.last_exc_value
         assert exc_value
-        return ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, exc_value))
+        return self.metainterp.last_exc_box
 
     @arguments("box")
     def opimpl_debug_fatalerror(self, box):
