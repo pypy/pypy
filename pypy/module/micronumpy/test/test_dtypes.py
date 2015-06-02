@@ -1138,6 +1138,10 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert b.base is None
         assert b.dtype.fields['a'][1] == 0
         assert b['a'] == -999
+        a = np.array(('N/A', 1e+20, 1e+20, 999999),
+                     dtype=[('name', '|S4'), ('x', '<f8'), 
+                            ('y', '<f8'), ('block', '<i8', (2, 3))])
+        assert (a['block'] == 999999).all()
 
     def test_create_from_dict(self):
         import numpy as np

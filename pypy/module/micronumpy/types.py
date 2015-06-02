@@ -20,7 +20,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref,\
      cast_gcref_to_instance
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy import boxes
+from pypy.module.micronumpy import boxes, support
 from pypy.module.micronumpy.concrete import SliceArray, VoidBoxStorage, V_OBJECTSTORE
 from pypy.module.micronumpy.strides import calc_strides
 from . import constants as NPY
@@ -2265,10 +2265,12 @@ class VoidType(FlexibleType):
     def _coerce(self, space, arr, ofs, dtype, w_items, shape):
         # TODO: Make sure the shape and the array match
         from pypy.module.micronumpy.descriptor import W_Dtype
-        if w_items is not None:
+        if w_items is None:
+            items_w = [None] * shape[0]
+        elif support.issequence_w(space, w_items):
             items_w = space.fixedview(w_items)
         else:
-            items_w = [None] * shape[0]
+            items_w = [w_items] * shape[0]
         subdtype = dtype.subdtype
         assert isinstance(subdtype, W_Dtype)
         itemtype = subdtype.itemtype
