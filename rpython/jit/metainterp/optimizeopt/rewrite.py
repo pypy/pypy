@@ -457,9 +457,8 @@ class OptRewrite(Optimization):
         info0 = self.getptrinfo(arg0)
         info1 = self.getptrinfo(arg1)
         if info0 and info0.is_virtual():
-            xxx
-            if value1.is_virtual():
-                intres = (value0 is value1) ^ expect_isnot
+            if info1 and info1.is_virtual():
+                intres = (info0 is info1) ^ expect_isnot
                 self.make_constant_int(op, intres)
             else:
                 self.make_constant_int(op, expect_isnot)

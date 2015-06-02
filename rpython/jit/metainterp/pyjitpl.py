@@ -891,16 +891,26 @@ class MIFrame(object):
         return vinfo.static_field_by_descrs[fielddescr]
 
     @arguments("box", "descr", "orgpc")
-    def _opimpl_getfield_vable(self, box, fielddescr, pc):
+    def opimpl_getfield_vable_i(self, box, fielddescr, pc):
         if self._nonstandard_virtualizable(pc, box, fielddescr):
-            return self._opimpl_getfield_gc_any(box, fielddescr)
+            return self.opimpl_getfield_gc_i(box, fielddescr)
         self.metainterp.check_synchronized_virtualizable()
         index = self._get_virtualizable_field_index(fielddescr)
         return self.metainterp.virtualizable_boxes[index]
-
-    opimpl_getfield_vable_i = _opimpl_getfield_vable
-    opimpl_getfield_vable_r = _opimpl_getfield_vable
-    opimpl_getfield_vable_f = _opimpl_getfield_vable
+    @arguments("box", "descr", "orgpc")
+    def opimpl_getfield_vable_r(self, box, fielddescr, pc):
+        if self._nonstandard_virtualizable(pc, box, fielddescr):
+            return self.opimpl_getfield_gc_r(box, fielddescr)
+        self.metainterp.check_synchronized_virtualizable()
+        index = self._get_virtualizable_field_index(fielddescr)
+        return self.metainterp.virtualizable_boxes[index]
+    @arguments("box", "descr", "orgpc")
+    def opimpl_getfield_vable_f(self, box, fielddescr, pc):
+        if self._nonstandard_virtualizable(pc, box, fielddescr):
+            return self.opimpl_getfield_gc_f(box, fielddescr)
+        self.metainterp.check_synchronized_virtualizable()
+        index = self._get_virtualizable_field_index(fielddescr)
+        return self.metainterp.virtualizable_boxes[index]
 
     @arguments("box", "box", "descr", "orgpc")
     def _opimpl_setfield_vable(self, box, valuebox, fielddescr, pc):
@@ -2579,12 +2589,12 @@ class MetaInterp(object):
         vbox = self.virtualizable_boxes[-1]
         if vbox is self.forced_virtualizable:
             return # we already forced it by hand
-        force_token_box = history.BoxPtr()
         # in case the force_token has not been recorded, record it here
         # to make sure we know the virtualizable can be broken. However, the
         # contents of the virtualizable should be generally correct
-        self.history.record(rop.FORCE_TOKEN, [], force_token_box)
-        self.history.record(rop.SETFIELD_GC, [vbox, force_token_box],
+        force_token = self.history.record(rop.FORCE_TOKEN, [],
+                                          lltype.nullptr(llmemory.GCREF.TO))
+        self.history.record(rop.SETFIELD_GC, [vbox, force_token],
                             None, descr=vinfo.vable_token_descr)
         self.generate_guard(rop.GUARD_NOT_FORCED_2, None)
 
@@ -2679,10 +2689,10 @@ class MetaInterp(object):
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             vinfo.tracing_before_residual_call(virtualizable)
             #
-            force_token_box = history.BoxPtr()
-            self.history.record(rop.FORCE_TOKEN, [], force_token_box)
+            force_token = self.history.record(rop.FORCE_TOKEN, [],
+                                lltype.nullptr(llmemory.GCREF.TO))
             self.history.record(rop.SETFIELD_GC, [virtualizable_box,
-                                                  force_token_box],
+                                                  force_token],
                                 None, descr=vinfo.vable_token_descr)
 
     def vrefs_after_residual_call(self):
