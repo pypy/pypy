@@ -605,18 +605,18 @@ class W_Ufunc2(W_Ufunc):
                             w_rdtype.get_name(), w_ldtype.get_name(),
                             self.name)
 
-        calc_dtype, dt_out, func = self.find_specialization(
-            space, w_ldtype, w_rdtype, out, casting, w_lhs, w_rhs)
-
         if (isinstance(w_lhs, W_GenericBox) and
                 isinstance(w_rhs, W_GenericBox) and out is None):
-            return self.call_scalar(space, w_lhs, w_rhs, calc_dtype)
+            return self.call_scalar(space, w_lhs, w_rhs, casting)
         if isinstance(w_lhs, W_GenericBox):
             w_lhs = W_NDimArray.from_scalar(space, w_lhs)
         assert isinstance(w_lhs, W_NDimArray)
         if isinstance(w_rhs, W_GenericBox):
             w_rhs = W_NDimArray.from_scalar(space, w_rhs)
         assert isinstance(w_rhs, W_NDimArray)
+        calc_dtype, dt_out, func = self.find_specialization(
+            space, w_ldtype, w_rdtype, out, casting, w_lhs, w_rhs)
+
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
         w_highpriority, out_subtype = array_priority(space, w_lhs, w_rhs)
@@ -633,7 +633,10 @@ class W_Ufunc2(W_Ufunc):
             w_res = space.call_method(w_highpriority, '__array_wrap__', w_res)
         return w_res
 
-    def call_scalar(self, space, w_lhs, w_rhs, in_dtype):
+    def call_scalar(self, space, w_lhs, w_rhs, casting):
+        in_dtype, out_dtype, func = self.find_specialization(
+            space, w_lhs.get_dtype(space), w_rhs.get_dtype(space),
+            out=None, casting=casting)
         w_val = self.func(in_dtype,
                           w_lhs.convert_to(space, in_dtype),
                           w_rhs.convert_to(space, in_dtype))
