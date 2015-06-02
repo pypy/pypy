@@ -1329,7 +1329,7 @@ class RegAlloc(BaseRegalloc):
             box = op.getarg(i)
             src_loc = self.loc(box)
             dst_loc = arglocs[i]
-            if box.type != FLOAT:
+            if box.type != FLOAT and box.type != VECTOR:
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:
