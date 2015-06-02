@@ -76,6 +76,7 @@ def new_do_call(rettype):
                 metainterp.execute_raised(e)
             return None
         raise AssertionError("bad rettype")
+    do_call.func_name = "do_call_" + rettype
     return do_call
 
 do_call_r = new_do_call("r")
@@ -144,6 +145,7 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
         cpu.bh_setarrayitem_raw_i(array, index, itembox.getint(), arraydescr)
 
 def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, descr):
+    raise Exception("implement me")
     xxxx
     array = arraybox.getref_base()
     index = indexbox.getint()
@@ -179,6 +181,7 @@ def do_getfield_gc_f(cpu, _, structbox, fielddescr):
     return cpu.bh_getfield_gc_f(struct, fielddescr)
 
 def do_getfield_raw(cpu, _, structbox, fielddescr):
+    raise Exception("implement me")    
     xxxx
     check_descr(fielddescr)
     struct = structbox.getint()
@@ -217,6 +220,7 @@ def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
         cpu.bh_raw_store_i(addr, offset, valuebox.getint(), arraydescr)
 
 def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
+    raise Exception("implement me")    
     xxx
     addr = addrbox.getint()
     offset = offsetbox.getint()
@@ -422,8 +426,8 @@ def get_execute_function(opnum, num_args, withdescr):
     # constant-folded away.  Only works if opnum and num_args are
     # constants, of course.
     func = EXECUTE_BY_NUM_ARGS[num_args, withdescr][opnum]
-    assert func is not None, "EXECUTE_BY_NUM_ARGS[%s, %s][%s]" % (
-        num_args, withdescr, resoperation.opname[opnum])
+    #assert func is not None, "EXECUTE_BY_NUM_ARGS[%s, %s][%s]" % (
+    #    num_args, withdescr, resoperation.opname[opnum])
     return func
 get_execute_function._annspecialcase_ = 'specialize:memo'
 
@@ -472,47 +476,52 @@ def constant_from_op(op):
     else:
         assert op.type == 'f'
         return ConstFloat(op.getfloatstorage())
+
+unrolled_range = unrolling_iterable(range(rop._LAST))
     
 def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
                           type='i'):
-    return wrap_constant(_execute_nonspec(cpu, metainterp, opnum, argboxes,
-                                          descr))
+    for num in unrolled_range:
+        if num == opnum:
+            return wrap_constant(_execute_arglist(cpu, metainterp, num,
+                                                  argboxes, descr))
+    assert False
 
 @specialize.arg(2)
-def _execute_nonspec(cpu, metainterp, opnum, argboxes, descr=None):
-    arity = resoperation.oparity[opnum]
+def _execute_arglist(cpu, metainterp, opnum, argboxes, descr=None):
+    arity = resoperation.oparity[opnum]    
     assert arity == -1 or len(argboxes) == arity
     if resoperation.opwithdescr[opnum]:
         check_descr(descr)
         if arity == -1:
-            func = get_execute_funclist(-1, True)[opnum]
+            func = get_execute_function(opnum, -1, True)
             return func(cpu, metainterp, argboxes, descr)
         if arity == 0:
-            func = get_execute_funclist(0, True)[opnum]
+            func = get_execute_function(opnum, 0, True)
             return func(cpu, metainterp, descr)
         if arity == 1:
-            func = get_execute_funclist(1, True)[opnum]
+            func = get_execute_function(opnum, 1, True)
             return func(cpu, metainterp, argboxes[0], descr)
         if arity == 2:
-            func = get_execute_funclist(2, True)[opnum]
+            func = get_execute_function(opnum, 2, True)
             return func(cpu, metainterp, argboxes[0], argboxes[1], descr)
         if arity == 3:
-            func = get_execute_funclist(3, True)[opnum]
+            func = get_execute_function(opnum, 3, True)
             return func(cpu, metainterp, argboxes[0], argboxes[1], argboxes[2],
                         descr)
     else:
         assert descr is None
         if arity == 1:
-            func = get_execute_funclist(1, False)[opnum]
+            func = get_execute_function(opnum, 1, False)
             return func(cpu, metainterp, argboxes[0])
         if arity == 2:
-            func = get_execute_funclist(2, False)[opnum]
+            func = get_execute_function(opnum, 2, False)
             return func(cpu, metainterp, argboxes[0], argboxes[1])
         if arity == 3:
-            func = get_execute_funclist(3, False)[opnum]
+            func = get_execute_function(opnum, 3, False)
             return func(cpu, metainterp, argboxes[0], argboxes[1], argboxes[2])
         if arity == 5:    # copystrcontent, copyunicodecontent
-            func = get_execute_funclist(5, False)[opnum]
+            func = get_execute_function(opnum, 5, False)
             return func(cpu, metainterp, argboxes[0], argboxes[1],
                         argboxes[2], argboxes[3], argboxes[4])
     raise NotImplementedError

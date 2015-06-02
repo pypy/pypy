@@ -109,6 +109,9 @@ class QuasiImmutDescr(AbstractDescr):
         self.qmut = get_current_qmut_instance(cpu, struct, mutatefielddescr)
         self.constantfieldbox = self.get_current_constant_fieldvalue()
 
+    def get_parent_descr(self):
+        return self.fielddescr.get_parent_descr()
+
     def get_current_constant_fieldvalue(self):
         struct = self.struct
         fielddescr = self.fielddescr

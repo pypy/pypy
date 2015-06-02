@@ -95,6 +95,9 @@ class SizeDescr(AbstractDescr):
         self.all_fielddescrs = heaptracker.all_fielddescrs(runner, S,
                                     get_field_descr=LLGraphCPU.fielddescrof)
 
+    def get_all_fielddescrs(self):
+        return self.all_fielddescrs
+
     def is_object(self):
         return self._is_object
 
@@ -114,8 +117,14 @@ class FieldDescr(AbstractDescr):
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
 
+    def get_parent_descr(self):
+        return self.parent_descr
+
     def get_vinfo(self):
         return self.vinfo
+
+    def get_index(self):
+        return self.index
 
     def __repr__(self):
         return 'FieldDescr(%r, %r)' % (self.S, self.fieldname)

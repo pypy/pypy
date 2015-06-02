@@ -11,6 +11,8 @@ INFO_NONNULL = 1
 INFO_UNKNOWN = 2
 
 class AbstractInfo(AbstractValue):
+    _attrs_ = ()
+    
     is_info_class = True
 
     def force_box(self, op, optforce):
@@ -58,6 +60,9 @@ class NonNullPtrInfo(PtrInfo):
             return None
         return optimizer._newoperations[self.last_guard_pos]
 
+    def get_last_guard_pos(self):
+        return self.last_guard_pos
+
     def reset_last_guard_pos(self):
         self.last_guard_pos = -1
 
@@ -92,7 +97,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_fields',)
 
     def init_fields(self, descr):
-        self._fields = [None] * len(descr.all_fielddescrs)
+        self._fields = [None] * len(descr.get_all_fielddescrs())
 
     def clear_cache(self):
         assert not self.is_virtual()
@@ -100,22 +105,22 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def setfield(self, descr, op, optheap=None, cf=None):
         if self._fields is None:
-            self.init_fields(descr.parent_descr)
-        self._fields[descr.index] = op
+            self.init_fields(descr.get_parent_descr())
+        self._fields[descr.get_index()] = op
         if cf is not None:
             assert not self.is_virtual()
             cf.register_dirty_field(self)
 
     def getfield(self, descr, optheap=None):
         if self._fields is None:
-            self.init_fields(descr.parent_descr)
-        return self._fields[descr.index]
+            self.init_fields(descr.get_parent_descr())
+        return self._fields[descr.get_index()]
 
     def _force_elements(self, op, optforce, descr):
         if self._fields is None:
             return 0
         count = 0
-        for i, flddescr in enumerate(descr.all_fielddescrs):
+        for i, flddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             if fld is not None:
                 subbox = optforce.force_box(fld)
@@ -129,7 +134,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
         if visitor.already_seen_virtual(instbox):
             return
-        lst = self.vdescr.all_fielddescrs
+        lst = self.vdescr.get_all_fielddescrs()
         assert self.is_virtual()
         visitor.register_virtual_fields(instbox,
                                         [optimizer.get_box_replacement(box)
@@ -155,7 +160,7 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        fielddescrs = self.vdescr.all_fielddescrs
+        fielddescrs = self.vdescr.get_all_fielddescrs()
         assert self.is_virtual()
         return visitor.visit_virtual(self.vdescr, fielddescrs)
 
@@ -165,7 +170,7 @@ class StructPtrInfo(AbstractStructPtrInfo):
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        fielddescrs = self.vdescr.all_fielddescrs
+        fielddescrs = self.vdescr.get_all_fielddescrs()
         assert self.is_virtual()
         return visitor.visit_vstruct(self.vdescr, fielddescrs)
 
@@ -187,6 +192,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def getlenbound(self):
         if self.lenbound is None:
+            raise Exception("implement me - lenbound")
             xxx
         return self.lenbound
 
@@ -249,13 +255,14 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, size, vdescr=None):
         self.length = size
-        lgt = len(vdescr.all_interiorfielddescrs)
+        lgt = len(vdescr.get_all_fielddescrs())
         self.vdescr = vdescr
         self._items = [None] * (size * lgt)
 
     def _compute_index(self, index, fielddescr):
-        one_size = len(fielddescr.arraydescr.all_interiorfielddescrs)
-        return index * one_size + fielddescr.fielddescr.index
+        raise Exception("implement virtual array of structs")
+        one_size = len(fielddescr.get_arraydescr().get_all_fielddescrs())
+        return index * one_size + fielddescr.fielddescr.get_index()
         
     def setinteriorfield_virtual(self, index, fielddescr, fld):
         index = self._compute_index(index, fielddescr)
@@ -267,7 +274,7 @@ class ArrayStructInfo(ArrayPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         i = 0
-        fielddescrs = op.getdescr().all_interiorfielddescrs
+        fielddescrs = op.getdescr().get_all_fielddescrs()
         count = 0
         for index in range(self.length):
             for flddescr in fielddescrs:
@@ -294,7 +301,7 @@ class ConstPtrInfo(PtrInfo):
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = StructPtrInfo()
-            info.init_fields(descr.parent_descr)
+            info.init_fields(descr.get_parent_descr())
             optheap.const_infos[ref] = info
         return info
 
@@ -314,7 +321,7 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_array_info(optheap)
         return info.getitem(index)
 
-    def setitem(self, index, op, cf, optheap=None):
+    def setitem(self, index, op, cf=None, optheap=None):
         info = self._get_array_info(optheap)
         info.setitem(index, op, cf)
 
@@ -349,25 +356,35 @@ class ConstPtrInfo(PtrInfo):
 
     # --------------------- vstring -------------------
 
+    @specialize.arg(1)
     def _unpack_str(self, mode):
         return mode.hlstr(lltype.cast_opaque_ptr(
             lltype.Ptr(mode.LLTYPE), self._const.getref_base()))
 
+    @specialize.arg(2)
     def get_constant_string_spec(self, optforce, mode):
         return self._unpack_str(mode)
     
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
-        s = self._unpack_str(mode)
-        if s is None:
-            return None
-        return ConstInt(len(s))
+        from rpython.jit.metainterp.optimizeopt import vstring
+        
+        if mode is vstring.mode_string:
+            s = self._unpack_str(vstring.mode_string)
+            if s is None:
+                return None
+            return ConstInt(len(s))
+        else:
+            s = self._unpack_str(vstring.mode_unicode)            
+            if s is None:
+                return None
+            return ConstInt(len(s))
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
         from rpython.jit.metainterp.optimizeopt import vstring
         from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0
 
-        lgt = self.getstrlen(op, string_optimizer, mode, None)
+        lgt = self.getstrlen(op, string_optimizer, mode, False)
         return vstring.copy_str_content(string_optimizer, self._const,
                                         targetbox, CONST_0, offsetbox,
                                         lgt, mode)

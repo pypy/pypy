@@ -45,6 +45,9 @@ class SizeDescr(AbstractDescr):
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
 
+    def get_all_fielddescrs(self):
+        return self.all_fielddescrs
+
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
 
@@ -156,6 +159,12 @@ class FieldDescr(ArrayOrFieldDescr):
 
     def repr_of_descr(self):
         return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
+
+    def get_parent_descr(self):
+        return self.parent_descr
+
+    def get_index(self):
+        return self.index
 
 
 def get_field_descr(gccache, STRUCT, fieldname):
@@ -293,6 +302,9 @@ class InteriorFieldDescr(AbstractDescr):
         assert arraydescr.flag == FLAG_STRUCT
         self.arraydescr = arraydescr
         self.fielddescr = fielddescr
+
+    def get_arraydescr(self):
+        return self.arraydescr
 
     def sort_key(self):
         return self.fielddescr.sort_key()

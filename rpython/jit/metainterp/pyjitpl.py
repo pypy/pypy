@@ -818,7 +818,8 @@ class MIFrame(object):
                                        mutatefielddescr, orgpc):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
-        descr = QuasiImmutDescr(cpu, box, fielddescr, mutatefielddescr)
+        descr = QuasiImmutDescr(cpu, box.getref_base(), fielddescr,
+                                mutatefielddescr)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
         self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
@@ -834,7 +835,8 @@ class MIFrame(object):
         # null, and the guard will be removed.  So the fact that the field is
         # quasi-immutable will have no effect, and instead it will work as a
         # regular, probably virtual, structure.
-        mutatebox = self.execute_with_descr(rop.GETFIELD_GC,
+        opnum = OpHelpers.getfield_for_descr(mutatefielddescr)
+        mutatebox = self.execute_with_descr(opnum,
                                             mutatefielddescr, box)
         if mutatebox.nonnull():
             from rpython.jit.metainterp.quasiimmut import do_force_quasi_immutable
@@ -1600,8 +1602,10 @@ class MIFrame(object):
                     self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
                 self.metainterp.handle_possible_exception()
                 # XXX refactor: direct_libffi_call() is a hack
+                # does not work in the new system
                 if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                    self.metainterp.direct_libffi_call()
+                    raise Exception("implement OS_LIBFFI_CALL properly")
+                #    self.metainterp.direct_libffi_call()
                 return resbox
             else:
                 effect = effectinfo.extraeffect

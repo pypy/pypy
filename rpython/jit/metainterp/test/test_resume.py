@@ -135,6 +135,15 @@ def test_reuse_vinfo():
     vinfo4 = modifier.make_virtual_info(v1, [1, 2, 6])
     assert vinfo3 is vinfo4
 
+def setvalue(op, val):
+    if op.type == 'i':
+        op.setint(val)
+    elif op.type == 'r':
+        op.setref_base(val)
+    elif op.type == 'f':
+        op.setfloatstorage(val)
+    else:
+        assert op.type == 'v'
 
 class MyMetaInterp:
     _already_allocated_resume_virtuals = None
@@ -155,7 +164,7 @@ class MyMetaInterp:
     def execute_and_record(self, opnum, descr, *argboxes):
         resvalue = executor.execute(self.cpu, None, opnum, descr, *argboxes)
         op = ResOperation(opnum, list(argboxes), descr)
-        op.setvalue(resvalue)
+        setvalue(op, resvalue)
         self.trace.append((opnum, list(argboxes), resvalue, descr))
         return op
 

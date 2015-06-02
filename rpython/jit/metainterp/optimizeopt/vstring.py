@@ -1,11 +1,12 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (BoxInt, Const, ConstInt, ConstPtr,
-    get_const_ptr_for_string, get_const_ptr_for_unicode, BoxPtr, REF, INT)
+    get_const_ptr_for_string, get_const_ptr_for_unicode, BoxPtr, REF, INT,
+    DONT_CHANGE)
 from rpython.jit.metainterp.optimizeopt import optimizer, virtualize
 from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, ResOperation, DONT_CHANGE,\
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractResOp
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -48,8 +49,8 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 
 
 
-class StrPtrInfo(info.NonNullPtrInfo):
-    _attrs_ = ('length', 'lenbound', 'lgtop', 'mode', '_cached_vinfo')
+class StrPtrInfo(info.AbstractVirtualPtrInfo):
+    #_attrs_ = ('length', 'lenbound', 'lgtop', 'mode', '_cached_vinfo', '_is_virtual')
 
     lenbound = None
     lgtop = None
@@ -134,7 +135,7 @@ class StrPtrInfo(info.NonNullPtrInfo):
                                  CONST_0, offsetbox, lengthbox, mode)
 
 class VStringPlainInfo(StrPtrInfo):
-    _attrs_ = ('mode', '_is_virtual')
+    #_attrs_ = ('mode', '_is_virtual')
 
     _chars = None
     
@@ -143,7 +144,7 @@ class VStringPlainInfo(StrPtrInfo):
             self._chars = [None] * length
         StrPtrInfo.__init__(self, mode, is_virtual, length)
 
-    def setitem(self, index, item):
+    def setitem(self, index, item, cf=None, optheap=None):
         self._chars[index] = item
 
     def setup_slice(self, longerlist, start, stop):
@@ -151,7 +152,7 @@ class VStringPlainInfo(StrPtrInfo):
         self._chars = longerlist[start:stop]
         # slice the 'longerlist', which may also contain Nones
 
-    def getitem(self, index):
+    def getitem(self, index, optheap=None):
         return self._chars[index]
 
     def is_virtual(self):
@@ -162,7 +163,7 @@ class VStringPlainInfo(StrPtrInfo):
             self.lgtop = ConstInt(len(self._chars))
         return self.lgtop
 
-    @specialize.arg(1)
+    @specialize.arg(2)
     def get_constant_string_spec(self, optforce, mode):
         for c in self._chars:
             if c is None or not c.is_constant():
@@ -172,7 +173,9 @@ class VStringPlainInfo(StrPtrInfo):
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
-        if not self.is_virtual() and not self.is_completely_initialized():
+        if not self.is_virtual():
+            # and not self.is_completely_initialized():
+            raise Exception("implement me")
             return VAbstractStringValue.string_copy_parts(
                 self, string_optimizer, targetbox, offsetbox, mode)
         else:
@@ -215,12 +218,12 @@ class VStringSliceInfo(StrPtrInfo):
         return copy_str_content(string_optimizer, self.s, targetbox,
                                 self.start, offsetbox, self.lgtop, mode)
 
-    @specialize.arg(1)
+    @specialize.arg(2)
     def get_constant_string_spec(self, string_optimizer, mode):
         vstart = string_optimizer.getintbound(self.start)
         vlength = string_optimizer.getintbound(self.lgtop)
         if vstart.is_constant() and vlength.is_constant():
-            xxx
+            raise Exception("implement me")
             s1 = self.vstr.get_constant_string_spec(mode)
             if s1 is None:
                 return None
@@ -235,7 +238,7 @@ class VStringSliceInfo(StrPtrInfo):
         return self.lgtop
 
 class VStringConcatInfo(StrPtrInfo):
-    _attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')
+    #_attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')
     
     def __init__(self, mode, vleft, vright, is_virtual):
         self.vleft = vleft
@@ -262,7 +265,7 @@ class VStringConcatInfo(StrPtrInfo):
             # ^^^ may still be None, if string_optimizer is None
         return self.lgtop
 
-    @specialize.arg(1)
+    @specialize.arg(2)
     def get_constant_string_spec(self, string_optimizer, mode):
         ileft = string_optimizer.getptrinfo(self.vleft)
         s1 = ileft.get_constant_string_spec(string_optimizer, mode)
@@ -717,6 +720,7 @@ class OptString(optimizer.Optimization):
         self.make_vstring_slice(op, strbox, startbox, mode, lengthbox)
         return True
 
+    @specialize.arg(2)
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
         arg1 = self.get_box_replacement(op.getarg(1))
         arg2 = self.get_box_replacement(op.getarg(2))
@@ -845,6 +849,7 @@ class OptString(optimizer.Optimization):
         return False
 
     def opt_call_stroruni_STR_CMP(self, op, mode):
+        raise Exception('implement me')
         v1 = self.getvalue(op.getarg(1))
         v2 = self.getvalue(op.getarg(2))
         l1box = v1.getstrlen(None, mode, None)
@@ -865,6 +870,7 @@ class OptString(optimizer.Optimization):
         return False
 
     def opt_call_SHRINK_ARRAY(self, op):
+        raise Exception('implement me')
         v1 = self.getvalue(op.getarg(1))
         v2 = self.getvalue(op.getarg(2))
         # If the index is constant, if the argument is virtual (we only support

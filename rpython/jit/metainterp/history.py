@@ -137,6 +137,8 @@ class AbstractDescr(AbstractValue):
     def get_vinfo(self):
         raise NotImplementedError
 
+DONT_CHANGE = AbstractDescr()
+
 class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False

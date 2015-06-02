@@ -35,8 +35,6 @@ class AbstractValue(object):
             orig_op.set_forwarded(op)
         return op
 
-DONT_CHANGE = AbstractValue()
-
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
@@ -120,6 +118,8 @@ class AbstractResOp(AbstractValue):
 
     def copy_and_change(self, opnum, args=None, descr=None):
         "shallow copy: the returned operation is meant to be used in place of self"
+        from rpython.jit.metainterp.history import DONT_CHANGE
+        
         if args is None:
             args = self.getarglist()
         if descr is None:

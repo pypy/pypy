@@ -152,6 +152,7 @@ class GcLLDescription(GcCache):
     def _rewrite_changeable_constptrs(self, op, ops_with_movable_const_ptr, moving_obj_tracker):
         newops = []
         for arg_i in ops_with_movable_const_ptr[op]:
+            raise Exception("implement me")
             v = op.getarg(arg_i)
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)

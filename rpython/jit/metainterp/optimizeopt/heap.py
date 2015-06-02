@@ -11,6 +11,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp.optimizeopt import info
 
 
 class BogusPureField(JitException):
@@ -40,8 +41,9 @@ class CachedField(object):
         self.cached_infos.append(info)
 
     def invalidate(self, descr):
-        for info in self.cached_infos:
-            info._fields[descr.index] = None
+        for opinfo in self.cached_infos:
+            assert isinstance(opinfo, info.AbstractStructPtrInfo)
+            opinfo._fields[descr.get_index()] = None
         self.cached_infos = []
 
 
@@ -151,8 +153,9 @@ class ArrayCachedField(CachedField):
         opinfo.setitem(self.index, arg, self, optheap)
 
     def invalidate(self, descr):
-        for info in self.cached_infos:
-            info._items = None
+        for opinfo in self.cached_infos:
+            assert isinstance(opinfo, info.ArrayPtrInfo)
+            opinfo._items = None
         self.cached_infos = []
 
 class OptHeap(Optimization):
@@ -402,7 +405,7 @@ class OptHeap(Optimization):
             return
         for idx, cf in submap.iteritems():
             if indexb is None or indexb.contains(idx):
-                cf.force_lazy_setfield(self, idx, can_cache)
+                cf.force_lazy_setfield(self, None, can_cache)
 
     def force_all_lazy_setfields_and_arrayitems(self):
         # XXX fix the complexity here
@@ -410,7 +413,7 @@ class OptHeap(Optimization):
             cf.force_lazy_setfield(self, descr)
         for submap in self.cached_arrayitems.itervalues():
             for index, cf in submap.iteritems():
-                cf.force_lazy_setfield(self, index)
+                cf.force_lazy_setfield(self, None)
 
     def force_lazy_setfields_and_arrayitems_for_guard(self):
         pendingfields = []

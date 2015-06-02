@@ -654,6 +654,7 @@ class OptVirtualize(optimizer.Optimization):
         # was already forced).
 
     def _optimize_JIT_FORCE_VIRTUAL(self, op):
+        raise Exception("implement me")
         vref = self.getvalue(op.getarg(1))
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         if vref.is_virtual():
@@ -683,6 +684,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             fieldop = opinfo.getfield(op.getdescr())
             if fieldop is None:
+                raise Exception("I think this is plain illegal")
                 xxx
                 fieldvalue = self.optimizer.new_const(op.getdescr())
             self.make_equal_to(op, fieldop)
@@ -736,8 +738,8 @@ class OptVirtualize(optimizer.Optimization):
             self.do_RAW_FREE(op)
         elif effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUALIZABLE:
             # we might end up having CALL here instead of COND_CALL
-            value = self.getvalue(op.getarg(1))
-            if value.is_virtual():
+            info = self.getptrinfo(op.getarg(1))
+            if info and info.is_virtual():
                 return
         else:
             self.emit_operation(op)
@@ -830,6 +832,7 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_GETARRAYITEM_RAW_I(self, op):
         opinfo = self.getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
+            raise Exception("implement raw virtuals")
             xxx
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
@@ -850,6 +853,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
+                raise Exception("implement raw virtuals")
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
                 itemvalue = self.getvalue(op.getarg(2))
                 try:
@@ -868,6 +872,7 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_RAW_LOAD_I(self, op):
+        raise Exception("implement me")
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
@@ -907,6 +912,7 @@ class OptVirtualize(optimizer.Optimization):
                 descr = op.getdescr()
                 fld = opinfo.getinteriorfield_virtual(indexbox.getint(), descr)
                 if fld is None:
+                    raise Exception("I think this is illegal")
                     xxx
                     fieldvalue = self.new_const(descr)
                 self.make_equal_to(op, fld)

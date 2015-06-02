@@ -569,12 +569,12 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_LSHIFT(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
-        r = self.getvalue(op)
-        b = r.getintbound().rshift_bound(v2.getintbound())
-        if v1.getintbound().intersect(b):
-            self.propagate_bounds_backward(op.getarg(0), v1)
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        r = self.getintbound(op)
+        b = r.rshift_bound(b2)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
 
     propagate_bounds_INT_ADD_OVF = propagate_bounds_INT_ADD
     propagate_bounds_INT_SUB_OVF = propagate_bounds_INT_SUB

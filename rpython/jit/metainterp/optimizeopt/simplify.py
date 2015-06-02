@@ -23,7 +23,8 @@ class OptSimplify(Optimization):
     optimize_CALL_PURE_N = optimize_CALL_PURE_I
 
     def optimize_CALL_LOOPINVARIANT_I(self, op):
-        op = op.copy_and_change(rop.CALL)
+        opnum = OpHelpers.call_for_descr(op.getdescr())
+        op = op.copy_and_change(opnum)
         self.emit_operation(op)
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
@@ -33,8 +34,7 @@ class OptSimplify(Optimization):
         pass
 
     def optimize_VIRTUAL_REF(self, op):
-        newop = ResOperation(rop.SAME_AS_R, [op.getarg(0)], op.result)
-        self.replace_op_with(op, newop)
+        newop = self.replace_op_with(op, rop.SAME_AS_R, [op.getarg(0)])
         self.emit_operation(newop)
 
     def optimize_QUASIIMMUT_FIELD(self, op):

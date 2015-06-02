@@ -305,7 +305,7 @@ class Optimization(object):
             opinfo._known_class = class_const
         else:
             if opinfo is not None:
-                last_guard_pos = opinfo.last_guard_pos
+                last_guard_pos = opinfo.get_last_guard_pos()
             else:
                 last_guard_pos = -1
             opinfo = info.InstancePtrInfo(class_const)
@@ -633,17 +633,18 @@ class Optimizer(Optimization):
         if isinstance(opinfo, info.AbstractVirtualPtrInfo):
             return opinfo
         elif opinfo is not None:
-            last_guard_pos = opinfo.last_guard_pos
+            last_guard_pos = opinfo.get_last_guard_pos()
         else:
             last_guard_pos = -1
         assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
-        if op.is_getfield() or op.getopnum() == rop.SETFIELD_GC:
-            is_object = op.getdescr().parent_descr.is_object()
+        if (op.is_getfield() or op.getopnum() == rop.SETFIELD_GC or
+            op.getopnum() == rop.QUASIIMMUT_FIELD):
+            is_object = op.getdescr().get_parent_descr().is_object()
             if is_object:
                 opinfo = info.InstancePtrInfo()
             else:
                 opinfo = info.StructPtrInfo()
-            opinfo.init_fields(op.getdescr().parent_descr)
+            opinfo.init_fields(op.getdescr().get_parent_descr())
         elif op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC:
             opinfo = info.ArrayPtrInfo(op.getdescr())
         elif op.getopnum() == rop.GUARD_CLASS:
@@ -653,7 +654,8 @@ class Optimizer(Optimization):
         elif op.getopnum() in (rop.UNICODELEN,):
             opinfo = vstring.StrPtrInfo(vstring.mode_unicode)
         else:
-            xxx
+            assert False, "operations %s unsupported" % op
+        assert isinstance(opinfo, info.NonNullPtrInfo)
         opinfo.last_guard_pos = last_guard_pos
         arg0.set_forwarded(opinfo)
         return opinfo

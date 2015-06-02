@@ -305,7 +305,7 @@ class OptRewrite(Optimization):
             info = self.getptrinfo(arg0)
             if info:
                 if info.is_virtual():
-                    xxx
+                    raise InvalidLoop("promote of a virtual")
                 old_guard_op = info.get_last_guard(self.optimizer)
                 if old_guard_op is not None:
                     op = self.replace_guard_class_with_guard_value(op, info,
@@ -393,9 +393,8 @@ class OptRewrite(Optimization):
         self.make_constant_class(op.getarg(0), expectedclassbox)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
-        xxx
-        value = self.getvalue(op.getarg(0))
-        if value.is_null():
+        info = self.getptrinfo(op.getarg(0))
+        if info and info.is_null():
             r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
             raise InvalidLoop('A GUARD_NONNULL_CLASS (%s) was proven to '
                               'always fail' % r)

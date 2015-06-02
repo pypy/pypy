@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, DONT_CHANGE,\
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      OpHelpers, AbstractInputArg, GuardResOp
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp import compile

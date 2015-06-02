@@ -12,6 +12,7 @@ from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
+from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
 
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -453,6 +454,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 num, _ = untag(self.liveboxes[virtualbox])
                 info = optimizer.getptrinfo(virtualbox)
                 assert info.is_virtual()
+                assert isinstance(info, AbstractVirtualPtrInfo)
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
                 vinfo = self.make_virtual_info(info, fieldnums)
@@ -1038,7 +1040,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         cic = self.metainterp.staticdata.callinfocollection
         calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), ConstInt(size)], calldescr)
+            rop.CALL_I, [ConstInt(func), ConstInt(size)], calldescr)
 
     def allocate_string(self, length):
         return self.metainterp.execute_and_record(rop.NEWSTR,
@@ -1066,7 +1068,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         stopbox = self.metainterp.execute_and_record(rop.INT_ADD, None,
                                                      startbox, lengthbox)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), strbox, startbox, stopbox], calldescr)
+            rop.CALL_R, [ConstInt(func), strbox, startbox, stopbox], calldescr)
 
     def allocate_unicode(self, length):
         return self.metainterp.execute_and_record(rop.NEWUNICODE,
@@ -1083,7 +1085,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         str1box = self.decode_box(str1num, REF)
         str2box = self.decode_box(str2num, REF)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
+            rop.CALL_R, [ConstInt(func), str1box, str2box], calldescr)
 
     def slice_unicode(self, strnum, startnum, lengthnum):
         cic = self.metainterp.staticdata.callinfocollection
@@ -1094,7 +1096,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         stopbox = self.metainterp.execute_and_record(rop.INT_ADD, None,
                                                      startbox, lengthbox)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), strbox, startbox, stopbox], calldescr)
+            rop.CALL_R, [ConstInt(func), strbox, startbox, stopbox], calldescr)
 
     def setfield(self, structbox, fieldnum, descr):
         if descr.is_pointer_field():
