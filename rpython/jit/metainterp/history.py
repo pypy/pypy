@@ -519,38 +519,7 @@ NULLBOX = BoxPtr()
 
 # ____________________________________________________________
 
-class PrimitiveTypeMixin(object):
-    _mixin_ = True
-
-    def gettype(self):
-        raise NotImplementedError
-    def getsize(self):
-        raise NotImplementedError
-    def getsigned(self):
-        raise NotImplementedError
-
-    def matches_type(self, other):
-        assert isinstance(other, PrimitiveTypeMixin)
-        return self.gettype() == other.gettype()
-
-    def matches_size(self, other):
-        assert isinstance(other, PrimitiveTypeMixin)
-        return self.getsize() == other.getsize()
-
-    def matches_sign(self, other):
-        assert isinstance(other, PrimitiveTypeMixin)
-        return self.getsigend() == other.signed()
-
-    def matches(self, other):
-        if isinstance(other, PrimitiveTypeMixin):
-            return self.matches_type(other) and \
-                   self.matches_size(other) and \
-                   self.matches_sign(other)
-        return False
-
-
-
-class BoxVector(Box, PrimitiveTypeMixin):
+class BoxVector(Box):
     type = VECTOR
     _attrs_ = ('item_type','item_count','item_size','item_signed')
     _extended_display = False

@@ -5,7 +5,7 @@ from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr, invent_fail_descr_for_op
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
-        BoxVector, TargetToken, JitCellToken, Box, PrimitiveTypeMixin)
+        BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, 
@@ -593,7 +593,7 @@ class Guard(object):
             assert isinstance(key2, IndexVar)
             return key1.compare(key2)
         #
-        raise RuntimeError("cannot compare: " + str(key1) + " <=> " + str(key2))
+        raise AssertionError("cannot compare: " + str(key1) + " <=> " + str(key2))
 
     def emit_varops(self, opt, var, old_arg):
         if isinstance(var, IndexVar):
@@ -630,7 +630,7 @@ class GuardStrengthenOpt(object):
                 return op
             i -= 1
 
-        raise RuntimeError("guard_true/false first arg not defined")
+        raise AssertionError("guard_true/false first arg not defined")
 
     def _get_key(self, cmp_op):
         if cmp_op and rop.INT_LT <= cmp_op.getopnum() <= rop.INT_GE:
@@ -772,7 +772,7 @@ class X86_CostModel(CostModel):
         return 1
 
 
-class PackType(PrimitiveTypeMixin):
+class PackType(object):
     UNKNOWN_TYPE = '-'
 
     def __init__(self, type, size, signed, count=-1, scalar_cost=1, vector_cost=1):
@@ -845,11 +845,18 @@ class OpToVectorOp(object):
         return self.input_type.getsize()
 
     def determine_input_type(self, op):
+        arg = op.getarg(0)
         _, vbox = self.sched_data.getvector_of_box(op.getarg(0))
         if vbox:
             return PackType.of(vbox)
         else:
-            raise RuntimeError("fatal: box %s is not in a vector box" % (op.getarg(0),))
+            vec_reg_size = self.sched_data.vec_reg_size
+            if isinstance(arg, ConstInt) or isinstance(arg, BoxInt):
+                return PackType(INT, 8, True, 2)
+            elif isinstance(arg, ConstFloat) or isinstance(arg, BoxFloat):
+                return PackType(FLOAT, 8, True, 2)
+            else:
+                raise NotImplementedError("arg %s not supported" % (arg,))
 
     def determine_output_type(self, op):
         return self.determine_input_type(op)
@@ -1010,7 +1017,8 @@ class OpToVectorOp(object):
             op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
                                       ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)
-            self._check_vec_pack(op)
+            if not we_are_translated():
+                self._check_vec_pack(op)
             i += src_box.item_count
 
             # overwrite the new positions, arguments now live in new_box
@@ -1041,10 +1049,11 @@ class OpToVectorOp(object):
         assert index.value + count.value <= result.item_count
         assert result.item_count > arg0.item_count
 
-    def expand_box_to_vector_box(self, vbox, ops, arg, argidx):
+    def expand_box_to_vector_box(self, vbox, nodes, arg, argidx):
         all_same_box = True
-        for i, op in enumerate(ops):
-            if arg is not op.getoperation().getarg(argidx):
+        for i, node in enumerate(nodes):
+            op = node.getoperation()
+            if not arg.same_box(op.getarg(argidx)):
                 all_same_box = False
                 break
             i += 1
@@ -1060,16 +1069,17 @@ class OpToVectorOp(object):
             expand_op = ResOperation(expand_opnum, [arg], vbox)
             self.preamble_ops.append(expand_op)
         else:
-            resop = ResOperation(rop.VEC_BOX, [ConstInt(len(ops))], vbox)
+            resop = ResOperation(rop.VEC_BOX, [ConstInt(len(nodes))], vbox)
             self.preamble_ops.append(resop)
             opnum = rop.VEC_FLOAT_PACK
             if arg.type == INT:
                 opnum = rop.VEC_INT_PACK
-            for i,op in enumerate(ops):
-                arg = op.getoperation().getarg(argidx)
+            for i,node in enumerate(nodes):
+                op = node.getoperation()
+                arg = op.getarg(argidx)
                 new_box = vbox.clonebox()
                 resop = ResOperation(opnum,
-                                     [vbox,arg,ConstInt(i),ConstInt(0)], new_box)
+                                     [vbox,arg,ConstInt(i),ConstInt(1)], new_box)
                 vbox = new_box
                 self.preamble_ops.append(resop)
         return vbox

@@ -93,3 +93,34 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v3[f64#2] = vec_cast_int_to_float(v2[i32#2])
         """, False)
         self.assert_equal(loop2, loop3)
+
+    def test_scalar_pack(self):
+        loop1 = self.parse("""
+        i10 = int_add(i0, 73)
+        i11 = int_add(i1, 73)
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        loop2 = self.schedule(loop1, [pack1])
+        loop3 = self.parse("""
+        v1[i64#2] = vec_box(2)
+        v2[i64#2] = vec_int_pack(v1[i64#2], i0, 0, 1)
+        v3[i64#2] = vec_int_pack(v2[i64#2], i1, 1, 1)
+        v4[i64#2] = vec_int_expand(73)
+        v5[i64#2] = vec_int_add(v3[i64#2], v4[i64#2])
+        """, False)
+        self.assert_equal(loop2, loop3)
+
+        loop1 = self.parse("""
+        f10 = float_add(f0, 73.0)
+        f11 = float_add(f1, 73.0)
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        loop2 = self.schedule(loop1, [pack1])
+        loop3 = self.parse("""
+        v1[f64#2] = vec_box(2)
+        v2[f64#2] = vec_float_pack(v1[f64#2], f0, 0, 1)
+        v3[f64#2] = vec_float_pack(v2[f64#2], f1, 1, 1)
+        v4[f64#2] = vec_float_expand(73.0)
+        v5[f64#2] = vec_float_add(v3[f64#2], v4[f64#2])
+        """, False)
+        self.assert_equal(loop2, loop3)

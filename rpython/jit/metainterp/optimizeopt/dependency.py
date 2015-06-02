@@ -602,7 +602,7 @@ class DependencyGraph(object):
             while i >= 0:
                 node = self.nodes[i]
                 op = node.getoperation()
-                if node.is_ovf():
+                if op.is_ovf():
                     break
                 i -= 1
             else:
