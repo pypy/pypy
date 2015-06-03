@@ -130,7 +130,7 @@ def test_convert_and_run_from_pyjitpl():
                 def start_blackhole(): pass
                 @staticmethod
                 def end_blackhole(): pass
-        last_exc_value_box = None
+        last_exc_value = None
         framestack = [MyMIFrame()]
     MyMetaInterp.staticdata.blackholeinterpbuilder = getblackholeinterp(
         {'int_add/ii>i': 0, 'int_return/i': 1}).builder
