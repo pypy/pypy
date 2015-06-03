@@ -768,7 +768,7 @@ class Optimizer(Optimization):
             op.setdescr(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
         assert isinstance(op, GuardResOp)
-        modifier = resume.ResumeDataVirtualAdder(descr, op,
+        modifier = resume.ResumeDataVirtualAdder(self, descr, op,
                                                  self.resumedata_memo)
         try:
             newboxes = modifier.finish(self, pendingfields)
@@ -777,12 +777,7 @@ class Optimizer(Optimization):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
-        _newboxes = []
-        for box in newboxes:
-            if box is not None:
-                box = self.get_box_replacement(box)
-            _newboxes.append(box)
-        descr.store_final_boxes(op, _newboxes, self.metainterp_sd)
+        descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if op.getarg(0).type == 'i':

@@ -223,10 +223,10 @@ class ResumeDataLoopMemo(object):
                 is_virtual = False
                 if box.type == 'r':
                     info = optimizer.getptrinfo(box)
-                    is_virtual = (info and info.is_virtual())
+                    is_virtual = (info is not None and info.is_virtual())
                 if box.type == 'i':
                     info = optimizer.getrawptrinfo(box, create=False)
-                    is_virtual = (info and info.is_virtual()) 
+                    is_virtual = (info is not None and info.is_virtual()) 
                 if is_virtual:
                     tagged = tag(v, TAGVIRTUAL)
                     v += 1
@@ -286,7 +286,8 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(VirtualVisitor):
 
-    def __init__(self, storage, snapshot_storage, memo):
+    def __init__(self, optimizer, storage, snapshot_storage, memo):
+        self.optimizer = optimizer
         self.storage = storage
         self.snapshot_storage = snapshot_storage
         self.memo = memo
@@ -343,9 +344,14 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         else:
             return VStrSliceInfo()
 
-    def register_virtual_fields(self, virtualbox, fieldboxes):
+    def register_virtual_fields(self, virtualbox, _fieldboxes):
         tagged = self.liveboxes_from_env.get(virtualbox, UNASSIGNEDVIRTUAL)
         self.liveboxes[virtualbox] = tagged
+        fieldboxes = []
+        for box in _fieldboxes:
+            if box is not None:
+                box = self.optimizer.get_box_replacement(box)
+            fieldboxes.append(box)
         self.vfieldboxes[virtualbox] = fieldboxes
         self._register_boxes(fieldboxes)
 

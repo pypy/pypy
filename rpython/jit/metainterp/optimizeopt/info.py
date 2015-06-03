@@ -241,9 +241,9 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 class RawStructPtrInfo(AbstractRawPtrInfo):
     def __init__(self):
         pass
-    
-    def _force_elements(self, op, optforce, descr):
-        xxx
+
+    def is_virtual(self):
+        return False
 
 class RawSlicePtrInfo(AbstractRawPtrInfo):
     def __init__(self, offset, parent):
@@ -260,7 +260,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         self.parent.setitem_raw(self.offset+offset, itemsize, descr, itemop)
     
     def _force_elements(self, op, optforce, descr):
-        xxx
+        raise Exception("implement me")
 
     def visitor_walk_recursive(self, op, visitor, optimizer):
         source_op = optimizer.get_box_replacement(op.getarg(0))
