@@ -460,8 +460,10 @@ execute_varargs._annspecialcase_ = 'specialize:arg(2)'
 
 @specialize.argtype(0)
 def wrap_constant(value):
-    if isinstance(value, int):
+    if lltype.typeOf(value) == lltype.Signed:
         return ConstInt(value)
+    elif isinstance(value, bool):
+        return ConstInt(int(value))
     elif isinstance(value, float):
         return ConstFloat(value)
     else:

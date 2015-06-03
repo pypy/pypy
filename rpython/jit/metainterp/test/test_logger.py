@@ -194,22 +194,6 @@ class TestLogger(object):
         assert lastline.startswith("guard_true(i0, descr=<")
         assert not lastline.startswith("guard_true(i0, descr=<Guard")
 
-    def test_class_name(self):
-        from rpython.rtyper.lltypesystem import lltype
-        AbcVTable = lltype.Struct('AbcVTable')
-        abcvtable = lltype.malloc(AbcVTable, immortal=True)
-        namespace = {'Name': abcvtable}
-        inp = '''
-        [i0]
-        p = new_with_vtable(ConstClass(Name))
-        '''
-        loop = pure_parse(inp, namespace=namespace)
-        logger = Logger(self.make_metainterp_sd())
-        output = logger.log_loop(loop)
-        assert output.splitlines()[-1].endswith(
-            " = new_with_vtable(ConstClass(Name))")
-        pure_parse(output, namespace=namespace)
-
     def test_intro_loop(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_loop, [], [], 1, "foo")

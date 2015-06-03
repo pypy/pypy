@@ -96,25 +96,29 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_fields',)
+    _fields = None
 
-    def init_fields(self, descr):
-        self._fields = [None] * len(descr.get_all_fielddescrs())
+    def init_fields(self, descr, index):
+        if self._fields is None:
+            self._fields = [None] * len(descr.get_all_fielddescrs())
+        if index >= len(self._fields):
+            # we found out a subclass with more fields
+            extra_len = len(descr.get_all_fielddescrs()) - len(self._fields)
+            self._fields = self._fields + [None] * extra_len
 
     def clear_cache(self):
         assert not self.is_virtual()
         self._fields = [None] * len(self._fields)
 
     def setfield(self, descr, op, optheap=None, cf=None):
-        if self._fields is None:
-            self.init_fields(descr.get_parent_descr())
+        self.init_fields(descr.get_parent_descr(), descr.get_index())
         self._fields[descr.get_index()] = op
         if cf is not None:
             assert not self.is_virtual()
             cf.register_dirty_field(self)
 
     def getfield(self, descr, optheap=None):
-        if self._fields is None:
-            self.init_fields(descr.get_parent_descr())
+        self.init_fields(descr.get_parent_descr(), descr.get_index())
         return self._fields[descr.get_index()]
 
     def _force_elements(self, op, optforce, descr):
@@ -142,10 +146,11 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                                          for box in self._fields])
         for i in range(len(lst)):
             op = self._fields[i]
-            op = op.get_box_replacement()
-            fieldinfo = optimizer.getptrinfo(op)
-            if fieldinfo and fieldinfo.is_virtual():
-                fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
+            if op:
+                op = op.get_box_replacement()
+                fieldinfo = optimizer.getptrinfo(op)
+                if fieldinfo and fieldinfo.is_virtual():
+                    fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
@@ -227,8 +232,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
 
 class RawStructPtrInfo(AbstractRawPtrInfo):
     def __init__(self):
-        import pdb
-        pdb.set_trace()
+        pass
     
     def _force_elements(self, op, optforce, descr):
         xxx
@@ -405,7 +409,7 @@ class ConstPtrInfo(PtrInfo):
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = StructPtrInfo()
-            info.init_fields(descr.get_parent_descr())
+            info.init_fields(descr.get_parent_descr(), descr.get_index())
             optheap.const_infos[ref] = info
         return info
 

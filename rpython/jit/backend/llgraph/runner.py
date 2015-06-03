@@ -544,7 +544,9 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getarrayitem_gc_f = bh_getarrayitem_gc
 
     bh_getarrayitem_raw = bh_getarrayitem_gc
-    bh_getarrayitem_raw_pure = bh_getarrayitem_raw
+    bh_getarrayitem_raw_pure_i = bh_getarrayitem_raw
+    bh_getarrayitem_raw_pure_r = bh_getarrayitem_raw
+    bh_getarrayitem_raw_pure_f = bh_getarrayitem_raw
     bh_getarrayitem_raw_i = bh_getarrayitem_raw
     bh_getarrayitem_raw_r = bh_getarrayitem_raw
     bh_getarrayitem_raw_f = bh_getarrayitem_raw

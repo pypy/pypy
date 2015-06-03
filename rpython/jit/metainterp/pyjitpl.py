@@ -494,12 +494,12 @@ class MIFrame(object):
                                        arraydescr, arraybox, indexbox)
 
     @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_raw_pure_i(self, arraybox, indexbox, arraydescr):
+    def opimpl_getarrayitem_raw_i_pure(self, arraybox, indexbox, arraydescr):
         return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE_I,
                                        arraydescr, arraybox, indexbox)
 
     @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_raw_pure_f(self, arraybox, indexbox, arraydescr):
+    def opimpl_getarrayitem_raw_f_pure(self, arraybox, indexbox, arraydescr):
         return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE_F,
                                        arraydescr, arraybox, indexbox)
 
@@ -734,15 +734,15 @@ class MIFrame(object):
     @arguments("box", "descr", "orgpc")
     def _opimpl_getfield_gc_greenfield_any(self, box, fielddescr, pc):
         ginfo = self.metainterp.jitdriver_sd.greenfield_info
+        opnum = OpHelpers.getfield_pure_for_descr(fielddescr)
         if (ginfo is not None and fielddescr in ginfo.green_field_descrs
             and not self._nonstandard_virtualizable(pc, box, fielddescr)):
             # fetch the result, but consider it as a Const box and don't
             # record any operation
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC_PURE, fielddescr, box)
-            return resbox.constbox()
+            return executor.execute_nonspec_const(self.metainterp.cpu,
+                                    self.metainterp, opnum, [box], fielddescr)
         # fall-back
-        return self.execute_with_descr(rop.GETFIELD_GC_PURE, fielddescr, box)
+        return self.execute_with_descr(opnum, fielddescr, box)
     opimpl_getfield_gc_i_greenfield = _opimpl_getfield_gc_greenfield_any
     opimpl_getfield_gc_r_greenfield = _opimpl_getfield_gc_greenfield_any
     opimpl_getfield_gc_f_greenfield = _opimpl_getfield_gc_greenfield_any
@@ -774,10 +774,11 @@ class MIFrame(object):
 
 
     @arguments("box", "descr")
-    def _opimpl_getfield_raw_any(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_RAW, fielddescr, box)
-    opimpl_getfield_raw_i = _opimpl_getfield_raw_any
-    opimpl_getfield_raw_f = _opimpl_getfield_raw_any
+    def opimpl_getfield_raw_i(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW_I, fielddescr, box)
+    @arguments("box", "descr")
+    def opimpl_getfield_raw_f(self, box, fielddescr):
+        return self.execute_with_descr(rop.GETFIELD_RAW_F, fielddescr, box)
 
     @arguments("box", "descr")
     def opimpl_getfield_raw_i_pure(self, box, fielddescr):
@@ -803,11 +804,13 @@ class MIFrame(object):
     opimpl_raw_store_f = _opimpl_raw_store
 
     @arguments("box", "box", "descr")
-    def _opimpl_raw_load(self, addrbox, offsetbox, arraydescr):
-        return self.execute_with_descr(rop.RAW_LOAD, arraydescr,
+    def opimpl_raw_load_i(self, addrbox, offsetbox, arraydescr):
+        return self.execute_with_descr(rop.RAW_LOAD_I, arraydescr,
                                        addrbox, offsetbox)
-    opimpl_raw_load_i = _opimpl_raw_load
-    opimpl_raw_load_f = _opimpl_raw_load
+    @arguments("box", "box", "descr")
+    def opimpl_raw_load_f(self, addrbox, offsetbox, arraydescr):
+        return self.execute_with_descr(rop.RAW_LOAD_F, arraydescr,
+                                       addrbox, offsetbox)
 
     @arguments("box")
     def opimpl_hint_force_virtualizable(self, box):

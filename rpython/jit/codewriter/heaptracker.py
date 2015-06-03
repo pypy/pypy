@@ -190,11 +190,12 @@ def get_fielddescr_index_in(STRUCT, fieldname, cur_index=0):
             continue # dealt otherwise
         elif isinstance(FIELD, lltype.Struct):
             r = get_fielddescr_index_in(FIELD, fieldname, cur_index)
-            if r != -1:
+            if r >= 0:
                 return r
+            cur_index += -r - 1
             continue
         elif name == fieldname:
             return cur_index
         cur_index += 1
-    return -1 # not found
+    return -cur_index - 1 # not found
     

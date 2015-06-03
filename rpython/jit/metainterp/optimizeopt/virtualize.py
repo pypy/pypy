@@ -522,7 +522,7 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_virtual(self, known_class, source_op, descr):
         opinfo = info.InstancePtrInfo(known_class, vdescr=descr)
-        opinfo.init_fields(descr)
+        opinfo.init_fields(descr, 0)
         source_op.set_forwarded(opinfo)
         return opinfo
 
@@ -538,7 +538,7 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_vstruct(self, structdescr, source_op):
         opinfo = info.StructPtrInfo(vdescr=structdescr)
-        opinfo.init_fields(structdescr)
+        opinfo.init_fields(structdescr, 0)
         source_op.set_forwarded(opinfo)
         return opinfo
 
@@ -863,37 +863,32 @@ class OptVirtualize(optimizer.Optimization):
         return offset, itemsize, descr
 
     def optimize_RAW_LOAD_I(self, op):
-        raise Exception("implement me")
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getrawptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
             if offsetbox is not None:
                 offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
                 try:
-                    itemvalue = value.getitem_raw(offset, itemsize, descr)
+                    itemop = opinfo.getitem_raw(offset, itemsize, descr)
                 except InvalidRawOperation:
                     pass
                 else:
-                    self.make_equal_to(op, itemvalue)
+                    self.make_equal_to(op, itemop)
                     return
-        value.ensure_nonnull()
         self.emit_operation(op)
     optimize_RAW_LOAD_F = optimize_RAW_LOAD_I
 
     def optimize_RAW_STORE(self, op):
-        raise Exception("implement me")
-        value = self.getvalue(op.getarg(0))
-        if value.is_virtual():
+        opinfo = self.getrawptrinfo(op.getarg(0))
+        if opinfo and opinfo.is_virtual():
             offsetbox = self.get_constant_box(op.getarg(1))
             if offsetbox is not None:
                 offset, itemsize, descr = self._unpack_raw_load_store_op(op, offsetbox)
-                itemvalue = self.getvalue(op.getarg(2))
                 try:
-                    value.setitem_raw(offset, itemsize, descr, itemvalue)
+                    opinfo.setitem_raw(offset, itemsize, descr, op.getarg(2))
                     return
                 except InvalidRawOperation:
                     pass
-        value.ensure_nonnull()
         self.emit_operation(op)
 
     def optimize_GETINTERIORFIELD_GC_I(self, op):

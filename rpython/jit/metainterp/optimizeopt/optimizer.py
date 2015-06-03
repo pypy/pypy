@@ -657,7 +657,8 @@ class Optimizer(Optimization):
                 opinfo = info.InstancePtrInfo()
             else:
                 opinfo = info.StructPtrInfo()
-            opinfo.init_fields(op.getdescr().get_parent_descr())
+            opinfo.init_fields(op.getdescr().get_parent_descr(),
+                               op.getdescr().get_index())
         elif op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC:
             opinfo = info.ArrayPtrInfo(op.getdescr())
         elif op.getopnum() == rop.GUARD_CLASS:
@@ -851,9 +852,10 @@ class Optimizer(Optimization):
     def optimize_STRGETITEM(self, op):
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
-            raise Exception("implement me")
-            arrayvalue = self.getvalue(op.getarg(0))
-            arrayvalue.make_len_gt(MODE_STR, op.getdescr(), indexvalue.box.getint())
+            pass
+            #raise Exception("implement me")
+            #arrayvalue = self.getvalue(op.getarg(0))
+            #arrayvalue.make_len_gt(MODE_STR, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
 
     def optimize_UNICODEGETITEM(self, op):

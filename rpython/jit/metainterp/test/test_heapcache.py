@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.heapcache import HeapCache
-from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import ConstInt, BoxInt, BasicFailDescr
+from rpython.jit.metainterp.resoperation import rop, InputArgInt
+from rpython.jit.metainterp.history import ConstInt, BasicFailDescr
 
 box1 = "box1"
 box2 = "box2"
@@ -265,7 +265,7 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index2, descr1) is box4
 
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_ELIDABLE_CANNOT_RAISE), [])
+            rop.CALL_N, FakeCallDescr(FakeEffectinfo.EF_ELIDABLE_CANNOT_RAISE), [])
         assert h.getfield(box1, descr1) is box2
         assert h.getarrayitem(box1, index1, descr1) is box2
         assert h.getarrayitem(box1, index2, descr1) is box4
@@ -276,10 +276,10 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index2, descr1) is box4
 
         h.invalidate_caches(
-            rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffectinfo.EF_LOOPINVARIANT), [])
+            rop.CALL_LOOPINVARIANT_N, FakeCallDescr(FakeEffectinfo.EF_LOOPINVARIANT), [])
 
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [])
+            rop.CALL_N, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [])
         assert h.getfield(box1, descr1) is None
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index2, descr1) is None
@@ -375,13 +375,13 @@ class TestHeapCache(object):
         h.new_array(box2, lengthbox1)
         # Just need the destination box for this call
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box5, box2, index1, index1, index1]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box5, box3, index1, index1, index1]
         )
@@ -390,7 +390,7 @@ class TestHeapCache(object):
         h.setarrayitem(box4, index1, box2, descr1)
         assert h.getarrayitem(box4, index1, descr1) is box2
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box3, box5, index1, index1, index2]
         )
@@ -402,7 +402,7 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box3, box2, index1, index1, index2]
         )
@@ -413,9 +413,9 @@ class TestHeapCache(object):
         h.setarrayitem(box1, index1, box2, descr2)
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
-            [None, box3, box2, index1, index1, BoxInt()]
+            [None, box3, box2, index1, index1, InputArgInt()]
         )
         assert h.getarrayitem(box1, index1, descr2) is box2
 
@@ -423,7 +423,7 @@ class TestHeapCache(object):
         h = HeapCache()
         h.setarrayitem(box1, index1, box2, descr1)
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box1, box3, index1, index1, index2]
         )
@@ -434,7 +434,7 @@ class TestHeapCache(object):
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box3, index1, box4, descr1)
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box2, box1, index1, index1, index2]
         )
@@ -444,16 +444,16 @@ class TestHeapCache(object):
         h.new_array(box1, lengthbox1)
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
             [None, box2, box1, index1, index1, index2]
         )
         assert h.is_unescaped(box1)
         assert h.is_unescaped(box2)
         h.invalidate_caches(
-            rop.CALL,
+            rop.CALL_N,
             arraycopydescr1,
-            [None, box2, box1, index1, index1, BoxInt()]
+            [None, box2, box1, index1, index1, InputArgInt()]
         )
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
@@ -478,7 +478,7 @@ class TestHeapCache(object):
         h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
         assert h.is_unescaped(box2)
         # Reading a field from a virtual doesn't escape it.
-        h.invalidate_caches(rop.GETFIELD_GC, None, [box1])
+        h.invalidate_caches(rop.GETFIELD_GC_I, None, [box1])
         assert h.is_unescaped(box1)
         # Escaping a virtual transitively escapes anything inside of it.
         assert not h.is_unescaped(box3)
@@ -525,7 +525,7 @@ class TestHeapCache(object):
         assert h.is_unescaped(box1)
         assert h.is_unescaped(box2)
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [box1]
+            rop.CALL_N, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [box1]
         )
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
@@ -535,7 +535,7 @@ class TestHeapCache(object):
         h.new(box1)
         assert h.is_unescaped(box1)
         h.setfield(box1, box2, descr1)
-        h.invalidate_caches(rop.CALL,
+        h.invalidate_caches(rop.CALL_N,
             FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE),
             []
         )
@@ -546,7 +546,7 @@ class TestHeapCache(object):
         h.new_array(box1, lengthbox1)
         assert h.is_unescaped(box1)
         h.setarrayitem(box1, index1, box3, descr1)
-        h.invalidate_caches(rop.CALL,
+        h.invalidate_caches(rop.CALL_N,
             FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE),
             []
         )
@@ -581,7 +581,7 @@ class TestHeapCache(object):
         h.setfield(box1, box2, descr1)
         h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
         assert h.getfield(box1, descr1) is box2
-        h.invalidate_caches(rop.CALL_MAY_FORCE, None, [])
+        h.invalidate_caches(rop.CALL_MAY_FORCE_N, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [])
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
         assert h.getfield(box1, descr1) is None
@@ -602,7 +602,7 @@ class TestHeapCache(object):
             EF_ELIDABLE_CANNOT_RAISE = 2
             EF_ELIDABLE_CAN_RAISE = 3
         descr.get_extra_info = XTra
-        h.invalidate_caches(rop.CALL, descr, [])
+        h.invalidate_caches(rop.CALL_N, descr, [])
         assert h.is_unescaped(box1)
         assert h.is_unescaped(box2)
         assert h.getfield(box1, descr1) is box2

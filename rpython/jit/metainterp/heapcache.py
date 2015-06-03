@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import ConstInt
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 
 class HeapCacheValue(object):
     def __init__(self, box):
@@ -191,7 +191,9 @@ class HeapCache(object):
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
-        if rop._CALL_FIRST <= opnum <= rop._CALL_LAST:
+        if (OpHelpers.is_plain_call(opnum) or
+            OpHelpers.is_call_loopinvariant(opnum) or
+            opnum == rop.COND_CALL):
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
             if (ef == effectinfo.EF_LOOPINVARIANT or

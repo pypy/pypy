@@ -118,6 +118,11 @@ class QuasiImmutDescr(AbstractDescr):
         if self.fielddescr is not None:
             return self.fielddescr.get_parent_descr()
 
+    def get_index(self):
+        if self.fielddescr is not None:
+            return self.fielddescr.get_index()
+        return 0 # annotation hint
+
     def get_current_constant_fieldvalue(self):
         struct = self.struct
         fielddescr = self.fielddescr

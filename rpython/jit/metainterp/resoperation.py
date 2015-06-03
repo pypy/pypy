@@ -1114,11 +1114,25 @@ class OpHelpers(object):
         return rop._CALL_FIRST <= opnum <= rop._CALL_LAST
 
     @staticmethod
+    def is_plain_call(opnum):
+        return (opnum == rop.CALL_I or
+                opnum == rop.CALL_R or
+                opnum == rop.CALL_F or
+                opnum == rop.CALL_N)
+
+    @staticmethod
     def is_call_assembler(opnum):
         return (opnum == rop.CALL_ASSEMBLER_I or
                 opnum == rop.CALL_ASSEMBLER_R or
                 opnum == rop.CALL_ASSEMBLER_F or
                 opnum == rop.CALL_ASSEMBLER_N)
+
+    @staticmethod
+    def is_call_loopinvariant(opnum):
+        return (opnum == rop.CALL_LOOPINVARIANT_I or
+                opnum == rop.CALL_LOOPINVARIANT_R or
+                opnum == rop.CALL_LOOPINVARIANT_F or
+                opnum == rop.CALL_LOOPINVARIANT_N)
 
     @staticmethod
     def is_call_may_force(opnum):
