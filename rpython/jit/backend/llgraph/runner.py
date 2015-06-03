@@ -164,10 +164,15 @@ def _is_signed_kind(TYPE):
             rffi.cast(TYPE, -1) == -1)
 
 class ArrayDescr(AbstractDescr):
+    all_interiorfielddescrs = None
+    
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
+
+    def get_all_fielddescrs(self):
+        return self.all_interiorfielddescrs
 
     def __repr__(self):
         return 'ArrayDescr(%r)' % (self.OUTERA,)
@@ -210,6 +215,9 @@ class InteriorFieldDescr(AbstractDescr):
         self.FIELD = getattr(A.OF, fieldname)
         self.arraydescr = runner.arraydescrof(A)
         self.fielddescr = runner.fielddescrof(A.OF, fieldname)
+
+    def get_arraydescr(self):
+        return self.arraydescr
 
     def __repr__(self):
         return 'InteriorFieldDescr(%r, %r)' % (self.A, self.fieldname)

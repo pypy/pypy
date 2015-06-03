@@ -168,7 +168,7 @@ def newconst(value):
         return ConstPtr(lltype.nullptr(llmemory.GCREF.TO))
     elif lltype.typeOf(value) == lltype.Signed:
         return ConstInt(value)
-    elif not we_are_translated() and type(value) is bool:
+    elif isinstance(value, bool):
         return ConstInt(int(value))
     elif isinstance(value, float):
         return ConstFloat(value)
@@ -762,7 +762,7 @@ class History(object):
         op = ResOperation(opnum, argboxes, descr)
         if value is None:
             assert op.type == 'v'
-        elif not we_are_translated() and type(value) is bool:
+        elif isinstance(value, bool):
             assert op.type == 'i'
             op.setint(int(value))
         elif isinstance(value, float):

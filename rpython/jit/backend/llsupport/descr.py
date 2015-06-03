@@ -223,12 +223,16 @@ class ArrayDescr(ArrayOrFieldDescr):
     lendescr = None
     flag = '\x00'
     vinfo = None
+    all_interiorfielddescrs = None
 
     def __init__(self, basesize, itemsize, lendescr, flag):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
+
+    def get_all_fielddescrs(self):
+        return self.all_interiorfielddescrs
 
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
@@ -285,9 +289,13 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
+        cache[ARRAY_OR_STRUCT] = arraydescr
+        if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
+            descrs = heaptracker.all_interiorfielddescrs(gccache,
+                ARRAY_INSIDE, get_field_descr=get_interiorfield_descr)
+            arraydescr.all_interiorfielddescrs = descrs
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
-        cache[ARRAY_OR_STRUCT] = arraydescr
         return arraydescr
 
 

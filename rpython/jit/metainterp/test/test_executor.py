@@ -2,7 +2,7 @@ import py
 import sys, random
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.jit.metainterp.executor import execute, wrap_constant
-from rpython.jit.metainterp.executor import execute_varargs, _execute_nonspec
+from rpython.jit.metainterp.executor import execute_varargs, _execute_arglist
 from rpython.jit.metainterp.resoperation import rop, opname, opclasses,\
      InputArgInt, InputArgFloat, InputArgRef
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat

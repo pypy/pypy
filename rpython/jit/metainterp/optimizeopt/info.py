@@ -260,7 +260,6 @@ class ArrayStructInfo(ArrayPtrInfo):
         self._items = [None] * (size * lgt)
 
     def _compute_index(self, index, fielddescr):
-        raise Exception("implement virtual array of structs")
         one_size = len(fielddescr.get_arraydescr().get_all_fielddescrs())
         return index * one_size + fielddescr.fielddescr.get_index()
         
