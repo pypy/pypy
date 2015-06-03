@@ -219,7 +219,7 @@ class InteriorFieldDescr(AbstractDescr):
     def get_arraydescr(self):
         return self.arraydescr
 
-    def get_fielddescr(self):
+    def get_field_descr(self):
         return self.fielddescr
 
     def __repr__(self):

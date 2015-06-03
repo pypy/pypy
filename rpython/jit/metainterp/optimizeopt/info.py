@@ -352,7 +352,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         if all_fdescrs is None:
             return 0 # annotation hack
         one_size = len(all_fdescrs)
-        return index * one_size + fielddescr.fielddescr.get_index()
+        return index * one_size + fielddescr.get_field_descr().get_index()
         
     def setinteriorfield_virtual(self, index, fielddescr, fld):
         index = self._compute_index(index, fielddescr)

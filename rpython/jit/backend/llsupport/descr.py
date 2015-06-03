@@ -314,6 +314,9 @@ class InteriorFieldDescr(AbstractDescr):
     def get_arraydescr(self):
         return self.arraydescr
 
+    def get_field_descr(self):
+        return self.fielddescr
+
     def sort_key(self):
         return self.fielddescr.sort_key()
 
