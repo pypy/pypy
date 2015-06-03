@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.jit.metainterp.history import AbstractDescr, ConstPtr, ConstInt,\
@@ -104,7 +104,7 @@ class QuasiImmutDescr(AbstractDescr):
     # those fields are necessary for translation without quasi immutable
     # fields
     struct = None
-    fielddescr = None
+    fielddescr = lltype.nullptr(llmemory.GCREF.TO)
     
     def __init__(self, cpu, struct, fielddescr, mutatefielddescr):
         self.cpu = cpu
