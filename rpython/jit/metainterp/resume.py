@@ -314,8 +314,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         else:
             return VArrayInfoNotClear(arraydescr)
 
-    def visit_varraystruct(self, arraydescr, fielddescrs):
-        return VArrayStructInfo(arraydescr, fielddescrs)
+    def visit_varraystruct(self, arraydescr, size, fielddescrs):
+        return VArrayStructInfo(arraydescr, size, fielddescrs)
 
     def visit_vrawbuffer(self, size, offsets, descrs):
         return VRawBufferInfo(size, offsets, descrs)
@@ -676,7 +676,8 @@ class VRawSliceInfo(VAbstractRawInfo):
 
 
 class VArrayStructInfo(AbstractVirtualInfo):
-    def __init__(self, arraydescr, fielddescrs):
+    def __init__(self, arraydescr, size, fielddescrs):
+        self.size = size
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
@@ -687,14 +688,16 @@ class VArrayStructInfo(AbstractVirtualInfo):
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr,
+        array = decoder.allocate_array(self.size, self.arraydescr,
                                        clear=True)
         decoder.virtuals_cache.set_ptr(index, array)
         p = 0
-        for i in range(len(self.fielddescrs)):
-            for j in range(len(self.fielddescrs[i])):
-                decoder.setinteriorfield(i, array, self.fieldnums[p],
-                                         self.fielddescrs[i][j])
+        for i in range(self.size):
+            for j in range(len(self.fielddescrs)):
+                num = self.fieldnums[p]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setinteriorfield(i, array, num,
+                                             self.fielddescrs[j])
                 p += 1
         return array
 

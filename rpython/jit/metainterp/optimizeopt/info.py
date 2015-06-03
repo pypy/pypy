@@ -238,7 +238,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
         itemops = [optimizer.get_box_replacement(item)
-                   for item in self._items if item]
+                   for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
         for i in range(self.getlength()):
             itemop = self._items[i]
@@ -288,6 +288,29 @@ class ArrayStructInfo(ArrayPtrInfo):
                     count += 1
                 i += 1
         return count
+
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        itemops = [optimizer.get_box_replacement(item)
+                   for item in self._items]
+        visitor.register_virtual_fields(instbox, itemops)
+        fielddescrs = self.vdescr.get_all_fielddescrs()
+        i = 0
+        for index in range(self.getlength()):
+            for flddescr in fielddescrs:
+                itemop = self._items[i]
+                if (itemop is not None and itemop.type == 'r' and
+                    not isinstance(itemop, Const)):
+                    ptrinfo = optimizer.getptrinfo(itemop)
+                    if ptrinfo and ptrinfo.is_virtual():
+                        ptrinfo.visitor_walk_recursive(itemop, visitor,
+                                                       optimizer)
+                i += 1
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        flddescrs = self.vdescr.get_all_fielddescrs()
+        return visitor.visit_varraystruct(self.vdescr, self.getlength(),
+                                          flddescrs)
 
 class ConstPtrInfo(PtrInfo):
     _attrs_ = ('_const',)
