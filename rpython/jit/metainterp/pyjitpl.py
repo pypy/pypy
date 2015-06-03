@@ -2845,7 +2845,6 @@ class MetaInterp(object):
             self.virtualizable_boxes.append(virtualizable_box)
 
     def gen_store_back_in_vable(self, box):
-        raise Exception("untested")
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
             # xxx only write back the fields really modified
@@ -2877,7 +2876,8 @@ class MetaInterp(object):
             assert i + 1 == len(self.virtualizable_boxes)
             # we're during tracing, so we should not execute it
             self.history.record(rop.SETFIELD_GC, [vbox, self.cpu.ts.CONST_NULL],
-                                None, descr=vinfo.vable_token_descr)
+                                self.cpu.ts.CONST_NULL.getref_base(),
+                                descr=vinfo.vable_token_descr)
 
     def replace_box(self, oldbox, newbox):
         for frame in self.framestack:
