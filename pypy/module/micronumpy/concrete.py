@@ -438,6 +438,7 @@ class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
         gcstruct = V_OBJECTSTORE
+        self.flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
         if storage == lltype.nullptr(RAW_STORAGE):
             length = support.product(shape) 
             if dtype.num == NPY.OBJECT:
@@ -445,11 +446,11 @@ class ConcreteArray(ConcreteArrayNotOwning):
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
             else:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
+            self.flags |= NPY.ARRAY_OWNDATA
         start = calc_start(shape, strides)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage, start=start)
         self.gcstruct = gcstruct
-        self.flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
         if is_c_contiguous(self):
             self.flags |= NPY.ARRAY_C_CONTIGUOUS
         if is_f_contiguous(self):
