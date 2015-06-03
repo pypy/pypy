@@ -738,7 +738,7 @@ _oplist = [
     'GETINTERIORFIELD_GC/2d/rfi',
     'RAW_LOAD/2d/fi',
     'GETFIELD_GC/1d/rfi',
-    'GETFIELD_RAW/1d/fi',
+    'GETFIELD_RAW/1d/rfi',
     '_MALLOC_FIRST',
     'NEW/0d/r',           #-> GcStruct, gcptrs inside are zeroed (not the rest)
     'NEW_WITH_VTABLE/0d/r',#-> GcStruct with vtable, gcptrs inside are zeroed
