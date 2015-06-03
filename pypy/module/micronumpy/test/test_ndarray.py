@@ -3984,8 +3984,9 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         import sys
         builtins = getattr(__builtins__, '__dict__', __builtins__)
         _buffer = builtins.get('buffer')
-        dat = np.array(_buffer('1.0'), dtype=np.float64)
-        assert (dat == [49.0, 46.0, 48.0]).all()
+        dat = np.array(_buffer('1.0'))
+        assert (dat == [49, 46, 48]).all()
+        assert dat.dtype == np.dtype('uint8')
 
 
 class AppTestPyPy(BaseNumpyAppTest):
