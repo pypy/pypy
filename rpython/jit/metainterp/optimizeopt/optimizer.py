@@ -777,6 +777,12 @@ class Optimizer(Optimization):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
+        # check no duplicates
+        seen = {}
+        for box in newboxes:
+            if box is not None:
+                assert box not in seen
+                seen[box] = None
         descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:

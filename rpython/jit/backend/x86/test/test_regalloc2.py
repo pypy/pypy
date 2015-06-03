@@ -14,6 +14,7 @@ from rpython.jit.codewriter import longlong, heaptracker
 
 CPU = getcpuclass()
 
+
 def test_bug_rshift():
     v1 = InputArgInt()
     v2 = InputArgInt()

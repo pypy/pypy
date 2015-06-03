@@ -2845,6 +2845,7 @@ class MetaInterp(object):
             self.virtualizable_boxes.append(virtualizable_box)
 
     def gen_store_back_in_vable(self, box):
+        raise Exception("untested")
         vinfo = self.jitdriver_sd.virtualizable_info
         if vinfo is not None:
             # xxx only write back the fields really modified
@@ -2866,7 +2867,7 @@ class MetaInterp(object):
             virtualizable = vinfo.unwrap_virtualizable_box(vbox)
             for k in range(vinfo.num_arrays):
                 descr = vinfo.array_field_descrs[k]
-                abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
+                abox = self.execute_and_record(rop.GETFIELD_GC_R, descr, vbox)
                 descr = vinfo.array_descrs[k]
                 for j in range(vinfo.get_array_length(virtualizable, k)):
                     itembox = self.virtualizable_boxes[i]
