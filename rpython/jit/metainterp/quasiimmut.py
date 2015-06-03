@@ -103,8 +103,8 @@ class QuasiImmut(object):
 class QuasiImmutDescr(AbstractDescr):
     # those fields are necessary for translation without quasi immutable
     # fields
-    struct = None
-    fielddescr = lltype.nullptr(llmemory.GCREF.TO)
+    struct = lltype.nullptr(llmemory.GCREF.TO)
+    fielddescr = None
     
     def __init__(self, cpu, struct, fielddescr, mutatefielddescr):
         self.cpu = cpu
