@@ -46,13 +46,16 @@ class AppTestVMProf(object):
         assert no_of_codes > 10
         d = {}
 
-        exec("""def foo():
+        def exec_(code, d):
+            exec(code, d)
+
+        exec_("""def foo():
             pass
         """, d)
 
         _vmprof.enable(self.tmpfileno2)
 
-        exec("""def foo2():
+        exec_("""def foo2():
             pass
         """, d)
 
