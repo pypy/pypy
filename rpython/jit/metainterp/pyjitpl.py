@@ -838,9 +838,15 @@ class MIFrame(object):
         # null, and the guard will be removed.  So the fact that the field is
         # quasi-immutable will have no effect, and instead it will work as a
         # regular, probably virtual, structure.
-        opnum = OpHelpers.getfield_for_descr(mutatefielddescr)
-        mutatebox = self.execute_with_descr(opnum,
-                                            mutatefielddescr, box)
+        if mutatefielddescr.is_pointer_field():
+            mutatebox = self.execute_with_descr(rop.GETFIELD_GC_R,
+                                                mutatefielddescr, box)
+        elif mutatefielddescr.is_float_field():
+            mutatebox = self.execute_with_descr(rop.GETFIELD_GC_R,
+                                                mutatefielddescr, box)
+        else:
+            mutatebox = self.execute_with_descr(rop.GETFIELD_GC_I,
+                                                mutatefielddescr, box)
         if mutatebox.nonnull():
             from rpython.jit.metainterp.quasiimmut import do_force_quasi_immutable
             do_force_quasi_immutable(self.metainterp.cpu, box.getref_base(),
