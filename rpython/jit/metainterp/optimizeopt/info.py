@@ -123,8 +123,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         if self._fields is None:
-            return 0
-        count = 0
+            return
         for i, flddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             if fld is not None:
@@ -133,8 +132,6 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                                           descr=flddescr)
                 optforce._emit_operation(setfieldop)
                 optforce.optheap.register_dirty_field(flddescr, self)
-                count += 1
-        return count
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
         if visitor.already_seen_virtual(instbox):
@@ -299,7 +296,6 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         arraydescr = op.getdescr()
-        count = 0
         for i in range(self.length):
             item = self._items[i]
             if item is not None:
@@ -309,8 +305,6 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                       descr=arraydescr)
                 optforce._emit_operation(setop)
                 # xxxx optforce.optheap
-                count += 1
-        return count
 
     def setitem(self, index, op, cf=None, optheap=None):
         if self._items is None:
@@ -368,7 +362,6 @@ class ArrayStructInfo(ArrayPtrInfo):
     def _force_elements(self, op, optforce, descr):
         i = 0
         fielddescrs = op.getdescr().get_all_fielddescrs()
-        count = 0
         for index in range(self.length):
             for flddescr in fielddescrs:
                 fld = self._items[i]
@@ -379,9 +372,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                                               descr=flddescr)
                     optforce._emit_operation(setfieldop)
                     # XXX optforce.optheap
-                    count += 1
                 i += 1
-        return count
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
         itemops = [optimizer.get_box_replacement(item)
