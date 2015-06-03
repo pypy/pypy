@@ -742,7 +742,12 @@ class MIFrame(object):
             return executor.execute_nonspec_const(self.metainterp.cpu,
                                     self.metainterp, opnum, [box], fielddescr)
         # fall-back
-        return self.execute_with_descr(opnum, fielddescr, box)
+        if fielddescr.is_pointer_field():
+            return self.execute_with_descr(rop.GETFIELD_GC_R, fielddescr, box)
+        elif fielddescr.is_float_field():
+            return self.execute_with_descr(rop.GETFIELD_GC_F, fielddescr, box)
+        else:
+            return self.execute_with_descr(rop.GETFIELD_GC_I, fielddescr, box)
     opimpl_getfield_gc_i_greenfield = _opimpl_getfield_gc_greenfield_any
     opimpl_getfield_gc_r_greenfield = _opimpl_getfield_gc_greenfield_any
     opimpl_getfield_gc_f_greenfield = _opimpl_getfield_gc_greenfield_any
