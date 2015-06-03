@@ -49,8 +49,7 @@ class AppTestRandom:
         rnd.seed(1234)
         state = rnd.getstate()
         s = repr(state)
-        assert len(s) == 7956
-        assert s.count('L') == 625
+        assert len(s) == 7331
 
     def test_seed(self):
         import _random, sys
