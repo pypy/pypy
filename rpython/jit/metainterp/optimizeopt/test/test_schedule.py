@@ -108,6 +108,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v2[i64#2] = vec_int_pack(v1[i64#2], i0, 0, 1)
         v3[i64#2] = vec_int_pack(v2[i64#2], i1, 1, 1)
         v4[i64#2] = vec_int_expand(73)
+        #
         v5[i64#2] = vec_int_add(v3[i64#2], v4[i64#2])
         """, False)
         self.assert_equal(loop2, loop3)
@@ -123,6 +124,28 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v2[f64#2] = vec_float_pack(v1[f64#2], f0, 0, 1)
         v3[f64#2] = vec_float_pack(v2[f64#2], f1, 1, 1)
         v4[f64#2] = vec_float_expand(73.0)
+        #
         v5[f64#2] = vec_float_add(v3[f64#2], v4[f64#2])
+        """, False)
+        self.assert_equal(loop2, loop3)
+
+    def test_scalar_remember_expansion(self):
+        loop1 = self.parse("""
+        f10 = float_add(f0, f5)
+        f11 = float_add(f1, f5)
+        f12 = float_add(f10, f5)
+        f13 = float_add(f11, f5)
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        pack2 = self.pack(loop1, 2, 4)
+        loop2 = self.schedule(loop1, [pack1, pack2], prepend_invariant=True)
+        loop3 = self.parse("""
+        v1[f64#2] = vec_box(2)
+        v2[f64#2] = vec_float_pack(v1[f64#2], f0, 0, 1)
+        v3[f64#2] = vec_float_pack(v2[f64#2], f1, 1, 1)
+        v4[f64#2] = vec_float_expand(f5) # only expaned once
+        #
+        v5[f64#2] = vec_float_add(v3[f64#2], v4[f64#2])
+        v6[f64#2] = vec_float_add(v5[f64#2], v4[f64#2])
         """, False)
         self.assert_equal(loop2, loop3)

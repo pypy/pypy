@@ -1052,10 +1052,16 @@ class OpToVectorOp(object):
     def expand(self, nodes, arg, argidx):
         vbox = self.input_type.new_vector_box(len(nodes))
         box_type = arg.type
+        expanded_map = self.sched_data.expanded_map
         invariant_ops = self.sched_data.invariant_oplist
         invariant_vars = self.sched_data.invariant_vector_vars
         if isinstance(arg, BoxVector):
             box_type = arg.item_type
+
+        # note that heterogenous nodes are not yet tracked
+        already_expanded = expanded_map.get(arg, None)
+        if already_expanded:
+            return already_expanded
 
         for i, node in enumerate(nodes):
             op = node.getoperation()
@@ -1069,6 +1075,7 @@ class OpToVectorOp(object):
             op = ResOperation(expand_opnum, [arg], vbox)
             invariant_ops.append(op)
             invariant_vars.append(vbox)
+            expanded_map[arg] = vbox
             return vbox
 
         op = ResOperation(rop.VEC_BOX, [ConstInt(len(nodes))], vbox)
@@ -1085,6 +1092,7 @@ class OpToVectorOp(object):
             op = ResOperation(opnum, [vbox,arg,ci,c1], new_box)
             vbox = new_box
             invariant_ops.append(op)
+
         invariant_vars.append(vbox)
         return vbox
 
@@ -1239,6 +1247,7 @@ class VecScheduleData(SchedulerData):
         self.vec_reg_size = vec_reg_size
         self.invariant_oplist = []
         self.invariant_vector_vars = []
+        self.expanded_map = {}
 
     def as_vector_operation(self, pack):
         op_count = len(pack.operations)
