@@ -503,11 +503,12 @@ class W_Dtype(W_Root):
 
 
 @specialize.arg(2)
-def dtype_from_list(space, w_lst, simple):
+def dtype_from_list(space, w_lst, simple, align=False):
     lst_w = space.listview(w_lst)
     fields = {}
     offset = 0
     names = []
+    maxalign = 0
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
         if simple:
@@ -530,7 +531,11 @@ def dtype_from_list(space, w_lst, simple):
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         offset += subdtype.elsize
+        maxalign = max(subdtype.elsize, maxalign)
         names.append(fldname)
+    if align:
+        # Set offset to the next power-of-two above offset
+        offset = (offset + maxalign -1) & (-maxalign)
     return W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=offset)
 
@@ -580,14 +585,14 @@ def _check_for_commastring(s):
             sqbracket -= 1
     return False
 
-
-def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
-    # w_align and w_copy are necessary for pickling
+@unwrap_spec(align=bool)
+def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=None):
+    # align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
 
     if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
                                 space.len_w(w_shape) > 0):
-        subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
+        subdtype = descr__new__(space, w_subtype, w_dtype, align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         size = 1
         if space.isinstance_w(w_shape, space.w_int):
@@ -627,16 +632,16 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
-        return dtype_from_list(space, w_dtype, False)
+        return dtype_from_list(space, w_dtype, False, align=align)
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
-        subdtype = descr__new__(space, w_subtype, w_dtype0, w_align, w_copy)
+        subdtype = descr__new__(space, w_subtype, w_dtype0, align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         if subdtype.elsize == 0:
             name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
-            return descr__new__(space, w_subtype, space.wrap(name), w_align, w_copy)
-        return descr__new__(space, w_subtype, w_dtype0, w_align, w_copy, w_shape=w_dtype1)
+            return descr__new__(space, w_subtype, space.wrap(name), align, w_copy)
+        return descr__new__(space, w_subtype, w_dtype0, align, w_copy, w_shape=w_dtype1)
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:

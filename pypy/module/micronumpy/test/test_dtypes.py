@@ -1083,6 +1083,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
         from numpy import dtype, void
 
+        d = dtype([('x', 'i4'), ('y', 'i1')], align=True)
+        assert d.itemsize == 8
         raises(ValueError, "dtype([('x', int), ('x', float)])")
         d = dtype([("x", "<i4"), ("y", "<f4"), ("z", "<u2"), ("v", "<f8")])
         assert d.fields['x'] == (dtype('<i4'), 0)
