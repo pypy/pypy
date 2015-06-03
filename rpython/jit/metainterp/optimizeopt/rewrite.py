@@ -121,6 +121,9 @@ class OptRewrite(Optimization):
             self.optimizer.pure_reverse(op)
 
     def optimize_INT_ADD(self, op):
+        if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
+            self.emit_operation(op)
+            return
         arg1 = self.get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg1)
         arg2 = self.get_box_replacement(op.getarg(1))

@@ -316,6 +316,10 @@ class Optimization(object):
         return opinfo
 
     def getptrinfo(self, op, create=False, is_object=False):
+        if op.type == 'i':
+            return self.getrawptrinfo(op, create)
+        elif op.type == 'f':
+            return None
         assert op.type == 'r'
         op = self.get_box_replacement(op)
         assert op.type == 'r'
@@ -327,6 +331,12 @@ class Optimization(object):
             return fw
         return None
 
+    def is_raw_ptr(self, op):
+        fw = self.get_box_replacement(op).get_forwarded()
+        if isinstance(fw, info.AbstractRawPtrInfo):
+            return True
+        return False
+    
     def getrawptrinfo(self, op, create=False, is_object=False):
         assert op.type == 'i'
         op = self.get_box_replacement(op)
@@ -334,11 +344,14 @@ class Optimization(object):
         if isinstance(op, ConstInt):
             return info.ConstPtrInfo(op)
         fw = op.get_forwarded()
+        if isinstance(fw, IntBound) and not create:
+            return None
         if fw is not None:
-            if isinstance(fw, info.NonNullPtrInfo):
-                fw = info.RawStructPtrInfo()
-                op.set_forwarded(fw)
-            assert isinstance(fw, info.RawStructPtrInfo)
+            if isinstance(fw, info.AbstractRawPtrInfo):
+                return fw
+            fw = info.RawStructPtrInfo()
+            op.set_forwarded(fw)
+            assert isinstance(fw, info.AbstractRawPtrInfo)
             return fw
         return None
 

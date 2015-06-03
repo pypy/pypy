@@ -220,11 +220,13 @@ class ResumeDataLoopMemo(object):
             elif box in liveboxes:
                 tagged = liveboxes[box]
             else:
+                is_virtual = False
                 if box.type == 'r':
                     info = optimizer.getptrinfo(box)
-                    is_virtual = (info is not None and info.is_virtual())
-                else:
-                    is_virtual = False
+                    is_virtual = (info and info.is_virtual())
+                if box.type == 'i':
+                    info = optimizer.getrawptrinfo(box, create=False)
+                    is_virtual = (info and info.is_virtual()) 
                 if is_virtual:
                     tagged = tag(v, TAGVIRTUAL)
                     v += 1
@@ -390,7 +392,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 liveboxes[i] = box
             else:
                 assert tagbits == TAGVIRTUAL
-                info = optimizer.getptrinfo(box)
+                if box.type == 'r':
+                    info = optimizer.getptrinfo(box)
+                else:
+                    assert box.type == 'i'
+                    info = optimizer.getrawptrinfo(box)
                 info.visitor_walk_recursive(box, self, optimizer)
 
         for setfield_op in pending_setfields:

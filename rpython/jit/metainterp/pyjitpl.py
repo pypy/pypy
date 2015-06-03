@@ -1573,7 +1573,10 @@ class MIFrame(object):
                         return resbox
                 self.metainterp.vable_and_vrefs_before_residual_call()
                 tp = descr.get_result_type()
-                if tp == 'i':
+                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                    resbox = self.metainterp.direct_libffi_call(allboxes, descr,
+                                                                tp)
+                elif tp == 'i':
                     resbox = self.metainterp.execute_and_record_varargs(
                         rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
                 elif tp == 'r':
@@ -1601,11 +1604,6 @@ class MIFrame(object):
                 if vablebox is not None:
                     self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
                 self.metainterp.handle_possible_exception()
-                # XXX refactor: direct_libffi_call() is a hack
-                # does not work in the new system
-                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                    raise Exception("implement OS_LIBFFI_CALL properly")
-                #    self.metainterp.direct_libffi_call()
                 return resbox
             else:
                 effect = effectinfo.extraeffect
@@ -2963,9 +2961,8 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self):
-        """Generate a direct call to C code, patching the CALL_MAY_FORCE
-        to jit_ffi_call() that occurred just now.
+    def direct_libffi_call(self, argboxes, descr, tp):
+        """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
         # if the codewriter didn't produce any OS_LIBFFI_CALL at all.
@@ -2975,33 +2972,19 @@ class MetaInterp(object):
         from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
         from rpython.jit.backend.llsupport.ffisupport import get_arg_descr
         #
-        num_extra_guards = 0
-        while True:
-            op = self.history.operations[-1-num_extra_guards]
-            if op.is_call_may_force():
-                break
-            assert op.is_guard()
-            num_extra_guards += 1
-        #
-        box_cif_description = op.getarg(1)
+        box_cif_description = argboxes[1]
         if not isinstance(box_cif_description, ConstInt):
             return
         cif_description = box_cif_description.getint()
         cif_description = llmemory.cast_int_to_adr(cif_description)
         cif_description = llmemory.cast_adr_to_ptr(cif_description,
                                                    CIF_DESCRIPTION_P)
-        extrainfo = op.getdescr().get_extra_info()
+        extrainfo = descr.get_extra_info()
         calldescr = self.cpu.calldescrof_dynamic(cif_description, extrainfo)
         if calldescr is None:
             return
         #
-        extra_guards = []
-        for i in range(num_extra_guards):
-            extra_guards.append(self.history.operations.pop())
-        extra_guards.reverse()
-        #
-        box_exchange_buffer = op.getarg(3)
-        self.history.operations.pop()
+        box_exchange_buffer = argboxes[3]
         arg_boxes = []
 
         for i in range(cif_description.nargs):
@@ -3010,12 +2993,14 @@ class MetaInterp(object):
             ofs = cif_description.exchange_args[i]
             assert ofs % itemsize == 0     # alignment check
             if kind == 'i':
-                box_arg = self.history.record(rop.GETARRAYITEM_RAW_I,
+                box_arg = self.history.record(
+                    rop.GETARRAYITEM_RAW_I,
                                     [box_exchange_buffer,
                                      ConstInt(ofs // itemsize)],
                                      0, descr)
             elif kind == 'f':
-                box_arg = self.history.record(rop.GETARRAYITEM_RAW_F,
+                box_arg = self.history.record(
+                    rop.GETARRAYITEM_RAW_F,
                                     [box_exchange_buffer,
                                      ConstInt(ofs // itemsize)],
                                      0.0, descr)
@@ -3028,15 +3013,22 @@ class MetaInterp(object):
         # (that is, errno and SetLastError/GetLastError on Windows)
         # Note these flags match the ones in clibffi.ll_callback
         c_saveall = ConstInt(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
-        if op.type == 'i':
-            self.history.record(rop.CALL_RELEASE_GIL,
-                                [c_saveall, op.getarg(2)] + arg_boxes,
-                                box_result, calldescr)
-        #
-        self.history.operations.extend(extra_guards)
+        if tp == 'i':
+            value = executor.execute_varargs(self.cpu, self,
+                                             rop.CALL_MAY_FORCE_I,
+                                             argboxes, descr)
+            box_result = self.history.record(
+                rop.CALL_RELEASE_GIL_I, [c_saveall, argboxes[2]] + arg_boxes,
+                value, descr=calldescr)
+        elif tp == 'f':
+            xxx
+            box_result = self.history.record(
+                rop.CALL_RELEASE_GIL_F, [c_saveall, argboxes[2]] + arg_boxes,
+                value, descr=calldescr)
         #
         # note that the result is written back to the exchange_buffer by the
         # special op libffi_save_result_{int,float}
+        return box_result
 
     def direct_call_release_gil(self):
         op = self.history.operations.pop()

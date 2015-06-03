@@ -543,17 +543,14 @@ class OptVirtualize(optimizer.Optimization):
         return opinfo
 
     def make_virtual_raw_memory(self, size, source_op):
-        raise Exception("unsupported")
-        logops = self.optimizer.loop.logops
-        vvalue = VRawBufferValue(self.optimizer.cpu, logops, size, source_op)
-        self.make_equal_to(source_op, vvalue)
-        return vvalue
+        opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, size)
+        source_op.set_forwarded(opinfo)
+        return opinfo
 
-    def make_virtual_raw_slice(self, rawbuffer_value, offset, source_op):
-        raise Exception("unsupported")
-        vvalue = VRawSliceValue(rawbuffer_value, offset, source_op)
-        self.make_equal_to(source_op, vvalue)
-        return vvalue
+    def make_virtual_raw_slice(self, offset, parent, source_op):
+        opinfo = info.RawSlicePtrInfo(offset, parent)
+        source_op.set_forwarded(opinfo)
+        return opinfo
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
@@ -761,23 +758,20 @@ class OptVirtualize(optimizer.Optimization):
         self.emit_operation(op)
 
     def optimize_INT_ADD(self, op):
-        if 0:
-            XXX
-            value = self.getvalue(op.getarg(0))
-            offsetbox = self.get_constant_box(op.getarg(1))
-            if value.is_virtual() and offsetbox is not None:
-                offset = offsetbox.getint()
-                # the following check is constant-folded to False if the
-                # translation occurs without any VRawXxxValue instance around
-                if value.is_about_raw:
-                    if isinstance(value, VRawBufferValue):
-                        self.make_virtual_raw_slice(value, offset, op)
-                        return
-                    elif isinstance(value, VRawSliceValue):
-                        offset = offset + value.offset
-                        self.make_virtual_raw_slice(value.rawbuffer_value, offset,
-                                                    op)
-                        return
+        opinfo = self.getrawptrinfo(op.getarg(0), create=False)
+        offsetbox = self.get_constant_box(op.getarg(1))
+        if opinfo and opinfo.is_virtual() and offsetbox is not None:
+            offset = offsetbox.getint()
+            # the following check is constant-folded to False if the
+            # translation occurs without any VRawXxxValue instance around
+            if isinstance(opinfo, info.RawBufferPtrInfo):
+                self.make_virtual_raw_slice(offset, opinfo, op)
+                return
+            elif isinstance(value, VRawSliceValue):
+                offset = offset + value.offset
+                self.make_virtual_raw_slice(value.rawbuffer_value, offset,
+                                            op)
+                return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
@@ -832,13 +826,12 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_GETARRAYITEM_RAW_I(self, op):
         opinfo = self.getrawptrinfo(op.getarg(0))
         if opinfo and opinfo.is_virtual():
-            raise Exception("implement raw virtuals")
-            xxx
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                offset, itemsize, descr = self._unpack_arrayitem_raw_op(op,
+                                                                indexbox)
                 try:
-                    itemvalue = value.getitem_raw(offset, itemsize, descr)
+                    itemvalue = opinfo.getitem_raw(offset, itemsize, descr)
                 except InvalidRawOperation:
                     pass
                 else:
@@ -853,11 +846,10 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                raise Exception("implement raw virtuals")
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
-                itemvalue = self.getvalue(op.getarg(2))
+                itemop = self.get_box_replacement(op.getarg(2))
                 try:
-                    value.setitem_raw(offset, itemsize, descr, itemvalue)
+                    opinfo.setitem_raw(offset, itemsize, descr, itemop)
                     return
                 except InvalidRawOperation:
                     pass

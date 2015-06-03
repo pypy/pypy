@@ -117,6 +117,8 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_ADD(self, op):
         self.emit_operation(op)
+        if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
+            return
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
@@ -536,6 +538,8 @@ class OptIntBounds(Optimization):
         self._propagate_int_is_true_or_zero(op, 0, 1)
 
     def propagate_bounds_INT_ADD(self, op):
+        if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
+            return
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)

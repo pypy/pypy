@@ -97,38 +97,38 @@ def test_execute_nonspec():
     # cases with a descr
     # arity == -1
     argboxes = [InputArgInt(321), ConstInt(123)]
-    box = _execute_nonspec(cpu, FakeMetaInterp(), rop.CALL_F,
+    box = _execute_arglist(cpu, FakeMetaInterp(), rop.CALL_F,
                            argboxes, FakeCallDescr())
     assert box == 42.5
     # arity == 0
-    box = _execute_nonspec(cpu, None, rop.NEW, [], descr)
+    box = _execute_arglist(cpu, None, rop.NEW, [], descr)
     assert box.fakeargs == ('new', descr)
     # arity == 1
     box1 = InputArgRef()
-    box = _execute_nonspec(cpu, None, rop.ARRAYLEN_GC, [box1], descr)
+    box = _execute_arglist(cpu, None, rop.ARRAYLEN_GC, [box1], descr)
     assert box == 55
     # arity == 2
     box2 = boxfloat(222.2)
     fielddescr = FakeFieldDescr()
-    _execute_nonspec(cpu, None, rop.SETFIELD_GC, [box1, box2], fielddescr)
+    _execute_arglist(cpu, None, rop.SETFIELD_GC, [box1, box2], fielddescr)
     assert cpu.fakesetfield == (box1.getref_base(), box2.getfloat(),
                                 fielddescr)
     # arity == 3
     box3 = InputArgInt(33)
     arraydescr = FakeArrayDescr()
-    _execute_nonspec(cpu, None, rop.SETARRAYITEM_GC, [box1, box3, box2],
+    _execute_arglist(cpu, None, rop.SETARRAYITEM_GC, [box1, box3, box2],
                     arraydescr)
     assert cpu.fakesetarrayitem == (box1.getref_base(), box3.getint(),
                                     box2.getfloat(), arraydescr)
     # cases without descr
     # arity == 1
-    box = _execute_nonspec(cpu, None, rop.INT_INVERT, [box3])
+    box = _execute_arglist(cpu, None, rop.INT_INVERT, [box3])
     assert box == ~33
     # arity == 2
-    box = _execute_nonspec(cpu, None, rop.INT_LSHIFT, [box3, InputArgInt(3)])
+    box = _execute_arglist(cpu, None, rop.INT_LSHIFT, [box3, InputArgInt(3)])
     assert box == 33 << 3
     # arity == 3
-    _execute_nonspec(cpu, None, rop.STRSETITEM, [box1, InputArgInt(3), box3])
+    _execute_arglist(cpu, None, rop.STRSETITEM, [box1, InputArgInt(3), box3])
     assert cpu.fakestrsetitem == (box1.getref_base(), 3, box3.getint())
 
 # ints
@@ -245,7 +245,7 @@ def get_int_tests():
 def test_int_ops():
     cpu = FakeCPU()
     for opnum, boxargs, retvalue in get_int_tests():
-        r = _execute_nonspec(cpu, None, opnum, boxargs)
+        r = _execute_arglist(cpu, None, opnum, boxargs)
         assert r == retvalue
 
 # floats
@@ -315,7 +315,7 @@ def get_float_tests(cpu):
 def test_float_ops():
     cpu = FakeCPU()
     for opnum, boxargs, rettype, retvalue in get_float_tests(cpu):
-        res = _execute_nonspec(cpu, None, opnum, boxargs)
+        res = _execute_arglist(cpu, None, opnum, boxargs)
         assert res == retvalue
 
 def make_args_for_op(op, a, b):

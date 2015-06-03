@@ -4,6 +4,7 @@ from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop
 from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.rtyper.lltypesystem import lltype
+from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 
 
 INFO_NULL = 0
@@ -141,11 +142,10 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                                          for box in self._fields])
         for i in range(len(lst)):
             op = self._fields[i]
-            if op and op.type == 'r':
-                op = op.get_box_replacement()
-                fieldinfo = optimizer.getptrinfo(op)
-                if fieldinfo and fieldinfo.is_virtual():
-                    fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
+            op = op.get_box_replacement()
+            fieldinfo = optimizer.getptrinfo(op)
+            if fieldinfo and fieldinfo.is_virtual():
+                fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
@@ -174,8 +174,85 @@ class StructPtrInfo(AbstractStructPtrInfo):
         assert self.is_virtual()
         return visitor.visit_vstruct(self.vdescr, fielddescrs)
 
-class RawStructPtrInfo(StructPtrInfo):
-    pass
+class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
+    def visitor_walk_recursive(self, op, visitor, optimizer):
+        xxx
+        box = self.rawbuffer_value.get_key_box()
+        visitor.register_virtual_fields(self.keybox, [box])
+        self.rawbuffer_value.visitor_walk_recursive(visitor)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        yyy
+        return visitor.visit_vrawslice(self.offset)    
+
+class RawBufferPtrInfo(AbstractRawPtrInfo):
+    buffer = None
+    
+    def __init__(self, cpu, size=-1):
+        self.size = size
+        if self.size != -1:
+            self.buffer = RawBuffer(cpu, None)
+
+    def getitem_raw(self, offset, itemsize, descr):
+        if not self.is_virtual():
+            raise InvalidRawOperation
+            # see 'test_virtual_raw_buffer_forced_but_slice_not_forced'
+            # for the test above: it's not enough to check is_virtual()
+            # on the original object, because it might be a VRawSliceValue
+            # instead.  If it is a virtual one, then we'll reach here anway.
+        return self.buffer.read_value(offset, itemsize, descr)
+
+    def setitem_raw(self, offset, itemsize, descr, itemop):
+        if not self.is_virtual():
+            raise InvalidRawOperation
+        self.buffer.write_value(offset, itemsize, descr, itemop)
+
+    def is_virtual(self):
+        return self.size != -1
+
+    def _force_elements(self, op, optforce, descr):
+        xxx
+
+    def visitor_walk_recursive(self, op, visitor, optimizer):
+        itemboxes = self.buffer.values
+        visitor.register_virtual_fields(op, itemboxes)
+        #for itembox in itemboxes:
+        #    xxx
+        #    itemvalue = self.get_item_value(i)
+        #    if itemvalue is not None:
+        #        itemvalue.visitor_walk_recursive(visitor)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vrawbuffer(self.size,
+                                        self.buffer.offsets[:],
+                                        self.buffer.descrs[:])
+
+class RawStructPtrInfo(AbstractRawPtrInfo):
+    def __init__(self):
+        import pdb
+        pdb.set_trace()
+    
+    def _force_elements(self, op, optforce, descr):
+        xxx
+
+class RawSlicePtrInfo(AbstractRawPtrInfo):
+    def __init__(self, offset, parent):
+        self.offset = offset
+        self.parent = parent
+
+    def is_virtual(self):
+        return self.parent.is_virtual()
+
+    def getitem_raw(self, offset, itemsize, descr):
+        return self.parent.getitem_raw(self.offset+offset, itemsize, descr)        
+
+    def setitem_raw(self, offset, itemsize, descr, itemop):
+        self.parent.setitem_raw(self.offset+offset, itemsize, descr, itemop)
+    
+    def _force_elements(self, op, optforce, descr):
+        xxx
 
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('length', '_items', 'lenbound', '_clear')
@@ -242,7 +319,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         visitor.register_virtual_fields(instbox, itemops)
         for i in range(self.getlength()):
             itemop = self._items[i]
-            if (itemop is not None and itemop.type == 'r' and
+            if (itemop is not None and
                 not isinstance(itemop, Const)):
                 ptrinfo = optimizer.getptrinfo(itemop)
                 if ptrinfo and ptrinfo.is_virtual():
@@ -298,7 +375,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         for index in range(self.getlength()):
             for flddescr in fielddescrs:
                 itemop = self._items[i]
-                if (itemop is not None and itemop.type == 'r' and
+                if (itemop is not None and
                     not isinstance(itemop, Const)):
                     ptrinfo = optimizer.getptrinfo(itemop)
                     if ptrinfo and ptrinfo.is_virtual():
