@@ -149,6 +149,10 @@ class VStringPlainInfo(StrPtrInfo):
     def setitem(self, index, op, cf=None, optheap=None):
         self._chars[index] = op
 
+    def shrink(self, length):
+        assert length >= 0
+        del self._chars[length:]
+
     def setup_slice(self, longerlist, start, stop):
         assert 0 <= start <= stop <= len(longerlist)
         self._chars = longerlist[start:stop]
@@ -532,12 +536,14 @@ class OptString(optimizer.Optimization):
             self.pure_from_args(mode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
-        value = self.getptrinfo(op.getarg(0))
-        assert not value.is_constant() # strsetitem(ConstPtr) never makes sense
-        if value and value.is_virtual():
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo:
+            assert not opinfo.is_constant()
+            # strsetitem(ConstPtr) never makes sense
+        if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                value.setitem(indexbox.getint(),
+                opinfo.setitem(indexbox.getint(),
                               self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
@@ -864,37 +870,37 @@ class OptString(optimizer.Optimization):
         return False
 
     def opt_call_stroruni_STR_CMP(self, op, mode):
-        raise Exception('implement me')
-        v1 = self.getvalue(op.getarg(1))
-        v2 = self.getvalue(op.getarg(2))
-        l1box = v1.getstrlen(None, mode, None)
-        l2box = v2.getstrlen(None, mode, None)
+        i1 = self.getptrinfo(op.getarg(1))
+        i2 = self.getptrinfo(op.getarg(2))
+        if not i1 or not i2:
+            return False
+        l1box = i1.getstrlen(None, self, mode, False)
+        l2box = i2.getstrlen(None, self, mode, False)
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and
-            l1box.value == l2box.value == 1):
+            l1box.getint() == l2box.getint() == 1):
             # comparing two single chars
-            vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
-            vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
+            char1 = self.strgetitem(None, op.getarg(1), optimizer.CONST_0, mode)
+            char2 = self.strgetitem(None, op.getarg(2), optimizer.CONST_0, mode)
             seo = self.optimizer.send_extra_operation
-            op = self.replace_op_with(op, rop.INT_SUB,
-                                      [vchar1.force_box(self),
-                                       vchar2.force_box(self)])
+            op = self.replace_op_with(op, rop.INT_SUB, [char1, char2],
+                                      descr=DONT_CHANGE)
             seo(op)
             return True
         return False
 
     def opt_call_SHRINK_ARRAY(self, op):
-        raise Exception('implement me')
-        v1 = self.getvalue(op.getarg(1))
-        v2 = self.getvalue(op.getarg(2))
+        i1 = self.getptrinfo(op.getarg(1))
+        i2 = self.getintbound(op.getarg(2))
         # If the index is constant, if the argument is virtual (we only support
         # VStringPlainValue for now) we can optimize away the call.
-        if v2.is_constant() and v1.is_virtual() and isinstance(v1, VStringPlainValue):
-            length = v2.box.getint()
-            v1.shrink(length)
+        if (i2 and i2.is_constant() and i1 and i1.is_virtual() and
+            isinstance(i1, VStringPlainInfo)):
+            length = i2.getint()
+            i1.shrink(length)
             self.last_emitted_operation = REMOVED
-            self.make_equal_to(op, v1)
+            self.make_equal_to(op, op.getarg(1))
             return True
         return False
 

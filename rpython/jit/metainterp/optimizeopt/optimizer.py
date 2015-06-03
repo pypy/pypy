@@ -866,9 +866,9 @@ class Optimizer(Optimization):
     def optimize_UNICODEGETITEM(self, op):
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
-            raise Exception("implement me")
-            arrayvalue = self.getvalue(op.getarg(0))
-            arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
+            #arrayvalue = self.getvalue(op.getarg(0))
+            #arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
+            pass
         self.optimize_default(op)
 
     # These are typically removed already by OptRewrite, but it can be
