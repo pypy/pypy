@@ -681,9 +681,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             fieldop = opinfo.getfield(op.getdescr())
             if fieldop is None:
-                raise Exception("I think this is plain illegal")
-                xxx
-                fieldvalue = self.optimizer.new_const(op.getdescr())
+                fieldop = self.optimizer.new_const(op.getdescr())
             self.make_equal_to(op, fieldop)
         else:
             self.make_nonnull(op.getarg(0))

@@ -60,6 +60,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         self.length = length
         self._is_virtual = is_virtual
         self.mode = mode
+        self.length = length
 
     def getlenbound(self):
         from rpython.jit.metainterp.optimizeopt import intutils
@@ -204,6 +205,8 @@ class VStringPlainInfo(StrPtrInfo):
         return visitor.visit_vstrplain(self.mode is mode_unicode)
 
 class VStringSliceInfo(StrPtrInfo):
+    length = -1
+    
     def __init__(self, s, start, length, mode):
         self.s = s
         self.start = start
@@ -224,12 +227,12 @@ class VStringSliceInfo(StrPtrInfo):
         vstart = string_optimizer.getintbound(self.start)
         vlength = string_optimizer.getintbound(self.lgtop)
         if vstart.is_constant() and vlength.is_constant():
-            raise Exception("implement me")
-            s1 = self.vstr.get_constant_string_spec(mode)
+            vstr = string_optimizer.getptrinfo(self.s)
+            s1 = vstr.get_constant_string_spec(string_optimizer, mode)
             if s1 is None:
                 return None
-            start = self.vstart.box.getint()
-            length = self.vlength.box.getint()
+            start = vstart.getint()
+            length = vlength.getint()
             assert start >= 0
             assert length >= 0
             return s1[start : start + length]
@@ -237,6 +240,17 @@ class VStringSliceInfo(StrPtrInfo):
 
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return self.lgtop
+
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        boxes = [self.s, self.start, self.lgtop]
+        visitor.register_virtual_fields(instbox, boxes)
+        opinfo = optimizer.getptrinfo(self.s)
+        if opinfo and opinfo.is_virtual():
+            opinfo.visitor_walk_recursive(visitor)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vstrslice(self.mode is mode_unicode)
 
 class VStringConcatInfo(StrPtrInfo):
     #_attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')

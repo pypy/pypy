@@ -1168,9 +1168,9 @@ class MIFrame(object):
         if isinstance(box, Const):
             return box     # no promotion needed, already a Const
         else:
-            constbox = box.constbox()
+            constbox = ConstPtr(box.getref_base())
             resbox = self.do_residual_call(funcbox, [box, constbox], descr, orgpc)
-            promoted_box = resbox.constbox()
+            promoted_box = ConstInt(resbox.getint())
             # This is GUARD_VALUE because GUARD_TRUE assumes the existance
             # of a label when computing resumepc
             self.metainterp.generate_guard(rop.GUARD_VALUE, resbox,

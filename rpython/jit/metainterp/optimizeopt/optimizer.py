@@ -777,7 +777,12 @@ class Optimizer(Optimization):
                 raise resume.TagOverflow
         except resume.TagOverflow:
             raise compile.giveup()
-        descr.store_final_boxes(op, newboxes, self.metainterp_sd)
+        _newboxes = []
+        for box in newboxes:
+            if box is not None:
+                box = self.get_box_replacement(box)
+            _newboxes.append(box)
+        descr.store_final_boxes(op, _newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
             if op.getarg(0).type == 'i':
