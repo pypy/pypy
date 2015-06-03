@@ -643,7 +643,7 @@ class GcLLDescr_framework(GcLLDescription):
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def init_array_descr(self, A, descr):
-        if not isinstance(A, lltype.GcArray):
+        if not isinstance(A, (lltype.GcArray, lltype.GcStruct)):
             return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(A)

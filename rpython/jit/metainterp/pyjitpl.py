@@ -784,9 +784,6 @@ class MIFrame(object):
     def opimpl_getfield_raw_i_pure(self, box, fielddescr):
         return self.execute_with_descr(rop.GETFIELD_RAW_PURE_I, fielddescr, box)
     @arguments("box", "descr")
-    def opimpl_getfield_raw_r_pure(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_R, fielddescr, box)
-    @arguments("box", "descr")
     def opimpl_getfield_raw_f_pure(self, box, fielddescr):
         return self.execute_with_descr(rop.GETFIELD_RAW_PURE_F, fielddescr, box)
 
