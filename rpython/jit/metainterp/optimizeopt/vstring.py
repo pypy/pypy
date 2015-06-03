@@ -250,7 +250,7 @@ class VStringSliceInfo(StrPtrInfo):
         visitor.register_virtual_fields(instbox, boxes)
         opinfo = optimizer.getptrinfo(self.s)
         if opinfo and opinfo.is_virtual():
-            opinfo.visitor_walk_recursive(visitor)
+            opinfo.visitor_walk_recursive(self.s, visitor, optimizer)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):

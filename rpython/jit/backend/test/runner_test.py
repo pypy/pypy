@@ -1807,9 +1807,17 @@ class LLtypeBackendTest(BaseBackendTest):
         vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
         vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         cpu = self.cpu
-        if not hasattr(cpu, '_cache_gcstruct2vtable'):
-            cpu._cache_gcstruct2vtable = {}
-        cpu._cache_gcstruct2vtable.update({T: vtable_for_T})
+        class FakeGCCache(object):
+            pass
+        
+        if not hasattr(cpu.gc_ll_descr, '_cache_gcstruct2vtable'):
+            cpu.gc_ll_descr._cache_gcstruct2vtable = {}
+        cpu.gc_ll_descr._cache_gcstruct2vtable.update({T: vtable_for_T})
+        p = T
+        while hasattr(p, 'parent'):
+            vtable_for_parent = lltype.malloc(self.MY_VTABLE, immortal=True)
+            cpu.gc_ll_descr._cache_gcstruct2vtable[p.parent] = vtable_for_parent
+            p = p.parent
         t = lltype.malloc(T)
         if T == self.T:
             t.parent.parent.typeptr = vtable_for_T
@@ -1817,7 +1825,10 @@ class LLtypeBackendTest(BaseBackendTest):
             t.parent.parent.parent.typeptr = vtable_for_T
         t_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
-        descr = cpu.sizeof(T, True)
+        is_object = True
+        if not hasattr(T, 'parent'):
+            is_object = False
+        descr = cpu.sizeof(T, is_object)
         return t_box, T_box, descr
 
     def null_instance(self):
@@ -3405,6 +3416,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                   ('value', lltype.Signed),
                                   ('chr1', lltype.Char),
                                   ('chr2', lltype.Char))
+        self.alloc_instance(S)
         chr1 = self.cpu.fielddescrof(S, 'chr1').sort_key()
         value = self.cpu.fielddescrof(S, 'value').sort_key()
         chr2 = self.cpu.fielddescrof(S, 'chr2').sort_key()

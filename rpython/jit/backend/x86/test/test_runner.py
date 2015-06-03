@@ -55,8 +55,8 @@ class TestX86(LLtypeBackendTest):
 
     def test_execute_ptr_operation(self):
         cpu = self.cpu
-        u = lltype.malloc(U)
-        u_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, u))
+        u_box, _, _ = self.alloc_instance(U)
+        u = u_box.getref(lltype.Ptr(U))
         ofs = cpu.fielddescrof(S, 'value')
         assert self.execute_operation(rop.SETFIELD_GC,
                                       [u_box, InputArgInt(3)],

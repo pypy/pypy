@@ -348,7 +348,10 @@ class ArrayStructInfo(ArrayPtrInfo):
         self._items = [None] * (size * lgt)
 
     def _compute_index(self, index, fielddescr):
-        one_size = len(fielddescr.get_arraydescr().get_all_fielddescrs())
+        all_fdescrs = fielddescr.get_arraydescr().get_all_fielddescrs()
+        if all_fdescrs is None:
+            return 0 # annotation hack
+        one_size = len(all_fdescrs)
         return index * one_size + fielddescr.fielddescr.get_index()
         
     def setinteriorfield_virtual(self, index, fielddescr, fld):
