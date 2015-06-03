@@ -407,6 +407,7 @@ class OptIntBounds(Optimization):
             b1.make_le(IntUpperBound(descr.get_integer_max()))
 
     optimize_GETFIELD_RAW_F = optimize_GETFIELD_RAW_I
+    optimize_GETFIELD_RAW_R = optimize_GETFIELD_RAW_I
     optimize_GETFIELD_GC_I = optimize_GETFIELD_RAW_I
     optimize_GETFIELD_GC_R = optimize_GETFIELD_RAW_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_RAW_I

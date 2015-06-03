@@ -180,17 +180,20 @@ def do_getfield_gc_f(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()
     return cpu.bh_getfield_gc_f(struct, fielddescr)
 
-def do_getfield_raw(cpu, _, structbox, fielddescr):
-    raise Exception("implement me")    
-    xxxx
+def do_getfield_raw_i(cpu, _, structbox, fielddescr):
     check_descr(fielddescr)
     struct = structbox.getint()
-    if fielddescr.is_pointer_field():
-        return BoxPtr(cpu.bh_getfield_raw_r(struct, fielddescr))
-    elif fielddescr.is_float_field():
-        return BoxFloat(cpu.bh_getfield_raw_f(struct, fielddescr))
-    else:
-        return BoxInt(cpu.bh_getfield_raw_i(struct, fielddescr))
+    return cpu.bh_getfield_raw_i(struct, fielddescr)
+
+def do_getfield_raw_f(cpu, _, structbox, fielddescr):
+    check_descr(fielddescr)
+    struct = structbox.getint()
+    return cpu.bh_getfield_raw_f(struct, fielddescr)
+
+def do_getfield_raw_r(cpu, _, structbox, fielddescr):
+    check_descr(fielddescr)
+    struct = structbox.getint()
+    return cpu.bh_getfield_raw_r(struct, fielddescr)
 
 def do_setfield_gc(cpu, _, structbox, itembox, fielddescr):
     struct = structbox.getref_base()

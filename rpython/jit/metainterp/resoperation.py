@@ -725,7 +725,7 @@ _oplist = [
     'STRLEN/1/i',
     'STRGETITEM/2/i',
     'GETFIELD_GC_PURE/1d/rfi',
-    'GETFIELD_RAW_PURE/1d/fi',
+    'GETFIELD_RAW_PURE/1d/rfi',
     'GETARRAYITEM_GC_PURE/2d/rfi',
     'GETARRAYITEM_RAW_PURE/2d/fi',
     'UNICODELEN/1/i',
