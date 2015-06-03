@@ -95,6 +95,23 @@ class W_FFIObject(W_Root):
             else:
                 raise KeyError    # don't handle this error case here
 
+    def _ffi_bad_type(self, input_text):
+        info = self.ctxobj.info
+        errmsg = rffi.charp2str(info.c_error_message)
+        if len(input_text) > 500:
+            raise oefmt(self.w_FFIError, "%s", errmsg)
+        printable_text = ['?'] * len(input_text)
+        for i in range(len(input_text)):
+            if ' ' <= input_text[i] < '\x7f':
+                printable_text[i] = input_text[i]
+            elif input_text[i] == '\t' or input_text[i] == '\n':
+                printable_text[i] = ' '
+        num_spaces = rffi.getintfield(info, 'c_error_location')
+        raise oefmt(self.w_FFIError, "%s\n%s\n%s^",
+                    rffi.charp2str(info.c_error_message),
+                    ''.join(printable_text),
+                    " " * num_spaces)
+
     @jit.dont_look_inside
     def parse_string_to_type(self, string, consider_fn_as_fnptr):
         # This cannot be made @elidable because it calls general space
@@ -108,11 +125,7 @@ class W_FFIObject(W_Root):
             info = self.ctxobj.info
             index = parse_c_type.parse_c_type(info, string)
             if index < 0:
-                num_spaces = rffi.getintfield(info, 'c_error_location')
-                raise oefmt(self.w_FFIError, "%s\n%s\n%s^",
-                            rffi.charp2str(info.c_error_message),
-                            string,
-                            " " * num_spaces)
+                raise self._ffi_bad_type(string)
             x = realize_c_type.realize_c_type_or_func(
                 self, self.ctxobj.info.c_output, index)
             assert x is not None
