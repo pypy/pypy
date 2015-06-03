@@ -767,10 +767,9 @@ class OptVirtualize(optimizer.Optimization):
             if isinstance(opinfo, info.RawBufferPtrInfo):
                 self.make_virtual_raw_slice(offset, opinfo, op)
                 return
-            elif isinstance(value, VRawSliceValue):
-                offset = offset + value.offset
-                self.make_virtual_raw_slice(value.rawbuffer_value, offset,
-                                            op)
+            elif isinstance(opinfo, info.RawSlicePtrInfo):
+                offset = offset + opinfo.offset
+                self.make_virtual_raw_slice(offset, opinfo.parent, op)
                 return
         self.emit_operation(op)
 

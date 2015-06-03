@@ -176,15 +176,11 @@ class StructPtrInfo(AbstractStructPtrInfo):
 
 class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
     def visitor_walk_recursive(self, op, visitor, optimizer):
-        xxx
-        box = self.rawbuffer_value.get_key_box()
-        visitor.register_virtual_fields(self.keybox, [box])
-        self.rawbuffer_value.visitor_walk_recursive(visitor)
+        raise NotImplementedError("abstract")
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        yyy
-        return visitor.visit_vrawslice(self.offset)    
+        raise NotImplementedError("abstract")
 
 class RawBufferPtrInfo(AbstractRawPtrInfo):
     buffer = None
@@ -253,6 +249,15 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
     
     def _force_elements(self, op, optforce, descr):
         xxx
+
+    def visitor_walk_recursive(self, op, visitor, optimizer):
+        source_op = optimizer.get_box_replacement(op.getarg(0))
+        visitor.register_virtual_fields(op, [source_op])
+        self.parent.visitor_walk_recursive(source_op, visitor, optimizer)
+
+    @specialize.argtype(1)
+    def visitor_dispatch_virtual_type(self, visitor):
+        return visitor.visit_vrawslice(self.offset)
 
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('length', '_items', 'lenbound', '_clear')

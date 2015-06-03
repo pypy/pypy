@@ -3021,10 +3021,14 @@ class MetaInterp(object):
                 rop.CALL_RELEASE_GIL_I, [c_saveall, argboxes[2]] + arg_boxes,
                 value, descr=calldescr)
         elif tp == 'f':
-            xxx
+            value = executor.execute_varargs(self.cpu, self,
+                                             rop.CALL_MAY_FORCE_F,
+                                             argboxes, descr)
             box_result = self.history.record(
                 rop.CALL_RELEASE_GIL_F, [c_saveall, argboxes[2]] + arg_boxes,
                 value, descr=calldescr)
+        else:
+            assert False
         #
         # note that the result is written back to the exchange_buffer by the
         # special op libffi_save_result_{int,float}
