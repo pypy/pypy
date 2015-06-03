@@ -1,5 +1,5 @@
 
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
      rop
 from rpython.jit.metainterp.history import ConstInt, Const
@@ -213,7 +213,15 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
         return self.size != -1
 
     def _force_elements(self, op, optforce, descr):
-        xxx
+        self.size = -1
+        for i in range(len(self.buffer.offsets)):
+            # write the value
+            offset = self.buffer.offsets[i]
+            descr = self.buffer.descrs[i]
+            itembox = self.buffer.values[i]
+            op = ResOperation(rop.RAW_STORE,
+                              [op, ConstInt(offset), itembox], descr=descr)
+            optforce.emit_operation(op)
 
     def visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = self.buffer.values

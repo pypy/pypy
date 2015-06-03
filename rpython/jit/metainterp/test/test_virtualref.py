@@ -103,10 +103,10 @@ class VRefTests(object):
         [guard_op] = [op for op in ops
                          if op.getopnum() == rop.GUARD_NOT_FORCED]
         bxs1 = [box for box in guard_op.getfailargs()
-                  if str(box._getrepr_()).endswith('.X')]
+                  if '.X' in str(box)]
         assert len(bxs1) == 1
         bxs2 = [box for box in guard_op.getfailargs()
-                  if str(box._getrepr_()).endswith('JitVirtualRef')]
+                  if 'JitVirtualRef' in str(box)]
         assert len(bxs2) == 1
         JIT_VIRTUAL_REF = self.vrefinfo.JIT_VIRTUAL_REF
         FOO = lltype.GcStruct('FOO')
