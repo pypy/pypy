@@ -427,7 +427,7 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = ArrayDescr(A, self)
             self.descrs[key] = descr
-            if isinstance(A.OF, lltype.Struct):
+            if isinstance(A, lltype.Array) and isinstance(A.OF, lltype.Struct):
                 descrs = heaptracker.all_interiorfielddescrs(self,
                         A, get_field_descr=LLGraphCPU.interiorfielddescrof)
                 descr.all_interiorfielddescrs = descrs
@@ -506,7 +506,9 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getfield_gc_f = bh_getfield_gc
 
     bh_getfield_raw = bh_getfield_gc
-    bh_getfield_raw_pure = bh_getfield_raw
+    bh_getfield_raw_pure_i = bh_getfield_raw
+    bh_getfield_raw_pure_r = bh_getfield_raw
+    bh_getfield_raw_pure_f = bh_getfield_raw
     bh_getfield_raw_i = bh_getfield_raw
     bh_getfield_raw_r = bh_getfield_raw
     bh_getfield_raw_f = bh_getfield_raw

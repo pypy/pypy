@@ -101,9 +101,8 @@ class OptPure(Optimization):
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
         if save:
-            realop = self.get_box_replacement(op)
-            recentops = self.getrecentops(realop.getopnum())
-            recentops.add(realop)
+            recentops = self.getrecentops(op.getopnum())
+            recentops.add(op)
         if nextop:
             self.emit_operation(nextop)
 
