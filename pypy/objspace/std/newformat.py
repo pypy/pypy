@@ -528,7 +528,7 @@ def make_formatting_class():
 
         def _lit(self, s):
             if self.is_unicode:
-                return s.decode("latin1")
+                return s.decode("ascii")
             else:
                 return s
 
@@ -586,8 +586,8 @@ def make_formatting_class():
                 thousands = ""
                 grouping = "\xFF"    # special value to mean 'stop'
             if self.is_unicode:
-                self._loc_dec = dec.decode("latin1")
-                self._loc_thousands = thousands.decode("latin1")
+                self._loc_dec = dec.decode("ascii")
+                self._loc_thousands = thousands.decode("ascii")
             else:
                 self._loc_dec = dec
                 self._loc_thousands = thousands
@@ -725,7 +725,7 @@ def make_formatting_class():
                 out.append_multiple_char(fill_char[0], spec.n_lpadding)
             if spec.n_sign:
                 if self.is_unicode:
-                    sign = spec.sign.decode("latin1")
+                    sign = spec.sign.decode("ascii")
                 else:
                     sign = spec.sign
                 out.append(sign)
@@ -828,14 +828,14 @@ def make_formatting_class():
                 prefix = "0x"
             as_str = value.format(LONG_DIGITS[:base], prefix)
             if self.is_unicode:
-                return as_str.decode("latin1")
+                return as_str.decode("ascii")
             return as_str
 
         def _int_to_base(self, base, value):
             if base == 10:
                 s = str(value)
                 if self.is_unicode:
-                    return s.decode("latin1")
+                    return s.decode("ascii")
                 return s
             # This part is slow.
             negative = value < 0
@@ -954,7 +954,7 @@ def make_formatting_class():
             have_dec_point, to_remainder = self._parse_number(result, to_number)
             n_remainder = len(result) - to_remainder
             if self.is_unicode:
-                digits = result.decode("latin1")
+                digits = result.decode("ascii")
             else:
                 digits = result
             spec = self._calc_num_width(0, sign, to_number, n_digits,
@@ -1059,8 +1059,8 @@ def make_formatting_class():
                                                                to_imag_number)
 
             if self.is_unicode:
-                re_num = re_num.decode("latin1")
-                im_num = im_num.decode("latin1")
+                re_num = re_num.decode("ascii")
+                im_num = im_num.decode("ascii")
 
             #set remainder, in CPython _parse_number sets this
             #using n_re_digits causes tests to fail
