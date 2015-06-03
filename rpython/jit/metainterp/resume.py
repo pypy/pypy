@@ -407,10 +407,12 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         for setfield_op in pending_setfields:
             box = setfield_op.getarg(0)
+            box = optimizer.get_box_replacement(box)
             if setfield_op.getopnum() == rop.SETFIELD_GC:
                 fieldbox = setfield_op.getarg(1)
             else:
                 fieldbox = setfield_op.getarg(2)
+            fieldbox = optimizer.get_box_replacement(fieldbox)
             self.register_box(box)
             self.register_box(fieldbox)
             info = optimizer.getptrinfo(fieldbox)
@@ -418,7 +420,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             info.visitor_walk_recursive(fieldbox, self, optimizer)
 
         self._number_virtuals(liveboxes, optimizer, v)
-        self._add_pending_fields(pending_setfields)
+        self._add_pending_fields(optimizer, pending_setfields)
 
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
@@ -489,14 +491,14 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 return True
         return False
 
-    def _add_pending_fields(self, pending_setfields):
+    def _add_pending_fields(self, optimizer, pending_setfields):
         rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
         if pending_setfields:
             n = len(pending_setfields)
             rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
             for i in range(n):
                 op = pending_setfields[i]
-                box = op.getarg(0)
+                box = optimizer.get_box_replacement(op.getarg(0))
                 descr = op.getdescr()
                 if op.getopnum() == rop.SETARRAYITEM_GC:
                     fieldbox = op.getarg(2)
@@ -504,6 +506,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 else:
                     fieldbox = op.getarg(1)
                     itemindex = -1
+                fieldbox = optimizer.get_box_replacement(fieldbox)
                 #descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)

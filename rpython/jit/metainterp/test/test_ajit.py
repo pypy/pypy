@@ -4214,3 +4214,104 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             assert res == f(42)
             opname = "instance_ptr_%s" % cmp
             self.check_operations_history(**{opname: 0})
+
+    def test_compile_framework_9(self):
+        class X(object):
+            def __init__(self, x=0):
+                self.x = x
+
+            next = None
+
+        class CheckError(Exception):
+            pass
+
+        def check(flag):
+            if not flag:
+                raise CheckError
+
+        def before(n, x):
+            return n, x, None, None, None, None, None, None, None, None, [X(123)], None
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            if n < 1900:
+                check(l[0].x == 123)
+                num = 512 + (n & 7)
+                l = [None] * num
+                l[0] = X(123)
+                l[1] = X(n)
+                l[2] = X(n+10)
+                l[3] = X(n+20)
+                l[4] = X(n+30)
+                l[5] = X(n+40)
+                l[6] = X(n+50)
+                l[7] = X(n+60)
+                l[num-8] = X(n+70)
+                l[num-9] = X(n+80)
+                l[num-10] = X(n+90)
+                l[num-11] = X(n+100)
+                l[-12] = X(n+110)
+                l[-13] = X(n+120)
+                l[-14] = X(n+130)
+                l[-15] = X(n+140)
+            if n < 1800:
+                num = 512 + (n & 7)
+                check(len(l) == num)
+                check(l[0].x == 123)
+                check(l[1].x == n)
+                check(l[2].x == n+10)
+                check(l[3].x == n+20)
+                check(l[4].x == n+30)
+                check(l[5].x == n+40)
+                check(l[6].x == n+50)
+                check(l[7].x == n+60)
+                check(l[num-8].x == n+70)
+                check(l[num-9].x == n+80)
+                check(l[num-10].x == n+90)
+                check(l[num-11].x == n+100)
+                check(l[-12].x == n+110)
+                check(l[-13].x == n+120)
+                check(l[-14].x == n+130)
+                check(l[-15].x == n+140)
+            n -= x.foo
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        def after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            check(len(l) >= 512)
+            check(l[0].x == 123)
+            check(l[1].x == 2)
+            check(l[2].x == 12)
+            check(l[3].x == 22)
+            check(l[4].x == 32)
+            check(l[5].x == 42)
+            check(l[6].x == 52)
+            check(l[7].x == 62)
+            check(l[-8].x == 72)
+            check(l[-9].x == 82)
+            check(l[-10].x == 92)
+            check(l[-11].x == 102)
+            check(l[-12].x == 112)
+            check(l[-13].x == 122)
+            check(l[-14].x == 132)
+            check(l[-15].x == 142)
+
+        def allfuncs(num, n):
+            x = X()
+            x.foo = 2
+            main_allfuncs(num, n, x)
+            x.foo = 5
+            return x
+        def main_allfuncs(num, n, x):
+            n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s = before(n, x)
+            while n > 0:
+                myjitdriver.can_enter_jit(num=num, n=n, x=x, x0=x0, x1=x1,
+                        x2=x2, x3=x3, x4=x4, x5=x5, x6=x6, x7=x7, l=l, s=s)
+                myjitdriver.jit_merge_point(num=num, n=n, x=x, x0=x0, x1=x1,
+                        x2=x2, x3=x3, x4=x4, x5=x5, x6=x6, x7=x7, l=l, s=s)
+
+                n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s = f(
+                        n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s)
+            after(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s)
+        myjitdriver = JitDriver(greens = ['num'],
+                                reds = ['n', 'x', 'x0', 'x1', 'x2', 'x3', 'x4',
+                                        'x5', 'x6', 'x7', 'l', 's'])
+ 
+        
+        self.meta_interp(allfuncs, [9, 2000])
