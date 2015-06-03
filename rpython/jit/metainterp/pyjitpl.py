@@ -2964,7 +2964,7 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self, argboxes, descr, tp):
+    def direct_libffi_call(self, argboxes, orig_calldescr, tp):
         """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
@@ -2982,7 +2982,7 @@ class MetaInterp(object):
         cif_description = llmemory.cast_int_to_adr(cif_description)
         cif_description = llmemory.cast_adr_to_ptr(cif_description,
                                                    CIF_DESCRIPTION_P)
-        extrainfo = descr.get_extra_info()
+        extrainfo = orig_calldescr.get_extra_info()
         calldescr = self.cpu.calldescrof_dynamic(cif_description, extrainfo)
         if calldescr is None:
             return
@@ -3019,14 +3019,14 @@ class MetaInterp(object):
         if tp == 'i':
             value = executor.execute_varargs(self.cpu, self,
                                              rop.CALL_MAY_FORCE_I,
-                                             argboxes, descr)
+                                             argboxes, orig_calldescr)
             box_result = self.history.record(
                 rop.CALL_RELEASE_GIL_I, [c_saveall, argboxes[2]] + arg_boxes,
                 value, descr=calldescr)
         elif tp == 'f':
             value = executor.execute_varargs(self.cpu, self,
                                              rop.CALL_MAY_FORCE_F,
-                                             argboxes, descr)
+                                             argboxes, orig_calldescr)
             box_result = self.history.record(
                 rop.CALL_RELEASE_GIL_F, [c_saveall, argboxes[2]] + arg_boxes,
                 value, descr=calldescr)
