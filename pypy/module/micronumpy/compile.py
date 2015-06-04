@@ -61,6 +61,8 @@ class FakeSpace(ObjSpace):
     w_AttributeError = W_TypeObject("AttributeError")
     w_StopIteration = W_TypeObject("StopIteration")
     w_KeyError = W_TypeObject("KeyError")
+    w_SystemExit = W_TypeObject("SystemExit")
+    w_KeyboardInterrupt = W_TypeObject("KeyboardInterrupt")
     w_None = None
 
     w_bool = W_TypeObject("bool")
@@ -342,8 +344,19 @@ class FakeSpace(ObjSpace):
                 return FloatObject(float(int(w_dtype.value)))
             if isinstance(w_dtype, boxes.W_Int32Box):
                 return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, boxes.W_Int16Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, boxes.W_Int8Box):
+                return FloatObject(float(int(w_dtype.value)))
+            if isinstance(w_dtype, IntObject):
+                return FloatObject(float(w_dtype.intval))
+        if tp is self.w_int:
+            if isinstance(w_dtype, FloatObject):
+                return IntObject(int(w_dtype.floatval))
+
         return w_dtype
 
+    @specialize.arg(2)
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
         return getattr(w_obj, 'descr_' + s)(self, *args)
@@ -732,10 +745,10 @@ class FunctionCall(Node):
                 w_res = logical_xor.reduce(interp.space, arr, None)
             elif self.name == "unegative":
                 neg = ufuncs.get(interp.space).negative
-                w_res = neg.call(interp.space, [arr], None, None, None)
+                w_res = neg.call(interp.space, [arr], None, 'unsafe', None)
             elif self.name == "cos":
                 cos = ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr], None, None, None)
+                w_res = cos.call(interp.space, [arr], None, 'unsafe', None)
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":

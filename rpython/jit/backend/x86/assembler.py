@@ -2636,6 +2636,11 @@ class Assembler386(BaseAssembler):
         elif size == 8:
             self.mc.MOVDDUP(resloc, srcloc)
 
+    def genop_vec_int_expand(self, op, arglocs, resloc):
+        srcloc, sizeloc = arglocs
+        size = sizeloc.value
+        raise NotImplementedError
+
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
         assert isinstance(resultloc, RegLoc)

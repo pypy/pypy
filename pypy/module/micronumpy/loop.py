@@ -16,7 +16,7 @@ from pypy.interpreter.argument import Arguments
 call2_driver = jit.JitDriver(
     name='numpy_call2',
     greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
-    reds='auto')
+    reds='auto', vectorize=True)
 
 def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     if w_lhs.get_size() == 1:
@@ -50,9 +50,9 @@ def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
         w_out = func(calc_dtype, w_left, w_right)
         out_iter.setitem(out_state, w_out.convert_to(space, res_dtype))
         out_state = out_iter.next(out_state)
-        # if not set to None, the values will be loop carried, forcing
-        # the vectorization to unpack the vector registers at the end
-        # of the loop
+        # if not set to None, the values will be loop carried
+        # (for the var,var case), forcing the vectorization to unpack
+        # the vector registers at the end of the loop
         if left_iter:
             w_left = None
         if right_iter:

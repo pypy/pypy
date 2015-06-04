@@ -81,6 +81,20 @@ class X86XMMRegisterManager(RegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
+    def expand_int(self, var, const):
+        assert isinstance(var, BoxVector)
+        if var.getsize() == 4:
+            loc = self.expand_single_float(const)
+        else:
+            loc = self.expand_double_float(const)
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        x = c.getfloatstorage()
+        y = longlong.ZEROF
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
+        self.reg_bindings[var] = loc
+        return loc
+
     def expand_float(self, var, const):
         assert isinstance(var, BoxVector)
         if var.getsize() == 4:
