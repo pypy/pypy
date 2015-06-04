@@ -1,7 +1,9 @@
 import sys
 
 import py
+import weakref
 
+from rpython.rlib import rgc
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.test.support import LLJitMixin, noConst
@@ -1258,7 +1260,6 @@ class BasicTests:
 
     def test_free_object(self):
         import weakref
-        from rpython.rlib import rgc
         from rpython.rtyper.lltypesystem.lloperation import llop
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
         class X(object):
@@ -3983,7 +3984,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         # start with labels. I dont know which is better...
 
     def test_ll_arraycopy(self):
-        from rpython.rlib import rgc
         A = lltype.GcArray(lltype.Char)
         a = lltype.malloc(A, 10)
         for i in range(10): a[i] = chr(i)
@@ -4010,8 +4010,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert self.interp_operations(f, [3]) == 6
 
     def test_gc_add_memory_pressure(self):
-        from rpython.rlib import rgc
-
         def f():
             rgc.add_memory_pressure(1234)
             return 3

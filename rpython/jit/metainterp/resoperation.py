@@ -1,10 +1,11 @@
+import weakref
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.codewriter import longlong
 
 class AbstractValue(object):
-    _repr_memo = {}
+    _repr_memo = weakref.WeakKeyDictionary()
     is_info_class = False
     _attrs_ = ()
 
@@ -34,6 +35,9 @@ class AbstractValue(object):
         if op is not orig_op:
             orig_op.set_forwarded(op)
         return op
+
+    def reset_value(self):
+        pass
 
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
@@ -411,6 +415,9 @@ class RefOp(object):
     def getref_base(self):
         return self._resref
 
+    def reset_value(self):
+        self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
+
     getvalue = getref_base
 
     def forget_value(self):
@@ -475,6 +482,9 @@ class InputArgFloat(FloatOp, AbstractInputArg):
 class InputArgRef(RefOp, AbstractInputArg):
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
+
+    def reset_value(self):
+        self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
 
     def clone_input_arg(self):
         return InputArgRef()

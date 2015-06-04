@@ -195,7 +195,6 @@ class BaseBackendTest(Runner):
         assert res == 10
 
     def test_backends_dont_keep_loops_alive(self):
-        py.test.skip("don't care for now")
         import weakref, gc
         self.cpu.dont_keepalive_stuff = True
         targettoken = TargetToken()

@@ -132,7 +132,8 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
                 optforce._emit_operation(setfieldop)
-                optforce.optheap.register_dirty_field(flddescr, self)
+                if optforce.optheap is not None:
+                    optforce.optheap.register_dirty_field(flddescr, self)
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
         if visitor.already_seen_virtual(instbox):
