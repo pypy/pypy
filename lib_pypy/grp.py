@@ -43,8 +43,7 @@ def getgrgid(gid):
 def getgrnam(name):
     if not isinstance(name, str):
         raise TypeError("expected string")
-    name = os.fsencode(name)
-    res = lib.getgrnam(name)
+    res = lib.getgrnam(os.fsencode(name))
     if not res:
         raise KeyError("'getgrnam(): name not found: %s'" % name)
     return _group_from_gstruct(res)
