@@ -123,6 +123,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         if not create_ops:
             return None
         lengthop = ResOperation(mode.STRLEN, [op])
+        lengthop.set_forwarded(self.getlenbound())
         self.lgtop = lengthop
         string_optimizer.emit_operation(lengthop)
         return lengthop

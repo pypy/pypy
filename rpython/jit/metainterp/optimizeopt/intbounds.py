@@ -384,13 +384,13 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
         array = self.getptrinfo(op.getarg(0))
-        #self.get_box_replacement(op).set_forwarded(array.getlenbound())
+        self.get_box_replacement(op).set_forwarded(array.getlenbound())
 
     def optimize_UNICODELEN(self, op):
         self.emit_operation(op)
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
         array = self.getptrinfo(op.getarg(0))
-        #self.get_box_replacement(op).set_forwarded(array.getlenbound())
+        self.get_box_replacement(op).set_forwarded(array.getlenbound())
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)
