@@ -428,8 +428,8 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
-    def forget_numberings(self, box):
-        self.optimizer.forget_numberings(box)
+    def forget_numberings(self):
+        self.optimizer.forget_numberings()
 
     def _can_optimize_call_pure(self, op):
         arg_consts = []
@@ -513,9 +513,9 @@ class Optimizer(Optimization):
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
 
-    def forget_numberings(self, virtualbox):
+    def forget_numberings(self):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
-        self.resumedata_memo.forget_numberings(virtualbox)
+        self.resumedata_memo.forget_numberings()
 
     def getinterned(self, box):
         constbox = self.get_constant_box(box)

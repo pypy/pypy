@@ -651,13 +651,16 @@ class OptVirtualize(optimizer.Optimization):
         # was already forced).
 
     def _optimize_JIT_FORCE_VIRTUAL(self, op):
-        raise Exception("implement me")
-        vref = self.getvalue(op.getarg(1))
+        vref = self.getptrinfo(op.getarg(1))
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
-        if vref.is_virtual():
-            tokenvalue = vref.getfield(vrefinfo.descr_virtual_token, None)
-            if (tokenvalue is not None and tokenvalue.is_constant() and
-                    not tokenvalue.box.nonnull()):
+        if vref and vref.is_virtual():
+            tokenop = vref.getfield(vrefinfo.descr_virtual_token, None)
+            if tokenop is None:
+                return False
+            tokeninfo = self.getptrinfo(tokenop)
+            if (tokeninfo is not None and tokeninfo.is_constant() and
+                    not tokeninfo.is_null()):
+                xxx
                 forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
                 if forcedvalue is not None and not forcedvalue.is_null():
                     self.make_equal_to(op, forcedvalue)

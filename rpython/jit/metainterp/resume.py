@@ -240,7 +240,7 @@ class ResumeDataLoopMemo(object):
         self.numberings[snapshot] = numb, liveboxes, v
         return numb, liveboxes.copy(), v
 
-    def forget_numberings(self, virtualbox):
+    def forget_numberings(self):
         # XXX ideally clear only the affected numberings
         self.numberings.clear()
         self.clear_box_virtual_numbers()
@@ -403,6 +403,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 else:
                     assert box.type == 'i'
                     info = optimizer.getrawptrinfo(box)
+                assert info.is_virtual()
                 info.visitor_walk_recursive(box, self, optimizer)
 
         for setfield_op in pending_setfields:

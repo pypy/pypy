@@ -80,6 +80,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     def force_box(self, op, optforce):
         if self.is_virtual():
+            optforce.forget_numberings()
             op.set_forwarded(None)
             optforce._emit_operation(op)
             newop = optforce.getlastop()
