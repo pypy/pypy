@@ -13,24 +13,24 @@ def test_get_size_descr():
     T = lltype.GcStruct('T')
     S = lltype.GcStruct('S', ('x', lltype.Char),
                              ('y', lltype.Ptr(T)))
-    descr_s = get_size_descr(None, c0, S, False)
-    descr_t = get_size_descr(None, c0, T, False)
+    descr_s = get_size_descr(c0, S, False)
+    descr_t = get_size_descr(c0, T, False)
     assert descr_s.size == symbolic.get_size(S, False)
     assert descr_t.size == symbolic.get_size(T, False)
     assert descr_s.count_fields_if_immutable() == -1
     assert descr_t.count_fields_if_immutable() == -1
     assert descr_t.gc_fielddescrs == []
     assert len(descr_s.gc_fielddescrs) == 1
-    assert descr_s == get_size_descr(None, c0, S, False)
-    assert descr_s != get_size_descr(None, c1, S, False)
+    assert descr_s == get_size_descr(c0, S, False)
+    assert descr_s != get_size_descr(c1, S, False)
     #
-    descr_s = get_size_descr(None, c1, S, False)
+    descr_s = get_size_descr(c1, S, False)
     assert isinstance(descr_s.size, Symbolic)
     assert descr_s.count_fields_if_immutable() == -1
 
     PARENT = lltype.Struct('P', ('x', lltype.Ptr(T)))
     STRUCT = lltype.GcStruct('S', ('parent', PARENT), ('y', lltype.Ptr(T)))
-    descr_struct = get_size_descr(None, c0, STRUCT, False)
+    descr_struct = get_size_descr(c0, STRUCT, False)
     assert len(descr_struct.gc_fielddescrs) == 2
 
 def test_get_size_descr_immut():
@@ -49,7 +49,7 @@ def test_get_size_descr_immut():
     for STRUCT, expected in [(S, 0), (T, 1), (U, 3), (V, 3)]:
         for translated in [False, True]:
             c0 = GcCache(translated)
-            descr_s = get_size_descr(None, c0, STRUCT, False)
+            descr_s = get_size_descr(c0, STRUCT, False)
             assert descr_s.count_fields_if_immutable() == expected
 
 def test_get_field_descr():
@@ -329,7 +329,7 @@ def test_repr_of_descr():
     S = lltype.GcStruct('S', ('x', lltype.Char),
                              ('y', lltype.Ptr(T)),
                              ('z', lltype.Ptr(T)))
-    descr1 = get_size_descr(None, c0, S, False)
+    descr1 = get_size_descr(c0, S, False)
     s = symbolic.get_size(S, False)
     assert repr_of_descr(descr1) == '<SizeDescr %d>' % s
     #

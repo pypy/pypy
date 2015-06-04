@@ -127,8 +127,9 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list, ops_with_movable_const_ptr,
-            changeable_const_pointers):
+    def _record_constptrs(self, op, gcrefs_output_list,
+                          ops_with_movable_const_ptr,
+                          changeable_const_pointers):
         ops_with_movable_const_ptr[op] = []
         for i in range(op.numargs()):
             v = op.getarg(i)
@@ -152,7 +153,6 @@ class GcLLDescription(GcCache):
     def _rewrite_changeable_constptrs(self, op, ops_with_movable_const_ptr, moving_obj_tracker):
         newops = []
         for arg_i in ops_with_movable_const_ptr[op]:
-            raise Exception("implement me")
             v = op.getarg(arg_i)
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)
@@ -418,6 +418,7 @@ class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
     round_up = True
+    layoutbuilder = None
 
     def is_shadow_stack(self):
         return self.gcrootmap.is_shadow_stack

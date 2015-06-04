@@ -33,14 +33,14 @@ assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
 
 def build_opt_chain(metainterp_sd, enable_opts):
     optimizations = []
-    unroll = False # 'unroll' in enable_opts    # 'enable_opts' is normally a dict
+    unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:
                 o = opt()
                 optimizations.append(o)
 
-    if 1 or ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
+    if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
         or 'heap' not in enable_opts or 'unroll' not in enable_opts
         or 'pure' not in enable_opts):
         optimizations.append(OptSimplify(unroll))
@@ -59,7 +59,6 @@ def optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
                                                           loop.operations)
         optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
         if unroll:
-            raise Exception("unrolling disabled")
             return optimize_unroll(metainterp_sd, jitdriver_sd, loop,
                                    optimizations,
                                    inline_short_preamble, start_state,

@@ -134,16 +134,6 @@ class AbstractResOp(AbstractValue):
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop
-            
-    def clone(self, memo):
-        args = [memo.get(arg, arg) for arg in self.getarglist()]
-        descr = self.getdescr()
-        op = ResOperation(self.getopnum(), args[:], descr)
-        if not we_are_translated():
-            op.name = self.name
-            op.pc = self.pc
-        memo.set(self, op)
-        return op
 
     def repr(self, memo, graytext=False):
         # RPython-friendly version
@@ -344,14 +334,6 @@ class GuardResOp(ResOpWithDescr):
         newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
-    def clone(self, memo):
-        newop = AbstractResOp.clone(self, memo)
-        assert isinstance(newop, GuardResOp)
-        newop.setfailargs(self.getfailargs())
-        newop.rd_snapshot = self.rd_snapshot
-        newop.rd_frame_info_list = self.rd_frame_info_list
-        return newop
-
 # ===========
 # type mixins
 # ===========
@@ -377,9 +359,6 @@ class IntOp(object):
     def nonnull(self):
         return self._resint != 0
 
-    def clone_input_arg(self):
-        return InputArgInt()
-
 class FloatOp(object):
     _mixin_ = True
 
@@ -401,9 +380,6 @@ class FloatOp(object):
 
     def nonnull(self):
         return bool(longlong.extract_bits(self._resfloat))
-
-    def clone_input_arg(self):
-        return InputArgFloat()
 
 class RefOp(object):
     _mixin_ = True
@@ -436,9 +412,6 @@ class RefOp(object):
     def nonnull(self):
         return bool(self._resref)
 
-    def clone_input_arg(self):
-        return InputArgRef()
-
 class AbstractInputArg(AbstractValue):
     _forwarded = None
 
@@ -469,15 +442,9 @@ class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):
         self.setint(intval)
 
-    def clone_input_arg(self):
-        return InputArgInt()
-
 class InputArgFloat(FloatOp, AbstractInputArg):
     def __init__(self, f=0.0):
         self.setfloatstorage(f)
-
-    def clone_input_arg(self):
-        return InputArgFloat()
 
 class InputArgRef(RefOp, AbstractInputArg):
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
@@ -485,9 +452,6 @@ class InputArgRef(RefOp, AbstractInputArg):
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
-
-    def clone_input_arg(self):
-        return InputArgRef()
 
 # ============
 # arity mixins

@@ -421,10 +421,7 @@ class BaseTest(object):
 
         jump_args = jumpop.getarglist()[:]
         operations = operations[:-1]
-        memo = compile.Memo(inputargs, jump_args)
-        cloned_operations = [op.clone(memo) for op in operations]
-        for op in cloned_operations:
-            op.is_source_op = True
+        xxx
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs

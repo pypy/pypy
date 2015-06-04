@@ -3,28 +3,13 @@ from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.history import Const, ConstInt, REF, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     IntUnbounded, ConstIntBound, MININT, MAXINT
+     ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 
-
-class LenBound(object):
-    def __init__(self, mode, descr, bound):
-        self.mode = mode
-        self.descr = descr
-        self.bound = bound
-
-    def clone(self):
-        return LenBound(self.mode, self.descr, self.bound.clone())
-
-    def generalization_of(self, other):
-        return (other is not None and
-                self.mode == other.mode and
-                self.descr == other.descr and
-                self.bound.contains_bound(other.bound))
 
 
 

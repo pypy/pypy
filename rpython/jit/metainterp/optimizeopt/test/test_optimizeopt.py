@@ -106,6 +106,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(f)
         jump()
         """
+        import pdb
+        pdb.set_trace()
         self.optimize_loop(ops, ops)
 
     def test_constant_propagate(self):

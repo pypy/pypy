@@ -390,8 +390,6 @@ class UnrollOptimizer(Optimization):
         assert short[-1].getopnum() == rop.JUMP
         target_token = start_label.getdescr()
         assert isinstance(target_token, TargetToken)
-
-        xxx
         # Turn guards into conditional jumps to the preamble
         #for i in range(len(short)):
         #    op = short[i]
