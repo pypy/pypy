@@ -779,8 +779,8 @@ class BaseTestBridges(BaseTest):
     def _do_optimize_bridge(self, bridge, call_pure_results):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
-        from rpython.jit.metainterp.optimizeopt.test_util import (FakeWarmState,
-                FakeJitDriverSD)
+        from rpython.jit.metainterp.optimizeopt.test.test_util import (FakeWarmState,
+                FakeJitDriverStaticData as FakeJitDriverSD)
 
         self.bridge = bridge
         bridge.call_pure_results = args_dict()

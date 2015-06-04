@@ -816,9 +816,9 @@ class date(object):
             _MONTHNAMES[self._month],
             self._day, self._year)
 
-    def strftime(self, fmt):
+    def strftime(self, format):
         "Format using strftime()."
-        return _wrap_strftime(self, fmt, self.timetuple())
+        return _wrap_strftime(self, format, self.timetuple())
 
     def __format__(self, fmt):
         if not isinstance(fmt, (str, unicode)):
@@ -1308,7 +1308,7 @@ class time(object):
 
     __str__ = isoformat
 
-    def strftime(self, fmt):
+    def strftime(self, format):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
         """
@@ -1317,7 +1317,7 @@ class time(object):
         timetuple = (1900, 1, 1,
                      self._hour, self._minute, self._second,
                      0, 1, -1)
-        return _wrap_strftime(self, fmt, timetuple)
+        return _wrap_strftime(self, format, timetuple)
 
     def __format__(self, fmt):
         if not isinstance(fmt, (str, unicode)):
@@ -1497,7 +1497,7 @@ class datetime(date):
         return self._tzinfo
 
     @classmethod
-    def fromtimestamp(cls, t, tz=None):
+    def fromtimestamp(cls, timestamp, tz=None):
         """Construct a datetime from a POSIX timestamp (like time.time()).
 
         A timezone info object may be passed in as well.
@@ -1507,17 +1507,22 @@ class datetime(date):
 
         converter = _time.localtime if tz is None else _time.gmtime
 
-        t, frac = divmod(t, 1.0)
-        us = _round(frac * 1e6)
+        if isinstance(timestamp, int):
+            us = 0
+        else:
+            t_full = timestamp
+            timestamp = int(_math.floor(timestamp))
+            frac = t_full - timestamp
+            us = _round(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
         # roll over to seconds, otherwise, ValueError is raised
         # by the constructor.
         if us == 1000000:
-            t += 1
+            timestamp += 1
             us = 0
-        y, m, d, hh, mm, ss, weekday, jday, dst = converter(t)
+        y, m, d, hh, mm, ss, weekday, jday, dst = converter(timestamp)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
         result = cls(y, m, d, hh, mm, ss, us, tz)
         if tz is not None:
@@ -1527,8 +1532,13 @@ class datetime(date):
     @classmethod
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
-        t, frac = divmod(t, 1.0)
-        us = _round(frac * 1e6)
+        if isinstance(t, int):
+            us = 0
+        else:
+            t_full = t
+            t = int(_math.floor(t))
+            frac = t_full - t
+            us = _round(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,

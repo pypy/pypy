@@ -22,6 +22,9 @@ class W_NumpyObject(W_Root):
     """Base class for ndarrays and scalars (aka boxes)."""
     _attrs_ = []
 
+    def get_flags(self):
+        return 0
+
 
 class W_NDimArray(W_NumpyObject):
     __metaclass__ = extendabletype
@@ -133,6 +136,9 @@ class W_NDimArray(W_NumpyObject):
 
     def get_start(self):
         return self.implementation.start
+
+    def get_flags(self):
+        return self.implementation.flags
 
     def ndims(self):
         return len(self.get_shape())

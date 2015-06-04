@@ -101,6 +101,7 @@ class TestZIntegration(object):
     def teardown_class(self):
         if udir.isdir():
             udir.remove(ignore_errors=True)
+        udir.ensure(dir=1)
 
     def test_infrastructure(self):
         run_setup_and_program('infrastructure', '''

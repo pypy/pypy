@@ -30,6 +30,7 @@ if os.name == 'nt':
     libraries.append('Kernel32')
 
 eci = ExternalCompilationInfo(post_include_bits=["""
+
 RPY_EXTERN long pypy_jit_codemap_add(unsigned long addr,
                                      unsigned int machine_code_size,
                                      long *bytecode_info,
@@ -47,7 +48,8 @@ RPY_EXTERN void pypy_jit_depthmap_clear(unsigned long addr, unsigned int size);
 """], separate_module_sources=[
     open(os.path.join(srcdir, 'skiplist.c'), 'r').read() +
     open(os.path.join(srcdir, 'codemap.c'), 'r').read()
-], include_dirs=[cdir], libraries=libraries)
+], include_dirs=[cdir], libraries=libraries,
+compile_extra=['-DPYPY_JIT_CODEMAP'])
 
 def llexternal(name, args, res):
     return rffi.llexternal(name, args, res, compilation_info=eci,

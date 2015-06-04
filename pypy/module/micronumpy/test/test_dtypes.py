@@ -112,6 +112,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
 
+    def test_dtype_cmp(self):
+        from numpy import dtype
+        assert dtype('int8') <= dtype('int8')
+        assert not (dtype('int8') < dtype('int8'))
+
     def test_dtype_aliases(self):
         from numpy import dtype
         assert dtype('bool8') is dtype('bool')
@@ -141,16 +146,18 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert dtype('uint32').num == 8
             assert dtype('int64').num == 9
             assert dtype('uint64').num == 10
+            assert dtype('intp').num == 5
+            assert dtype('uintp').num == 6
         else:
             assert dtype('int32').num == 5
             assert dtype('uint32').num == 6
             assert dtype('int64').num == 7
             assert dtype('uint64').num == 8
+            assert dtype('intp').num == 7
+            assert dtype('uintp').num == 8
         assert dtype(int).num == 7
         assert dtype('int').num == 7
         assert dtype('uint').num == 8
-        assert dtype('intp').num == 7
-        assert dtype('uintp').num == 8
         assert dtype(long).num == 9
         assert dtype(float).num == 12
         assert dtype('float').num == 12
@@ -283,7 +290,7 @@ class AppTestDtypes(BaseAppTestDtypes):
             types += ['g', 'G']
         a = array([True], '?')
         for t in types:
-            assert (a + array([0], t)).dtype is dtype(t)
+            assert (a + array([0], t)).dtype == dtype(t)
 
     def test_binop_types(self):
         from numpy import array, dtype
@@ -307,7 +314,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         for d1, d2, dout in tests:
             # make a failed test print helpful info
             d3 = (array([1], d1) + array([1], d2)).dtype
-            assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
+            assert (d1, d2) == (d1, d2) and d3 == dtype(dout)
 
     def test_add(self):
         import numpy as np
@@ -845,36 +852,6 @@ class AppTestTypes(BaseAppTestDtypes):
             assert issubclass(int64, int)
             assert int_ is int64
 
-    def test_various_types(self):
-        import numpy
-
-        assert numpy.int16 is numpy.short
-        assert numpy.int8 is numpy.byte
-        assert numpy.bool_ is numpy.bool8
-        assert numpy.intp().dtype.num == 7
-        assert numpy.intp().dtype.char == 'l'
-        if self.ptr_size == 4:
-            assert numpy.intp().dtype.name == 'int32'
-            assert numpy.intp is numpy.int32
-            assert numpy.uintp is numpy.uint32
-        elif self.ptr_size == 8:
-            assert numpy.intp().dtype.name == 'int64'
-            assert numpy.intp is numpy.int64
-            assert numpy.uintp is numpy.uint64
-
-        assert issubclass(numpy.float64, numpy.floating)
-        assert issubclass(numpy.longfloat, numpy.floating)
-        assert not issubclass(numpy.float64, numpy.longfloat)
-        assert not issubclass(numpy.longfloat, numpy.float64)
-
-    def test_mro(self):
-        import numpy
-
-        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
-                                       numpy.integer, numpy.number,
-                                       numpy.generic, object)
-        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
-
     def test_operators(self):
         from operator import truediv
         from numpy import float64, int_, True_, False_
@@ -954,20 +931,22 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_intp(self):
         from numpy import dtype
-        for s in ['p', 'int']:
-            assert dtype(s) is dtype('intp')
-        for s in ['P', 'uint']:
-            assert dtype(s) is dtype('uintp')
-        assert dtype('p').num == 7
-        assert dtype('P').num == 8
-        assert dtype('p').char == 'l'
-        assert dtype('P').char == 'L'
+        assert dtype('p') is dtype('intp')
+        assert dtype('P') is dtype('uintp')
         assert dtype('p').kind == 'i'
         assert dtype('P').kind == 'u'
         if self.ptr_size == 4:
+            assert dtype('p').num == 5
+            assert dtype('P').num == 6
+            assert dtype('p').char == 'i'
+            assert dtype('P').char == 'I'
             assert dtype('p').name == 'int32'
             assert dtype('P').name == 'uint32'
         else:
+            assert dtype('p').num == 7
+            assert dtype('P').num == 8
+            assert dtype('p').char == 'l'
+            assert dtype('P').char == 'L'
             assert dtype('p').name == 'int64'
             assert dtype('P').name == 'uint64'
 
@@ -1287,7 +1266,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, 
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None,
                      ('x', 'y', 'z', 'value'),
                      {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0),
                       'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12),

@@ -245,7 +245,7 @@ WrappedOp.typedef = TypeDef(
                             WrappedOp.descr_setresult),
     offset = interp_attrproperty("offset", cls=WrappedOp),
 )
-WrappedOp.acceptable_as_base_class = False
+WrappedOp.typedef.acceptable_as_base_class = False
 
 DebugMergePoint.typedef = TypeDef(
     'DebugMergePoint', WrappedOp.typedef,
@@ -266,7 +266,7 @@ DebugMergePoint.typedef = TypeDef(
                      doc="Name of the jitdriver 'pypyjit' in the case "
                                     "of the main interpreter loop"),
 )
-DebugMergePoint.acceptable_as_base_class = False
+DebugMergePoint.typedef.acceptable_as_base_class = False
 
 
 class W_JitLoopInfo(W_Root):
@@ -359,7 +359,7 @@ W_JitLoopInfo.typedef = TypeDef(
                                   doc="Length of machine code"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
-W_JitLoopInfo.acceptable_as_base_class = False
+W_JitLoopInfo.typedef.acceptable_as_base_class = False
 
 
 class W_JitInfoSnapshot(W_Root):
@@ -379,7 +379,7 @@ W_JitInfoSnapshot.typedef = TypeDef(
                                             cls=W_JitInfoSnapshot,
                                             doc="various JIT timers")
 )
-W_JitInfoSnapshot.acceptable_as_base_class = False
+W_JitInfoSnapshot.typedef.acceptable_as_base_class = False
 
 def get_stats_snapshot(space):
     """ Get the jit status in the specific moment in time. Note that this

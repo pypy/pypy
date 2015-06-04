@@ -333,6 +333,8 @@ class Fake(object):
 
 class FakeWarmState(object):
     vectorize = True # default is on
+    vectorize_user = False
+    vec_cost = 0
     def __init__(self, enable_opts):
         self.enable_opts = enable_opts
 

@@ -1278,7 +1278,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1288,7 +1288,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1688,8 +1688,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
-        i2 = arraylen_gc(p1)
-        escape(i2)
+        escape(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -3079,6 +3078,69 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_remove_multiple_add_1(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i1, 2)
+        i3 = int_add(i2, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_2(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(2, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(1, i5)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(i4, 6)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_3(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i1, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i3, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, sys.maxint - 2, -sys.maxint, -sys.maxint + 1)
+        expected = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i0, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i0, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, -5, -sys.maxint, 3)
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op(self):
         ops = """
@@ -4857,7 +4919,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusPureField
+        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
         ops = """
         [p3]
         p1 = escape()
@@ -4865,7 +4927,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """

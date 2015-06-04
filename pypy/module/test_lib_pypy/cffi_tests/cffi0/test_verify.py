@@ -658,9 +658,9 @@ def test_global_constants():
     # case the 'static' is completely ignored.
     ffi.cdef("static const int AA, BB, CC, DD;")
     lib = ffi.verify("#define AA 42\n"
-                     "#define BB (-43)\n"
-                     "#define CC (22*2)\n"
-                     "#define DD ((unsigned int)142)\n")
+                     "#define BB (-43)   // blah\n"
+                     "#define CC (22*2)  /* foobar */\n"
+                     "#define DD ((unsigned int)142)  /* foo\nbar */\n")
     assert lib.AA == 42
     assert lib.BB == -43
     assert lib.CC == 44
@@ -704,6 +704,9 @@ def test_nonfull_enum():
     # try again
     ffi.verify("enum ee { EE1=10, EE2, EE3=-10, EE4 };")
     assert ffi.string(ffi.cast('enum ee', 11)) == "EE2"
+    #
+    assert ffi.typeof("enum ee").relements == {'EE1': 10, 'EE2': 11, 'EE3': -10}
+    assert ffi.typeof("enum ee").elements == {10: 'EE1', 11: 'EE2', -10: 'EE3'}
 
 def test_full_enum():
     ffi = FFI()
@@ -761,6 +764,11 @@ def test_nonfull_enum_syntax2():
     ffi.verify("enum ee2 { EE4=-1234-5, EE5 }; ")
     assert ffi.string(ffi.cast('enum ee2', -1239)) == 'EE4'
     assert ffi.string(ffi.cast('enum ee2', -1238)) == 'EE5'
+
+def test_nonfull_enum_bug3():
+    ffi = FFI()
+    ffi.cdef("enum ee2 { EE4=..., EE5=... };")
+    ffi.cdef("enum ee6 { EE7=10, EE8=..., EE9=... };")
 
 def test_get_set_errno():
     ffi = FFI()
@@ -1048,7 +1056,7 @@ def test_autofilled_struct_as_argument_dynamic():
     ffi = FFI()
     ffi.cdef("struct foo_s { long a; ...; };\n"
              "int (*foo)(struct foo_s);")
-    e = py.test.raises(TypeError, ffi.verify, """
+    lib = ffi.verify("""
         struct foo_s {
             double b;
             long a;
@@ -1058,8 +1066,11 @@ def test_autofilled_struct_as_argument_dynamic():
         }
         int (*foo)(struct foo_s s) = &foo1;
     """)
-    msg ='cannot pass as an argument a struct that was completed with verify()'
-    assert msg in str(e.value)
+    e = py.test.raises(NotImplementedError, lib.foo, "?")
+    msg = ("ctype 'struct foo_s' not supported as argument (it is a struct "
+           'declared with "...;", but the C calling convention may depend '
+           'on the missing fields)')
+    assert str(e.value) == msg
 
 def test_func_returns_struct():
     ffi = FFI()
@@ -1198,6 +1209,15 @@ def test_typedef_enum_as_function_result():
     """)
     assert lib.foo_func(lib.BB) == lib.BB == 2
 
+def test_function_typedef():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef double func_t(double);
+        func_t sin;
+    """)
+    lib = ffi.verify('#include <math.h>', libraries=lib_m)
+    assert lib.sin(1.23) == math.sin(1.23)
+
 def test_callback_calling_convention():
     py.test.skip("later")
     if sys.platform != 'win32':
@@ -1218,11 +1238,11 @@ def test_callback_calling_convention():
     xxx
 
 def test_opaque_integer_as_function_result():
-    import platform
-    if platform.machine().startswith('sparc'):
-        py.test.skip('Breaks horribly on sparc (SIGILL + corrupted stack)')
-    elif platform.machine() == 'mips64' and sys.maxsize > 2**32:
-        py.test.skip('Segfaults on mips64el')
+    #import platform
+    #if platform.machine().startswith('sparc'):
+    #    py.test.skip('Breaks horribly on sparc (SIGILL + corrupted stack)')
+    #elif platform.machine() == 'mips64' and sys.maxsize > 2**32:
+    #    py.test.skip('Segfaults on mips64el')
     # XXX bad abuse of "struct { ...; }".  It only works a bit by chance
     # anyway.  XXX think about something better :-(
     ffi = FFI()
@@ -1237,11 +1257,45 @@ def test_opaque_integer_as_function_result():
     h = lib.foo()
     assert ffi.sizeof(h) == ffi.sizeof("short")
 
+def test_return_partial_struct():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef struct { int x; ...; } foo_t;
+        foo_t foo(void);
+    """)
+    lib = ffi.verify("""
+        typedef struct { int y, x; } foo_t;
+        foo_t foo(void) { foo_t r = { 45, 81 }; return r; }
+    """)
+    h = lib.foo()
+    assert ffi.sizeof(h) == 2 * ffi.sizeof("int")
+    assert h.x == 81
+
+def test_take_and_return_partial_structs():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef struct { int x; ...; } foo_t;
+        foo_t foo(foo_t, foo_t);
+    """)
+    lib = ffi.verify("""
+        typedef struct { int y, x; } foo_t;
+        foo_t foo(foo_t a, foo_t b) {
+            foo_t r = { 100, a.x * 5 + b.x * 7 };
+            return r;
+        }
+    """)
+    args = ffi.new("foo_t[3]")
+    args[0].x = 1000
+    args[2].x = -498
+    h = lib.foo(args[0], args[2])
+    assert ffi.sizeof(h) == 2 * ffi.sizeof("int")
+    assert h.x == 1000 * 5 - 498 * 7
+
 def test_cannot_name_struct_type():
     ffi = FFI()
-    ffi.cdef("typedef struct { int x; } *sp; void foo(sp);")
+    ffi.cdef("typedef struct { int x; } **sp; void foo(sp);")
     e = py.test.raises(VerificationError, ffi.verify,
-                       "typedef struct { int x; } *sp; void foo(sp);")
+                       "typedef struct { int x; } **sp; void foo(sp x) { }")
     assert 'in argument of foo: unknown type name' in str(e.value)
 
 def test_dont_check_unnamable_fields():
@@ -1638,9 +1692,8 @@ def test_struct_returned_by_func():
     e = py.test.raises(TypeError, ffi.verify,
                        "typedef struct { int x; } foo_t; "
                        "foo_t myfunc(void) { foo_t x = { 42 }; return x; }")
-    assert str(e.value) in [
-        "function myfunc: 'foo_t' is used as result type, but is opaque",
-        "function myfunc: result type 'foo_t' is opaque"]
+    assert str(e.value) == (
+        "function myfunc: 'foo_t' is used as result type, but is opaque")
 
 def test_include():
     ffi1 = FFI()
@@ -1667,6 +1720,17 @@ def test_include_enum():
                        "int myfunc(enum foo_e x) { return (int)x; }")
     res = lib2.myfunc(lib2.AA)
     assert res == 2
+
+def test_named_pointer_as_argument():
+    ffi = FFI()
+    ffi.cdef("typedef struct { int x; } *mystruct_p;\n"
+             "mystruct_p ff5a(mystruct_p);")
+    lib = ffi.verify("typedef struct { int x; } *mystruct_p;\n"
+                     "mystruct_p ff5a(mystruct_p p) { p->x += 40; return p; }")
+    p = ffi.new("mystruct_p", [-2])
+    q = lib.ff5a(p)
+    assert q == p
+    assert p.x == 38
 
 def test_enum_size():
     cases = [('123',           4, 4294967295),
@@ -2099,7 +2163,7 @@ def test_consider_not_implemented_function_type():
         "ctype 'Data' (size 4) not supported as return value")
     e = py.test.raises(NotImplementedError, barptr)
     assert str(e.value) == (
-        "ctype 'MyStr' not supported as argument or return value "
+        "ctype 'MyStr' not supported as return value "
         "(it is a struct with bit fields)")
 
 def test_verify_extra_arguments():
@@ -2150,5 +2214,17 @@ def test_define_known_value():
 def test_define_wrong_value():
     ffi = FFI()
     ffi.cdef("#define FOO 123")
+    e = py.test.raises(VerificationError, ffi.verify, "#define FOO 124")
+    assert str(e.value).endswith("FOO has the real value 124, not 123")
+
+def test_static_const_int_known_value():
+    ffi = FFI()
+    ffi.cdef("static const int FOO = 0x123;")
+    lib = ffi.verify("#define FOO 0x123")
+    assert lib.FOO == 0x123
+
+def test_static_const_int_wrong_value():
+    ffi = FFI()
+    ffi.cdef("static const int FOO = 123;")
     e = py.test.raises(VerificationError, ffi.verify, "#define FOO 124")
     assert str(e.value).endswith("FOO has the real value 124, not 123")

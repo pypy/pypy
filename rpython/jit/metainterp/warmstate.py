@@ -4,7 +4,7 @@ import weakref
 from rpython.jit.codewriter import support, heaptracker, longlong
 from rpython.jit.metainterp import history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import have_debug_prints
+from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
@@ -648,7 +648,7 @@ class WarmEnterState(object):
                        'disabled, no debug_print)' % drivername)
             #
             def get_location_str(greenkey):
-                if not have_debug_prints():
+                if not have_debug_prints_for("jit-"):
                     return missing
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)

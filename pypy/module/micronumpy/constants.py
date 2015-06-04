@@ -77,8 +77,20 @@ CLIP = 0
 WRAP = 1
 RAISE = 2
 
+# These can be requested in constructor functions and tested for
 ARRAY_C_CONTIGUOUS = 0x0001
 ARRAY_F_CONTIGUOUS = 0x0002
+ARRAY_ALIGNED      = 0x0100
+ARRAY_WRITEABLE    = 0x0400
+ARRAY_UPDATEIFCOPY = 0x1000 # base contains a ref to an array, update it too
+# These can be tested for
+ARRAY_OWNDATA     = 0x004
+# These can be requested in constructor functions
+ARRAY_FORECAST    = 0x0010 # causes a cast to occur even if not safe to do so
+ARRAY_ENSURECOPY  = 0x0020 # returned array will be CONTIGUOUS, ALIGNED, WRITEABLE
+ARRAY_ENSUREARRAY = 0x0040 # return only ndarray, not subtype
+ARRAY_ELEMENTSTRIDES = 0x0080 # strides  are units of the dtype element size
+ARRAY_NOTSWAPPED  = 0x0200 #native byte order
 
 LITTLE = '<'
 BIG = '>'

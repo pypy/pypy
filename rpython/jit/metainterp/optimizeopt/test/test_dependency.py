@@ -212,10 +212,10 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         ops="""
         [i0, i1, i2] # 0: 1,3,6,7,11?
         i4 = int_gt(i1, 0) # 1: 2
-        guard_true(i4) [] # 2: 3, 11?
+        guard_true(i4) [] # 2: 3, 5, 11?
         i6 = int_sub(i1, 1) # 3: 4
         i8 = int_gt(i6, 0) # 4: 5
-        guard_false(i8) [] # 5: 11
+        guard_false(i8) [] # 5: 10
         i10 = int_add(i2, 1) # 6: 8
         i12 = int_sub(i0, 1) # 7: 9, 11
         i14 = int_add(i10, 1) # 8: 11

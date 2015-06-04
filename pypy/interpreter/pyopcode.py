@@ -449,7 +449,7 @@ class __extend__(pyframe.PyFrame):
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)
-        self.last_instr = -2  # makes frame_finished_execution return True
+        self.frame_finished_execution = True  # for generators
         return None
 
     def unrollstack_and_jump(self, unroller):
@@ -485,7 +485,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.locals_stack_w[varindex]
+        w_value = self.locals_cells_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
@@ -505,7 +505,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.locals_stack_w[varindex] = w_newvalue
+        self.locals_cells_stack_w[varindex] = w_newvalue
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
@@ -517,7 +517,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         try:
             w_value = cell.get()
         except ValueError:
@@ -536,12 +536,12 @@ class __extend__(pyframe.PyFrame):
     def STORE_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         w_newvalue = self.popvalue()
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         cell.set(w_newvalue)
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        cell = self.cells[varindex]
+        cell = self._getcell(varindex)
         w_value = self.space.wrap(cell)
         self.pushvalue(w_value)
 
@@ -911,12 +911,12 @@ class __extend__(pyframe.PyFrame):
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
-        if self.locals_stack_w[varindex] is None:
+        if self.locals_cells_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             raise oefmt(self.space.w_UnboundLocalError,
                         "local variable '%s' referenced before assignment",
                         varname)
-        self.locals_stack_w[varindex] = None
+        self.locals_cells_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -1015,7 +1015,11 @@ class __extend__(pyframe.PyFrame):
         if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))
-        w_locals = self.getorcreatedebug().w_locals
+        d = self.getdebug()
+        if d is None:
+            w_locals = None
+        else:
+            w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
         w_modulename = space.wrap(modulename)

@@ -1,6 +1,6 @@
 # TclObject, conversions with Python objects
 
-from .tklib import tklib, tkffi
+from .tklib_cffi import ffi as tkffi, lib as tklib
 
 class TypeCache(object):
     def __init__(self):

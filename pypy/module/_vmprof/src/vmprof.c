@@ -27,9 +27,10 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <pthread.h>
+#include <dlfcn.h>
 
-#define UNW_LOCAL_ONLY
-#include <libunwind.h>
+//#define UNW_LOCAL_ONLY
+//#include <libunwind.h>
 
 #include "vmprof.h"
 
@@ -44,6 +45,7 @@ static int profile_file = 0;
 static char profile_write_buffer[BUFFER_SIZE];
 static int profile_buffer_position = 0;
 void* vmprof_mainloop_func;
+char* vmprof_error = NULL;
 static ptrdiff_t mainloop_sp_offset;
 static vmprof_get_virtual_ip_t mainloop_get_virtual_ip;
 static long last_period_usec = 0;
@@ -58,6 +60,11 @@ static int atfork_hook_installed = 0;
 #define MARKER_STACKTRACE '\x01'
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
+
+int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*) = NULL;
+int (*unw_step)(unw_cursor_t*) = NULL;
+int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
+int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
 
 static void prof_word(long x) {
 	((long*)(profile_write_buffer + profile_buffer_position))[0] = x;
@@ -342,11 +349,44 @@ static int install_pthread_atfork_hooks(void) {
  * *************************************************************
  */
 
-void vmprof_set_mainloop(void* func, ptrdiff_t sp_offset, 
+int vmprof_set_mainloop(void* func, ptrdiff_t sp_offset, 
                          vmprof_get_virtual_ip_t get_virtual_ip) {
+    void *libhandle;
+
     mainloop_sp_offset = sp_offset;
     mainloop_get_virtual_ip = get_virtual_ip;
     vmprof_mainloop_func = func;
+    if (!unw_get_reg) {
+        if (!(libhandle = dlopen("libunwind.so", RTLD_LAZY | RTLD_LOCAL))) {
+            vmprof_error = dlerror();
+            return -1;
+        }
+        if (!(unw_get_reg = dlsym(libhandle, "_ULx86_64_get_reg"))) {
+            vmprof_error = dlerror();
+            return -1;
+        }
+        if (!(unw_get_proc_info = dlsym(libhandle, "_ULx86_64_get_proc_info"))){
+            vmprof_error = dlerror();
+            return -1;
+        }
+        if (!(unw_init_local = dlsym(libhandle, "_ULx86_64_init_local"))) {
+            vmprof_error = dlerror();
+            return -1;
+        }
+        if (!(unw_step = dlsym(libhandle, "_ULx86_64_step"))) {
+            vmprof_error = dlerror();
+            return -1;
+        }
+    }
+    return 0;
+}
+
+char* vmprof_get_error()
+{
+    char* res;
+    res = vmprof_error;
+    vmprof_error = NULL;
+    return res;
 }
 
 int vmprof_enable(int fd, long period_usec, int write_header, char *s,

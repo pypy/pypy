@@ -260,6 +260,8 @@ class MsvcPlatform(Platform):
         if shared:
             so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
                                    ext=self.so_ext)
+            wtarget_name = exe_name.new(purebasename=exe_name.purebasename + 'w',
+                                   ext=self.exe_ext)
             target_name = so_name.basename
         else:
             target_name = exe_name.basename
@@ -313,11 +315,13 @@ class MsvcPlatform(Platform):
             ('MAKE', 'nmake.exe'),
             ('_WIN32', '1'),
             ]
+        if shared:
+            definitions.insert(0, ('WTARGET', wtarget_name.basename))
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
         rules = [
-            ('all', '$(DEFAULT_TARGET)', []),
+            ('all', '$(DEFAULT_TARGET) $(WTARGET)', []),
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
@@ -411,10 +415,30 @@ class MsvcPlatform(Platform):
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             deps = ['main.obj']
+            m.rule('wmain.c', '',
+                   ['echo #define WIN32_LEAN_AND_MEAN > $@',
+                   'echo #include "stdlib.h" >> $@',
+                   'echo #include "windows.h" >> $@',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
+                   'echo int WINAPI WinMain( >> $@',
+                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@',
+                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@',
+                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@',
+                   'echo     int nCmdShow              /* show state of window */ >> $@',
+                   'echo ) >> $@',
+                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@'])
+            wdeps = ['wmain.obj']
             if icon:
                 deps.append('icon.res')
+                wdeps.append('icon.res')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
                    ['$(CC_LINK) /nologo /debug %s ' % (' '.join(deps),) + \
+                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                    '/MANIFEST /MANIFESTFILE:$*.manifest',
+                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
+            m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
+                   ['$(CC_LINK) /nologo /debug /SUBSYSTEM:WINDOWS %s ' % (' '.join(wdeps),) + \
                     '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',

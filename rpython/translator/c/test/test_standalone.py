@@ -6,7 +6,8 @@ from rpython.config.translationoption import SUPPORT__THREAD
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
-from rpython.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.rlib.debug import debug_offset, have_debug_prints_for
 from rpython.rlib.entrypoint import entrypoint, secondary_entrypoints
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext
@@ -350,6 +351,8 @@ class TestStandalone(StandaloneTests):
             tell = -1
         def entry_point(argv):
             x = "got:"
+            if have_debug_prints_for("my"): x += "M"
+            if have_debug_prints_for("myc"): x += "m"
             debug_start  ("mycat")
             if have_debug_prints(): x += "b"
             debug_print    ("foo", r_longlong(2), "bar", 3)
@@ -387,7 +390,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.%d.' % tell
+        assert out.strip() == 'got:Mmbcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -402,7 +405,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bcda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -455,7 +458,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc:%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -486,7 +489,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc,cat2:%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bcda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -845,6 +848,13 @@ class TestStandalone(StandaloneTests):
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
+        if sys.platform == 'win32':
+            # Make sure we have a test_1w.exe
+            # Since stdout, stderr are piped, we will get output
+            exe = cbuilder.executable_name
+            wexe = exe.new(purebasename=exe.purebasename + 'w')
+            out, err = cbuilder.cmdexec("a b", exe = wexe)
+            assert out == "3"
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if

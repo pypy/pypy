@@ -113,12 +113,14 @@ class AppTestNDIter(BaseNumpyAppTest):
             r.append((value, it.index))
         assert r == [(0, 0), (1, 2), (2, 4), (3, 1), (4, 3), (5, 5)]
 
-    @py.test.mark.xfail(reason="Fortran order not implemented")
     def test_iters_with_different_order(self):
         from numpy import nditer, array
 
         a = array([[1, 2], [3, 4]], order="C")
-        b = array([[1, 2], [3, 4]], order="F")
+        try:
+            b = array([[1, 2], [3, 4]], order="F")
+        except (NotImplementedError, ValueError):
+            skip('Fortran order not implemented')
 
         it = nditer([a, b])
 
@@ -217,7 +219,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r == [(0, 0), (1, 1), (2, 2), (0, 3), (1, 4), (2, 5)]
         a = arange(2)
         exc = raises(ValueError, nditer, [a, b])
-        assert str(exc.value).find('shapes (2) (2,3)') > 0
+        assert str(exc.value).find('shapes (2,) (2,3)') > 0
 
     def test_outarg(self):
         from numpy import nditer, zeros, arange
@@ -246,7 +248,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (c == [1., 4., 9.]).all()
         assert (b == c).all()
         exc = raises(ValueError, square2, arange(6).reshape(2, 3), out=b)
-        assert str(exc.value).find('cannot be broadcasted') > 0
+        assert str(exc.value).find("doesn't match the broadcast shape") > 0
 
     def test_outer_product(self):
         from numpy import nditer, arange
@@ -332,25 +334,25 @@ class AppTestNDIter(BaseNumpyAppTest):
         i = nditer([a, None], [], [['readonly'], ['writeonly','allocate']],
                             op_axes=[[0,1,None], None],
                             itershape=(-1,-1,4))
-        assert_equal(i.operands[1].shape, (2,3,4))
-        assert_equal(i.operands[1].strides, (24,8,2))
+        assert i.operands[1].shape == (2,3,4)
+        assert i.operands[1].strides, (24,8,2)
 
         i = nditer([a.T, None], [], [['readonly'], ['writeonly','allocate']],
                             op_axes=[[0,1,None], None],
                             itershape=(-1,-1,4))
-        assert_equal(i.operands[1].shape, (3,2,4))
-        assert_equal(i.operands[1].strides, (8,24,2))
+        assert i.operands[1].shape, (3,2,4)
+        assert i.operands[1].strides, (8,24,2)
 
         i = nditer([a.T, None], [], [['readonly'], ['writeonly','allocate']],
                             order='F',
                             op_axes=[[0,1,None], None],
                             itershape=(-1,-1,4))
-        assert_equal(i.operands[1].shape, (3,2,4))
-        assert_equal(i.operands[1].strides, (2,6,12))
+        assert i.operands[1].shape, (3,2,4)
+        assert i.operands[1].strides, (2,6,12)
 
         # If we specify 1 in the itershape, it shouldn't allow broadcasting
         # of that dimension to a bigger value
-        assert_raises(ValueError, nditer, [a, None], [],
+        raises(ValueError, nditer, [a, None], [],
                             [['readonly'], ['writeonly','allocate']],
                             op_axes=[[0,1,None], None],
                             itershape=(-1,1,4))

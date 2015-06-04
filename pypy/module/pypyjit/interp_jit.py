@@ -19,8 +19,8 @@ from opcode import opmap
 
 
 PyFrame._virtualizable_ = ['last_instr', 'pycode',
-                           'valuestackdepth', 'locals_stack_w[*]',
-                           'cells[*]',
+                           'valuestackdepth',
+                           'locals_cells_stack_w[*]',
                            'debugdata',
                            'last_exception',
                            'lastblock',

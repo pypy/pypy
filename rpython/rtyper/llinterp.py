@@ -524,6 +524,9 @@ class LLFrame(object):
         except:
             self.make_llexception()
 
+    def op_debug_forked(self, *args):
+        raise NotImplementedError
+
     def op_debug_start_traceback(self, *args):
         pass    # xxx write debugging code here?
 

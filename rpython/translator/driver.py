@@ -458,11 +458,14 @@ class TranslationDriver(SimpleTaskEngine):
             shutil_copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
 
-    def compute_exe_name(self):
+    def compute_exe_name(self, suffix=''):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        return py.path.local(newexename)
+        newname = py.path.local(newexename)
+        if suffix:
+            newname = newname.new(purebasename = newname.purebasename + suffix)
+        return newname
 
     def create_exe(self):
         """ Copy the compiled executable into current directory, which is
@@ -478,6 +481,11 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
+                    # Copy pypyw.exe
+                    newexename = mkexename(self.compute_exe_name(suffix='w'))
+                    exe = py.path.local(exename)
+                    exename = exe.new(purebasename=exe.purebasename + 'w')
+                    shutil_copy(str(exename), str(newexename))
                     # the import library is named python27.lib, according
                     # to the pragma in pyconfig.h
                     libname = str(newsoname.dirpath().join('python27.lib'))
