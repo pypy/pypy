@@ -62,7 +62,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         self.mode = mode
         self.length = length
 
-    def getlenbound(self):
+    def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt import intutils
 
         if self.lenbound is None:
@@ -123,7 +123,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         if not create_ops:
             return None
         lengthop = ResOperation(mode.STRLEN, [op])
-        lengthop.set_forwarded(self.getlenbound())
+        lengthop.set_forwarded(self.getlenbound(mode))
         self.lgtop = lengthop
         string_optimizer.emit_operation(lengthop)
         return lengthop
@@ -153,6 +153,7 @@ class VStringPlainInfo(StrPtrInfo):
 
     def shrink(self, length):
         assert length >= 0
+        self.length = length
         del self._chars[length:]
 
     def setup_slice(self, longerlist, start, stop):
@@ -522,16 +523,8 @@ class OptString(optimizer.Optimization):
     def _optimize_NEWSTR(self, op, mode):
         length_box = self.get_constant_box(op.getarg(0))
         if length_box and length_box.getint() <= MAX_CONST_LEN:
-            # if the original 'op' did not have a ConstInt as argument,
-            # build a new one with the ConstInt argument
-            if not isinstance(op.getarg(0), ConstInt):
-                old_op = op
-                op = op.copy_and_change(mode.NEWSTR, [length_box])
-            else:
-                old_op = None
-            vvalue = self.make_vstring_plain(op, mode, length_box.getint())
-            if old_op is not None:
-                self.optimizer.make_equal_to(old_op, vvalue)
+            assert not op.get_forwarded()
+            self.make_vstring_plain(op, mode, length_box.getint())
         else:
             self.make_nonnull_str(op, mode)
             self.emit_operation(op)
@@ -601,12 +594,12 @@ class OptString(optimizer.Optimization):
         self._optimize_STRLEN(op, mode_unicode)
 
     def _optimize_STRLEN(self, op, mode):
-        #value = self.getvalue(op.getarg(0))
-        #lengthbox = value.getstrlen(self, mode, op)
-        #if op in self.optimizer.values:
-        #    assert self.getvalue(op) is self.getvalue(lengthbox)
-        #elif op is not lengthbox:
-        #    self.make_equal_to(op, self.getvalue(lengthbox))
+        opinfo = self.getptrinfo(op.getarg(0))
+        if opinfo:
+            lgtop = opinfo.getstrlen(op, self, mode, False)
+            if lgtop is not None:
+                self.make_equal_to(op, lgtop)
+                return
         self.emit_operation(op)
 
     def optimize_COPYSTRCONTENT(self, op):

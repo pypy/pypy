@@ -150,6 +150,8 @@ def compile_loop(metainterp, greenkey, start,
         start_state = optimize_trace(metainterp_sd, jitdriver_sd, part,
                                      enable_opts, export_state=True)
     except InvalidLoop:
+        forget_optimization_info(part.operations)
+        forget_optimization_info(part.inputargs)
         return None
     target_token = part.operations[0].getdescr()
     assert isinstance(target_token, TargetToken)
@@ -238,6 +240,7 @@ def compile_retrace(metainterp, greenkey, start,
                        jitdriver_sd.warmstate.enable_opts,
                        start_state=start_state, export_state=False)
     except InvalidLoop:
+        xxx # XXX forget optimizations
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
@@ -250,6 +253,7 @@ def compile_retrace(metainterp, greenkey, start,
                            inline_short_preamble=False, start_state=start_state,
                            export_state=False)
         except InvalidLoop:
+            xxx # XXX forget optimizations
             return None
     assert part.operations[-1].getopnum() != rop.LABEL
     target_token = label.getdescr()
@@ -374,12 +378,13 @@ def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
                                             original_loop_token, log=log,
                                             logger=metainterp_sd.logger_ops)
 
-def forget_optimization_info(lst):
+def forget_optimization_info(lst, reset_values=False):
     for item in lst:
         item.set_forwarded(None)
         # XXX we should really do it, but we need to remember the values
         #     somehoe for ContinueRunningNormally
-        #item.reset_value()
+        if reset_values:
+            item.reset_value()
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     forget_optimization_info(loop.operations)
@@ -916,6 +921,8 @@ def compile_trace(metainterp, resumekey):
                                state.enable_opts,
                                inline_short_preamble, export_state=True)
     except InvalidLoop:
+        forget_optimization_info(new_trace.operations)
+        forget_optimization_info(new_trace.inputargs)
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

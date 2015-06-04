@@ -476,6 +476,11 @@ class ConstPtrInfo(PtrInfo):
     @specialize.arg(2)
     def get_constant_string_spec(self, optforce, mode):
         return self._unpack_str(mode)
+
+    def getlenbound(self, mode):
+        from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound
+        
+        return ConstIntBound(self.getstrlen(None, None, mode))
     
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         from rpython.jit.metainterp.optimizeopt import vstring
