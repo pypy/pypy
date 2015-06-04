@@ -1,7 +1,7 @@
 from os.path import dirname
 
 class AppTestSubprocess:
-    spaceconfig = dict(usemodules=('_posixsubprocess', 'signal', 'fcntl', 'select'))
+    spaceconfig = dict(usemodules=('_posixsubprocess', 'signal', 'fcntl', 'select', 'struct'))
     # XXX write more tests
 
     def setup_class(cls):
