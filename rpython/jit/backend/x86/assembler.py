@@ -2638,6 +2638,7 @@ class Assembler386(BaseAssembler):
 
     def genop_vec_int_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
+        assert isinstance(srcloc, RegLoc)
         assert not srcloc.is_xmm
         size = sizeloc.value
         if size == 8:

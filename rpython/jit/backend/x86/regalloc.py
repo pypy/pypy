@@ -1635,10 +1635,10 @@ class RegAlloc(BaseRegalloc):
 
     def consider_vec_int_expand(self, op):
         arg = op.getarg(0)
+        args = op.getarglist()
         if isinstance(arg, Const):
             srcloc = self.rm.convert_to_imm(arg)
         else:
-            args = op.getarglist()
             srcloc = self.make_sure_var_in_reg(arg, args)
         resloc = self.xrm.force_allocate_reg(op.result, args)
         assert isinstance(op.result, BoxVector)
