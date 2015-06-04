@@ -1632,6 +1632,17 @@ class RegAlloc(BaseRegalloc):
         size = op.result.getsize()
         self.perform(op, [resloc, imm(size)], resloc)
 
+    def consider_vec_int_expand(self, op):
+        arg = op.getarg(0)
+        if isinstance(arg, Const):
+            resloc = self.xrm.expand_int(op.result, arg)
+            return
+        args = op.getarglist()
+        resloc = self.xrm.force_result_in_reg(op.result, arg, args)
+        assert isinstance(op.result, BoxVector)
+        size = op.result.getsize()
+        self.perform(op, [resloc, imm(size)], resloc)
+
     def consider_vec_int_signext(self, op):
         args = op.getarglist()
         resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)

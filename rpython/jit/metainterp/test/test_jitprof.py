@@ -54,7 +54,7 @@ class TestProfile(ProfilerMixin):
         assert profiler.events == expected
         assert profiler.times == [2, 1]
         assert profiler.counters == [1, 1, 3, 3, 2, 15, 2, 0, 0, 0, 0,
-                                     0, 0, 0, 0, 0]
+                                     0, 0, 0, 0, 0, 0, 0]
 
     def test_simple_loop_with_call(self):
         @dont_look_inside
