@@ -660,7 +660,6 @@ class OptVirtualize(optimizer.Optimization):
             tokeninfo = self.getptrinfo(tokenop)
             if (tokeninfo is not None and tokeninfo.is_constant() and
                     not tokeninfo.is_null()):
-                xxx
                 forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
                 if forcedvalue is not None and not forcedvalue.is_null():
                     self.make_equal_to(op, forcedvalue)
