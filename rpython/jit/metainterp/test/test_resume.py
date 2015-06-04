@@ -3,6 +3,7 @@ import py
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.resume import *
+from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
 from rpython.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
@@ -23,15 +24,13 @@ class Storage:
 
 
 class FakeOptimizer(object):
-    def __init__(self, values):
-        self.values = values
-        
-    def getvalue(self, box):
-        try:
-            value = self.values[box]
-        except KeyError:
-            value = self.values[box] = OptValue(box)
-        return value
+    def get_box_replacement(self, op):
+        if not op.get_forwarded():
+            return op
+        xxx
+
+    def getrawptrinfo(self, op, create=True):
+        return op.get_forwarded()
 
 
 # ____________________________________________________________
@@ -122,11 +121,11 @@ def test_reuse_vinfo():
             self.fieldnums = fieldnums
         def equals(self, fieldnums):
             return self.fieldnums == fieldnums
-    class FakeVirtualValue(AbstractVirtualValue):
+    class FakeVirtualValue(AbstractVirtualPtrInfo):
         def visitor_dispatch_virtual_type(self, *args):
             return FakeVInfo()
-    modifier = ResumeDataVirtualAdder(None, None, None)
-    v1 = FakeVirtualValue(None, None)
+    modifier = ResumeDataVirtualAdder(None, None, None, None, None)
+    v1 = FakeVirtualValue()
     vinfo1 = modifier.make_virtual_info(v1, [1, 2, 4])
     vinfo2 = modifier.make_virtual_info(v1, [1, 2, 4])
     assert vinfo1 is vinfo2
@@ -356,8 +355,8 @@ def test_prepare_virtuals():
 class FakeResumeDataReader(AbstractResumeDataReader):
     VirtualCache = get_VirtualCache_class('Fake')
     
-    def allocate_with_vtable(self, known_class):
-        return FakeBuiltObject(vtable=known_class)
+    def allocate_with_vtable(self, descr):
+        return FakeBuiltObject(vtable=descr)
     def allocate_struct(self, typedescr):
         return FakeBuiltObject(typedescr=typedescr)
     def allocate_array(self, length, arraydescr, clear):
@@ -624,7 +623,7 @@ def test_rebuild_from_resumedata():
           FakeFrame("code2", 9, c3, b2)]
     capture_resumedata(fs, None, [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
+    modifier = ResumeDataVirtualAdder(None, storage, storage, memo)
     liveboxes = modifier.finish(FakeOptimizer({}))
     metainterp = MyMetaInterp()
 
@@ -648,7 +647,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
           FakeFrame("code2", 9, c3, b2)]
     capture_resumedata(fs, [b4], [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier = ResumeDataVirtualAdder(None, storage, memo)
     liveboxes = modifier.finish(FakeOptimizer({}))
     metainterp = MyMetaInterp()
 
@@ -677,10 +676,10 @@ def test_rebuild_from_resumedata_two_guards():
     capture_resumedata(fs, None, [], storage2)
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, memo)
+    modifier = ResumeDataVirtualAdder(None, storage, memo)
     liveboxes = modifier.finish(FakeOptimizer({}))
 
-    modifier = ResumeDataVirtualAdder(storage2, memo)
+    modifier = ResumeDataVirtualAdder(None, storage2, memo)
     liveboxes2 = modifier.finish(FakeOptimizer({}))
 
     metainterp = MyMetaInterp()
@@ -1029,7 +1028,7 @@ def test_ResumeDataLoopMemo_number_virtuals():
 def test_register_virtual_fields():
     b1, b2 = InputArgInt(), InputArgInt()
     vbox = InputArgRef()
-    modifier = ResumeDataVirtualAdder(None, None, None)
+    modifier = ResumeDataVirtualAdder(None, None, None, None)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
@@ -1038,7 +1037,7 @@ def test_register_virtual_fields():
                                   b2: UNASSIGNED}
     assert modifier.vfieldboxes == {vbox: [b1, b2]}
 
-    modifier = ResumeDataVirtualAdder(None, None, None)
+    modifier = ResumeDataVirtualAdder(None, None, None, None)
     modifier.liveboxes_from_env = {vbox: tag(0, TAGVIRTUAL)}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
@@ -1372,7 +1371,7 @@ def test_virtual_adder_pending_fields():
     b2s, b4s = [InputArgRef(), InputArgRef()]
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
+    modifier = ResumeDataVirtualAdder(None, storage, storage, memo)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
@@ -1411,18 +1410,18 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     class Storage(object):
         pass
     storage = Storage()
-    modifier = ResumeDataVirtualAdder(storage, storage, None)
-    modifier._add_pending_fields([])
+    modifier = ResumeDataVirtualAdder(None, storage, storage, None)
+    modifier._add_pending_fields(None, [])
     assert not storage.rd_pendingfields
     #
     class FieldDescr(object):
         pass
     field_a = FieldDescr()
     storage = Storage()
-    modifier = ResumeDataVirtualAdder(storage, storage, None)
+    modifier = ResumeDataVirtualAdder(None, storage, storage, None)
     modifier.liveboxes_from_env = {42: rffi.cast(rffi.SHORT, 1042),
                                    61: rffi.cast(rffi.SHORT, 1061)}
-    modifier._add_pending_fields([(field_a, 42, 61, -1)])
+    modifier._add_pending_fields(FakeOptimizer(), [(field_a, 42, 61, -1)])
     pf = storage.rd_pendingfields
     assert len(pf) == 1
     assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
@@ -1514,7 +1513,7 @@ def test_invalidation_needed():
     metainterp_sd = FakeMetaInterpStaticData()
     metainterp_sd.options = options
     memo = ResumeDataLoopMemo(metainterp_sd)
-    modifier = ResumeDataVirtualAdder(None, None, memo)
+    modifier = ResumeDataVirtualAdder(None, None, None, memo)
 
     for i in range(5):
         assert not modifier._invalidation_needed(5, i)

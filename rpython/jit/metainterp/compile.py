@@ -377,6 +377,8 @@ def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
 def forget_optimization_info(lst):
     for item in lst:
         item.set_forwarded(None)
+        # XXX we should really do it, but we need to remember the values
+        #     somehoe for ContinueRunningNormally
         #item.reset_value()
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
