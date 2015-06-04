@@ -1808,15 +1808,19 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         class FakeGCCache(object):
             pass
-        
-        if not hasattr(cpu.gc_ll_descr, '_cache_gcstruct2vtable'):
-            cpu.gc_ll_descr._cache_gcstruct2vtable = {}
-        cpu.gc_ll_descr._cache_gcstruct2vtable.update({T: vtable_for_T})
-        p = T
-        while hasattr(p, 'parent'):
-            vtable_for_parent = lltype.malloc(self.MY_VTABLE, immortal=True)
-            cpu.gc_ll_descr._cache_gcstruct2vtable[p.parent] = vtable_for_parent
-            p = p.parent
+
+        if hasattr(cpu, 'gc_ll_descr'):
+            if not hasattr(cpu.gc_ll_descr, '_cache_gcstruct2vtable'):
+                cpu.gc_ll_descr._cache_gcstruct2vtable = {}
+            cpu.gc_ll_descr._cache_gcstruct2vtable.update({T: vtable_for_T})
+            p = T
+            while hasattr(p, 'parent'):
+                vtable_for_parent = lltype.malloc(self.MY_VTABLE, immortal=True)
+                cpu.gc_ll_descr._cache_gcstruct2vtable[p.parent] = vtable_for_parent
+                p = p.parent
+        else:
+            descr = cpu.sizeof(T, True)
+            descr._corresponding_vtable = vtable_for_T
         t = lltype.malloc(T)
         if T == self.T:
             t.parent.parent.typeptr = vtable_for_T
