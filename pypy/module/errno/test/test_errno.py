@@ -11,8 +11,28 @@ class AppTestErrno:
         assert not hasattr(self.errno, '__file__')
 
     def test_constants(self):
-        for code, name in self.errorcode.items():
+        host_errorcode = self.errorcode.copy()
+        # On some systems, ENOTSUP is an alias to EOPNOTSUPP.  Adjust the
+        # host_errorcode dictionary in case the host interpreter has slightly
+        # different errorcodes than the interpreter under test
+        if ('ENOTSUP' not in host_errorcode.values() and
+            'ENOTSUP' in self.errno.errorcode.values()):
+            host_errorcode[self.errno.ENOTSUP] = 'ENOTSUP'
+        if ('EOPNOTSUPP' not in host_errorcode.values() and
+            'EOPNOTSUPP' in self.errno.errorcode.values()):
+            host_errorcode[self.errno.EOPNOTSUPP] = 'EOPNOTSUPP'
+        for code, name in host_errorcode.items():
             assert getattr(self.errno, name) == code
 
     def test_errorcode(self):
-        assert self.errorcode == self.errno.errorcode
+        host_errorcode = self.errorcode.copy()
+        # On some systems, ENOTSUP is an alias to EOPNOTSUPP.  Adjust the
+        # host_errorcode dictionary in case the host interpreter has slightly
+        # different errorcodes than the interpreter under test
+        if ('ENOTSUP' not in host_errorcode.values() and
+            'ENOTSUP' in self.errno.errorcode.values()):
+            host_errorcode[self.errno.ENOTSUP] = 'ENOTSUP'
+        if ('EOPNOTSUPP' not in host_errorcode.values() and
+            'EOPNOTSUPP' in self.errno.errorcode.values()):
+            host_errorcode[self.errno.EOPNOTSUPP] = 'EOPNOTSUPP'
+        assert host_errorcode == self.errno.errorcode
