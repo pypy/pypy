@@ -59,7 +59,8 @@ def unwrap(TYPE, box):
         if TYPE.TO._gckind == "gc":
             return box.getref(TYPE)
         else:
-            return llmemory.cast_adr_to_ptr(box.getaddr(), TYPE)
+            adr = heaptracker.int2adr(box.getint())
+            return llmemory.cast_adr_to_ptr(adr, TYPE)
     if TYPE == lltype.Float:
         return box.getfloat()
     else:
