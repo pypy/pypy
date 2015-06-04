@@ -69,26 +69,9 @@ def quicksort(array, left, right):
         quicksort(array, pivotnewindex + 1, right)
 
 def sort_descrs(lst):
+    # unused, should I leave it or kill it?
     quicksort(lst, 0, len(lst)-1)
 
-
-def descrlist_hash(l):
-    res = 0x345678
-    for descr in l:
-        y = compute_identity_hash(descr)
-        res = intmask((1000003 * res) ^ y)
-    return res
-
-def descrlist_eq(l1, l2):
-    if len(l1) != len(l2):
-        return False
-    for i in range(len(l1)):
-        if l1[i] is not l2[i]:
-            return False
-    return True
-
-def descrlist_dict():
-    return r_dict(descrlist_eq, descrlist_hash)
 
 # ____________________________________________________________
 
