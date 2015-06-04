@@ -2638,8 +2638,13 @@ class Assembler386(BaseAssembler):
 
     def genop_vec_int_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
+        assert not srcloc.is_xmm
         size = sizeloc.value
-        raise NotImplementedError
+        if size == 8:
+            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
+            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
+        else:
+            raise NotImplementedError("missing size %d for int expand" % (size,))
 
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
