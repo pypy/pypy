@@ -1,5 +1,4 @@
-from rpython.jit.metainterp.history import (ConstInt, BoxInt, ConstFloat,
-    BoxFloat, TargetToken)
+from rpython.jit.metainterp.history import ConstInt, ConstFloat
 from rpython.jit.metainterp.resoperation import rop, AbstractInputArg
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)

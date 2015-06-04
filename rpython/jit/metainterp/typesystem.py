@@ -33,7 +33,6 @@ class LLTypeHelper(TypeSystemHelper):
     nullptr = staticmethod(lltype.nullptr)
     cast_instance_to_base_ref = staticmethod(cast_instance_to_base_ptr)
     BASETYPE = llmemory.GCREF
-    BoxRef = history.BoxPtr
     ConstRef = history.ConstPtr
     loops_done_with_this_frame_ref = None # patched by compile.py
     NULLREF = history.ConstPtr.value

@@ -1,8 +1,8 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import (BoxInt, Const, ConstInt, ConstPtr,
-    get_const_ptr_for_string, get_const_ptr_for_unicode, BoxPtr, REF, INT,
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    get_const_ptr_for_string, get_const_ptr_for_unicode, REF, INT,
     DONT_CHANGE)
-from rpython.jit.metainterp.optimizeopt import optimizer, virtualize
+from rpython.jit.metainterp.optimizeopt import optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
 from rpython.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method

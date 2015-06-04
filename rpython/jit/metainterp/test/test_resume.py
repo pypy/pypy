@@ -4,7 +4,7 @@ import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.resume import *
 from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
-from rpython.jit.metainterp.history import BoxInt, BoxPtr, ConstInt
+from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
