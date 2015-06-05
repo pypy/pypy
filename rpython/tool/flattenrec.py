@@ -3,8 +3,14 @@ A general way to flatten deeply recursive algorithms by delaying some
 parts until later.
 """
 
+try:
+    from thread import _local as TlsClass
+except ImportError:
+    class TlsClass(object):
+        pass
 
-class FlattenRecursion(object):
+
+class FlattenRecursion(TlsClass):
 
     def __init__(self):
         self.later = None
