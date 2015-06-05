@@ -3082,7 +3082,7 @@ class MetaInterp(object):
                                              argboxes, calldescr)
             self.history.record(rop.CALL_RELEASE_GIL_N,
                                          [savebox, funcbox] + argboxes[1:],
-                                         calldescr)
+                                         None, calldescr)
             resbox = None
         else:
             assert False, "no CALL_RELEASE_GIL_R"
