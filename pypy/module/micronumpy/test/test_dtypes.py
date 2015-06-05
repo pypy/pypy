@@ -1052,16 +1052,6 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.name == "unicode256"
         assert d.num == 19
 
-    def test_string_boxes(self):
-        from numpy import str_
-        assert isinstance(str_(3), str_)
-
-    def test_unicode_boxes(self):
-        from numpy import unicode_
-        import sys
-        u = unicode_(3)
-        assert isinstance(u, unicode)
-
     def test_character_dtype(self):
         import numpy as np
         from numpy import array, character

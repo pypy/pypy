@@ -457,3 +457,14 @@ class AppTestScalar(BaseNumpyAppTest):
 
         for t in complex64, complex128:
             _do_test(t, 17j, -17j)
+
+    def test_string_boxes(self):
+        from numpy import str_
+        assert isinstance(str_(3), str_)
+        assert str_(3) == '3'
+
+    def test_unicode_boxes(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert isinstance(u, unicode)
+        assert u == u'3'

@@ -606,15 +606,25 @@ class W_StringBox(W_CharacterBox):
         return W_StringBox(arr, 0, arr.dtype)
 
 class W_UnicodeBox(W_CharacterBox):
-    def descr__new__unicode_box(space, w_subtype, w_arg):
+    def __init__(self, value):
+        self._value = value
+
+    def convert_to(self, space, dtype):
+        if dtype.is_unicode():
+            return self
+        elif dtype.is_object():
+            return W_ObjectBox(space.wrap(self._value))
+        else:
+            raise oefmt(space.w_NotImplementedError,
+                        "Conversion from unicode not implemented yet")
+
+    def get_dtype(self, space):
         from pypy.module.micronumpy.descriptor import new_unicode_dtype
-        arg = space.unicode_w(space.unicode_from_object(w_arg))
-        # XXX size computations, we need tests anyway
-        arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
-        # XXX not this way, we need store
-        #for i in range(len(arg)):
-        #    arr.storage[i] = arg[i]
-        return W_UnicodeBox(arr, 0, arr.dtype)
+        return new_unicode_dtype(space, len(self._value))
+
+    def descr__new__unicode_box(space, w_subtype, w_arg):
+        value = space.unicode_w(space.unicode_from_object(w_arg))
+        return W_UnicodeBox(value)
 
 class W_ObjectBox(W_GenericBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.OBJECT)
