@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.history import Const, ConstInt
-from rpython.jit.metainterp.resoperation import rop, OpHelpers
+from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractValue
 
-class HeapCacheValue(object):
+class HeapCacheValue(AbstractValue):
     def __init__(self, box):
         self.box = box
         self.likely_virtual = False
