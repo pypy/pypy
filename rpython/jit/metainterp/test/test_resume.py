@@ -3,7 +3,8 @@ import py
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.resume import *
-from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
+from rpython.jit.metainterp.optimizeopt.info import AbstractInfo,\
+     AbstractVirtualPtrInfo
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
@@ -25,12 +26,18 @@ class Storage:
 
 class FakeOptimizer(object):
     def get_box_replacement(self, op):
-        if not op.get_forwarded():
-            return op
-        xxx
+        while (op.get_forwarded() is not None and
+               not isinstance(op.get_forwarded(), AbstractInfo)):
+            op = op.get_forwarded()
+        return op
 
     def getrawptrinfo(self, op, create=True):
+        op = self.get_box_replacement(op)
         return op.get_forwarded()
+
+    def getptrinfo(self, op, create=True):
+        op = self.get_box_replacement(op)
+        return op.get_forwarded()        
 
 
 # ____________________________________________________________
@@ -124,7 +131,7 @@ def test_reuse_vinfo():
     class FakeVirtualValue(AbstractVirtualPtrInfo):
         def visitor_dispatch_virtual_type(self, *args):
             return FakeVInfo()
-    modifier = ResumeDataVirtualAdder(None, None, None, None, None)
+    modifier = ResumeDataVirtualAdder(None, None, None, None)
     v1 = FakeVirtualValue()
     vinfo1 = modifier.make_virtual_info(v1, [1, 2, 4])
     vinfo2 = modifier.make_virtual_info(v1, [1, 2, 4])
@@ -624,7 +631,7 @@ def test_rebuild_from_resumedata():
     capture_resumedata(fs, None, [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(None, storage, storage, memo)
-    liveboxes = modifier.finish(FakeOptimizer({}))
+    liveboxes = modifier.finish(FakeOptimizer())
     metainterp = MyMetaInterp()
 
     b1t, b2t, b3t = [BoxInt(), InputArgRef(), BoxInt()]
@@ -901,7 +908,7 @@ def test_ResumeDataLoopMemo_number():
 
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
 
-    numb, liveboxes, v = memo.number(FakeOptimizer({}), snap1)
+    numb, liveboxes, v = memo.number(FakeOptimizer(), snap1)
     assert v == 0
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -913,7 +920,7 @@ def test_ResumeDataLoopMemo_number():
                                     tag(0, TAGBOX), tag(2, TAGINT)]
     assert not numb.prev.prev
 
-    numb2, liveboxes2, v = memo.number(FakeOptimizer({}), snap2)
+    numb2, liveboxes2, v = memo.number(FakeOptimizer(), snap2)
     assert v == 0
     
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -926,20 +933,16 @@ def test_ResumeDataLoopMemo_number():
     env3 = [c3, b3, b1, c3]
     snap3 = Snapshot(snap, env3)
 
-    class FakeValue(object):
-        def __init__(self, virt, box):
+    class FakeVirtualInfo(AbstractInfo):
+        def __init__(self, virt):
             self.virt = virt
-            self.valuebox = box
-
-        def get_key_box(self):
-            return self.valuebox
 
         def is_virtual(self):
             return self.virt
 
     # renamed
-    numb3, liveboxes3, v = memo.number(FakeOptimizer({b3: FakeValue(False, c4)}),
-                                       snap3)
+    b3.set_forwarded(c4)
+    numb3, liveboxes3, v = memo.number(FakeOptimizer(), snap3)
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
@@ -949,10 +952,10 @@ def test_ResumeDataLoopMemo_number():
 
     # virtual
     env4 = [c3, b4, b1, c3]
-    snap4 = Snapshot(snap, env4)    
+    snap4 = Snapshot(snap, env4)
 
-    numb4, liveboxes4, v = memo.number(FakeOptimizer({b4: FakeValue(True, b4)}),
-                                       snap4)
+    b4.set_forwarded(FakeVirtualInfo(True))
+    numb4, liveboxes4, v = memo.number(FakeOptimizer(), snap4)
     assert v == 1
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -962,11 +965,11 @@ def test_ResumeDataLoopMemo_number():
     assert numb4.prev == numb.prev
 
     env5 = [b1, b4, b5]
-    snap5 = Snapshot(snap4, env5)    
+    snap5 = Snapshot(snap4, env5)
 
-    numb5, liveboxes5, v = memo.number(FakeOptimizer({b4: FakeValue(True, b4),
-                                                      b5: FakeValue(True, b5)}),
-                                       snap5)
+    b4.set_forwarded(FakeVirtualInfo(True))
+    b5.set_forwarded(FakeVirtualInfo(True))
+    numb5, liveboxes5, v = memo.number(FakeOptimizer(), snap5)
     assert v == 2
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -1028,7 +1031,7 @@ def test_ResumeDataLoopMemo_number_virtuals():
 def test_register_virtual_fields():
     b1, b2 = InputArgInt(), InputArgInt()
     vbox = InputArgRef()
-    modifier = ResumeDataVirtualAdder(None, None, None, None)
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), None, None, None)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
@@ -1037,7 +1040,7 @@ def test_register_virtual_fields():
                                   b2: UNASSIGNED}
     assert modifier.vfieldboxes == {vbox: [b1, b2]}
 
-    modifier = ResumeDataVirtualAdder(None, None, None, None)
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), None, None, None)
     modifier.liveboxes_from_env = {vbox: tag(0, TAGVIRTUAL)}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
@@ -1067,8 +1070,8 @@ def test_virtual_adder_int_constants():
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())    
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
-    liveboxes = modifier.finish(FakeOptimizer({}))
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
+    liveboxes = modifier.finish(FakeOptimizer())
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
@@ -1081,15 +1084,16 @@ def test_virtual_adder_memo_const_sharing():
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
-    modifier.finish(FakeOptimizer({}))
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
+    modifier.finish(FakeOptimizer())
     assert len(memo.consts) == 2
     assert storage.rd_consts is memo.consts
 
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**17), ConstInt(-65)]
     storage2 = make_storage(b1s, b2s, b3s)
-    modifier2 = ResumeDataVirtualAdder(storage2, storage2, memo)
-    modifier2.finish(FakeOptimizer({}))
+    modifier2 = ResumeDataVirtualAdder(FakeOptimizer(), storage2, storage2,
+                                       memo)
+    modifier2.finish(FakeOptimizer())
     assert len(memo.consts) == 3    
     assert storage2.rd_consts is memo.consts
 

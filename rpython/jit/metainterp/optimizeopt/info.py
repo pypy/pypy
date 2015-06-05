@@ -479,7 +479,7 @@ class ConstPtrInfo(PtrInfo):
     def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound
         
-        return ConstIntBound(self.getstrlen(None, None, mode))
+        return ConstIntBound(self.getstrlen(None, None, mode).getint())
     
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         from rpython.jit.metainterp.optimizeopt import vstring
