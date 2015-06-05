@@ -438,7 +438,7 @@ class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
         gcstruct = V_OBJECTSTORE
-        self.flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
+        flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
         if storage == lltype.nullptr(RAW_STORAGE):
             length = support.product(shape) 
             if dtype.num == NPY.OBJECT:
@@ -446,15 +446,16 @@ class ConcreteArray(ConcreteArrayNotOwning):
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
             else:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
-            self.flags |= NPY.ARRAY_OWNDATA
+            flags |= NPY.ARRAY_OWNDATA
         start = calc_start(shape, strides)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
                                         storage, start=start)
         self.gcstruct = gcstruct
         if is_c_contiguous(self):
-            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+            flags |= NPY.ARRAY_C_CONTIGUOUS
         if is_f_contiguous(self):
-            self.flags |= NPY.ARRAY_F_CONTIGUOUS
+            flags |= NPY.ARRAY_F_CONTIGUOUS
+        self.flags = flags
 
     def __del__(self):
         if self.gcstruct:
@@ -469,14 +470,15 @@ class ConcreteArrayWithBase(ConcreteArrayNotOwning):
                                         strides, backstrides, storage, start)
         self.orig_base = orig_base
         if isinstance(orig_base, W_NumpyObject):
-            self.flags = orig_base.get_flags() & NPY.ARRAY_ALIGNED
-            self.flags |=  orig_base.get_flags() & NPY.ARRAY_WRITEABLE
+            flags = orig_base.get_flags() & NPY.ARRAY_ALIGNED
+            flags |=  orig_base.get_flags() & NPY.ARRAY_WRITEABLE
         else:
-            self.flags = 0
+            flags = 0
         if is_c_contiguous(self):
-            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+            flags |= NPY.ARRAY_C_CONTIGUOUS
         if is_f_contiguous(self):
-            self.flags |= NPY.ARRAY_F_CONTIGUOUS
+            flags |= NPY.ARRAY_F_CONTIGUOUS
+        self.flags = flags
 
     def base(self):
         return self.orig_base
@@ -524,12 +526,13 @@ class SliceArray(BaseConcreteArray):
         self.size = support.product(shape) * self.dtype.elsize
         self.start = start
         self.orig_arr = orig_arr
-        self.flags = parent.flags & NPY.ARRAY_ALIGNED
-        self.flags |= parent.flags & NPY.ARRAY_WRITEABLE
+        flags = parent.flags & NPY.ARRAY_ALIGNED
+        flags |= parent.flags & NPY.ARRAY_WRITEABLE
         if is_c_contiguous(self):
-            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+            flags |= NPY.ARRAY_C_CONTIGUOUS
         if is_f_contiguous(self):
-            self.flags |= NPY.ARRAY_F_CONTIGUOUS
+            flags |= NPY.ARRAY_F_CONTIGUOUS
+        self.flags = flags
 
     def base(self):
         return self.orig_arr
