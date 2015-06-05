@@ -67,7 +67,7 @@ def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
                     "super(): arg[0] deleted"))
         index = 0
         for name in code.co_freevars:
-            if name == "@__class__":
+            if name == "__class__":
                 break
             index += 1
         else:
