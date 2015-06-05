@@ -35,6 +35,7 @@ class GcCache(object):
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
+    _corresponding_vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
 
     def __init__(self, size, count_fields_if_immut=-1,
                  gc_fielddescrs=None, all_fielddescrs=None,
