@@ -481,7 +481,10 @@ class OptRewrite(Optimization):
                 else:
                     cls0 = info0.get_known_class(self.optimizer.cpu)
                 if cls0 is not None:
-                    cls1 = info1.get_known_class(self.optimizer.cpu)
+                    if info1 is None:
+                        cls1 = None
+                    else:
+                        cls1 = info1.get_known_class(self.optimizer.cpu)
                     if cls1 is not None and not cls0.same_constant(cls1):
                         # cannot be the same object, as we know that their
                         # class is different
