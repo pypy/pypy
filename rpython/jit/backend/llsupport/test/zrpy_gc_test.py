@@ -51,7 +51,8 @@ def get_entry(g):
             r = g(name, n)
             r_list.append(r)
             rgc.collect()
-        rgc.collect(); rgc.collect()
+        for i in range(3):
+            rgc.collect(); rgc.collect()
         freed = 0
         for r in r_list:
             if r() is None:
