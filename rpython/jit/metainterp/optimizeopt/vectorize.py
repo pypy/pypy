@@ -864,12 +864,16 @@ class OpToVectorOp(object):
     def determine_output_type(self, op):
         return self.determine_input_type(op)
 
-    def as_vector_operation(self, pack, sched_data, oplist):
-        self.sched_data = sched_data
-        self.preamble_ops = oplist
+    def update_input_output(self, pack):
         op0 = pack.operations[0].getoperation()
         self.input_type = self.determine_input_type(op0)
         self.output_type = self.determine_output_type(op0)
+
+    def as_vector_operation(self, pack, sched_data, oplist):
+        self.sched_data = sched_data
+        self.preamble_ops = oplist
+        self.update_input_output(pack)
+
 
         off = 0
         stride = self.split_pack(pack)
@@ -956,14 +960,17 @@ class OpToVectorOp(object):
             # the argument is scattered along different vector boxes
             args = [op.getoperation().getarg(argidx) for op in ops]
             vbox = self._pack(vbox, packed, args, packable)
+            self.update_input_output(self.pack)
         elif packed > packable:
             # the argument has more items than the operation is able to process!
             vbox = self.unpack(vbox, off, packable, self.input_type)
+            self.update_input_output(self.pack)
         #
         if off != 0 and box_pos != 0:
             # The original box is at a position != 0 but it
             # is required to be at position 0. Unpack it!
             vbox = self.unpack(vbox, off, len(ops), self.input_type)
+            self.update_input_output(self.pack)
         # convert size i64 -> i32, i32 -> i64, ...
         if self.input_type.getsize() > 0 and \
            self.input_type.getsize() != vbox.getsize():
