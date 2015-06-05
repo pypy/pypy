@@ -513,9 +513,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
                 # the index is limited to 2147483647 (64-bit machines only)
-                #if itemindex > 2147483647:
-                #    raise TagOverflow
-                #itemindex = rffi.cast(rffi.INT, itemindex)
+                if itemindex > 2147483647:
+                    raise TagOverflow
                 #
                 rd_pendingfields[i].lldescr = lldescr
                 rd_pendingfields[i].num = num

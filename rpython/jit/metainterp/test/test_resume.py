@@ -2,16 +2,23 @@ from __future__ import with_statement
 import py
 import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.jit.metainterp.resume import *
-from rpython.jit.metainterp.optimizeopt.info import AbstractInfo,\
-     AbstractVirtualPtrInfo
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
+     AbstractResumeDataReader, get_VirtualCache_class, ResumeDataBoxReader,\
+     tag, TagOverflow, untag, tagged_eq, UNASSIGNED, TAGBOX, TAGVIRTUAL,\
+     tagged_list_eq, AbstractVirtualInfo, NUMBERING, TAGCONST, NULLREF,\
+     ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,\
+     VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
+     VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
+     capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
+     annlowlevel, PENDINGFIELDSP
+from rpython.jit.metainterp.optimizeopt import info
+from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp import executor
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.metainterp.resoperation import ResOperation, InputArgInt,\
-     InputArgRef, InputArgFloat
+     InputArgRef, rop
 from rpython.rlib.debug import debug_start, debug_stop, debug_print,\
      have_debug_prints
 
@@ -27,7 +34,7 @@ class Storage:
 class FakeOptimizer(object):
     def get_box_replacement(self, op):
         while (op.get_forwarded() is not None and
-               not isinstance(op.get_forwarded(), AbstractInfo)):
+               not isinstance(op.get_forwarded(), info.AbstractInfo)):
             op = op.get_forwarded()
         return op
 
@@ -128,7 +135,7 @@ def test_reuse_vinfo():
             self.fieldnums = fieldnums
         def equals(self, fieldnums):
             return self.fieldnums == fieldnums
-    class FakeVirtualValue(AbstractVirtualPtrInfo):
+    class FakeVirtualValue(info.AbstractVirtualPtrInfo):
         def visitor_dispatch_virtual_type(self, *args):
             return FakeVInfo()
     modifier = ResumeDataVirtualAdder(None, None, None, None)
@@ -933,7 +940,7 @@ def test_ResumeDataLoopMemo_number():
     env3 = [c3, b3, b1, c3]
     snap3 = Snapshot(snap, env3)
 
-    class FakeVirtualInfo(AbstractInfo):
+    class FakeVirtualInfo(info.AbstractInfo):
         def __init__(self, virt):
             self.virt = virt
 
@@ -1148,18 +1155,11 @@ def test_virtual_adder_no_op_renaming():
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     b1_2 = InputArgInt()
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
-    class FakeValue(object):
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
 
-        def is_virtual(self):
-            return False
-
-        def get_key_box(self):
-            return b1_2
-
-    val = FakeValue()
-    values = {b1s: val, b2s: val}  
-    liveboxes = modifier.finish(FakeOptimizer(values))
+    b1s.set_forwarded(b1_2)
+    b2s.set_forwarded(b1_2)
+    liveboxes = modifier.finish(FakeOptimizer())
     assert storage.rd_snapshot is None
     b1t, b3t = [InputArgInt(11), InputArgInt(33)]
     newboxes = _resume_remap(liveboxes, [b1_2, b3s], b1t, b3t)
@@ -1179,8 +1179,8 @@ def test_virtual_adder_make_constant():
     b1s = ConstInt(111)
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())        
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
-    liveboxes = modifier.finish(FakeOptimizer({}))
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
+    liveboxes = modifier.finish(FakeOptimizer())
     b2t, b3t = [InputArgRef(demo55o), InputArgInt(33)]
     newboxes = _resume_remap(liveboxes, [b2s, b3s], b2t, b3t)
     metainterp = MyMetaInterp()
@@ -1196,34 +1196,34 @@ def test_virtual_adder_make_constant():
 
 
 def test_virtual_adder_make_virtual():
-    b2s, b3s, b4s, b5s = [InputArgRef(), InputArgInt(3), InputArgRef(), InputArgRef()]  
+    b2s, b3s, b4s, b5s = [InputArgRef(), InputArgInt(3), InputArgRef(),
+                          InputArgRef()]  
     c1s = ConstInt(111)
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    v4 = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr2,
-                                                LLtypeMixin.cpu), b4s)
-    v4.setfield(LLtypeMixin.nextdescr, OptValue(b2s))
-    v4.setfield(LLtypeMixin.valuedescr, OptValue(b3s))
-    v4.setfield(LLtypeMixin.otherdescr, OptValue(b5s))
-    v4._cached_sorted_fields = [LLtypeMixin.nextdescr, LLtypeMixin.valuedescr,
-                                LLtypeMixin.otherdescr]
-    v2 = VirtualValue(fakeoptimizer, ConstAddr(LLtypeMixin.node_vtable_adr,
-                                                LLtypeMixin.cpu), b2s)
-    v2.setfield(LLtypeMixin.nextdescr, v4)
-    v2.setfield(LLtypeMixin.valuedescr, OptValue(c1s))
-    v2._cached_sorted_fields = [LLtypeMixin.nextdescr, LLtypeMixin.valuedescr]
+    vdescr = LLtypeMixin.nodesize2
+    v4 = info.InstancePtrInfo(ConstAddr(LLtypeMixin.node_vtable_adr2,
+                                        LLtypeMixin.cpu), vdescr)
+    b4s.set_forwarded(v4)
+    v4.setfield(LLtypeMixin.nextdescr, b2s)
+    v4.setfield(LLtypeMixin.valuedescr, b3s)
+    v4.setfield(LLtypeMixin.otherdescr, b5s)
+    v2 = info.InstancePtrInfo(ConstAddr(LLtypeMixin.node_vtable_adr,
+                                        LLtypeMixin.cpu), LLtypeMixin.nodesize)
+    v2.setfield(LLtypeMixin.nextdescr, b4s)
+    v2.setfield(LLtypeMixin.valuedescr, c1s)
+    b2s.set_forwarded(v2)
 
-    modifier.register_virtual_fields(b2s, [b4s, c1s])
-    modifier.register_virtual_fields(b4s, [b2s, b3s, b5s])
-    values = {b2s: v2, b4s: v4}
+    modifier.register_virtual_fields(b2s, [c1s, None, None, b4s])
+    modifier.register_virtual_fields(b4s, [b3s, None, None, b2s, b5s])
 
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
     # resume
@@ -1241,12 +1241,8 @@ def test_virtual_adder_make_virtual():
     b2t = reader.decode_ref(modifier._gettagged(b2s))
     b4t = reader.decode_ref(modifier._gettagged(b4s))
     trace = metainterp.trace
-    b2new = (rop.NEW_WITH_VTABLE, [ConstAddr(LLtypeMixin.node_vtable_adr,
-                                         LLtypeMixin.cpu)],
-                              b2t.getref_base(), None)
-    b4new = (rop.NEW_WITH_VTABLE, [ConstAddr(LLtypeMixin.node_vtable_adr2,
-                                         LLtypeMixin.cpu)],
-                              b4t.getref_base(), None)
+    b2new = (rop.NEW_WITH_VTABLE, [], b2t.getref_base(), LLtypeMixin.nodesize)
+    b4new = (rop.NEW_WITH_VTABLE, [], b4t.getref_base(), LLtypeMixin.nodesize2)
     b2set = [(rop.SETFIELD_GC, [b2t, b4t],      None, LLtypeMixin.nextdescr),
              (rop.SETFIELD_GC, [b2t, c1s],      None, LLtypeMixin.valuedescr)]
     b4set = [(rop.SETFIELD_GC, [b4t, b2t],     None, LLtypeMixin.nextdescr),
@@ -1257,6 +1253,7 @@ def test_virtual_adder_make_virtual():
     # check that we get the operations in 'expected', in a possibly different
     # order.
     assert len(trace) == len(expected)
+    orig = trace[:]
     with CompareableConsts():
         for x in trace:
             assert x in expected
@@ -1283,17 +1280,17 @@ def test_virtual_adder_make_varray():
     c1s = ConstInt(111)
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    v2 = VArrayValue(LLtypeMixin.arraydescr, None, 2, b2s)
+    v2 = info.ArrayPtrInfo(vdescr=LLtypeMixin.arraydescr, size=2)
+    b2s.set_forwarded(v2)
     v2._items = [b4s, c1s]
     modifier.register_virtual_fields(b2s, [b4s, c1s])
     liveboxes = []
-    values = {b2s: v2}
-    modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
@@ -1332,16 +1329,17 @@ def test_virtual_adder_make_vstruct():
     c1s = ConstInt(111)
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    modifier = ResumeDataVirtualAdder(storage, storage, memo)
+    modifier = ResumeDataVirtualAdder(FakeOptimizer(), storage, storage, memo)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
-    v2 = VStructValue(fakeoptimizer, LLtypeMixin.ssize, b2s)
-    v2.setfield(LLtypeMixin.adescr, OptValue(c1s))
-    v2.setfield(LLtypeMixin.bdescr, OptValue(b4s))
+    v2 = info.StructPtrInfo(LLtypeMixin.ssize)
+    b2s.set_forwarded(v2)
+    v2.setfield(LLtypeMixin.adescr, c1s)
+    v2.setfield(LLtypeMixin.bdescr, b4s)
     modifier.register_virtual_fields(b2s, [c1s, b4s])
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer({b2s: v2}), 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
@@ -1380,16 +1378,14 @@ def test_virtual_adder_pending_fields():
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    v2 = OptValue(b2s)
-    v4 = OptValue(b4s)
     modifier.register_box(b2s)
     modifier.register_box(b4s)
 
-    values = {b4s: v4, b2s: v2}
     liveboxes = []
-    modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     assert liveboxes == [b2s, b4s] or liveboxes == [b4s, b2s]
-    modifier._add_pending_fields([(LLtypeMixin.nextdescr, b2s, b4s, -1)])
+    modifier._add_pending_fields(FakeOptimizer(), [
+        ResOperation(rop.SETFIELD_GC, [b2s, b4s], descr=LLtypeMixin.nextdescr)])
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
     # resume
@@ -1418,14 +1414,18 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     modifier._add_pending_fields(None, [])
     assert not storage.rd_pendingfields
     #
-    class FieldDescr(object):
+    class FieldDescr(AbstractDescr):
         pass
     field_a = FieldDescr()
     storage = Storage()
     modifier = ResumeDataVirtualAdder(None, storage, storage, None)
-    modifier.liveboxes_from_env = {42: rffi.cast(rffi.SHORT, 1042),
-                                   61: rffi.cast(rffi.SHORT, 1061)}
-    modifier._add_pending_fields(FakeOptimizer(), [(field_a, 42, 61, -1)])
+    a = InputArgInt()
+    b = InputArgInt()
+    modifier.liveboxes_from_env = {a: rffi.cast(rffi.SHORT, 1042),
+                                   b: rffi.cast(rffi.SHORT, 1061)}
+    modifier._add_pending_fields(FakeOptimizer(), [
+        ResOperation(rop.SETFIELD_GC, [a, b],
+                     descr=field_a)])
     pf = storage.rd_pendingfields
     assert len(pf) == 1
     assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
@@ -1436,13 +1436,20 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     #
     array_a = FieldDescr()
     storage = Storage()
-    modifier = ResumeDataVirtualAdder(storage, storage, None)
-    modifier.liveboxes_from_env = {42: rffi.cast(rffi.SHORT, 1042),
-                                   61: rffi.cast(rffi.SHORT, 1061),
-                                   62: rffi.cast(rffi.SHORT, 1062),
-                                   63: rffi.cast(rffi.SHORT, 1063)}
-    modifier._add_pending_fields([(array_a, 42, 61, 0),
-                                  (array_a, 42, 62, 2147483647)])
+    modifier = ResumeDataVirtualAdder(None, storage, storage, None)
+    a42 = InputArgInt()
+    a61 = InputArgInt()
+    a62 = InputArgInt()
+    a63 = InputArgInt()
+    modifier.liveboxes_from_env = {a42: rffi.cast(rffi.SHORT, 1042),
+                                   a61: rffi.cast(rffi.SHORT, 1061),
+                                   a62: rffi.cast(rffi.SHORT, 1062),
+                                   a63: rffi.cast(rffi.SHORT, 1063)}
+    modifier._add_pending_fields(FakeOptimizer(), [
+        ResOperation(rop.SETARRAYITEM_GC, [a42, ConstInt(0), a61],
+                     descr=array_a),
+        ResOperation(rop.SETARRAYITEM_GC, [a42, ConstInt(2147483647), a62],
+                     descr=array_a)])
     pf = storage.rd_pendingfields
     assert len(pf) == 2
     assert (annlowlevel.cast_base_ptr_to_instance(FieldDescr, pf[0].lldescr)
@@ -1456,8 +1463,10 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert rffi.cast(lltype.Signed, pf[1].fieldnum) == 1062
     assert rffi.cast(lltype.Signed, pf[1].itemindex) == 2147483647
     #
-    py.test.raises(TagOverflow, modifier._add_pending_fields,
-                   [(array_a, 42, 63, 2147483648)])
+    py.test.raises(TagOverflow, modifier._add_pending_fields, FakeOptimizer(),
+                   [ResOperation(rop.SETARRAYITEM_GC,
+                                 [a42, ConstInt(2147483648), a63],
+                       descr=array_a)])
 
 def test_resume_reader_fields_and_arrayitems():
     class ResumeReader(AbstractResumeDataReader):
