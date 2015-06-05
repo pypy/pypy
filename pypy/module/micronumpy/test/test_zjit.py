@@ -232,11 +232,13 @@ class TestNumpyJit(Jit386Mixin):
         c = astype(|1|, int16)
         c[0] = 16i
         b = a + c
-        sum(b -> 7:14)
+        d = b -> 7:9
+        sum(d)
         """
     def test_int16_expand(self):
         result = self.run("int16_expand")
-        assert int(result) == 8*16 + sum(range(7,15))
+        i = 2
+        assert int(result) == i*16 + sum(range(7,7+i))
         self.check_vectorized(2, 2)
 
     def define_int8_expand():
@@ -245,10 +247,11 @@ class TestNumpyJit(Jit386Mixin):
         c = astype(|1|, int16)
         c[0] = 8i
         b = a + c
-        sum(b -> 0:17)
+        d = b -> 0:17
+        sum(d)
         """
-    def test_int16_expand(self):
-        result = self.run("int16_expand")
+    def test_int8_expand(self):
+        result = self.run("int8_expand")
         assert int(result) == 16*8 + sum(range(0,17))
         self.check_vectorized(2, 2)
 

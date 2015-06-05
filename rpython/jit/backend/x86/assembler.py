@@ -2613,7 +2613,14 @@ class Assembler386(BaseAssembler):
         tosize = tosizeloc.value
         if size == tosize:
             return # already the right size
-        if size == 4 and tosize == 8:
+        if size == 4 and tosize == 2:
+            scratch = X86_64_SCRATCH_REG
+            self.mc.PSHUFLW_xxi(resloc.value, srcloc.value, 0b11111000)
+            self.mc.PEXTRW_rxi(scratch.value, srcloc.value, 4)
+            self.mc.PINSRW_xri(resloc.value, scratch.value, 2)
+            self.mc.PEXTRW_rxi(scratch.value, srcloc.value, 6)
+            self.mc.PINSRW_xri(resloc.value, scratch.value, 3)
+        elif size == 4 and tosize == 8:
             scratch = X86_64_SCRATCH_REG.value
             self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRQ_xri(resloc.value, scratch, 1)

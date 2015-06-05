@@ -750,15 +750,15 @@ class AbstractX86CodeBuilder(object):
 
 
     # following require SSE4_1
-    PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(2,8), register(1), '\xC0', immediate(3, 'b'))
-    PEXTRD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x16', register(2,8), register(1), '\xC0', immediate(3, 'b'))
-    PEXTRW_rxi = xmminsn('\x66', rex_nw, '\x0F\xC4', register(2,8), register(1), '\xC0', immediate(3, 'b'))
-    PEXTRB_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(2,8), register(1), '\xC0', immediate(3, 'b'))
-    EXTRACTPS_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x17', register(2,8), register(1), '\xC0', immediate(3, 'b'))
+    PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    PEXTRD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x16', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    PEXTRW_rxi = xmminsn('\x66', rex_nw, '\x0F\xC5', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PEXTRB_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    EXTRACTPS_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x17', register(1), register(2,8), '\xC0', immediate(3, 'b'))
     
-    PINSRQ_xri = xmminsn('\x66', rex_w, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
-    PINSRD_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
-    PINSRW_xri = xmminsn('\x66', rex_nw, '\x0F\xC5', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRQ_xri = xmminsn('\x66', rex_w, '\x0F\x3A\x22', register(1,8), register(2,8), '\xC0', immediate(3, 'b'))
+    PINSRD_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x22', register(1,8), register(2,8), '\xC0', immediate(3, 'b'))
+    PINSRW_xri = xmminsn('\x66', rex_nw, '\x0F\xC4', register(1,8), register(2,8), '\xC0', immediate(3, 'b'))
     PINSRB_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x20', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     INSERTPS_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x21', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 

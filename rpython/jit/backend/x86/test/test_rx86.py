@@ -14,6 +14,9 @@ class CodeBuilderMixin(object):
     def getvalue(self):
         return ''.join(self.buffer)
 
+    def clear(self):
+        self.buffer = []
+
     def force_frame_size(self, frame_size):
         pass
 
@@ -242,3 +245,34 @@ def test_multibyte_nops():
         assert len(cls.MULTIBYTE_NOPs) == 16
         for i in range(16):
             assert len(cls.MULTIBYTE_NOPs[i]) == i
+
+def test_pextr():
+    s = CodeBuilder64()
+    s.PEXTRW_rxi(R.r11, R.xmm0,0)
+    assert s.getvalue() == '\x66\x44\x0f\xc5\xd8\x00'
+    s.clear()
+    s.PEXTRW_rxi(R.edi, R.xmm15, 15)
+    assert s.getvalue() == '\x66\x41\x0f\xc5\xff\x0f'
+    s.clear()
+    s.PEXTRD_rxi(R.eax, R.xmm11, 2)
+    assert s.getvalue() == '\x66\x44\x0f\x3a\x16\xd8\x02'
+    s.clear()
+    s.PEXTRD_rxi(R.r11, R.xmm5, 2)
+    assert s.getvalue() == '\x66\x41\x0f\x3a\x16\xeb\x02'
+    s.clear()
+    s.PEXTRQ_rxi(R.ebp, R.xmm0, 7)
+    assert s.getvalue() == '\x66\x48\x0f\x3a\x16\xc5\x07'
+    # BYTE
+    s.clear()
+    s.PEXTRB_rxi(R.eax, R.xmm13, 24)
+    assert s.getvalue() == '\x66\x44\x0f\x3a\x14\xe8\x18'
+    s.clear()
+    s.PEXTRB_rxi(R.r15, R.xmm5, 33)
+    assert s.getvalue() == '\x66\x41\x0f\x3a\x14\xef\x21'
+    # EXTR SINGLE FLOAT
+    s.clear()
+    s.EXTRACTPS_rxi(R.eax, R.xmm15, 2)
+    assert s.getvalue() == '\x66\x44\x0f\x3a\x17\xf8\x02'
+    s.clear()
+    s.EXTRACTPS_rxi(R.r11, R.xmm0, 1)
+    assert s.getvalue() == '\x66\x41\x0f\x3a\x17\xc3\x01'

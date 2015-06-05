@@ -145,7 +145,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v10[f64|2] = vec_box(2)
         v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
         v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
-        v40[f64|2] = vec_float_expand(f5) | only expaned once
+        v40[f64|2] = vec_float_expand(f5) # only expaned once
         #
         v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
         v60[f64|2] = vec_float_add(v50[f64|2], v40[f64|2])
