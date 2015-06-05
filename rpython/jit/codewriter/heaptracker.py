@@ -153,6 +153,8 @@ def all_fielddescrs(gccache, STRUCT, only_gc=False, res=None,
         FIELD = getattr(STRUCT, name)
         if FIELD is lltype.Void:
             continue
+        if name.startswith('_pad'):
+            continue
         if name == 'typeptr':
             continue # dealt otherwise
         elif isinstance(FIELD, lltype.Struct):
