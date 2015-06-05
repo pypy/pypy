@@ -79,7 +79,7 @@ class AbstractResOp(AbstractValue):
 
     def get_replacement(self):
         if self._forwarded:
-            return self._forwarded
+            return self._forwarded.get_replacement()
         return self
 
     def set_forwarded(self, forwarded_to):
@@ -479,9 +479,7 @@ class NullaryOp(object):
         assert len(args) == 0
 
     def get_replacement_for_rewrite(self):
-        if self._forwarded:
-            return self._forwarded
-        return self
+        return self.get_replacement()
 
     def getarglist(self):
         return []
@@ -513,6 +511,7 @@ class UnaryOp(object):
             if isinstance(self, ResOpWithDescr):
                 op.setdescr(self.getdescr())
             op._arg0 = arg0
+            self.set_forwarded(op)
             return op
         return self
 
@@ -574,6 +573,7 @@ class BinaryOp(object):
                 op.setdescr(self.getdescr())
             op._arg0 = arg0
             op._arg1 = arg1
+            self.set_forwarded(op)
             return op
         return self
 
@@ -621,6 +621,7 @@ class TernaryOp(object):
             op._arg0 = arg0
             op._arg1 = arg1
             op._arg2 = arg2
+            self.set_forwarded(op)
             return op
         return self
 
@@ -654,6 +655,7 @@ class N_aryOp(object):
         else:
             return self
         op = self.__class__()
+        self.set_forwarded(op)
         op._args = [arg.get_replacement() for arg in self._args]
         if isinstance(self, ResOpWithDescr):
             op.setdescr(self.getdescr())
