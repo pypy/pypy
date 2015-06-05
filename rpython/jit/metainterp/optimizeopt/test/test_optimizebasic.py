@@ -5559,6 +5559,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_dirty_array_field_after_force(self):
+        ops = """
+        []
+        p0 = new_array(1, descr=arraydescr)
+        setarrayitem_gc(p0, 0, 0, descr=arraydescr)
+        escape_n(p0) # force
+        call_may_force_n(1, descr=mayforcevirtdescr)
+        i1 = getarrayitem_gc_i(p0, 0, descr=arraydescr)
+        finish(i1)
+        """
+        self.optimize_loop(ops, ops)
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

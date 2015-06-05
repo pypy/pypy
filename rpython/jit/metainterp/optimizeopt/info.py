@@ -225,11 +225,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
     def visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = self.buffer.values
         visitor.register_virtual_fields(op, itemboxes)
-        #for itembox in itemboxes:
-        #    xxx
-        #    itemvalue = self.get_item_value(i)
-        #    if itemvalue is not None:
-        #        itemvalue.visitor_walk_recursive(visitor)
+        # there can be no virtuals stored in raw buffer
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -306,7 +302,9 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                      [op, ConstInt(i), subbox],
                                       descr=arraydescr)
                 optforce._emit_operation(setop)
-                # xxxx optforce.optheap
+                if optforce.optheap is not None:
+                    optforce.optheap.register_dirty_array_field(
+                        arraydescr, i, self)
 
     def setitem(self, index, op, cf=None, optheap=None):
         if self._items is None:

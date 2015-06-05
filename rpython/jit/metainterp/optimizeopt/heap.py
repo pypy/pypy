@@ -223,10 +223,16 @@ class OptHeap(Optimization):
     def register_dirty_field(self, descr, info):
         self.field_cache(descr).register_dirty_field(info)
 
+    def register_dirty_array_field(self, arraydescr, index, info):
+        self.arrayitem_cache(arraydescr, index).register_dirty_field(info)
+
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
         for descr, cf in self.cached_fields.items():
             cf.invalidate(descr)
+        for submap in self.cached_arrayitems.itervalues():
+            for index, cf in submap.iteritems():
+                cf.invalidate(None)
         self.cached_arrayitems.clear()
         self.cached_dict_reads.clear()
 
