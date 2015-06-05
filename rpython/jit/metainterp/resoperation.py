@@ -24,9 +24,6 @@ class AbstractValue(object):
     def get_forwarded(self):
         return None
 
-    def get_replacement(self):
-        return self
-
     def set_forwarded(self, forwarded_to):
         raise Exception("oups")
 
@@ -76,11 +73,6 @@ class AbstractResOp(AbstractValue):
 
     def get_forwarded(self):
         return self._forwarded
-
-    def get_replacement(self):
-        if self._forwarded:
-            return self._forwarded.get_replacement()
-        return self
 
     def set_forwarded(self, forwarded_to):
         self._forwarded = forwarded_to
@@ -427,12 +419,6 @@ class AbstractInputArg(AbstractValue):
     def get_forwarded(self):
         return self._forwarded
 
-    # this is for rewrite.py, we can have several versions depending on
-    # invariants
-    def get_replacement_for_rewrite(self):
-        assert self._forwarded is None
-        return self
-
     def set_forwarded(self, forwarded_to):
         self._forwarded = forwarded_to
 
@@ -478,9 +464,6 @@ class NullaryOp(object):
     def initarglist(self, args):
         assert len(args) == 0
 
-    def get_replacement_for_rewrite(self):
-        return self.get_replacement()
-
     def getarglist(self):
         return []
 
@@ -501,19 +484,6 @@ class UnaryOp(object):
     def initarglist(self, args):
         assert len(args) == 1
         self._arg0, = args
-
-    def get_replacement_for_rewrite(self):
-        if self._forwarded:
-            return self._forwarded.get_replacement_for_rewrite()
-        arg0 = self._arg0.get_replacement()
-        if arg0 is not self._arg0:
-            op = self.__class__()
-            if isinstance(self, ResOpWithDescr):
-                op.setdescr(self.getdescr())
-            op._arg0 = arg0
-            self.set_forwarded(op)
-            return op
-        return self
 
     def getarglist(self):
         return [self._arg0]
@@ -562,21 +532,6 @@ class BinaryOp(object):
         else:
             raise IndexError
 
-    def get_replacement_for_rewrite(self):
-        if self._forwarded:
-            return self._forwarded.get_replacement_for_rewrite()
-        arg0 = self._arg0.get_replacement()
-        arg1 = self._arg1.get_replacement()
-        if arg0 is not self._arg0 or arg1 is not self._arg1:
-            op = self.__class__()
-            if isinstance(self, ResOpWithDescr):
-                op.setdescr(self.getdescr())
-            op._arg0 = arg0
-            op._arg1 = arg1
-            self.set_forwarded(op)
-            return op
-        return self
-
     def getarglist(self):
         return [self._arg0, self._arg1]
 
@@ -607,24 +562,6 @@ class TernaryOp(object):
         else:
             raise IndexError
 
-    def get_replacement_for_rewrite(self):
-        if self._forwarded:
-            return self._forwarded.get_replacement_for_rewrite()
-        arg0 = self._arg0.get_replacement()
-        arg1 = self._arg1.get_replacement()
-        arg2 = self._arg2.get_replacement()
-        if (arg0 is not self._arg0 or arg1 is not self._arg1 or
-            arg2 is not self._arg2):
-            op = self.__class__()
-            if isinstance(self, ResOpWithDescr):
-                op.setdescr(self.getdescr())
-            op._arg0 = arg0
-            op._arg1 = arg1
-            op._arg2 = arg2
-            self.set_forwarded(op)
-            return op
-        return self
-
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -645,21 +582,6 @@ class N_aryOp(object):
         if not we_are_translated() and \
                self.__class__.__name__.startswith('FINISH'):   # XXX remove me
             assert len(args) <= 1      # FINISH operations take 0 or 1 arg now
-
-    def get_replacement_for_rewrite(self):
-        if self._forwarded:
-            return self._forwarded.get_replacement_for_rewrite()
-        for arg in self._args:
-            if arg is not arg.get_replacement():
-                break
-        else:
-            return self
-        op = self.__class__()
-        self.set_forwarded(op)
-        op._args = [arg.get_replacement() for arg in self._args]
-        if isinstance(self, ResOpWithDescr):
-            op.setdescr(self.getdescr())
-        return op
 
     def getarglist(self):
         return self._args

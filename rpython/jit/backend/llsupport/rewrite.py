@@ -86,20 +86,24 @@ class GcRewriterAssembler(object):
         return op
 
     def emit_op(self, op):
+        op = self.get_box_replacement(op)
+        orig_op = op
+        replaced = False
+        for i in range(op.numargs()):
+            orig_arg = op.getarg(i)
+            arg = self.get_box_replacement(orig_arg)
+            if orig_arg is not arg:
+                if not replaced:
+                    op = op.copy_and_change(op.getopnum())
+                    orig_op.set_forwarded(op)
+                    replaced = True
+                op.setarg(i, arg)
         if op.is_guard():
-            newop = op.get_replacement_for_rewrite()
-            if newop is op:
-                newop = op.copy_and_change(op.getopnum())
-                op.set_forwarded(newop)
-            _newfailargs = []
-            for arg in op.getfailargs():
-                if arg is not None:
-                    arg = arg.get_replacement_for_rewrite()
-                _newfailargs.append(arg)
-            newop.setfailargs(_newfailargs)
-            op = newop
-        else:
-            op = op.get_replacement_for_rewrite()
+            if not replaced:
+                op = op.copy_and_change(op.getopnum())
+                orig_op.set_forwarded(op)
+            op.setfailargs([self.get_box_replacement(a, True)
+                            for a in op.getfailargs()])
         self._newops.append(op)
 
     def replace_op_with(self, op, newop):
