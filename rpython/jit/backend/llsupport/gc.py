@@ -156,15 +156,13 @@ class GcLLDescription(GcCache):
             v = op.getarg(arg_i)
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)
-            result_ptr = BoxPtr()
             array_index = moving_obj_tracker.get_array_index(v)
             load_op = ResOperation(rop.GETARRAYITEM_GC,
                     [moving_obj_tracker.const_ptr_gcref_array,
                         ConstInt(array_index)],
-                    result_ptr,
                     descr=moving_obj_tracker.ptr_array_descr)
             newops.append(load_op)
-            op.setarg(arg_i, result_ptr)
+            op.setarg(arg_i, load_op)
         #
         newops.append(op)
         return newops
