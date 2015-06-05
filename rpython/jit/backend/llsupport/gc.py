@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, BoxPtr, ConstInt
+from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
@@ -157,7 +157,7 @@ class GcLLDescription(GcCache):
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)
             array_index = moving_obj_tracker.get_array_index(v)
-            load_op = ResOperation(rop.GETARRAYITEM_GC,
+            load_op = ResOperation(rop.GETARRAYITEM_GC_R,
                     [moving_obj_tracker.const_ptr_gcref_array,
                         ConstInt(array_index)],
                     descr=moving_obj_tracker.ptr_array_descr)

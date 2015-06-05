@@ -3,14 +3,13 @@
 """
 
 import py
-from rpython.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, BasicFailDescr, JitCellToken, TargetToken
-from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.backend.llsupport.descr import GcCache
+from rpython.jit.metainterp.history import BasicFailDescr, JitCellToken,\
+     TargetToken
+from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper import rclass

@@ -30,13 +30,13 @@ class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
-        sdescr = get_size_descr(self.cpu, self.gc_ll_descr, S, False)
+        sdescr = get_size_descr(self.gc_ll_descr, S, False)
         sdescr.tid = 1234
         #
         T = lltype.GcStruct('T', ('y', lltype.Signed),
                                  ('z', lltype.Ptr(S)),
                                  ('t', lltype.Signed))
-        tdescr = get_size_descr(self.cpu, self.gc_ll_descr, T, False)
+        tdescr = get_size_descr(self.gc_ll_descr, T, False)
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         #
@@ -56,7 +56,7 @@ class RewriteTests(object):
         clendescr = cdescr.lendescr
         #
         E = lltype.GcStruct('Empty')
-        edescr = get_size_descr(self.cpu, self.gc_ll_descr, E, False)
+        edescr = get_size_descr(self.gc_ll_descr, E, False)
         edescr.tid = 9000
         #
         vtable_descr = self.gc_ll_descr.fielddescr_vtable

@@ -137,15 +137,15 @@ class TestFramework(RewriteTests):
     def test_simple_getfield_twice(self):
         self.check_rewrite("""
             []
-            i0 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
-            i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
-            i2 = getfield_gc(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i0 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
+            i1 = getfield_gc_i(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
+            i2 = getfield_gc_i(ConstPtr(pinned_obj_gcref), descr=pinned_obj_my_int_descr)
             """, """
             []
-            p1 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
-            i0 = getfield_gc(p1, descr=pinned_obj_my_int_descr)
-            i1 = getfield_gc(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
-            p2 = getarrayitem_gc(ConstPtr(ptr_array_gcref), 1, descr=ptr_array_descr)
-            i2 = getfield_gc(p2, descr=pinned_obj_my_int_descr)
+            p1 = getarrayitem_gc_r(ConstPtr(ptr_array_gcref), 0, descr=ptr_array_descr)
+            i0 = getfield_gc_i(p1, descr=pinned_obj_my_int_descr)
+            i1 = getfield_gc_i(ConstPtr(notpinned_obj_gcref), descr=notpinned_obj_my_int_descr)
+            p2 = getarrayitem_gc_r(ConstPtr(ptr_array_gcref), 1, descr=ptr_array_descr)
+            i2 = getfield_gc_i(p2, descr=pinned_obj_my_int_descr)
             """)
         assert len(self.gc_ll_descr.last_moving_obj_tracker._indexes) == 2

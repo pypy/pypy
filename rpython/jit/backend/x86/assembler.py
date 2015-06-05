@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import Const, Box, VOID
+from rpython.jit.metainterp.history import Const, VOID
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -829,13 +829,8 @@ class Assembler386(BaseAssembler):
     def dump(self, text):
         if not self.verbose:
             return
-        _prev = Box._extended_display
-        try:
-            Box._extended_display = False
-            pos = self.mc.get_relative_pos()
-            print >> sys.stderr, ' 0x%x  %s' % (pos, text)
-        finally:
-            Box._extended_display = _prev
+        pos = self.mc.get_relative_pos()
+        print >> sys.stderr, ' 0x%x  %s' % (pos, text)
 
     # ------------------------------------------------------------
 
