@@ -653,3 +653,15 @@ class AppTestBytesArray:
         assert x.find(b'fe') == -1
         assert x.index(b'f', 2, 11) == 5
         assert x.__alloc__() == 14
+
+    def test_fromobject___index__(self):
+        class WithIndex:
+            def __index__(self):
+                return 3
+        assert bytearray(WithIndex()) == b'\x00\x00\x00'
+
+    def test_fromobject___int__(self):
+        class WithInt:
+            def __int__(self):
+                return 3
+        raises(TypeError, bytearray, WithInt())
