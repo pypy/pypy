@@ -279,11 +279,11 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             self._init_items(const, size, clear)
         self._clear = clear
 
-    def getlenbound(self):
-        if self.lenbound is None:
-            raise Exception("implement me - lenbound")
-            xxx
-        return self.lenbound
+    #def getlenbound(self):
+    #    if self.lenbound is None:
+    #        raise Exception("implement me - lenbound")
+    #        xxx
+    #    return self.lenbound
 
     def _init_items(self, const, size, clear):
         self.length = size
