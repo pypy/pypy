@@ -743,6 +743,11 @@ class AbstractX86CodeBuilder(object):
     SHUFPD_xxi = xmminsn('\x66', rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
     PSHUFD_xxi = xmminsn('\x66', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PSHUFHW_xxi = xmminsn('\xF3', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PSHUFLW_xxi = xmminsn('\xF2', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PSHUFB_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), register(2), '\xC0')
+    PSHUFB_xm = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), mem_reg_plus_const(2))
+
 
     # following require SSE4_1
     PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(2,8), register(1), '\xC0', immediate(3, 'b'))

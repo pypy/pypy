@@ -776,7 +776,7 @@ class X86_CostModel(CostModel):
 class PackType(object):
     UNKNOWN_TYPE = '-'
 
-    def __init__(self, type, size, signed, count=-1, scalar_cost=1, vector_cost=1):
+    def __init__(self, type, size, signed, count=-1):
         assert type in (FLOAT, INT, PackType.UNKNOWN_TYPE)
         self.type = type
         self.size = size
@@ -826,7 +826,6 @@ class PackType(object):
     def clone(self):
         return PackType(self.type, self.size, self.signed, self.count)
 
-
 class OpToVectorOp(object):
     def __init__(self, arg_ptypes, result_ptype):
         self.arg_ptypes = [a for a in arg_ptypes] # do not use a tuple. rpython cannot union
@@ -836,6 +835,9 @@ class OpToVectorOp(object):
         self.pack = None
         self.input_type = None
         self.output_type = None
+
+    def clone_vbox_set_count(self, box, count):
+        return BoxVector(box.item_type, count, box.item_size, box.item_signed)
 
     def is_vector_arg(self, i):
         if i < 0 or i >= len(self.arg_ptypes):
@@ -985,8 +987,7 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, index, count, arg_ptype):
-        vbox_cloned = vbox.clonebox()
-        vbox_cloned.item_count = count
+        vbox_cloned = self.clone_vbox_set_count(vbox, count)
         opnum = rop.VEC_FLOAT_UNPACK
         if vbox.item_type == INT:
             opnum = rop.VEC_INT_UNPACK
@@ -1012,8 +1013,8 @@ class OpToVectorOp(object):
             if pos == -1:
                 i += 1
                 continue
-            new_box = tgt_box.clonebox()
-            new_box.item_count += src_box.item_count
+            count = tgt_box.item_count + src_box.item_count
+            new_box = self.clone_vbox_set_count(tgt_box, count)
             op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
                                       ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)

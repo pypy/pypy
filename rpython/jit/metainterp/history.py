@@ -395,7 +395,7 @@ class Box(AbstractValue):
                 t = 'b'
             self._str = '%s%d' % (t, Box._counter)
             if self.type == VECTOR:
-                self._str = '%s%d[%s%d#%d]' % (t, Box._counter, self.item_type,
+                self._str = '%s%d[%s%d|%d]' % (t, Box._counter, self.item_type,
                                                self.item_size * 8, self.item_count)
             Box._counter += 1
         return self._str

@@ -226,6 +226,32 @@ class TestNumpyJit(Jit386Mixin):
         assert int(result) == 7+16+8+16
         self.check_vectorized(2, 2)
 
+    def define_int16_expand():
+        return """
+        a = astype(|30|, int16)
+        c = astype(|1|, int16)
+        c[0] = 16i
+        b = a + c
+        sum(b -> 7:14)
+        """
+    def test_int16_expand(self):
+        result = self.run("int16_expand")
+        assert int(result) == 8*16 + sum(range(7,15))
+        self.check_vectorized(2, 2)
+
+    def define_int8_expand():
+        return """
+        a = astype(|30|, int16)
+        c = astype(|1|, int16)
+        c[0] = 8i
+        b = a + c
+        sum(b -> 0:17)
+        """
+    def test_int16_expand(self):
+        result = self.run("int16_expand")
+        assert int(result) == 16*8 + sum(range(0,17))
+        self.check_vectorized(2, 2)
+
     def define_int32_add_const():
         return """
         a = astype(|30|, int32)

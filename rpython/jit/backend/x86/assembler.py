@@ -54,6 +54,7 @@ class Assembler386(BaseAssembler):
         self.float_const_abs_addr = 0
         self.single_float_const_neg_addr = 0
         self.single_float_const_abs_addr = 0
+        self.expand_byte_mask_addr = 0
         self.malloc_slowpath = 0
         self.malloc_slowpath_varsize = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
@@ -102,9 +103,11 @@ class Assembler386(BaseAssembler):
         single_abs_const = '\xFF\xFF\xFF\x7F\xFF\xFF\xFF\x7F\xFF\xFF\xFF\x7F\xFF\xFF\xFF\x7F'
         # 0x80000000800000008000000080000000
         single_neg_const = '\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80'
+        zero_const = '\x00' * 16
         #
         data = neg_const + abs_const + \
-               single_neg_const + single_abs_const
+               single_neg_const + single_abs_const + \
+               zero_const
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
         float_constants = datablockwrapper.malloc_aligned(len(data), alignment=16)
         datablockwrapper.done()
@@ -115,6 +118,7 @@ class Assembler386(BaseAssembler):
         self.float_const_abs_addr = float_constants + 16
         self.single_float_const_neg_addr = float_constants + 32
         self.single_float_const_abs_addr = float_constants + 48
+        self.expand_byte_mask_addr = float_constants + 64
 
     def set_extra_stack_depth(self, mc, value):
         if self._is_asmgcc():
@@ -2641,7 +2645,18 @@ class Assembler386(BaseAssembler):
         assert isinstance(srcloc, RegLoc)
         assert not srcloc.is_xmm
         size = sizeloc.value
-        if size == 8:
+        if size == 1:
+            self.mc.PINSRB_xri(resloc.value, srcloc.value, 0)
+            self.mc.PSHUFB(resloc, heap(self.expand_byte_mask_addr))
+        elif size == 2:
+            self.mc.PINSRW_xri(resloc.value, srcloc.value, 0)
+            self.mc.PINSRW_xri(resloc.value, srcloc.value, 4)
+            self.mc.PSHUFLW_xxi(resloc.value, resloc.value, 0)
+            self.mc.PSHUFHW_xxi(resloc.value, resloc.value, 0)
+        elif size == 4:
+            self.mc.PINSRD_xri(resloc.value, srcloc.value, 0)
+            self.mc.PSHUFD_xxi(resloc.value, resloc.value, 0)
+        elif size == 8:
             self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
             self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
         else:

@@ -22,7 +22,7 @@ class SchedulerBaseTest(DependencyBaseTest):
             'long': self.intarraydescr,
             'int': self.int32arraydescr,
         }
-        loop = opparse("        [p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5]\n" + source + \
+        loop = opparse("        [p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5,v103204[i32|4]]\n" + source + \
                        "\n        jump(p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5)",
                        cpu=self.cpu,
                        namespace=ns)
@@ -39,13 +39,15 @@ class SchedulerBaseTest(DependencyBaseTest):
     def pack(self, loop, l, r):
         return [Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])]
 
-    def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False):
+    def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False, getvboxfunc=None):
         loop = get_model(False).ExtendedTreeLoop("loop")
         loop.original_jitcell_token = loop_orig.original_jitcell_token
         loop.inputargs = loop_orig.inputargs
 
         ops = []
         vsd = VecScheduleData(vec_reg_size)
+        if getvboxfunc is not None:
+            vsd.getvector_of_box = getvboxfunc
         for pack in packs:
             if len(pack) == 1:
                 ops.append(pack[0].getoperation())
@@ -73,7 +75,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 6)
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse("""
-        v1[i32#4] = vec_raw_load(p0, i0, 4, descr=float)
+        v10[i32|4] = vec_raw_load(p0, i0, 4, descr=float)
         i14 = raw_load(p0, i4, descr=float)
         i15 = raw_load(p0, i5, descr=float)
         """, False)
@@ -90,9 +92,9 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 2, 4)
         loop2 = self.schedule(loop1, [pack1, pack2])
         loop3 = self.parse("""
-        v1[i64#2] = vec_raw_load(p0, i0, 2, descr=long)
-        v2[i32#2] = vec_int_signext(v1[i64#2], 4)
-        v3[f64#2] = vec_cast_int_to_float(v2[i32#2])
+        v10[i64|2] = vec_raw_load(p0, i0, 2, descr=long)
+        v20[i32|2] = vec_int_signext(v10[i64|2], 4)
+        v30[f64|2] = vec_cast_int_to_float(v20[i32|2])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -104,12 +106,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[i64#2] = vec_box(2)
-        v2[i64#2] = vec_int_pack(v1[i64#2], i0, 0, 1)
-        v3[i64#2] = vec_int_pack(v2[i64#2], i1, 1, 1)
-        v4[i64#2] = vec_int_expand(73)
+        v10[i64|2] = vec_box(2)
+        v20[i64|2] = vec_int_pack(v10[i64|2], i0, 0, 1)
+        v30[i64|2] = vec_int_pack(v20[i64|2], i1, 1, 1)
+        v40[i64|2] = vec_int_expand(73)
         #
-        v5[i64#2] = vec_int_add(v3[i64#2], v4[i64#2])
+        v50[i64|2] = vec_int_add(v30[i64|2], v40[i64|2])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -120,12 +122,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[f64#2] = vec_box(2)
-        v2[f64#2] = vec_float_pack(v1[f64#2], f0, 0, 1)
-        v3[f64#2] = vec_float_pack(v2[f64#2], f1, 1, 1)
-        v4[f64#2] = vec_float_expand(73.0)
+        v10[f64|2] = vec_box(2)
+        v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
+        v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
+        v40[f64|2] = vec_float_expand(73.0)
         #
-        v5[f64#2] = vec_float_add(v3[f64#2], v4[f64#2])
+        v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -140,12 +142,35 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 2, 4)
         loop2 = self.schedule(loop1, [pack1, pack2], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[f64#2] = vec_box(2)
-        v2[f64#2] = vec_float_pack(v1[f64#2], f0, 0, 1)
-        v3[f64#2] = vec_float_pack(v2[f64#2], f1, 1, 1)
-        v4[f64#2] = vec_float_expand(f5) # only expaned once
+        v10[f64|2] = vec_box(2)
+        v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
+        v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
+        v40[f64|2] = vec_float_expand(f5) | only expaned once
         #
-        v5[f64#2] = vec_float_add(v3[f64#2], v4[f64#2])
-        v6[f64#2] = vec_float_add(v5[f64#2], v4[f64#2])
+        v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
+        v60[f64|2] = vec_float_add(v50[f64|2], v40[f64|2])
+        """, False)
+        self.assert_equal(loop2, loop3)
+
+    def find_input_arg(self, name, loop):
+        for arg in loop.inputargs:
+            if str(arg).startswith(name):
+                return arg
+        raise Exception("could not find %s in args %s" % (name, loop.inputargs))
+
+    def test_signext_int16(self):
+        loop1 = self.parse("""
+        i10 = int_signext(i1, 2)
+        i11 = int_signext(i1, 2)
+        i12 = int_signext(i1, 2)
+        i13 = int_signext(i1, 2)
+        """)
+        pack1 = self.pack(loop1, 0, 4)
+        v103204 = self.find_input_arg('v103204', loop1)
+        def i1inv103204(var):
+            return 0, v103204
+        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True, getvboxfunc=i1inv103204)
+        loop3 = self.parse("""
+        v11[i16|4] = vec_int_signext(v103204[i32|4], 2)
         """, False)
         self.assert_equal(loop2, loop3)

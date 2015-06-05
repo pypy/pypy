@@ -715,6 +715,8 @@ class LocationCodeBuilder(object):
     PUNPCKLDQ = _binaryop('PUNPCKLDQ')
     PUNPCKHDQ = _binaryop('PUNPCKHDQ')
 
+    PSHUFB = _binaryop('PSHUFB')
+
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')
 
