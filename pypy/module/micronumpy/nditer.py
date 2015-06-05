@@ -470,7 +470,7 @@ class W_NDIter(W_NumpyObject):
                                     "Iterator operand required copying or "
                                     "buffering for operand %d", i)
                     impl = self.seq[i].implementation
-                    new_impl = impl.astype(space, selfd)
+                    new_impl = impl.astype(space, selfd, self.order)
                     self.seq[i] = W_NDimArray(new_impl)
         else:
             #copy them from seq

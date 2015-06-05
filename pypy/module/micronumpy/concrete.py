@@ -17,7 +17,6 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.baseobjspace import W_Root
 
-
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
                           'strides[*]', 'backstrides[*]', 'order', 'gcstruct',
@@ -334,7 +333,7 @@ class BaseConcreteArray(object):
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
-    def astype(self, space, dtype):
+    def astype(self, space, dtype, order):
         # copy the general pattern of the strides
         # but make the array storage contiguous in memory
         shape = self.get_shape()
@@ -350,7 +349,7 @@ class BaseConcreteArray(object):
         else:
             t_strides = []
             backstrides = []
-        impl = ConcreteArray(shape, dtype, self.order, t_strides, backstrides)
+        impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
