@@ -2,6 +2,14 @@ from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt, BasicFailDescr
 
+box1 = "box1"
+box2 = "box2"
+box3 = "box3"
+box4 = "box4"
+box5 = "box5"
+lengthbox1 = object()
+lengthbox2 = object()
+lengthbox3 = object()
 descr1 = object()
 descr2 = object()
 descr3 = object()
@@ -50,37 +58,29 @@ arraycopydescr1 = FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.O
 class TestHeapCache(object):
     def test_known_class_box(self):
         h = HeapCache()
-        i0 = InputArgInt(1)
-        i1 = InputArgInt(2)
-        assert not h.is_class_known(i0)
-        assert not h.is_class_known(i1)
-        h.class_now_known(i0)
-        assert h.is_class_known(i0)
-        assert not h.is_class_known(i1)
+        assert not h.is_class_known(1)
+        assert not h.is_class_known(2)
+        h.class_now_known(1)
+        assert h.is_class_known(1)
+        assert not h.is_class_known(2)
 
         h.reset()
-        assert not h.is_class_known(i0)
-        assert not h.is_class_known(i1)
+        assert not h.is_class_known(1)
+        assert not h.is_class_known(2)
 
     def test_nonstandard_virtualizable(self):
         h = HeapCache()
-        i0 = InputArgInt(1)
-        i1 = InputArgInt(2)
-        assert not h.is_nonstandard_virtualizable(i0)
-        assert not h.is_nonstandard_virtualizable(i1)
-        h.nonstandard_virtualizables_now_known(i0)
-        assert h.is_nonstandard_virtualizable(i0)
-        assert not h.is_nonstandard_virtualizable(i1)
+        assert not h.is_nonstandard_virtualizable(1)
+        assert not h.is_nonstandard_virtualizable(2)
+        h.nonstandard_virtualizables_now_known(1)
+        assert h.is_nonstandard_virtualizable(1)
+        assert not h.is_nonstandard_virtualizable(2)
 
         h.reset()
-        assert not h.is_nonstandard_virtualizable(i0)
-        assert not h.is_nonstandard_virtualizable(i1)
+        assert not h.is_nonstandard_virtualizable(1)
+        assert not h.is_nonstandard_virtualizable(2)
 
     def test_heapcache_fields(self):
-
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
         h = HeapCache()
         assert h.getfield(box1, descr1) is None
         assert h.getfield(box1, descr2) is None
@@ -105,11 +105,6 @@ class TestHeapCache(object):
 
     def test_heapcache_read_fields_multiple(self):
         h = HeapCache()
-
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         h.getfield_now_known(box1, descr1, box2)
         h.getfield_now_known(box3, descr1, box4)
         assert h.getfield(box1, descr1) is box2
@@ -125,10 +120,6 @@ class TestHeapCache(object):
 
     def test_heapcache_write_fields_multiple(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         h.setfield(box1, box2, descr1)
         assert h.getfield(box1, descr1) is box2
         h.setfield(box3, box4, descr1)
@@ -157,10 +148,6 @@ class TestHeapCache(object):
 
     def test_heapcache_arrays(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index1, descr2) is None
         assert h.getarrayitem(box1, index2, descr1) is None
@@ -203,10 +190,6 @@ class TestHeapCache(object):
 
     def test_heapcache_array_nonconst_index(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index2, box4, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -217,10 +200,6 @@ class TestHeapCache(object):
 
     def test_heapcache_read_fields_multiple_array(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         h.getarrayitem_now_known(box1, index1, box2, descr1)
         h.getarrayitem_now_known(box3, index1, box4, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
@@ -236,10 +215,6 @@ class TestHeapCache(object):
 
     def test_heapcache_write_fields_multiple_array(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         h.setarrayitem(box1, index1, box2, descr1)
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.setarrayitem(box3, index1, box4, descr1)
@@ -268,10 +243,6 @@ class TestHeapCache(object):
 
     def test_length_cache(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        lengthbox1 = InputArgInt(2)
-        lengthbox2 = InputArgInt(3)
         h.new_array(box1, lengthbox1)
         assert h.arraylen(box1) is lengthbox1
 
@@ -282,9 +253,6 @@ class TestHeapCache(object):
 
     def test_invalidate_cache(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box4 = InputArgInt(3)
         h.setfield(box1, box2, descr1)
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index2, box4, descr1)
@@ -318,10 +286,6 @@ class TestHeapCache(object):
 
     def test_replace_box(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
         h.setfield(box1, box2, descr1)
         h.setfield(box1, box3, descr2)
         h.setfield(box2, box3, descr3)
@@ -343,11 +307,6 @@ class TestHeapCache(object):
 
     def test_replace_box_twice(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
-        box5 = InputArgInt(4)    
         h.setfield(box1, box2, descr1)
         h.setfield(box1, box3, descr2)
         h.setfield(box2, box3, descr3)
@@ -371,12 +330,6 @@ class TestHeapCache(object):
 
     def test_replace_box_array(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
-        lengthbox1 = InputArgInt(0)
-        lengthbox2 = InputArgInt(2)
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index1, box3, descr2)
         h.arraylen_now_known(box1, lengthbox1)
@@ -396,15 +349,6 @@ class TestHeapCache(object):
 
     def test_replace_box_array_twice(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
-        box5 = InputArgInt(4)
-        lengthbox1 = InputArgInt(0)
-        lengthbox2 = InputArgInt(1)
-        lengthbox3 = InputArgInt(2)
-        
         h.setarrayitem(box1, index1, box2, descr1)
         h.setarrayitem(box1, index1, box3, descr2)
         h.arraylen_now_known(box1, lengthbox1)
@@ -426,12 +370,6 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
-        box5 = InputArgInt(4)
-        lengthbox1 = InputArgInt(0)
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box1, index1, box2, descr1)
         h.new_array(box2, lengthbox1)
@@ -460,68 +398,49 @@ class TestHeapCache(object):
 
     def test_ll_arraycopy_differing_descrs(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        lengthbox2 = InputArgInt(1)
         h.setarrayitem(box1, index1, box2, descr2)
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(
             rop.CALL_N,
             arraycopydescr1,
-            [ConstInt(123), box3, box2, index1, index1, index2]
+            [None, box3, box2, index1, index1, index2]
         )
         assert h.getarrayitem(box1, index1, descr2) is box2
 
     def test_ll_arraycopy_differing_descrs_nonconst_index(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
         h.setarrayitem(box1, index1, box2, descr2)
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.invalidate_caches(
             rop.CALL_N,
             arraycopydescr1,
-            [ConstInt(123), box3, box2, index1, index1, InputArgInt()]
+            [None, box3, box2, index1, index1, InputArgInt()]
         )
         assert h.getarrayitem(box1, index1, descr2) is box2
 
     def test_ll_arraycopy_result_propogated(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
         h.setarrayitem(box1, index1, box2, descr1)
         h.invalidate_caches(
             rop.CALL_N,
             arraycopydescr1,
-            [ConstInt(13), box1, box3, index1, index1, index2]
+            [None, box1, box3, index1, index1, index2]
         )
         assert h.getarrayitem(box3, index1, descr1) is box2
 
     def test_ll_arraycopy_dest_new(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
-        box4 = InputArgInt(3)
-        lengthbox1 = InputArgInt(0)
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box3, index1, box4, descr1)
         h.invalidate_caches(
             rop.CALL_N,
             arraycopydescr1,
-            [ConstInt(13), box2, box1, index1, index1, index2]
+            [None, box2, box1, index1, index1, index2]
         )
 
     def test_ll_arraycopy_doesnt_escape_arrays(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        lengthbox1 = InputArgInt(1)
-        lengthbox2 = InputArgInt(2)
         h.new_array(box1, lengthbox1)
         h.new_array(box2, lengthbox2)
         h.invalidate_caches(
@@ -534,15 +453,13 @@ class TestHeapCache(object):
         h.invalidate_caches(
             rop.CALL_N,
             arraycopydescr1,
-            [ConstInt(123), box2, box1, index1, index1, InputArgInt()]
+            [None, box2, box1, index1, index1, InputArgInt()]
         )
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
 
     def test_unescaped(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
         assert not h.is_unescaped(box1)
         h.new(box2)
         assert h.is_unescaped(box2)
@@ -553,9 +470,6 @@ class TestHeapCache(object):
 
     def test_unescaped_testing(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
         h.new(box1)
         h.new(box2)
         assert h.is_unescaped(box1)
@@ -574,8 +488,6 @@ class TestHeapCache(object):
 
     def test_ops_dont_escape(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
         h.new(box1)
         h.new(box2)
         assert h.is_unescaped(box1)
@@ -589,9 +501,6 @@ class TestHeapCache(object):
 
     def test_circular_virtuals(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        box3 = InputArgInt(2)
         h.new(box1)
         h.new(box2)
         h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
@@ -600,10 +509,6 @@ class TestHeapCache(object):
 
     def test_unescaped_array(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-        lengthbox1 = InputArgInt(0)
-        lengthbox2 = InputArgInt(1)
         h.new_array(box1, lengthbox1)
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box1, index1, box2])
@@ -627,9 +532,6 @@ class TestHeapCache(object):
 
     def test_call_doesnt_invalidate_unescaped_boxes(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
-
         h.new(box1)
         assert h.is_unescaped(box1)
         h.setfield(box1, box2, descr1)
@@ -641,9 +543,6 @@ class TestHeapCache(object):
 
     def test_call_doesnt_invalidate_unescaped_array_boxes(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        lengthbox1 = InputArgInt(2)
-        box3 = InputArgInt(1)
         h.new_array(box1, lengthbox1)
         assert h.is_unescaped(box1)
         h.setarrayitem(box1, index1, box3, descr1)
@@ -655,8 +554,6 @@ class TestHeapCache(object):
 
     def test_bug_missing_ignored_operations(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
         h.new(box1)
         h.new(box2)
         h.setfield(box1, box2, descr1)
@@ -679,8 +576,6 @@ class TestHeapCache(object):
         # calling some residual code that changes the values on box3: then
         # the content of box2 is still cached at the old value.
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
         h.new(box1)
         h.new(box2)
         h.setfield(box1, box2, descr1)
@@ -693,8 +588,6 @@ class TestHeapCache(object):
 
     def test_bug_heap_cache_is_cleared_but_not_is_unescaped_2(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-        box2 = InputArgInt(1)
         h.new(box1)
         h.new(box2)
         h.setfield(box1, box2, descr1)
@@ -716,8 +609,6 @@ class TestHeapCache(object):
 
     def test_is_likely_virtual(self):
         h = HeapCache()
-        box1 = InputArgInt(0)
-
         h.new(box1)
         assert h.is_unescaped(box1)
         assert h.is_likely_virtual(box1)

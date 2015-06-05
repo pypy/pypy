@@ -1907,7 +1907,6 @@ class MetaInterp(object):
         self.current_call_id = 0
 
     def retrace_needed(self, trace, exported_state):
-        raise Exception("I dont want that function to exist")
         self.partial_trace = trace
         self.retracing_from = len(self.history.operations) - 1
         self.exported_state = exported_state

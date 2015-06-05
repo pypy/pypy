@@ -129,8 +129,6 @@ def compile_loop(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
-    forget_optimization_info(inputargs)
-    forget_optimization_info(history.operations)
 
     enable_opts = jitdriver_sd.warmstate.enable_opts
     if try_disabling_unroll:
@@ -907,8 +905,6 @@ def compile_trace(metainterp, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-    forget_optimization_info(metainterp.history.inputargs)
-    forget_optimization_info(metainterp.history.operations)
     new_trace = create_empty_loop(metainterp)
     new_trace.inputargs = metainterp.history.inputargs[:]
 

@@ -1,7 +1,7 @@
-from rpython.jit.metainterp.history import Const, ConstInt
-from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractValue
+from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 
-class HeapCacheValue(AbstractValue):
+class HeapCacheValue(object):
     def __init__(self, box):
         self.box = box
         self.likely_virtual = False
@@ -62,19 +62,11 @@ class CacheEntry(object):
 
 class HeapCache(object):
     def __init__(self):
-        self.list_of_operations = []
-        self._reset(None)
+        self.reset()
 
     def reset(self):
-        self._reset(self.list_of_operations)
-
-    def _reset(self, lst):
-        if lst is not None:
-            for i in range(len(lst)):
-                lst[i].set_forwarded(None)
-        self.const_cache = {}
         # maps boxes to values
-        #self.values = {}
+        self.values = {}
         # store the boxes that contain newly allocated objects, this maps the
         # boxes to a bool, the bool indicates whether or not the object has
         # escaped the trace or not (True means the box never escaped, False
@@ -101,29 +93,16 @@ class HeapCache(object):
         self.heap_array_cache = {}
 
     def reset_keep_likely_virtuals(self):
-        for elem in self.list_of_operations:
-            value = self.getvalue(elem, False)
-            if value is not None:
-                assert isinstance(value, HeapCacheValue)
-                value.reset_keep_likely_virtual()
+        for value in self.values.itervalues():
+            value.reset_keep_likely_virtual()
         self.heap_cache = {}
         self.heap_array_cache = {}
 
-    def getvalue(self, box, create=True):
-        if isinstance(box, Const):
-            v = self.const_cache.get(box, None)
-            if v is None:
-                self.const_cache[box] = v = HeapCacheValue(box)
-            return v
-        v = box.get_forwarded()
-        if v is None:
-            if not create:
-                return None
-            v = HeapCacheValue(box)
-            self.list_of_operations.append(box)
-            box.set_forwarded(v)
-        assert isinstance(v, HeapCacheValue)
-        return v
+    def getvalue(self, box):
+        value = self.values.get(box, None)
+        if not value:
+            value = self.values[box] = HeapCacheValue(box)
+        return value
 
     def getvalues(self, boxes):
         return [self.getvalue(box) for box in boxes]
@@ -179,7 +158,7 @@ class HeapCache(object):
                 self._escape_box(box)
 
     def _escape_box(self, box):
-        value = self.getvalue(box, False)
+        value = self.values.get(box, None)
         if not value:
             return
         self._escape(value)
@@ -288,31 +267,31 @@ class HeapCache(object):
         self.reset_keep_likely_virtuals()
 
     def is_class_known(self, box):
-        v = self.getvalue(box, False)
-        if v:
-            return v.known_class
+        value = self.values.get(box, None)
+        if value:
+            return value.known_class
         return False
 
     def class_now_known(self, box):
         self.getvalue(box).known_class = True
 
     def is_nonstandard_virtualizable(self, box):
-        v = self.getvalue(box, False)
-        if v:
-            return v.nonstandard_virtualizable
+        value = self.values.get(box, None)
+        if value:
+            return value.nonstandard_virtualizable
         return False
 
     def nonstandard_virtualizables_now_known(self, box):
         self.getvalue(box).nonstandard_virtualizable = True
 
     def is_unescaped(self, box):
-        value = self.getvalue(box, False)
+        value = self.values.get(box, None)
         if value:
             return value.is_unescaped
         return False
 
     def is_likely_virtual(self, box):
-        value = self.getvalue(box, False)
+        value = self.values.get(box, None)
         if value:
             return value.likely_virtual
         return False
@@ -328,11 +307,11 @@ class HeapCache(object):
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
-        v = self.getvalue(box, False)
-        if v:
+        value = self.values.get(box, None)
+        if value:
             cache = self.heap_cache.get(descr, None)
             if cache:
-                tovalue = cache.read(v)
+                tovalue = cache.read(value)
                 if tovalue:
                     return tovalue.box
         return None
@@ -356,7 +335,7 @@ class HeapCache(object):
     def getarrayitem(self, box, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
             return None
-        value = self.getvalue(box, False)
+        value = self.values.get(box, None)
         if value is None:
             return None
         index = indexbox.getint()
@@ -400,7 +379,7 @@ class HeapCache(object):
             indexcache.do_write_with_aliasing(value, fieldvalue)
 
     def arraylen(self, box):
-        value = self.getvalue(box, False)
+        value = self.values.get(box, None)
         if value and value.length:
             return value.length.box
         return None
@@ -410,11 +389,8 @@ class HeapCache(object):
         value.length = self.getvalue(lengthbox)
 
     def replace_box(self, oldbox, newbox):
-        value = self.getvalue(oldbox, False)
+        value = self.values.get(oldbox, None)
         if value is None:
             return
         value.box = newbox
-        if isinstance(newbox, Const):
-            self.const_cache[newbox] = value
-        else:
-            newbox.set_forwarded(value)
+        self.values[newbox] = value
