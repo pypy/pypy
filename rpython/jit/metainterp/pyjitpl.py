@@ -3043,12 +3043,13 @@ class MetaInterp(object):
                 rop.CALL_RELEASE_GIL_F, [c_saveall, argboxes[2]] + arg_boxes,
                 value, descr=calldescr)
         elif tp == 'v':
-            value = executor.execute_varargs(self.cpu, self,
+            executor.execute_varargs(self.cpu, self,
                                              rop.CALL_MAY_FORCE_N,
                                              argboxes, orig_calldescr)
-            box_result = self.history.record(
+            self.history.record(
                 rop.CALL_RELEASE_GIL_N, [c_saveall, argboxes[2]] + arg_boxes,
-                value, descr=calldescr)
+                None, descr=calldescr)
+            box_result = None
         else:
             assert False
         #
@@ -3076,12 +3077,13 @@ class MetaInterp(object):
                                          [savebox, funcbox] + argboxes[1:],
                                          value, calldescr)
         elif tp == 'v':
-            value = executor.execute_varargs(self.cpu, self,
+            executor.execute_varargs(self.cpu, self,
                                              rop.CALL_MAY_FORCE_N,
                                              argboxes, calldescr)
-            resbox = self.history.record(rop.CALL_RELEASE_GIL_N,
+            self.history.record(rop.CALL_RELEASE_GIL_N,
                                          [savebox, funcbox] + argboxes[1:],
-                                         value, calldescr)
+                                         calldescr)
+            resbox = None
         else:
             assert False, "no CALL_RELEASE_GIL_R"
             
