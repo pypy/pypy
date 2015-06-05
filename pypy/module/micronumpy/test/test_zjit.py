@@ -211,6 +211,21 @@ class TestNumpyJit(Jit386Mixin):
         assert int(result) == 7+16+8+16
         self.check_vectorized(2, 2)
 
+    def define_int32_expand():
+        return """
+        a = astype(|30|, int32)
+        c = astype(|1|, int32)
+        c[0] = 16i
+        b = a + c
+        x1 = b -> 7
+        x2 = b -> 8
+        x1 + x2
+        """
+    def test_int32_expand(self):
+        result = self.run("int32_expand")
+        assert int(result) == 7+16+8+16
+        self.check_vectorized(2, 2)
+
     def define_int32_add_const():
         return """
         a = astype(|30|, int32)

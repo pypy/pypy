@@ -103,7 +103,7 @@ class Assembler386(BaseAssembler):
         # 0x80000000800000008000000080000000
         single_neg_const = '\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x80'
         #
-        data = neg_const + neg_const + abs_const + abs_const + \
+        data = neg_const + abs_const + \
                single_neg_const + single_abs_const
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
         float_constants = datablockwrapper.malloc_aligned(len(data), alignment=16)
