@@ -5571,5 +5571,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_dirty_array_of_structs_field_after_force(self):
+        ops = """
+        []
+        p0 = new_array_clear(1, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, 0.0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, 0.0, descr=compleximagdescr)
+        escape_n(p0) # force
+        call_may_force_n(1, descr=mayforcevirtdescr)
+        f1 = getinteriorfield_gc_f(p0, 0, descr=compleximagdescr)
+        finish(f1)
+        """
+        self.optimize_loop(ops, ops)
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

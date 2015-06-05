@@ -374,7 +374,8 @@ class ArrayStructInfo(ArrayPtrInfo):
                                               [op, ConstInt(index), subbox],
                                               descr=flddescr)
                     optforce._emit_operation(setfieldop)
-                    # XXX optforce.optheap
+                    # heapcache does not work for interiorfields
+                    # if it does, we would need a fix here
                 i += 1
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
