@@ -88,8 +88,14 @@ class GcRewriterAssembler(object):
     def emit_op(self, op):
         if op.is_guard():
             op = op.copy_and_change(op.getopnum())
-            op = op.get_replacement_for_rewrite()
-            op.setfailargs([arg.get_replacement_for_rewrite() for arg in op.getfailargs()])
+            newop = op.get_replacement_for_rewrite()
+            _newfailargs = []
+            for arg in op.getfailargs():
+                if arg is not None:
+                    arg = arg.get_replacement_for_rewrite()
+                _newfailargs.append(arg)
+            newop.setfailargs(_newfailargs)
+            op = newop
         else:
             op = op.get_replacement_for_rewrite()
         self._newops.append(op)
