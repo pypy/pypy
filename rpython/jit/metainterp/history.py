@@ -204,6 +204,9 @@ class Const(AbstractValue):
     def constbox(self):
         return self
 
+    def get_replacement_for_rewrite(self):
+        return self
+
     def same_box(self, other):
         return self.same_constant(other)
 
