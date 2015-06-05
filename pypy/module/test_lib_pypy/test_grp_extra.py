@@ -20,7 +20,7 @@ class AppTestGrp:
             assert g.gr_gid == 0
             assert 'root' in g.gr_mem or g.gr_mem == []
             assert g.gr_name == name
-            assert isinstance(g.gr_passwd, bytes)    # usually just 'x', don't hope :-)
+            assert isinstance(g.gr_passwd, str)    # usually just 'x', don't hope :-)
             break
         else:
             raise
