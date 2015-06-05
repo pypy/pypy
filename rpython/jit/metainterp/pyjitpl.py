@@ -1590,6 +1590,9 @@ class MIFrame(object):
                 if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
                     resbox = self.metainterp.direct_libffi_call(allboxes, descr,
                                                                 tp)
+                elif effectinfo.is_call_release_gil():
+                    resbox = self.metainterp.direct_call_release_gil(allboxes,
+                                                                descr, tp)
                 elif tp == 'i':
                     resbox = self.metainterp.execute_and_record_varargs(
                         rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
@@ -1604,8 +1607,6 @@ class MIFrame(object):
                         rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
                 else:
                     assert False
-                if effectinfo.is_call_release_gil():
-                    self.metainterp.direct_call_release_gil()
                 self.metainterp.vrefs_after_residual_call()
                 vablebox = None
                 if assembler_call:
@@ -3041,6 +3042,13 @@ class MetaInterp(object):
             box_result = self.history.record(
                 rop.CALL_RELEASE_GIL_F, [c_saveall, argboxes[2]] + arg_boxes,
                 value, descr=calldescr)
+        elif tp == 'v':
+            value = executor.execute_varargs(self.cpu, self,
+                                             rop.CALL_MAY_FORCE_N,
+                                             argboxes, orig_calldescr)
+            box_result = self.history.record(
+                rop.CALL_RELEASE_GIL_N, [c_saveall, argboxes[2]] + arg_boxes,
+                value, descr=calldescr)
         else:
             assert False
         #
@@ -3048,20 +3056,38 @@ class MetaInterp(object):
         # special op libffi_save_result_{int,float}
         return box_result
 
-    def direct_call_release_gil(self):
-        op = self.history.operations.pop()
-        assert op.is_call_may_force()
-        descr = op.getdescr()
-        effectinfo = descr.get_extra_info()
+    def direct_call_release_gil(self, argboxes, calldescr, tp):
+        effectinfo = calldescr.get_extra_info()
         realfuncaddr, saveerr = effectinfo.call_release_gil_target
         funcbox = ConstInt(heaptracker.adr2int(realfuncaddr))
         savebox = ConstInt(saveerr)
-        assert False, "not yet"
-        self.history.record(rop.CALL_RELEASE_GIL,
-                            [savebox, funcbox] + op.getarglist()[1:],
-                            op.result, descr)
+        if tp == 'i':
+            value = executor.execute_varargs(self.cpu, self,
+                                             rop.CALL_MAY_FORCE_I,
+                                             argboxes, calldescr)
+            resbox = self.history.record(rop.CALL_RELEASE_GIL_I,
+                                         [savebox, funcbox] + argboxes[1:],
+                                         value, calldescr)
+        elif tp == 'f':
+            value = executor.execute_varargs(self.cpu, self,
+                                             rop.CALL_MAY_FORCE_F,
+                                             argboxes, calldescr)
+            resbox = self.history.record(rop.CALL_RELEASE_GIL_F,
+                                         [savebox, funcbox] + argboxes[1:],
+                                         value, calldescr)
+        elif tp == 'v':
+            value = executor.execute_varargs(self.cpu, self,
+                                             rop.CALL_MAY_FORCE_N,
+                                             argboxes, calldescr)
+            resbox = self.history.record(rop.CALL_RELEASE_GIL_N,
+                                         [savebox, funcbox] + argboxes[1:],
+                                         value, calldescr)
+        else:
+            assert False, "no CALL_RELEASE_GIL_R"
+            
         if not we_are_translated():       # for llgraph
-            descr._original_func_ = op.getarg(0).value
+            calldescr._original_func_ = argboxes[0].getint()
+        return resbox
 
     def do_not_in_trace_call(self, allboxes, descr):
         self.clear_exception()
