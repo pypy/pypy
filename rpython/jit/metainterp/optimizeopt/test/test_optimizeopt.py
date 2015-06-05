@@ -144,7 +144,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_constfold_all(self):
-        from rpython.jit.metainterp.executor import _execute_nonspec
+        from rpython.jit.metainterp.executor import _execute_arglist
         import random
         for opnum in range(rop.INT_ADD, rop.SAME_AS_I+1):
             try:
@@ -168,7 +168,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
             jump()
             """ % (op.lower(), ', '.join(map(str, args)))
             argboxes = [InputArgInt(a) for a in args]
-            expected_value = _execute_nonspec(self.cpu, None, opnum, argboxes)
+            expected_value = _execute_arglist(self.cpu, None, opnum, argboxes)
             expected = """
             []
             escape_n(%d)

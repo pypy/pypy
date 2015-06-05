@@ -175,11 +175,11 @@ class UnrollOptimizer(Optimization):
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()
-        jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
+        jump_args = [self.get_box_replacement(a) for a in original_jump_args]
 
         virtual_state = self.get_virtual_state(jump_args)
 
-        values = [self.getvalue(arg) for arg in jump_args]
+        values = [self.getinfo(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
         short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
 
@@ -401,6 +401,7 @@ class UnrollOptimizer(Optimization):
         #        short[i] = op
 
         # Clone ops and boxes to get private versions and
+        return
         short_inputargs = short[0].getarglist()
         boxmap = {}
         newargs = [None] * len(short_inputargs)
@@ -411,8 +412,8 @@ class UnrollOptimizer(Optimization):
             else:
                 newargs[i] = a.clone_input_arg()
                 boxmap[a] = newargs[i]
-        memo = Memo(short_inputargs, newargs)
-        target_token.assumed_classes = {}
+        #memo = Memo(short_inputargs, newargs)
+        #target_token.assumed_classes = {}
         for i in range(len(short)):
             op = short[i]
             newop = op.clone(memo)

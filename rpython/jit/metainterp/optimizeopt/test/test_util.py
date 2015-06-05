@@ -395,6 +395,8 @@ class BaseTest(object):
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
         self.loop = loop
+        operations = loop.operations
+        inputargs = loop.inputargs
         loop.call_pure_results = args_dict()
         if call_pure_results is not None:
             for k, v in call_pure_results.items():
@@ -405,10 +407,13 @@ class BaseTest(object):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        return optimize_trace(metainterp_sd, None, loop,
+        state = optimize_trace(metainterp_sd, None, loop,
                               self.enable_opts,
                               start_state=start_state,
                               export_state=export_state)
+        compile.forget_optimization_info(operations)
+        compile.forget_optimization_info(inputargs)
+        return state
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
@@ -421,7 +426,6 @@ class BaseTest(object):
 
         jump_args = jumpop.getarglist()[:]
         operations = operations[:-1]
-        xxx
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs
@@ -436,10 +440,9 @@ class BaseTest(object):
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
         loop.operations = [preamble.operations[-1]] + \
-                          cloned_operations + \
-                          [ResOperation(rop.JUMP, [memo.get(a, a) for a in jump_args],
+                          operations + \
+                          [ResOperation(rop.JUMP, jump_args[:],
                                         descr=token)]
-                          #[inliner.inline_op(jumpop)]
         
         assert loop.operations[-1].getopnum() == rop.JUMP
         assert loop.operations[0].getopnum() == rop.LABEL

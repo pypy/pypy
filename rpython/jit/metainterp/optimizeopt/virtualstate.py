@@ -457,7 +457,8 @@ class VirtualState(object):
         self.info_counter = -1
         self.numnotvirtuals = 0
         for s in state:
-            s.enum(self)
+            if s:
+                s.enum(self)
 
     def generalization_of(self, other, bad=None, cpu=None):
         state = GenerateGuardState(cpu=cpu, bad=bad)
@@ -528,6 +529,9 @@ class VirtualStateConstructor(VirtualVisitor):
         return self.optimizer.getvalue(box)
 
     def state(self, box):
+        if box.type == 'r':
+            xxxx
+        return None
         value = self.getvalue(box)
         box = value.get_key_box()
         try:
@@ -551,12 +555,15 @@ class VirtualStateConstructor(VirtualVisitor):
             opt = self.optimizer.optearlyforce
         else:
             opt = self.optimizer
-        values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
-                                                              opt)
-                  for box in jump_args]
+        for box in jump_args:
+            if box.type == 'r':
+                zxsadsadsa
+        #values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
+        #                                                      opt)
+        #          for box in jump_args]
 
-        for value in values:
-            value.visitor_walk_recursive(self)
+        #for value in values:
+        #    value.visitor_walk_recursive(self)
         return VirtualState([self.state(box) for box in jump_args])
 
     def visit_not_virtual(self, value):
