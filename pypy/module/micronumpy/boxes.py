@@ -607,7 +607,6 @@ class W_StringBox(W_CharacterBox):
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
-        raise oefmt(space.w_NotImplementedError, "Unicode is not supported yet")
         from pypy.module.micronumpy.descriptor import new_unicode_dtype
         arg = space.unicode_w(space.unicode_from_object(w_arg))
         # XXX size computations, we need tests anyway
