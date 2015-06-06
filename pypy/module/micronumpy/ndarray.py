@@ -279,7 +279,7 @@ class __extend__(W_NDimArray):
                 s.append(separator)
                 s.append(' ')
             if self.is_scalar() and dtype.is_str():
-                s.append(dtype.itemtype.to_str(i.getitem(state)))
+                s.append(i.getitem(state).raw_str())
             else:
                 s.append(dtype.itemtype.str_format(i.getitem(state), add_quotes=True))
             state = i.next(state)

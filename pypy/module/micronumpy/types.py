@@ -2051,20 +2051,8 @@ class FlexibleType(BaseType):
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
-    @jit.unroll_safe
     def to_str(self, item):
-        builder = StringBuilder()
-        assert isinstance(item, boxes.W_FlexibleBox)
-        i = item.ofs
-        end = i + item.dtype.elsize
-        with item.arr as storage:
-            while i < end:
-                assert isinstance(storage[i], str)
-                if storage[i] == '\x00':
-                    break
-                builder.append(storage[i])
-                i += 1
-            return builder.build()
+        return item.raw_str()
 
 def str_unary_op(func):
     specialize.argtype(1)(func)

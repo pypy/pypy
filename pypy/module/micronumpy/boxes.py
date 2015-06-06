@@ -10,6 +10,7 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import constants as NPY
@@ -536,8 +537,20 @@ class W_FlexibleBox(W_GenericBox):
     def get_dtype(self, space):
         return self.dtype
 
+    @jit.unroll_safe
     def raw_str(self):
-        return self.arr.dtype.itemtype.to_str(self)
+        builder = StringBuilder()
+        i = self.ofs
+        end = i + self.dtype.elsize
+        with self.arr as storage:
+            while i < end:
+                assert isinstance(storage[i], str)
+                if storage[i] == '\x00':
+                    break
+                builder.append(storage[i])
+                i += 1
+            return builder.build()
+
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
