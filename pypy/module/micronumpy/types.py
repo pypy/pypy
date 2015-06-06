@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import widen, byteswap, r_ulonglong, \
     most_neg_value_of, LONG_BIT
 from rpython.rlib.rawstorage import (alloc_raw_storage,
     raw_storage_getitem_unaligned, raw_storage_setitem_unaligned)
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, unpack_float,
                                        pack_float80, unpack_float80)
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
@@ -2190,7 +2190,7 @@ class StringType(FlexibleType):
             self._store(storage, i, offset, box, width)
 
 class UnicodeType(FlexibleType):
-    T = lltype.Char
+    T = lltype.UniChar
     num = NPY.UNICODE
     kind = NPY.UNICODELTR
     char = NPY.UNICODELTR
@@ -2202,58 +2202,75 @@ class UnicodeType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, boxes.W_UnicodeBox):
             return w_item
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "coerce (probably from set_item) not implemented for unicode type"))
+        value = space.unicode_w(w_item)
+        return boxes.W_UnicodeBox(value)
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, boxes.W_UnicodeBox)
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        value = box._value
+        for k in range(len(value)):
+            index = i + offset + 4*k
+            data = rffi.cast(Int32.T, ord(box._value[k]))
+            raw_storage_setitem_unaligned(arr.storage, index, data)
 
     def read(self, arr, i, offset, dtype=None):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        if dtype is None:
+            dtype = arr.dtype
+        size = dtype.elsize // 4
+        builder = UnicodeBuilder(size)
+        with arr as storage:
+            for k in range(size):
+                index = i + offset + 4*k
+                codepoint = raw_storage_getitem_unaligned(
+                    Int32.T, arr.storage, index)
+                char = unichr(codepoint)
+                if char == u'\0':
+                    break
+                builder.append(char)
+        return boxes.W_UnicodeBox(builder.build())
 
     def str_format(self, item, add_quotes=True):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def to_builtin_type(self, space, box):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def eq(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def ne(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def lt(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def le(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def gt(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def ge(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def logical_and(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def logical_or(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def logical_not(self, v):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     @str_binary_op
     def logical_xor(self, v1, v2):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def bool(self, v):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
     def fill(self, storage, width, box, start, stop, offset, gcstruct):
-        raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
+        raise NotImplementedError
 
 
 class VoidType(FlexibleType):

@@ -325,6 +325,8 @@ def scalar2dtype(space, w_obj):
         return complex_dtype
     elif space.isinstance_w(w_obj, space.w_str):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
+    elif space.isinstance_w(w_obj, space.w_unicode):
+        return new_unicode_dtype(space, space.len_w(w_obj))
     return object_dtype
 
 @signature(ann.instance(W_Dtype), ann.instance(W_Dtype), returns=ann.bool())

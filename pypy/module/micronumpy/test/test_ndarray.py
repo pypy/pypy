@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 import py
 import sys
 
@@ -321,6 +322,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array(a, order='K', copy=True)
         assert b.flags['C']
         assert (b == a).all()
+
+    def test_unicode(self):
+        import numpy as np
+        a = np.array([u'Aÿ', u'abc'], dtype=np.dtype('U'))
+        assert a.shape == (2,)
+        assert a.dtype == np.dtype('U3')
+        assert a[0] == u'Aÿ'
 
     def test_dtype_attribute(self):
         import numpy as np
