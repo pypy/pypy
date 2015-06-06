@@ -397,6 +397,11 @@ class W_Dtype(W_Root):
             return space.wrap(0)
         return space.wrap(len(self.fields))
 
+    def runpack_str(self, space, s):
+        if self.is_str_or_unicode():
+            return self.coerce(space, space.wrap(s))
+        return self.itemtype.runpack_str(space, s)
+
     def descr_reduce(self, space):
         w_class = space.type(self)
         builder_args = space.newtuple([

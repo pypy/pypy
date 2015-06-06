@@ -1149,13 +1149,13 @@ class ComplexFloating(object):
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     def runpack_str(self, space, s):
-        comp = self.ComponentBoxType._get_dtype(space).itemtype
+        comp = self.ComponentBoxType._get_dtype(space)
         l = len(s) // 2
         real = comp.runpack_str(space, s[:l])
         imag = comp.runpack_str(space, s[l:])
         if not self.native:
-            real = comp.byteswap(real)
-            imag = comp.byteswap(imag)
+            real = comp.itemtype.byteswap(real)
+            imag = comp.itemtype.byteswap(imag)
         return self.composite(real, imag)
 
     @staticmethod
