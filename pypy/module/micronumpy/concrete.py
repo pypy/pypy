@@ -345,6 +345,10 @@ class BaseConcreteArray(object):
                 if s < mins:
                     mins = s
             t_strides = [s * t_elsize / mins for s in strides]
+            if order not in ('C', 'F'):
+                raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
+            if order != self.order:
+                t_strides = tstrides[::-1]
             backstrides = calc_backstrides(t_strides, shape)
         else:
             t_strides = []
@@ -399,6 +403,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         make_sure_not_resized(backstrides)
         self.shape = shape
         self.size = support.product(shape) * dtype.elsize
+        if order not in ('C', 'F'):
+            raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
         self.order = order
         self.dtype = dtype
         self.strides = strides
