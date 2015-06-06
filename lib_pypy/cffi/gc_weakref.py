@@ -2,18 +2,27 @@ from weakref import ref
 
 
 class GcWeakrefs(object):
-    # code copied and adapted from WeakKeyDictionary.
-
     def __init__(self, ffi):
         self.ffi = ffi
-        self.data = data = {}
-        def remove(k):
-            destructor, cdata = data.pop(k)
-            destructor(cdata)
-        self.remove = remove
+        self.data = []
+        self.freelist = None
 
     def build(self, cdata, destructor):
         # make a new cdata of the same type as the original one
         new_cdata = self.ffi.cast(self.ffi._backend.typeof(cdata), cdata)
-        self.data[ref(new_cdata, self.remove)] = destructor, cdata
+        #
+        def remove(key):
+            assert self.data[index] is key
+            self.data[index] = self.freelist
+            self.freelist = index
+            destructor(cdata)
+        #
+        key = ref(new_cdata, remove)
+        index = self.freelist
+        if index is None:
+            index = len(self.data)
+            self.data.append(key)
+        else:
+            self.freelist = self.data[index]
+            self.data[index] = key
         return new_cdata

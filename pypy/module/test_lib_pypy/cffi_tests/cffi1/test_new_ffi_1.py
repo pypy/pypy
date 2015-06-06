@@ -33,7 +33,9 @@ def setup_module():
         struct ab { int a, b; };
         struct abc { int a, b, c; };
 
-        enum foq { A0, B0, CC0, D0 };
+        /* don't use A0, B0, CC0, D0 because termios.h might be included
+           and it has its own #defines for these names */
+        enum foq { cffiA0, cffiB0, cffiCC0, cffiD0 };
         enum bar { A1, B1=-2, CC1, D1, E1 };
         enum baz { A2=0x1000, B2=0x2000 };
         enum foo2 { A3, B3, C3, D3 };
@@ -879,9 +881,9 @@ class TestNewFFI1:
 
     def test_enum(self):
         # enum foq { A0, B0, CC0, D0 };
-        assert ffi.string(ffi.cast("enum foq", 0)) == "A0"
-        assert ffi.string(ffi.cast("enum foq", 2)) == "CC0"
-        assert ffi.string(ffi.cast("enum foq", 3)) == "D0"
+        assert ffi.string(ffi.cast("enum foq", 0)) == "cffiA0"
+        assert ffi.string(ffi.cast("enum foq", 2)) == "cffiCC0"
+        assert ffi.string(ffi.cast("enum foq", 3)) == "cffiD0"
         assert ffi.string(ffi.cast("enum foq", 4)) == "4"
         # enum bar { A1, B1=-2, CC1, D1, E1 };
         assert ffi.string(ffi.cast("enum bar", 0)) == "A1"
@@ -1408,6 +1410,47 @@ class TestNewFFI1:
         import gc; gc.collect(); gc.collect(); gc.collect()
         assert seen == [1]
 
+    def test_gc_2(self):
+        p = ffi.new("int *", 123)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        import gc; gc.collect()
+        assert seen == []
+        del q1, q2
+        import gc; gc.collect(); gc.collect(); gc.collect(); gc.collect()
+        assert seen == [2, 1]
+
+    def test_gc_3(self):
+        p = ffi.new("int *", 123)
+        r = ffi.new("int *", 123)
+        seen = []
+        seen_r = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        s1 = ffi.gc(r, lambda r: seen_r.append(4))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        s2 = ffi.gc(s1, lambda r: seen_r.append(5))
+        q3 = ffi.gc(q2, lambda p: seen.append(3))
+        import gc; gc.collect()
+        assert seen == []
+        assert seen_r == []
+        del q1, q2, q3, s2, s1
+        import gc; gc.collect(); gc.collect(); gc.collect(); gc.collect()
+        assert seen == [3, 2, 1]
+        assert seen_r == [5, 4]
+
+    def test_gc_4(self):
+        p = ffi.new("int *", 123)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        q3 = ffi.gc(q2, lambda p: seen.append(3))
+        import gc; gc.collect()
+        assert seen == []
+        del q1, q3     # q2 remains, and has a hard ref to q1
+        import gc; gc.collect(); gc.collect(); gc.collect()
+        assert seen == [3]
+
     def test_CData_CType(self):
         assert isinstance(ffi.cast("int", 0), ffi.CData)
         assert isinstance(ffi.new("int *"), ffi.CData)
@@ -1534,8 +1577,8 @@ class TestNewFFI1:
         assert p.a == -52525
         #
         p = ffi.cast("enum foq", 2)
-        assert ffi.string(p) == "CC0"
-        assert ffi2.sizeof("char[CC0]") == 2
+        assert ffi.string(p) == "cffiCC0"
+        assert ffi2.sizeof("char[cffiCC0]") == 2
         #
         p = ffi.new("anon_foo_t *", [-52526])
         assert p.a == -52526
