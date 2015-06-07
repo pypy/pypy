@@ -210,7 +210,7 @@ class Primitive(object):
             value = byteswap(value)
         raw_storage_setitem_unaligned(storage, i + offset, value)
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, dtype):
         with arr as storage:
             return self.box(self._read(storage, i, offset))
 
@@ -1227,7 +1227,7 @@ class ComplexFloating(object):
             imag = byteswap(imag)
         return real, imag
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, dtype):
         with arr as storage:
             real, imag = self._read(storage, i, offset)
             return self.box_complex(real, imag)
@@ -1795,7 +1795,7 @@ class ObjectType(Primitive, BaseType):
         self._write(arr.storage, i, offset, self.unbox(box),
                     arr.gcstruct)
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, dtype):
         return self.box(self._read(arr.storage, i, offset))
 
     def byteswap(self, w_v):
@@ -2106,9 +2106,7 @@ class StringType(FlexibleType):
             for k in range(size):
                 storage[k + offset + i] = box_storage[k + box.ofs]
 
-    def read(self, arr, i, offset, dtype=None):
-        if dtype is None:
-            dtype = arr.dtype
+    def read(self, arr, i, offset, dtype):
         return boxes.W_StringBox(arr, i + offset, dtype)
 
     def str_format(self, item, add_quotes=True):
@@ -2197,7 +2195,7 @@ class UnicodeType(FlexibleType):
         assert isinstance(box, boxes.W_UnicodeBox)
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
-    def read(self, arr, i, offset, dtype=None):
+    def read(self, arr, i, offset, dtype):
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
     def str_format(self, item, add_quotes=True):
@@ -2301,9 +2299,7 @@ class VoidType(FlexibleType):
                                     dtype.subdtype)
         return W_NDimArray(implementation)
 
-    def read(self, arr, i, offset, dtype=None):
-        if dtype is None:
-            dtype = arr.dtype
+    def read(self, arr, i, offset, dtype):
         return boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
@@ -2345,9 +2341,7 @@ class RecordType(FlexibleType):
     kind = NPY.VOIDLTR
     char = NPY.VOIDLTR
 
-    def read(self, arr, i, offset, dtype=None):
-        if dtype is None:
-            dtype = arr.dtype
+    def read(self, arr, i, offset, dtype):
         return boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
