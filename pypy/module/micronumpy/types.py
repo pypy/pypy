@@ -2264,8 +2264,8 @@ class VoidType(FlexibleType):
         itemtype = subdtype.itemtype
         if len(shape) <= 1:
             for i in range(len(items_w)):
-                w_box = itemtype.coerce(space, subdtype, items_w[i])
-                itemtype.store(arr, 0, ofs, w_box)
+                w_box = subdtype.coerce(space, items_w[i])
+                subdtype.store(arr, 0, ofs, w_box)
                 ofs += itemtype.get_element_size()
         else:
             for w_item in items_w:
@@ -2381,12 +2381,11 @@ class RecordType(FlexibleType):
         arr = VoidBoxStorage(dtype.elsize, dtype)
         for i in range(len(dtype.fields)):
             ofs, subdtype = dtype.fields[dtype.names[i]]
-            itemtype = subdtype.itemtype
             try:
-                w_box = itemtype.coerce(space, subdtype, items_w[i])
+                w_box = subdtype.coerce(space, items_w[i])
             except IndexError:
-                w_box = itemtype.coerce(space, subdtype, None)
-            itemtype.store(arr, 0, ofs, w_box)
+                w_box = subdtype.coerce(space, None)
+            subdtype.store(arr, 0, ofs, w_box)
         return boxes.W_VoidBox(arr, 0, dtype)
 
     def runpack_str(self, space, s):

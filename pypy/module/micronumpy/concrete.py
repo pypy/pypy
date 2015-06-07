@@ -49,7 +49,7 @@ class BaseConcreteArray(object):
         return self.dtype.itemtype.read_bool(self, index, 0)
 
     def setitem(self, index, value):
-        self.dtype.itemtype.store(self, index, 0, value)
+        self.dtype.store(self, index, 0, value)
 
     @jit.unroll_safe
     def setslice(self, space, arr):

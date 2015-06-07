@@ -593,7 +593,7 @@ class W_VoidBox(W_FlexibleBox):
             raise oefmt(space.w_IndexError, "222only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")
-        dtype.itemtype.store(self.arr, self.ofs, ofs,
+        dtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
     def convert_to(self, space, dtype):

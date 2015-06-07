@@ -402,6 +402,9 @@ class W_Dtype(W_Root):
             return self.coerce(space, space.wrap(s))
         return self.itemtype.runpack_str(space, s)
 
+    def store(self, arr, i, offset, value):
+        return self.itemtype.store(arr, i, offset, value)
+
     def descr_reduce(self, space):
         w_class = space.type(self)
         builder_args = space.newtuple([
