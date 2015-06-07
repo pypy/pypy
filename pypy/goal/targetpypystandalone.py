@@ -21,7 +21,10 @@ except NameError:
     this_dir = os.path.dirname(sys.argv[0])
 
 def debug(msg):
-    os.write(2, "debug: " + msg + '\n')
+    try:
+        os.write(2, "debug: " + msg + '\n')
+    except OSError:
+        pass     # bah, no working stderr :-(
 
 # __________  Entry point  __________
 
