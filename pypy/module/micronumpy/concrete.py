@@ -46,7 +46,7 @@ class BaseConcreteArray(object):
         return self.dtype.read(self, index, 0)
 
     def getitem_bool(self, index):
-        return self.dtype.itemtype.read_bool(self, index, 0)
+        return self.dtype.read_bool(self, index, 0)
 
     def setitem(self, index, value):
         self.dtype.store(self, index, 0, value)

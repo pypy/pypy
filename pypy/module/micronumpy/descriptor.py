@@ -408,6 +408,9 @@ class W_Dtype(W_Root):
     def read(self, arr, i, offset):
         return self.itemtype.read(arr, i, offset, self)
 
+    def read_bool(self, arr, i, offset):
+        return self.itemtype.read_bool(arr, i, offset, self)
+
     def descr_reduce(self, space):
         w_class = space.type(self)
         builder_args = space.newtuple([
