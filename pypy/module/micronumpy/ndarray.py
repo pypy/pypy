@@ -604,10 +604,14 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_NotImplementedError,
                         "astype(%s) not implemented yet",
                         new_dtype.get_name())
-        if new_dtype.num == NPY.STRING and new_dtype.elsize == 0:
-            if cur_dtype.num == NPY.STRING:
-                new_dtype = descriptor.variable_dtype(
-                    space, 'S' + str(cur_dtype.elsize))
+        if new_dtype.is_str() and new_dtype.elsize == 0:
+            elsize = 0
+            itype = cur_dtype.itemtype
+            for i in range(self.get_size()):
+                elsize = max(elsize, len(itype.str_format(self.implementation.getitem(i), add_quotes=False)))
+            new_dtype = descriptor.variable_dtype(
+                    space, 'S' + str(elsize))
+
         if not can_cast_array(space, self, new_dtype, casting):
             raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
                         "according to the rule %s",
