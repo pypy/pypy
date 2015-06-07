@@ -573,7 +573,7 @@ class W_VoidBox(W_FlexibleBox):
         if isinstance(dtype.itemtype, VoidType):
             read_val = dtype.itemtype.readarray(self.arr, self.ofs, ofs, dtype)
         else:
-            read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+            read_val = dtype.read(self.arr, self.ofs, ofs)
         if isinstance (read_val, W_StringBox):
             # StringType returns a str
             return space.wrap(dtype.itemtype.to_str(read_val))

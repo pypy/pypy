@@ -43,7 +43,7 @@ class BaseConcreteArray(object):
         return backstrides
 
     def getitem(self, index):
-        return self.dtype.itemtype.read(self, index, 0)
+        return self.dtype.read(self, index, 0)
 
     def getitem_bool(self, index):
         return self.dtype.itemtype.read_bool(self, index, 0)

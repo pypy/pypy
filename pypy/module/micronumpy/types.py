@@ -2322,10 +2322,11 @@ class VoidType(FlexibleType):
         ret_unwrapped = []
         for name in dt.names:
             ofs, dtype = dt.fields[name]
+            # XXX: code duplication with W_VoidBox.descr_getitem()
             if isinstance(dtype.itemtype, VoidType):
                 read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
             else:
-                read_val = dtype.itemtype.read(item.arr, ofs, 0, dtype)
+                read_val = dtype.read(item.arr, ofs, 0)
             if isinstance (read_val, boxes.W_StringBox):
                 # StringType returns a str
                 read_val = space.wrap(dtype.itemtype.to_str(read_val))
@@ -2419,9 +2420,8 @@ class RecordType(FlexibleType):
         dtype = box.dtype
         for name in dtype.names:
             ofs, subdtype = dtype.fields[name]
-            itemtype = subdtype.itemtype
-            subbox = itemtype.read(box.arr, box.ofs, ofs, subdtype)
-            items.append(itemtype.to_builtin_type(space, subbox))
+            subbox = subdtype.read(box.arr, box.ofs, ofs)
+            items.append(subdtype.itemtype.to_builtin_type(space, subbox))
         return space.newtuple(items)
 
     @jit.unroll_safe
@@ -2431,12 +2431,12 @@ class RecordType(FlexibleType):
         first = True
         for name in box.dtype.names:
             ofs, subdtype = box.dtype.fields[name]
-            tp = subdtype.itemtype
             if first:
                 first = False
             else:
                 pieces.append(", ")
-            val = tp.read(box.arr, box.ofs, ofs, subdtype)
+            val = subdtype.read(box.arr, box.ofs, ofs)
+            tp = subdtype.itemtype
             pieces.append(tp.str_format(val, add_quotes=add_quotes))
         pieces.append(")")
         return "".join(pieces)

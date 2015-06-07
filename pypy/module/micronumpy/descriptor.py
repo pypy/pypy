@@ -405,6 +405,9 @@ class W_Dtype(W_Root):
     def store(self, arr, i, offset, value):
         return self.itemtype.store(arr, i, offset, value)
 
+    def read(self, arr, i, offset):
+        return self.itemtype.read(arr, i, offset, self)
+
     def descr_reduce(self, space):
         w_class = space.type(self)
         builder_args = space.newtuple([
