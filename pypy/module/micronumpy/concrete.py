@@ -345,10 +345,12 @@ class BaseConcreteArray(object):
                 if s < mins:
                     mins = s
             t_strides = [s * t_elsize / mins for s in strides]
-            if order not in ('C', 'F'):
+            if order == 'K':
+                pass
+            elif order not in ('C', 'F'):
                 raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
-            if order != self.order:
-                t_strides = tstrides[::-1]
+            elif order != self.order:
+                t_strides.reverse()
             backstrides = calc_backstrides(t_strides, shape)
         else:
             t_strides = []
@@ -379,7 +381,7 @@ def customtrace(gc, obj, callback, arg):
         gc._trace_callback(callback, arg, storage)
         storage += step
         i += 1
-    
+
 lambda_customtrace = lambda: customtrace
 
 def _setup():
@@ -403,8 +405,6 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         make_sure_not_resized(backstrides)
         self.shape = shape
         self.size = support.product(shape) * dtype.elsize
-        if order not in ('C', 'F'):
-            raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
         self.order = order
         self.dtype = dtype
         self.strides = strides
@@ -445,7 +445,7 @@ class ConcreteArray(ConcreteArrayNotOwning):
         gcstruct = V_OBJECTSTORE
         flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
         if storage == lltype.nullptr(RAW_STORAGE):
-            length = support.product(shape) 
+            length = support.product(shape)
             if dtype.num == NPY.OBJECT:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
@@ -507,7 +507,7 @@ class NonWritableArray(ConcreteArray):
         ConcreteArray.__init__(self, shape, dtype, order, strides, backstrides,
                     storage, zero)
         self.flags &= ~ NPY.ARRAY_WRITEABLE
-        
+
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
