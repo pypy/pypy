@@ -338,23 +338,21 @@ class BaseConcreteArray(object):
         # but make the array storage contiguous in memory
         shape = self.get_shape()
         strides = self.get_strides()
-        if len(strides) > 0:
+        if order not in ('C', 'F'):
+            raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
+        if len(strides) == 0:
+            t_strides = []
+            backstrides = []
+        elif order != self.order:
+            t_strides, backstrides = calc_strides(shape, dtype, order)
+        else:
             mins = strides[0]
             t_elsize = dtype.elsize
             for s in strides:
                 if s < mins:
                     mins = s
             t_strides = [s * t_elsize / mins for s in strides]
-            if order == 'K':
-                pass
-            elif order not in ('C', 'F'):
-                raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
-            elif order != self.order:
-                t_strides.reverse()
             backstrides = calc_backstrides(t_strides, shape)
-        else:
-            t_strides = []
-            backstrides = []
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl

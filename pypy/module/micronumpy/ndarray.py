@@ -44,16 +44,6 @@ def _match_dot_shapes(space, left, right):
         raise oefmt(space.w_ValueError, "objects are not aligned")
     return out_shape, right_critical_dim
 
-def get_order(proto_order, order):
-    if order == 'C':
-        return 'C'
-    elif order == 'F':
-        return 'F'
-    elif order == 'K':
-        return proto_order
-    elif order == 'A':
-        return proto_order
-
 class __extend__(W_NDimArray):
     @jit.unroll_safe
     def descr_get_shape(self, space):
@@ -620,10 +610,10 @@ class __extend__(W_NDimArray):
                     space, 'S' + str(cur_dtype.elsize))
         if not can_cast_array(space, self, new_dtype, casting):
             raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
-                        "according to the rule %s", 
+                        "according to the rule %s",
                         space.str_w(self.get_dtype().descr_repr(space)),
                         space.str_w(new_dtype.descr_repr(space)), casting)
-        order  = get_order(self.get_order(), order)
+        order  = support.get_order_as_CF(self.get_order(), order)
         if (not copy and new_dtype == self.get_dtype() and order == self.get_order()
                 and (subok or type(self) is W_NDimArray)):
             return self

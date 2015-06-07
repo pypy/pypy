@@ -161,3 +161,14 @@ def is_rhs_priority_higher(space, w_lhs, w_rhs):
     w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
     # XXX what is better, unwrapping values or space.gt?
     return space.is_true(space.gt(w_priority_r, w_priority_l))
+
+def get_order_as_CF(proto_order, req_order):
+    if req_order == 'C':
+        return 'C'
+    elif req_order == 'F':
+        return 'F'
+    elif req_order == 'K':
+        return proto_order
+    elif req_order == 'A':
+        return proto_order
+
