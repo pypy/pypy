@@ -400,10 +400,10 @@ class W_Dtype(W_Root):
     def runpack_str(self, space, s):
         if self.is_str_or_unicode():
             return self.coerce(space, space.wrap(s))
-        return self.itemtype.runpack_str(space, s)
+        return self.itemtype.runpack_str(space, s, self.is_native())
 
     def store(self, arr, i, offset, value):
-        return self.itemtype.store(arr, i, offset, value)
+        return self.itemtype.store(arr, i, offset, value, self.is_native())
 
     def read(self, arr, i, offset):
         return self.itemtype.read(arr, i, offset, self)
@@ -506,11 +506,10 @@ class W_Dtype(W_Root):
                 endian = NPY.OPPBYTE if self.is_native() else NPY.NATBYTE
             elif newendian != NPY.IGNORE:
                 endian = newendian
-        itemtype = self.itemtype.__class__(space, endian in (NPY.NATIVE, NPY.NATBYTE))
         fields = self.fields
         if fields is None:
             fields = {}
-        return W_Dtype(itemtype,
+        return W_Dtype(self.itemtype,
                        self.w_box_type, byteorder=endian, elsize=self.elsize,
                        names=self.names, fields=fields,
                        shape=self.shape, subdtype=self.subdtype)

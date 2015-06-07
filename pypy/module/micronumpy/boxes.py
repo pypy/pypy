@@ -67,7 +67,8 @@ class Box(object):
         assert isinstance(multiarray, MixedModule)
         scalar = multiarray.get("scalar")
 
-        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
+        ret = space.newtuple([scalar, space.newtuple(
+            [space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
         return ret
 
 

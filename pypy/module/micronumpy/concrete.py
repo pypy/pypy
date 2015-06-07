@@ -414,8 +414,9 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.gcstruct = V_OBJECTSTORE
 
     def fill(self, space, box):
-        self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
-                                 box, 0, self.size, 0, self.gcstruct)
+        self.dtype.itemtype.fill(
+            self.storage, self.dtype.elsize, self.dtype.is_native(),
+            box, 0, self.size, 0, self.gcstruct)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,

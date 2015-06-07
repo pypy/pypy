@@ -133,12 +133,11 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
-    _immutable_fields_ = ['native', 'space']
+    _immutable_fields_ = ['space']
     strlen = 0  # chars needed to print any possible value of the type
 
-    def __init__(self, space, native=True):
+    def __init__(self, space):
         assert isinstance(space, ObjSpace)
-        self.native = native
         self.space = space
 
     def __repr__(self):
@@ -199,37 +198,38 @@ class Primitive(object):
     def default_fromstring(self, space):
         raise NotImplementedError
 
-    def _read(self, storage, i, offset):
+    def _read(self, storage, i, offset, native):
         res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
-        if not self.native:
+        if not native:
             res = byteswap(res)
         return res
 
-    def _write(self, storage, i, offset, value):
-        if not self.native:
+    def _write(self, storage, i, offset, value, native):
+        if not native:
             value = byteswap(value)
         raw_storage_setitem_unaligned(storage, i + offset, value)
 
     def read(self, arr, i, offset, dtype):
         with arr as storage:
-            return self.box(self._read(storage, i, offset))
+            return self.box(self._read(storage, i, offset, dtype.is_native()))
 
-    def read_bool(self, arr, i, offset):
+    def read_bool(self, arr, i, offset, dtype):
         with arr as storage:
-            return bool(self.for_computation(self._read(storage, i, offset)))
+            return bool(self.for_computation(
+                self._read(storage, i, offset, dtype.is_native())))
 
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         with arr as storage:
-            self._write(storage, i, offset, self.unbox(box))
+            self._write(storage, i, offset, self.unbox(box), native)
 
-    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+    def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
-            self._write(storage, i, offset, value)
+            self._write(storage, i, offset, value, native)
 
-    def runpack_str(self, space, s):
+    def runpack_str(self, space, s, native):
         v = rffi.cast(self.T, runpack(self.format_code, s))
-        if not self.native:
+        if not native:
             v = byteswap(v)
         return self.box(v)
 
@@ -1058,10 +1058,10 @@ class Float16(Float, BaseType):
     def box(self, value):
         return self.BoxType(rffi.cast(rffi.DOUBLE, value))
 
-    def runpack_str(self, space, s):
+    def runpack_str(self, space, s, native):
         assert len(s) == 2
         fval = self.box(unpack_float(s, native_is_bigendian))
-        if not self.native:
+        if not native:
             fval = self.byteswap(fval)
         return fval
 
@@ -1074,19 +1074,19 @@ class Float16(Float, BaseType):
         swapped = byteswap(rffi.cast(self._STORAGE_T, hbits))
         return self.box(float_unpack(r_ulonglong(swapped), 2))
 
-    def _read(self, storage, i, offset):
+    def _read(self, storage, i, offset, native):
         hbits = raw_storage_getitem_unaligned(self._STORAGE_T, storage, i + offset)
-        if not self.native:
+        if not native:
             hbits = byteswap(hbits)
         return float_unpack(r_ulonglong(hbits), 2)
 
-    def _write(self, storage, i, offset, value):
+    def _write(self, storage, i, offset, value, native):
         try:
             hbits = float_pack(value, 2)
         except OverflowError:
             hbits = float_pack(rfloat.INFINITY, 2)
         hbits = rffi.cast(self._STORAGE_T, hbits)
-        if not self.native:
+        if not native:
             hbits = byteswap(hbits)
         raw_storage_setitem_unaligned(storage, i + offset, hbits)
 
@@ -1148,12 +1148,12 @@ class ComplexFloating(object):
         op = '+' if imag >= 0 or rfloat.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
-    def runpack_str(self, space, s):
+    def runpack_str(self, space, s, native):
         comp = self.ComponentBoxType._get_dtype(space)
         l = len(s) // 2
         real = comp.runpack_str(space, s[:l])
         imag = comp.runpack_str(space, s[l:])
-        if not self.native:
+        if not native:
             real = comp.itemtype.byteswap(real)
             imag = comp.itemtype.byteswap(imag)
         return self.composite(real, imag)
@@ -1174,9 +1174,10 @@ class ComplexFloating(object):
         real, imag = self.for_computation(self.unbox(v))
         return bool(real) or bool(imag)
 
-    def read_bool(self, arr, i, offset):
+    def read_bool(self, arr, i, offset, dtype):
         with arr as storage:
-            v = self.for_computation(self._read(storage, i, offset))
+            v = self.for_computation(
+                self._read(storage, i, offset, dtype.is_native()))
             return bool(v[0]) or bool(v[1])
 
     def get_element_size(self):
@@ -1219,35 +1220,35 @@ class ComplexFloating(object):
         assert isinstance(box, self.BoxType)
         return box.real, box.imag
 
-    def _read(self, storage, i, offset):
+    def _read(self, storage, i, offset, native):
         real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
         imag = raw_storage_getitem_unaligned(self.T, storage, i + offset + rffi.sizeof(self.T))
-        if not self.native:
+        if not native:
             real = byteswap(real)
             imag = byteswap(imag)
         return real, imag
 
     def read(self, arr, i, offset, dtype):
         with arr as storage:
-            real, imag = self._read(storage, i, offset)
+            real, imag = self._read(storage, i, offset, dtype.is_native())
             return self.box_complex(real, imag)
 
-    def _write(self, storage, i, offset, value):
+    def _write(self, storage, i, offset, value, native):
         real, imag = value
-        if not self.native:
+        if not native:
             real = byteswap(real)
             imag = byteswap(imag)
         raw_storage_setitem_unaligned(storage, i + offset, real)
         raw_storage_setitem_unaligned(storage, i + offset + rffi.sizeof(self.T), imag)
 
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         with arr as storage:
-            self._write(storage, i, offset, self.unbox(box))
+            self._write(storage, i, offset, self.unbox(box), native)
 
-    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+    def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
-            self._write(storage, i, offset, value)
+            self._write(storage, i, offset, value, native)
 
     @complex_binary_op
     def add(self, v1, v2):
@@ -1745,10 +1746,10 @@ elif boxes.long_double_size in (12, 16):
         char = NPY.LONGDOUBLELTR
         BoxType = boxes.W_FloatLongBox
 
-        def runpack_str(self, space, s):
+        def runpack_str(self, space, s, native):
             assert len(s) == boxes.long_double_size
             fval = self.box(unpack_float80(s, native_is_bigendian))
-            if not self.native:
+            if not native:
                 fval = self.byteswap(fval)
             return fval
 
@@ -1788,7 +1789,7 @@ class ObjectType(Primitive, BaseType):
         # return the item itself
         return self.unbox(self.box(w_item))
 
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         if arr.gcstruct is V_OBJECTSTORE:
             raise oefmt(self.space.w_NotImplementedError,
                 "cannot store object in array with no gc hook")
@@ -1814,7 +1815,7 @@ class ObjectType(Primitive, BaseType):
         raw_storage_setitem_unaligned(storage, i + offset, value)
 
     @jit.dont_look_inside
-    def _read(self, storage, i, offset):
+    def _read(self, storage, i, offset, native=True):
         res = raw_storage_getitem_unaligned(self.T, storage, i + offset)
         if we_are_translated():
             gcref = rffi.cast(llmemory.GCREF, res)
@@ -1823,7 +1824,7 @@ class ObjectType(Primitive, BaseType):
             w_obj = _all_objs_for_tests[res]
         return w_obj
 
-    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+    def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
             self._write(storage, i, offset, value, gcstruct)
@@ -1866,7 +1867,7 @@ class ObjectType(Primitive, BaseType):
     def str_format(self, box, add_quotes=True):
         return self.space.str_w(self.space.repr(self.unbox(box)))
 
-    def runpack_str(self, space, s):
+    def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,
                     "fromstring not implemented for object type")
 
@@ -2093,7 +2094,7 @@ class StringType(FlexibleType):
                 storage[j] = '\x00'
             return boxes.W_StringBox(arr,  0, arr.dtype)
 
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         assert isinstance(box, boxes.W_StringBox)
         size = min(arr.dtype.elsize - offset, box.arr.size - box.ofs)
         with arr as storage:
@@ -2171,7 +2172,7 @@ class StringType(FlexibleType):
     def bool(self, v):
         return bool(self.to_str(v))
 
-    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+    def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         for i in xrange(start, stop, width):
             self._store(storage, i, offset, box, width)
 
@@ -2191,7 +2192,7 @@ class UnicodeType(FlexibleType):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "coerce (probably from set_item) not implemented for unicode type"))
 
-    def store(self, arr, i, offset, box):
+    def store(self, arr, i, offset, box, native):
         assert isinstance(box, boxes.W_UnicodeBox)
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
@@ -2238,7 +2239,7 @@ class UnicodeType(FlexibleType):
     def bool(self, v):
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
-    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+    def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         raise oefmt(self.space.w_NotImplementedError, "unicode type not completed")
 
 
@@ -2280,13 +2281,13 @@ class VoidType(FlexibleType):
         return boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
-    def store(self, arr, i, ofs, box):
+    def store(self, arr, i, offset, box, native):
         assert i == 0
         assert isinstance(box, boxes.W_VoidBox)
         assert box.dtype is box.arr.dtype
         with arr as arr_storage, box.arr as box_storage:
             for k in range(box.arr.dtype.elsize):
-                arr_storage[k + ofs] = box_storage[k + box.ofs]
+                arr_storage[k + offset] = box_storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray
@@ -2383,14 +2384,14 @@ class RecordType(FlexibleType):
             subdtype.store(arr, 0, ofs, w_box)
         return boxes.W_VoidBox(arr, 0, dtype)
 
-    def runpack_str(self, space, s):
+    def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,
                     "fromstring not implemented for record types")
 
-    def store(self, arr, i, ofs, box):
+    def store(self, arr, i, offset, box, native):
         assert isinstance(box, boxes.W_VoidBox)
         with arr as storage:
-            self._store(storage, i, ofs, box, box.dtype.elsize)
+            self._store(storage, i, offset, box, box.dtype.elsize)
 
     @jit.unroll_safe
     def _store(self, storage, i, ofs, box, size):
@@ -2398,7 +2399,7 @@ class RecordType(FlexibleType):
             for k in range(size):
                 storage[k + i + ofs] = box_storage[k + box.ofs]
 
-    def fill(self, storage, width, box, start, stop, offset, gcstruct):
+    def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         assert isinstance(box, boxes.W_VoidBox)
         assert width == box.dtype.elsize
         for i in xrange(start, stop, width):
