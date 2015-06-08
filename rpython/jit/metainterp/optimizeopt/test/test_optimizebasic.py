@@ -5584,5 +5584,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_random_call_forcing_strgetitem(self):
+        ops = """
+        [p3, i15]
+        i13 = strgetitem(p3, i15)
+        p0 = newstr(1)
+        p2 = new_with_vtable(descr=nodesize)
+        setfield_gc(p2, p0, descr=otherdescr)
+        strsetitem(p0, 0, i13)
+        i2 = strgetitem(p0, 0)
+        i3 = call_pure_i(1, i2, descr=nonwritedescr)
+        finish(i3)
+        """
+        expected = """
+        [p3, i15]
+        i13 = strgetitem(p3, i15)
+        i3 = call_i(1, i13, descr=nonwritedescr)
+        finish(i3)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
