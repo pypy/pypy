@@ -1041,6 +1041,33 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(self.parse_loop(ops),1)
         self.assert_equal(vopt.loop, self.parse_loop(opt, add_label=False))
 
+    def test_accumulate_basic(self):
+        trace = """
+        [p0, i0, f0]
+        guard_early_exit() [p0, i0, f0]
+        f1 = raw_load(p0, i0, descr=floatarraydescr)
+        f2 = float_add(f0, f1)
+        i1 = int_add(i0, 8)
+        i2 = int_lt(i1, 100)
+        guard_false(i2) [p0, i0, f2]
+        jump(p0, i1, f2)
+        """
+        trace_opt = """
+        [p0, i0, v2[f64|2]]
+        guard_early_exit() [p0, i0, v2[f64|2]]
+        i1 = int_add(i0, 16)
+        i2 = int_lt(i1, 100)
+        guard_false(i2) [p0, i0, v[f64|2]]
+        i10 = int_add(i0, 16)
+        i20 = int_lt(i10, 100)
+        v1[f64|2] = vec_raw_load(p0, i0, 2, descr=floatarraydescr)
+        v3[f64|2] = vec_float_hadd(v2[f64|2], v1[f64|2])
+        jump(p0, i1, v3[f64|2])
+        """
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
+
     def test_element_f45_in_guard_failargs(self):
         ops = """
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
@@ -1321,24 +1348,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_abc(self):
         py.test.skip()
         trace ="""
-        """
-        opt = self.vectorize(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
-
-    def test_reduction_basic(self):
-        trace = """
-        [p5, i6, p2, i7, p1, p8, i9, i10, f11, i12, i13, i14]
-        guard_early_exit() [p2, p1, p5, f11, i9, i6, i10, i7, p8]
-        f15 = raw_load(i12, i10, descr=floatarraydescr)
-        guard_not_invalidated() [p2, p1, f15, p5, f11, i9, i6, i10, i7, p8]
-        f16 = float_add(f11, f15)
-        raw_store(i13, i7, f16, descr=floatarraydescr)
-        i18 = int_add(i7, 8)
-        i20 = int_add(i9, 1)
-        i22 = int_add(i10, 8)
-        i23 = int_ge(i20, i14)
-        guard_false(i23) [p2, p1, i20, i18, f16, i22, p5, None, None, i6, None, None, p8]
-        jump(p5, i6, p2, i18, p1, p8, i20, i22, f16, i12, i13, i14)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)

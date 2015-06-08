@@ -136,10 +136,7 @@ class VectorizingOptimizer(Optimizer):
         self._newoperations.append(op)
 
     def unroll_loop_iterations(self, loop, unroll_count):
-        """ Unroll the loop X times. unroll_count is an integral how
-        often to further unroll the loop.
-        """
-
+        """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
         op_count = len(loop.operations)
 
         label_op = loop.operations[0].clone()
@@ -293,8 +290,8 @@ class VectorizingOptimizer(Optimizer):
                 # that point forward:
                 if node_a.is_before(node_b):
                     if memref_a.is_adjacent_to(memref_b):
-                        if self.packset.can_be_packed(node_a, node_b, None):
-                            pair = Pair(node_a,node_b)
+                        pair = self.packset.can_be_packed(node_a, node_b, None)
+                        if pair:
                             self.packset.packs.append(pair)
 
     def extend_packset(self):
@@ -315,8 +312,9 @@ class VectorizingOptimizer(Optimizer):
                 rnode = rdep.to
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
-                    if self.packset.can_be_packed(lnode, rnode, pack):
-                        self.packset.add_pair(lnode, rnode)
+                    pair = self.packset.can_be_packed(lnode, rnode, pack)
+                    if pair:
+                        self.packset.packs.append(pair)
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
@@ -1322,17 +1320,50 @@ class PackSet(object):
         p = Pair(l,r)
         self.packs.append(p)
 
+    def accumulates(self, lnode, rnode, origin_pack):
+        # lnode and rnode are isomorphic and dependent
+        lop = lnode.getoperation()
+        opnum = lop.getopnum()
+        rop = rnode.getoperation()
+
+        if opnum in (rop.FLOAT_ADD, rop.INT_ADD):
+            assert lop.numargs() == 2 and lop.result is not None
+            accum, accum_pos = self.getaccumulator_variable(lop, rop, origin_pack)
+            if not accum:
+                return False
+            loaded_pos = (accum_pos + 1) % 2
+            # the dependency exists only because of the result of lnode
+            for dep in lnode.provides():
+                if dep.to is rnode:
+                    if not dep.because_of(accum):
+                        # not quite ... this is not handlable
+                        return False
+            # this can be handled by accumulation
+            return True
+
+        return False
+
+    def getaccumulator_variable(self, lop, rop, origin_pack):
+        args = rop.getarglist()
+        for arg, i in enumerate(args):
+            if arg is lop.result:
+                return arg, i
+
+        return None, -1
+
     def can_be_packed(self, lnode, rnode, origin_pack):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
-            if lnode.independent(rnode):
+            independent = lnode.independent(rnode)
+            if independent or self.accumulates(lnode, rnode, origin_pack):
                 for pack in self.packs:
                     if pack.left == lnode or \
                        pack.right == rnode:
-                        return False
+                        return None
                 if origin_pack is None:
-                    return True
-                return self.profitable_pack(lnode, rnode, origin_pack)
-        return False
+                    return Pair(lnode, rnode)
+                if self.profitable_pack(lnode, rnode, origin_pack)
+                    return Pair(lnode, rnode)
+        return None
 
     def profitable_pack(self, lnode, rnode, origin_pack):
         lpacknode = origin_pack.left

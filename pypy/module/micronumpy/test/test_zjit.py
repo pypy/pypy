@@ -330,8 +330,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_sum(self):
         result = self.run("sum")
         assert result == sum(range(30))
-        # TODO impl reduce
-        self.check_vectorized(1, 0)
+        self.check_vectorized(1, 1)
 
     def define_cumsum():
         return """
@@ -343,6 +342,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_cumsum(self):
         result = self.run("cumsum")
         assert result == 15
+        # not vectorizable, has one back edge
         self.check_vectorized(1, 0)
 
     def define_axissum():
