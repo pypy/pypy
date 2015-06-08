@@ -1,6 +1,6 @@
 
 from rpython.jit.metainterp.history import (FLOAT,INT,ConstInt,BoxVector,
-        BoxFloat,BoxInt)
+        BoxFloat,BoxInt,ConstFloat)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
@@ -525,8 +525,7 @@ FLOAT_SINGLE_ARG_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC,), FLOAT_RES)
 LOAD_TRANS = LoadToVectorLoad()
 STORE_TRANS = StoreToVectorStore()
 
-# note that the following definition is x86 machine
-# specific.
+# note that the following definition is x86 arch specific
 ROP_ARG_RES_VECTOR = {
     rop.VEC_INT_ADD:     INT_OP_TO_VOP,
     rop.VEC_INT_SUB:     INT_OP_TO_VOP,

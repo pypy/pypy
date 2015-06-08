@@ -589,7 +589,8 @@ class PackSet(object):
             else:
                 if self.contains_pair(lnode, rnode):
                     return None
-                return self.accumulates_pair(lnode, rnode, origin_pack)
+                if origin_pack is not None:
+                    return self.accumulates_pair(lnode, rnode, origin_pack)
         return None
 
     def contains_pair(self, lnode, rnode):
