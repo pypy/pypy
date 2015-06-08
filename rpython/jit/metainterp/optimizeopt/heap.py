@@ -422,6 +422,8 @@ class OptHeap(Optimization):
                 cf.force_lazy_setfield(self, None)
 
     def force_lazy_setfields_and_arrayitems_for_guard(self):
+        self.force_all_lazy_setfields_and_arrayitems()
+        return []
         pendingfields = []
         for descr, cf in self.cached_fields.iteritems():
             op = cf._lazy_setfield
