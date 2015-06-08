@@ -276,3 +276,46 @@ def test_pextr():
     s.clear()
     s.EXTRACTPS_rxi(R.r11, R.xmm0, 1)
     assert s.getvalue() == '\x66\x41\x0f\x3a\x17\xc3\x01'
+    s.clear()
+    s.EXTRACTPS_rxi(R.eax, R.xmm0, 1)
+    assert s.getvalue() == '\x66\x0f\x3a\x17\xc0\x01'
+    s.clear()
+    s.EXTRACTPS_rxi(R.r15, R.xmm15, 4)
+    assert s.getvalue() == '\x66\x45\x0f\x3a\x17\xff\x04'
+
+def test_pinsr():
+    s = CodeBuilder64()
+    s.PINSRW_xri(R.xmm0, R.r11,0)
+    assert s.getvalue() == '\x66\x41\x0f\xc4\xc3\x00'
+    s.clear()
+    s.PINSRW_xri(R.xmm15, R.edi, 15)
+    assert s.getvalue() == '\x66\x44\x0f\xc4\xff\x0f'
+    s.clear()
+    s.PINSRD_xri(R.xmm11, R.eax, 2)
+    assert s.getvalue() == '\x66\x44\x0f\x3a\x22\xd8\x02'
+    s.clear()
+    s.PINSRD_xri(R.xmm5, R.r11, 2)
+    assert s.getvalue() == '\x66\x41\x0f\x3a\x22\xeb\x02'
+    s.clear()
+    s.PINSRQ_xri(R.xmm0, R.ebp, 7)
+    assert s.getvalue() == '\x66\x48\x0f\x3a\x22\xc5\x07'
+    # BYTE
+    s.clear()
+    s.PINSRB_xri(R.xmm13, R.eax, 24)
+    assert s.getvalue() == '\x66\x44\x0f\x3a\x20\xe8\x18'
+    s.clear()
+    s.PINSRB_xri(R.xmm5, R.r15, 33)
+    assert s.getvalue() == '\x66\x41\x0f\x3a\x20\xef\x21'
+    # EXTR SINGLE FLOAT
+    s.clear()
+    s.INSERTPS_xxi(R.xmm15, R.xmm0, 2)
+    assert s.getvalue() == '\x66\x44\x0f\x3a\x21\xf8\x02'
+    s.clear()
+    s.INSERTPS_xxi(R.xmm0, R.xmm11, 1)
+    assert s.getvalue() == '\x66\x41\x0f\x3a\x21\xc3\x01'
+    s.clear()
+    s.INSERTPS_xxi(R.xmm0, R.xmm0, 1)
+    assert s.getvalue() == '\x66\x0f\x3a\x21\xc0\x01'
+    s.clear()
+    s.INSERTPS_xxi(R.xmm15, R.xmm15, 4)
+    assert s.getvalue() == '\x66\x45\x0f\x3a\x21\xff\x04'
