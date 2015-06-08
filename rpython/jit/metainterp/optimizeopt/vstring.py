@@ -571,6 +571,8 @@ class OptString(optimizer.Optimization):
             if vindex.is_constant():
                 result = sinfo.getitem(vindex.getint())
                 if result is not None:
+                    if op is not None:
+                        self.make_equal_to(op, result)
                     return result
         #
         vindex = self.getintbound(index)
