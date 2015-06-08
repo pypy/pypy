@@ -1065,6 +1065,8 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0, i1, v3[f64|2])
         """
         opt = self.vectorize(self.parse_loop(trace))
+        assert len(opt.packset.accum_vars) == 1
+        assert opt.loop.inputargs[2] in opt.packset.accum_vars
         self.debug_print_operations(opt.loop)
 
 

@@ -292,7 +292,7 @@ class VectorizingOptimizer(Optimizer):
                     if memref_a.is_adjacent_to(memref_b):
                         pair = self.packset.can_be_packed(node_a, node_b, None)
                         if pair:
-                            self.packset.packs.append(pair)
+                            self.packset.add_pack(pair)
 
     def extend_packset(self):
         pack_count = self.packset.pack_count()
@@ -314,7 +314,7 @@ class VectorizingOptimizer(Optimizer):
                 if isomorph and lnode.is_before(rnode):
                     pair = self.packset.can_be_packed(lnode, rnode, pack)
                     if pair:
-                        self.packset.packs.append(pair)
+                        self.packset.add_pack(pair)
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
@@ -324,8 +324,9 @@ class VectorizingOptimizer(Optimizer):
                 rnode = rdep.to
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
-                    if self.packset.can_be_packed(lnode, rnode, pack):
-                        self.packset.add_pair(lnode, rnode)
+                    pair = self.packset.can_be_packed(lnode, rnode, pack)
+                    if pair:
+                        self.packset.add_pack(pair)
 
     def combine_packset(self):
         if len(self.packset.packs) == 0:
@@ -1312,23 +1313,27 @@ class PackSet(object):
         self.operations = operations
         self.unroll_count = unroll_count
         self.smallest_type_bytes = smallest_type_bytes
+        self.accum_vars = {}
 
     def pack_count(self):
         return len(self.packs)
 
-    def add_pair(self, l, r):
-        p = Pair(l,r)
-        self.packs.append(p)
+    def add_pack(self, pack):
+        if pack.is_accumulating():
+            # remember the variable and the position in this map
+            self.accum_vars[pack.accum_variable] = pack.accum_variable
+        self.packs.append(pack)
 
     def accumulates_pair(self, lnode, rnode, origin_pack):
         # lnode and rnode are isomorphic and dependent
+        assert isinstance(origin_pack, Pair)
         lop = lnode.getoperation()
         opnum = lop.getopnum()
-        rop = rnode.getoperation()
 
         if opnum in (rop.FLOAT_ADD, rop.INT_ADD):
+            roper = rnode.getoperation()
             assert lop.numargs() == 2 and lop.result is not None
-            accum, accum_pos = self.getaccumulator_variable(lop, rop, origin_pack)
+            accum, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
             if not accum:
                 return None
             # the dependency exists only because of the result of lnode
@@ -1337,6 +1342,17 @@ class PackSet(object):
                     if not dep.because_of(accum):
                         # not quite ... this is not handlable
                         return None
+
+            # in either of the two cases the arguments are mixed,
+            # which is not handled currently
+            var_pos = (accum_pos + 1) % 2
+            plop = origin_pack.left.getoperation()
+            if lop.getarg(var_pos) is not plop.result:
+                return None
+            prop = origin_pack.right.getoperation()
+            if roper.getarg(var_pos) is not prop.result:
+                return None
+
             # this can be handled by accumulation
             return AccumPair(lnode, rnode, accum, accum_pos)
 
@@ -1344,10 +1360,11 @@ class PackSet(object):
 
     def getaccumulator_variable(self, lop, rop, origin_pack):
         args = rop.getarglist()
-        for arg, i in enumerate(args):
+        for i, arg in enumerate(args):
+            print arg, "is", lop.result
             if arg is lop.result:
                 return arg, i
-
+        #
         return None, -1
 
     def can_be_packed(self, lnode, rnode, origin_pack):
@@ -1357,10 +1374,12 @@ class PackSet(object):
                     return None
                 if origin_pack is None:
                     return Pair(lnode, rnode)
-                if self.profitable_pack(lnode, rnode, origin_pack)
+                if self.profitable_pack(lnode, rnode, origin_pack):
                     return Pair(lnode, rnode)
             else:
-                return self.accumulates_pair(lnode, rnode, origin_pack):
+                if self.contains_pair(lnode, rnode):
+                    return None
+                return self.accumulates_pair(lnode, rnode, origin_pack)
         return None
 
     def contains_pair(self, lnode, rnode):
@@ -1399,6 +1418,8 @@ class PackSet(object):
         for op in pack_j.operations[1:]:
             operations.append(op)
         self.packs[i] = pack = Pack(operations)
+        pack.accum_variable = pack_i.accum_variable
+        pack.accum_position = pack_i.accum_position
 
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
@@ -1410,13 +1431,6 @@ class PackSet(object):
             self.packs[j] = self.packs[last_pos]
             del self.packs[last_pos]
         return last_pos
-
-    def pack_for_operation(self, node):
-        for pack in self.packs:
-            for node2 in pack.operations:
-                if node == node2:
-                    return pack
-        return None
 
 class Pack(object):
     """ A pack is a set of n statements that are:
@@ -1447,14 +1461,15 @@ class Pack(object):
         assert isinstance(other, Pack)
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
-        both_same_type = self.is_accumulating() == other.is_accumulating()
-        return rightmost == leftmost and both_same_type
+        return rightmost == leftmost and \
+               self.accum_variable == other.accum_variable and \
+               self.accum_position == other.accum_position
 
     def __repr__(self):
         return "Pack(%r)" % self.operations
 
     def is_accumulating(self):
-        return accum_position != -1
+        return self.accum_variable is not None
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
