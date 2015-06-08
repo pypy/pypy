@@ -4,6 +4,13 @@ It needs also the information about integral modifications
 gathered with IntegralForwardModification
 """
 
+from rpython.jit.metainterp.optimizeopt.util import Renamer
+from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
+        MemoryRef, Node, IndexVar)
+from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
+from rpython.jit.metainterp.history import (ConstInt, BoxVector, 
+        BoxFloat, BoxInt, ConstFloat, Box)
+
 class Guard(object):
     """ An object wrapper around a guard. Helps to determine
         if one guard implies another

@@ -4,10 +4,11 @@ import py
 from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.jit.metainterp import resoperation
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp import resoperation
+from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resume import Snapshot
 
 # ____________________________________________________________
 # Misc. utilities
@@ -188,3 +189,53 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                         assert False
     assert len(oplist1) == len(oplist2)
     return True
+
+class Renamer(object):
+    def __init__(self):
+        self.rename_map = {}
+
+    def rename_box(self, box):
+        return self.rename_map.get(box, box)
+
+    def start_renaming(self, var, tovar):
+        self.rename_map[var] = tovar
+
+    def rename(self, op):
+        for i, arg in enumerate(op.getarglist()):
+            arg = self.rename_map.get(arg, arg)
+            op.setarg(i, arg)
+
+        if op.is_guard():
+            assert isinstance(op, resoperation.GuardResOp)
+            op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot)
+            self.rename_failargs(op)
+
+        return True
+
+    def rename_failargs(self, guard, clone=False):
+        if guard.getfailargs() is not None:
+            if clone:
+                args = guard.getfailargs()[:]
+            else:
+                args = guard.getfailargs()
+            for i,arg in enumerate(args):
+                value = self.rename_map.get(arg,arg)
+                args[i] = value
+            return args
+        return None
+
+    def rename_rd_snapshot(self, snapshot, clone=False):
+        # snapshots are nested like the MIFrames
+        if snapshot is None:
+            return None
+        if clone:
+            boxes = snapshot.boxes[:]
+        else:
+            boxes = snapshot.boxes
+        for i,box in enumerate(boxes):
+            value = self.rename_map.get(box,box)
+            boxes[i] = value
+        #
+        rec_snap = self.rename_rd_snapshot(snapshot.prev, clone)
+        return Snapshot(rec_snap, boxes)
+
