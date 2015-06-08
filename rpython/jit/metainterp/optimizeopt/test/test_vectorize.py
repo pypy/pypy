@@ -1061,7 +1061,7 @@ class BaseTestVectorize(VecTestHelper):
         i10 = int_add(i0, 16)
         i20 = int_lt(i10, 100)
         v1[f64|2] = vec_raw_load(p0, i0, 2, descr=floatarraydescr)
-        v3[f64|2] = vec_float_hadd(v2[f64|2], v1[f64|2])
+        v3[f64|2] = vec_float_add(v2[f64|2], v1[f64|2])
         jump(p0, i1, v3[f64|2])
         """
         opt = self.vectorize(self.parse_loop(trace))

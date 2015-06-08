@@ -1320,7 +1320,7 @@ class PackSet(object):
         p = Pair(l,r)
         self.packs.append(p)
 
-    def accumulates(self, lnode, rnode, origin_pack):
+    def accumulates_pair(self, lnode, rnode, origin_pack):
         # lnode and rnode are isomorphic and dependent
         lop = lnode.getoperation()
         opnum = lop.getopnum()
@@ -1330,18 +1330,17 @@ class PackSet(object):
             assert lop.numargs() == 2 and lop.result is not None
             accum, accum_pos = self.getaccumulator_variable(lop, rop, origin_pack)
             if not accum:
-                return False
-            loaded_pos = (accum_pos + 1) % 2
+                return None
             # the dependency exists only because of the result of lnode
             for dep in lnode.provides():
                 if dep.to is rnode:
                     if not dep.because_of(accum):
                         # not quite ... this is not handlable
-                        return False
+                        return None
             # this can be handled by accumulation
-            return True
+            return AccumPair(lnode, rnode, accum, accum_pos)
 
-        return False
+        return None
 
     def getaccumulator_variable(self, lop, rop, origin_pack):
         args = rop.getarglist()
@@ -1353,17 +1352,22 @@ class PackSet(object):
 
     def can_be_packed(self, lnode, rnode, origin_pack):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
-            independent = lnode.independent(rnode)
-            if independent or self.accumulates(lnode, rnode, origin_pack):
-                for pack in self.packs:
-                    if pack.left == lnode or \
-                       pack.right == rnode:
-                        return None
+            if lnode.independent(rnode):
+                if self.contains_pair(lnode, rnode):
+                    return None
                 if origin_pack is None:
                     return Pair(lnode, rnode)
                 if self.profitable_pack(lnode, rnode, origin_pack)
                     return Pair(lnode, rnode)
+            else:
+                return self.accumulates_pair(lnode, rnode, origin_pack):
         return None
+
+    def contains_pair(self, lnode, rnode):
+        for pack in self.packs:
+            if pack.left is lnode or pack.right is rnode:
+                return True
+        return False
 
     def profitable_pack(self, lnode, rnode, origin_pack):
         lpacknode = origin_pack.left
@@ -1424,6 +1428,8 @@ class Pack(object):
         for i,node in enumerate(self.operations):
             node.pack = self
             node.pack_position = i
+        self.accum_variable = None
+        self.accum_position = -1
 
     def opcount(self):
         return len(self.operations)
@@ -1441,10 +1447,14 @@ class Pack(object):
         assert isinstance(other, Pack)
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
-        return rightmost == leftmost
+        both_same_type = self.is_accumulating() == other.is_accumulating()
+        return rightmost == leftmost and both_same_type
 
     def __repr__(self):
         return "Pack(%r)" % self.operations
+
+    def is_accumulating(self):
+        return accum_position != -1
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
@@ -1457,5 +1467,15 @@ class Pair(Pack):
 
     def __eq__(self, other):
         if isinstance(other, Pair):
-            return self.left == other.left and \
-                   self.right == other.right
+            return self.left is other.left and \
+                   self.right is other.right
+
+class AccumPair(Pair):
+    def __init__(self, left, right, accum_var, accum_pos):
+        assert isinstance(left, Node)
+        assert isinstance(right, Node)
+        Pair.__init__(self, left, right)
+        self.left = left
+        self.right = right
+        self.accum_variable = accum_var
+        self.accum_position = accum_pos
