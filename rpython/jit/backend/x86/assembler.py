@@ -1074,6 +1074,7 @@ class Assembler386(BaseAssembler):
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
     genop_int_add = _binaryop_or_lea("ADD", is_add=True)
+    genop_nursery_ptr_increment = _binaryop_or_lea('ADD', is_add=True)
     genop_int_sub = _binaryop_or_lea("SUB", is_add=False)
     genop_int_mul = _binaryop("IMUL")
     genop_int_and = _binaryop("AND")

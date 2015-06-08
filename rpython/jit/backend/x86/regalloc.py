@@ -467,6 +467,8 @@ class RegAlloc(BaseRegalloc):
         else:
             self._consider_binop_symm(op)
 
+    consider_nursery_ptr_increment = consider_int_add
+
     def consider_int_sub(self, op):
         loc = self.loc(op.getarg(0))
         y = op.getarg(1)
