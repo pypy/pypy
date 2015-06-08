@@ -5,8 +5,10 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
+from rpython.annotator.model import SomeChar
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize, compute_hash, we_are_translated
+from rpython.rlib.objectmodel import (
+        specialize, compute_hash, we_are_translated, enforceargs)
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
@@ -38,6 +40,15 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     out = W_NDimArray.from_shape(space, shape, dtype)
     return out
 
+def byteorder_w(space, w_str):
+    order = space.str_w(w_str)
+    if len(order) != 1:
+        raise oefmt(space.w_ValueError,
+                "endian is not 1-char string in Numpy dtype unpickling")
+    endian = order[0]
+    if endian not in (NPY.LITTLE, NPY.BIG, NPY.NATIVE, NPY.IGNORE):
+        raise oefmt(space.w_ValueError, "Invalid byteorder %s", endian)
+    return endian
 
 
 class W_Dtype(W_Root):
@@ -45,15 +56,13 @@ class W_Dtype(W_Root):
         "itemtype?", "w_box_type", "byteorder?", "names?", "fields?",
         "elsize?", "alignment?", "shape?", "subdtype?", "base?"]
 
-    def __init__(self, itemtype, w_box_type, byteorder=None, names=[],
+    @enforceargs(byteorder=SomeChar())
+    def __init__(self, itemtype, w_box_type, byteorder=NPY.NATIVE, names=[],
                  fields={}, elsize=None, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.w_box_type = w_box_type
-        if byteorder is None:
-            if itemtype.get_element_size() == 1 or isinstance(itemtype, types.ObjectType):
-                byteorder = NPY.IGNORE
-            else:
-                byteorder = NPY.NATIVE
+        if itemtype.get_element_size() == 1 or isinstance(itemtype, types.ObjectType):
+            byteorder = NPY.IGNORE
         self.byteorder = byteorder
         self.names = names
         self.fields = fields
@@ -137,7 +146,8 @@ class W_Dtype(W_Root):
         return bool(self.fields)
 
     def is_native(self):
-        return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
+        # Use ord() to ensure that self.byteorder is a char and JITs properly
+        return ord(self.byteorder) in (ord(NPY.NATIVE), ord(NPY.NATBYTE))
 
     def as_signed(self, space):
         """Convert from an unsigned integer dtype to its signed partner"""
@@ -446,7 +456,7 @@ class W_Dtype(W_Root):
                         "can't handle version %d of numpy.dtype pickle",
                         version)
 
-        endian = space.str_w(space.getitem(w_data, space.wrap(1)))
+        endian = byteorder_w(space, space.getitem(w_data, space.wrap(1)))
         if endian == NPY.NATBYTE:
             endian = NPY.NATIVE
 
