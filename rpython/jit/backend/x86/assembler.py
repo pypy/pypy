@@ -2615,24 +2615,24 @@ class Assembler386(BaseAssembler):
             return # already the right size
         if size == 4 and tosize == 2:
             scratch = X86_64_SCRATCH_REG
-            self.mc.PSHUFLW_xxi8(resloc.value, srcloc.value, 0b11111000)
-            self.mc.PEXTRW_rxi8(scratch.value, srcloc.value, 4)
-            self.mc.PINSRW_xri8(resloc.value, scratch.value, 2)
-            self.mc.PEXTRW_rxi8(scratch.value, srcloc.value, 6)
-            self.mc.PINSRW_xri8(resloc.value, scratch.value, 3)
+            self.mc.PSHUFLW_xxi(resloc.value, srcloc.value, 0b11111000)
+            self.mc.PEXTRW_rxi(scratch.value, srcloc.value, 4)
+            self.mc.PINSRW_xri(resloc.value, scratch.value, 2)
+            self.mc.PEXTRW_rxi(scratch.value, srcloc.value, 6)
+            self.mc.PINSRW_xri(resloc.value, scratch.value, 3)
         elif size == 4 and tosize == 8:
             scratch = X86_64_SCRATCH_REG.value
-            self.mc.PEXTRD_rxi8(scratch, srcloc.value, 1)
-            self.mc.PINSRQ_xri8(resloc.value, scratch, 1)
-            self.mc.PEXTRD_rxi8(scratch, srcloc.value, 0)
-            self.mc.PINSRQ_xri8(resloc.value, scratch, 0)
+            self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
+            self.mc.PINSRQ_xri(resloc.value, scratch, 1)
+            self.mc.PEXTRD_rxi(scratch, srcloc.value, 0)
+            self.mc.PINSRQ_xri(resloc.value, scratch, 0)
         elif size == 8 and tosize == 4:
             # is there a better sequence to move them?
             scratch = X86_64_SCRATCH_REG.value
-            self.mc.PEXTRQ_rxi8(scratch, srcloc.value, 0)
-            self.mc.PINSRD_xri8(resloc.value, scratch, 0)
-            self.mc.PEXTRQ_rxi8(scratch, srcloc.value, 1)
-            self.mc.PINSRD_xri8(resloc.value, scratch, 1)
+            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 0)
+            self.mc.PINSRD_xri(resloc.value, scratch, 0)
+            self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
+            self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:
             raise NotImplementedError("sign ext missing: " + str(size) + " -> " + str(tosize))
 
@@ -2653,19 +2653,19 @@ class Assembler386(BaseAssembler):
         assert not srcloc.is_xmm
         size = sizeloc.value
         if size == 1:
-            self.mc.PINSRB_xri8(resloc.value, srcloc.value, 0)
+            self.mc.PINSRB_xri(resloc.value, srcloc.value, 0)
             self.mc.PSHUFB(resloc, heap(self.expand_byte_mask_addr))
         elif size == 2:
-            self.mc.PINSRW_xri8(resloc.value, srcloc.value, 0)
-            self.mc.PINSRW_xri8(resloc.value, srcloc.value, 4)
-            self.mc.PSHUFLW_xxi8(resloc.value, resloc.value, 0)
-            self.mc.PSHUFHW_xxi8(resloc.value, resloc.value, 0)
+            self.mc.PINSRW_xri(resloc.value, srcloc.value, 0)
+            self.mc.PINSRW_xri(resloc.value, srcloc.value, 4)
+            self.mc.PSHUFLW_xxi(resloc.value, resloc.value, 0)
+            self.mc.PSHUFHW_xxi(resloc.value, resloc.value, 0)
         elif size == 4:
-            self.mc.PINSRD_xri8(resloc.value, srcloc.value, 0)
-            self.mc.PSHUFD_xxi8(resloc.value, resloc.value, 0)
+            self.mc.PINSRD_xri(resloc.value, srcloc.value, 0)
+            self.mc.PSHUFD_xxi(resloc.value, resloc.value, 0)
         elif size == 8:
-            self.mc.PINSRQ_xri8(resloc.value, srcloc.value, 0)
-            self.mc.PINSRQ_xri8(resloc.value, srcloc.value, 1)
+            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
+            self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
         else:
             raise NotImplementedError("missing size %d for int expand" % (size,))
 
@@ -2684,28 +2684,28 @@ class Assembler386(BaseAssembler):
         while k > 0:
             if size == 8:
                 if resultloc.is_xmm:
-                    self.mc.PEXTRQ_rxi8(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRQ_xri8(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRQ_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRQ_rxi8(resultloc.value, sourceloc.value, si)
+                    self.mc.PEXTRQ_rxi(resultloc.value, sourceloc.value, si)
             elif size == 4:
                 if resultloc.is_xmm:
-                    self.mc.PEXTRD_rxi8(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRD_xri8(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PEXTRD_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRD_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRD_rxi8(resultloc.value, sourceloc.value, si)
+                    self.mc.PEXTRD_rxi(resultloc.value, sourceloc.value, si)
             elif size == 2:
                 if resultloc.is_xmm:
-                    self.mc.PEXTRW_rxi8(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRW_xri8(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRW_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRW_rxi8(resultloc.value, sourceloc.value, si)
+                    self.mc.PEXTRW_rxi(resultloc.value, sourceloc.value, si)
             elif size == 1:
                 if resultloc.is_xmm:
-                    self.mc.PEXTRB_rxi8(X86_64_SCRATCH_REG.value, sourceloc.value, si)
-                    self.mc.PINSRB_xri8(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                    self.mc.PEXTRB_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
+                    self.mc.PINSRB_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 else:
-                    self.mc.PEXTRB_rxi8(resultloc.value, sourceloc.value, si)
+                    self.mc.PEXTRB_rxi(resultloc.value, sourceloc.value, si)
             si += 1
             ri += 1
             k -= 1
@@ -2734,9 +2734,9 @@ class Assembler386(BaseAssembler):
                         self.mov(X86_64_XMM_SCRATCH_REG, srcloc)
                         src = X86_64_XMM_SCRATCH_REG.value
                     select = ((si & 0x3) << 6)|((ri & 0x3) << 4)
-                    self.mc.INSERTPS_xxi8(resloc.value, src, select)
+                    self.mc.INSERTPS_xxi(resloc.value, src, select)
                 else:
-                    self.mc.PEXTRD_rxi8(resloc.value, srcloc.value, si)
+                    self.mc.PEXTRD_rxi(resloc.value, srcloc.value, si)
                 si += 1
                 ri += 1
                 k -= 1
@@ -2757,12 +2757,12 @@ class Assembler386(BaseAssembler):
                         # r = (s[1], r[1])
                         if resloc != srcloc:
                             self.mc.UNPCKHPD(resloc, srcloc)
-                        self.mc.SHUFPD_xxi8(resloc.value, resloc.value, 1)
+                        self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
                     else:
                         assert residx == 1
                         # r = (r[0], s[1])
                         if resloc != srcloc:
-                            self.mc.SHUFPD_xxi8(resloc.value, resloc.value, 1)
+                            self.mc.SHUFPD_xxi(resloc.value, resloc.value, 1)
                             self.mc.UNPCKHPD(resloc, srcloc)
                         # if they are equal nothing is to be done
 

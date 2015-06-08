@@ -243,17 +243,18 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_int8_expand():
         return """
-        a = astype(|30|, int16)
-        c = astype(|1|, int16)
+        a = astype(|30|, int8)
+        c = astype(|1|, int8)
         c[0] = 8i
         b = a + c
         d = b -> 0:17
         sum(d)
         """
     def test_int8_expand(self):
+        py.test.skip("TODO implement assembler")
         result = self.run("int8_expand")
-        assert int(result) == 16*8 + sum(range(0,17))
-        self.check_vectorized(3, 2)
+        assert int(result) == 8*8 + sum(range(0,17))
+        self.check_vectorized(3, 2) # TODO sum at the end
 
     def define_int32_add_const():
         return """

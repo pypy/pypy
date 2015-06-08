@@ -332,6 +332,7 @@ class TestRx86_32(object):
 
     def should_skip_instruction_bit32(self, instrname, argmodes):
         if self.WORD != 8:
+            # those are tested in the 64 bit test case
             return (
                 # the test suite uses 64 bit registers instead of 32 bit...
                 (instrname == 'PEXTRQ') or
