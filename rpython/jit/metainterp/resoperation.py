@@ -695,6 +695,7 @@ _oplist = [
     'PTR_NE/2b/i',
     'INSTANCE_PTR_EQ/2b/i',
     'INSTANCE_PTR_NE/2b/i',
+    'NURSERY_PTR_INCREMENT/2/r',
     #
     'ARRAYLEN_GC/1d/i',
     'STRLEN/1/i',

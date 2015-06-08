@@ -378,6 +378,7 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY,
                          rop.CALL_MALLOC_NURSERY_VARSIZE,
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
+                         rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue

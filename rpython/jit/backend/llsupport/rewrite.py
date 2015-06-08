@@ -568,7 +568,7 @@ class GcRewriterAssembler(object):
             if self.gc_ll_descr.can_use_nursery_malloc(total_size):
                 # if the total size is still reasonable, merge it
                 self._op_malloc_nursery.setarg(0, ConstInt(total_size))
-                op = ResOperation(rop.INT_ADD,
+                op = ResOperation(rop.NURSERY_PTR_INCREMENT,
                                   [self._v_last_malloced_nursery,
                                    ConstInt(self._previous_size)])
                 self.replace_op_with(v_result, op)
