@@ -810,7 +810,7 @@ class Scheduler(object):
 
 
 class IntegralForwardModification(object):
-    """ Calculates integral modifications on an integer box. """
+    """ Calculates integral modifications on integer boxes. """
     def __init__(self, memory_refs, index_vars, comparison_vars, invariant_vars):
         self.index_vars = index_vars
         self.comparison_vars = comparison_vars
@@ -827,21 +827,6 @@ class IntegralForwardModification(object):
         if not var:
             var = self.index_vars[arg] = IndexVar(arg)
         return var
-
-    bool_func_source = """
-    def operation_{name}(self, op, node):
-        box_a0 = op.getarg(0)
-        box_a1 = op.getarg(1)
-        left = self.index_vars.get(box_a0, None)
-        right = self.index_vars.get(box_a1, None)
-        box_r = op.result
-        self.comparison_vars[box_r] = CompareOperation(op.getopnum(), left, right)
-    """
-    for name in ['INT_LT', 'INT_LE', 'INT_EQ', 'INT_NE', 'INT_NE',
-                 'INT_GT', 'INT_GE', 'UINT_LT', 'UINT_LE', 'UINT_GT',
-                 'UINT_GE']:
-        exec py.code.Source(bool_func_source.format(name=name)).compile()
-    del bool_func_source
 
     additive_func_source = """
     def operation_{name}(self, op, node):
@@ -922,25 +907,6 @@ class IntegralForwardModification(object):
 integral_dispatch_opt = make_dispatcher_method(IntegralForwardModification, 'operation_')
 IntegralForwardModification.inspect_operation = integral_dispatch_opt
 del integral_dispatch_opt
-
-class CompareOperation(object):
-    def __init__(self, opnum, lindex_var, rindex_var):
-        self.opnum = opnum
-        self.lindex_var = lindex_var
-        self.rindex_var = rindex_var
-
-    def getindex_vars(self):
-        if self.lindex_var and self.rindex_var:
-            return (self.lindex_var, self.rindex_var)
-        elif self.lindex_var:
-            return (self.lindex_var, None)
-        elif self.rindex_var:
-            return (self.rindex_var, None)
-        else:
-            return (None, None)
-
-    def adapt_operation(self, op):
-        pass
 
 class IndexVar(AbstractValue):
     """ IndexVar is an AbstractValue only to ensure that a box can be assigned
