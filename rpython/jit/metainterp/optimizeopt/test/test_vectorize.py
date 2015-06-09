@@ -1069,6 +1069,25 @@ class BaseTestVectorize(VecTestHelper):
         assert opt.loop.inputargs[2] in opt.packset.accum_vars
         self.debug_print_operations(opt.loop)
 
+    def test_accumulate_int16(self):
+        trace = """
+        [p3, i4, p1, i5, i6, i7, i8]
+        guard_early_exit() [p1, i4, i5, i6, p3]
+        i9 = raw_load(i7, i5, descr=int16arraydescr)
+        guard_not_invalidated() [p1, i9, i4, i5, i6, p3]
+        i10 = int_add(i6, i9)
+        i12 = int_add(i4, 1)
+        i14 = int_add(i5, 2)
+        i15 = int_ge(i12, i8)
+        guard_false(i15) [p1, i14, i10, i12, None, None, None, p3]
+        jump(p3, i12, p1, i14, i10, i7, i8)
+        """
+        opt = self.vectorize(self.parse_loop(trace))
+        assert len(opt.packset.packs) == 2
+        assert len(opt.packset.accum_vars) == 1
+        assert opt.loop.inputargs[4] in opt.packset.accum_vars
+        self.debug_print_operations(opt.loop)
+
 
     def test_element_f45_in_guard_failargs(self):
         ops = """

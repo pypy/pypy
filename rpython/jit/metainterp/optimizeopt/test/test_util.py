@@ -156,6 +156,7 @@ class LLtypeMixin(object):
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
     intarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
+    int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
     uintarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Unsigned))
     chararraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Char))
     singlefloatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))

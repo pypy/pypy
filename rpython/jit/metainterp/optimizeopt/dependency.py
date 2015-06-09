@@ -312,7 +312,7 @@ class Node(object):
         return None
 
     def __repr__(self):
-        return "Node(opidx: %d)"%self.opidx
+        return "Node(opidx: %d)" % self.opidx
 
     def __ne__(self, other):
         return not self.__eq__(other)

@@ -354,6 +354,15 @@ class VectorizingOptimizer(Optimizer):
             if len_before == len(self.packset.packs):
                 break
 
+        if not we_are_translated():
+            # some test cases check the accumulation variables
+            self.packset.accum_vars = {}
+            for pack in self.packset.packs:
+                var = pack.accum_variable
+                pos = pack.accum_position
+                if var:
+                    self.packset.accum_vars[var] = pos
+
     def schedule(self, vector=False):
         self.guard_early_exit = -1
         self.clear_newoperations()
@@ -523,15 +532,11 @@ class PackSet(object):
         self.operations = operations
         self.unroll_count = unroll_count
         self.smallest_type_bytes = smallest_type_bytes
-        self.accum_vars = {}
 
     def pack_count(self):
         return len(self.packs)
 
     def add_pack(self, pack):
-        if pack.is_accumulating():
-            # remember the variable and the position in this map
-            self.accum_vars[pack.accum_variable] = pack.accum_variable
         self.packs.append(pack)
 
     def can_be_packed(self, lnode, rnode, origin_pack):
@@ -586,6 +591,9 @@ class PackSet(object):
         for op in pack_j.operations[1:]:
             operations.append(op)
         self.packs[i] = pack = Pack(operations)
+        # preserve the accum variable (if present) of the
+        # left most pack, that is the pack with the earliest
+        # operation at index 0 in the trace
         pack.accum_variable = pack_i.accum_variable
         pack.accum_position = pack_i.accum_position
 
@@ -645,7 +653,11 @@ class PackSet(object):
         return None, -1
 
     def accumulate_prepare(self, sched_data, renamer):
-        for var, pos in self.accum_vars.items():
+        for pack in self.packs:
+            if pack.accum_variable is None:
+                continue
+            var = pack.accum_variable
+            pos = pack.accum_position
             # create a new vector box for the parameters
             box = vectorbox_outof_box(var)
             op = ResOperation(rop.VEC_BOX, [ConstInt(0)], box)

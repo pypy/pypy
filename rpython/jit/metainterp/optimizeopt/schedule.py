@@ -107,7 +107,7 @@ def packtype_outof_box(box):
             return PackType(INT, 8, True, 2)
         elif box.type == FLOAT:
             return PackType(FLOAT, 8, False, 2)
-
+    #
     raise AssertionError("box %s not supported" % (box,))
 
 def vectorbox_clone_set(box, count=-1, size=-1, type='-', clone_signed=True, signed=False):
@@ -695,9 +695,21 @@ class Pack(object):
         assert isinstance(other, Pack)
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
-        return rightmost == leftmost and \
-               self.accum_variable == other.accum_variable and \
-               self.accum_position == other.accum_position
+        # if it is not accumulating it is valid
+        accum = True
+        if self.is_accumulating():
+            if not other.is_accumulating():
+                accum = False
+            elif self.accum_position != other.accum_position:
+                accum = False
+            # aa
+            #else:
+            #    i = self.accum_position
+            #    lop = leftmost.getoperation()
+            #    roper = rightmost.getoperation()
+            #    if lop.getarg(i) is not roper.result:
+            #        accum = False
+        return rightmost is leftmost and accum
 
     def __repr__(self):
         return "Pack(%r)" % self.operations
