@@ -169,7 +169,7 @@ def _bytestype(text):
     if isinstance(text, bytes):
         return text
     elif isinstance(text, str):
-        return text.encode('utf-8')
+        return text.encode()
     else:
         raise TypeError("bytes or str expected, got a '%s' object"
                         % (type(text).__name__,))
@@ -809,7 +809,7 @@ def setupterm(term=None, fd=-1):
     if term is None:
         term = ffi.NULL
     elif isinstance(term, str):
-        term = term.encode('utf-8')
+        term = term.encode()
     err = ffi.new("int *")
     if lib.setupterm(term, fd, err) == lib.ERR:
         err = err[0]
