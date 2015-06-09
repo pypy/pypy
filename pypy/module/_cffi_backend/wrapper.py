@@ -1,6 +1,6 @@
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app
 from rpython.rlib import jit
 
@@ -21,9 +21,10 @@ class W_FunctionWrapper(W_Root):
     also returns the original struct/union signature.
     """
     _immutable_ = True
+    common_doc_str = 'direct call to the C function of the same name'
 
     def __init__(self, space, fnptr, directfnptr, ctype,
-                 locs, rawfunctype, fnname):
+                 locs, rawfunctype, fnname, modulename):
         assert isinstance(ctype, W_CTypeFunc)
         assert ctype.cif_descr is not None     # not for '...' functions
         assert locs is None or len(ctype.fargs) == len(locs)
@@ -35,6 +36,7 @@ class W_FunctionWrapper(W_Root):
         self.locs = locs
         self.rawfunctype = rawfunctype
         self.fnname = fnname
+        self.modulename = modulename
         self.nargs_expected = len(ctype.fargs) - (locs is not None and
                                                   locs[0] == 'R')
 
@@ -111,5 +113,8 @@ W_FunctionWrapper.typedef = TypeDef(
         'FFIFunctionWrapper',
         __repr__ = interp2app(W_FunctionWrapper.descr_repr),
         __call__ = interp2app(W_FunctionWrapper.descr_call),
+        __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper),
+        __module__ = interp_attrproperty('modulename', cls=W_FunctionWrapper),
+        __doc__ = interp_attrproperty('common_doc_str', cls=W_FunctionWrapper),
         )
 W_FunctionWrapper.typedef.acceptable_as_base_class = False
