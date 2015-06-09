@@ -366,7 +366,7 @@ class VectorizingOptimizer(Optimizer):
         #
         while scheduler.has_more():
             position = len(self._newoperations)
-            ops = scheduler.next(position)
+            ops = scheduler.next(renamer, position)
             for op in ops:
                 if vector:
                     self.unpack_from_vector(op, sched_data, renamer)

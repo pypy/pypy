@@ -1,5 +1,5 @@
 
-from rpython.jit.metainterp.history import (FLOAT,INT,ConstInt,BoxVector,
+from rpython.jit.metainterp.history import (VECTOR,FLOAT,INT,ConstInt,BoxVector,
         BoxFloat,BoxInt,ConstFloat)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
@@ -20,12 +20,12 @@ class Scheduler(object):
     def has_more(self):
         return len(self.schedulable_nodes) > 0
 
-    def next(self, position):
+    def next(self, renamer, position):
         i = self._next(self.schedulable_nodes)
         if i >= 0:
             candidate = self.schedulable_nodes[i]
             del self.schedulable_nodes[i]
-            return self.schedule(candidate, position)
+            return self.schedule(candidate, renamer, position)
 
         raise AssertionError("schedule failed cannot continue. possible reason: cycle")
 
@@ -57,15 +57,18 @@ class Scheduler(object):
                         return False
         return candidate.depends_count() == 0
 
-    def schedule(self, candidate, position):
+    def schedule(self, candidate, renamer, position):
         if candidate.pack:
             pack = candidate.pack
-            vops = self.sched_data.as_vector_operation(pack)
+            for node in pack.operations:
+                renamer.rename(node.getoperation())
+            vops = self.sched_data.as_vector_operation(pack, renamer)
             for node in pack.operations:
                 self.scheduled(node, position)
             return vops
         else:
             self.scheduled(candidate, position)
+            renamer.rename(candidate.getoperation())
             return [candidate.getoperation()]
 
     def scheduled(self, node, position):
@@ -95,6 +98,17 @@ def vectorbox_outof_box(box, count=-1, size=-1, type='-', clone_signed=True, sig
     if box.type == FLOAT:
         signed = False
     return BoxVector(box.type, 2, 8, signed)
+
+def packtype_outof_box(box):
+    if box.type == VECTOR:
+        return PackType.of(box)
+    else:
+        if arg.type == INT:
+            return PackType(INT, 8, True, 2)
+        elif arg.type == FLOAT:
+            return PackType(FLOAT, 8, True, 2)
+
+    raise AssertionError("box %s not supported" % (box,))
 
 def vectorbox_clone_set(box, count=-1, size=-1, type='-', clone_signed=True, signed=False):
     if count == -1:
@@ -220,13 +234,7 @@ class OpToVectorOp(object):
         if vbox:
             return PackType.of(vbox)
         else:
-            vec_reg_size = self.sched_data.vec_reg_size
-            if isinstance(arg, ConstInt) or isinstance(arg, BoxInt):
-                return PackType(INT, 8, True, 2)
-            elif isinstance(arg, ConstFloat) or isinstance(arg, BoxFloat):
-                return PackType(FLOAT, 8, True, 2)
-            else:
-                raise NotImplementedError("arg %s not supported" % (arg,))
+            return packtype_outof_box(arg)
 
     def determine_output_type(self, op):
         return self.determine_input_type(op)
@@ -283,6 +291,8 @@ class OpToVectorOp(object):
         self.before_argument_transform(args)
         #
         for i,arg in enumerate(args):
+            if isinstance(arg, BoxVector):
+                continue
             if self.is_vector_arg(i):
                 args[i] = self.transform_argument(args[i], i, off)
         #
@@ -603,7 +613,7 @@ class VecScheduleData(SchedulerData):
         self.invariant_vector_vars = []
         self.expanded_map = {}
 
-    def as_vector_operation(self, pack):
+    def as_vector_operation(self, pack, preproc_renamer):
         op_count = len(pack.operations)
         assert op_count > 1
         self.pack = pack
@@ -617,6 +627,15 @@ class VecScheduleData(SchedulerData):
             raise NotImplementedError("missing vecop for '%s'" % (op0.getopname(),))
         oplist = []
         tovector.as_vector_operation(pack, self, oplist)
+        #
+        if pack.is_accumulating:
+            box = oplist[0].result
+            assert box is not None
+            for node in pack.operations:
+                op = node.getoperation()
+                assert op.result is not None
+                preproc_renamer.start_renaming(op.result, box)
+        #
         return oplist
 
     def getvector_of_box(self, arg):
