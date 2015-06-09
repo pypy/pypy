@@ -44,9 +44,17 @@ class Scheduler(object):
 
     def schedulable(self, candidate):
         if candidate.pack:
-            for node in candidate.pack.operations:
-                if node.depends_count() > 0:
-                    return False
+            pack = candidate.pack
+            if pack.is_accumulating():
+                for node in pack.operations:
+                    for dep in node.depends():
+                        if dep.to.pack is not pack:
+                            return False
+                return True
+            else:
+                for node in candidate.pack.operations:
+                    if node.depends_count() > 0:
+                        return False
         return candidate.depends_count() == 0
 
     def schedule(self, candidate, position):

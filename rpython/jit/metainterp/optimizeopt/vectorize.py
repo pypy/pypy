@@ -552,6 +552,8 @@ class PackSet(object):
                     if not dep.because_of(accum):
                         # not quite ... this is not handlable
                         return None
+            # get the original variable
+            accum = lop.getarg(accum_pos)
 
             # in either of the two cases the arguments are mixed,
             # which is not handled currently
