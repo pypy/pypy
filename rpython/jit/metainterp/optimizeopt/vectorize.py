@@ -11,7 +11,8 @@ from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method, Rena
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
-        Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum)
+        Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
+        getunpackopnum, PackType)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib.objectmodel import we_are_translated
@@ -275,9 +276,10 @@ class VectorizingOptimizer(Optimizer):
         loop = self.loop
         operations = loop.operations
 
+        vsize = self.metainterp_sd.cpu.vector_register_size
         self.packset = PackSet(self.dependency_graph, operations,
-                               self.unroll_count,
-                               self.smallest_type_bytes)
+                               self.unroll_count, self.smallest_type_bytes,
+                               vsize)
         graph = self.dependency_graph
         memory_refs = graph.memory_refs.items()
         # initialize the pack set
@@ -380,7 +382,7 @@ class VectorizingOptimizer(Optimizer):
                 if vector:
                     self.unpack_from_vector(op, sched_data, renamer)
                 self.emit_operation(op)
-
+        #
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
                 assert node.emitted
@@ -411,9 +413,7 @@ class VectorizingOptimizer(Optimizer):
             renamer.start_renaming(arg, arg_cloned)
             cj = ConstInt(j)
             ci = ConstInt(1)
-            opnum = rop.VEC_FLOAT_UNPACK
-            if vbox.item_type == INT:
-                opnum = rop.VEC_INT_UNPACK
+            opnum = getunpackopnum(vbox.item_type)
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.emit_operation(unpack_op)
             return arg_cloned
@@ -526,12 +526,13 @@ def isomorphic(l_op, r_op):
 class PackSet(object):
 
     def __init__(self, dependency_graph, operations, unroll_count,
-                 smallest_type_bytes):
+                 smallest_type_bytes, vec_reg_size):
         self.packs = []
         self.dependency_graph = dependency_graph
         self.operations = operations
         self.unroll_count = unroll_count
         self.smallest_type_bytes = smallest_type_bytes
+        self.vec_reg_size = vec_reg_size
 
     def pack_count(self):
         return len(self.packs)
@@ -545,9 +546,12 @@ class PackSet(object):
                 if self.contains_pair(lnode, rnode):
                     return None
                 if origin_pack is None:
-                    return Pair(lnode, rnode)
+                    descr = lnode.getoperation().getdescr()
+                    input_type = PackType.by_descr(descr, self.vec_reg_size)
+                    return Pair(lnode, rnode, input_type, None)
                 if self.profitable_pack(lnode, rnode, origin_pack):
-                    return Pair(lnode, rnode)
+                    ptype = origin_pack.output_type
+                    return Pair(lnode, rnode, ptype, ptype)
             else:
                 if self.contains_pair(lnode, rnode):
                     return None
@@ -590,7 +594,8 @@ class PackSet(object):
         operations = pack_i.operations
         for op in pack_j.operations[1:]:
             operations.append(op)
-        self.packs[i] = pack = Pack(operations)
+        pack = Pack(operations, pack_i.input_type, pack_i.output_type)
+        self.packs[i] = pack
         # preserve the accum variable (if present) of the
         # left most pack, that is the pack with the earliest
         # operation at index 0 in the trace
@@ -640,7 +645,8 @@ class PackSet(object):
                 return None
 
             # this can be handled by accumulation
-            return AccumPair(lnode, rnode, accum, accum_pos)
+            ptype = origin_pack.output_type
+            return AccumPair(lnode, rnode, ptype, ptype, accum, accum_pos)
 
         return None
 
@@ -659,7 +665,7 @@ class PackSet(object):
             var = pack.accum_variable
             pos = pack.accum_position
             # create a new vector box for the parameters
-            box = vectorbox_outof_box(var)
+            box = pack.input_type.new_vector_box(0)
             op = ResOperation(rop.VEC_BOX, [ConstInt(0)], box)
             sched_data.invariant_oplist.append(op)
             result = box.clonebox()
@@ -674,5 +680,4 @@ class PackSet(object):
             sched_data.invariant_oplist.append(op)
             # rename the variable with the box
             renamer.start_renaming(var, result)
-
 

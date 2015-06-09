@@ -184,7 +184,9 @@ class PackType(object):
     def is_valid(self):
         return self.type != PackType.UNKNOWN_TYPE and self.size > 0
 
-    def new_vector_box(self, count):
+    def new_vector_box(self, count = -1):
+        if count == -1:
+            count = self.count
         return BoxVector(self.type, count, self.size, self.signed)
 
     def __repr__(self):
@@ -262,7 +264,7 @@ class OpToVectorOp(object):
                 off += 1
                 continue
             ops = pack.operations[off:off+stride]
-            self.pack = Pack(ops)
+            self.pack = Pack(ops, pack.input_type, pack.output_type)
             self.transform_pack(ops, off, stride)
             off += stride
             left -= stride
@@ -671,13 +673,15 @@ class Pack(object):
         * isomorphic
         * independent
     """
-    def __init__(self, ops):
+    def __init__(self, ops, input_type, output_type):
         self.operations = ops
         for i,node in enumerate(self.operations):
             node.pack = self
             node.pack_position = i
         self.accum_variable = None
         self.accum_position = -1
+        self.input_type = input_type
+        self.output_type = output_type
 
     def opcount(self):
         return len(self.operations)
@@ -719,12 +723,12 @@ class Pack(object):
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
-    def __init__(self, left, right):
+    def __init__(self, left, right, input_type, output_type):
         assert isinstance(left, Node)
         assert isinstance(right, Node)
         self.left = left
         self.right = right
-        Pack.__init__(self, [left, right])
+        Pack.__init__(self, [left, right], input_type, output_type)
 
     def __eq__(self, other):
         if isinstance(other, Pair):
@@ -732,10 +736,10 @@ class Pair(Pack):
                    self.right is other.right
 
 class AccumPair(Pair):
-    def __init__(self, left, right, accum_var, accum_pos):
+    def __init__(self, left, right, input_type, output_type, accum_var, accum_pos):
         assert isinstance(left, Node)
         assert isinstance(right, Node)
-        Pair.__init__(self, left, right)
+        Pair.__init__(self, left, right, input_type, output_type)
         self.left = left
         self.right = right
         self.accum_variable = accum_var
