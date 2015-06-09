@@ -2223,22 +2223,34 @@ class UnicodeType(FlexibleType):
         raise NotImplementedError
 
     def eq(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        return v1._value == v2._value
 
     def ne(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        return v1._value != v2._value
 
     def lt(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        return v1._value < v2._value
 
     def le(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        return v1._value <= v2._value
 
     def gt(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        return v1._value > v2._value
 
     def ge(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        return v1._value >= v2._value
 
     def logical_and(self, v1, v2):
         raise NotImplementedError
