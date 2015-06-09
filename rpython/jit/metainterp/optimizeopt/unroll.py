@@ -155,7 +155,10 @@ class UnrollOptimizer(Optimization):
         loop.operations = self.optimizer.get_newoperations()
         if export_state:
             jd_sd = self.optimizer.jitdriver_sd
-            threshold = jd_sd.warmstate.disable_unrolling_threshold
+            try:
+                threshold = jd_sd.warmstate.disable_unrolling_threshold
+            except AttributeError:    # tests only
+                threshold = sys.maxint
             if len(loop.operations) > threshold:
                 if loop.operations[0].getopnum() == rop.LABEL:
                     # abandoning unrolling, too long
