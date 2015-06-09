@@ -508,8 +508,6 @@ class X86_CostModel(CostModel):
                     return 2
         return 1
 
-
-
 def isomorphic(l_op, r_op):
     """ Subject of definition """
     if l_op.getopnum() == r_op.getopnum():

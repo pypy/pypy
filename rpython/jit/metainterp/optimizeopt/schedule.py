@@ -628,7 +628,7 @@ class VecScheduleData(SchedulerData):
         oplist = []
         tovector.as_vector_operation(pack, self, oplist)
         #
-        if pack.is_accumulating:
+        if pack.is_accumulating():
             box = oplist[0].result
             assert box is not None
             for node in pack.operations:
