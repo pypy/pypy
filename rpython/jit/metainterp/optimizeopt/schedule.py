@@ -88,6 +88,49 @@ class Scheduler(object):
         node.clear_dependencies()
         node.emitted = True
 
+def vectorbox_outof_box(box, count=-1, size=-1, type='-', clone_signed=True, signed=False):
+    if box.type not in (FLOAT, INT):
+        raise AssertionError("cannot create vector box of type %s" % (box.type))
+    signed = True
+    if box.type == FLOAT:
+        signed = False
+    return BoxVector(box.type, 2, 8, signed)
+
+def vectorbox_clone_set(box, count=-1, size=-1, type='-', clone_signed=True, signed=False):
+    if count == -1:
+        count = box.item_count
+    if size == -1:
+        size = box.item_size
+    if type == '-':
+        type = box.item_type
+    if clone_signed:
+        signed = box.item_signed
+    return BoxVector(type, count, size, signed)
+
+def getpackopnum(type):
+    if type == INT:
+        return rop.VEC_INT_PACK
+    elif type == FLOAT:
+        return rop.VEC_FLOAT_PACK
+    #
+    raise AssertionError("getpackopnum type %s not supported" % (type,))
+
+def getunpackopnum(type):
+    if type == INT:
+        return rop.VEC_INT_UNPACK
+    elif type == FLOAT:
+        return rop.VEC_FLOAT_UNPACK
+    #
+    raise AssertionError("getunpackopnum type %s not supported" % (type,))
+
+def getexpandopnum(type):
+    if type == INT:
+        return rop.VEC_INT_EXPAND
+    elif type == FLOAT:
+        return rop.VEC_FLOAT_EXPAND
+    #
+    raise AssertionError("getexpandopnum type %s not supported" % (type,))
+
 class PackType(object):
     UNKNOWN_TYPE = '-'
 
@@ -162,9 +205,6 @@ class OpToVectorOp(object):
         self.pack = None
         self.input_type = None
         self.output_type = None
-
-    def clone_vbox_set_count(self, box, count):
-        return BoxVector(box.item_type, count, box.item_size, box.item_signed)
 
     def is_vector_arg(self, i):
         if i < 0 or i >= len(self.arg_ptypes):
@@ -321,10 +361,8 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, index, count, arg_ptype):
-        vbox_cloned = self.clone_vbox_set_count(vbox, count)
-        opnum = rop.VEC_FLOAT_UNPACK
-        if vbox.item_type == INT:
-            opnum = rop.VEC_INT_UNPACK
+        vbox_cloned = vectorbox_clone_set(vbox, count=count)
+        opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
         self.preamble_ops.append(op)
         return vbox_cloned
@@ -336,9 +374,7 @@ class OpToVectorOp(object):
           this function creates a box pack instruction to merge them to:
           v1/2 = [A,B,X,Y]
         """
-        opnum = rop.VEC_FLOAT_PACK
-        if tgt_box.item_type == INT:
-            opnum = rop.VEC_INT_PACK
+        opnum = getpackopnum(tgt_box.item_type)
         arg_count = len(args)
         i = index
         while i < arg_count and tgt_box.item_count < packable:
@@ -348,7 +384,7 @@ class OpToVectorOp(object):
                 i += 1
                 continue
             count = tgt_box.item_count + src_box.item_count
-            new_box = self.clone_vbox_set_count(tgt_box, count)
+            new_box = vectorbox_clone_set(tgt_box, count=count)
             op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
                                       ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)
@@ -404,9 +440,7 @@ class OpToVectorOp(object):
                 break
             i += 1
         else:
-            expand_opnum = rop.VEC_FLOAT_EXPAND
-            if box_type == INT:
-                expand_opnum = rop.VEC_INT_EXPAND
+            expand_opnum = getexpandopnum(box_type)
             op = ResOperation(expand_opnum, [arg], vbox)
             invariant_ops.append(op)
             invariant_vars.append(vbox)
@@ -415,9 +449,7 @@ class OpToVectorOp(object):
 
         op = ResOperation(rop.VEC_BOX, [ConstInt(len(nodes))], vbox)
         invariant_ops.append(op)
-        opnum = rop.VEC_FLOAT_PACK
-        if arg.type == INT:
-            opnum = rop.VEC_INT_PACK
+        opnum = getpackopnum(arg.type)
         for i,node in enumerate(nodes):
             op = node.getoperation()
             arg = op.getarg(argidx)

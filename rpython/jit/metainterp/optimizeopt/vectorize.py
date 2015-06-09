@@ -10,7 +10,8 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method, Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
-from rpython.jit.metainterp.optimizeopt.schedule import VecScheduleData, Scheduler, Pack, Pair, AccumPair
+from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
+        Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib.objectmodel import we_are_translated
@@ -83,7 +84,6 @@ class VectorizingOptimizer(Optimizer):
         self.smallest_type_bytes = 0
         self.early_exit_idx = -1
         self.sched_data = None
-        self.tried_to_pack = False
         self.costmodel = X86_CostModel(cost_threshold)
 
     def propagate_all_forward(self, clear=True):
@@ -107,7 +107,7 @@ class VectorizingOptimizer(Optimizer):
         # find index guards and move to the earliest position
         self.analyse_index_calculations()
         if self.dependency_graph is not None:
-            self.schedule() # reorder the trace
+            self.schedule(False) # reorder the trace
 
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
@@ -122,7 +122,7 @@ class VectorizingOptimizer(Optimizer):
         self.combine_packset()
         if not self.costmodel.profitable(self.packset):
             raise NotAProfitableLoop()
-        self.schedule()
+        self.schedule(True)
 
         gso = GuardStrengthenOpt(self.dependency_graph.index_vars)
         gso.propagate_all_forward(self.loop)
@@ -275,8 +275,6 @@ class VectorizingOptimizer(Optimizer):
         loop = self.loop
         operations = loop.operations
 
-        self.tried_to_pack = True
-
         self.packset = PackSet(self.dependency_graph, operations,
                                self.unroll_count,
                                self.smallest_type_bytes)
@@ -356,17 +354,21 @@ class VectorizingOptimizer(Optimizer):
             if len_before == len(self.packset.packs):
                 break
 
-    def schedule(self):
+    def schedule(self, vector=False):
         self.guard_early_exit = -1
         self.clear_newoperations()
         sched_data = VecScheduleData(self.metainterp_sd.cpu.vector_register_size)
         scheduler = Scheduler(self.dependency_graph, sched_data)
         renamer = Renamer()
+        #
+        if vector:
+            self.packset.accumulate_prepare(sched_data, renamer)
+        #
         while scheduler.has_more():
             position = len(self._newoperations)
             ops = scheduler.next(position)
             for op in ops:
-                if self.tried_to_pack:
+                if vector:
                     self.unpack_from_vector(op, sched_data, renamer)
                 self.emit_operation(op)
 
@@ -534,51 +536,6 @@ class PackSet(object):
             self.accum_vars[pack.accum_variable] = pack.accum_variable
         self.packs.append(pack)
 
-    def accumulates_pair(self, lnode, rnode, origin_pack):
-        # lnode and rnode are isomorphic and dependent
-        assert isinstance(origin_pack, Pair)
-        lop = lnode.getoperation()
-        opnum = lop.getopnum()
-
-        if opnum in (rop.FLOAT_ADD, rop.INT_ADD):
-            roper = rnode.getoperation()
-            assert lop.numargs() == 2 and lop.result is not None
-            accum, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
-            if not accum:
-                return None
-            # the dependency exists only because of the result of lnode
-            for dep in lnode.provides():
-                if dep.to is rnode:
-                    if not dep.because_of(accum):
-                        # not quite ... this is not handlable
-                        return None
-            # get the original variable
-            accum = lop.getarg(accum_pos)
-
-            # in either of the two cases the arguments are mixed,
-            # which is not handled currently
-            var_pos = (accum_pos + 1) % 2
-            plop = origin_pack.left.getoperation()
-            if lop.getarg(var_pos) is not plop.result:
-                return None
-            prop = origin_pack.right.getoperation()
-            if roper.getarg(var_pos) is not prop.result:
-                return None
-
-            # this can be handled by accumulation
-            return AccumPair(lnode, rnode, accum, accum_pos)
-
-        return None
-
-    def getaccumulator_variable(self, lop, rop, origin_pack):
-        args = rop.getarglist()
-        for i, arg in enumerate(args):
-            print arg, "is", lop.result
-            if arg is lop.result:
-                return arg, i
-        #
-        return None, -1
-
     def can_be_packed(self, lnode, rnode, origin_pack):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
@@ -644,4 +601,68 @@ class PackSet(object):
             self.packs[j] = self.packs[last_pos]
             del self.packs[last_pos]
         return last_pos
+
+    def accumulates_pair(self, lnode, rnode, origin_pack):
+        # lnode and rnode are isomorphic and dependent
+        assert isinstance(origin_pack, Pair)
+        lop = lnode.getoperation()
+        opnum = lop.getopnum()
+
+        if opnum in (rop.FLOAT_ADD, rop.INT_ADD):
+            roper = rnode.getoperation()
+            assert lop.numargs() == 2 and lop.result is not None
+            accum, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
+            if not accum:
+                return None
+            # the dependency exists only because of the result of lnode
+            for dep in lnode.provides():
+                if dep.to is rnode:
+                    if not dep.because_of(accum):
+                        # not quite ... this is not handlable
+                        return None
+            # get the original variable
+            accum = lop.getarg(accum_pos)
+
+            # in either of the two cases the arguments are mixed,
+            # which is not handled currently
+            var_pos = (accum_pos + 1) % 2
+            plop = origin_pack.left.getoperation()
+            if lop.getarg(var_pos) is not plop.result:
+                return None
+            prop = origin_pack.right.getoperation()
+            if roper.getarg(var_pos) is not prop.result:
+                return None
+
+            # this can be handled by accumulation
+            return AccumPair(lnode, rnode, accum, accum_pos)
+
+        return None
+
+    def getaccumulator_variable(self, lop, rop, origin_pack):
+        args = rop.getarglist()
+        for i, arg in enumerate(args):
+            if arg is lop.result:
+                return arg, i
+        #
+        return None, -1
+
+    def accumulate_prepare(self, sched_data, renamer):
+        for var, pos in self.accum_vars.items():
+            # create a new vector box for the parameters
+            box = vectorbox_outof_box(var)
+            op = ResOperation(rop.VEC_BOX, [ConstInt(0)], box)
+            sched_data.invariant_oplist.append(op)
+            result = box.clonebox()
+            # clear the box to zero
+            op = ResOperation(rop.VEC_INT_XOR, [box, box], result)
+            sched_data.invariant_oplist.append(op)
+            box = result
+            result = box.clonebox()
+            # pack the scalar value
+            op = ResOperation(getpackopnum(box.item_type),
+                              [box, var, ConstInt(0), ConstInt(1)], result)
+            sched_data.invariant_oplist.append(op)
+            # rename the variable with the box
+            renamer.start_renaming(var, result)
+
 

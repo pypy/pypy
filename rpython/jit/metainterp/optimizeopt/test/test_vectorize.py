@@ -68,7 +68,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.analyse_index_calculations()
         if opt.dependency_graph is not None:
             self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
-            opt.schedule()
+            opt.schedule(False)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
         self.debug_print_operations(opt.loop)
@@ -101,7 +101,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
-        opt.schedule()
+        opt.schedule(True)
         return opt
 
     def vectorize(self, loop, unroll_factor = -1):
@@ -109,7 +109,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
-        opt.schedule()
+        opt.schedule(True)
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         gso.propagate_all_forward(opt.loop)
         return opt
