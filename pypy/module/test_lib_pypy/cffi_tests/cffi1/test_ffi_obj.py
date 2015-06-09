@@ -160,9 +160,10 @@ def test_ffi_invalid_type():
                             "struct never_heard_of_s\n"
                             "       ^")
     e = py.test.raises(ffi.error, ffi.cast, "\t\n\x01\x1f~\x7f\x80\xff", 0)
+    marks = "?" if sys.version_info < (3,) else "??"
     assert str(e.value) == ("identifier expected\n"
-                            "  ??~???\n"
-                            "  ^")
+                            "  ??~?%s%s\n"
+                            "  ^" % (marks, marks))
     e = py.test.raises(ffi.error, ffi.cast, "X" * 600, 0)
     assert str(e.value) == ("undefined type name")
 
