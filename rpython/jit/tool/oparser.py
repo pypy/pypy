@@ -130,6 +130,8 @@ class OpParser(object):
                 item_size = int(match.group(3)) // 8
                 item_count = int(match.group(5))
                 item_signed = not (match.group(1) == 'u')
+                if item_type == 'f':
+                    item_signed = False
                 box = self.model.BoxVector(item_type, item_count, item_size, item_signed)
                 lbracket = elem.find('[')
                 number = elem[1:lbracket]

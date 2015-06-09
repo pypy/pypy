@@ -1,7 +1,7 @@
 import py
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
-from rpython.jit.metainterp.optimizeopt.util import equaloplists
+from rpython.jit.metainterp.optimizeopt.util import equaloplists, Renamer
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
         Pack, NotAProfitableLoop, VectorizingOptimizer)
 from rpython.jit.metainterp.optimizeopt.dependency import Node
@@ -48,11 +48,12 @@ class SchedulerBaseTest(DependencyBaseTest):
         vsd = VecScheduleData(vec_reg_size)
         if getvboxfunc is not None:
             vsd.getvector_of_box = getvboxfunc
+        renamer = Renamer()
         for pack in packs:
             if len(pack) == 1:
                 ops.append(pack[0].getoperation())
             else:
-                for op in vsd.as_vector_operation(Pack(pack)):
+                for op in vsd.as_vector_operation(Pack(pack), renamer):
                     ops.append(op)
         loop.operations = ops
         if prepend_invariant:

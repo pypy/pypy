@@ -91,7 +91,7 @@ class Scheduler(object):
         node.clear_dependencies()
         node.emitted = True
 
-def vectorbox_outof_box(box, count=-1, size=-1, type='-', clone_signed=True, signed=False):
+def vectorbox_outof_box(box, count=-1, size=-1, type='-'):
     if box.type not in (FLOAT, INT):
         raise AssertionError("cannot create vector box of type %s" % (box.type))
     signed = True
@@ -103,10 +103,10 @@ def packtype_outof_box(box):
     if box.type == VECTOR:
         return PackType.of(box)
     else:
-        if arg.type == INT:
+        if box.type == INT:
             return PackType(INT, 8, True, 2)
-        elif arg.type == FLOAT:
-            return PackType(FLOAT, 8, True, 2)
+        elif box.type == FLOAT:
+            return PackType(FLOAT, 8, False, 2)
 
     raise AssertionError("box %s not supported" % (box,))
 
@@ -146,6 +146,8 @@ def getexpandopnum(type):
     raise AssertionError("getexpandopnum type %s not supported" % (type,))
 
 class PackType(object):
+    # TODO merge with vector box? the save the same fields
+    # difference: this is more of a type specification
     UNKNOWN_TYPE = '-'
 
     def __init__(self, type, size, signed, count=-1):
