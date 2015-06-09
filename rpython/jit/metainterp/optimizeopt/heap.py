@@ -447,7 +447,7 @@ class OptHeap(Optimization):
                 assert not opinfo.is_virtual()      # it must be a non-virtual
                 if op.getarg(2).type == 'r':
                     fieldinfo = self.getptrinfo(op.getarg(2))
-                    if fieldinfo.is_virtual():
+                    if fieldinfo and fieldinfo.is_virtual():
                         pendingfields.append(op)
                     else:
                         cf.force_lazy_setfield(self, descr)
