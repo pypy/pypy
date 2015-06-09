@@ -1,5 +1,6 @@
 import weakref, os
 from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.codewriter import longlong
@@ -28,7 +29,7 @@ class AbstractValue(object):
         return None
 
     def set_forwarded(self, forwarded_to):
-        os.write(2, "setting forwarded on: " + self.__class__.__name__)
+        llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
     def get_box_replacement(op):
