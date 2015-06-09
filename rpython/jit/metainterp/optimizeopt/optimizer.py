@@ -349,7 +349,8 @@ class Optimizer(Optimization):
         if opinfo is not None:
             assert isinstance(opinfo, info.AbstractInfo)
             op.set_forwarded(newop)
-            newop.set_forwarded(opinfo)
+            if not isinstance(newop, Const):
+                newop.set_forwarded(opinfo)
         else:
             op.set_forwarded(newop)
 
