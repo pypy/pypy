@@ -543,8 +543,14 @@ class PackSet(object):
     def can_be_packed(self, lnode, rnode, origin_pack):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
+                if isinstance(origin_pack, AccumPair):
+                    # in this case the splitted accumulator must
+                    # be combined. This case is not supported
+                    raise NotAVectorizeableLoop()
+                #
                 if self.contains_pair(lnode, rnode):
                     return None
+                #
                 if origin_pack is None:
                     descr = lnode.getoperation().getdescr()
                     ptype = PackType.by_descr(descr, self.vec_reg_size)
@@ -620,6 +626,11 @@ class PackSet(object):
         return last_pos
 
     def accumulates_pair(self, lnode, rnode, origin_pack):
+        if isinstance(origin_pack, AccumPair):
+            # in this case the splitted accumulator must
+            # be combined. This case is not supported
+            raise NotAVectorizeableLoop()
+        #
         # lnode and rnode are isomorphic and dependent
         assert isinstance(origin_pack, Pair)
         lop = lnode.getoperation()

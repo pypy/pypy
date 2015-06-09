@@ -690,11 +690,7 @@ class Pack(object):
         self.accum_variable = None
         self.accum_position = -1
         self.input_type = input_type
-        if input_type:
-            self.input_type.count = len(ops)
         self.output_type = output_type
-        if output_type:
-            self.output_type.count = len(ops)
 
     def opcount(self):
         return len(self.operations)
