@@ -993,3 +993,13 @@ def test_issue200():
     ffi.typeof('function_t*')
     lib.function(ffi.NULL)
     # assert did not crash
+
+def test_alignment_of_longlong():
+    ffi = FFI()
+    x1 = ffi.alignof('unsigned long long')
+    assert x1 in [4, 8]
+    ffi.cdef("struct foo_s { unsigned long long x; };")
+    lib = verify(ffi, 'test_alignment_of_longlong',
+                 "struct foo_s { unsigned long long x; };")
+    assert ffi.alignof('unsigned long long') == x1
+    assert ffi.alignof('struct foo_s') == x1

@@ -2249,6 +2249,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.shape == b.shape
         assert c.strides == (8,)
 
+        exc = raises(TypeError, a.astype, 'i8', casting='safe')
+        assert exc.value.message.startswith(
+                "Cannot cast array from dtype('complex128') to dtype('int64')")
+        a = arange(6, dtype='f4').reshape(2, 3)
+        b = a.astype('f4', copy=False)
+        assert a is b
+        b = a.astype('f4', order='C', copy=False)
+        assert a is b
+
     def test_base(self):
         from numpy import array
         assert array(1).base is None

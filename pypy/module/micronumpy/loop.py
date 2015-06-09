@@ -566,10 +566,7 @@ def fromstring_loop(space, a, dtype, itemsize, s):
     while not ai.done(state):
         fromstring_driver.jit_merge_point(dtype=dtype, itemsize=itemsize)
         sub = s[i*itemsize:i*itemsize + itemsize]
-        if dtype.is_str_or_unicode():
-            val = dtype.coerce(space, space.wrap(sub))
-        else:
-            val = dtype.itemtype.runpack_str(space, sub)
+        val = dtype.runpack_str(space, sub)
         ai.setitem(state, val)
         state = ai.next(state)
         i += 1

@@ -20,6 +20,7 @@ from pypy.module.micronumpy.converters import multi_axis_converter, \
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import get_shape_from_iterable, \
     shape_agreement, shape_agreement_multiple, is_c_contiguous, is_f_contiguous
+from pypy.module.micronumpy.casting import can_cast_array
 
 
 def _match_dot_shapes(space, left, right):
@@ -42,7 +43,6 @@ def _match_dot_shapes(space, left, right):
     if my_critical_dim_size != right_critical_dim_size:
         raise oefmt(space.w_ValueError, "objects are not aligned")
     return out_shape, right_critical_dim
-
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe
@@ -279,7 +279,7 @@ class __extend__(W_NDimArray):
                 s.append(separator)
                 s.append(' ')
             if self.is_scalar() and dtype.is_str():
-                s.append(dtype.itemtype.to_str(i.getitem(state)))
+                s.append(i.getitem(state).raw_str())
             else:
                 s.append(dtype.itemtype.str_format(i.getitem(state), add_quotes=True))
             state = i.next(state)
@@ -592,10 +592,11 @@ class __extend__(W_NDimArray):
         if self.is_scalar():
             return space.wrap(0)
         dtype = self.get_dtype().descr_newbyteorder(space, NPY.NATIVE)
-        contig = self.implementation.astype(space, dtype)
+        contig = self.implementation.astype(space, dtype, self.get_order())
         return contig.argsort(space, w_axis)
 
-    def descr_astype(self, space, w_dtype):
+    @unwrap_spec(order=str, casting=str, subok=bool, copy=bool)
+    def descr_astype(self, space, w_dtype, order='K', casting='unsafe', subok=True, copy=True):
         cur_dtype = self.get_dtype()
         new_dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
             space.gettypefor(descriptor.W_Dtype), w_dtype))
@@ -603,13 +604,32 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_NotImplementedError,
                         "astype(%s) not implemented yet",
                         new_dtype.get_name())
-        if new_dtype.num == NPY.STRING and new_dtype.elsize == 0:
-            if cur_dtype.num == NPY.STRING:
-                new_dtype = descriptor.variable_dtype(
-                    space, 'S' + str(cur_dtype.elsize))
+        if new_dtype.is_str() and new_dtype.elsize == 0:
+            elsize = 0
+            itype = cur_dtype.itemtype
+            for i in range(self.get_size()):
+                elsize = max(elsize, len(itype.str_format(self.implementation.getitem(i), add_quotes=False)))
+            new_dtype = descriptor.variable_dtype(
+                    space, 'S' + str(elsize))
+
+        if not can_cast_array(space, self, new_dtype, casting):
+            raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
+                        "according to the rule %s",
+                        space.str_w(self.get_dtype().descr_repr(space)),
+                        space.str_w(new_dtype.descr_repr(space)), casting)
+        order  = support.get_order_as_CF(self.get_order(), order)
+        if (not copy and new_dtype == self.get_dtype() and order == self.get_order()
+                and (subok or type(self) is W_NDimArray)):
+            return self
         impl = self.implementation
-        new_impl = impl.astype(space, new_dtype)
-        return wrap_impl(space, space.type(self), self, new_impl)
+        new_impl = impl.astype(space, new_dtype, order)
+        if new_impl is None:
+            return self
+        if subok:
+            w_type = space.type(self)
+        else:
+            w_type = None
+        return wrap_impl(space, w_type, self, new_impl)
 
     def descr_get_base(self, space):
         impl = self.implementation

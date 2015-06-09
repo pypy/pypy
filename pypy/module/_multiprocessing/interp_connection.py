@@ -28,6 +28,7 @@ def w_handle(space, handle):
 
 class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
+    buffer = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, flags):
         self.flags = flags
@@ -35,7 +36,8 @@ class W_BaseConnection(W_Root):
                                     flavor='raw')
 
     def __del__(self):
-        lltype.free(self.buffer, flavor='raw')
+        if self.buffer:
+            lltype.free(self.buffer, flavor='raw')
         try:
             self.do_close()
         except OSError:
@@ -204,6 +206,7 @@ W_BaseConnection.typedef = TypeDef(
 
 class W_FileConnection(W_BaseConnection):
     INVALID_HANDLE_VALUE = -1
+    fd = INVALID_HANDLE_VALUE
 
     if sys.platform == 'win32':
         def WRITE(self, data):

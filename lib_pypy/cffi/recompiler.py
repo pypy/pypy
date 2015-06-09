@@ -775,7 +775,8 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt('  (void)((p->%s) << 1);' % fname)
+                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                         "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
                 # is interpreted as a '*' and so will match any array length.
@@ -949,7 +950,7 @@ class Recompiler:
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
             prnt('  *o = (unsigned long long)((%s) << 0);'
-                 '  /* check that we get an integer */' % (name,))
+                 '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
                     check_value = '%dU' % (check_value,)
@@ -1088,8 +1089,9 @@ class Recompiler:
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, prim_index)
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
-        s = '_cffi_prim_int(sizeof(%s), (((%s)-1) << 0) <= 0)' % (
-            tp.name, tp.name)
+        s = ('_cffi_prim_int(sizeof(%s), (\n'
+             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '         ) <= 0)' % (tp.name, tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):

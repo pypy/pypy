@@ -10,6 +10,7 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import constants as NPY
@@ -66,7 +67,8 @@ class Box(object):
         assert isinstance(multiarray, MixedModule)
         scalar = multiarray.get("scalar")
 
-        ret = space.newtuple([scalar, space.newtuple([space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
+        ret = space.newtuple([scalar, space.newtuple(
+            [space.wrap(self._get_dtype(space)), space.wrap(self.raw_str())])])
         return ret
 
 
@@ -368,13 +370,11 @@ class W_GenericBox(W_NumpyObject):
             if dtype.elsize != self.get_dtype(space).elsize:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "new type not compatible with array."))
-        if dtype.is_str_or_unicode():
-            return dtype.coerce(space, space.wrap(self.raw_str()))
-        elif dtype.is_record():
+        if dtype.is_record():
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "viewing scalar as record not implemented"))
         else:
-            return dtype.itemtype.runpack_str(space, self.raw_str())
+            return dtype.runpack_str(space, self.raw_str())
 
     def descr_self(self, space):
         return self
@@ -536,8 +536,20 @@ class W_FlexibleBox(W_GenericBox):
     def get_dtype(self, space):
         return self.dtype
 
+    @jit.unroll_safe
     def raw_str(self):
-        return self.arr.dtype.itemtype.to_str(self)
+        builder = StringBuilder()
+        i = self.ofs
+        end = i + self.dtype.elsize
+        with self.arr as storage:
+            while i < end:
+                assert isinstance(storage[i], str)
+                if storage[i] == '\x00':
+                    break
+                builder.append(storage[i])
+                i += 1
+            return builder.build()
+
 
 class W_VoidBox(W_FlexibleBox):
     def descr_getitem(self, space, w_item):
@@ -562,7 +574,7 @@ class W_VoidBox(W_FlexibleBox):
         if isinstance(dtype.itemtype, VoidType):
             read_val = dtype.itemtype.readarray(self.arr, self.ofs, ofs, dtype)
         else:
-            read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+            read_val = dtype.read(self.arr, self.ofs, ofs)
         if isinstance (read_val, W_StringBox):
             # StringType returns a str
             return space.wrap(dtype.itemtype.to_str(read_val))
@@ -582,7 +594,7 @@ class W_VoidBox(W_FlexibleBox):
             raise oefmt(space.w_IndexError, "222only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")
-        dtype.itemtype.store(self.arr, self.ofs, ofs,
+        dtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
     def convert_to(self, space, dtype):

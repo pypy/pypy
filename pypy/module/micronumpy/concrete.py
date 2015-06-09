@@ -17,7 +17,6 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
 from pypy.interpreter.baseobjspace import W_Root
 
-
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
                           'strides[*]', 'backstrides[*]', 'order', 'gcstruct',
@@ -44,13 +43,13 @@ class BaseConcreteArray(object):
         return backstrides
 
     def getitem(self, index):
-        return self.dtype.itemtype.read(self, index, 0)
+        return self.dtype.read(self, index, 0)
 
     def getitem_bool(self, index):
-        return self.dtype.itemtype.read_bool(self, index, 0)
+        return self.dtype.read_bool(self, index, 0)
 
     def setitem(self, index, value):
-        self.dtype.itemtype.store(self, index, 0, value)
+        self.dtype.store(self, index, 0, value)
 
     @jit.unroll_safe
     def setslice(self, space, arr):
@@ -334,12 +333,19 @@ class BaseConcreteArray(object):
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
-    def astype(self, space, dtype):
+    def astype(self, space, dtype, order):
         # copy the general pattern of the strides
         # but make the array storage contiguous in memory
         shape = self.get_shape()
         strides = self.get_strides()
-        if len(strides) > 0:
+        if order not in ('C', 'F'):
+            raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
+        if len(strides) == 0:
+            t_strides = []
+            backstrides = []
+        elif order != self.order:
+            t_strides, backstrides = calc_strides(shape, dtype, order)
+        else:
             mins = strides[0]
             t_elsize = dtype.elsize
             for s in strides:
@@ -347,10 +353,7 @@ class BaseConcreteArray(object):
                     mins = s
             t_strides = [s * t_elsize / mins for s in strides]
             backstrides = calc_backstrides(t_strides, shape)
-        else:
-            t_strides = []
-            backstrides = []
-        impl = ConcreteArray(shape, dtype, self.order, t_strides, backstrides)
+        impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
@@ -376,7 +379,7 @@ def customtrace(gc, obj, callback, arg):
         gc._trace_callback(callback, arg, storage)
         storage += step
         i += 1
-    
+
 lambda_customtrace = lambda: customtrace
 
 def _setup():
@@ -409,8 +412,9 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.gcstruct = V_OBJECTSTORE
 
     def fill(self, space, box):
-        self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
-                                 box, 0, self.size, 0, self.gcstruct)
+        self.dtype.itemtype.fill(
+            self.storage, self.dtype.elsize, self.dtype.is_native(),
+            box, 0, self.size, 0, self.gcstruct)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,
@@ -440,7 +444,7 @@ class ConcreteArray(ConcreteArrayNotOwning):
         gcstruct = V_OBJECTSTORE
         flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
         if storage == lltype.nullptr(RAW_STORAGE):
-            length = support.product(shape) 
+            length = support.product(shape)
             if dtype.num == NPY.OBJECT:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
@@ -502,7 +506,7 @@ class NonWritableArray(ConcreteArray):
         ConcreteArray.__init__(self, shape, dtype, order, strides, backstrides,
                     storage, zero)
         self.flags &= ~ NPY.ARRAY_WRITEABLE
-        
+
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
