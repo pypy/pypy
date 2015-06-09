@@ -325,10 +325,11 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_unicode(self):
         import numpy as np
-        a = np.array([u'Aÿ', u'abc'], dtype=np.dtype('U'))
-        assert a.shape == (2,)
+        a = np.array([3, u'Aÿ', ''], dtype='U3')
+        assert a.shape == (3,)
         assert a.dtype == np.dtype('U3')
-        assert a[0] == u'Aÿ'
+        assert a[0] == u'3'
+        assert a[1] == u'Aÿ'
 
     def test_dtype_attribute(self):
         import numpy as np
