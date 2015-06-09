@@ -547,11 +547,17 @@ class PackSet(object):
                     return None
                 if origin_pack is None:
                     descr = lnode.getoperation().getdescr()
-                    input_type = PackType.by_descr(descr, self.vec_reg_size)
-                    return Pair(lnode, rnode, input_type, None)
+                    ptype = PackType.by_descr(descr, self.vec_reg_size)
+                    if lnode.getoperation().is_raw_load():
+                        # load outputs value, no input
+                        return Pair(lnode, rnode, None, ptype)
+                    else:
+                        # store only has an input
+                        return Pair(lnode, rnode, ptype, None)
                 if self.profitable_pack(lnode, rnode, origin_pack):
-                    ptype = origin_pack.output_type
-                    return Pair(lnode, rnode, ptype, ptype)
+                    input_type = origin_pack.output_type
+                    output_type = determine_output_type(lnode, input_type)
+                    return Pair(lnode, rnode, input_type, output_type)
             else:
                 if self.contains_pair(lnode, rnode):
                     return None
@@ -665,7 +671,7 @@ class PackSet(object):
             var = pack.accum_variable
             pos = pack.accum_position
             # create a new vector box for the parameters
-            box = pack.input_type.new_vector_box(0)
+            box = pack.input_type.new_vector_box()
             op = ResOperation(rop.VEC_BOX, [ConstInt(0)], box)
             sched_data.invariant_oplist.append(op)
             result = box.clonebox()

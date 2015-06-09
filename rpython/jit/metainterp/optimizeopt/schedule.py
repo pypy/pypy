@@ -609,6 +609,15 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOpConv(PT_INT32_2, PT_DOUBLE_2),
 }
 
+def determine_output_type(node, input_type):
+    op = node.getoperation()
+    op2vecop = ROP_ARG_RES_VECTOR.get(op.vector, None)
+    if op2vecop is None:
+        raise NotImplementedError("missing vecop for '%s'" % (op.getopname(),))
+    if isinstance(op2vecop, OpToVectorOpConv):
+        return op2vecop.determine_output_type(op)
+    return input_type
+
 class VecScheduleData(SchedulerData):
     def __init__(self, vec_reg_size):
         self.box_to_vbox = {}
@@ -681,7 +690,11 @@ class Pack(object):
         self.accum_variable = None
         self.accum_position = -1
         self.input_type = input_type
+        if input_type:
+            self.input_type.count = len(ops)
         self.output_type = output_type
+        if output_type:
+            self.output_type.count = len(ops)
 
     def opcount(self):
         return len(self.operations)
