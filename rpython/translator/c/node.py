@@ -932,7 +932,7 @@ def select_function_code_generators(fnobj, db, functionname):
             assert fnobj.external == 'CPython'
             return [CExternalFunctionCodeGenerator(fnobj, db)]
     elif hasattr(fnobj._callable, "c_name"):
-        return []
+        return []    # this case should only be used for entrypoints
     else:
         raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
