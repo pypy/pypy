@@ -121,5 +121,15 @@ class CostModelBaseTest(SchedulerBaseTest):
         savings = self.savings(loop1)
         assert savings == 1
 
+    def test_sum(self):
+        loop1 = self.parse("""
+        f10 = raw_load(p0, i0, descr=double)
+        f11 = raw_load(p0, i1, descr=double)
+        f12 = float_add(f1, f10)
+        f13 = float_add(f12, f11)
+        """)
+        savings = self.savings(loop1)
+        assert savings == 2
+
 class Test(CostModelBaseTest, LLtypeMixin):
     pass
