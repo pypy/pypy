@@ -189,6 +189,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("lldebug0",
                "If true, makes an lldebug0 build", default=False,
                cmdline="--lldebug0"),
+    StrOption("icon", "Path to the (Windows) icon to use for the executable"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining

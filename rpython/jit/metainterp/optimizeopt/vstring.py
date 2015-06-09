@@ -597,6 +597,7 @@ class OptString(optimizer.Optimization):
         vright.ensure_nonnull()
         value = self.make_vstring_concat(op.result, op, mode)
         value.setup(vleft, vright)
+        self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
@@ -626,6 +627,7 @@ class OptString(optimizer.Optimization):
         #
         value = self.make_vstring_slice(op.result, op, mode)
         value.setup(vstr, vstart, self.getvalue(lengthbox))
+        self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_EQUAL(self, op, mode):
@@ -665,10 +667,15 @@ class OptString(optimizer.Optimization):
         l2box = v2.getstrlen(None, mode, None)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
-                lengthbox = v1.getstrlen(self, mode, None)
-                seo = self.optimizer.send_extra_operation
-                seo(ResOperation(rop.INT_EQ, [lengthbox, CONST_0], resultbox))
-                return True
+                if v1.is_nonnull():
+                    lengthbox = v1.getstrlen(self, mode, None)
+                else:
+                    lengthbox = v1.getstrlen(None, mode, None)
+                if lengthbox is not None:
+                    seo = self.optimizer.send_extra_operation
+                    seo(ResOperation(rop.INT_EQ, [lengthbox, CONST_0],
+                                     resultbox))
+                    return True
             if l2box.value == 1:
                 l1box = v1.getstrlen(None, mode, None)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:

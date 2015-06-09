@@ -17,8 +17,6 @@ FLAG_UNICODE = 2
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
 
-     - Remove the DEBUG_MERGE_POINTs.
-
      - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
        followed by SETFIELDs in order to initialize their GC fields.  The
        two advantages of CALL_MALLOC_NURSERY is that it inlines the common
@@ -62,6 +60,10 @@ class GcRewriterAssembler(object):
             op = operations[i]
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
+            # ---------- GETFIELD_GC ----------
+            if op.getopnum() == rop.GETFIELD_GC:
+                self.handle_getfield_gc(op)
+                continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
             if op.is_malloc():
                 self.handle_malloc_operation(op)
@@ -71,6 +73,8 @@ class GcRewriterAssembler(object):
                 self.emit_pending_zeros()
             elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
+            elif op.getopnum() == rop.DEBUG_MERGE_POINT:
+                continue # ignore debug_merge_points
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
                 self.known_lengths.clear()
@@ -119,6 +123,18 @@ class GcRewriterAssembler(object):
         if operations[i + 1].getarg(0) is not op.result:
             return False
         return True
+
+    # ----------
+
+    def handle_getfield_gc(self, op):
+        """See test_zero_ptr_field_before_getfield().  We hope there is
+        no getfield_gc in the middle of initialization code, but there
+        shouldn't be, given that a 'new' is already delayed by previous
+        optimization steps.  In practice it should immediately be
+        followed by a bunch of 'setfields', and the 'pending_zeros'
+        optimization we do here is meant for this case."""
+        self.emit_pending_zeros()
+        self.newops.append(op)
 
     # ----------
 

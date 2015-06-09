@@ -67,11 +67,10 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert loop.match("""
             f31 = raw_load(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
-            i32 = cast_float_to_int(f31)
-            i33 = int_and(i32, 255)
-            guard_true(i33, descr=...)
             i34 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX what are these?
             guard_value(i34, #, descr=...)                  # XXX don't appear in
+            i32 = float_ne(f31, 0.000000)
+            guard_true(i32, descr=...)
             i35 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
             i37 = int_add(i29, i28)
@@ -152,7 +151,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
-            jump(p0, p1, p3, p6, p7, p12, p14, f86, p18, i87, i62, p41, i58, p47, i40, i64, i70, descr=...)
+            jump(p0, p1, p6, p7, p8, p11, p13, f86, p17, i87, i62, p42, i58, p48, i41, i64, i70, descr=...)
         """)
 
     def test_array_flatiter_next(self):

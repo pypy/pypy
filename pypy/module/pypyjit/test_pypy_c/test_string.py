@@ -6,7 +6,7 @@ if sys.maxint == 2147483647:
 else:
     SHIFT = 63
 
-# XXX review the <Call> descrs to replace some EF=4 with EF=3 (elidable)
+# XXX review the <Call> descrs to replace some EF=5 with EF=4 (elidable)
 
 
 class TestString(BaseTestPyPyC):
@@ -80,12 +80,12 @@ class TestString(BaseTestPyPyC):
             i23 = strgetitem(p10, i19)
             p25 = newstr(1)
             strsetitem(p25, 0, i23)
-            p93 = call(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=3>)
+            p93 = call(ConstClass(fromstr), p25, 16, descr=<Callr . ri EF=4>)
             guard_no_exception(descr=...)
             i95 = getfield_gc_pure(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst_size .*>)
             i96 = int_gt(i95, #)
             guard_false(i96, descr=...)
-            i94 = call(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=3>)
+            i94 = call(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=4>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i94)
             guard_no_overflow(descr=...)
@@ -119,21 +119,21 @@ class TestString(BaseTestPyPyC):
             setfield_gc(p86, 23, descr=<FieldS stringbuilder.current_end .+>)
             setfield_gc(p86, 23, descr=<FieldS stringbuilder.total_size .+>)
             }}}
-            call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=4>)
+            call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=5>)
             guard_no_exception(descr=...)
             i89 = getfield_gc(p86, descr=<FieldS stringbuilder.current_pos .+>)
             i90 = getfield_gc(p86, descr=<FieldS stringbuilder.current_end .+>)
             i91 = int_eq(i89, i90)
-            cond_call(i91, ConstClass(ll_grow_by__stringbuilderPtr_Signed), p86, 1, descr=<Callv 0 ri EF=4>)
+            cond_call(i91, ConstClass(ll_grow_by__stringbuilderPtr_Signed), p86, 1, descr=<Callv 0 ri EF=5>)
             guard_no_exception(descr=...)
             i92 = getfield_gc(p86, descr=<FieldS stringbuilder.current_pos .+>)
             i93 = int_add(i92, 1)
             p94 = getfield_gc(p86, descr=<FieldP stringbuilder.current_buf .+>)
             strsetitem(p94, i92, 32)
             setfield_gc(p86, i93, descr=<FieldS stringbuilder.current_pos .+>)
-            call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=4>)
+            call(ConstClass(ll_append_res0__stringbuilderPtr_rpy_stringPtr), p86, p80, descr=<Callv 0 rr EF=5>)
             guard_no_exception(descr=...)
-            p95 = call(..., descr=<Callr . r EF=4>)     # ll_build
+            p95 = call(..., descr=<Callr . r EF=5>)     # ll_build
             guard_no_exception(descr=...)
             i96 = strlen(p95)
             i97 = int_add_ovf(i71, i96)
@@ -248,7 +248,7 @@ class TestString(BaseTestPyPyC):
         i50 = int_add(i47, 1)
         setfield_gc(p15, i50, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
         guard_not_invalidated(descr=...)
-        p52 = call(ConstClass(str_decode_ascii__raise_unicode_exception_decode), ConstPtr(ptr38), 3, 1, descr=<Callr . rii EF=4>)
+        p52 = call(ConstClass(str_decode_ascii__raise_unicode_exception_decode), ConstPtr(ptr38), 3, 1, descr=<Callr . rii EF=5>)
         guard_no_exception(descr=...)
         p53 = getfield_gc_pure(p52, descr=<FieldP tuple2.item0 .>)
         guard_nonnull(p53, descr=...)

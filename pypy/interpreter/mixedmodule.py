@@ -9,7 +9,7 @@ class MixedModule(Module):
     applevel_name = None
 
     # The following attribute is None as long as the module has not been
-    # imported yet, and when it has been, it is mod.__dict__.items() just
+    # imported yet, and when it has been, it is mod.__dict__.copy() just
     # after startup().
     w_initialdict = None
     lazy = False
@@ -55,7 +55,10 @@ class MixedModule(Module):
         if self.w_initialdict is None:
             Module.init(self, space)
             if not self.lazy and self.w_initialdict is None:
-                self.w_initialdict = space.call_method(self.w_dict, 'copy')
+                self.save_module_content_for_future_reload()
+
+    def save_module_content_for_future_reload(self):
+        self.w_initialdict = self.space.call_method(self.w_dict, 'copy')
 
 
     def get_applevel_name(cls):
@@ -119,7 +122,7 @@ class MixedModule(Module):
                 w_value = self.get(name)
                 space.setitem(self.w_dict, space.new_interned_str(name), w_value)
             self.lazy = False
-            self.w_initialdict = space.call_method(self.w_dict, 'copy')
+            self.save_module_content_for_future_reload()
         return self.w_dict
 
     def _cleanup_(self):

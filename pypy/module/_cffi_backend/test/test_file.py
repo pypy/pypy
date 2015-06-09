@@ -15,3 +15,16 @@ def test_same_file():
             "Update test/_backend_test_c.py by copying it from "
             "https://bitbucket.org/cffi/cffi/raw/default/c/test_c.py "
             "and killing the import lines at the start")
+
+def test_egginfo_version():
+    from pypy.module._cffi_backend import VERSION
+    line = "Version: %s\n" % VERSION
+    eggfile = py.path.local(__file__).join('..', '..', '..', '..', '..',
+                                           'lib_pypy', 'cffi.egg-info',
+                                           'PKG-INFO')
+    assert line in eggfile.readlines()
+
+def test_app_version():
+    from pypy.module import _cffi_backend
+    from lib_pypy import cffi
+    assert _cffi_backend.VERSION == cffi.__version__

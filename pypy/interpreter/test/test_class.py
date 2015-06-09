@@ -109,3 +109,9 @@ class AppTestClass:
         c = C()
         assert c.one == "two"
         raises(AttributeError, getattr, c, "two")
+
+    def test___class__(self):
+        class C(object):
+            def get_class(self):
+                return __class__
+        assert C().get_class()

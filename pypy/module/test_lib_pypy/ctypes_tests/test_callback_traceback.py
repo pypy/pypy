@@ -55,3 +55,26 @@ class TestCallbackTraceback:
                              "TypeError: "
                              "unsupported operand type(s) for")
 
+    def test_SystemExit(self):
+        import _rawffi
+        if sys.flags.inspect:
+            skip("requires sys.flags.inspect == 0")
+        def callback_func(arg):
+            raise SystemExit(42)
+        def custom_exit(value):
+            raise Exception("<<<exit(%r)>>>" % (value,))
+        original_exit = _rawffi.exit
+        try:
+            _rawffi.exit = custom_exit
+            #
+            cb = CFUNCTYPE(c_int, c_int)(callback_func)
+            cb2 = cast(cast(cb, c_void_p), CFUNCTYPE(c_int, c_int))
+            out = self.capture_stderr(cb2, 0)
+            assert out.splitlines()[-1] == "Exception: <<<exit(42)>>>"
+            #
+            cb = CFUNCTYPE(c_int, c_int)(callback_func)
+            out = self.capture_stderr(cb, 0)
+            assert out.splitlines()[-1] == "Exception: <<<exit(42)>>>"
+            #
+        finally:
+            _rawffi.exit = original_exit

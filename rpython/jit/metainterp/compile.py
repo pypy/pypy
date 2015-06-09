@@ -303,11 +303,13 @@ def propagate_original_jitcell_token(trace):
             token.original_jitcell_token = trace.original_jitcell_token
 
 
-def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
-                    log=True, name=''):
+def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
+                    looptoken, log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+    return metainterp_sd.cpu.compile_loop(inputargs,
+                                          operations, looptoken,
+                                          jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
                                           logger=metainterp_sd.logger_ops)
 
@@ -325,7 +327,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
 
     original_jitcell_token = loop.original_jitcell_token
-    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     original_jitcell_token.number = n = globaldata.loopnumbering
     globaldata.loopnumbering += 1
@@ -347,7 +348,10 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
+        loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
+        asminfo = do_compile_loop(jitdriver_sd.index, unique_id, metainterp_sd,
+                                  loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname)
     finally:
@@ -681,9 +685,6 @@ class ResumeGuardValueDescr(ResumeGuardDescr):
 
 class ResumeGuardNotInvalidated(ResumeGuardDescr):
     guard_opnum = rop.GUARD_NOT_INVALIDATED
-
-    def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
-        return False
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_FUTURE_CONDITION

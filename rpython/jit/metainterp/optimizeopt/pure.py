@@ -80,7 +80,13 @@ class OptPure(Optimization):
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
-        self.call_pure_positions.append(len(self.optimizer._newoperations) - 1)
+
+        # don't move call_pure_with_exception in the short preamble...
+        # issue #2015
+        effectinfo = op.getdescr().get_extra_info()
+        if not effectinfo.check_can_raise(ignore_memoryerror=True):
+            self.call_pure_positions.append(
+                len(self.optimizer._newoperations) - 1)
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:

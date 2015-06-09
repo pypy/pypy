@@ -12,6 +12,12 @@ class Darwin(posix.BasePosix):
     DEFAULT_CC = 'clang'
     rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
 
+    def get_rpath_flags(self, rel_libdirs):
+        # needed for cross compiling on ARM, needs fixing if relevant for darwin
+        if len(rel_libdirs) > 0:
+            print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
+        return self.rpath_flags 
+
     def _args_for_shared(self, args):
         return (list(self.shared_only)
                 + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
@@ -45,7 +51,7 @@ class Darwin(posix.BasePosix):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], icon=None):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
         if len(fs) > 0:
@@ -54,7 +60,8 @@ class Darwin(posix.BasePosix):
         mk = super(Darwin, self).gen_makefile(cfiles, eci, exe_name, path,
                                 shared=shared,
                                 headers_to_precompile=headers_to_precompile,
-                                no_precompile_cfiles = no_precompile_cfiles)
+                                no_precompile_cfiles = no_precompile_cfiles,
+                                icon=icon)
         return mk
 
 

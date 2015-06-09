@@ -64,7 +64,7 @@ class TestThread(BaseTestPyPyC):
         guard_true(i56, descr=...)
         p57 = force_token()
         setfield_gc(p0, p57, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token 8>)
-        i58 = call_release_gil(0, _, i37, 1, descr=<Calli 4 ii EF=6>)
+        i58 = call_release_gil(0, _, i37, 1, descr=<Calli 4 ii EF=7>)
         guard_not_forced(descr=...)
         guard_no_exception(descr=...)
         i58 = int_sub(i44, 1)

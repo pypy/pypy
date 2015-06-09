@@ -2,7 +2,7 @@ from rpython.tool.udir import udir
 import os
 
 class AppTestSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii', 'thread'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct', 'binascii', 'thread'))
 
     def setup_class(cls):
         cls.w_nullbytecert = cls.space.wrap(os.path.join(

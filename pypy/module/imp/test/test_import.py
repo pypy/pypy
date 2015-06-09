@@ -194,7 +194,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseImportTest):
     spaceconfig = {
-        "usemodules": ['time'],
+        "usemodules": ['time', 'struct'],
     }
 
     def setup_class(cls):

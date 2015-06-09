@@ -143,6 +143,31 @@ def test_no_collect_detection():
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
+def test_custom_trace_function_no_collect():
+    from rpython.rlib import rgc
+    from rpython.translator.c.genc import CStandaloneBuilder
+
+    S = lltype.GcStruct("MyStructure")
+    class Glob:
+        pass
+    glob = Glob()
+    def trace_func(gc, obj, callback, arg):
+        glob.foo = (gc, obj)
+    lambda_trace_func = lambda: trace_func
+    def entrypoint(argv):
+        lltype.malloc(S)
+        rgc.register_custom_trace_hook(S, lambda_trace_func)
+        return 0
+
+    t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
+    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
+                                gcpolicy=FrameworkGcPolicy2)
+    f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
+    assert 'can cause the GC to be called' in str(f.value)
+    assert 'trace_func' in str(f.value)
+    assert 'MyStructure' in str(f.value)
+ 
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}

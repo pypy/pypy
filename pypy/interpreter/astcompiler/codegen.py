@@ -614,7 +614,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # second # body
                 self.visit_sequence(handler.body)
                 self.emit_op(ops.POP_BLOCK)
-                self.emit_op(ops.POP_EXCEPT)
                 self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
                 # finally
                 self.load_const(self.space.w_None)
@@ -634,9 +633,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 cleanup_body = self.use_next_block()
                 self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
                 self.visit_sequence(handler.body)
-                self.emit_op(ops.POP_EXCEPT)
                 self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
             #
+            self.emit_op(ops.POP_EXCEPT)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
@@ -1340,10 +1339,10 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # compile the body proper
         self._handle_body(cls.body)
         # return the (empty) __class__ cell
-        scope = self.scope.lookup("@__class__")
+        scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL:
             # Return the cell where to store __class__
-            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["@__class__"])
+            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
         else:
             # This happens when nobody references the cell
             self.load_const(self.space.w_None)

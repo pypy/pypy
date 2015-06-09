@@ -245,7 +245,12 @@ class CoverageResults:
         we want to have reported.
         """
         return (filename == "<string>" or
-                filename.startswith("<doctest "))
+                filename.startswith("<doctest ") or
+                # XXX PyPy freezes some (pure-Python) modules at
+                # translation-time.  These contain filenames starting with
+                # "<builtin>/" instead of their actual filenames.  Ignore them
+                # for now.
+                filename.startswith("<builtin>/"))
 
     def update(self, other):
         """Merge in the data from another CoverageResults"""

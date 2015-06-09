@@ -207,6 +207,8 @@ class AppTestLockSignals(GenericTestThread):
             assert result
         finally:
             signal.signal(signal.SIGUSR1, old_handler)
+            for i in range(50):
+                time.sleep(0.1)
 
     def test_lock_acquire_retries_on_intr(self):
         import _thread

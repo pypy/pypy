@@ -1,6 +1,6 @@
 # The TkApp class.
 
-from .tklib import tklib, tkffi
+from .tklib_cffi import ffi as tkffi, lib as tklib
 from . import TclError
 from .tclobj import TclObject, FromObj, FromTclString, AsObj, TypeCache
 
@@ -96,7 +96,7 @@ class TkApp(object):
 
         if not self.threaded:
             # TCL is not thread-safe, calls needs to be serialized.
-            self._tcl_lock = threading.Lock()
+            self._tcl_lock = threading.RLock()
         else:
             self._tcl_lock = _DummyLock()
 

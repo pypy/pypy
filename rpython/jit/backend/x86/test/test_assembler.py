@@ -51,6 +51,8 @@ class TestRegallocPushPop(object):
                 asmmemmgr_blocks = None
         cpu = ACTUAL_CPU(None, None)
         cpu.setup()
+        if cpu.HAS_CODEMAP:
+            cpu.codemap.setup()
         looptoken = FakeToken()
         asm = cpu.assembler
         asm.setup_once()

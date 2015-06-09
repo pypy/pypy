@@ -191,6 +191,7 @@ class HeapCache(object):
             ef = effectinfo.extraeffect
             if (ef == effectinfo.EF_LOOPINVARIANT or
                 ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or
+                ef == effectinfo.EF_ELIDABLE_OR_MEMORYERROR or
                 ef == effectinfo.EF_ELIDABLE_CAN_RAISE):
                 return
             # A special case for ll_arraycopy, because it is so common, and its

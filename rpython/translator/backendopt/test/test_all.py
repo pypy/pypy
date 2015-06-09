@@ -42,7 +42,6 @@ LARGE_THRESHOLD  = 10*INLINE_THRESHOLD_FOR_TEST
 HUGE_THRESHOLD  = 100*INLINE_THRESHOLD_FOR_TEST
 
 class TestLLType(object):
-    type_system = 'lltype'
     check_malloc_removed = MallocRemovalTest.check_malloc_removed
 
     def translateopt(self, func, sig, **optflags):

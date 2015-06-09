@@ -160,5 +160,5 @@ To translate the full python pypy interpreter with a jit, you can cd into pypy/g
 
 The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
 
-.. _issue 1377: https://bugs.pypy.org/issue1377
-.. _issue 1376: https://bugs.pypy.org/issue1376
+.. _issue 1377: https://bitbucket.org/pypy/pypy/issue/1377
+.. _issue 1376: https://bitbucket.org/pypy/pypy/issue/1376

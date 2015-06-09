@@ -13,7 +13,7 @@ Options and arguments (and corresponding environment variables):
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -m mod : run library module as a script (terminates option list)
--O     : skip assert statements
+-O     : skip assert statements; also PYTHONOPTIMIZE=x
 -OO    : remove docstrings when importing modules in addition to -O
 -q     : don't print version and copyright messages on interactive startup
 -R     : ignored (see http://bugs.python.org/issue14621)
@@ -419,6 +419,21 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
 
     return function(options, funcarg, iterargv)
 
+def parse_env(name, key, options):
+    ''' Modify options inplace if name exists in os.environ
+    '''
+    import os
+    v = os.getenv(name)
+    if v:
+        options[key] = max(1, options[key])
+        try:
+            newval = int(v)
+        except ValueError:
+            pass
+        else:
+            newval = max(1, newval)
+            options[key] = max(options[key], newval)
+
 def parse_command_line(argv):
     import os
     options = default_options.copy()
@@ -461,17 +476,15 @@ def parse_command_line(argv):
     sys.argv[:] = argv
 
     if not options["ignore_environment"]:
-        if os.getenv('PYTHONDEBUG'):
-            options["debug"] = 1
+        parse_env('PYTHONDEBUG', "debug", options)
         if os.getenv('PYTHONDONTWRITEBYTECODE'):
             options["dont_write_bytecode"] = 1
         if os.getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
         if os.getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
-        if os.getenv('PYTHONVERBOSE'):
-            options["verbose"] = 1
-
+        parse_env('PYTHONVERBOSE', "verbose", options)
+        parse_env('PYTHONOPTIMIZE', "optimize", options)
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -527,6 +540,10 @@ def run_command_line(interactive,
     readenv = not ignore_environment
     io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
+
+    if we_are_translated():
+        import __pypy__
+        __pypy__.save_module_content_for_future_reload(sys)
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule

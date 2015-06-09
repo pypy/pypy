@@ -268,12 +268,8 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         v_res = hop.gendirectcall(llfn, c_func_marker, c_basegetitem, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
 
-    rtype_getitem_key = rtype_getitem
-
     def rtype_getitem_idx((r_lst, r_int), hop):
         return pair(r_lst, r_int).rtype_getitem(hop, checkidx=True)
-
-    rtype_getitem_idx_key = rtype_getitem_idx
 
     def rtype_setitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):

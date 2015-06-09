@@ -293,7 +293,7 @@ class CStandaloneBuilder(CBuilder):
         bk = self.translator.annotator.bookkeeper
         return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
 
-    def cmdexec(self, args='', env=None, err=False, expect_crash=False):
+    def cmdexec(self, args='', env=None, err=False, expect_crash=False, exe=None):
         assert self._compiled
         if sys.platform == 'win32':
             #Prevent opening a dialog box
@@ -314,9 +314,10 @@ class CStandaloneBuilder(CBuilder):
             envrepr = ''
         else:
             envrepr = ' [env=%r]' % (env,)
-        log.cmdexec('%s %s%s' % (self.executable_name, args, envrepr))
-        res = self.translator.platform.execute(self.executable_name, args,
-                                               env=env)
+        if exe is None:
+            exe = self.executable_name
+        log.cmdexec('%s %s%s' % (exe, args, envrepr))
+        res = self.translator.platform.execute(exe, args, env=env)
         if sys.platform == 'win32':
             SetErrorMode(old_mode)
         if res.returncode != 0:
@@ -391,7 +392,8 @@ class CStandaloneBuilder(CBuilder):
             path=targetdir, exe_name=exe_name,
             headers_to_precompile=headers_to_precompile,
             no_precompile_cfiles = module_files,
-            shared=self.config.translation.shared)
+            shared=self.config.translation.shared,
+            icon=self.config.translation.icon)
 
         if self.has_profopt():
             profopt = self.config.translation.profopt
@@ -407,7 +409,7 @@ class CStandaloneBuilder(CBuilder):
             ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DPYPY_USE_TRIVIAL_MALLOC" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(DEFAULT_TARGET)'),
             ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
-            ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
+            ('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(DEFAULT_TARGET)'),
             ]
         if self.has_profopt():
@@ -437,9 +439,10 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            mk.definition('GCMAPFILES', '$(subst .c,.gcmap,$(SOURCES))')
-            mk.definition('OBJECTS1', '$(subst .c,.o,$(SOURCES))')
+            mk.definition('GCMAPFILES', '$(subst .asmgcc.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
+            mk.definition('OBJECTS1', '$(subst .asmgcc.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
+
 
             # the rule that transforms %.c into %.o, by compiling it to
             # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
@@ -453,6 +456,14 @@ class CStandaloneBuilder(CBuilder):
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
 
+            # this is for manually written assembly files which needs to be parsed by asmgcc
+            mk.rule('%.o %.gcmap', '%.asmgcc.s', [
+                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
+                    '-t $*.asmgcc.s > $*.gctmp',
+                '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
+                'mv $*.gctmp $*.gcmap',
+                'rm $*.asmgcc.lbl.s'])
+            
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     [

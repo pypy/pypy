@@ -640,6 +640,8 @@ class W_TypeObject(W_Root):
                     "type object '%N' has no attribute %R", self, w_name)
 
     def descr_ne(self, space, w_other):
+        if not isinstance(w_other, W_TypeObject):
+            return space.w_NotImplemented
         return space.newbool(not space.is_w(self, w_other))
 
 

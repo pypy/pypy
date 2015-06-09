@@ -884,6 +884,8 @@ class Stats(object):
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:
             insns.pop('debug_merge_point', None)
+            insns.pop('enter_portal_frame', None)
+            insns.pop('leave_portal_frame', None)
             assert insns == expected
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
@@ -901,6 +903,8 @@ class Stats(object):
     def _check_insns(self, insns, expected, check):
         if expected is not None:
             insns.pop('debug_merge_point', None)
+            insns.pop('enter_portal_frame', None)
+            insns.pop('leave_portal_frame', None)
             insns.pop('label', None)
             assert insns == expected
         for insn, expected_count in check.items():

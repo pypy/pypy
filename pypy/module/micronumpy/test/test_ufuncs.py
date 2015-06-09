@@ -1,91 +1,10 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.ufuncs import (find_binop_result_dtype,
-        find_unaryop_result_dtype, W_UfuncGeneric)
+from pypy.module.micronumpy.ufuncs import W_UfuncGeneric, unary_ufunc
 from pypy.module.micronumpy.support import _parse_signature
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.concrete import VoidBoxStorage
-from pypy.interpreter.gateway import interp2app
-from pypy.conftest import option
 from pypy.interpreter.error import OperationError
-
-
-class TestUfuncCoercion(object):
-    def test_binops(self, space):
-        bool_dtype = get_dtype_cache(space).w_booldtype
-        int8_dtype = get_dtype_cache(space).w_int8dtype
-        int32_dtype = get_dtype_cache(space).w_int32dtype
-        float64_dtype = get_dtype_cache(space).w_float64dtype
-        c64_dtype = get_dtype_cache(space).w_complex64dtype
-        c128_dtype = get_dtype_cache(space).w_complex128dtype
-        cld_dtype = get_dtype_cache(space).w_complexlongdtype
-        fld_dtype = get_dtype_cache(space).w_floatlongdtype
-
-        # Basic pairing
-        assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype) is float64_dtype
-        assert find_binop_result_dtype(space, float64_dtype, bool_dtype) is float64_dtype
-        assert find_binop_result_dtype(space, int32_dtype, int8_dtype) is int32_dtype
-        assert find_binop_result_dtype(space, int32_dtype, bool_dtype) is int32_dtype
-        assert find_binop_result_dtype(space, c64_dtype, float64_dtype) is c128_dtype
-        assert find_binop_result_dtype(space, c64_dtype, fld_dtype) is cld_dtype
-        assert find_binop_result_dtype(space, c128_dtype, fld_dtype) is cld_dtype
-
-        # With promote bool (happens on div), the result is that the op should
-        # promote bools to int8
-        assert find_binop_result_dtype(space, bool_dtype, bool_dtype, promote_bools=True) is int8_dtype
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_bools=True) is float64_dtype
-
-        # Coerce to floats
-        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
-
-    def test_unaryops(self, space):
-        bool_dtype = get_dtype_cache(space).w_booldtype
-        int8_dtype = get_dtype_cache(space).w_int8dtype
-        uint8_dtype = get_dtype_cache(space).w_uint8dtype
-        int16_dtype = get_dtype_cache(space).w_int16dtype
-        uint16_dtype = get_dtype_cache(space).w_uint16dtype
-        int32_dtype = get_dtype_cache(space).w_int32dtype
-        uint32_dtype = get_dtype_cache(space).w_uint32dtype
-        long_dtype = get_dtype_cache(space).w_longdtype
-        ulong_dtype = get_dtype_cache(space).w_ulongdtype
-        int64_dtype = get_dtype_cache(space).w_int64dtype
-        uint64_dtype = get_dtype_cache(space).w_uint64dtype
-        float16_dtype = get_dtype_cache(space).w_float16dtype
-        float32_dtype = get_dtype_cache(space).w_float32dtype
-        float64_dtype = get_dtype_cache(space).w_float64dtype
-
-        # Normal rules, everything returns itself
-        assert find_unaryop_result_dtype(space, bool_dtype) is bool_dtype
-        assert find_unaryop_result_dtype(space, int8_dtype) is int8_dtype
-        assert find_unaryop_result_dtype(space, uint8_dtype) is uint8_dtype
-        assert find_unaryop_result_dtype(space, int16_dtype) is int16_dtype
-        assert find_unaryop_result_dtype(space, uint16_dtype) is uint16_dtype
-        assert find_unaryop_result_dtype(space, int32_dtype) is int32_dtype
-        assert find_unaryop_result_dtype(space, uint32_dtype) is uint32_dtype
-        assert find_unaryop_result_dtype(space, long_dtype) is long_dtype
-        assert find_unaryop_result_dtype(space, ulong_dtype) is ulong_dtype
-        assert find_unaryop_result_dtype(space, int64_dtype) is int64_dtype
-        assert find_unaryop_result_dtype(space, uint64_dtype) is uint64_dtype
-        assert find_unaryop_result_dtype(space, float32_dtype) is float32_dtype
-        assert find_unaryop_result_dtype(space, float64_dtype) is float64_dtype
-
-        # Coerce to floats, some of these will eventually be float16, or
-        # whatever our smallest float type is.
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
-        assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype
-        assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, uint32_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, int64_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, uint64_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, float32_dtype, promote_to_float=True) is float32_dtype
-        assert find_unaryop_result_dtype(space, float64_dtype, promote_to_float=True) is float64_dtype
-
-        # promote bools, happens with sign ufunc
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
 
 
 class TestGenericUfuncOperation(object):
@@ -96,10 +15,10 @@ class TestGenericUfuncOperation(object):
                 self.nout = nout
                 self.nargs = nin + nout
                 self.core_enabled = True
-                self.core_num_dim_ix = 0 
-                self.core_num_dims = [0] * self.nargs  
+                self.core_num_dim_ix = 0
+                self.core_num_dims = [0] * self.nargs
                 self.core_offsets = [0] * self.nargs
-                self.core_dim_ixs = [] 
+                self.core_dim_ixs = []
 
         u = Ufunc(2, 1)
         _parse_signature(space, u, '(m,n), (n,r)->(m,r)')
@@ -116,8 +35,8 @@ class TestGenericUfuncOperation(object):
         b_dtype = get_dtype_cache(space).w_booldtype
 
         ufunc = W_UfuncGeneric(space, [None, None, None], 'eigenvals', None, 1, 1,
-                     [f32_dtype, c64_dtype, 
-                      f64_dtype, c128_dtype, 
+                     [f32_dtype, c64_dtype,
+                      f64_dtype, c128_dtype,
                       c128_dtype, c128_dtype],
                      '')
         f32_array = W_NDimArray(VoidBoxStorage(0, f32_dtype))
@@ -134,6 +53,22 @@ class TestGenericUfuncOperation(object):
                                 'u->u', ufunc.dtypes)
         exc = raises(OperationError, ufunc.type_resolver, space, [f32_array], [None],
                                 'i->i', ufunc.dtypes)
+
+    def test_allowed_types(self, space):
+        dt_bool = get_dtype_cache(space).w_booldtype
+        dt_float16 = get_dtype_cache(space).w_float16dtype
+        dt_int32 = get_dtype_cache(space).w_int32dtype
+        ufunc = unary_ufunc(space, None, 'x', int_only=True)
+        assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_bool, dt_bool)
+        assert ufunc.dtypes  # XXX: shouldn't contain too much stuff
+
+        ufunc = unary_ufunc(space, None, 'x', promote_to_float=True)
+        assert ufunc._calc_dtype(space, dt_bool, out=None) == (dt_float16, dt_float16)
+        assert ufunc._calc_dtype(space, dt_bool, casting='same_kind') == (dt_float16, dt_float16)
+        raises(OperationError, ufunc._calc_dtype, space, dt_bool, casting='no')
+
+        ufunc = unary_ufunc(space, None, 'x')
+        assert ufunc._calc_dtype(space, dt_int32, out=None) == (dt_int32, dt_int32)
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_constants(self):
@@ -167,7 +102,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert 'object' in str(e)
             # Use pypy specific extension for out_dtype
             adder_ufunc0 = frompyfunc(adder, 2, 1, dtypes=['match'])
-            sumdiff = frompyfunc(sumdiff, 2, 2, dtypes=['match'], 
+            sumdiff = frompyfunc(sumdiff, 2, 2, dtypes=['match'],
                                     signature='(i),(i)->(i),(i)')
             adder_ufunc1 = frompyfunc([adder, adder], 2, 1,
                             dtypes=[int, int, int, float, float, float])
@@ -194,6 +129,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (res[1] == a).all()
 
     def test_frompyfunc_outerloop(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def int_times2(in_array, out_array):
             assert in_array.dtype == int
             in_flat = in_array.flat
@@ -206,7 +145,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             out_flat = out_array.flat
             for i in range(in_array.size):
                 out_flat[i] = in_flat[i] * 2
-        from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([int_times2, double_times2], 1, 1,
                             signature='()->()',
                             dtypes=[dtype(int), dtype(int),
@@ -225,12 +163,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ac1 = ufunc(ac)
 
     def test_frompyfunc_2d_sig(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def times_2(in_array, out_array):
             assert len(in_array.shape) == 2
             assert in_array.shape == out_array.shape
             out_array[:] = in_array * 2
 
-        from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([times_2], 1, 1,
                             signature='(m,n)->(n,m)',
                             dtypes=[dtype(int), dtype(int)],
@@ -246,19 +187,27 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             dtypes=[dtype(int), dtype(int)],
                             stack_inputs=True,
                           )
-        ai = arange(18, dtype=int).reshape(2,3,3)
+        ai = arange(12*3*3, dtype='int32').reshape(12,3,3)
         exc = raises(ValueError, ufunc, ai[:,:,0])
         assert "perand 0 has a mismatch in its core dimension 1" in exc.value.message
         ai3 = ufunc(ai[0,:,:])
         ai2 = ufunc(ai)
         assert (ai2 == ai * 2).all()
+        # view
+        aiV = ai[::-2, :, :]
+        assert aiV.strides == (-72, 12, 4)
+        ai2 = ufunc(aiV)
+        assert (ai2 == aiV * 2).all()
 
     def test_frompyfunc_needs_nditer(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def summer(in0):
             print 'in summer, in0=',in0,'in0.shape=',in0.shape
             return in0.sum()
 
-        from numpy import frompyfunc, dtype, arange
         ufunc = frompyfunc([summer], 1, 1,
                             signature='(m,m)->()',
                             dtypes=[dtype(int), dtype(int)],
@@ -269,13 +218,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert ao.size == 3
 
     def test_frompyfunc_sig_broadcast(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def sum_along_0(in_array, out_array):
             out_array[...] = in_array.sum(axis=0)
 
         def add_two(in0, in1, out):
             out[...] = in0 + in1
 
-        from numpy import frompyfunc, dtype, arange
         ufunc_add = frompyfunc(add_two, 2, 1,
                             signature='(m,n),(m,n)->(m,n)',
                             dtypes=[dtype(int), dtype(int), dtype(int)],
@@ -293,7 +245,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert aout.shape == (3, 3)
 
     def test_frompyfunc_fortran(self):
+        import sys
         import numpy as np
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
         def tofrom_fortran(in0, out0):
             out0[:] = in0.T
 
@@ -327,6 +282,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, adder_ufunc, *args, blah=True)
         raises(TypeError, adder_ufunc, *args, extobj=True)
         raises(RuntimeError, adder_ufunc, *args, sig='(d,d)->(d)', dtype=int)
+
+    def test_unary_ufunc_kwargs(self):
+        from numpy import array, sin, float16
+        bool_array = array([True])
+        raises(TypeError, sin, bool_array, casting='no')
+        assert sin(bool_array, casting='same_kind').dtype == float16
+        raises(TypeError, sin, bool_array, out=bool_array, casting='same_kind')
+        assert sin(bool_array).dtype == float16
 
     def test_ufunc_attrs(self):
         from numpy import add, multiply, sin
@@ -397,13 +360,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
 
-    def test_scalar(self):
+    def test_all_available(self):
         # tests that by calling all available ufuncs on scalars, none will
         # raise uncaught interp-level exceptions, (and crash the test)
         # and those that are uncallable can be accounted for.
-        # test on the four base-class dtypes: int, bool, float, complex
+        # test on the base-class dtypes: int, bool, float, complex, object
         # We need this test since they have no common base class.
         import numpy as np
+        not_implemented = set(['ldexp', 'frexp', 'cbrt', 'spacing',
+            'hypot', 'modf', 'remainder', 'nextafter'])
         def find_uncallable_ufuncs(dtype):
             uncallable = set()
             array = np.array(1, dtype)
@@ -412,21 +377,35 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if isinstance(u, np.ufunc):
                     try:
                         u(* [array] * u.nin)
+                    except AttributeError:
+                        pass
+                    except NotImplementedError:
+                        print s
+                        uncallable.add(s)
                     except TypeError:
                         assert s not in uncallable
                         uncallable.add(s)
             return uncallable
         assert find_uncallable_ufuncs('int') == set()
         assert find_uncallable_ufuncs('bool') == set(['sign'])
-        assert find_uncallable_ufuncs('float') == set(
+        uncallable = find_uncallable_ufuncs('float')
+        uncallable = uncallable.difference(not_implemented)
+        assert uncallable == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'left_shift', 'right_shift', 'invert'])
-        assert find_uncallable_ufuncs('complex') == set(
+        uncallable = find_uncallable_ufuncs('complex')
+        uncallable = uncallable.difference(not_implemented)
+        assert uncallable == set(
                 ['bitwise_and', 'bitwise_not', 'bitwise_or', 'bitwise_xor',
                  'arctan2', 'deg2rad', 'degrees', 'rad2deg', 'radians',
                  'fabs', 'fmod', 'invert', 'mod',
                  'logaddexp', 'logaddexp2', 'left_shift', 'right_shift',
                  'copysign', 'signbit', 'ceil', 'floor', 'trunc'])
+        uncallable = find_uncallable_ufuncs('object')
+        uncallable = uncallable.difference(not_implemented)
+        assert uncallable == set(
+                ['isnan', 'logaddexp2', 'copysign', 'isfinite', 'signbit',
+                 'isinf', 'logaddexp'])
 
     def test_int_only(self):
         from numpy import bitwise_and, array
@@ -452,6 +431,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = negative(a + a)
         assert (b == [[-2, -4], [-6, -8]]).all()
 
+        class Obj(object):
+            def __neg__(self):
+                return 'neg'
+        x = Obj()
+        assert type(negative(x)) is str
+
     def test_abs(self):
         from numpy import array, absolute
 
@@ -468,6 +453,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = add(a, b)
         for i in range(3):
             assert c[i] == a[i] + b[i]
+        class Obj(object):
+            def __add__(self, other):
+                return 'add'
+        x = Obj()
+        assert type(add(x, 0)) is str
 
     def test_divide(self):
         from numpy import array, divide
@@ -1044,6 +1034,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for dtype in ['bool', 'int']:
             assert np.equal.reduce([1, 2], dtype=dtype) == True
             assert np.equal.reduce([1, 2, 0], dtype=dtype) == False
+
+    def test_reduce_fmax(self):
+        import numpy as np
+        assert np.fmax.reduce(np.arange(11).astype('b')) == 10
 
     def test_reduceND(self):
         from numpy import add, arange

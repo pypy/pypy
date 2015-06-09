@@ -141,19 +141,23 @@ class VCPythonEngine(object):
     def load_library(self, flags=None):
         # XXX review all usages of 'self' here!
         # import it as a new extension module
-        if hasattr(sys, "getdlopenflags"):
-            previous_flags = sys.getdlopenflags()
+        imp.acquire_lock()
         try:
-            if hasattr(sys, "setdlopenflags") and flags is not None:
-                sys.setdlopenflags(flags)
-            module = imp.load_dynamic(self.verifier.get_module_name(),
-                                      self.verifier.modulefilename)
-        except ImportError as e:
-            error = "importing %r: %s" % (self.verifier.modulefilename, e)
-            raise ffiplatform.VerificationError(error)
+            if hasattr(sys, "getdlopenflags"):
+                previous_flags = sys.getdlopenflags()
+            try:
+                if hasattr(sys, "setdlopenflags") and flags is not None:
+                    sys.setdlopenflags(flags)
+                module = imp.load_dynamic(self.verifier.get_module_name(),
+                                          self.verifier.modulefilename)
+            except ImportError as e:
+                error = "importing %r: %s" % (self.verifier.modulefilename, e)
+                raise ffiplatform.VerificationError(error)
+            finally:
+                if hasattr(sys, "setdlopenflags"):
+                    sys.setdlopenflags(previous_flags)
         finally:
-            if hasattr(sys, "setdlopenflags"):
-                sys.setdlopenflags(previous_flags)
+            imp.release_lock()
         #
         # call loading_cpy_struct() to get the struct layout inferred by
         # the C compiler
@@ -882,7 +886,8 @@ cffimod_header = r'''
             PyLong_FromLongLong((long long)x)))
 
 #define _cffi_to_c_int(o, type)                                          \
-    (sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
+    ((type)(                                                             \
+     sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
                                          : (type)_cffi_to_c_i8(o)) :     \
      sizeof(type) == 2 ? (((type)-1) > 0 ? (type)_cffi_to_c_u16(o)       \
                                          : (type)_cffi_to_c_i16(o)) :    \
@@ -890,7 +895,7 @@ cffimod_header = r'''
                                          : (type)_cffi_to_c_i32(o)) :    \
      sizeof(type) == 8 ? (((type)-1) > 0 ? (type)_cffi_to_c_u64(o)       \
                                          : (type)_cffi_to_c_i64(o)) :    \
-     (Py_FatalError("unsupported size for type " #type), (type)0))
+     (Py_FatalError("unsupported size for type " #type), (type)0)))
 
 #define _cffi_to_c_i8                                                    \
                  ((int(*)(PyObject *))_cffi_exports[1])

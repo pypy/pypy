@@ -701,9 +701,10 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise OperationError(space.w_TypeError, space.wrap(
                     "encoding or errors without string argument"))
         return []
-    # Is it an int?
+    # Is it an integer?
+    # Note that we're calling space.getindex_w() instead of space.int_w().
     try:
-        count = space.int_w(w_source)
+        count = space.getindex_w(w_source, space.w_OverflowError)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
