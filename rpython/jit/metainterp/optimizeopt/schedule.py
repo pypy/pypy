@@ -715,13 +715,6 @@ class Pack(object):
                 accum = False
             elif self.accum_position != other.accum_position:
                 accum = False
-            # aa
-            #else:
-            #    i = self.accum_position
-            #    lop = leftmost.getoperation()
-            #    roper = rightmost.getoperation()
-            #    if lop.getarg(i) is not roper.result:
-            #        accum = False
         return rightmost is leftmost and accum
 
     def __repr__(self):

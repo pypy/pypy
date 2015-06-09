@@ -239,7 +239,7 @@ class OpParser(object):
         args, descr = self.parse_args(opname, line[num + 1:endnum])
         if rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST:
             i = line.find('[', endnum) + 1
-            j = line.find(']', i)
+            j = line.rfind(']', i)
             if (i <= 0 or j <= 0) and not self.nonstrict:
                 raise ParseError("missing fail_args for guard operation")
             fail_args = []

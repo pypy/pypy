@@ -292,7 +292,7 @@ class VectorizingOptimizer(Optimizer):
                 # that point forward:
                 if node_a.is_before(node_b):
                     if memref_a.is_adjacent_to(memref_b):
-                        pair = self.packset.can_be_packed(node_a, node_b, None)
+                        pair = self.packset.can_be_packed(node_a, node_b, None, False)
                         if pair:
                             self.packset.add_pack(pair)
 
@@ -314,7 +314,7 @@ class VectorizingOptimizer(Optimizer):
                 rnode = rdep.to
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
-                    pair = self.packset.can_be_packed(lnode, rnode, pack)
+                    pair = self.packset.can_be_packed(lnode, rnode, pack, False)
                     if pair:
                         self.packset.add_pack(pair)
 
@@ -326,7 +326,7 @@ class VectorizingOptimizer(Optimizer):
                 rnode = rdep.to
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
-                    pair = self.packset.can_be_packed(lnode, rnode, pack)
+                    pair = self.packset.can_be_packed(lnode, rnode, pack, True)
                     if pair:
                         self.packset.add_pack(pair)
 
@@ -540,10 +540,10 @@ class PackSet(object):
     def add_pack(self, pack):
         self.packs.append(pack)
 
-    def can_be_packed(self, lnode, rnode, origin_pack):
+    def can_be_packed(self, lnode, rnode, origin_pack, forward):
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
-                if isinstance(origin_pack, AccumPair):
+                if forward and isinstance(origin_pack, AccumPair):
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
                     raise NotAVectorizeableLoop()
@@ -626,11 +626,6 @@ class PackSet(object):
         return last_pos
 
     def accumulates_pair(self, lnode, rnode, origin_pack):
-        if isinstance(origin_pack, AccumPair):
-            # in this case the splitted accumulator must
-            # be combined. This case is not supported
-            raise NotAVectorizeableLoop()
-        #
         # lnode and rnode are isomorphic and dependent
         assert isinstance(origin_pack, Pair)
         lop = lnode.getoperation()
