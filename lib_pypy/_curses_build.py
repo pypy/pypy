@@ -1,4 +1,22 @@
-from cffi import FFI
+from cffi import FFI, VerificationError
+
+
+def find_curses_library():
+    for curses_library in ['ncursesw', 'ncurses']:
+        ffi = FFI()
+        ffi.set_source("_curses_cffi_check", "", libraries=[curses_library])
+        try:
+            ffi.compile()
+        except VerificationError as e:
+            e_last = e
+            continue
+        else:
+            return curses_library
+
+    # If none of the libraries is available, present the user a meaningful
+    # error message
+    raise e_last
+
 
 ffi = FFI()
 
@@ -41,7 +59,7 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=['ncursesw', 'panel'])
+""", libraries=[find_curses_library(), 'panel'])
 
 
 ffi.cdef("""
