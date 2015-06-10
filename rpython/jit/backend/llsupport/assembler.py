@@ -166,7 +166,8 @@ class BaseAssembler(object):
     def store_info_on_descr(self, startspos, guardtok):
         withfloats = False
         for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
+            if box is not None and \
+               (box.type == FLOAT or box.type == VECTOR):
                 withfloats = True
                 break
         exc = guardtok.exc
