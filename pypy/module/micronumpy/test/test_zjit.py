@@ -371,11 +371,12 @@ class TestNumpyJit(Jit386Mixin):
         i = self.code_mapping['reduce']
         # run it twice
         retval = self.interp.eval_graph(self.graph, [i])
+        assert retval == sum(range(1,11))
         retval = self.interp.eval_graph(self.graph, [i])
+        assert retval == sum(range(1,11))
         # check that we got only one loop
         assert len(get_stats().loops) == 1
-        # TODO imple reduce opt
-        self.check_vectorized(2, 0)
+        self.check_vectorized(2, 1)
 
     def test_reduce_axis_compile_only_once(self):
         self.compile_graph()
@@ -386,8 +387,7 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         # check that we got only one loop
         assert len(get_stats().loops) == 1
-        # TODO imple reduce opt
-        self.check_vectorized(3, 0)
+        self.check_vectorized(3, 1)
 
     def define_prod():
         return """

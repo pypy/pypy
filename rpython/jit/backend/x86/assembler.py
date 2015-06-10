@@ -1810,12 +1810,9 @@ class Assembler386(BaseAssembler):
         """
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
-        # accumulation of a vectorized loop needs to patch
-        # some vector registers (e.g. sum).
-        if guardtok.faildescr.update_at_exit is not None:
-            for pos,accum in guardtok.faildescr.update_at_exit:
-                self._accum_update_at_exit(guardtok.fail_locs,pos,accum)
-            guardtok.faildescr.update_at_exit = None
+        #
+        self._accum_update_at_exit(guardtok.fail_locs, guardtok.failargs)
+        #
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
@@ -2478,28 +2475,32 @@ class Assembler386(BaseAssembler):
     # vector operations
     # ________________________________________
 
-    def _accum_update_at_exit(self, fail_locs, pos, vector_accum):
+    def _accum_update_at_exit(self, fail_locs, fail_args):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
-        pass
-        loc = fail_locs[pos]
-        if vector_accum.operator == '+':
-            # reduction using plus
-            self._accum_reduce_sum(vector_accum, loc)
-        else:
-            raise NotImplementedError("accum operator %s not implemented" %
-                                        (accum_descr.operator)) 
+
+        for i,arg in enumerate(fail_args):
+            if isinstance(arg, BoxVectorAccum):
+                loc = fail_locs[i]
+                if arg.operator == '+':
+                    # reduction using plus
+                    self._accum_reduce_sum(arg, loc)
+                else:
+                    raise NotImplementedError("accum operator %s not implemented" %
+                                                (arg.operator)) 
 
     def _accum_reduce_sum(self, vector_var, regloc):
         assert isinstance(vector_var, BoxVectorAccum)
         #
-        if vector_var.gettype() == FLOAT:
-            if vector_var.getsize() == 8:
+        type = vector_var.gettype()
+        size = vector_var.getsize()
+        if type == FLOAT:
+            if size == 8:
                 # r = (r[0]+r[1],r[0]+r[1])
                 self.mc.HADDPD(regloc, regloc)
                 # upper bits (> 64) are dirty (but does not matter)
                 return
-            if vector_var.getsize() == 4:
+            if size == 4:
                 # r = (r[0]+r[1],r[2]+r[3],r[0]+r[1],r[2]+r[3])
                 self.mc.HADDPS(regloc, regloc)
                 self.mc.HADDPS(regloc, regloc)
@@ -2507,6 +2508,15 @@ class Assembler386(BaseAssembler):
                 # at the first element position
                 # the upper bits (>32) are dirty (but does not matter)
                 return
+        elif type == INT:
+            if size == 8:
+                pass
+            if size == 4:
+                pass
+            if size == 2:
+                pass
+            if size == 1:
+                pass
 
         raise NotImplementedError("reduce sum for %s not impl." % vector_var)
 

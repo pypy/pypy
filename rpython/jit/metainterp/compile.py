@@ -488,8 +488,7 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'status',
-               'update_at_exit')
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
@@ -499,7 +498,6 @@ class ResumeGuardDescr(ResumeDescr):
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     status = r_uint(0)
-    update_at_exit = None
 
     def copy_all_attributes_from(self, other):
         assert isinstance(other, ResumeGuardDescr)

@@ -13,7 +13,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         Scheduler, Pack, Pair, AccumPair, Accum, vectorbox_outof_box, getpackopnum,
-        getunpackopnum, PackType)
+        getunpackopnum, PackType, determine_output_type)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib.objectmodel import we_are_translated

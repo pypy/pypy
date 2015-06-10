@@ -305,15 +305,7 @@ class RegAlloc(BaseRegalloc):
         self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
-        faillocs = []
-        descr = guard_op.getdescr()
-        for i,v in enumerate(guard_op.getfailargs()):
-            if isinstance(v, BoxVectorAccum):
-                if descr.update_at_exit is None:
-                    descr.update_at_exit = []
-                descr.update_at_exit.append((i, v))
-            faillocs.append(self.loc(v))
-        return faillocs
+        return [self.loc(v) for v in guard_op.getfailargs()]
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
