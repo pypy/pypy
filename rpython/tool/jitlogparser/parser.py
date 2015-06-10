@@ -430,7 +430,8 @@ def import_log(logname, ParserCls=SimpleParser):
                 coderange = CodeRange(None, addr, data)
                 ranges[addr] = coderange
     dumps = {}
-    for addr, rang in ranges.items():
+    for rang in sorted(ranges.values()):
+        addr = rang.addr
         if addr in addrs and addrs[addr]:
             name = addrs[addr].pop(0) # they should come in order
             data = rang.data.encode('hex') # backward compatibility
