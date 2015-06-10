@@ -2273,20 +2273,32 @@ class UnicodeType(FlexibleType):
         return v1._value >= v2._value
 
     def logical_and(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        if bool(v1) and bool(v2):
+            return Bool._True
+        return Bool._False
 
     def logical_or(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        if bool(v1) or bool(v2):
+            return Bool._True
+        return Bool._False
 
     def logical_not(self, v):
-        raise NotImplementedError
+        assert isinstance(v, boxes.W_UnicodeBox)
+        return not bool(v)
 
-    @str_binary_op
     def logical_xor(self, v1, v2):
-        raise NotImplementedError
+        assert isinstance(v1, boxes.W_UnicodeBox)
+        assert isinstance(v2, boxes.W_UnicodeBox)
+        a = bool(v1)
+        b = bool(v2)
+        return (not b and a) or (not a and b)
 
     def bool(self, v):
-        raise NotImplementedError
+        return bool(v._value)
 
     def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
         assert isinstance(box, boxes.W_UnicodeBox)
