@@ -50,6 +50,7 @@ if not we_are_translated():
             pass
         return _raw_storage_getitem_unaligned(T, storage, offset)
 '''
+
 def simple_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
@@ -2195,10 +2196,20 @@ class UnicodeType(FlexibleType):
     def store(self, arr, i, offset, box, native):
         assert isinstance(box, boxes.W_UnicodeBox)
         value = box._value
-        for k in range(len(value)):
+        with arr as storage:
+            self._store(storage, i, offset, box, arr.dtype.elsize)
+
+    @jit.unroll_safe
+    def _store(self, storage, i, offset, box, width):
+        size = min(width // 4, len(box._value))
+        for k in range(size):
             index = i + offset + 4*k
             data = rffi.cast(Int32.T, ord(box._value[k]))
-            raw_storage_setitem_unaligned(arr.storage, index, data)
+            raw_storage_setitem_unaligned(storage, index, data)
+        for k in range(size, width // 4):
+            index = i + offset + 4*k
+            data = rffi.cast(Int32.T, 0)
+            raw_storage_setitem_unaligned(storage, index, data)
 
     def read(self, arr, i, offset, dtype):
         if dtype is None:
@@ -2269,7 +2280,9 @@ class UnicodeType(FlexibleType):
         raise NotImplementedError
 
     def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
-        raise NotImplementedError
+        assert isinstance(box, boxes.W_UnicodeBox)
+        for i in xrange(start, stop, width):
+            self._store(storage, i, offset, box, width)
 
 
 class VoidType(FlexibleType):

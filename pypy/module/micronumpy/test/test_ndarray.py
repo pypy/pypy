@@ -389,6 +389,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros((), dtype='S') == ''
         assert zeros((), dtype='S').shape == ()
         assert zeros((), dtype='S').dtype == '|S1'
+        assert zeros(5, dtype='U')[4] == u''
+        assert zeros(5, dtype='U').shape == (5,)
+        assert zeros(5, dtype='U').dtype == '<U1'
 
     def test_check_shape(self):
         import numpy as np
@@ -2431,6 +2434,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = numpy.empty((10,10), dtype='c1')
         a.fill(12)
         assert (a == '1').all()
+
+    def test_unicode_filling(self):
+        import numpy as np
+        a = np.empty((10,10), dtype='U1')
+        a.fill(12)
+        assert (a == u'1').all()
 
     def test_boolean_indexing(self):
         import numpy as np
