@@ -1809,6 +1809,12 @@ class Assembler386(BaseAssembler):
         """
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
+        # accumulation of a vectorized loop needs to patch
+        # some vector registers (e.g. sum).
+        if guardtok.faildescr.update_at_exit is not None:
+            for pae in guardtok.faildescr.update_at_exit:
+                self._update_at_exit(guardtok.fail_locs,pae)
+            guardtok.fail_descr.update_at_exit = None
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
@@ -2470,6 +2476,41 @@ class Assembler386(BaseAssembler):
 
     # vector operations
     # ________________________________________
+
+    def _accum_update_at_exit(self, fail_locs, accum_descr):
+        """ If accumulation is done in this loop, at the guard exit
+        some vector registers must be adjusted to yield the correct value"""
+        pass
+        loc = fail_locs[accum_descr.position]
+        vector_var = accum_descr.vector_var
+        scalar_var = accum_descr.scalar_var
+        if accum_descr.operator == '+':
+            # reduction using plus
+            self._accum_reduce_float_sum(vector_var, scalar_var, loc)
+        else:
+            raise NotImplementedError("accum operator %s not implemented" %
+                                        (accum_descr.operator)) 
+
+    def _accum_reduce_sum(self, vector_var, scalar_var, regloc):
+        assert isinstance(vector_var, BoxVector)
+        assert isinstance(scalar_var, Box)
+        #
+        if vector_var.gettype() == FLOAT:
+            if vector_var.getsize() == 8:
+                # r = (r[0]+r[1],r[0]+r[1])
+                self.mc.HADDPD(regloc, regloc)
+                # upper bits (> 64) are dirty (but does not matter)
+                return
+            if vector_var.getsize() == 4:
+                # r = (r[0]+r[1],r[2]+r[3],r[0]+r[1],r[2]+r[3])
+                self.mc.HADDPS(regloc, regloc)
+                self.mc.HADDPS(regloc, regloc)
+                # invoking it a second time will gather the whole sum
+                # at the first element position
+                # the upper bits (>32) are dirty (but does not matter)
+                return
+
+        raise NotImplementedError("reduce sum for %s not impl." % vector_var)
 
     def genop_vec_getarrayitem_raw(self, op, arglocs, resloc):
         # considers item scale (raw_load does not)
