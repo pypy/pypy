@@ -444,10 +444,9 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
 
             # the CFLAGS passed to gcc when invoked to assembler the .s file
-            # must not contain -g.  This confuses gcc 5.1.  (arigo) I failed
-            # to get any debugging symbols with gcc 5.1 and an older gdb
-            # 7.4.1-debian; I don't understand why at all because it works
-            # fine in manual examples.
+            # must not contain -g.  This confuses gcc 5.1.  (Note that it
+            # would seem that gcc 5.1 with "-g" does not produce debugging
+            # info in a format that gdb 4.7.1 can read.)
             mk.definition('CFLAGS_AS', '$(patsubst -g,,$(CFLAGS))')
 
             # the rule that transforms %.c into %.o, by compiling it to
