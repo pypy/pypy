@@ -196,7 +196,12 @@ class W_GenericBox(W_NumpyObject):
                     "'%T' object is not iterable", self)
 
     def descr_str(self, space):
-        return space.wrap(self.get_dtype(space).itemtype.str_format(self, add_quotes=False))
+        tp = self.get_dtype(space).itemtype
+        return space.wrap(tp.str_format(self, add_quotes=False))
+
+    def descr_repr(self, space):
+        tp = self.get_dtype(space).itemtype
+        return space.wrap(tp.str_format(self, add_quotes=True))
 
     def descr_format(self, space, w_spec):
         return space.format(self.item(space), w_spec)
@@ -658,7 +663,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     __getitem__ = interp2app(W_GenericBox.descr_getitem),
     __iter__ = interp2app(W_GenericBox.descr_iter),
     __str__ = interp2app(W_GenericBox.descr_str),
-    __repr__ = interp2app(W_GenericBox.descr_str),
+    __repr__ = interp2app(W_GenericBox.descr_repr),
     __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
     __long__ = interp2app(W_GenericBox.descr_long),
