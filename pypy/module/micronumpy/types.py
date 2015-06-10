@@ -2228,10 +2228,19 @@ class UnicodeType(FlexibleType):
         return boxes.W_UnicodeBox(builder.build())
 
     def str_format(self, item, add_quotes=True):
-        raise NotImplementedError
+        assert isinstance(item, boxes.W_UnicodeBox)
+        if add_quotes:
+            w_unicode = self.to_builtin_type(self.space, item)
+            return self.space.str_w(self.space.repr(w_unicode))
+        else:
+            # Same as W_UnicodeBox.descr_repr() but without quotes and prefix
+            from rpython.rlib.runicode import unicode_encode_unicode_escape
+            return unicode_encode_unicode_escape(item._value,
+                                                 len(item._value), 'strict')
 
     def to_builtin_type(self, space, box):
-        raise NotImplementedError
+        assert isinstance(box, boxes.W_UnicodeBox)
+        return space.wrap(box._value)
 
     def eq(self, v1, v2):
         assert isinstance(v1, boxes.W_UnicodeBox)

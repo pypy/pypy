@@ -1,3 +1,4 @@
+# -*- encoding:utf-8 -*-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestScalar(BaseNumpyAppTest):
@@ -462,9 +463,20 @@ class AppTestScalar(BaseNumpyAppTest):
         from numpy import str_
         assert isinstance(str_(3), str_)
         assert str_(3) == '3'
+        assert str(str_(3)) == '3'
+        assert repr(str_(3)) == "'3'"
 
     def test_unicode_boxes(self):
         from numpy import unicode_
         u = unicode_(3)
         assert isinstance(u, unicode)
         assert u == u'3'
+
+    def test_unicode_repr(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert str(u) == '3'
+        assert repr(u) == "u'3'"
+        u = unicode_(u'Aÿ')
+        raises(UnicodeEncodeError, "str(u)")
+        assert repr(u) == repr(u'Aÿ')
