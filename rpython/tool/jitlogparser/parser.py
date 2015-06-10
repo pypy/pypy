@@ -443,6 +443,9 @@ def import_log(logname, ParserCls=SimpleParser):
                               parser.postprocess(loop, backend_tp=bname,
                                                  backend_dump=dump,
                                                  dump_start=start_ofs))
+            loop.start_ofs = start_ofs
+        else:
+            loop.start_ofs = -1
         loops += split_trace(loop)
     return log, loops
 

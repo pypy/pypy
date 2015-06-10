@@ -57,6 +57,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_32': 'i386',
         'x86_64': 'i386:x86-64',
         'x86-64': 'i386:x86-64',
+        'x86-64-sse4': 'i386:x86-64',
         'i386': 'i386',
         'arm': 'arm',
         'arm_32': 'arm',
@@ -264,7 +265,7 @@ class World(object):
                 while j<len(self.ranges) and coderange.touches(self.ranges[j]):
                     coderange.update_from_old(self.ranges[j])
                     j += 1
-                self.ranges[i:j] = [coderange]
+                self.ranges.insert(i, coderange)
             elif line.startswith('LOG '):
                 pieces = line.split(None, 3)
                 assert pieces[1].startswith('@')
