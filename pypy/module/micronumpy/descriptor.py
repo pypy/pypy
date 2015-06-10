@@ -58,7 +58,7 @@ class W_Dtype(W_Root):
 
     @enforceargs(byteorder=SomeChar())
     def __init__(self, itemtype, w_box_type, byteorder=NPY.NATIVE, names=[],
-                 fields={}, elsize=None, shape=[], subdtype=None):
+                 fields={}, elsize=-1, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.w_box_type = w_box_type
         if itemtype.get_element_size() == 1 or isinstance(itemtype, types.ObjectType):
@@ -66,7 +66,7 @@ class W_Dtype(W_Root):
         self.byteorder = byteorder
         self.names = names
         self.fields = fields
-        if elsize is None:
+        if elsize < 0:
             elsize = itemtype.get_element_size()
         self.elsize = elsize
         self.alignment = itemtype.alignment
@@ -277,8 +277,8 @@ class W_Dtype(W_Root):
         self.names = names
 
     def descr_del_names(self, space):
-        raise OperationError(space.w_AttributeError, space.wrap(
-            "Cannot delete dtype names attribute"))
+        raise oefmt(space.w_AttributeError, 
+            "Cannot delete dtype names attribute")
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
@@ -429,6 +429,7 @@ class W_Dtype(W_Root):
 
         version = space.wrap(3)
         endian = self.byteorder
+        flags = 0
         if endian == NPY.NATIVE:
             endian = NPY.NATBYTE
         subdescr = self.descr_get_subdtype(space)
@@ -436,14 +437,14 @@ class W_Dtype(W_Root):
         values = self.descr_get_fields(space)
         if self.is_flexible():
             w_size = space.wrap(self.elsize)
-            alignment = space.wrap(self.alignment)
+            w_alignment = space.wrap(self.alignment)
         else:
             w_size = space.wrap(-1)
-            alignment = space.wrap(-1)
-        flags = space.wrap(0)
+            w_alignment = space.wrap(-1)
+        w_flags = space.wrap(flags)
 
         data = space.newtuple([version, space.wrap(endian), subdescr,
-                               names, values, w_size, alignment, flags])
+                               names, values, w_size, w_alignment, w_flags])
         return space.newtuple([w_class, builder_args, data])
 
     def descr_setstate(self, space, w_data):
@@ -564,8 +565,7 @@ def dtype_from_list(space, w_lst, simple, align=False):
 
 
 def dtype_from_dict(space, w_dict):
-    raise OperationError(space.w_NotImplementedError, space.wrap(
-        "dtype from dict"))
+    raise oefmt(space.w_NotImplementedError, "dtype from dict")
 
 
 def dtype_from_spec(space, w_spec):
@@ -612,22 +612,37 @@ def _check_for_commastring(s):
 def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=None):
     # align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
-
     if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
                                 space.len_w(w_shape) > 0):
         subdtype = descr__new__(space, w_subtype, w_dtype, align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         size = 1
         if space.isinstance_w(w_shape, space.w_int):
+            dim = space.int_w(w_shape)
+            if dim == 1:
+                return subdtype
             w_shape = space.newtuple([w_shape])
         shape = []
         for w_dim in space.fixedview(w_shape):
-            dim = space.int_w(w_dim)
+            try:
+                dim = space.int_w(w_dim)
+            except OperationError as e:
+                if e.match(space, space.w_OverflowError):
+                    raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple.")
+                else:
+                    raise
+            if dim > 2 ** 32 -1:
+                raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
+                      "dimension does not fit into a C int.")
+            elif dim < 0:
+                raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
+                      "dimension smaller than zero.")
             shape.append(dim)
             size *= dim
-        if size == 1:
-            return subdtype
         size *= subdtype.elsize
+        if size >= 2 ** 31:
+            raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
+                  "dtype size in bytes must fit into a C int.")
         return W_Dtype(types.VoidType(space),
                        space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size)
@@ -673,6 +688,10 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
             return dtype
         if w_dtype is dtype.w_box_type:
             return dtype
+        if space.isinstance_w(w_dtype, space.w_type) and \
+           space.is_true(space.issubtype(w_dtype, dtype.w_box_type)):
+            return cache.w_objectdtype
+            #return W_Dtype(types.VoidType(space), w_box_type=dtype.w_box_type)
     if space.isinstance_w(w_dtype, space.w_type):
         return cache.w_objectdtype
     raise oefmt(space.w_TypeError, "data type not understood")

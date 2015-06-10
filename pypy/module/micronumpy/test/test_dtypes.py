@@ -92,6 +92,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d == np.dtype('i8')
         assert d.shape == ()
         d = np.dtype((np.int64, 1,))
+        assert d.shape == ()
         assert d == np.dtype('i8')
         assert d.shape == ()
         d = np.dtype((np.int64, 4))
@@ -111,6 +112,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert "int8" == dtype("int8")
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
+        assert dtype('f8') != dtype(('f8', (1,)))
 
     def test_dtype_cmp(self):
         from numpy import dtype
@@ -342,10 +344,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(TypeError, type, "Foo", (dtype,), {})
 
     def test_can_subclass(self):
-        import numpy
-        class xyz(numpy.void):
+        import numpy as np
+        class xyz(np.void):
             pass
-        assert True
+        assert np.dtype(xyz).name == 'xyz'
 
     def test_index(self):
         import numpy as np
@@ -413,7 +415,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert loads(dumps(a.dtype)) == a.dtype
         assert np.dtype('bool').__reduce__() == (dtype, ('b1', 0, 1), (3, '|', None, None, None, -1, -1, 0))
         assert np.dtype('|V16').__reduce__() == (dtype, ('V16', 0, 1), (3, '|', None, None, None, 16, 1, 0))
-        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 1, 0))
+        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 8, 0))
 
     def test_newbyteorder(self):
         import numpy as np
@@ -1286,7 +1288,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                      ('x', 'y', 'z', 'value'),
                      {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0),
                       'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12),
-                      }, 20, 1, 0))
+                      }, 20, 1, 16))
 
         new_d = loads(dumps(d))
 
@@ -1304,6 +1306,22 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert keys == ["value", "x", "y", "z"]
 
         assert new_d.itemsize == d.itemsize == 76
+
+    def test_shape_invalid(self):
+        import numpy as np
+        # Check that the shape is valid.
+        max_int = 2 ** (8 * 4 - 1)
+        max_intp = 2 ** (8 * np.dtype('intp').itemsize - 1) - 1
+        # Too large values (the datatype is part of this)
+        raises(ValueError, np.dtype, [('a', 'f4', max_int // 4 + 1)])
+        raises(ValueError, np.dtype, [('a', 'f4', max_int + 1)])
+        raises(ValueError, np.dtype, [('a', 'f4', (max_int, 2))])
+        # Takes a different code path (fails earlier:
+        raises(ValueError, np.dtype, [('a', 'f4', max_intp + 1)])
+        # Negative values
+        raises(ValueError, np.dtype, [('a', 'f4', -1)])
+        raises(ValueError, np.dtype, [('a', 'f4', (-1, -1))])
+
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
