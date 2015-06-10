@@ -54,7 +54,7 @@ def byteorder_w(space, w_str):
 class W_Dtype(W_Root):
     _immutable_fields_ = [
         "itemtype?", "w_box_type", "byteorder?", "names?", "fields?",
-        "elsize?", "alignment?", "shape?", "subdtype?", "base?"]
+        "elsize?", "alignment?", "shape?", "subdtype?", "base?", "flags?"]
 
     @enforceargs(byteorder=SomeChar())
     def __init__(self, itemtype, w_box_type, byteorder=NPY.NATIVE, names=[],
@@ -69,13 +69,17 @@ class W_Dtype(W_Root):
         if elsize < 0:
             elsize = itemtype.get_element_size()
         self.elsize = elsize
-        self.alignment = itemtype.alignment
         self.shape = shape
         self.subdtype = subdtype
+        self.flags = 0
+        if isinstance(itemtype, types.ObjectType):
+            self.flags = NPY.OBJECT_DTYPE_FLAGS
         if not subdtype:
             self.base = self
+            self.alignment = itemtype.get_element_size()
         else:
             self.base = subdtype.base
+            self.alignment = subdtype.itemtype.get_element_size()
 
     @property
     def num(self):
@@ -216,7 +220,7 @@ class W_Dtype(W_Root):
             return space.newlist(descr)
 
     def descr_get_hasobject(self, space):
-        return space.w_False
+        return space.wrap(self.is_object())
 
     def descr_get_isbuiltin(self, space):
         if self.fields is None:
@@ -237,6 +241,9 @@ class W_Dtype(W_Root):
 
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(dim) for dim in self.shape])
+
+    def descr_get_flags(self, space):
+        return space.wrap(self.flags)
 
     def descr_get_fields(self, space):
         if not self.fields:
@@ -429,7 +436,6 @@ class W_Dtype(W_Root):
 
         version = space.wrap(3)
         endian = self.byteorder
-        flags = 0
         if endian == NPY.NATIVE:
             endian = NPY.NATBYTE
         subdescr = self.descr_get_subdtype(space)
@@ -441,7 +447,7 @@ class W_Dtype(W_Root):
         else:
             w_size = space.wrap(-1)
             w_alignment = space.wrap(-1)
-        w_flags = space.wrap(flags)
+        w_flags = space.wrap(self.flags)
 
         data = space.newtuple([version, space.wrap(endian), subdescr,
                                names, values, w_size, w_alignment, w_flags])
@@ -466,6 +472,7 @@ class W_Dtype(W_Root):
         w_fields = space.getitem(w_data, space.wrap(4))
         size = space.int_w(space.getitem(w_data, space.wrap(5)))
         alignment = space.int_w(space.getitem(w_data, space.wrap(6)))
+        flags = space.int_w(space.getitem(w_data, space.wrap(7)))
 
         if (w_names == space.w_None) != (w_fields == space.w_None):
             raise oefmt(space.w_ValueError, "inconsistent fields and names in Numpy dtype unpickling")
@@ -507,6 +514,7 @@ class W_Dtype(W_Root):
         if self.is_flexible():
             self.elsize = size
             self.alignment = alignment
+        self.flags = flags
 
     @unwrap_spec(new_order=str)
     def descr_newbyteorder(self, space, new_order=NPY.SWAP):
@@ -560,12 +568,14 @@ def dtype_from_list(space, w_lst, simple, align=False):
     if align:
         # Set offset to the next power-of-two above offset
         offset = (offset + maxalign -1) & (-maxalign)
-    return W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
+    retval = W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=offset)
-
+    retval.flags |= NPY.NEEDS_PYAPI
+    return retval
 
 def dtype_from_dict(space, w_dict):
     raise oefmt(space.w_NotImplementedError, "dtype from dict")
+    retval.flags |= NPY.NEEDS_PYAPI
 
 
 def dtype_from_spec(space, w_spec):
@@ -690,7 +700,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
             return dtype
         if space.isinstance_w(w_dtype, space.w_type) and \
            space.is_true(space.issubtype(w_dtype, dtype.w_box_type)):
-            return W_Dtype(dtype.itemtype, w_box_type=w_dtype, elsize=0)
+            return W_Dtype(dtype.itemtype, w_dtype, elsize=0)
     if space.isinstance_w(w_dtype, space.w_type):
         return cache.w_objectdtype
     raise oefmt(space.w_TypeError, "data type not understood")
@@ -720,6 +730,7 @@ W_Dtype.typedef = TypeDef("numpy.dtype",
     names = GetSetProperty(W_Dtype.descr_get_names,
                            W_Dtype.descr_set_names,
                            W_Dtype.descr_del_names),
+    flags = GetSetProperty(W_Dtype.descr_get_flags),
 
     __eq__ = interp2app(W_Dtype.descr_eq),
     __ne__ = interp2app(W_Dtype.descr_ne),
