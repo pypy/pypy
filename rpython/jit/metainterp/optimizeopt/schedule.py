@@ -677,6 +677,14 @@ class VecScheduleData(SchedulerData):
 
         return oplist
 
+class Accum(object):
+    PLUS = '+'
+
+    def __init__(self, var=None, pos=-1, operator=PLUS):
+        self.var = var
+        self.pos = pos
+        self.operator = operator
+
 class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic
@@ -687,8 +695,7 @@ class Pack(object):
         for i,node in enumerate(self.operations):
             node.pack = self
             node.pack_position = i
-        self.accum_variable = None
-        self.accum_position = -1
+        self.accum = None
         self.input_type = input_type
         self.output_type = output_type
 
@@ -713,7 +720,7 @@ class Pack(object):
         if self.is_accumulating():
             if not other.is_accumulating():
                 accum = False
-            elif self.accum_position != other.accum_position:
+            elif self.accum.pos != other.accum.pos:
                 accum = False
         return rightmost is leftmost and accum
 
@@ -721,7 +728,7 @@ class Pack(object):
         return "Pack(%r)" % self.operations
 
     def is_accumulating(self):
-        return self.accum_variable is not None
+        return self.accum is not None
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
@@ -738,11 +745,10 @@ class Pair(Pack):
                    self.right is other.right
 
 class AccumPair(Pair):
-    def __init__(self, left, right, input_type, output_type, accum_var, accum_pos):
+    def __init__(self, left, right, input_type, output_type, accum):
         assert isinstance(left, Node)
         assert isinstance(right, Node)
         Pair.__init__(self, left, right, input_type, output_type)
         self.left = left
         self.right = right
-        self.accum_variable = accum_var
-        self.accum_position = accum_pos
+        self.accum = accum

@@ -5,13 +5,14 @@ from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr, invent_fail_descr_for_op
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
-        BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box)
+        BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box,
+        BoxVectorAccum)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method, Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
-        Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
+        Scheduler, Pack, Pair, AccumPair, Accum, vectorbox_outof_box, getpackopnum,
         getunpackopnum, PackType)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
@@ -224,9 +225,12 @@ class VectorizingOptimizer(Optimizer):
                     else:
                         copied_op.rd_snapshot = \
                           renamer.rename_rd_snapshot(copied_op.rd_snapshot,
+                                                     copied_op.getdescr(),
                                                      clone=True)
-                        renamed_failargs = renamer.rename_failargs(copied_op,
-                                                                   clone=True)
+                        renamed_failargs = \
+                            renamer.rename_failargs(copied_op,
+                                                    copied_op.getdescr(),
+                                                    clone=True)
                         copied_op.setfailargs(renamed_failargs)
                 #
                 self.emit_unrolled_operation(copied_op)
@@ -360,10 +364,9 @@ class VectorizingOptimizer(Optimizer):
             # some test cases check the accumulation variables
             self.packset.accum_vars = {}
             for pack in self.packset.packs:
-                var = pack.accum_variable
-                pos = pack.accum_position
-                if var:
-                    self.packset.accum_vars[var] = pos
+                accum = pack.accum
+                if accum:
+                    self.packset.accum_vars[accum.var] = accum.pos
 
     def schedule(self, vector=False):
         self.guard_early_exit = -1
@@ -524,7 +527,6 @@ def isomorphic(l_op, r_op):
     return False
 
 class PackSet(object):
-
     def __init__(self, dependency_graph, operations, unroll_count,
                  smallest_type_bytes, vec_reg_size):
         self.packs = []
@@ -611,8 +613,8 @@ class PackSet(object):
         # preserve the accum variable (if present) of the
         # left most pack, that is the pack with the earliest
         # operation at index 0 in the trace
-        pack.accum_variable = pack_i.accum_variable
-        pack.accum_position = pack_i.accum_position
+        pack.accum = pack_i.accum
+        pack_i.accum = pack_j.accum = None
 
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
@@ -634,17 +636,17 @@ class PackSet(object):
         if opnum in (rop.FLOAT_ADD, rop.INT_ADD):
             roper = rnode.getoperation()
             assert lop.numargs() == 2 and lop.result is not None
-            accum, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
-            if not accum:
+            accum_var, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
+            if not accum_var:
                 return None
             # the dependency exists only because of the result of lnode
             for dep in lnode.provides():
                 if dep.to is rnode:
-                    if not dep.because_of(accum):
+                    if not dep.because_of(accum_var):
                         # not quite ... this is not handlable
                         return None
             # get the original variable
-            accum = lop.getarg(accum_pos)
+            accum_var = lop.getarg(accum_pos)
 
             # in either of the two cases the arguments are mixed,
             # which is not handled currently
@@ -658,7 +660,8 @@ class PackSet(object):
 
             # this can be handled by accumulation
             ptype = origin_pack.output_type
-            return AccumPair(lnode, rnode, ptype, ptype, accum, accum_pos)
+            accum = Accum(accum_var, accum_pos, Accum.PLUS)
+            return AccumPair(lnode, rnode, ptype, ptype, accum)
 
         return None
 
@@ -672,24 +675,23 @@ class PackSet(object):
 
     def accumulate_prepare(self, sched_data, renamer):
         for pack in self.packs:
-            if pack.accum_variable is None:
+            if not pack.is_accumulating():
                 continue
-            var = pack.accum_variable
-            pos = pack.accum_position
+            accum = pack.accum
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()
             op = ResOperation(rop.VEC_BOX, [ConstInt(0)], box)
             sched_data.invariant_oplist.append(op)
             result = box.clonebox()
-            # clear the box to zero
+            # clear the box to zero TODO might not be zero for every reduction?
             op = ResOperation(rop.VEC_INT_XOR, [box, box], result)
             sched_data.invariant_oplist.append(op)
             box = result
-            result = box.clonebox()
+            result = BoxVectorAccum(box, accum.var, '+')
             # pack the scalar value
             op = ResOperation(getpackopnum(box.item_type),
-                              [box, var, ConstInt(0), ConstInt(1)], result)
+                              [box, accum.var, ConstInt(0), ConstInt(1)], result)
             sched_data.invariant_oplist.append(op)
             # rename the variable with the box
-            renamer.start_renaming(var, result)
+            renamer.start_renaming(accum.var, result)
 

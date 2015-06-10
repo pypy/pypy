@@ -1812,8 +1812,8 @@ class Assembler386(BaseAssembler):
         # accumulation of a vectorized loop needs to patch
         # some vector registers (e.g. sum).
         if guardtok.faildescr.update_at_exit is not None:
-            for pae in guardtok.faildescr.update_at_exit:
-                self._update_at_exit(guardtok.fail_locs,pae)
+            for pos,accum in guardtok.faildescr.update_at_exit:
+                self._accum_update_at_exit(guardtok.fail_locs,pos,accum)
             guardtok.fail_descr.update_at_exit = None
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
@@ -2477,14 +2477,12 @@ class Assembler386(BaseAssembler):
     # vector operations
     # ________________________________________
 
-    def _accum_update_at_exit(self, fail_locs, accum_descr):
+    def _accum_update_at_exit(self, fail_locs, pos, vector_accum):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
         pass
-        loc = fail_locs[accum_descr.position]
-        vector_var = accum_descr.vector_var
-        scalar_var = accum_descr.scalar_var
-        if accum_descr.operator == '+':
+        loc = fail_locs[pos]
+        if vector_accum.operator.operator == '+':
             # reduction using plus
             self._accum_reduce_float_sum(vector_var, scalar_var, loc)
         else:

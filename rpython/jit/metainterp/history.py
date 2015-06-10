@@ -573,6 +573,12 @@ class BoxVector(Box):
             return False
         return True
 
+class BoxVectorAccum(BoxVector):
+    def __init__(self, box, var, operator):
+        BoxVector.__init__(self, box.item_type, box.item_count, box.item_size, box.item_signed)
+        self.scalar_var = var
+        self.operator = operator
+
 # ____________________________________________________________
 
 
