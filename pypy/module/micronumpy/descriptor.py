@@ -690,8 +690,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
             return dtype
         if space.isinstance_w(w_dtype, space.w_type) and \
            space.is_true(space.issubtype(w_dtype, dtype.w_box_type)):
-            return cache.w_objectdtype
-            #return W_Dtype(types.VoidType(space), w_box_type=dtype.w_box_type)
+            return W_Dtype(dtype.itemtype, w_box_type=w_dtype, elsize=0)
     if space.isinstance_w(w_dtype, space.w_type):
         return cache.w_objectdtype
     raise oefmt(space.w_TypeError, "data type not understood")
