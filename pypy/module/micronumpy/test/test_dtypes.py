@@ -688,16 +688,8 @@ class AppTestTypes(BaseAppTestDtypes):
                                       numpy.integer, numpy.number,
                                       numpy.generic, object]
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            # These tests pass "by chance" on numpy, things that are larger than
-            # platform long (i.e. a python int), don't get put in a normal box,
-            # instead they become an object array containing a long, we don't have
-            # yet, so these can't pass.
-            assert numpy.uint64(9223372036854775808) == 9223372036854775808
-            assert numpy.uint64(18446744073709551615) == 18446744073709551615
-        else:
-            raises(OverflowError, numpy.int64, 9223372036854775808)
-            raises(OverflowError, numpy.int64, 18446744073709551615)
+        raises(OverflowError, numpy.int64, 9223372036854775808)
+        raises(OverflowError, numpy.int64, 18446744073709551615)
         raises(OverflowError, numpy.uint64, 18446744073709551616)
         assert numpy.uint64((2<<63) - 1) == (2<<63) - 1
 
