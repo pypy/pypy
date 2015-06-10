@@ -443,6 +443,12 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('OBJECTS1', '$(subst .asmgcc.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
 
+            # the CFLAGS passed to gcc when invoked to assembler the .s file
+            # must not contain -g.  This confuses gcc 5.1.  (arigo) I failed
+            # to get any debugging symbols with gcc 5.1 and an older gdb
+            # 7.4.1-debian; I don't understand why at all because it works
+            # fine in manual examples.
+            mk.definition('CFLAGS_AS', '$(patsubst -g,,$(CFLAGS))')
 
             # the rule that transforms %.c into %.o, by compiling it to
             # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
@@ -452,7 +458,7 @@ class CStandaloneBuilder(CBuilder):
                     '-o $*.s -S $< $(INCLUDEDIRS)',
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.s > $*.gctmp',
-                '$(CC) $(CFLAGS) -o $*.o -c $*.lbl.s',
+                '$(CC) $(CFLAGS_AS) -o $*.o -c $*.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
 
