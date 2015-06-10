@@ -225,11 +225,9 @@ class VectorizingOptimizer(Optimizer):
                     else:
                         copied_op.rd_snapshot = \
                           renamer.rename_rd_snapshot(copied_op.rd_snapshot,
-                                                     copied_op.getdescr(),
                                                      clone=True)
                         renamed_failargs = \
                             renamer.rename_failargs(copied_op,
-                                                    copied_op.getdescr(),
                                                     clone=True)
                         copied_op.setfailargs(renamed_failargs)
                 #

@@ -207,13 +207,12 @@ class Renamer(object):
 
         if op.is_guard():
             assert isinstance(op, resoperation.GuardResOp)
-            descr = op.getdescr()
-            op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot, descr)
-            self.rename_failargs(op, descr)
+            op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot)
+            self.rename_failargs(op)
 
         return True
 
-    def rename_failargs(self, guard, descr, clone=False):
+    def rename_failargs(self, guard, clone=False):
         if guard.getfailargs() is not None:
             if clone:
                 args = guard.getfailargs()[:]
@@ -221,12 +220,11 @@ class Renamer(object):
                 args = guard.getfailargs()
             for i,arg in enumerate(args):
                 value = self.rename_map.get(arg,arg)
-                self.check_failarg(i, value, descr)
                 args[i] = value
             return args
         return None
 
-    def rename_rd_snapshot(self, snapshot, descr, clone=False):
+    def rename_rd_snapshot(self, snapshot, clone=False):
         # snapshots are nested like the MIFrames
         if snapshot is None:
             return None
@@ -238,17 +236,5 @@ class Renamer(object):
             value = self.rename_map.get(box,box)
             boxes[i] = value
         #
-        rec_snap = self.rename_rd_snapshot(snapshot.prev, descr, clone)
+        rec_snap = self.rename_rd_snapshot(snapshot.prev, clone)
         return Snapshot(rec_snap, boxes)
-
-    def check_failarg(self, pos, vector, descr):
-        # TODO move this out? this has nothing todo with the renamer
-        # -> problem is that another iteration is needed then
-        if descr is None:
-            return
-        from rpython.jit.metainterp.history import BoxVectorAccum
-        if isinstance(vector, BoxVectorAccum):
-            if descr.update_at_exit is None:
-                descr.update_at_exit = []
-            descr.update_at_exit.append((pos, vector))
-

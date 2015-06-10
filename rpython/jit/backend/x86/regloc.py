@@ -717,6 +717,9 @@ class LocationCodeBuilder(object):
 
     PSHUFB = _binaryop('PSHUFB')
 
+    HADDPD = _binaryop('HADDPD')
+    HADDPS = _binaryop('HADDPS')
+
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')
 

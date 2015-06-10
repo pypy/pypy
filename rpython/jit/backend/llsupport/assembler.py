@@ -2,8 +2,8 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.codemap import CodemapBuilder
-from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt, AbstractFailDescr)
+from rpython.jit.metainterp.history import (INT, REF, FLOAT, VECTOR,
+    JitCellToken, ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
@@ -20,7 +20,6 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     ('type', lltype.Char),
     ('number', lltype.Signed)
 )
-
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,

@@ -747,6 +747,9 @@ class AbstractX86CodeBuilder(object):
     PSHUFB_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), register(2), '\xC0')
     PSHUFB_xm = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), mem_reg_plus_const(2))
 
+    # SSE3
+    HADDPD_xx = xmminsn('\x66', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
+    HADDPS_xx = xmminsn('\xF2', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
 
     # following require SSE4_1
     PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(1), register(2,8), '\xC0', immediate(3, 'b'))
@@ -760,6 +763,7 @@ class AbstractX86CodeBuilder(object):
     PINSRW_xri = xmminsn('\x66', rex_nw, '\x0F\xC4', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     PINSRB_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x20', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     INSERTPS_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x21', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+
 
     # ------------------------------------------------------------
 

@@ -7,7 +7,8 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import Const, Box, VOID, BoxVector, ConstInt
+from rpython.jit.metainterp.history import (Const, Box, VOID,
+    BoxVector, ConstInt, BoxVectorAccum)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -1814,7 +1815,7 @@ class Assembler386(BaseAssembler):
         if guardtok.faildescr.update_at_exit is not None:
             for pos,accum in guardtok.faildescr.update_at_exit:
                 self._accum_update_at_exit(guardtok.fail_locs,pos,accum)
-            guardtok.fail_descr.update_at_exit = None
+            guardtok.faildescr.update_at_exit = None
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
         self.push_gcmap(self.mc, guardtok.gcmap, push=True)
@@ -2482,16 +2483,15 @@ class Assembler386(BaseAssembler):
         some vector registers must be adjusted to yield the correct value"""
         pass
         loc = fail_locs[pos]
-        if vector_accum.operator.operator == '+':
+        if vector_accum.operator == '+':
             # reduction using plus
-            self._accum_reduce_float_sum(vector_var, scalar_var, loc)
+            self._accum_reduce_sum(vector_accum, loc)
         else:
             raise NotImplementedError("accum operator %s not implemented" %
                                         (accum_descr.operator)) 
 
-    def _accum_reduce_sum(self, vector_var, scalar_var, regloc):
-        assert isinstance(vector_var, BoxVector)
-        assert isinstance(scalar_var, Box)
+    def _accum_reduce_sum(self, vector_var, regloc):
+        assert isinstance(vector_var, BoxVectorAccum)
         #
         if vector_var.gettype() == FLOAT:
             if vector_var.getsize() == 8:
