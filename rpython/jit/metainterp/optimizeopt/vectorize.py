@@ -399,8 +399,6 @@ class VectorizingOptimizer(Optimizer):
     def unpack_from_vector(self, op, sched_data, renamer):
         renamer.rename(op)
         args = op.getarglist()
-        if op.getopnum() == rop.INT_SIGNEXT:
-            py.test.set_trace()
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
                 argument = self._unpack_from_vector(i, arg, sched_data, renamer)
