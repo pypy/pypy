@@ -332,6 +332,17 @@ class TestNumpyJit(Jit386Mixin):
         assert result == sum(range(30))
         self.check_vectorized(1, 1)
 
+    def define_sum_float_to_int16():
+        return """
+        a = |30|
+        sum(a,int16)
+        """
+
+    def test_sum_float_to_int16(self):
+        result = self.run("sum_float_to_int16")
+        assert result == sum(range(30))
+        self.check_vectorized(1, 1)
+
     def define_cumsum():
         return """
         a = |30|

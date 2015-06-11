@@ -724,8 +724,13 @@ class FunctionCall(Node):
                 raise ArgumentMismatch
             if self.name == "sum":
                 if len(self.args)>1:
-                    w_res = arr.descr_sum(interp.space,
+                    var = self.args[1]
+                    if isinstance(var, DtypeClass):
+                        w_res = arr.descr_sum(interp.space, None, var.execute(interp))
+                    else:
+                        w_res = arr.descr_sum(interp.space,
                                           self.args[1].execute(interp))
+
                 else:
                     w_res = arr.descr_sum(interp.space)
             elif self.name == "prod":

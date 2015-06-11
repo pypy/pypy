@@ -361,10 +361,15 @@ class VectorizingOptimizer(Optimizer):
         if not we_are_translated():
             # some test cases check the accumulation variables
             self.packset.accum_vars = {}
+            print "packs:"
             for pack in self.packset.packs:
                 accum = pack.accum
                 if accum:
                     self.packset.accum_vars[accum.var] = accum.pos
+
+                print " %dx %s (accum? %d) " % (len(pack.operations),
+                                                pack.operations[0].op.getopname(),
+                                                accum is not None)
 
     def schedule(self, vector=False):
         self.guard_early_exit = -1
@@ -394,6 +399,8 @@ class VectorizingOptimizer(Optimizer):
     def unpack_from_vector(self, op, sched_data, renamer):
         renamer.rename(op)
         args = op.getarglist()
+        if op.getopnum() == rop.INT_SIGNEXT:
+            py.test.set_trace()
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
                 argument = self._unpack_from_vector(i, arg, sched_data, renamer)
@@ -481,7 +488,7 @@ class CostModel(object):
     def unpack_cost(self, index, op):
         raise NotImplementedError
 
-    def savings_for_pack(self, opnum, times):
+    def savings_for_pack(self, pack, times):
         raise NotImplementedError
 
     def savings_for_unpacking(self, node, index):
@@ -495,8 +502,8 @@ class CostModel(object):
     def calculate_savings(self, packset):
         savings = 0
         for pack in packset.packs:
-            savings += self.savings_for_pack(pack.opnum, pack.opcount())
             op0 = pack.operations[0].getoperation()
+            savings += self.savings_for_pack(pack, pack.opcount())
             if op0.result:
                 for i,node in enumerate(pack.operations):
                     savings += self.savings_for_unpacking(node, i)
@@ -507,9 +514,21 @@ class CostModel(object):
 
 class X86_CostModel(CostModel):
 
-    def savings_for_pack(self, opnum, times):
-        cost, benefit_factor = (1,1) # TODO custom values for different ops
+    def savings_for_pack(self, pack, times):
+        cost, benefit_factor = (1,1)
+        op = pack.operations[0].getoperation()
+        if op.getopnum() == rop.INT_SIGNEXT:
+            cost, benefit_factor = self.cb_signext(pack)
         return benefit_factor * times - cost
+
+    def cb_signext(self, pack):
+        op0 = pack.operations[0].getoperation()
+        size = op0.getarg(1).getint()
+        orig_size = pack.output_type.getsize()
+        if size == orig_size:
+            return 0,0
+        # no benefit for this operation! needs many x86 instr 
+        return 1,0
 
     def unpack_cost(self, index, op):
         if op.getdescr():

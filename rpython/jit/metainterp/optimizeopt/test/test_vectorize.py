@@ -12,7 +12,7 @@ import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 from rpython.jit.metainterp.optimizeopt.vectorize import (VectorizingOptimizer, MemoryRef,
-        isomorphic, Pair, NotAVectorizeableLoop, NotAVectorizeableLoop, GuardStrengthenOpt)
+        isomorphic, Pair, NotAVectorizeableLoop, NotAProfitableLoop, GuardStrengthenOpt)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
@@ -109,6 +109,8 @@ class VecTestHelper(DependencyBaseTest):
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
+        if not opt.costmodel.profitable(opt.packset):
+            raise NotAProfitableLoop()
         opt.schedule(True)
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         gso.propagate_all_forward(opt.loop)
