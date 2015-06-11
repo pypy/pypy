@@ -2298,6 +2298,7 @@ class UnicodeType(FlexibleType):
         return (not b and a) or (not a and b)
 
     def bool(self, v):
+        assert isinstance(v, boxes.W_UnicodeBox)
         return bool(v._value)
 
     def fill(self, storage, width, native, box, start, stop, offset, gcstruct):
