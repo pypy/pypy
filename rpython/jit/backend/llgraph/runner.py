@@ -3,7 +3,7 @@ from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.jit.metainterp.history import Const, getkind
+from rpython.jit.metainterp.history import Const, getkind, BoxVectorAccum
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, VECTOR
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
@@ -862,6 +862,17 @@ class LLFrame(object):
                 value = self.env[box]
             else:
                 value = None
+            if isinstance(box, BoxVectorAccum):
+                if box.operator == '+':
+                    value = sum(value)
+                elif box.operator == '-':
+                    def sub(acc, x): return acc - x
+                    value = reduce(sub, value, 0)
+                elif box.operator == '*':
+                    def prod(acc, x): return acc * x
+                    value = reduce(prod, value, 1)
+                else:
+                    raise NotImplementedError
             values.append(value)
         if hasattr(descr, '_llgraph_bridge'):
             target = (descr._llgraph_bridge, -1)
