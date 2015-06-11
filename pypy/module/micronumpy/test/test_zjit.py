@@ -169,6 +169,17 @@ class TestNumpyJit(Jit386Mixin):
         self.assert_float_equal(result, 17.0 + 17.0)
         self.check_vectorized(1, 1)
 
+    def define_uint_add():
+        return """
+        a = astype(|30|, uint64)
+        b = a + a
+        b -> 17
+        """
+    def test_uint_add(self):
+        result = self.run("uint_add")
+        assert int(result) == 17+17
+        self.check_vectorized(2, 1)
+
     def define_float32_add_const():
         return """
         a = astype(|30|, float32)
