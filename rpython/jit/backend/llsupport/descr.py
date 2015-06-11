@@ -126,6 +126,16 @@ class FieldDescr(ArrayOrFieldDescr):
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
 
+    def check_correct_type(self, struct):
+        if isinstance(self.parent_descr, SizeDescrWithVTable):
+            cls = llmemory.cast_adr_to_ptr(
+                heaptracker.int2adr(self.parent_descr.get_vtable()),
+                lltype.Ptr(rclass.OBJECT_VTABLE))
+            assert rclass.ll_isinstance(lltype.cast_opaque_ptr(
+                rclass.OBJECTPTR, struct), cls)
+        else:
+            pass
+
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
 

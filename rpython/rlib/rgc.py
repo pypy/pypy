@@ -715,3 +715,19 @@ class RegisterCustomLightFinalizer(ExtRegistryEntry):
         funcptr = hop.rtyper.annotate_helper_fn(ll_func, args_s)
         hop.exception_cannot_occur()
         lltype.attachRuntimeTypeInfo(TP, destrptr=funcptr)
+
+all_typeids = {}
+        
+def get_typeid(obj):
+    raise Exception("does not work untranslated")
+
+class GetTypeidEntry(ExtRegistryEntry):
+    _about_ = get_typeid
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gettypeid', hop.args_v, resulttype=hop.r_result)

@@ -577,15 +577,18 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
         ofs, size, _ = self.unpack_fielddescr_size(fielddescr)
+        fielddescr.check_correct_type(struct)
         self.write_int_at_mem(struct, ofs, size, newvalue)
 
     def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        fielddescr.check_correct_type(struct)
         self.write_ref_at_mem(struct, ofs, newvalue)
 
     @specialize.argtype(1)
     def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        fielddescr.check_correct_type(struct)
         self.write_float_at_mem(struct, ofs, newvalue)
 
     bh_setfield_raw_i = bh_setfield_gc_i
