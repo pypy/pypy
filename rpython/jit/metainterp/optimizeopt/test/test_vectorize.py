@@ -53,7 +53,7 @@ class VecTestHelper(DependencyBaseTest):
     def vectoroptimizer(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, [])
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
         return opt
 
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
@@ -96,12 +96,15 @@ class VecTestHelper(DependencyBaseTest):
         opt.combine_packset()
         return opt
 
-    def schedule(self, loop, unroll_factor = -1):
+    def schedule(self, loop, unroll_factor = -1, with_guard_opt=False):
         opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
         opt.schedule(True)
+        if with_guard_opt:
+            gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
+            gso.propagate_all_forward(opt.loop)
         return opt
 
     def vectorize(self, loop, unroll_factor = -1):
@@ -962,7 +965,7 @@ class BaseTestVectorize(VecTestHelper):
         i1 = vec_getarrayitem_raw(p0, i0, 16, descr=chararraydescr)
         jump(p0,i2)
         """.format(dead_code=dead_code)
-        vopt = self.vectorize(self.parse_loop(ops),15)
+        vopt = self.schedule(self.parse_loop(ops),15,with_guard_opt=True)
         self.assert_equal(vopt.loop, self.parse_loop(opt))
 
     def test_too_small_vector(self):
@@ -1304,8 +1307,11 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i39) [i1, p9, p8, p6, p4, p3, i33, i38, None, None, i26, i11, None, p13, None, None, p10]
         jump(i1, p10, i11, p8, i26, p3, p4, p13, i33, i38, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23)
         """
-        opt = self.vectorize(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
+        try:
+            self.vectorize(self.parse_loop(trace))
+            py.test.fail("axis sum is not profitable")
+        except NotAProfitableLoop:
+            pass
 
     def test_cast_1(self):
         trace = """
@@ -1364,7 +1370,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i17) [p2, i16, f9, i14, None, None, None, p3]
         jump(p3, i14, p2, i16, f9, i7, i8)
         """
-        opt = self.vectorize(self.parse_loop(trace))
+        opt = self.schedule(self.parse_loop(trace), with_guard_opt=True)
         self.debug_print_operations(opt.loop)
 
 

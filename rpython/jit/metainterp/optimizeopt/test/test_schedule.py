@@ -53,7 +53,7 @@ class SchedulerBaseTest(DependencyBaseTest):
             if len(pack) == 1:
                 ops.append(pack[0].getoperation())
             else:
-                for op in vsd.as_vector_operation(Pack(pack), renamer):
+                for op in vsd.as_vector_operation(Pack(pack, None, None), renamer):
                     ops.append(op)
         loop.operations = ops
         if prepend_invariant:

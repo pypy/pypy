@@ -522,6 +522,8 @@ class X86_CostModel(CostModel):
     def cb_signext(self, pack):
         op0 = pack.operations[0].getoperation()
         size = op0.getarg(1).getint()
+        if pack.output_type is None:
+            return 1,0
         orig_size = pack.output_type.getsize()
         if size == orig_size:
             return 0,0
