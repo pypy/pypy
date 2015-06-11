@@ -418,6 +418,11 @@ class AppTestRecompiler:
         # 'x' is another <built-in method> object on lib, made very indirectly
         x = type(lib).__dir__.__get__(lib)
         raises(TypeError, ffi.typeof, x)
+        #
+        # present on built-in functions on CPython; must be emulated on PyPy:
+        assert lib.sin.__name__ == 'sin'
+        assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
+        assert lib.sin.__doc__=='direct call to the C function of the same name'
 
     def test_verify_anonymous_struct_with_typedef(self):
         ffi, lib = self.prepare(
