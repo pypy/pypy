@@ -131,26 +131,27 @@ class CostModelBaseTest(SchedulerBaseTest):
         savings = self.savings(loop1)
         assert savings == 2
 
-    def test_sum_float_to_int16(self):
+    @py.test.mark.parametrize("bytes,s", [(1,-1),(2,-1),(4,0),(8,-1)])
+    def test_sum_float_to_int(self, bytes, s):
         loop1 = self.parse("""
         f10 = raw_load(p0, i0, descr=double)
         f11 = raw_load(p0, i1, descr=double)
         i10 = cast_float_to_int(f10)
         i11 = cast_float_to_int(f11)
-        i12 = int_signext(i10, 2)
-        i13 = int_signext(i11, 2)
+        i12 = int_signext(i10, {c})
+        i13 = int_signext(i11, {c})
         i14 = int_add(i1, i12)
-        i16 = int_signext(i14, 2)
+        i16 = int_signext(i14, {c})
         i15 = int_add(i16, i13)
-        i17 = int_signext(i15, 2)
-        """)
+        i17 = int_signext(i15, {c})
+        """.format(c=bytes))
         savings = self.savings(loop1)
         # it does not benefit because signext has
         # a very inefficient implementation (x86
         # does not provide nice instr to convert
         # integer sizes)
         # signext -> no benefit, + 2x unpack
-        assert savings < 0
+        assert savings <= s
 
 class Test(CostModelBaseTest, LLtypeMixin):
     pass

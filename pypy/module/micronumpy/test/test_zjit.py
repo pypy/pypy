@@ -8,6 +8,7 @@ from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats
 from rpython.jit.metainterp.jitprof import Profiler
 from rpython.rlib.jit import Counters
+from rpython.rlib.rarithmetic import intmask
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
@@ -72,6 +73,16 @@ class TestNumpyJit(Jit386Mixin):
                 return float(int(w_res.value))
             elif isinstance(w_res, boxes.W_Int16Box):
                 return float(int(w_res.value))
+            elif isinstance(w_res, boxes.W_Int8Box):
+                return float(int(w_res.value))
+            elif isinstance(w_res, boxes.W_UInt64Box):
+                return float(intmask(w_res.value))
+            elif isinstance(w_res, boxes.W_UInt32Box):
+                return float(intmask(w_res.value))
+            elif isinstance(w_res, boxes.W_UInt16Box):
+                return float(intmask(w_res.value))
+            elif isinstance(w_res, boxes.W_UInt8Box):
+                return float(intmask(w_res.value))
             elif isinstance(w_res, boxes.W_LongBox):
                 return float(w_res.value)
             elif isinstance(w_res, boxes.W_BoolBox):
@@ -337,11 +348,39 @@ class TestNumpyJit(Jit386Mixin):
         a = |30|
         sum(a,int16)
         """
-
     def test_sum_float_to_int16(self):
         result = self.run("sum_float_to_int16")
         assert result == sum(range(30))
+        self.check_vectorized(1, 0)
+    def define_sum_float_to_int32():
+        return """
+        a = |30|
+        sum(a,int32)
+        """
+    def test_sum_float_to_int32(self):
+        result = self.run("sum_float_to_int32")
+        assert result == sum(range(30))
         self.check_vectorized(1, 1)
+
+    def define_sum_float_to_float32():
+        return """
+        a = |30|
+        sum(a,float32)
+        """
+    def test_sum_float_to_float32(self):
+        result = self.run("sum_float_to_float32")
+        assert result == sum(range(30))
+        self.check_vectorized(1, 1)
+
+    def define_sum_float_to_uint64():
+        return """
+        a = |30|
+        sum(a,uint64)
+        """
+    def test_sum_float_to_uint64(self):
+        result = self.run("sum_float_to_uint64")
+        assert result == sum(range(30))
+        self.check_vectorized(1, 0) # unsigned
 
     def define_cumsum():
         return """

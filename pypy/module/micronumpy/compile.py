@@ -685,6 +685,14 @@ class DtypeClass(Node):
             dtype = get_dtype_cache(interp.space).w_int16dtype
         elif self.v == 'int32':
             dtype = get_dtype_cache(interp.space).w_int32dtype
+        elif self.v == 'uint':
+            dtype = get_dtype_cache(interp.space).w_uint64dtype
+        elif self.v == 'uint8':
+            dtype = get_dtype_cache(interp.space).w_uint8dtype
+        elif self.v == 'uint16':
+            dtype = get_dtype_cache(interp.space).w_uint16dtype
+        elif self.v == 'uint32':
+            dtype = get_dtype_cache(interp.space).w_uint32dtype
         elif self.v == 'float':
             dtype = get_dtype_cache(interp.space).w_float64dtype
         elif self.v == 'float32':
@@ -932,6 +940,16 @@ class Parser(object):
                     stack.append(DtypeClass('int32'))
                 elif token.v.strip(' ') == 'int64':
                     stack.append(DtypeClass('int'))
+                elif token.v.strip(' ') == 'uint':
+                    stack.append(DtypeClass('uint'))
+                elif token.v.strip(' ') == 'uint8':
+                    stack.append(DtypeClass('uint8'))
+                elif token.v.strip(' ') == 'uint16':
+                    stack.append(DtypeClass('uint16'))
+                elif token.v.strip(' ') == 'uint32':
+                    stack.append(DtypeClass('uint32'))
+                elif token.v.strip(' ') == 'uint64':
+                    stack.append(DtypeClass('uint'))
                 elif token.v.strip(' ') == 'float':
                     stack.append(DtypeClass('float'))
                 elif token.v.strip(' ') == 'float32':
