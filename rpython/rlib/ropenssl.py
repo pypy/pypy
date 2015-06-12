@@ -97,6 +97,7 @@ class CConfig:
     if HAVE_TLSv1_2:
         SSL_OP_NO_TLSv1_1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_1")
         SSL_OP_NO_TLSv1_2 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_2")
+    OPENSSL_NO_TLSEXT = rffi_platform.Defined("OPENSSL_NO_TLSEXT")
     SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
         "SSL_OP_CIPHER_SERVER_PREFERENCE")
     SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
@@ -259,6 +260,7 @@ HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df and \
                              OPENSSL_VERSION_NUMBER != 0x00909000
 if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
+HAVE_ALPN = OPENSSL_VERSION_NUMBER >= 0x1000200fL and not OPENSSL_NO_TLSEXT
 
 
 def external(name, argtypes, restype, **kw):

@@ -66,6 +66,7 @@ constants["HAS_SNI"] = HAS_SNI
 constants["HAS_TLS_UNIQUE"] = HAVE_OPENSSL_FINISHED
 constants["HAS_ECDH"] = not OPENSSL_NO_ECDH
 constants["HAS_NPN"] = OPENSSL_NPN_NEGOTIATED
+constants["HAS_ALPN"] = HAVE_ALPN
 
 if not OPENSSL_NO_SSL2:
     constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
