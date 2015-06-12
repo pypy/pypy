@@ -871,7 +871,11 @@ class ftpwrapper:
         self.timeout = timeout
         self.refcount = 0
         self.keepalive = persistent
-        self.init()
+        try:
+            self.init()
+        except:
+            self.close()
+            raise
 
     def init(self):
         import ftplib
@@ -990,11 +994,16 @@ class addclosehook(addbase):
         self.hookargs = hookargs
 
     def close(self):
-        if self.closehook:
-            self.closehook(*self.hookargs)
-            self.closehook = None
-            self.hookargs = None
-        addbase.close(self)
+        try:
+            closehook = self.closehook
+            hookargs = self.hookargs
+            if closehook:
+                self.closehook = None
+                self.hookargs = None
+                closehook(*hookargs)
+        finally:
+            addbase.close(self)
+
 
 class addinfo(addbase):
     """class to add an info() method to an open file."""

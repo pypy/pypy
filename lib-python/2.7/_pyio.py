@@ -25,8 +25,8 @@ __metaclass__ = type
 DEFAULT_BUFFER_SIZE = 8 * 1024  # bytes
 
 # NOTE: Base classes defined here are registered with the "official" ABCs
-# defined in io.py. We don't use real inheritance though, because we don't
-# want to inherit the C implementations.
+# defined in io.py. We don't use real inheritance though, because we don't want
+# to inherit the C implementations.
 
 
 class BlockingIOError(IOError):
@@ -775,7 +775,7 @@ class _BufferedIOMixin(BufferedIOBase):
         clsname = self.__class__.__name__
         try:
             name = self.name
-        except AttributeError:
+        except Exception:
             return "<_pyio.{0}>".format(clsname)
         else:
             return "<_pyio.{0} name={1!r}>".format(clsname, name)
@@ -1216,8 +1216,10 @@ class BufferedRWPair(BufferedIOBase):
         return self.writer.flush()
 
     def close(self):
-        self.writer.close()
-        self.reader.close()
+        try:
+            self.writer.close()
+        finally:
+            self.reader.close()
 
     def isatty(self):
         return self.reader.isatty() or self.writer.isatty()
@@ -1538,7 +1540,7 @@ class TextIOWrapper(TextIOBase):
     def __repr__(self):
         try:
             name = self.name
-        except AttributeError:
+        except Exception:
             return "<_pyio.TextIOWrapper encoding='{0}'>".format(self.encoding)
         else:
             return "<_pyio.TextIOWrapper name={0!r} encoding='{1}'>".format(

@@ -773,7 +773,7 @@ class saved_test_environment:
 
     resources = ('sys.argv', 'cwd', 'sys.stdin', 'sys.stdout', 'sys.stderr',
                  'os.environ', 'sys.path', 'asyncore.socket_map',
-                 'test_support.TESTFN',
+                 'files',
                 )
 
     def get_sys_argv(self):
@@ -839,6 +839,17 @@ class saved_test_environment:
                 os.unlink(test_support.TESTFN)
             elif os.path.isdir(test_support.TESTFN):
                 shutil.rmtree(test_support.TESTFN)
+
+    def get_files(self):
+        return sorted(fn + ('/' if os.path.isdir(fn) else '')
+                      for fn in os.listdir(os.curdir))
+    def restore_files(self, saved_value):
+        fn = test_support.TESTFN
+        if fn not in saved_value and (fn + '/') not in saved_value:
+            if os.path.isfile(fn):
+                test_support.unlink(fn)
+            elif os.path.isdir(fn):
+                test_support.rmtree(fn)
 
     def resource_info(self):
         for name in self.resources:
@@ -1191,6 +1202,7 @@ _expectations = {
         test_pwd
         test_resource
         test_signal
+        test_spwd
         test_threadsignals
         test_timing
         test_wait3

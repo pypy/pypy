@@ -123,6 +123,12 @@ class Timer:
         self.timer = timer
         ns = {}
         if isinstance(stmt, basestring):
+            # Check that the code can be compiled outside a function
+            if isinstance(setup, basestring):
+                compile(setup, dummy_src_name, "exec")
+                compile(setup + '\n' + stmt, dummy_src_name, "exec")
+            else:
+                compile(stmt, dummy_src_name, "exec")
             stmt = reindent(stmt, 8)
             if isinstance(setup, basestring):
                 setup = reindent(setup, 4)
@@ -234,10 +240,10 @@ def repeat(stmt="pass", setup="pass", timer=default_timer,
     """Convenience function to create Timer object and call repeat method."""
     return Timer(stmt, setup, timer).repeat(repeat, number)
 
-def main(args=None):
+def main(args=None, _wrap_timer=None):
     """Main program, used when run as a script.
 
-    The optional argument specifies the command line to be parsed,
+    The optional 'args' argument specifies the command line to be parsed,
     defaulting to sys.argv[1:].
 
     The return value is an exit code to be passed to sys.exit(); it
@@ -246,6 +252,10 @@ def main(args=None):
     When an exception happens during timing, a traceback is printed to
     stderr and the return value is 1.  Exceptions at other times
     (including the template compilation) are not caught.
+
+    '_wrap_timer' is an internal interface used for unit testing.  If it
+    is not None, it must be a callable that accepts a timer function
+    and returns another timer function (used for unit testing).
     """
     if args is None:
         args = sys.argv[1:]
@@ -291,6 +301,8 @@ def main(args=None):
     # directory)
     import os
     sys.path.insert(0, os.curdir)
+    if _wrap_timer is not None:
+        timer = _wrap_timer(timer)
     t = Timer(stmt, setup, timer)
     if number == 0:
         # determine number so that 0.2 <= total time < 2.0
