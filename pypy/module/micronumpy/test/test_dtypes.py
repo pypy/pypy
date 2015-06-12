@@ -1144,10 +1144,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         import sys
         d = {'names': ['r','g','b','a'],
              'formats': [np.uint8, np.uint8, np.uint8, np.uint8]}
-        if '__pypy__' not in sys.builtin_module_names:
-            dt = np.dtype(d)
-        else:
-            raises(NotImplementedError, np.dtype, d)
+        dt = np.dtype(d)
 
     def test_create_subarrays(self):
         from numpy import dtype
@@ -1355,5 +1352,46 @@ class AppTestNotDirect(BaseNumpyAppTest):
         a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
         assert a[0] == 1
         assert (a + a)[1] == 4
+
+class AppTestMonsterType(BaseNumpyAppTest):
+    """Test deeply nested subtypes."""
+    def test1(self):
+        import numpy as np
+        simple1 = np.dtype({'names': ['r', 'b'], 'formats': ['u1', 'u1'],
+            'titles': ['Red pixel', 'Blue pixel']})
+        a = np.dtype([('yo', np.int), ('ye', simple1),
+            ('yi', np.dtype((np.int, (3, 2))))])
+        b = np.dtype([('yo', np.int), ('ye', simple1),
+            ('yi', np.dtype((np.int, (3, 2))))])
+        assert a == b
+
+        c = np.dtype([('yo', np.int), ('ye', simple1),
+            ('yi', np.dtype((a, (3, 2))))])
+        d = np.dtype([('yo', np.int), ('ye', simple1),
+            ('yi', np.dtype((a, (3, 2))))])
+        assert c == d
+
+
+class AppTestMetadata(BaseNumpyAppTest):
+    def test_no_metadata(self):
+        import numpy as np
+        d = np.dtype(int)
+        assert d.metadata is None
+
+    def test_metadata_takes_dict(self):
+        import numpy as np
+        d = np.dtype(int, metadata={'datum': 1})
+        assert d.metadata == {'datum': 1}
+
+    def test_metadata_rejects_nondict(self):
+        import numpy as np
+        raises(TypeError, np.dtype, int, metadata='datum')
+        raises(TypeError, np.dtype, int, metadata=1)
+        raises(TypeError, np.dtype, int, metadata=None)
+
+    def test_nested_metadata(self):
+        import numpy as np
+        d = np.dtype([('a', np.dtype(int, metadata={'datum': 1}))])
+        assert d['a'].metadata == {'datum': 1}
 
 
