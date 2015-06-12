@@ -552,9 +552,7 @@ class OptString(optimizer.Optimization):
         self._optimize_STRGETITEM(op, mode_unicode)
 
     def _optimize_STRGETITEM(self, op, mode):
-        res = self.strgetitem(op, op.getarg(0), op.getarg(1), mode)
-        if res is not None and not isinstance(res, AbstractResOp):
-            self.make_equal_to(op, res)
+        self.strgetitem(op, op.getarg(0), op.getarg(1), mode)
 
     def strgetitem(self, op, s, index, mode):
         self.make_nonnull_str(s, mode)
