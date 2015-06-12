@@ -180,6 +180,20 @@ class AppTestBufferedReader:
         assert not raw.closed
         raw.close()
 
+    def test_detached(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def readable(self):
+                return True
+        raw = MockRawIO()
+        buf = _io.BufferedReader(raw)
+        assert buf.detach() is raw
+        raises(ValueError, buf.detach)
+
+        raises(ValueError, getattr, buf, 'mode')
+        raises(ValueError, buf.isatty)
+        repr(buf)  # Should still work
+
     def test_tell(self):
         import _io
         raw = _io.FileIO(self.tmpfile)

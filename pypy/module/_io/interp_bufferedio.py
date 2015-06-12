@@ -196,9 +196,11 @@ class BufferedMixin:
         return space.getattr(self.w_raw, space.wrap("closed"))
 
     def name_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("name"))
 
     def mode_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("mode"))
 
     def readable_w(self, space):
@@ -214,6 +216,7 @@ class BufferedMixin:
         return space.call_method(self.w_raw, "seekable")
 
     def isatty_w(self, space):
+        self._check_init(space)
         return space.call_method(self.w_raw, "isatty")
 
     def repr_w(self, space):
@@ -221,7 +224,7 @@ class BufferedMixin:
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
-            if not e.match(space, space.w_AttributeError):
+            if not e.match(space, space.w_Exception):
                 raise
             return space.wrap("<%s>" % (typename,))
         else:
