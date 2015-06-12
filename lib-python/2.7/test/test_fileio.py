@@ -145,11 +145,11 @@ class AutoFileTests(unittest.TestCase):
         self.assertRaises(ValueError, self.f.write, 0)
         self.assertRaises(ValueError, self.f.seek, 0)
 
-        self.assertRaises(ValueError, self.f.readinto) # XXX should be TypeError?
+        self.assertRaises(TypeError, self.f.readinto)
         self.assertRaises(ValueError, self.f.readinto, bytearray(1))
-        self.assertRaises(ValueError, self.f.seek)
+        self.assertRaises(TypeError, self.f.seek)
         self.assertRaises(ValueError, self.f.seek, 0)
-        self.assertRaises(ValueError, self.f.write)
+        self.assertRaises(TypeError, self.f.write)
         self.assertRaises(ValueError, self.f.write, b'')
         self.assertRaises(TypeError, self.f.writelines)
         self.assertRaises(ValueError, self.f.writelines, b'')
