@@ -75,8 +75,7 @@ class TestSTMTranslated(CompiledSTMTests):
             glob.seen = None
             rthread.start_new_thread(threadfn, ())
             while glob.seen is None:
-                llop.stm_commit_if_not_atomic(lltype.Void)
-                llop.stm_start_if_not_atomic(lltype.Void)
+                llop.stm_transaction_break(lltype.Void)
             return glob.seen.value
         #
         t, cbuilder = self.compile(entry_point)
