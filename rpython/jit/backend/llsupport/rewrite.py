@@ -119,6 +119,7 @@ class GcRewriterAssembler(object):
         #
         for i in range(len(operations)):
             op = operations[i]
+            assert op.get_forwarded() is None
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
