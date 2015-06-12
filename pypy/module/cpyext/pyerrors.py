@@ -1,7 +1,7 @@
 import os
 
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, strerror as _strerror
 from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
@@ -164,7 +164,7 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = rffi.cast(lltype.Signed, rposix._get_errno())
-    msg = os.strerror(errno)
+    msg = _strerror(errno)
     if w_value:
         w_error = space.call_function(w_type,
                                       space.wrap(errno),

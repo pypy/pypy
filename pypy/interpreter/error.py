@@ -14,6 +14,10 @@ from pypy.interpreter import debug
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
 
+def strerror(errno):
+    """Translate an error code to a message string."""
+    from pypy.module._codecs.locale import str_decode_locale_surrogateescape
+    return str_decode_locale_surrogateescape(os.strerror(errno))
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
@@ -530,9 +534,9 @@ def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
         space.getexecutioncontext().checksignals()
 
     try:
-        msg = os.strerror(errno)
+        msg = strerror(errno)
     except ValueError:
-        msg = 'error %d' % errno
+        msg = u'error %d' % errno
     if w_exception_class is None:
         exc = getattr(space, exception_name)
     else:
@@ -562,7 +566,7 @@ def exception_from_saved_errno(space, w_type):
     from rpython.rlib.rposix import get_saved_errno
 
     errno = get_saved_errno()
-    msg = os.strerror(errno)
+    msg = strerror(errno)
     w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
     return OperationError(w_type, w_error)
 
