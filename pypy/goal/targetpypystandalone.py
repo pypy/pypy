@@ -1,6 +1,6 @@
 import py
 
-import os, sys
+import os, sys, subprocess
 
 import pypy
 from pypy.interpreter import gateway
@@ -25,6 +25,44 @@ def debug(msg):
         os.write(2, "debug: " + msg + '\n')
     except OSError:
         pass     # bah, no working stderr :-(
+
+# HACKHACKHACK to build cffi import libraries after translation
+
+cffi_build_scripts = {
+    "sqlite3": "_sqlite3_build.py",
+    "audioop": "_audioop_build.py",
+    "tk": "_tkinter/tklib_build.py",
+    "curses": "_curses_build.py" if sys.platform != "win32" else None,
+    "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
+    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
+    "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
+    "xx": None,    # for testing: 'None' should be completely ignored
+    }
+
+def create_cffi_import_libraries(pypy_c, options, basedir):
+    shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
+                  ignore_errors=True)
+    for key, module in sorted(cffi_build_scripts.items()):
+        if module is None or getattr(options, 'no_' + key, None):
+            continue
+        if module.endswith('.py'):
+            args = [str(pypy_c), module]
+            cwd = str(basedir.join('lib_pypy'))
+        else:
+            args = [str(pypy_c), '-c', 'import ' + module]
+            cwd = None
+        print >> sys.stderr, '*', ' '.join(args)
+        try:
+            subprocess.check_call(args, cwd=cwd)
+        except subprocess.CalledProcessError:
+            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
+You can either install development headers package,
+add the --without-{0} option to skip packaging this
+binary CFFI extension, or say --without-cffi.""".format(key)
+            raise MissingDependenciesError(module)
+
+# HACKHACKHACK end
+
 
 # __________  Entry point  __________
 
@@ -294,6 +332,29 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+
+        # HACKHACKHACK
+        # ugly hack to modify target goal from compile_c to build_cffi_imports
+        # this should probably get cleaned up and merged with driver.create_exe
+        from rpython.translator.driver import taskdef
+        import types
+
+        def mkexename(name):
+            if sys.platform == 'win32':
+                name = name.new(ext='exe')
+            return name
+
+        @taskdef(['compile_c'], "Create cffi bindings for modules")
+        def task_build_cffi_imports(self):
+            ''' Use cffi to compile cffi interfaces to modules'''
+            exename = mkexename(self.compute_exe_name())
+            modules = self.config.objspace.usemodules.getpaths()
+            import pdb;pdb.set_trace()
+            create_cffi_import_libraries(exename, modules, exename.basename())      
+        driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
+        driver.tasks['build_cffi_imports'] = task_build_cffi_imports, ['compile_c']
+        driver.default_goal = 'build_cffi_imports'
+        # HACKHACKHACK end
 
         return self.get_entry_point(config)
 
