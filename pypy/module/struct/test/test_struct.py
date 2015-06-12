@@ -449,6 +449,8 @@ class AppTestStructBuffer(object):
         assert b[:] == ('\x00' * 2 +
                         self.struct.pack("ii", 17, 42) +
                         '\x00' * (19-sz-2))
+        m = memoryview(b)
+        self.struct.pack_into("ii", m, 2, 17, 42)
 
     def test_unpack_from(self):
         b = self.bytebuffer(19)
