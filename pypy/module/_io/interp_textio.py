@@ -262,6 +262,7 @@ W_TextIOBase.typedef = TypeDef(
 
     read = interp2app(W_TextIOBase.read_w),
     readline = interp2app(W_TextIOBase.readline_w),
+    write = interp2app(W_TextIOBase.write_w),
     detach = interp2app(W_TextIOBase.detach_w),
     encoding = interp_attrproperty_w("w_encoding", W_TextIOBase),
     newlines = GetSetProperty(W_TextIOBase.newlines_get_w),
