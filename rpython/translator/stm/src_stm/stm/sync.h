@@ -17,6 +17,7 @@ static void cond_broadcast(enum cond_type_e);
 static bool _has_mutex(void);
 #endif
 static void set_gs_register(char *value);
+static void ensure_gs_register(long segnum);
 
 
 /* acquire and release one of the segments for running the given thread

@@ -19,6 +19,7 @@
 #include "stm/rewind_setjmp.h"
 #include "stm/finalizer.h"
 #include "stm/locks.h"
+#include "stm/detach.h"
 #include "stm/misc.c"
 #include "stm/list.c"
 #include "stm/smallmalloc.c"
@@ -41,3 +42,4 @@
 #include "stm/rewind_setjmp.c"
 #include "stm/finalizer.c"
 #include "stm/hashtable.c"
+#include "stm/detach.c"

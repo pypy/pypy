@@ -40,7 +40,8 @@ static void forksupport_prepare(void)
 
     bool was_in_transaction = _stm_in_transaction(this_tl);
     if (!was_in_transaction)
-        stm_start_transaction(this_tl);
+        _stm_start_transaction(this_tl);
+    assert(in_transaction(this_tl));
 
     stm_become_inevitable(this_tl, "fork");
     /* Note that the line above can still fail and abort, which should
@@ -72,7 +73,7 @@ static void forksupport_parent(void)
     s_mutex_unlock();
 
     if (!was_in_transaction) {
-        stm_commit_transaction();
+        _stm_commit_transaction();
     }
 
     dprintf(("forksupport_parent: continuing to run\n"));
@@ -83,7 +84,8 @@ static void fork_abort_thread(long i)
     struct stm_priv_segment_info_s *pr = get_priv_segment(i);
     stm_thread_local_t *tl = pr->pub.running_thread;
     dprintf(("forksupport_child: abort in seg%ld\n", i));
-    assert(tl->associated_segment_num == i);
+    assert(tl->last_associated_segment_num == i);
+    assert(in_transaction(tl));
     assert(pr->transaction_state != TS_INEVITABLE);
     set_gs_register(get_segment_base(i));
     assert(STM_SEGMENT->segment_num == i);
@@ -150,14 +152,14 @@ static void forksupport_child(void)
 
     /* Restore a few things: the new pthread_self(), and the %gs
        register */
-    int segnum = fork_this_tl->associated_segment_num;
+    int segnum = fork_this_tl->last_associated_segment_num;
     assert(1 <= segnum && segnum < NB_SEGMENTS);
     *_get_cpth(fork_this_tl) = pthread_self();
     set_gs_register(get_segment_base(segnum));
     assert(STM_SEGMENT->segment_num == segnum);
 
     if (!fork_was_in_transaction) {
-        stm_commit_transaction();
+        _stm_commit_transaction();
     }
 
     /* Done */

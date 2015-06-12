@@ -309,6 +309,7 @@ static void collect_roots_in_nursery(void)
     else
         assert(finalbase <= ssbase && ssbase <= current);
 
+    dprintf(("collect_roots_in_nursery:\n"));
     while (current > ssbase) {
         --current;
         uintptr_t x = (uintptr_t)current->ss;
@@ -320,6 +321,7 @@ static void collect_roots_in_nursery(void)
         else {
             /* it is an odd-valued marker, ignore */
         }
+        dprintf(("    %p: %p -> %p\n", current, (void *)x, current->ss));
     }
 
     minor_trace_if_young(&tl->thread_local_obj);
@@ -519,6 +521,7 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 static void _do_minor_collection(bool commit)
 {
     dprintf(("minor_collection commit=%d\n", (int)commit));
+    assert(!STM_SEGMENT->no_safe_point_here);
 
     STM_PSEGMENT->minor_collect_will_commit_now = commit;
 
@@ -561,11 +564,12 @@ static void _do_minor_collection(bool commit)
     assert(MINOR_NOTHING_TO_DO(STM_PSEGMENT));
 }
 
-static void minor_collection(bool commit)
+static void minor_collection(bool commit, bool external)
 {
     assert(!_has_mutex());
 
-    stm_safe_point();
+    if (!external)
+        stm_safe_point();
 
     timing_event(STM_SEGMENT->running_thread, STM_GC_MINOR_START);
 
@@ -579,7 +583,7 @@ void stm_collect(long level)
     if (level > 0)
         force_major_collection_request();
 
-    minor_collection(/*commit=*/ false);
+    minor_collection(/*commit=*/ false, /*external=*/ false);
 
 #ifdef STM_TESTS
     /* tests don't want aborts in stm_allocate, thus

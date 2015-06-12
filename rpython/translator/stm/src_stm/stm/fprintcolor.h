@@ -37,5 +37,6 @@ static int threadcolor_printf(const char *format, ...)
 /* ------------------------------------------------------------ */
 
 
+__attribute__((unused))
 static void stm_fatalerror(const char *format, ...)
      __attribute__((format (printf, 1, 2), noreturn));

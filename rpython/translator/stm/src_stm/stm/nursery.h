@@ -10,7 +10,7 @@ static void _reset_object_cards(struct stm_priv_segment_info_s *pseg,
                                 object_t *obj, uint8_t mark_value,
                                 bool mark_all, bool really_clear);
 
-static void minor_collection(bool commit);
+static void minor_collection(bool commit, bool external);
 static void check_nursery_at_transaction_start(void);
 static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg);
 static void major_do_validation_and_minor_collections(void);

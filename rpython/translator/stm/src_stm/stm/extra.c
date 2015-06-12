@@ -8,7 +8,7 @@ static long register_callbacks(stm_thread_local_t *tl,
 {
     dprintf(("register_callbacks: tl=%p key=%p callback=%p index=%ld\n",
              tl, key, callback, index));
-    if (tl->associated_segment_num == -1) {
+    if (!in_transaction(tl)) {
         /* check that the provided thread-local is really running a
            transaction, and do nothing otherwise. */
         dprintf(("  NOT IN TRANSACTION\n"));
