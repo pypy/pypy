@@ -1319,12 +1319,12 @@ def makedev(space, major, minor):
     result = os.makedev(major, minor)
     return space.wrap(result)
 
-@unwrap_spec(device=c_int)
+@unwrap_spec(device="c_uint")
 def major(space, device):
     result = os.major(device)
     return space.wrap(result)
 
-@unwrap_spec(device=c_int)
+@unwrap_spec(device="c_uint")
 def minor(space, device):
     result = os.minor(device)
     return space.wrap(result)
