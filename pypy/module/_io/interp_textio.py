@@ -211,6 +211,8 @@ class W_TextIOBase(W_IOBase):
     def errors_get_w(self, space):
         return space.w_None
 
+    def newlines_get_w(self, space):
+        return space.w_None
 
     def _find_line_ending(self, line, start, end):
         size = end - start
@@ -262,6 +264,7 @@ W_TextIOBase.typedef = TypeDef(
     readline = interp2app(W_TextIOBase.readline_w),
     detach = interp2app(W_TextIOBase.detach_w),
     encoding = interp_attrproperty_w("w_encoding", W_TextIOBase),
+    newlines = GetSetProperty(W_TextIOBase.newlines_get_w),
     errors = GetSetProperty(W_TextIOBase.errors_get_w),
 )
 
