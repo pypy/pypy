@@ -205,20 +205,21 @@ def stm_should_break_transaction(funcgen, op):
     return '%s = stm_should_break_transaction();' % (result,)
 
 def stm_set_transaction_length(funcgen, op):
-    arg0 = funcgen.expr(op.args[0])
-    return 'stm_fill_mark_nursery_bytes = %s;' % (arg0,)
+    arg0 = funcgen.expr(op.args[0])     # 'double': fraction
+    return 'pypy_stm_set_transaction_length(%s);' % (arg0,)
 
 def stm_transaction_break(funcgen, op):
     return 'stm_force_transaction_break(&stm_thread_local);'
 
 def stm_increment_atomic(funcgen, op):
-    XXX
+    return r'fprintf(stderr, "stm_increment_atomic: reimplement\n"); abort();'
 
 def stm_decrement_atomic(funcgen, op):
-    XXX
+    return r'fprintf(stderr, "stm_decrement_atomic: reimplement\n"); abort();'
 
 def stm_get_atomic(funcgen, op):
-    XXX
+    result = funcgen.expr(op.result)
+    return '%s = 0;  // XXX stm_get_atomic' % (result,)
 
 def stm_is_inevitable(funcgen, op):
     result = funcgen.expr(op.result)

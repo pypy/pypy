@@ -64,6 +64,11 @@ void pypy_stm_setup(void)
     stm_rewind_jmp_leaveframe(&stm_thread_local, &rjbuf);
 }
 
+void pypy_stm_set_transaction_length(double fraction)
+{
+    stm_fill_mark_nursery_bytes = (uintptr_t)(NURSERY_SIZE * fraction / 4);
+}
+
 void pypy_stm_teardown(void)
 {
     pypy_stm_unregister_thread_local();

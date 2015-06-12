@@ -385,8 +385,7 @@ class TestSTMTranslated(CompiledSTMTests):
         def main(argv):
             lst[42] = 43
             lst2[999] = lst
-            llop.stm_commit_if_not_atomic(lltype.Void)
-            llop.stm_start_if_not_atomic(lltype.Void)
+            llop.stm_transaction_break(lltype.Void)
             print 'did not crash', lst2[999][42]
             return 0
 
