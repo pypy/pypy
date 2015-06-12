@@ -436,6 +436,7 @@ class W_TextIOWrapper(W_TextIOBase):
         W_TextIOBase._check_closed(self, space, message)
 
     def descr_repr(self, space):
+        self._check_init(space)
         w_name = space.findattr(self, space.wrap("name"))
         if w_name is None:
             w_name_str = space.wrap("")

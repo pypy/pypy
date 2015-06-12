@@ -252,6 +252,16 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(NonbytesStream(u'a'))
         t.read() == u'a'
 
+    def test_uninitialized(self):
+        import _io
+        t = _io.TextIOWrapper.__new__(_io.TextIOWrapper)
+        del t
+        t = _io.TextIOWrapper.__new__(_io.TextIOWrapper)
+        raises(Exception, repr, t)
+        raises(ValueError, t.read, 0)
+        t.__init__(_io.BytesIO())
+        assert t.read(0) == u''
+
 
 class AppTestIncrementalNewlineDecoder:
     def test_newline_decoder(self):
