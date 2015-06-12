@@ -1,8 +1,9 @@
-from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import rffi, lltype
 
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import unwrap_spec, appdef
 
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
@@ -172,3 +173,17 @@ def get_order_as_CF(proto_order, req_order):
     elif req_order == 'A':
         return proto_order
 
+@unwrap_spec(docstring=str)
+def descr_add_docstring(space, w_obj, docstring):
+    return _add_doc_w(space, w_obj, space.wrap(docstring))
+
+_add_doc_w = appdef("""add_docstring(obj, docstring):
+    old_doc = getattr(obj, '__doc__', None)
+    if old_doc is not None:
+        raise RuntimeError("object already has a docstring")
+    try:
+        obj.__doc__ = docstring
+    except:
+        if not isinstance(obj, type) and callable(obj):
+            raise TypeError("Cannot set a docstring for %s" % obj)
+""")
