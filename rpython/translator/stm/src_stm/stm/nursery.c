@@ -11,7 +11,12 @@
 static uintptr_t _stm_nursery_start;
 
 
+#define DEFAULT_FILL_MARK_NURSERY_BYTES   (NURSERY_SIZE / 4)
+
+uintptr_t stm_fill_mark_nursery_bytes = DEFAULT_FILL_MARK_NURSERY_BYTES;
+
 /************************************************************/
+
 
 static void setup_nursery(void)
 {
@@ -449,7 +454,7 @@ static void collect_objs_still_young_but_with_finalizers(void)
 }
 
 
-static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
+static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 {
 #pragma push_macro("STM_PSEGMENT")
 #pragma push_macro("STM_SEGMENT")
@@ -482,7 +487,9 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
 #endif
 #endif
 
+    pseg->total_throw_away_nursery += nursery_used;
     pseg->pub.nursery_current = (stm_char *)_stm_nursery_start;
+    pseg->pub.nursery_mark -= nursery_used;
 
     /* free any object left from 'young_outside_nursery' */
     if (!tree_is_cleared(pseg->young_outside_nursery)) {
@@ -507,8 +514,6 @@ static size_t throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     }
 
     tree_clear(pseg->nursery_objects_shadows);
-
-    return nursery_used;
 #pragma pop_macro("STM_SEGMENT")
 #pragma pop_macro("STM_PSEGMENT")
 }

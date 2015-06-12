@@ -44,7 +44,7 @@ class StmHeader_OpaqueNode(ContainerNode):
 
 
 def stm_hint_commit_soon(funcgen, op):
-    return 'stmcb_commit_soon();'
+    return '/* stmcb_commit_soon(); XXX */'
 
 def stm_register_thread_local(funcgen, op):
     return 'pypy_stm_register_thread_local();'
@@ -166,7 +166,7 @@ def stm_become_inevitable(funcgen, op):
     except AttributeError:
         pass
     string_literal = c_string_constant(info)
-    return 'pypy_stm_become_inevitable(%s);' % (string_literal,)
+    return 'stm_become_inevitable(&stm_thread_local, %s);' % (string_literal,)
 
 def stm_stop_all_other_threads(funcgen, op):
     return 'stm_stop_all_other_threads();'
@@ -184,11 +184,11 @@ def stm_pop_root_into(funcgen, op):
         return '/* %s = */ STM_POP_ROOT_RET(stm_thread_local);' % (arg0,)
     return 'STM_POP_ROOT(stm_thread_local, %s);' % (arg0,)
 
-def stm_commit_if_not_atomic(funcgen, op):
-   return 'pypy_stm_commit_if_not_atomic();'
+def stm_enter_transactional_zone(funcgen, op):
+    return 'stm_enter_transactional_zone(&stm_thread_local);'
 
-def stm_start_if_not_atomic(funcgen, op):
-    return 'pypy_stm_start_if_not_atomic();'
+def stm_leave_transactional_zone(funcgen, op):
+    return 'stm_leave_transactional_zone(&stm_thread_local);'
 
 def stm_enter_callback_call(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
@@ -202,24 +202,23 @@ def stm_leave_callback_call(funcgen, op):
 
 def stm_should_break_transaction(funcgen, op):
     result = funcgen.expr(op.result)
-    return '%s = pypy_stm_should_break_transaction();' % (result,)
+    return '%s = stm_should_break_transaction();' % (result,)
 
 def stm_set_transaction_length(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
-    return 'pypy_stm_set_transaction_length(%s);' % (arg0,)
+    return 'stm_fill_mark_nursery_bytes = %s;' % (arg0,)
 
 def stm_transaction_break(funcgen, op):
-    return 'pypy_stm_transaction_break();'
+    return 'stm_force_transaction_break(&stm_thread_local);'
 
 def stm_increment_atomic(funcgen, op):
-    return 'pypy_stm_increment_atomic();'
+    XXX
 
 def stm_decrement_atomic(funcgen, op):
-    return 'pypy_stm_decrement_atomic();'
+    XXX
 
 def stm_get_atomic(funcgen, op):
-    result = funcgen.expr(op.result)
-    return '%s = pypy_stm_get_atomic();' % (result,)
+    XXX
 
 def stm_is_inevitable(funcgen, op):
     result = funcgen.expr(op.result)

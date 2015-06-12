@@ -152,6 +152,9 @@ struct stm_priv_segment_info_s {
     stm_char *sq_fragments[SYNC_QUEUE_SIZE];
     int sq_fragsizes[SYNC_QUEUE_SIZE];
     int sq_len;
+
+    /* For nursery_mark */
+    uintptr_t total_throw_away_nursery;
 };
 
 enum /* safe_point */ {

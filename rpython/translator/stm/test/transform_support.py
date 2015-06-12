@@ -123,10 +123,10 @@ class LLSTMFrame(LLFrame):
     def op_stm_transaction_break(self):
         self.transaction_break()
 
-    def op_stm_commit_if_not_atomic(self):
+    def op_stm_leave_transactional_zone(self):
         self.transaction_break()
 
-    def op_stm_start_if_not_atomic(self):
+    def op_stm_enter_transactional_zone(self):
         self.transaction_break()
 
     def op_stm_enter_callback_call(self):

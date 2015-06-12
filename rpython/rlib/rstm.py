@@ -43,10 +43,10 @@ FAST_ALLOC = CFlexSymbolic('_STM_FAST_ALLOC')
 
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
-adr_pypy_stm_commit_if_not_atomic = (
-    CFlexSymbolic('((long)&pypy_stm_commit_if_not_atomic)'))
-adr_pypy_stm_start_if_not_atomic = (
-    CFlexSymbolic('((long)&pypy_stm_start_if_not_atomic)'))
+#adr_pypy_stm_commit_if_not_atomic = (
+#    CFlexSymbolic('((long)&pypy_stm_commit_if_not_atomic)'))
+#adr_pypy_stm_start_if_not_atomic = (
+#    CFlexSymbolic('((long)&pypy_stm_start_if_not_atomic)'))
 
 
 def rewind_jmp_frame():
@@ -123,16 +123,14 @@ def abort_and_retry():
 @dont_look_inside
 def before_external_call():
     if we_are_translated():
-        # this tries to commit, or becomes inevitable if atomic
-        llop.stm_commit_if_not_atomic(lltype.Void)
+        llop.stm_leave_transactional_zone(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
 @dont_look_inside
 def after_external_call():
     if we_are_translated():
-        # starts a new transaction if we are not atomic already
-        llop.stm_start_if_not_atomic(lltype.Void)
+        llop.stm_enter_transactional_zone(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 

@@ -230,9 +230,9 @@ class TestReadBarrier(BaseTestTransform):
         def f1(f):
             x.a = f
             t = x.a # no read barrier
-            llop.stm_commit_if_not_atomic(lltype.Void)
+            llop.stm_leave_transactional_zone(lltype.Void)
             t += x.a
-            llop.stm_start_if_not_atomic(lltype.Void)
+            llop.stm_enter_transactional_zone(lltype.Void)
             t += x.a
             llop.stm_transaction_break(lltype.Void)
             t += x.a

@@ -44,6 +44,7 @@ struct stm_segment_info_s {
     int segment_num;
     char *segment_base;
     stm_char *nursery_current;
+    stm_char *nursery_mark;
     uintptr_t nursery_end;
     struct stm_thread_local_s *running_thread;
 };
@@ -67,9 +68,6 @@ typedef struct stm_thread_local_s {
        the following raw region of memory is cleared. */
     char *mem_clear_on_abort;
     size_t mem_bytes_to_clear_on_abort;
-    /* after an abort, some details about the abort are stored there.
-       (this field is not modified on a successful commit) */
-    long last_abort__bytes_in_nursery;
     /* the next fields are handled internally by the library */
     int last_associated_segment_num;   /* always a valid seg num */
     int thread_local_counter;
@@ -459,7 +457,8 @@ static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
    stm_enter_transactional_zone(); however, it is supposed to be
    called in CPU-heavy threads that had a transaction run for a while,
    and so it *always* forces a commit and starts the next transaction.
-   The new transaction is never inevitable. */
+   The new transaction is never inevitable.  See also
+   stm_should_break_transaction(). */
 void stm_force_transaction_break(stm_thread_local_t *tl);
 
 /* Abort the currently running transaction.  This function never
@@ -488,6 +487,23 @@ static inline void stm_safe_point(void) {
 
 /* Forces a collection. */
 void stm_collect(long level);
+
+
+/* A way to detect that we've run for a while and should call
+   stm_force_transaction_break() */
+static inline int stm_should_break_transaction(void)
+{
+    return ((intptr_t)STM_SEGMENT->nursery_current >=
+            (intptr_t)STM_SEGMENT->nursery_mark);
+}
+extern uintptr_t stm_fill_mark_nursery_bytes;
+/* ^^^ at the start of a transaction, 'nursery_mark' is initialized to
+   'stm_fill_mark_nursery_bytes' inside the nursery.  This value can
+   be larger than the nursery; every minor collection shifts the
+   current 'nursery_mark' down by one nursery-size.  After an abort
+   and restart, 'nursery_mark' is set to ~90% of the value it reached
+   in the last attempt.
+*/
 
 
 /* Prepare an immortal "prebuilt" object managed by the GC.  Takes a

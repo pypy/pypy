@@ -1154,7 +1154,7 @@ static void _do_start_transaction(stm_thread_local_t *tl)
 #endif
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
-
+    STM_PSEGMENT->total_throw_away_nursery = 0;
 
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects));
     assert(list_is_empty(STM_PSEGMENT->large_overflow_objects));
@@ -1195,15 +1195,26 @@ static void _do_start_transaction(stm_thread_local_t *tl)
     stm_validate();
 }
 
+#ifdef STM_NO_AUTOMATIC_SETJMP
+static int did_abort = 0;
+#endif
+
 long _stm_start_transaction(stm_thread_local_t *tl)
 {
     s_mutex_lock();
 #ifdef STM_NO_AUTOMATIC_SETJMP
-    long repeat_count = 0;    /* test/support.py */
+    long repeat_count = did_abort;    /* test/support.py */
+    did_abort = 0;
 #else
     long repeat_count = stm_rewind_jmp_setjmp(tl);
 #endif
     _do_start_transaction(tl);
+
+    if (repeat_count == 0) {  /* else, 'nursery_mark' was already set
+                                 in abort_data_structures_from_segment_num() */
+        STM_SEGMENT->nursery_mark = ((stm_char *)_stm_nursery_start +
+                                     stm_fill_mark_nursery_bytes);
+    }
     return repeat_count;
 }
 
@@ -1427,7 +1438,7 @@ static void abort_data_structures_from_segment_num(int segment_num)
 
     abort_finalizers(pseg);
 
-    long bytes_in_nursery = throw_away_nursery(pseg);
+    throw_away_nursery(pseg);
 
     /* clear CARD_MARKED on objs (don't care about CARD_MARKED_OLD) */
     LIST_FOREACH_R(pseg->old_objects_with_cards_set, object_t * /*item*/,
@@ -1461,7 +1472,26 @@ static void abort_data_structures_from_segment_num(int segment_num)
     assert(tl->shadowstack == pseg->shadowstack_at_start_of_transaction);
 #endif
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
-    tl->last_abort__bytes_in_nursery = bytes_in_nursery;
+
+
+    /* Set the next nursery_mark: first compute the value that
+       nursery_mark must have had at the start of the aborted transaction */
+    stm_char *old_mark =pseg->pub.nursery_mark + pseg->total_throw_away_nursery;
+
+    /* This means that the limit, in term of bytes, was: */
+    uintptr_t old_limit = old_mark - (stm_char *)_stm_nursery_start;
+
+    /* If 'total_throw_away_nursery' is smaller than old_limit, use that */
+    if (pseg->total_throw_away_nursery < old_limit)
+        old_limit = pseg->total_throw_away_nursery;
+
+    /* Now set the new limit to 90% of the old limit */
+    pseg->pub.nursery_mark = ((stm_char *)_stm_nursery_start +
+                              (uintptr_t)(old_limit * 0.9));
+
+#ifdef STM_NO_AUTOMATIC_SETJMP
+    did_abort = 1;
+#endif
 
     list_clear(pseg->objects_pointing_to_nursery);
     list_clear(pseg->old_objects_with_cards_set);

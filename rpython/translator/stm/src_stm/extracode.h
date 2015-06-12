@@ -47,6 +47,7 @@ void pypy_stm_register_thread_local(void)
 void pypy_stm_unregister_thread_local(void)
 {
     stm_unregister_thread_local(&stm_thread_local);
+    stm_thread_local.shadowstack_base = NULL;
 }
 
 
