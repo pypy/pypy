@@ -804,6 +804,7 @@ def openpty():
         lltype.free(slave_p, flavor='raw')
 
 @replace_os_function('forkpty')
+@jit.dont_look_inside
 def forkpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     master_p[0] = rffi.cast(rffi.INT, -1)
