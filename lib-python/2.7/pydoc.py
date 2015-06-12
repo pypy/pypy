@@ -17,7 +17,8 @@ Run "pydoc -k <keyword>" to search for a keyword in the synopsis lines
 of all available modules.
 
 Run "pydoc -p <port>" to start an HTTP server on a given port on the
-local machine to generate documentation web pages.
+local machine to generate documentation web pages.  Port number 0 can be
+used to get an arbitrary unused port.
 
 For platforms without a command line, "pydoc -g" starts the HTTP server
 and also pops up a little window for controlling it.
@@ -254,7 +255,7 @@ def synopsis(filename, cache={}):
         if info and 'b' in info[2]: # binary modules have to be imported
             try: module = imp.load_module('__temp__', file, filename, info[1:])
             except: return None
-            result = (module.__doc__ or '').splitlines()[0]
+            result = module.__doc__.splitlines()[0] if module.__doc__ else None
             del sys.modules['__temp__']
         else: # text modules can be directly examined
             result = source_synopsis(file)
@@ -1447,7 +1448,13 @@ def ttypager(text):
         getchar = lambda: sys.stdin.readline()[:-1][:1]
 
     try:
-        r = inc = os.environ.get('LINES', 25) - 1
+        try:
+            h = int(os.environ.get('LINES', 0))
+        except ValueError:
+            h = 0
+        if h <= 1:
+            h = 25
+        r = inc = h - 1
         sys.stdout.write(join(lines[:inc], '\n') + '\n')
         while lines[r:]:
             sys.stdout.write('-- more --')
@@ -1535,7 +1542,7 @@ def resolve(thing, forceload=0):
     """Given an object or a path to an object, get the object and its name."""
     if isinstance(thing, str):
         object = locate(thing, forceload)
-        if not object:
+        if object is None:
             raise ImportError, 'no Python documentation found for %r' % thing
         return object, thing
     else:
@@ -2019,7 +2026,7 @@ class ModuleScanner:
                         path = None
                 else:
                     module = loader.load_module(modname)
-                    desc = (module.__doc__ or '').splitlines()[0]
+                    desc = module.__doc__.splitlines()[0] if module.__doc__ else ''
                     path = getattr(module,'__file__',None)
                 if find(lower(modname + ' - ' + desc), key) >= 0:
                     callback(path, modname, desc)
@@ -2104,7 +2111,6 @@ pydoc</strong> by Ka-Ping Yee &lt;ping@lfw.org&gt;</font>'''
         def __init__(self, port, callback):
             host = 'localhost'
             self.address = (host, port)
-            self.url = 'http://%s:%d/' % (host, port)
             self.callback = callback
             self.base.__init__(self, self.address, self.handler)
 
@@ -2117,6 +2123,7 @@ pydoc</strong> by Ka-Ping Yee &lt;ping@lfw.org&gt;</font>'''
 
         def server_activate(self):
             self.base.server_activate(self)
+            self.url = 'http://%s:%d/' % (self.address[0], self.server_port)
             if self.callback: self.callback(self)
 
     DocServer.base = BaseHTTPServer.HTTPServer
@@ -2390,7 +2397,8 @@ def cli():
     Search for a keyword in the synopsis lines of all available modules.
 
 %s -p <port>
-    Start an HTTP server on the given port on the local machine.
+    Start an HTTP server on the given port on the local machine.  Port
+    number 0 can be used to get an arbitrary unused port.
 
 %s -g
     Pop up a graphical interface for finding and serving documentation.
