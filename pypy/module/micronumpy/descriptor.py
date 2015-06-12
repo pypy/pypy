@@ -176,12 +176,7 @@ class W_Dtype(W_Root):
         return dtype
 
     def get_name(self):
-        from pypy.objspace.std.typeobject import W_TypeObject
-        w_box_type = self.w_box_type
-        assert isinstance(w_box_type, W_TypeObject)
-        name = w_box_type.getname(self.itemtype.space)
-        if name.startswith('numpy.'):
-            name = name[6:]
+        name = self.w_box_type.getname(self.itemtype.space)
         if name.endswith('_'):
             name = name[:-1]
         return name
