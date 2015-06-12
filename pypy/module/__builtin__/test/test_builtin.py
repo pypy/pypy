@@ -839,6 +839,22 @@ class AppTestGetattr:
         raises(TypeError, setattr, A(), 42, 'x')
         raises(TypeError, delattr, A(), 42)
 
+    def test_getattr_None(self):
+        from types import FunctionType, MethodType
+        assert isinstance(getattr(type(None), '__eq__'), FunctionType)
+        assert isinstance(getattr(None, '__eq__'), MethodType)
+
+    def test_getattr_userobject(self):
+        from types import FunctionType, MethodType
+        class A(object):
+            def __eq__(self, other):
+                pass
+        a = A()
+        assert isinstance(getattr(A, '__eq__'), FunctionType)
+        assert isinstance(getattr(a, '__eq__'), MethodType)
+        a.__eq__ = 42
+        assert a.__eq__ == 42
+
 
 class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
     spaceconfig = {"objspace.std.getattributeshortcut": True}

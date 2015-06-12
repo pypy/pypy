@@ -102,6 +102,13 @@ class Object(object):
         if w_value is not None:
             return w_value
         if w_descr is not None:
+            typ = type(w_descr)
+            if typ is Function or typ is FunctionWithFixedCode:
+                # This shortcut is necessary if w_obj is None.  Otherwise e.g.
+                # None.__eq__ would return an unbound function because calling
+                # __get__ with None as the first argument returns the attribute
+                # as if it was accessed through the owner (type(None).__eq__).
+                return Method(space, w_descr, w_obj)
             return space.get(w_descr, w_obj)
         raiseattrerror(space, w_obj, w_name)
 
