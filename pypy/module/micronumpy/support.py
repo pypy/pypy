@@ -4,6 +4,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, appdef
+from pypy.interpreter.function import Method
 from pypy.objspace.std.typeobject import W_TypeObject
 
 def issequence_w(space, w_obj):
@@ -183,9 +184,14 @@ def descr_add_docstring(space, w_obj, docstring):
     _add_doc_w(space, w_obj, space.wrap(docstring))
 
 _add_doc_w = appdef("""add_docstring(obj, docstring):
+    import types
     old_doc = getattr(obj, '__doc__', None)
     if old_doc is not None:
-        raise RuntimeError("%s already has a docstring" % obj)
+        # raise RuntimeError("%s already has a docstring" % obj)
+        pass
+    if isinstance(obj, types.MethodType):
+        add_docstring(obj.im_func, docstring)
+        return
     try:
         obj.__doc__ = docstring
     except:
