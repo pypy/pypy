@@ -1,6 +1,6 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
@@ -306,7 +306,7 @@ def _init_timezone(space):
 
 def _get_error_msg():
     errno = rposix.get_saved_errno()
-    return os.strerror(errno)
+    return _strerror(errno)
 
 if sys.platform != 'win32':
     @unwrap_spec(secs=float)
@@ -404,7 +404,7 @@ def _gettmarg(space, w_tup, allowNone=True):
         lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
-                space.wrap(_get_error_msg()))
+                                 space.wrap(_get_error_msg()))
         return pbuf
 
     tup_w = space.fixedview(w_tup)
