@@ -20,3 +20,10 @@ class AppTestSupport(BaseNumpyAppTest):
         #raises(RuntimeError, np.add_docstring, int.bit_length, 'foo')
         np.add_docstring(int.bit_length,'foo')
         assert int.bit_length.__doc__ == 'foo'
+
+    def test_property_docstring(self):
+        # XXX: We cannot sensibly test np.add_docstring() being successful
+        import numpy as np
+        #raises(RuntimeError, np.add_docstring, int.bit_length, 'foo')
+        np.add_docstring(np.flatiter.base, 'foo')
+        assert np.flatiter.base.__doc__ == 'foo'

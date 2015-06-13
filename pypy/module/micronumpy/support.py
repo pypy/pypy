@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, appdef
 from pypy.interpreter.function import Method
+from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.typeobject import W_TypeObject
 
 def issequence_w(space, w_obj):
@@ -180,6 +181,10 @@ def descr_add_docstring(space, w_obj, docstring):
     if isinstance(w_obj, W_TypeObject):
         if w_obj.w_doc is None or space.is_none(w_obj.w_doc):
             w_obj.w_doc = space.wrap(docstring)
+            return
+    elif isinstance(w_obj, GetSetProperty):
+        if w_obj.doc is None or space.is_none(w_obj.doc):
+            w_obj.doc = space.wrap(docstring)
             return
     _add_doc_w(space, w_obj, space.wrap(docstring))
 
