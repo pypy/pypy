@@ -18,7 +18,7 @@ _testcapi = support.import_module('_testcapi')
 
 
 skips = []
-if test_support.check_impl_detail(pypy=True):
+if support.check_impl_detail(pypy=True):
     skips += [
             'test_broken_memoryview',
             'test_capsule',
