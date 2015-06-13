@@ -219,6 +219,7 @@ def unwrap_start_stop(space, size, w_start, w_end):
 
     if space.is_none(w_end):
         end = size
+        assert end >= 0
     else:
         end = adapt_lower_bound(space, size, w_end)
     return start, end
