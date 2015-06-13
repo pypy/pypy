@@ -431,9 +431,12 @@ class W_TextIOWrapper(W_TextIOBase):
         if self.state == STATE_ZERO:
             raise OperationError(space.w_ValueError, space.wrap(
                 "I/O operation on uninitialized object"))
-        elif self.state == STATE_DETACHED:
+
+    def _check_attached(self, space):
+        if self.state == STATE_DETACHED:
             raise OperationError(space.w_ValueError, space.wrap(
                 "underlying buffer has been detached"))
+        self._check_init(space)
 
     def _check_closed(self, space, message=None):
         self._check_init(space)
@@ -452,40 +455,41 @@ class W_TextIOWrapper(W_TextIOBase):
         )
 
     def readable_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.call_method(self.w_buffer, "readable")
 
     def writable_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.call_method(self.w_buffer, "writable")
 
     def seekable_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.call_method(self.w_buffer, "seekable")
 
     def isatty_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.call_method(self.w_buffer, "isatty")
 
     def fileno_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.call_method(self.w_buffer, "fileno")
 
     def closed_get_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.getattr(self.w_buffer, space.wrap("closed"))
 
     def newlines_get_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         if self.w_decoder is None:
             return space.w_None
         return space.findattr(self.w_decoder, space.wrap("newlines"))
 
     def name_get_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.getattr(self.w_buffer, space.wrap("name"))
 
     def flush_w(self, space):
+        self._check_attached(space)
         self._check_closed(space)
         self.telling = self.seekable
         self._writeflush(space)
@@ -493,13 +497,13 @@ class W_TextIOWrapper(W_TextIOBase):
 
     @unwrap_spec(w_pos = WrappedDefault(None))
     def truncate_w(self, space, w_pos=None):
-        self._check_init(space)
+        self._check_attached(space)
 
         space.call_method(self, "flush")
         return space.call_method(self.w_buffer, "truncate", w_pos)
 
     def close_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         if not space.is_true(space.getattr(self.w_buffer,
                                            space.wrap("closed"))):
             try:
@@ -585,6 +589,7 @@ class W_TextIOWrapper(W_TextIOBase):
         return not eof
 
     def next_w(self, space):
+        self._check_attached(space)
         self.telling = False
         try:
             return W_TextIOBase.next_w(self, space)
@@ -594,7 +599,7 @@ class W_TextIOWrapper(W_TextIOBase):
             raise
 
     def read_w(self, space, w_size=None):
-        self._check_closed(space)
+        self._check_attached(space)
         if not self.w_decoder:
             raise OperationError(space.w_IOError, space.wrap("not readable"))
 
@@ -635,7 +640,7 @@ class W_TextIOWrapper(W_TextIOBase):
         return space.wrap(builder.build())
 
     def readline_w(self, space, w_limit=None):
-        self._check_closed(space)
+        self._check_attached(space)
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
@@ -730,8 +735,8 @@ class W_TextIOWrapper(W_TextIOBase):
     # write methods
 
     def write_w(self, space, w_text):
-        self._check_init(space)
-        self._check_closed(space)
+        self._check_attached(space)
+        # self._check_closed(space)
 
         if not self.w_encoder:
             raise OperationError(space.w_IOError, space.wrap("not writable"))
@@ -802,7 +807,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 break
 
     def detach_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         space.call_method(self, "flush")
         w_buffer = self.w_buffer
         self.w_buffer = None
@@ -835,7 +840,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     @unwrap_spec(whence=int)
     def seek_w(self, space, w_pos, whence=0):
-        self._check_closed(space)
+        self._check_attached(space)
 
         if not self.seekable:
             raise OperationError(space.w_IOError, space.wrap(
@@ -1011,11 +1016,11 @@ class W_TextIOWrapper(W_TextIOBase):
         return space.newlong_from_rbigint(cookie.pack())
 
     def chunk_size_get_w(self, space):
-        self._check_init(space)
+        self._check_attached(space)
         return space.wrap(self.chunk_size)
 
     def chunk_size_set_w(self, space, w_size):
-        self._check_init(space)
+        self._check_attached(space)
         size = space.int_w(w_size)
         if size <= 0:
             raise OperationError(space.w_ValueError,

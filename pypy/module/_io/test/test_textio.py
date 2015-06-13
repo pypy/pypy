@@ -57,6 +57,13 @@ class AppTestTextIO:
         raises(ValueError, f.close)
         raises(ValueError, f.detach)
         raises(ValueError, f.flush)
+
+        # Operations independent of the detached stream should still work
+        repr(f)
+        assert f.encoding == "UTF-8"
+        assert f.errors == "strict"
+        assert not f.line_buffering
+
         assert not b.closed
         b.close()
 
