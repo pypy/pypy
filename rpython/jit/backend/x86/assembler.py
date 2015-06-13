@@ -1154,8 +1154,7 @@ class Assembler386(BaseAssembler):
     def convert_addresses_to_linear(self, reg1, reg2=None):
         if not self.cpu.gc_ll_descr.stm:   # stm-only
             return
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
+        assert IS_X86_64
         sb_adr = rstm.adr_segment_base
         assert rx86.fits_in_32bits(sb_adr)    # because it is in the 2nd page
         self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, sb_adr))
@@ -2833,24 +2832,24 @@ class Assembler386(BaseAssembler):
         self.mc.MOV_rr(reg.value, ebp.value)
 
     def _generate_cmp_break_transaction(self):
-        # emits the check with a CMP instruction:
-        #    pypy_stm_nursery_low_fill_mark < STM_SEGMENT->nursery_current
-        # so if it is followed with a JB, it will follow the jump if
+        # emits the check with a CMP instruction (as signed integers):
+        #    STM_SEGMENT->nursery_current >= STM_SEGMENT->nursery_mark
+        # so if it is followed by a JGE, it will follow the jump if
         # we should break the transaction now.
         #
         assert self.cpu.gc_ll_descr.stm
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
-        psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
-        self.mc.MOV(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
-        nf_adr = rstm.adr_nursery_free
-        assert rx86.fits_in_32bits(nf_adr)    # because it is in the 2nd page
-        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
+        assert IS_X86_64
+        nc_adr = rstm.adr_nursery_free
+        nm_adr = rstm.adr_nursery_mark
+        assert rx86.fits_in_32bits(nc_adr)    # because it is in the 2nd page
+        assert rx86.fits_in_32bits(nm_adr)    # because it is in the 2nd page
+        self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nc_adr))
+        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nm_adr))
 
     def genop_stm_should_break_transaction(self, op, arglocs, result_loc):
         self._generate_cmp_break_transaction()
         rl = result_loc.lowest8bits()
-        self.mc.SET_ir(rx86.Conditions['B'], rl.value)
+        self.mc.SET_ir(rx86.Conditions['GE'], rl.value)
         self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
     def genop_guard_stm_should_break_transaction(self, op, guard_op,
@@ -2858,14 +2857,13 @@ class Assembler386(BaseAssembler):
                                                  result_loc):
         self._generate_cmp_break_transaction()
         if guard_op.getopnum() == rop.GUARD_FALSE:
-            self.implement_guard(guard_token, 'B')   # JB goes to "yes, break"
+            self.implement_guard(guard_token, 'GE')  # JGE goes to "yes, break"
         else:
-            self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
+            self.implement_guard(guard_token, 'L')   # JL goes to "no, don't"
 
     def genop_discard_stm_read(self, op, arglocs):
         assert self.cpu.gc_ll_descr.stm
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
+        assert IS_X86_64
         mc = self.mc
         rmreg = X86_64_SCRATCH_REG.value
         mc.MOVZX8_rj(rmreg, (self.SEGMENT_GC,
@@ -3007,9 +3005,6 @@ def not_implemented(msg):
     raise NotImplementedError(msg)
 
 cond_call_register_arguments = [edi, esi, edx, ecx]
-
-def todo():
-    CRASH   # not done yet
 
 class BridgeAlreadyCompiled(Exception):
     pass

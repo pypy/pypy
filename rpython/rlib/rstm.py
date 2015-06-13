@@ -19,6 +19,7 @@ stmflags_offset = CFlexSymbolic('offsetof(struct rpyobj_s, lib)')
 stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
 adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
+adr_nursery_mark = CFlexSymbolic('((long)&STM_SEGMENT->nursery_mark)')
 adr_pypy_stm_nursery_low_fill_mark = (
     CFlexSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
 adr_rjthread_head = (
@@ -44,7 +45,7 @@ FAST_ALLOC = CFlexSymbolic('_STM_FAST_ALLOC')
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
 adr_stm_detached_inevitable_from_thread = (
-    CFlexSymbolic('((long)&_stm_detach_inevitable_transaction)'))
+    CFlexSymbolic('((long)&_stm_detached_inevitable_from_thread)'))
 adr_stm_thread_local_self = (
     CFlexSymbolic('((long)&stm_thread_local.self)'))
 adr_stm_leave_noninevitable_transactional_zone = (
