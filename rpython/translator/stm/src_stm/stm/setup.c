@@ -233,6 +233,8 @@ void stm_register_thread_local(stm_thread_local_t *tl)
 {
     int num;
     s_mutex_lock();
+    tl->self = tl;    /* for faster access to &stm_thread_local (and easier
+                         from the PyPy JIT, too) */
     if (stm_all_thread_locals == NULL) {
         stm_all_thread_locals = tl->next = tl->prev = tl;
         num = 0;

@@ -71,7 +71,7 @@ typedef struct stm_thread_local_s {
     /* the next fields are handled internally by the library */
     int last_associated_segment_num;   /* always a valid seg num */
     int thread_local_counter;
-    struct stm_thread_local_s *prev, *next;
+    struct stm_thread_local_s *self, *prev, *next;
     void *creating_pthread[2];
 } stm_thread_local_t;
 
@@ -87,10 +87,10 @@ extern volatile intptr_t _stm_detached_inevitable_from_thread;
 long _stm_start_transaction(stm_thread_local_t *tl);
 void _stm_commit_transaction(void);
 void _stm_leave_noninevitable_transactional_zone(void);
-#define _stm_detach_inevitable_transaction(tl)  do {            \
-    write_fence();                                              \
-    assert(_stm_detached_inevitable_from_thread == 0);          \
-    _stm_detached_inevitable_from_thread = (intptr_t)(tl);      \
+#define _stm_detach_inevitable_transaction(tl)  do {                    \
+    write_fence();                                                      \
+    assert(_stm_detached_inevitable_from_thread == 0);                  \
+    _stm_detached_inevitable_from_thread = (intptr_t)(tl->self);        \
 } while (0)
 void _stm_reattach_transaction(stm_thread_local_t *tl);
 void _stm_become_inevitable(const char*);
@@ -391,10 +391,10 @@ void stm_unregister_thread_local(stm_thread_local_t *tl);
 
 
 #ifdef STM_NO_AUTOMATIC_SETJMP
-int stm_is_inevitable(void);
+int stm_is_inevitable(stm_thread_local_t *tl);
 #else
-static inline int stm_is_inevitable(void) {
-    return !rewind_jmp_armed(&STM_SEGMENT->running_thread->rjthread);
+static inline int stm_is_inevitable(stm_thread_local_t *tl) {
+    return !rewind_jmp_armed(&tl->rjthread);
 }
 #endif
 
@@ -441,7 +441,7 @@ static inline void stm_enter_transactional_zone(stm_thread_local_t *tl) {
 }
 static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
     assert(STM_SEGMENT->running_thread == tl);
-    if (stm_is_inevitable()) {
+    if (stm_is_inevitable(tl)) {
 #ifdef STM_DEBUGPRINT
         fprintf(stderr, "stm_leave_transactional_zone fast path\n");
 #endif
@@ -472,7 +472,7 @@ void stm_abort_transaction(void) __attribute__((noreturn));
 static inline void stm_become_inevitable(stm_thread_local_t *tl,
                                          const char* msg) {
     assert(STM_SEGMENT->running_thread == tl);
-    if (!stm_is_inevitable())
+    if (!stm_is_inevitable(tl))
         _stm_become_inevitable(msg);
     /* now, we're running the inevitable transaction, so this var should be 0 */
     assert(_stm_detached_inevitable_from_thread == 0);

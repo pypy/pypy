@@ -1220,8 +1220,9 @@ long _stm_start_transaction(stm_thread_local_t *tl)
 
 #ifdef STM_NO_AUTOMATIC_SETJMP
 void _test_run_abort(stm_thread_local_t *tl) __attribute__((noreturn));
-int stm_is_inevitable(void)
+int stm_is_inevitable(stm_thread_local_t *tl)
 {
+    assert(STM_SEGMENT->running_thread == tl);
     switch (STM_PSEGMENT->transaction_state) {
     case TS_REGULAR: return 0;
     case TS_INEVITABLE: return 1;
@@ -1593,7 +1594,7 @@ void stm_become_globally_unique_transaction(stm_thread_local_t *tl,
 
 void stm_stop_all_other_threads(void)
 {
-    if (!stm_is_inevitable())         /* may still abort */
+    if (!stm_is_inevitable(STM_SEGMENT->running_thread))  /* may still abort */
         _stm_become_inevitable("stop_all_other_threads");
 
     s_mutex_lock();
