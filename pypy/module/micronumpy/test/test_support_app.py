@@ -1,7 +1,16 @@
 """App-level tests for support.py"""
+import sys
+import py
+
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import option
 
 class AppTestSupport(BaseNumpyAppTest):
+    def setup_class(cls):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test")
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
     def test_add_docstring(self):
         import numpy as np
         foo = lambda: None
@@ -9,21 +18,31 @@ class AppTestSupport(BaseNumpyAppTest):
         assert foo.__doc__ == "Does a thing"
 
     def test_type_docstring(self):
-        # XXX: We cannot sensibly test np.add_docstring() being successful
         import numpy as np
         import types
+        doc = types.FunctionType.__doc__
+        try:
+            np.set_docstring(types.FunctionType, 'foo')
+            assert types.FunctionType.__doc__ == 'foo'
+        finally:
+            np.set_docstring(types.FunctionType, doc)
+
         raises(RuntimeError, np.add_docstring, types.FunctionType, 'foo')
 
     def test_method_docstring(self):
-        # XXX: We cannot sensibly test np.add_docstring() being successful
         import numpy as np
-        #raises(RuntimeError, np.add_docstring, int.bit_length, 'foo')
-        np.add_docstring(int.bit_length,'foo')
-        assert int.bit_length.__doc__ == 'foo'
+        doc = int.bit_length.__doc__
+        try:
+            np.set_docstring(int.bit_length, 'foo')
+            assert int.bit_length.__doc__ == 'foo'
+        finally:
+            np.set_docstring(int.bit_length, doc)
 
     def test_property_docstring(self):
-        # XXX: We cannot sensibly test np.add_docstring() being successful
         import numpy as np
-        #raises(RuntimeError, np.add_docstring, int.bit_length, 'foo')
-        np.add_docstring(np.flatiter.base, 'foo')
-        assert np.flatiter.base.__doc__ == 'foo'
+        doc = np.flatiter.base.__doc__
+        try:
+            np.set_docstring(np.flatiter.base, 'foo')
+            assert np.flatiter.base.__doc__ == 'foo'
+        finally:
+            np.set_docstring(np.flatiter.base, doc)

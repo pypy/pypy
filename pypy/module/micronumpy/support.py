@@ -4,7 +4,6 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, appdef
-from pypy.interpreter.function import Method
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.typeobject import W_TypeObject
 
@@ -188,17 +187,19 @@ def descr_add_docstring(space, w_obj, docstring):
             return
     _add_doc_w(space, w_obj, space.wrap(docstring))
 
-_add_doc_w = appdef("""add_docstring(obj, docstring):
-    import types
-    old_doc = getattr(obj, '__doc__', None)
-    if old_doc is not None:
-        # raise RuntimeError("%s already has a docstring" % obj)
-        pass
-    if isinstance(obj, types.MethodType):
-        add_docstring(obj.im_func, docstring)
+def descr_set_docstring(space, w_obj, w_docstring):
+    if isinstance(w_obj, W_TypeObject):
+        w_obj.w_doc = w_docstring
         return
-    try:
+    elif isinstance(w_obj, GetSetProperty):
+        w_obj.doc = w_docstring
+        return
+    app_set_docstring(space, w_obj, w_docstring)
+
+app_set_docstring = appdef("""app_set_docstring_(obj, docstring):
+    import types
+    if isinstance(obj, types.MethodType):
+        obj.im_func.__doc__ = docstring
+    else:
         obj.__doc__ = docstring
-    except:
-        raise TypeError("Cannot set a docstring for %s" % obj)
 """)
