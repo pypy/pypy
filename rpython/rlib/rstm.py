@@ -43,10 +43,14 @@ FAST_ALLOC = CFlexSymbolic('_STM_FAST_ALLOC')
 
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
-#adr_pypy_stm_commit_if_not_atomic = (
-#    CFlexSymbolic('((long)&pypy_stm_commit_if_not_atomic)'))
-#adr_pypy_stm_start_if_not_atomic = (
-#    CFlexSymbolic('((long)&pypy_stm_start_if_not_atomic)'))
+adr_stm_detached_inevitable_from_thread = (
+    CFlexSymbolic('((long)&_stm_detach_inevitable_transaction)'))
+adr_stm_thread_local_self = (
+    CFlexSymbolic('((long)&stm_thread_local.self)'))
+adr_stm_leave_noninevitable_transactional_zone = (
+    CFlexSymbolic('((long)&_stm_leave_noninevitable_transactional_zone)'))
+adr_stm_reattach_transaction = (
+    CFlexSymbolic('((long)&_stm_reattach_transaction)'))
 
 
 def rewind_jmp_frame():

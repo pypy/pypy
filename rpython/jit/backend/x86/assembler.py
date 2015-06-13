@@ -78,6 +78,8 @@ class Assembler386(BaseAssembler):
         if self.cpu.supports_floats:
             support.ensure_sse2_floats()
             self._build_float_constants()
+        if self.cpu.gc_ll_descr.stm:
+            self._build_stm_enter_leave_transactional_zone_helpers()
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
@@ -124,6 +126,36 @@ class Assembler386(BaseAssembler):
             addr[i] = data[i]
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
+
+    def _build_stm_enter_leave_transactional_zone_helpers(self):
+        assert IS_X86_64 and self.cpu.supports_floats
+        # a helper to call _stm_leave_noninevitable_transactional_zone(),
+        # preserving all registers that are used to pass arguments.
+        # (Push an odd total number of registers, to align the stack.)
+        mc = codebuf.MachineCodeBlockWrapper()
+        self._push_all_regs_to_frame(mc, [eax], True, callee_only=True)
+        mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
+        self._pop_all_regs_from_frame(mc, [eax], True, callee_only=True)
+        mc.RET()
+        self._stm_leave_noninevitable_tr_slowpath = mc.materialize(
+            self.cpu.asmmemmgr, [])
+        #
+        # a second helper to call _stm_reattach_transaction(tl),
+        # preserving only registers that might store the result of a call
+        mc = codebuf.MachineCodeBlockWrapper()
+        mc.SUB_ri(esp.value, 3 * WORD)     # 3 instead of 2 to align the stack
+        mc.MOV_sr(0, eax.value)     # not edx, we're not running 32-bit
+        mc.MOVSD_sx(1, xmm0.value)
+        # load the value of tl (== tl->self) into edi as argument
+        mc.MOV(edi, self.heap_stm_thread_local_self())
+        mc.CALL(imm(rstm.adr_stm_reattach_transaction))
+        # pop
+        mc.MOVSD_xs(xmm0.value, 1)
+        mc.MOV_rs(eax.value, 0)
+        mc.ADD_ri(esp.value, 3 * WORD)
+        mc.RET()
+        self._stm_reattach_tr_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+
 
     def set_extra_stack_depth(self, mc, value):
         if self._is_asmgcc():
@@ -897,6 +929,16 @@ class Assembler386(BaseAssembler):
     def heap_rjthread_moved_off_base(self):
         """STM: AddressLoc for '&stm_thread_local.rjthread.moved_off_base'."""
         return self.heap_tl(rstm.adr_rjthread_moved_off_base)
+
+    def heap_stm_thread_local_self(self):
+        """STM: AddressLoc for '&stm_thread_local.self', i.e. such that
+        reading it returns the (absolute) address of 'stm_thread_local'."""
+        return self.heap_tl(rstm.adr_stm_thread_local_self)
+
+    def heap_stm_detached_inevitable_from_thread(self):
+        """STM: AddressLoc for '&stm_detached_inevitable_from_thread'."""
+        return heap(self.SEGMENT_NO,
+                    rstm.adr_stm_detached_inevitable_from_thread)
 
     def _call_header_shadowstack(self):
         # put the frame in ebp on the shadowstack for the GC to find
