@@ -23,14 +23,6 @@ class W_MemoryView(W_Root):
         space.check_buf_flags(flags, self.buf.readonly)
         return self.buf
 
-    def readbuf_w(self, space):
-        return self.buf
-
-    def writebuf_w(self, space):
-        if self.buf.readonly:
-            raise oefmt(space.w_TypeError, "buffer is read-only")
-        return self.buf
-
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
         return W_MemoryView(space.buffer_w(w_object, space.BUF_FULL_RO))
