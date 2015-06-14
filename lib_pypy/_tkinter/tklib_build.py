@@ -75,13 +75,13 @@ typedef ...* Tcl_ThreadId;
 typedef ...* Tcl_Command;
 
 typedef struct Tcl_ObjType {
-    char *name;
+    const char *name;
     ...;
 } Tcl_ObjType;
 typedef struct Tcl_Obj {
     char *bytes;
     int length;
-    Tcl_ObjType *typePtr;
+    const Tcl_ObjType *typePtr;
     union {                     /* The internal representation: */
         long longValue;         /*   - an long integer value. */
         double doubleValue;     /*   - a double-precision floating value. */
