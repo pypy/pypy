@@ -471,7 +471,6 @@ static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     }
     OPT_ASSERT((nursery_used & 7) == 0);
 
-#ifndef NDEBUG
     /* reset the nursery by zeroing it */
     char *realnursery;
     realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
@@ -483,8 +482,9 @@ static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
                        (NURSERY_END - _stm_nursery_start) - nursery_used);
 
 #else
+# ifndef NDEBUG
     memset(realnursery, 0xa0, nursery_used);
-#endif
+# endif
 #endif
 
     pseg->total_throw_away_nursery += nursery_used;

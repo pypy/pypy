@@ -155,6 +155,9 @@ struct stm_priv_segment_info_s {
 
     /* For nursery_mark */
     uintptr_t total_throw_away_nursery;
+
+    /* For stm_enable_atomic() */
+    uintptr_t atomic_nesting_levels;
 };
 
 enum /* safe_point */ {

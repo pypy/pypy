@@ -71,7 +71,8 @@ typedef struct stm_thread_local_s {
     /* the next fields are handled internally by the library */
     int last_associated_segment_num;   /* always a valid seg num */
     int thread_local_counter;
-    struct stm_thread_local_s *self, *prev, *next;
+    struct stm_thread_local_s *prev, *next;
+    intptr_t self_or_0_if_atomic;
     void *creating_pthread[2];
 } stm_thread_local_t;
 
@@ -90,7 +91,7 @@ void _stm_leave_noninevitable_transactional_zone(void);
 #define _stm_detach_inevitable_transaction(tl)  do {                    \
     write_fence();                                                      \
     assert(_stm_detached_inevitable_from_thread == 0);                  \
-    _stm_detached_inevitable_from_thread = (intptr_t)(tl->self);        \
+    _stm_detached_inevitable_from_thread = tl->self_or_0_if_atomic;     \
 } while (0)
 void _stm_reattach_transaction(stm_thread_local_t *tl);
 void _stm_become_inevitable(const char*);
@@ -427,7 +428,7 @@ static inline int stm_is_inevitable(stm_thread_local_t *tl) {
 #endif
 static inline void stm_enter_transactional_zone(stm_thread_local_t *tl) {
     if (__sync_bool_compare_and_swap(&_stm_detached_inevitable_from_thread,
-                                     (intptr_t)tl, 0)) {
+                                     tl->self_or_0_if_atomic, 0)) {
 #ifdef STM_DEBUGPRINT
         fprintf(stderr, "stm_enter_transactional_zone fast path\n");
 #endif
@@ -504,6 +505,15 @@ extern uintptr_t stm_fill_mark_nursery_bytes;
    and restart, 'nursery_mark' is set to ~90% of the value it reached
    in the last attempt.
 */
+
+/* "atomic" transaction: a transaction where stm_should_break_transaction()
+   always returns false, and where stm_leave_transactional_zone() never
+   detach nor terminates the transaction.  (stm_force_transaction_break()
+   crashes if called with an atomic transaction.)
+*/
+uintptr_t stm_is_atomic(stm_thread_local_t *tl);
+void stm_enable_atomic(stm_thread_local_t *tl);
+void stm_disable_atomic(stm_thread_local_t *tl);
 
 
 /* Prepare an immortal "prebuilt" object managed by the GC.  Takes a

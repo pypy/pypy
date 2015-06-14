@@ -22,6 +22,14 @@
    originally detached), and at the point where we know the original
    stm_thread_local_t is no longer relevant, we reset
    _stm_detached_inevitable_from_thread to 0.
+
+   The value that stm_leave_transactional_zone() sticks inside
+   _stm_detached_inevitable_from_thread is actually
+   'tl->self_or_0_if_atomic'.  This value is 0 if and only if 'tl' is
+   current running a transaction *and* this transaction is atomic.  So
+   if we're running an atomic transaction, then
+   _stm_detached_inevitable_from_thread remains 0 across
+   leave/enter_transactional.
 */
 
 volatile intptr_t _stm_detached_inevitable_from_thread;
@@ -36,19 +44,35 @@ static void setup_detach(void)
 void _stm_leave_noninevitable_transactional_zone(void)
 {
     int saved_errno = errno;
-    dprintf(("leave_noninevitable_transactional_zone\n"));
-    _stm_become_inevitable(MSG_INEV_DONT_SLEEP);
 
-    /* did it work? */
-    if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {   /* yes */
-        dprintf(("leave_noninevitable_transactional_zone: now inevitable\n"));
-        stm_thread_local_t *tl = STM_SEGMENT->running_thread;
-        _stm_detach_inevitable_transaction(tl);
+    if (STM_PSEGMENT->atomic_nesting_levels == 0) {
+        dprintf(("leave_noninevitable_transactional_zone\n"));
+        _stm_become_inevitable(MSG_INEV_DONT_SLEEP);
+
+        /* did it work? */
+        if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {   /* yes */
+            dprintf((
+                "leave_noninevitable_transactional_zone: now inevitable\n"));
+            stm_thread_local_t *tl = STM_SEGMENT->running_thread;
+            _stm_detach_inevitable_transaction(tl);
+        }
+        else {   /* no */
+            dprintf(("leave_noninevitable_transactional_zone: commit\n"));
+            _stm_commit_transaction();
+        }
     }
-    else {   /* no */
-        dprintf(("leave_noninevitable_transactional_zone: commit\n"));
-        _stm_commit_transaction();
+    else {
+        /* we're atomic, so we can't commit at all */
+        dprintf(("leave_noninevitable_transactional_zone atomic\n"));
+        _stm_become_inevitable("leave_noninevitable_transactional_zone atomic");
+        assert(STM_PSEGMENT->transaction_state == TS_INEVITABLE);
+        assert(_stm_detached_inevitable_from_thread == 0);
+        assert(STM_SEGMENT->running_thread->self_or_0_if_atomic == 0);
+        /* no point in calling _stm_detach_inevitable_transaction()
+           because it would store 0 into a place that is already 0, as
+           checked by the asserts above */
     }
+
     errno = saved_errno;
 }
 
@@ -171,5 +195,56 @@ static void commit_detached_transaction_if_from(stm_thread_local_t *tl)
         while (_stm_detached_inevitable_from_thread == -1)
             spin_loop();
         goto restart;
+    }
+}
+
+uintptr_t stm_is_atomic(stm_thread_local_t *tl)
+{
+    assert(STM_SEGMENT->running_thread == tl);
+    if (tl->self_or_0_if_atomic != 0) {
+        assert(tl->self_or_0_if_atomic == (intptr_t)tl);
+        assert(STM_PSEGMENT->atomic_nesting_levels == 0);
+    }
+    else {
+        assert(STM_PSEGMENT->atomic_nesting_levels > 0);
+    }
+    return STM_PSEGMENT->atomic_nesting_levels;
+}
+
+#define HUGE_INTPTR_VALUE  0x3000000000000000L
+
+void stm_enable_atomic(stm_thread_local_t *tl)
+{
+    if (!stm_is_atomic(tl)) {
+        tl->self_or_0_if_atomic = 0;
+        /* increment 'nursery_mark' by HUGE_INTPTR_VALUE, so that
+           stm_should_break_transaction() returns always false */
+        intptr_t mark = (intptr_t)STM_SEGMENT->nursery_mark;
+        if (mark < 0)
+            mark = 0;
+        if (mark >= HUGE_INTPTR_VALUE)
+            mark = HUGE_INTPTR_VALUE - 1;
+        mark += HUGE_INTPTR_VALUE;
+        STM_SEGMENT->nursery_mark = (stm_char *)mark;
+    }
+    STM_PSEGMENT->atomic_nesting_levels++;
+}
+
+void stm_disable_atomic(stm_thread_local_t *tl)
+{
+    if (!stm_is_atomic(tl))
+        stm_fatalerror("stm_disable_atomic(): already not atomic");
+
+    STM_PSEGMENT->atomic_nesting_levels--;
+
+    if (STM_PSEGMENT->atomic_nesting_levels == 0) {
+        tl->self_or_0_if_atomic = (intptr_t)tl;
+        /* decrement 'nursery_mark' by HUGE_INTPTR_VALUE, to cancel
+           what was done in stm_enable_atomic() */
+        intptr_t mark = (intptr_t)STM_SEGMENT->nursery_mark;
+        mark -= HUGE_INTPTR_VALUE;
+        if (mark < 0)
+            mark = 0;
+        STM_SEGMENT->nursery_mark = (stm_char *)mark;
     }
 }

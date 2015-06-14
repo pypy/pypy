@@ -1155,6 +1155,8 @@ static void _do_start_transaction(stm_thread_local_t *tl)
     STM_PSEGMENT->shadowstack_at_start_of_transaction = tl->shadowstack;
     STM_PSEGMENT->threadlocal_at_start_of_transaction = tl->thread_local_obj;
     STM_PSEGMENT->total_throw_away_nursery = 0;
+    assert(tl->self_or_0_if_atomic == (intptr_t)tl);   /* not atomic */
+    assert(STM_PSEGMENT->atomic_nesting_levels == 0);
 
     assert(list_is_empty(STM_PSEGMENT->modified_old_objects));
     assert(list_is_empty(STM_PSEGMENT->large_overflow_objects));
@@ -1319,6 +1321,12 @@ static void _core_commit_transaction(bool external)
         stm_fatalerror("cannot commit between stm_stop_all_other_threads "
                        "and stm_resume_all_other_threads");
     }
+    if (STM_PSEGMENT->atomic_nesting_levels > 0) {
+        stm_fatalerror("cannot commit between stm_enable_atomic "
+                       "and stm_disable_atomic");
+    }
+    assert(STM_SEGMENT->running_thread->self_or_0_if_atomic ==
+           (intptr_t)(STM_SEGMENT->running_thread));
 
     dprintf(("> stm_commit_transaction(external=%d)\n", (int)external));
     minor_collection(/*commit=*/ true, external);
@@ -1513,6 +1521,8 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
     abort_data_structures_from_segment_num(STM_SEGMENT->segment_num);
 
     stm_thread_local_t *tl = STM_SEGMENT->running_thread;
+    tl->self_or_0_if_atomic = (intptr_t)tl;   /* clear the 'atomic' flag */
+    STM_PSEGMENT->atomic_nesting_levels = 0;
 
     if (tl->mem_clear_on_abort)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
