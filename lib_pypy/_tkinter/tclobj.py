@@ -5,7 +5,8 @@ import binascii
 
 class TypeCache(object):
     def __init__(self):
-        self.BooleanType = tklib.Tcl_GetObjType("boolean")
+        self.OldBooleanType = tklib.Tcl_GetObjType("boolean")
+        self.BooleanType = None
         self.ByteArrayType = tklib.Tcl_GetObjType("bytearray")
         self.DoubleType = tklib.Tcl_GetObjType("double")
         self.IntType = tklib.Tcl_GetObjType("int")
@@ -16,6 +17,11 @@ class TypeCache(object):
 
     def add_extra_types(self, app):
         # Some types are not registered in Tcl.
+        result = app.call('expr', 'true')
+        typePtr = AsObj(result).typePtr
+        if tkffi.string(typePtr.name) == "booleanString":
+            self.BooleanType = typePtr
+
         result = app.call('expr', '2**63')
         typePtr = AsObj(result).typePtr
         if tkffi.string(typePtr.name) == "bignum":
@@ -64,8 +70,12 @@ def FromObj(app, value):
         buf = tkffi.buffer(value.bytes, value.length)
         return FromTclString(buf[:])
 
-    if value.typePtr == typeCache.BooleanType:
-        return bool(value.internalRep.longValue)
+    if value.typePtr in (typeCache.BooleanType, typeCache.OldBooleanType):
+        value_ptr = tkffi.new("int*")
+        if tklib.Tcl_GetBooleanFromObj(
+                app.interp, value, value_ptr) == tklib.TCL_ERROR:
+            app.raiseTclError()
+        return bool(value_ptr[0])
     if value.typePtr == typeCache.ByteArrayType:
         size = tkffi.new('int*')
         data = tklib.Tcl_GetByteArrayFromObj(value, size)

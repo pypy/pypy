@@ -120,6 +120,7 @@ void Tcl_DecrRefCount(Tcl_Obj* objPtr);
 int Tcl_GetBoolean(Tcl_Interp* interp, const char* src, int* boolPtr);
 int Tcl_GetInt(Tcl_Interp* interp, const char* src, int* intPtr);
 int Tcl_GetDouble(Tcl_Interp* interp, const char* src, double* doublePtr);
+int Tcl_GetBooleanFromObj(Tcl_Interp* interp, Tcl_Obj* objPtr, int* valuePtr);
 char *Tcl_GetString(Tcl_Obj* objPtr);
 char *Tcl_GetStringFromObj(Tcl_Obj* objPtr, int* lengthPtr);
 unsigned char *Tcl_GetByteArrayFromObj(Tcl_Obj* objPtr, int* lengthPtr);
