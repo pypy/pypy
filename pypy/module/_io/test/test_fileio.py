@@ -209,6 +209,22 @@ class AppTestFileIO:
             if os.path.exists(self.tmpfile):
                 os.unlink(self.tmpfile)
 
+    def test_flush_error_on_close(self):
+        # Test that the file is closed despite failed flush
+        # and that flush() is called before file closed.
+        import _io, os
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        f = _io.FileIO(fd, 'r', closefd=False)
+        closed = []
+        def bad_flush():
+            closed[:] = [f.closed]
+            raise IOError()
+        f.flush = bad_flush
+        raises(IOError, f.close) # exception not swallowed
+        assert f.closed
+        assert closed         # flush() called
+        assert not closed[0]  # flush() called before file closed
+        os.close(fd)
 
 def test_flush_at_exit():
     from pypy import conftest
