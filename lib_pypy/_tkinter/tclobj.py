@@ -1,6 +1,7 @@
 # TclObject, conversions with Python objects
 
 from .tklib_cffi import ffi as tkffi, lib as tklib
+import binascii
 
 class TypeCache(object):
     def __init__(self):
@@ -8,9 +9,17 @@ class TypeCache(object):
         self.ByteArrayType = tklib.Tcl_GetObjType("bytearray")
         self.DoubleType = tklib.Tcl_GetObjType("double")
         self.IntType = tklib.Tcl_GetObjType("int")
+        self.BigNumType = None
         self.ListType = tklib.Tcl_GetObjType("list")
         self.ProcBodyType = tklib.Tcl_GetObjType("procbody")
         self.StringType = tklib.Tcl_GetObjType("string")
+
+    def add_extra_types(self, app):
+        # Some types are not registered in Tcl.
+        result = app.call('expr', '2**63')
+        typePtr = AsObj(result).typePtr
+        if tkffi.string(typePtr.name) == "bignum":
+            self.BigNumType = typePtr
 
 
 def FromTclString(s):
@@ -30,6 +39,24 @@ def FromTclString(s):
     return s
 
 
+# Only when tklib.HAVE_LIBTOMMATH!
+def FromBignumObj(app, value):
+    bigValue = tkffi.new("mp_int*")
+    if tklib.Tcl_GetBignumFromObj(app.interp, value, bigValue) != tklib.TCL_OK:
+        app.raiseTclError()
+    try:
+        numBytes = tklib.mp_unsigned_bin_size(bigValue)
+        buf = tkffi.new("unsigned char[]", numBytes)
+        bufSize_ptr = tkffi.new("unsigned long*", numBytes)
+        if tklib.mp_to_unsigned_bin_n(
+                bigValue, buf, bufSize_ptr) != tklib.MP_OKAY:
+            raise MemoryError
+        bytes = tkffi.buffer(buf)[0:bufSize_ptr[0]]
+        sign = -1 if bigValue.sign == tklib.MP_NEG else 1
+        return sign * int(binascii.hexlify(bytes), 16)
+    finally:
+        tklib.mp_clear(bigValue)
+
 def FromObj(app, value):
     """Convert a TclObj pointer into a Python object."""
     typeCache = app._typeCache
@@ -37,17 +64,19 @@ def FromObj(app, value):
         buf = tkffi.buffer(value.bytes, value.length)
         return FromTclString(buf[:])
 
-    elif value.typePtr == typeCache.BooleanType:
+    if value.typePtr == typeCache.BooleanType:
         return bool(value.internalRep.longValue)
-    elif value.typePtr == typeCache.ByteArrayType:
+    if value.typePtr == typeCache.ByteArrayType:
         size = tkffi.new('int*')
         data = tklib.Tcl_GetByteArrayFromObj(value, size)
         return tkffi.buffer(data, size[0])[:]
-    elif value.typePtr == typeCache.DoubleType:
+    if value.typePtr == typeCache.DoubleType:
         return value.internalRep.doubleValue
-    elif value.typePtr == typeCache.IntType:
+    if value.typePtr == typeCache.IntType:
         return value.internalRep.longValue
-    elif value.typePtr == typeCache.ListType:
+    if value.typePtr == typeCache.BigNumType and tklib.HAVE_LIBTOMMATH:
+        return FromBignumObj(app, value)
+    if value.typePtr == typeCache.ListType:
         size = tkffi.new('int*')
         status = tklib.Tcl_ListObjLength(app.interp, value, size)
         if status == tklib.TCL_ERROR:
@@ -61,9 +90,9 @@ def FromObj(app, value):
                 app.raiseTclError()
             result.append(FromObj(app, tcl_elem[0]))
         return tuple(result)
-    elif value.typePtr == typeCache.ProcBodyType:
+    if value.typePtr == typeCache.ProcBodyType:
         pass  # fall through and return tcl object.
-    elif value.typePtr == typeCache.StringType:
+    if value.typePtr == typeCache.StringType:
         buf = tklib.Tcl_GetUnicode(value)
         length = tklib.Tcl_GetCharLength(value)
         buf = tkffi.buffer(tkffi.cast("char*", buf), length*2)[:]

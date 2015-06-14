@@ -141,6 +141,7 @@ class TkApp(object):
 
         Tcl_AppInit(self)
         # EnableEventHook()
+        self._typeCache.add_extra_types(self)
         return self
 
     def __del__(self):

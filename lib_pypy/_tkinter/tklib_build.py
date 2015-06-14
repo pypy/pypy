@@ -46,14 +46,16 @@ library_dirs = libdirs
 
 TK_HEX_VERSION = config_lib.TK_HEX_VERSION
 
-HAVE_LIBTOMMATH = ((0x08050208 <= TK_HEX_VERSION < 0x08060000) or
-                   (0x08060200 <= TK_HEX_VERSION))
+HAVE_LIBTOMMATH = int((0x08050208 <= TK_HEX_VERSION < 0x08060000) or
+                      (0x08060200 <= TK_HEX_VERSION))
 
 tkffi = FFI()
 
 tkffi.cdef("""
 char *get_tk_version();
 char *get_tcl_version();
+#define HAVE_LIBTOMMATH ...
+
 #define TCL_READABLE ...
 #define TCL_WRITABLE ...
 #define TCL_EXCEPTION ...
@@ -162,13 +164,34 @@ int Tk_GetNumMainWindows();
 void Tcl_FindExecutable(char *argv0);
 """)
 
+if HAVE_LIBTOMMATH:
+    tkffi.cdef("""
+#define MP_OKAY ...
+#define MP_NEG ...
+typedef struct {
+    int sign;
+    ...;
+} mp_int;
+
+int Tcl_GetBignumFromObj(Tcl_Interp *interp, Tcl_Obj *obj, mp_int *value);
+
+int mp_unsigned_bin_size(mp_int *a);
+int mp_to_unsigned_bin_n(mp_int * a, unsigned char *b, unsigned long *outlen);
+void mp_clear(mp_int *a);
+""")
+
 tkffi.set_source("_tkinter.tklib_cffi", """
+#define HAVE_LIBTOMMATH %(HAVE_LIBTOMMATH)s
 #include <tcl.h>
 #include <tk.h>
 
+#if HAVE_LIBTOMMATH
+#include <tclTomMath.h>
+#endif 
+
 char *get_tk_version() { return TK_VERSION; }
 char *get_tcl_version() { return TCL_VERSION; }
-""",
+""" % globals(),
 include_dirs=incdirs,
 libraries=linklibs,
 library_dirs = libdirs
