@@ -44,7 +44,7 @@ libraries=linklibs,
 library_dirs = libdirs
 )
 
-config_ffi.compile(os.path.dirname(os.path.dirname(sys.argv[0])))
+config_ffi.compile(os.path.join(os.path.dirname(sys.argv[0]), '..'))
 from _tkinter.config_cffi import lib as config_lib
 TK_HEX_VERSION = config_lib.TK_HEX_VERSION
 
@@ -177,4 +177,4 @@ library_dirs = libdirs
 )
 
 if __name__ == "__main__":
-    print tkffi.compile(os.path.dirname(os.path.dirname(sys.argv[0])))
+    tkffi.compile(os.path.join(os.path.dirname(sys.argv[0]), '..'))
