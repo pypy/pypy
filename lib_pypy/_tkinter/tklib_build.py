@@ -32,7 +32,7 @@ else:
 config_ffi = FFI()
 config_ffi.cdef(
 "#define TK_HEX_VERSION ...")
-config_lib = config_ffi.set_source("_tkinter.config_cffi", """
+config_lib = config_ffi.verify("""
 #include <tk.h>
 #define TK_HEX_VERSION ((TK_MAJOR_VERSION << 24) | \
                         (TK_MINOR_VERSION << 16) | \
@@ -44,8 +44,6 @@ libraries=linklibs,
 library_dirs = libdirs
 )
 
-config_ffi.compile(os.path.join(os.path.dirname(sys.argv[0]), '..'))
-from _tkinter.config_cffi import lib as config_lib
 TK_HEX_VERSION = config_lib.TK_HEX_VERSION
 
 HAVE_LIBTOMMATH = ((0x08050208 <= TK_HEX_VERSION < 0x08060000) or
