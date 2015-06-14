@@ -439,8 +439,8 @@ class TkApp(object):
             tklib.Tcl_Free(argv[0])
 
     def getboolean(self, s):
-        if isinstance(s, int):
-            return s
+        if isinstance(s, (int, long)):
+            return bool(s)
         if isinstance(s, unicode):
             s = str(s)
         if '\x00' in s:
@@ -452,7 +452,7 @@ class TkApp(object):
         return bool(v[0])
 
     def getint(self, s):
-        if isinstance(s, int):
+        if isinstance(s, (int, long)):
             return s
         if isinstance(s, unicode):
             s = str(s)
