@@ -3,6 +3,54 @@
 from cffi import FFI
 import sys, os
 
+# XXX find a better way to detect paths
+# XXX pick up CPPFLAGS and LDFLAGS and add to these paths?
+if sys.platform.startswith("openbsd"):
+    incdirs = ['/usr/local/include/tcl8.5', '/usr/local/include/tk8.5', '/usr/X11R6/include']
+    linklibs = ['tk85', 'tcl85']
+    libdirs = ['/usr/local/lib', '/usr/X11R6/lib']
+elif sys.platform.startswith("freebsd"):
+    incdirs = ['/usr/local/include/tcl8.6', '/usr/local/include/tk8.6', '/usr/local/include/X11', '/usr/local/include']
+    linklibs = ['tk86', 'tcl86']
+    libdirs = ['/usr/local/lib']
+elif sys.platform == 'win32':
+    incdirs = []
+    linklibs = ['tcl85', 'tk85']
+    libdirs = []
+elif sys.platform == 'darwin':
+    incdirs = ['/System/Library/Frameworks/Tk.framework/Versions/Current/Headers/']
+    linklibs = ['tcl', 'tk']
+    libdirs = []
+else:
+    for _ver in ['', '8.6', '8.5', '']:
+        incdirs = ['/usr/include/tcl' + _ver]
+        linklibs = ['tcl' + _ver, 'tk' + _ver]
+        libdirs = []
+        if os.path.isdir(incdirs[0]):
+            break
+
+config_ffi = FFI()
+config_ffi.cdef(
+"#define TK_HEX_VERSION ...")
+config_lib = config_ffi.set_source("_tkinter.config_cffi", """
+#include <tk.h>
+#define TK_HEX_VERSION ((TK_MAJOR_VERSION << 24) | \
+                        (TK_MINOR_VERSION << 16) | \
+                        (TK_RELEASE_LEVEL << 8) | \
+                        (TK_RELEASE_SERIAL << 0))
+""",
+include_dirs=incdirs,
+libraries=linklibs,
+library_dirs = libdirs
+)
+
+config_ffi.compile(os.path.dirname(os.path.dirname(sys.argv[0])))
+from _tkinter.config_cffi import lib as config_lib
+TK_HEX_VERSION = config_lib.TK_HEX_VERSION
+
+HAVE_LIBTOMMATH = ((0x08050208 <= TK_HEX_VERSION < 0x08060000) or
+                   (0x08060200 <= TK_HEX_VERSION))
+
 tkffi = FFI()
 
 tkffi.cdef("""
@@ -116,32 +164,6 @@ int Tk_GetNumMainWindows();
 void Tcl_FindExecutable(char *argv0);
 """)
 
-# XXX find a better way to detect paths
-# XXX pick up CPPFLAGS and LDFLAGS and add to these paths?
-if sys.platform.startswith("openbsd"):
-    incdirs = ['/usr/local/include/tcl8.5', '/usr/local/include/tk8.5', '/usr/X11R6/include']
-    linklibs = ['tk85', 'tcl85']
-    libdirs = ['/usr/local/lib', '/usr/X11R6/lib']
-elif sys.platform.startswith("freebsd"):
-    incdirs = ['/usr/local/include/tcl8.6', '/usr/local/include/tk8.6', '/usr/local/include/X11', '/usr/local/include']
-    linklibs = ['tk86', 'tcl86']
-    libdirs = ['/usr/local/lib']
-elif sys.platform == 'win32':
-    incdirs = []
-    linklibs = ['tcl85', 'tk85']
-    libdirs = []
-elif sys.platform == 'darwin':
-    incdirs = ['/System/Library/Frameworks/Tk.framework/Versions/Current/Headers/']
-    linklibs = ['tcl', 'tk']
-    libdirs = []
-else:
-    for _ver in ['', '8.6', '8.5', '']:
-        incdirs = ['/usr/include/tcl' + _ver]
-        linklibs = ['tcl' + _ver, 'tk' + _ver]
-        libdirs = []
-        if os.path.isdir(incdirs[0]):
-            break
-
 tkffi.set_source("_tkinter.tklib_cffi", """
 #include <tcl.h>
 #include <tk.h>
@@ -155,4 +177,4 @@ library_dirs = libdirs
 )
 
 if __name__ == "__main__":
-    tkffi.compile()
+    print tkffi.compile(os.path.dirname(os.path.dirname(sys.argv[0])))
