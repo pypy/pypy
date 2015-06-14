@@ -592,6 +592,47 @@ class AppTestBufferedRWPair:
 
         raises(IOError, _io.BufferedRWPair, _io.BytesIO(), NotWritable())
 
+    def test_writer_close_error_on_close(self):
+        import _io
+        class MockRawIO(_io._IOBase):
+            def readable(self):
+                return True
+            def writable(self):
+                return True
+        def writer_close():
+            writer_non_existing
+        reader = MockRawIO()
+        writer = MockRawIO()
+        writer.close = writer_close
+        pair = _io.BufferedRWPair(reader, writer)
+        err = raises(NameError, pair.close)
+        assert 'writer_non_existing' in str(err.value)
+        assert not pair.closed
+        assert reader.closed
+        assert not writer.closed
+
+    def test_reader_writer_close_error_on_close(self):
+        import _io
+        class MockRawIO(_io._IOBase):
+            def readable(self):
+                return True
+            def writable(self):
+                return True
+        def reader_close():
+            reader_non_existing
+        def writer_close():
+            writer_non_existing
+        reader = MockRawIO()
+        reader.close = reader_close
+        writer = MockRawIO()
+        writer.close = writer_close
+        pair = _io.BufferedRWPair(reader, writer)
+        err = raises(NameError, pair.close)
+        assert 'reader_non_existing' in str(err.value)
+        assert not pair.closed
+        assert not reader.closed
+        assert not writer.closed
+
 class AppTestBufferedRandom:
     spaceconfig = dict(usemodules=['_io'])
 

@@ -197,17 +197,13 @@ class AppTestFileIO:
     def test_mode_strings(self):
         import _io
         import os
-        try:
-            for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
-                          ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
-                          ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
-                          ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
-                # read modes are last so that TESTFN will exist first
-                with _io.FileIO(self.tmpfile, modes[0]) as f:
-                    assert f.mode == modes[1]
-        finally:
-            if os.path.exists(self.tmpfile):
-                os.unlink(self.tmpfile)
+        for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
+                      ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
+                      ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
+                      ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
+            # read modes are last so that TESTFN will exist first
+            with _io.FileIO(self.tmpfile, modes[0]) as f:
+                assert f.mode == modes[1]
 
     def test_flush_error_on_close(self):
         # Test that the file is closed despite failed flush
