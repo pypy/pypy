@@ -212,14 +212,14 @@ def stm_transaction_break(funcgen, op):
     return 'stm_force_transaction_break(&stm_thread_local);'
 
 def stm_increment_atomic(funcgen, op):
-    return r'fprintf(stderr, "stm_increment_atomic: reimplement\n"); abort();'
+    return 'stm_enable_atomic(&stm_thread_local);'
 
 def stm_decrement_atomic(funcgen, op):
-    return r'fprintf(stderr, "stm_decrement_atomic: reimplement\n"); abort();'
+    return 'stm_disable_atomic(&stm_thread_local);'
 
 def stm_get_atomic(funcgen, op):
     result = funcgen.expr(op.result)
-    return '%s = 0;  // XXX stm_get_atomic' % (result,)
+    return '%s = stm_is_atomic(&stm_thread_local);' % (result,)
 
 def stm_is_inevitable(funcgen, op):
     result = funcgen.expr(op.result)
