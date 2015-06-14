@@ -16,7 +16,7 @@
 #endif
 
 
-#define NB_PAGES            (2500*256)    // 2500MB
+#define NB_PAGES            (7500*256)    // 7500MB
 #define NB_SEGMENTS         (STM_NB_SEGMENTS+1) /* +1 for sharing seg 0 */
 #define NB_SEGMENTS_MAX     240    /* don't increase NB_SEGMENTS past this */
 #define NB_NURSERY_PAGES    (STM_GC_NURSERY/4)
