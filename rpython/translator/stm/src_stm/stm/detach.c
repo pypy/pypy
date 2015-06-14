@@ -82,10 +82,23 @@ static void commit_external_inevitable_transaction(void)
     _core_commit_transaction(/*external=*/ true);
 }
 
-void _stm_reattach_transaction(stm_thread_local_t *tl)
+void _stm_reattach_transaction(intptr_t self)
 {
     intptr_t old;
     int saved_errno = errno;
+    stm_thread_local_t *tl = (stm_thread_local_t *)self;
+
+    /* if 'self_or_0_if_atomic == 0', it means that we are trying to
+       reattach in a thread that is currently running a transaction
+       that is atomic.  That should only be possible if we're
+       inevitable too.  And in that case,
+       '_stm_detached_inevitable_from_thread' must always be 0, and
+       the previous call to compare_and_swap(0, 0) should have worked
+       (and done nothing), so we should not end here.
+    */
+    if (self == 0)
+        stm_fatalerror("atomic inconsistency");
+
  restart:
     old = _stm_detached_inevitable_from_thread;
     if (old != 0) {

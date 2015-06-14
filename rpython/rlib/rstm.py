@@ -46,8 +46,8 @@ adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
 adr_stm_detached_inevitable_from_thread = (
     CFlexSymbolic('((long)&_stm_detached_inevitable_from_thread)'))
-adr_stm_thread_local_self = (
-    CFlexSymbolic('((long)&stm_thread_local.self)'))
+adr_stm_thread_local_self_or_0_if_atomic = (
+    CFlexSymbolic('((long)&stm_thread_local.self_or_0_if_atomic)'))
 adr_stm_leave_noninevitable_transactional_zone = (
     CFlexSymbolic('((long)&_stm_leave_noninevitable_transactional_zone)'))
 adr_stm_reattach_transaction = (

@@ -146,8 +146,8 @@ class Assembler386(BaseAssembler):
         mc.SUB_ri(esp.value, 3 * WORD)     # 3 instead of 2 to align the stack
         mc.MOV_sr(0, eax.value)     # not edx, we're not running 32-bit
         mc.MOVSD_sx(1, xmm0.value)
-        # load the value of tl (== tl->self) into edi as argument
-        mc.MOV(edi, self.heap_stm_thread_local_self())
+        # load the value of 'tl->self_or_0_if_atomic' into edi as argument
+        mc.MOV(edi, self.heap_stm_thread_local_self_or_0_if_atomic())
         mc.CALL(imm(rstm.adr_stm_reattach_transaction))
         # pop
         mc.MOVSD_xs(xmm0.value, 1)
@@ -930,10 +930,10 @@ class Assembler386(BaseAssembler):
         """STM: AddressLoc for '&stm_thread_local.rjthread.moved_off_base'."""
         return self.heap_tl(rstm.adr_rjthread_moved_off_base)
 
-    def heap_stm_thread_local_self(self):
+    def heap_stm_thread_local_self_or_0_if_atomic(self):
         """STM: AddressLoc for '&stm_thread_local.self', i.e. such that
         reading it returns the (absolute) address of 'stm_thread_local'."""
-        return self.heap_tl(rstm.adr_stm_thread_local_self)
+        return self.heap_tl(rstm.adr_stm_thread_local_self_or_0_if_atomic)
 
     def heap_stm_detached_inevitable_from_thread(self):
         """STM: AddressLoc for '&stm_detached_inevitable_from_thread'."""

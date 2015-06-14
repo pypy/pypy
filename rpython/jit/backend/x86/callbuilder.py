@@ -709,8 +709,8 @@ class CallBuilder64(CallBuilderX86):
         # Fast path: inline _stm_detach_inevitable_transaction()
         # <- Here comes the write_fence(), which is not needed in x86 assembler
         # assert(_stm_detached_inevitable_from_thread == 0): dropped
-        # _stm_detached_inevitable_from_thread = tl (== tl->self):
-        mc.MOV(eax, self.asm.heap_stm_thread_local_self())
+        # _stm_detached_inevitable_from_thread = tl->self_or_0_if_atomic:
+        mc.MOV(eax, self.asm.heap_stm_thread_local_self_or_0_if_atomic())
         mc.MOV(self.asm.heap_stm_detached_inevitable_from_thread(), eax)
         #
         offset = mc.get_relative_pos() - jmp_location
@@ -727,8 +727,8 @@ class CallBuilder64(CallBuilderX86):
         mc = self.mc
         mc.MOV(edi, eax)
         #
-        # compare_and_swap(&_stm_detached_inevitable_from_thread, tl, 0)
-        mc.MOV(eax, self.asm.heap_stm_thread_local_self())
+        # compare_and_swap(&_stm_detached_inevitable_from_thread, self_or_0, 0)
+        mc.MOV(eax, self.asm.heap_stm_thread_local_self_or_0_if_atomic())
         mc.XOR(esi, esi)
         adr = self.asm.heap_stm_detached_inevitable_from_thread()
         m_address = mc._addr_as_reg_offset(adr.value_j())
