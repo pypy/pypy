@@ -20,6 +20,9 @@ class VirtualRefInfo:
         self.jit_virtual_ref_vtable = lltype.malloc(rclass.OBJECT_VTABLE,
                                                     zero=True, flavor='raw',
                                                     immortal=True)
+        if hasattr(self.cpu, 'gc_ll_descr'):
+            heaptracker.setup_cache_gcstruct2vtable(self.cpu.gc_ll_descr)
+            self.cpu.gc_ll_descr._cache_gcstruct2vtable[self.JIT_VIRTUAL_REF] = self.jit_virtual_ref_vtable
         self.descr = self.cpu.sizeof(self.JIT_VIRTUAL_REF,
                                      vtable=self.jit_virtual_ref_vtable)
         self.jit_virtual_ref_vtable.name = rclass.alloc_array_name(
@@ -29,9 +32,6 @@ class VirtualRefInfo:
         adr = heaptracker.adr2int(adr)
         self.jit_virtual_ref_const_class = history.ConstInt(adr)
         fielddescrof = self.cpu.fielddescrof
-        if hasattr(self.cpu, 'gc_ll_descr'):
-            heaptracker.setup_cache_gcstruct2vtable(self.cpu.gc_ll_descr)
-            self.cpu.gc_ll_descr._cache_gcstruct2vtable[self.JIT_VIRTUAL_REF] = self.jit_virtual_ref_vtable
         self.descr_virtual_token = fielddescrof(self.JIT_VIRTUAL_REF,
                                                 'virtual_token')
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')

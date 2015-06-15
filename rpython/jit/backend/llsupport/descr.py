@@ -72,6 +72,7 @@ BaseSizeDescr = SizeDescr
 
 def get_size_descr(gccache, STRUCT, vtable):
     cache = gccache._cache_size
+    assert not isinstance(vtable, bool)
     try:
         return cache[STRUCT]
     except KeyError:
@@ -197,7 +198,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         fielddescr.parent_descr = get_size_descr(gccache, STRUCT,
-                                  heaptracker.get_vtable_for_gcstruct(STRUCT))
+                        heaptracker.get_vtable_for_gcstruct(gccache, STRUCT))
         return fielddescr
 
 def get_type_flag(TYPE):

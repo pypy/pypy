@@ -60,10 +60,14 @@ def get_vtable_for_gcstruct(gccache, GCSTRUCT):
     # xxx hack: from a GcStruct representing an instance's
     # lowleveltype, return the corresponding vtable pointer.
     # Returns None if the GcStruct does not belong to an instance.
-    assert isinstance(GCSTRUCT, lltype.GcStruct)
+    if not isinstance(GCSTRUCT, lltype.GcStruct):
+        return None
     if not has_gcstruct_a_vtable(GCSTRUCT):
         return None
     setup_cache_gcstruct2vtable(gccache)
+    if not hasattr(gccache, '_cache_gcstruct2vtable'):
+        # boehm and stuff
+        return lltype.malloc(GCSTRUCT.typeptr.TO, flavor='raw', immortal=True)
     return gccache._cache_gcstruct2vtable[GCSTRUCT]
 
 def setup_cache_gcstruct2vtable(gccache):
@@ -89,7 +93,7 @@ VTABLETYPE = rclass.CLASSTYPE
 
 def register_known_gctype(cpu, vtable, STRUCT):
     # register the correspondance 'vtable' <-> 'STRUCT' in the cpu
-    sizedescr = cpu.sizeof(STRUCT, has_gcstruct_a_vtable(STRUCT))
+    sizedescr = cpu.sizeof(STRUCT, vtable)
     assert sizedescr.as_vtable_size_descr() is sizedescr
     if getattr(sizedescr, '_corresponding_vtable', None):
         assert sizedescr._corresponding_vtable == vtable

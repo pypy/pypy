@@ -1601,7 +1601,7 @@ class Transformer(object):
                 descrs = (self.cpu.arraydescrof(ARRAY),
                           self.cpu.fielddescrof(LIST, 'length'),
                           self.cpu.fielddescrof(LIST, 'items'),
-                          self.cpu.sizeof(LIST, False))
+                          self.cpu.sizeof(LIST, None))
         else:
             prefix = 'do_fixed_'
             if self._array_of_voids(LIST):
