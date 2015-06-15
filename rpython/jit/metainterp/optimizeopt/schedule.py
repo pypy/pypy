@@ -255,7 +255,7 @@ class OpToVectorOp(object):
 
 
         off = 0
-        stride = self.split_pack(pack)
+        stride = self.split_pack(pack, self.sched_data.vec_reg_size)
         left = len(pack.operations)
         assert stride > 0
         while off < len(pack.operations):
@@ -275,9 +275,8 @@ class OpToVectorOp(object):
         self.input_type = None
         self.output_type = None
 
-    def split_pack(self, pack):
+    def split_pack(self, pack, vec_reg_size):
         pack_count = len(pack.operations)
-        vec_reg_size = self.sched_data.vec_reg_size
         bytes = pack_count * self.getsplitsize()
         if bytes > vec_reg_size:
             return vec_reg_size // self.getsplitsize()
@@ -611,12 +610,16 @@ ROP_ARG_RES_VECTOR = {
 
 def determine_output_type(node, input_type):
     op = node.getoperation()
-    op2vecop = ROP_ARG_RES_VECTOR.get(op.vector, None)
-    if op2vecop is None:
-        raise NotImplementedError("missing vecop for '%s'" % (op.getopname(),))
+    op2vecop = determine_trans(op)
     if isinstance(op2vecop, OpToVectorOpConv):
         return op2vecop.determine_output_type(op)
     return input_type
+
+def determine_trans(op):
+    op2vecop = ROP_ARG_RES_VECTOR.get(op.vector, None)
+    if op2vecop is None:
+        raise NotImplementedError("missing vecop for '%s'" % (op.getopname(),))
+    return op2vecop
 
 class VecScheduleData(SchedulerData):
     def __init__(self, vec_reg_size):

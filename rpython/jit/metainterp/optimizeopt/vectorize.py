@@ -13,7 +13,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         Scheduler, Pack, Pair, AccumPair, Accum, vectorbox_outof_box, getpackopnum,
-        getunpackopnum, PackType, determine_output_type)
+        getunpackopnum, PackType, determine_output_type, determine_trans)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib.objectmodel import we_are_translated
@@ -483,7 +483,7 @@ class CostModel(object):
     def __init__(self, threshold):
         self.threshold = threshold
 
-    def unpack_cost(self, index, op):
+    def unpack_cost(self, op, index, count):
         raise NotImplementedError("unpack cost")
 
     def savings_for_pack(self, pack, times):
@@ -494,7 +494,7 @@ class CostModel(object):
         result = node.getoperation().result
         for use in node.provides():
             if use.to.pack is None and use.because_of(result):
-                savings -= self.unpack_cost(index, node.getoperation())
+                savings -= self.unpack_cost(node.getoperation(), index, 1)
         return savings
 
     def calculate_savings(self, packset):
@@ -514,10 +514,20 @@ class X86_CostModel(CostModel):
 
     def savings_for_pack(self, pack, times):
         cost, benefit_factor = (1,1)
-        op = pack.operations[0].getoperation()
+        node = pack.operations[0]
+        op = node.getoperation()
         if op.getopnum() == rop.INT_SIGNEXT:
             cost, benefit_factor = self.cb_signext(pack)
-        return benefit_factor * times - cost
+        #
+        savings = benefit_factor * times - cost
+        op2vop = determine_trans(op)
+        split = op2vop.split_pack(pack)
+        pack_count = len(pack.operations)
+        if split != pack_count:
+            for i in range(0,pack_count,split):
+                savings -= self.unpack_cost(op, i, split)
+
+        return savings
 
     def cb_signext(self, pack):
         op0 = pack.operations[0].getoperation()
@@ -527,14 +537,16 @@ class X86_CostModel(CostModel):
         orig_size = pack.output_type.getsize()
         if size == orig_size:
             return 0,0
-        # no benefit for this operation! needs many x86 instr 
+        # no benefit for this operation! needs many x86 instrs
         return 1,0
 
-    def unpack_cost(self, index, op):
+    def unpack_cost(self, op, index, count):
         if op.getdescr():
             if op.getdescr().is_array_of_floats():
                 if index == 1:
                     return 2
+        if count >= 2:
+            return count
         return 1
 
 def isomorphic(l_op, r_op):

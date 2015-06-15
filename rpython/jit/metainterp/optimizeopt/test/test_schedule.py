@@ -21,6 +21,7 @@ class SchedulerBaseTest(DependencyBaseTest):
             'float': self.singlefloatarraydescr,
             'long': self.intarraydescr,
             'int': self.int32arraydescr,
+            'char': self.chararraydescr,
         }
         loop = opparse("        [p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5,v103204[i32|4]]\n" + source + \
                        "\n        jump(p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5,v103204[i32|4])",
