@@ -184,6 +184,7 @@ int Tcl_GetWideIntFromObj(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_WideInt *value);
 if HAVE_LIBTOMMATH:
     tkffi.cdef("""
 #define MP_OKAY ...
+#define MP_ZPOS ...
 #define MP_NEG ...
 typedef struct {
     int sign;
@@ -191,9 +192,12 @@ typedef struct {
 } mp_int;
 
 int Tcl_GetBignumFromObj(Tcl_Interp *interp, Tcl_Obj *obj, mp_int *value);
+Tcl_Obj *Tcl_NewBignumObj(mp_int *value);
 
 int mp_unsigned_bin_size(mp_int *a);
 int mp_to_unsigned_bin_n(mp_int * a, unsigned char *b, unsigned long *outlen);
+int mp_read_radix(mp_int *a, const char *str, int radix);
+int mp_init(mp_int *a);
 void mp_clear(mp_int *a);
 """)
 

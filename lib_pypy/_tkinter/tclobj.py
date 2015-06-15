@@ -73,6 +73,20 @@ def FromBignumObj(app, value):
     finally:
         tklib.mp_clear(bigValue)
 
+def AsBignumObj(value):
+    sign = -1 if value < 0 else 1
+    hexstr = '%x' % abs(value)
+    bigValue = tkffi.new("mp_int*")
+    tklib.mp_init(bigValue)
+    try:
+        if tklib.mp_read_radix(bigValue, hexstr, 16) != tklib.MP_OKAY:
+            raise MemoryError
+        bigValue.sign = tklib.MP_NEG if value < 0 else tklib.MP_ZPOS
+        return tklib.Tcl_NewBignumObj(bigValue)
+    finally:
+        tklib.mp_clear(bigValue)
+
+
 def FromObj(app, value):
     """Convert a TclObj pointer into a Python object."""
     typeCache = app._typeCache
@@ -131,15 +145,19 @@ def AsObj(value):
         try:
             tkffi.new("long[]", [value])
         except OverflowError:
+            pass 
+        else:
+            return tklib.Tcl_NewLongObj(value)
+        if tklib.HAVE_WIDE_INT_TYPE:
             try:
                 tkffi.new("Tcl_WideInt[]", [value])
             except OverflowError:
                 pass
-                # Too wide, fall through defaut object handling.
             else:
                 return tklib.Tcl_NewWideIntObj(value)
-        else:
-            return tklib.Tcl_NewLongObj(value)
+        if tklib.HAVE_LIBTOMMATH:
+            return AsBignumObj(value)
+            
     if isinstance(value, float):
         return tklib.Tcl_NewDoubleObj(value)
     if isinstance(value, tuple):
