@@ -14,6 +14,7 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
         assert loop.match("""
+            ...
             guard_class(p0, #, descr=...)
             p4 = getfield_gc_pure(p0, descr=<FieldP pypy.module.micronumpy.iterators.ArrayIter.inst_array \d+>)
             i5 = getfield_gc(p2, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
@@ -40,7 +41,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             i26 = int_is_true(i25)
             guard_true(i26, descr=...)
             i27 = getfield_gc_pure(p6, descr=<FieldS pypy.module.micronumpy.descriptor.W_Dtype.inst_elsize \d+>)
-            i28 = int_add(i5, i27)
+            guard_value(i27, 8, descr=...)
+            i28 = int_add(i5, 8)
             i29 = getfield_gc_pure(p0, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_size \d+>)
             i30 = int_ge(i23, i29)
             guard_false(i30, descr=...)
@@ -65,6 +67,7 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
         assert loop.match("""
+            ...
             f31 = raw_load(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
             i34 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX what are these?
@@ -73,7 +76,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_true(i32, descr=...)
             i35 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
-            i37 = int_add(i29, i28)
+            i37 = int_add(i29, 8)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
             guard_value(i35, #, descr=...)                  # XXX
@@ -175,7 +178,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_false(i88, descr=...)
             f90 = raw_load(i67, i89, descr=<ArrayF 8>)
             i91 = int_add(i87, 1)
-            i93 = int_add(i89, i76)
+            i93 = int_add(i89, 8)
             i94 = int_add(i79, 1)
             i95 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
             setfield_gc(p97, i91, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index .+>)

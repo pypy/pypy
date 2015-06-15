@@ -1375,8 +1375,22 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
-        py.test.skip()
         trace ="""
+        [p0, p1, p5, p6, p7, p17, p19, i46, i37, i41]
+        guard_not_invalidated() [p1, p0, p5, p6, p7, p17, p19]
+        i59 = int_lt(i46, i37)
+        guard_true(i59) [p1, p0, i46, p5, p6, p7, p17, p19]
+        f60 = getarrayitem_raw(i41, i46, descr=floatarraydescr)
+        f61 = float_add(f60, 1.000000)
+        setarrayitem_raw(i41, i46, f61, descr=floatarraydescr)
+        i62 = int_add(i46, 1)
+        setfield_gc(50, i62, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
+        i63 = int_ge(i62, 2024)
+        guard_false(i63) [p1, p0, p5, p6, p7, p17, p19, i62]
+        i64 = getfield_raw(140099887568000, descr=<FieldS pypysig_long_struct.c_value 0>)
+        i65 = int_lt(i64, 0)
+        guard_false(i65) [p1, p0, p5, p6, p7, p17, p19, None]
+        jump(p0, p1, p5, p6, p7, p17, p19, i62, i37, i41)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
