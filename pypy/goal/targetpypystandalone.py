@@ -26,44 +26,6 @@ def debug(msg):
     except OSError:
         pass     # bah, no working stderr :-(
 
-# HACKHACKHACK to build cffi import libraries after translation
-
-cffi_build_scripts = {
-    "sqlite3": "_sqlite3_build.py",
-    "audioop": "_audioop_build.py",
-    "tk": "_tkinter/tklib_build.py",
-    "curses": "_curses_build.py" if sys.platform != "win32" else None,
-    "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
-    "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
-    "xx": None,    # for testing: 'None' should be completely ignored
-    }
-
-def create_cffi_import_libraries(pypy_c, options, basedir):
-    shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
-                  ignore_errors=True)
-    for key, module in sorted(cffi_build_scripts.items()):
-        if module is None or getattr(options, 'no_' + key, None):
-            continue
-        if module.endswith('.py'):
-            args = [str(pypy_c), module]
-            cwd = str(basedir.join('lib_pypy'))
-        else:
-            args = [str(pypy_c), '-c', 'import ' + module]
-            cwd = None
-        print >> sys.stderr, '*', ' '.join(args)
-        try:
-            subprocess.check_call(args, cwd=cwd)
-        except subprocess.CalledProcessError:
-            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
-You can either install development headers package,
-add the --without-{0} option to skip packaging this
-binary CFFI extension, or say --without-cffi.""".format(key)
-            raise MissingDependenciesError(module)
-
-# HACKHACKHACK end
-
-
 # __________  Entry point  __________
 
 
@@ -95,7 +57,7 @@ def create_entry_point(space, w_dict):
                 space.startup()
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
-                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
+                w_exitcode = space.wrap(-1) #space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
             ##    from pypy.interpreter import main, interactive, error
@@ -339,6 +301,10 @@ class PyPyTarget(object):
         from rpython.translator.driver import taskdef
         import types
 
+        class Options(object):
+            pass
+
+
         def mkexename(name):
             if sys.platform == 'win32':
                 name = name.new(ext='exe')
@@ -347,12 +313,20 @@ class PyPyTarget(object):
         @taskdef(['compile_c'], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
-            exename = mkexename(self.compute_exe_name())
+            exename = mkexename(driver.compute_exe_name())
+            basedir = exename
+            while not basedir.join('include').exists():
+                _basedir = basedir.dirpath()
+                if _basedir == basedir:
+                    raise ValueError('interpreter %s not inside pypy repo', 
+                                     str(exename))
+                basedir = _basedir
             modules = self.config.objspace.usemodules.getpaths()
-            import pdb;pdb.set_trace()
-            create_cffi_import_libraries(exename, modules, exename.basename())      
+            options = Options()
+            # possibly adapt options using modules
+            create_cffi_import_libraries(exename, options, basedir)      
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
-        driver.tasks['build_cffi_imports'] = task_build_cffi_imports, ['compile_c']
+        driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
         driver.default_goal = 'build_cffi_imports'
         # HACKHACKHACK end
 

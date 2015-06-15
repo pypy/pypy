@@ -26,6 +26,8 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "2.7"
 
+from pypy.tool.build_cffi_imports import create_cffi_import_libraries, MissingDependenciesError
+
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
 
@@ -41,47 +43,11 @@ def ignore_patterns(*patterns):
 class PyPyCNotFound(Exception):
     pass
 
-class MissingDependenciesError(Exception):
-    pass
-
 def fix_permissions(dirname):
     if sys.platform != 'win32':
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
 
-
-cffi_build_scripts = {
-    "sqlite3": "_sqlite3_build.py",
-    "audioop": "_audioop_build.py",
-    "tk": "_tkinter/tklib_build.py",
-    "curses": "_curses_build.py" if sys.platform != "win32" else None,
-    "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
-    "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
-    "xx": None,    # for testing: 'None' should be completely ignored
-    }
-
-def create_cffi_import_libraries(pypy_c, options, basedir):
-    shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
-                  ignore_errors=True)
-    for key, module in sorted(cffi_build_scripts.items()):
-        if module is None or getattr(options, 'no_' + key):
-            continue
-        if module.endswith('.py'):
-            args = [str(pypy_c), module]
-            cwd = str(basedir.join('lib_pypy'))
-        else:
-            args = [str(pypy_c), '-c', 'import ' + module]
-            cwd = None
-        print >> sys.stderr, '*', ' '.join(args)
-        try:
-            subprocess.check_call(args, cwd=cwd)
-        except subprocess.CalledProcessError:
-            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
-You can either install development headers package,
-add the --without-{0} option to skip packaging this
-binary CFFI extension, or say --without-cffi.""".format(key)
-            raise MissingDependenciesError(module)
 
 def pypy_runs(pypy_c, quiet=False):
     kwds = {}
