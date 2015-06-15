@@ -3,3 +3,4 @@
 * mark_opaque_pointer is ignored (which is fine until unrolling)
 * clean up and unify _corresponding_vtable and vtable fields on SizeDescr
   and check if all the usecases are necessary
+* implement unrolling
