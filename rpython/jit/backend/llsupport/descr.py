@@ -131,6 +131,9 @@ class FieldDescr(ArrayOrFieldDescr):
                 heaptracker.int2adr(self.parent_descr.get_vtable()),
                 lltype.Ptr(rclass.OBJECT_VTABLE))
             tpptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct).typeptr
+            # this comparison is necessary, since we want to make sure
+            # that vtable for JitVirtualRef is the same without actually reading
+            # fields
             if tpptr != cls:
                 assert rclass.ll_isinstance(lltype.cast_opaque_ptr(
                     rclass.OBJECTPTR, struct), cls)
