@@ -287,10 +287,16 @@ class W_Dtype(W_Root):
             "Cannot delete dtype names attribute")
 
     def descr_get_metadata(self, space):
-        return space.wrap(self.metadata)
+        if self.metadata is None:
+            return space.w_None
+        return self.metadata
 
     def descr_set_metadata(self, space, w_metadata):
-        pass
+        if w_metadata is None:
+            return
+        if not space.isinstance_w(w_metadata, space.w_dict):
+            raise oefmt(space.w_TypeError, "argument 4 must be dict, not str")
+        self.metadata = w_metadata
 
     def descr_del_metadata(self, space):
         self.metadata = None
@@ -581,7 +587,7 @@ def dtype_from_list(space, w_lst, simple, align=False):
     retval.flags |= NPY.NEEDS_PYAPI
     return retval
 
-def dtype_from_dict(space, w_dict, align, w_copy):
+def dtype_from_dict(space, w_dict, align):
     def get_list_or_none(key):
         w_key = space.wrap(key)
         if space.is_true(w_dict.descr_has_key(space, w_key)):
@@ -668,13 +674,21 @@ def _check_for_commastring(s):
             sqbracket -= 1
     return False
 
-@unwrap_spec(align=bool)
-def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=None):
-    # align and w_copy are necessary for pickling
+@unwrap_spec(align=bool, copy=bool)
+def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
+                 w_shape=None, w_metadata=None):
+
     cache = get_dtype_cache(space)
+    def set_metadata_and_copy(dtype, space, w_metadata, copy=False):
+        if copy or (dtype in cache.builtin_dtypes and w_metadata is not None):
+            dtype = W_Dtype(dtype.itemtype, dtype.w_box_type, dtype.byteorder)
+        if w_metadata is not None:
+            dtype.descr_set_metadata(space, w_metadata)
+        return dtype
+
     if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
                                 space.len_w(w_shape) > 0):
-        subdtype = descr__new__(space, w_subtype, w_dtype, align, w_copy)
+        subdtype = descr__new__(space, w_subtype, w_dtype, align, copy, w_metadata=w_metadata)
         assert isinstance(subdtype, W_Dtype)
         size = 1
         if space.isinstance_w(w_shape, space.w_int):
@@ -703,9 +717,10 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
         if size >= 2 ** 31:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                   "dtype size in bytes must fit into a C int.")
-        return W_Dtype(types.VoidType(space),
+        return set_metadata_and_copy(W_Dtype(types.VoidType(space),
                        space.gettypefor(boxes.W_VoidBox),
-                       shape=shape, subdtype=subdtype, elsize=size)
+                       shape=shape, subdtype=subdtype, elsize=size),
+                    space, w_metadata)
 
     if space.is_none(w_dtype):
         return cache.w_float64dtype
@@ -716,7 +731,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
     if space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
         if _check_for_commastring(name):
-            return dtype_from_spec(space, w_dtype)
+            return set_metadata(dtype_from_spec(space, w_dtype), space, w_metadata)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
             dtype = cache.dtypes_by_name[cname]
@@ -730,29 +745,34 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
-        return dtype_from_list(space, w_dtype, False, align=align)
+        return set_metadata_and_copy(dtype_from_list(space, w_dtype, False, align=align),
+                    space, w_metadata, copy)
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
-        subdtype = descr__new__(space, w_subtype, w_dtype0, align, w_copy)
+        subdtype = descr__new__(space, w_subtype, w_dtype0, align, copy)
         assert isinstance(subdtype, W_Dtype)
         if subdtype.elsize == 0:
             name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
-            return descr__new__(space, w_subtype, space.wrap(name), align, w_copy)
-        return descr__new__(space, w_subtype, w_dtype0, align, w_copy, w_shape=w_dtype1)
+            retval = descr__new__(space, w_subtype, space.wrap(name), align, copy)
+        else:
+            retval = descr__new__(space, w_subtype, w_dtype0, align, copy, w_shape=w_dtype1)
+        return set_metadata_and_copy(retval, space, w_metadata, copy)
     elif space.isinstance_w(w_dtype, space.w_dict):
-        return dtype_from_dict(space, w_dtype, align, w_copy)
+        return set_metadata_and_copy(dtype_from_dict(space, w_dtype, align),
+                    space, w_metadata, copy)
     for dtype in cache.builtin_dtypes:
         if dtype.num in cache.alternate_constructors and \
                 w_dtype in cache.alternate_constructors[dtype.num]:
-            return dtype
+            return set_metadata_and_copy(dtype, space, w_metadata, copy)
         if w_dtype is dtype.w_box_type:
-            return dtype
+            return set_metadata_and_copy(dtype, space, w_metadata, copy)
         if space.isinstance_w(w_dtype, space.w_type) and \
            space.is_true(space.issubtype(w_dtype, dtype.w_box_type)):
-            return W_Dtype(dtype.itemtype, w_dtype, elsize=0)
+            return set_metadata_and_copy(W_Dtype(dtype.itemtype, w_dtype, elsize=0),
+                    space, w_metadata, copy)
     if space.isinstance_w(w_dtype, space.w_type):
-        return cache.w_objectdtype
+        return set_metadata_and_copy(cache.w_objectdtype, space, w_metadata, copy)
     raise oefmt(space.w_TypeError, "data type not understood")
 
 
