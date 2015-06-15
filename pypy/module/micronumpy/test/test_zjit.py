@@ -354,6 +354,20 @@ class TestNumpyJit(Jit386Mixin):
         assert result == sum(range(30))
         self.check_vectorized(1, 1)
 
+    def define_sum_multi():
+        return """
+        a = |30|
+        b = sum(a)
+        c = |60|
+        d = sum(c)
+        b + c
+        """
+
+    def test_sum_multi(self):
+        result = self.run("sum_multi")
+        assert result == sum(range(30)) + sum(range(0,60))
+        self.check_vectorized(1, 1)
+
     def define_sum_float_to_int16():
         return """
         a = |30|

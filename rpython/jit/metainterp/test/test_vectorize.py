@@ -153,6 +153,24 @@ class VectorizeTests:
         res = self.meta_interp(f, [30])
         assert res == f(30) == 128
 
+    def test_sum(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        myjitdriver2 = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            for j in range(d):
+                va[j] = float(j)
+            i = 0
+            accum = 0
+            while i < d:
+                myjitdriver.jit_merge_point()
+                accum += va[i]
+                i += 1
+            lltype.free(va, flavor='raw')
+            return accum
+        res = self.meta_interp(f, [60])
+        assert res == f(60) == sum(range(60))
 
 class VectorizeLLtypeTests(VectorizeTests):
     pass

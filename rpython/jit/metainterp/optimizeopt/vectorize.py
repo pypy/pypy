@@ -484,10 +484,10 @@ class CostModel(object):
         self.threshold = threshold
 
     def unpack_cost(self, index, op):
-        raise NotImplementedError
+        raise NotImplementedError("unpack cost")
 
     def savings_for_pack(self, pack, times):
-        raise NotImplementedError
+        raise NotImplementedError("savings for pack")
 
     def savings_for_unpacking(self, node, index):
         savings = 0
@@ -691,13 +691,15 @@ class PackSet(object):
         return None, -1
 
     def accumulate_prepare(self, sched_data, renamer):
+        vec_reg_size = sched_data.vec_reg_size
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
             accum = pack.accum
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()
-            op = ResOperation(rop.VEC_BOX, [ConstInt(0)], box)
+            size = vec_reg_size // pack.input_type.getsize()
+            op = ResOperation(rop.VEC_BOX, [ConstInt(size)], box)
             sched_data.invariant_oplist.append(op)
             result = box.clonebox()
             # clear the box to zero TODO might not be zero for every reduction?

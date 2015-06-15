@@ -31,7 +31,11 @@ class LLTrace(object):
             try:
                 newbox = _cache[box]
             except KeyError:
-                newbox = _cache[box] = box.__class__()
+                if isinstance(box, BoxVectorAccum):
+                    newbox = _cache[box] = \
+                        box.__class__(box, box.scalar_var, box.operator)
+                else:
+                    newbox = _cache[box] = box.__class__()
             return newbox
         #
         self.inputargs = map(mapping, inputargs)
@@ -696,6 +700,17 @@ class LLGraphCPU(model.AbstractCPU):
         assert len(vx) == len(vy)
         return [_vx == _vy for _vx,_vy in zip(vx,vy)]
 
+    def bh_vec_int_xor(self, vx, vy):
+        return [int(x) ^ int(y) for x,y in zip(vx,vy)]
+
+    def bh_vec_float_pack(self, vector, value, index, count):
+        if isinstance(value, list):
+            for i in range(count):
+                vector[index + i] = value[i]
+        else:
+            vector[index] = value
+        return vector
+
     def bh_vec_cast_float_to_singlefloat(self, vx):
         return vx
 
@@ -872,7 +887,7 @@ class LLFrame(object):
                     def prod(acc, x): return acc * x
                     value = reduce(prod, value, 1)
                 else:
-                    raise NotImplementedError
+                    raise NotImplementedError("accum operator in fail guard")
             values.append(value)
         if hasattr(descr, '_llgraph_bridge'):
             target = (descr._llgraph_bridge, -1)
