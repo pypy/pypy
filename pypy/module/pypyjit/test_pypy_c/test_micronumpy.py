@@ -1,8 +1,56 @@
+import py
+
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
 
 class TestMicroNumPy(BaseTestPyPyC):
+
+    arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
+             ('+','float','int',   9*7834,   7843, 4.0,5.0),
+             ('+','int','float',   8*2571,   2571, 9.0,-1.0),
+             ('+','float','int',   -18*2653,   2653, 4.0,-22.0),
+             ('+','int','int',     -1*1499,   1499, 24.0,-25.0),
+             ('-','float','float', -2*5523,  5523, 1.0,3.0),
+             ('*','float','float', 3*2999,   2999, 1.0,3.0),
+             ('/','float','float', 3*7632,   7632, 3.0,1.0),
+             ('/','float','float', 1.5*7632, 7632, 3.0,2.0),
+             ('&','int','int',     0,        1500, 1,0),
+             ('&','int','int',     1500,     1500, 1,1),
+             ('|','int','int',     1500,     1500, 0,1),
+             ('|','int','int',     0,        1500, 0,0),
+            ]
+    type_permuated = []
+    types = { 'int': ['int8','int16','int32','int64'],
+              'float': ['float32', 'float64']
+            }
+    for arith in arith_comb:
+        t1 = arith[1]
+        t2 = arith[2]
+        possible_t1 = types[t1]
+        possible_t2 = types[t2]
+        for ta in possible_t1:
+            for tb in possible_t2:
+                op, _, _, r, c, a, b = arith
+                t = (op, ta, tb, r, c, a, b)
+                type_permuated.append(t)
+
+    @py.test.mark.parametrize("op,adtype,bdtype,result,count,a,b", type_permuated)
+    def test_vector_call2(self, op, adtype, bdtype, result, count, a, b):
+        source = """
+        def main():
+            import _numpypy.multiarray as np
+            a = np.array([{a}]*{count}, dtype='{adtype}')
+            b = np.array([{b}]*{count}, dtype='{bdtype}')
+            c = a {op} b
+            return c.sum()
+        """.format(op=op, adtype=adtype, bdtype=bdtype, count=count, a=a, b=b)
+        exec py.code.Source(source).compile()
+        vlog = self.run(main, [], vectorize=1)
+        log = self.run(main, [], vectorize=0)
+        assert log.result == vlog.result
+        assert log.result == result
+
     def test_reduce_logical_xor(self):
         def main():
             import _numpypy.multiarray as np
