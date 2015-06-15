@@ -72,6 +72,7 @@ class W_Dtype(W_Root):
         self.shape = shape
         self.subdtype = subdtype
         self.flags = 0
+        self.metadata = None
         if isinstance(itemtype, types.ObjectType):
             self.flags = NPY.OBJECT_DTYPE_FLAGS
         if not subdtype:
@@ -284,6 +285,15 @@ class W_Dtype(W_Root):
     def descr_del_names(self, space):
         raise oefmt(space.w_AttributeError, 
             "Cannot delete dtype names attribute")
+
+    def descr_get_metadata(self, space):
+        return space.wrap(self.metadata)
+
+    def descr_set_metadata(self, space, w_metadata):
+        pass
+
+    def descr_del_metadata(self, space):
+        self.metadata = None
 
     def eq(self, space, w_other):
         w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
@@ -571,10 +581,52 @@ def dtype_from_list(space, w_lst, simple, align=False):
     retval.flags |= NPY.NEEDS_PYAPI
     return retval
 
-def dtype_from_dict(space, w_dict):
-    raise oefmt(space.w_NotImplementedError, "dtype from dict")
-    retval.flags |= NPY.NEEDS_PYAPI
+def dtype_from_dict(space, w_dict, align, w_copy):
+    def get_list_or_none(key):
+        w_key = space.wrap(key)
+        if space.is_true(w_dict.descr_has_key(space, w_key)):
+            return space.listview(w_dict.descr_getitem(space, w_key))
+        return None
 
+    def get_val_or_none(key):
+        w_key = space.wrap(key)
+        if space.is_true(w_dict.descr_has_key(space, w_key)):
+            return w_dict.descr_getitem(space, w_key)
+        return None
+
+    names_w = get_list_or_none('names')
+    formats_w = get_list_or_none('formats') 
+    offsets_w = get_list_or_none('offsets')
+    titles_w = get_list_or_none('titles')
+    metadata_w = get_list_or_none('metadata')
+    aligned_w = get_val_or_none('align')
+    if names_w is None or formats_w is None:
+        return get_appbridge_cache(space).call_method(space,
+            'numpy.core._internal', '_usefields', Arguments(space, [w_dict, space.wrap(align)]))
+    n = len(names_w)
+    if (n != len(formats_w) or 
+        (offsets_w is not None and n != len(ofsets_w)) or
+        (titles_w is not None and n != len(titles_w))):
+        raise oefmt(space.w_ValueError, "'names', 'formats', 'offsets', and "
+            "'titles' dicct entries must have the same length") 
+    if aligned_w is not None:
+        if space.isinstance(aligned_w, space.bool_w) and space.is_true(aligned_w):
+            align = True
+        else:
+            raise oefmt(space.w_ValueError,
+                    "NumPy dtype descriptor includes 'aligned' entry, "
+                    "but its value is neither True nor False");
+    if offsets_w is not None or titles_w is not None:
+        raise oefmt(space.w_NotImplementedError, "'offsets' or "
+            "'titles' dicct entries not implemented yet") 
+        
+    aslist_w = space.newlist([space.newtuple([w_n, w_f]) for w_n, w_f in zip(
+        names_w, formats_w)])
+    retval = dtype_from_list(space, aslist_w, False, align)
+    if metadata_w is not None:
+        retval.descr_setmetadata(space, metadata_w)
+    retval.flags |= NPY.NEEDS_PYAPI
+    return retval 
 
 def dtype_from_spec(space, w_spec):
 
@@ -689,7 +741,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=No
             return descr__new__(space, w_subtype, space.wrap(name), align, w_copy)
         return descr__new__(space, w_subtype, w_dtype0, align, w_copy, w_shape=w_dtype1)
     elif space.isinstance_w(w_dtype, space.w_dict):
-        return dtype_from_dict(space, w_dtype)
+        return dtype_from_dict(space, w_dtype, align, w_copy)
     for dtype in cache.builtin_dtypes:
         if dtype.num in cache.alternate_constructors and \
                 w_dtype in cache.alternate_constructors[dtype.num]:
@@ -728,6 +780,9 @@ W_Dtype.typedef = TypeDef("numpy.dtype",
     names = GetSetProperty(W_Dtype.descr_get_names,
                            W_Dtype.descr_set_names,
                            W_Dtype.descr_del_names),
+    metadata = GetSetProperty(W_Dtype.descr_get_metadata,
+                           W_Dtype.descr_set_metadata,
+                           W_Dtype.descr_del_metadata),
     flags = GetSetProperty(W_Dtype.descr_get_flags),
 
     __eq__ = interp2app(W_Dtype.descr_eq),
