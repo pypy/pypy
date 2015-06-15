@@ -85,13 +85,13 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
             if s is not None:
                 c_s = get_const_ptr_for_string(s)
                 optforce.get_box_replacement(op).set_forwarded(c_s)
-                return
+                return c_s
         else:
             s = self.get_constant_string_spec(optforce, mode_unicode)
             if s is not None:
                 c_s = get_const_ptr_for_unicode(s)
                 optforce.get_box_replacement(op).set_forwarded(c_s)
-                return
+                return c_s
         self._is_virtual = False
         lengthbox = self.getstrlen(op, optforce, self.mode)
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
