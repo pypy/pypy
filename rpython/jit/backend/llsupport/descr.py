@@ -130,8 +130,10 @@ class FieldDescr(ArrayOrFieldDescr):
             cls = llmemory.cast_adr_to_ptr(
                 heaptracker.int2adr(self.parent_descr.get_vtable()),
                 lltype.Ptr(rclass.OBJECT_VTABLE))
-            assert rclass.ll_isinstance(lltype.cast_opaque_ptr(
-                rclass.OBJECTPTR, struct), cls)
+            tpptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct).typeptr
+            if tpptr != cls:
+                assert rclass.ll_isinstance(lltype.cast_opaque_ptr(
+                    rclass.OBJECTPTR, struct), cls)
         else:
             pass
 
