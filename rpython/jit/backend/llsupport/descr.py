@@ -35,7 +35,7 @@ class GcCache(object):
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
-    _corresponding_vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
+    vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
 
     def __init__(self, size, count_fields_if_immut=-1,
                  gc_fielddescrs=None, all_fielddescrs=None,
@@ -197,7 +197,10 @@ def get_field_descr(gccache, STRUCT, fieldname):
         fielddescr = FieldDescr(name, offset, size, flag, index_in_parent)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
-        fielddescr.parent_descr = get_size_descr(gccache, STRUCT,
+        if STRUCT is rclass.OBJECT:
+            fielddescr.parent_descr = get_size_descr(gccache, STRUCT, None)
+        else:
+            fielddescr.parent_descr = get_size_descr(gccache, STRUCT,
                         heaptracker.get_vtable_for_gcstruct(gccache, STRUCT))
         return fielddescr
 

@@ -50,6 +50,8 @@ def _count_fields(STRUCT):
 def has_gcstruct_a_vtable(GCSTRUCT):
     if not isinstance(GCSTRUCT, lltype.GcStruct):
         return False
+    if GCSTRUCT is rclass.OBJECT:
+        return False
     while not GCSTRUCT._hints.get('typeptr'):
         _, GCSTRUCT = GCSTRUCT._first_struct()
         if GCSTRUCT is None:
@@ -65,9 +67,6 @@ def get_vtable_for_gcstruct(gccache, GCSTRUCT):
     if not has_gcstruct_a_vtable(GCSTRUCT):
         return None
     setup_cache_gcstruct2vtable(gccache)
-    if not hasattr(gccache, '_cache_gcstruct2vtable'):
-        # boehm and stuff
-        return lltype.malloc(GCSTRUCT.typeptr.TO, flavor='raw', immortal=True)
     return gccache._cache_gcstruct2vtable[GCSTRUCT]
 
 def setup_cache_gcstruct2vtable(gccache):
@@ -77,7 +76,7 @@ def setup_cache_gcstruct2vtable(gccache):
         if gccache.rtyper:
             for rinstance in gccache.rtyper.instance_reprs.values():
                 cache[rinstance.lowleveltype.TO] = rinstance.rclass.getvtable()
-            gccache._cache_gcstruct2vtable = cache
+        gccache._cache_gcstruct2vtable = cache
 
 def set_testing_vtable_for_gcstruct(GCSTRUCT, vtable, name):
     # only for tests that need to register the vtable of their malloc'ed
@@ -107,9 +106,10 @@ def register_known_gctype(cpu, vtable, STRUCT):
 
 def finish_registering(cpu):
     # annotation hack for small examples which have no vtable at all
-    if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
-        vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        register_known_gctype(cpu, vtable, rclass.OBJECT)
+    #if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+    #    vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    #    register_known_gctype(cpu, vtable, rclass.OBJECT)
+    pass
 
 def vtable2descr(cpu, vtable):
     assert lltype.typeOf(vtable) is lltype.Signed
