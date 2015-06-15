@@ -201,7 +201,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
             fielddescr.parent_descr = get_size_descr(gccache, STRUCT, None)
         else:
             fielddescr.parent_descr = get_size_descr(gccache, STRUCT,
-                        heaptracker.get_vtable_for_gcstruct(gccache, STRUCT))
+                            heaptracker.get_vtable_for_gcstruct(gccache, STRUCT))
         return fielddescr
 
 def get_type_flag(TYPE):
