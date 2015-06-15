@@ -103,7 +103,8 @@ class OtherNetworkTests(unittest.TestCase):
     def test_ftp(self):
         urls = [
             'ftp://ftp.debian.org/debian/README',
-            'ftp://ftp.debian.org/debian/non-existent-file',
+            ('ftp://ftp.debian.org/debian/non-existent-file',
+             None, urllib2.URLError),
             ]
         self._test_urls(urls, self._extra_handlers())
 

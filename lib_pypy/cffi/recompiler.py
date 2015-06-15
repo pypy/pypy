@@ -749,10 +749,12 @@ class Recompiler:
     # named structs or unions
 
     def _field_type(self, tp_struct, field_name, tp_field):
-        if isinstance(tp_field, model.ArrayType) and tp_field.length == '...':
-            ptr_struct_name = tp_struct.get_c_name('*')
-            actual_length = '_cffi_array_len(((%s)0)->%s)' % (
-                ptr_struct_name, field_name)
+        if isinstance(tp_field, model.ArrayType):
+            actual_length = tp_field.length
+            if actual_length == '...':
+                ptr_struct_name = tp_struct.get_c_name('*')
+                actual_length = '_cffi_array_len(((%s)0)->%s)' % (
+                    ptr_struct_name, field_name)
             tp_item = self._field_type(tp_struct, '%s[0]' % field_name,
                                        tp_field.item)
             tp_field = model.ArrayType(tp_item, actual_length)
@@ -1055,8 +1057,10 @@ class Recompiler:
     # global variables
 
     def _global_type(self, tp, global_name):
-        if isinstance(tp, model.ArrayType) and tp.length == '...':
-            actual_length = '_cffi_array_len(%s)' % (global_name,)
+        if isinstance(tp, model.ArrayType):
+            actual_length = tp.length
+            if actual_length == '...':
+                actual_length = '_cffi_array_len(%s)' % (global_name,)
             tp_item = self._global_type(tp.item, '%s[0]' % global_name)
             tp = model.ArrayType(tp_item, actual_length)
         return tp
