@@ -320,8 +320,7 @@ class TypeLayoutBuilder(object):
         else:
             # no vtable from lltype2vtable -- double-check to be sure
             # that it's not a subclass of OBJECT.
-            pass
-            #assert not is_subclass_of_object(TYPE)
+            assert not is_subclass_of_object(TYPE)
 
     def get_info(self, type_id):
         res = llop.get_group_member(GCData.TYPE_INFO_PTR,
