@@ -30,14 +30,21 @@ else:
             break
 
 config_ffi = FFI()
-config_ffi.cdef(
-"#define TK_HEX_VERSION ...")
+config_ffi.cdef("""
+#define TK_HEX_VERSION ...
+#define HAVE_WIDE_INT_TYPE ...
+""")
 config_lib = config_ffi.verify("""
 #include <tk.h>
 #define TK_HEX_VERSION ((TK_MAJOR_VERSION << 24) | \
                         (TK_MINOR_VERSION << 16) | \
                         (TK_RELEASE_LEVEL << 8) | \
                         (TK_RELEASE_SERIAL << 0))
+#ifdef TCL_WIDE_INT_TYPE
+#define HAVE_WIDE_INT_TYPE 1
+#else
+#define HAVE_WIDE_INT_TYPE 0
+#endif
 """,
 include_dirs=incdirs,
 libraries=linklibs,
@@ -48,6 +55,7 @@ TK_HEX_VERSION = config_lib.TK_HEX_VERSION
 
 HAVE_LIBTOMMATH = int((0x08050208 <= TK_HEX_VERSION < 0x08060000) or
                       (0x08060200 <= TK_HEX_VERSION))
+HAVE_WIDE_INT_TYPE = config_lib.HAVE_WIDE_INT_TYPE
 
 tkffi = FFI()
 
@@ -55,6 +63,7 @@ tkffi.cdef("""
 char *get_tk_version();
 char *get_tcl_version();
 #define HAVE_LIBTOMMATH ...
+#define HAVE_WIDE_INT_TYPE ...
 
 #define TCL_READABLE ...
 #define TCL_WRITABLE ...
@@ -165,6 +174,13 @@ int Tk_GetNumMainWindows();
 void Tcl_FindExecutable(char *argv0);
 """)
 
+if HAVE_WIDE_INT_TYPE:
+    tkffi.cdef("""
+typedef int... Tcl_WideInt;
+
+int Tcl_GetWideIntFromObj(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_WideInt *value);
+""")
+
 if HAVE_LIBTOMMATH:
     tkffi.cdef("""
 #define MP_OKAY ...
@@ -183,6 +199,7 @@ void mp_clear(mp_int *a);
 
 tkffi.set_source("_tkinter.tklib_cffi", """
 #define HAVE_LIBTOMMATH %(HAVE_LIBTOMMATH)s
+#define HAVE_WIDE_INT_TYPE %(HAVE_WIDE_INT_TYPE)s
 #include <tcl.h>
 #include <tk.h>
 

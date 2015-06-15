@@ -2,7 +2,8 @@
 
 from .tklib_cffi import ffi as tkffi, lib as tklib
 from . import TclError
-from .tclobj import TclObject, FromObj, FromTclString, AsObj, TypeCache
+from .tclobj import (TclObject, FromObj, FromTclString, AsObj, TypeCache,
+                     FromBignumObj, FromWideIntObj)
 
 import contextlib
 import sys
@@ -458,11 +459,23 @@ class TkApp(object):
             s = str(s)
         if '\x00' in s:
             raise TypeError
-        v = tkffi.new("int*")
-        res = tklib.Tcl_GetInt(self.interp, s, v)
-        if res == tklib.TCL_ERROR:
-            self.raiseTclError()
-        return v[0]
+        if tklib.HAVE_LIBTOMMATH or tklib.HAVE_WIDE_INT_TYPE:
+            value = tklib.Tcl_NewStringObj(s, -1)
+            if not value:
+                self.raiseTclError()
+            try:
+                if tklib.HAVE_LIBTOMMATH:
+                    return FromBignumObj(self, value)
+                else:
+                    return FromWideIntObj(self, value)
+            finally:
+                tklib.Tcl_DecrRefCount(value)
+        else:
+            v = tkffi.new("int*")
+            res = tklib.Tcl_GetInt(self.interp, s, v)
+            if res == tklib.TCL_ERROR:
+                self.raiseTclError()
+            return v[0]
 
     def getdouble(self, s):
         if isinstance(s, float):
