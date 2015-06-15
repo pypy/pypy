@@ -20,14 +20,15 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_type_docstring(self):
         import numpy as np
         import types
-        doc = types.FunctionType.__doc__
+        obj = types.ModuleType
+        doc = obj.__doc__
         try:
-            np.set_docstring(types.FunctionType, 'foo')
-            assert types.FunctionType.__doc__ == 'foo'
+            np.set_docstring(obj, 'foo')
+            assert obj.__doc__ == 'foo'
         finally:
-            np.set_docstring(types.FunctionType, doc)
+            np.set_docstring(obj, doc)
 
-        raises(RuntimeError, np.add_docstring, types.FunctionType, 'foo')
+        raises(RuntimeError, np.add_docstring, obj, 'foo')
 
     def test_method_docstring(self):
         import numpy as np

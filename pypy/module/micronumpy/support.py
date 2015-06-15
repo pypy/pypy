@@ -175,24 +175,17 @@ def get_order_as_CF(proto_order, req_order):
     elif req_order == 'A':
         return proto_order
 
-@unwrap_spec(docstring=str)
-def descr_add_docstring(space, w_obj, docstring):
-    if isinstance(w_obj, W_TypeObject):
-        if w_obj.w_doc is None or space.is_none(w_obj.w_doc):
-            w_obj.w_doc = space.wrap(docstring)
-            return
-    elif isinstance(w_obj, GetSetProperty):
-        if w_obj.doc is None or space.is_none(w_obj.doc):
-            w_obj.doc = space.wrap(docstring)
-            return
-    _add_doc_w(space, w_obj, space.wrap(docstring))
 
 def descr_set_docstring(space, w_obj, w_docstring):
     if isinstance(w_obj, W_TypeObject):
         w_obj.w_doc = w_docstring
         return
     elif isinstance(w_obj, GetSetProperty):
-        w_obj.doc = w_docstring
+        if space.is_none(w_docstring):
+            doc = None
+        else:
+            doc = space.str_w(w_docstring)
+        w_obj.doc = doc
         return
     app_set_docstring(space, w_obj, w_docstring)
 
