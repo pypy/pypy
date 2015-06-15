@@ -64,8 +64,6 @@ def get_vtable_for_gcstruct(gccache, GCSTRUCT):
     if not has_gcstruct_a_vtable(GCSTRUCT):
         return None
     setup_cache_gcstruct2vtable(gccache)
-    if not hasattr(gccache, '_cache_gcstruct2vtable'):
-        return lltype.malloc(GCSTRUCT.typeptr.TO, flavor='raw', immortal=True)
     return gccache._cache_gcstruct2vtable[GCSTRUCT]
 
 def setup_cache_gcstruct2vtable(gccache):

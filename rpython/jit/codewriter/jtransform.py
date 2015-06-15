@@ -933,7 +933,8 @@ class Transformer(object):
             opname = 'new_with_vtable'
         else:
             opname = 'new'
-        sizedescr = self.cpu.sizeof(STRUCT, opname == 'new_with_vtable')
+            vtable = None
+        sizedescr = self.cpu.sizeof(STRUCT, vtable)
         op1 = SpaceOperation(opname, [sizedescr], op.result)
         if zero:
             return self.zero_contents([op1], op.result, STRUCT)

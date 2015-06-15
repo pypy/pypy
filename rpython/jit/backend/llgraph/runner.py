@@ -89,9 +89,9 @@ class CallDescr(AbstractDescr):
         return getkind(self.RESULT)[0]
 
 class SizeDescr(AbstractDescr):
-    def __init__(self, S, is_object, runner):
+    def __init__(self, S, vtable, runner):
         self.S = S
-        self._is_object = is_object
+        self._is_object = vtable is not None
         self.all_fielddescrs = heaptracker.all_fielddescrs(runner, S,
                                     get_field_descr=LLGraphCPU.fielddescrof)
 
@@ -398,12 +398,12 @@ class LLGraphCPU(model.AbstractCPU):
             self.descrs[key] = descr
             return descr
 
-    def sizeof(self, S, is_object):
+    def sizeof(self, S, vtable):
         key = ('size', S)
         try:
             return self.descrs[key]
         except KeyError:
-            descr = SizeDescr(S, is_object, self)
+            descr = SizeDescr(S, vtable, self)
             self.descrs[key] = descr
             return descr
 

@@ -298,8 +298,8 @@ class AbstractLLCPU(AbstractCPU):
     def cast_int_to_ptr(self, x, TYPE):
         return rffi.cast(TYPE, x)
 
-    def sizeof(self, S, is_object):
-        return get_size_descr(self.gc_ll_descr, S, is_object)
+    def sizeof(self, S, vtable):
+        return get_size_descr(self.gc_ll_descr, S, vtable)
 
     def fielddescrof(self, STRUCT, fieldname):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)

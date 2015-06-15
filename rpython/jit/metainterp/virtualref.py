@@ -20,6 +20,8 @@ class VirtualRefInfo:
         self.jit_virtual_ref_vtable = lltype.malloc(rclass.OBJECT_VTABLE,
                                                     zero=True, flavor='raw',
                                                     immortal=True)
+        self.descr = self.cpu.sizeof(self.JIT_VIRTUAL_REF,
+                                     vtable=self.jit_virtual_ref_vtable)
         self.jit_virtual_ref_vtable.name = rclass.alloc_array_name(
             'jit_virtual_ref')
         # build some constants
@@ -33,7 +35,6 @@ class VirtualRefInfo:
         self.descr_virtual_token = fielddescrof(self.JIT_VIRTUAL_REF,
                                                 'virtual_token')
         self.descr_forced = fielddescrof(self.JIT_VIRTUAL_REF, 'forced')
-        self.descr = self.cpu.sizeof(self.JIT_VIRTUAL_REF, False)
         #
         # record the type JIT_VIRTUAL_REF explicitly in the rtyper, too
         if hasattr(self.warmrunnerdesc, 'rtyper'):    # <-- for tests
