@@ -360,12 +360,12 @@ class TestNumpyJit(Jit386Mixin):
         b = sum(a)
         c = |60|
         d = sum(c)
-        b + c
+        b + d
         """
 
     def test_sum_multi(self):
         result = self.run("sum_multi")
-        assert result == sum(range(30)) + sum(range(0,60))
+        assert result == sum(range(30)) + sum(range(60))
         self.check_vectorized(1, 1)
 
     def define_sum_float_to_int16():
