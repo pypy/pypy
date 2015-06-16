@@ -175,7 +175,7 @@ static void setup_forksupport(void)
         int res = pthread_atfork(forksupport_prepare, forksupport_parent,
                                  forksupport_child);
         if (res != 0)
-            stm_fatalerror("pthread_atfork() failed: %m");
+            stm_fatalerror("pthread_atfork() failed: %d", res);
         fork_support_ready = true;
     }
 }

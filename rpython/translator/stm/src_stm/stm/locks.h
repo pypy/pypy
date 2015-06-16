@@ -19,14 +19,19 @@ typedef struct {
 
 static modification_lock_t _modlocks[NB_SEGMENTS - 1];
 
+#define PTHREAD_CHK(call)  do {                 \
+    int _err = (call);                          \
+    if (UNLIKELY(_err != 0))                    \
+        stm_fatalerror(#call ": %d", _err);     \
+} while (0)
+
 
 static void setup_modification_locks(void)
 {
+    /* this is also called from forksupport_child() */
     int i;
-    for (i = 1; i < NB_SEGMENTS; i++) {
-        if (pthread_rwlock_init(&_modlocks[i - 1].lock, NULL) != 0)
-            stm_fatalerror("pthread_rwlock_init: %m");
-    }
+    for (i = 1; i < NB_SEGMENTS; i++)
+        PTHREAD_CHK(pthread_rwlock_init(&_modlocks[i - 1].lock, NULL));
 }
 
 static void teardown_modification_locks(void)
@@ -40,8 +45,7 @@ static void teardown_modification_locks(void)
 
 static inline void acquire_modification_lock_wr(int segnum)
 {
-    if (UNLIKELY(pthread_rwlock_wrlock(&_modlocks[segnum - 1].lock) != 0))
-        stm_fatalerror("pthread_rwlock_wrlock: %m");
+    PTHREAD_CHK(pthread_rwlock_wrlock(&_modlocks[segnum - 1].lock));
 #ifndef NDEBUG
     assert(!_modlocks[segnum - 1].write_locked);
     _modlocks[segnum - 1].write_locked = true;
@@ -54,8 +58,7 @@ static inline void release_modification_lock_wr(int segnum)
     assert(_modlocks[segnum - 1].write_locked);
     _modlocks[segnum - 1].write_locked = false;
 #endif
-    if (UNLIKELY(pthread_rwlock_unlock(&_modlocks[segnum - 1].lock) != 0))
-        stm_fatalerror("pthread_rwlock_unlock(wr): %m");
+    PTHREAD_CHK(pthread_rwlock_unlock(&_modlocks[segnum - 1].lock));
 }
 
 static void acquire_modification_lock_set(uint64_t readset, int write)
@@ -79,8 +82,7 @@ static void acquire_modification_lock_set(uint64_t readset, int write)
             acquire_modification_lock_wr(write);
         }
         else {
-            if (UNLIKELY(pthread_rwlock_rdlock(&_modlocks[i - 1].lock) != 0))
-                stm_fatalerror("pthread_rwlock_rdlock: %m");
+            PTHREAD_CHK(pthread_rwlock_rdlock(&_modlocks[i - 1].lock));
         }
     }
 }
@@ -100,8 +102,7 @@ static void release_modification_lock_set(uint64_t readset, int write)
     for (i = 1; i < NB_SEGMENTS; i++) {
         if ((readset & (1UL << i)) == 0)
             continue;
-        if (UNLIKELY(pthread_rwlock_unlock(&_modlocks[i - 1].lock) != 0))
-            stm_fatalerror("pthread_rwlock_unlock(rd): %m");
+        PTHREAD_CHK(pthread_rwlock_unlock(&_modlocks[i - 1].lock));
     }
 }
 

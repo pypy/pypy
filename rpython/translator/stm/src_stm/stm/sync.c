@@ -251,6 +251,7 @@ static void release_thread_segment(stm_thread_local_t *tl)
     assert(_has_mutex());
 
     cond_signal(C_SEGMENT_FREE);
+    cond_broadcast(C_SEGMENT_FREE_OR_SAFE_POINT);   /* often no listener */
 
     assert(STM_SEGMENT->running_thread == tl);
     segnum = STM_SEGMENT->segment_num;
@@ -261,8 +262,24 @@ static void release_thread_segment(stm_thread_local_t *tl)
         assert(!in_transaction(tl));
     }
 
-    assert(sync_ctl.in_use1[segnum] == 1);
+    assert(sync_ctl.in_use1[segnum] >= 1);
     sync_ctl.in_use1[segnum] = 0;
+}
+
+static void soon_finished_or_inevitable_thread_segment(void)
+{
+    int segnum = STM_SEGMENT->segment_num;
+    assert(sync_ctl.in_use1[segnum] >= 1);
+    sync_ctl.in_use1[segnum] = 2;   /* the value 2 is used to mark this case */
+}
+
+static bool any_soon_finished_or_inevitable_thread_segment(void)
+{
+    int num;
+    for (num = 1; num < NB_SEGMENTS; num++)
+        if (sync_ctl.in_use1[num] == 2)
+            return true;
+    return false;
 }
 
 __attribute__((unused))
@@ -330,6 +347,7 @@ static void signal_everybody_to_pause_running(void)
     assert(!pause_signalled);
     pause_signalled = true;
     dprintf(("request to pause\n"));
+    cond_broadcast(C_SEGMENT_FREE_OR_SAFE_POINT);
 }
 
 static inline long count_other_threads_sp_running(void)
@@ -434,7 +452,6 @@ static void synchronize_all_threads(enum sync_type_e sync_type)
             s_mutex_lock();
             goto restart;
         }
-
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_AT_SAFE_POINT;
         cond_wait_timeout(C_AT_SAFE_POINT, 0.00001);
         /* every 10 microsec, try again fetch_detached_transaction() */

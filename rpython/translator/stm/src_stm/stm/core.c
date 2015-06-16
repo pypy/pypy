@@ -491,129 +491,107 @@ static struct stm_commit_log_entry_s *_create_commit_log_entry(void)
 }
 
 
-static void wait_for_other_inevitable(struct stm_commit_log_entry_s *old)
-{
-    intptr_t detached = fetch_detached_transaction();
-    if (detached != 0) {
-        commit_fetched_detached_transaction(detached);
-        return;
-    }
-
-    timing_event(STM_SEGMENT->running_thread, STM_WAIT_OTHER_INEVITABLE);
-
-    while (old->next == INEV_RUNNING && !safe_point_requested()) {
-        spin_loop();
-        usleep(10);    /* XXXXXX */
-
-        detached = fetch_detached_transaction();
-        if (detached != 0) {
-            commit_fetched_detached_transaction(detached);
-            break;
-        }
-    }
-    timing_event(STM_SEGMENT->running_thread, STM_WAIT_DONE);
-}
-
 static void reset_wb_executed_flags(void);
 static void readd_wb_executed_flags(void);
 static void check_all_write_barrier_flags(char *segbase, struct list_s *list);
 
-static bool _validate_and_attach(struct stm_commit_log_entry_s *new,
-                                 bool can_sleep)
+/* This is called to do stm_validate() and then attach 'new' at the
+   head of the 'commit_log_root' chained list.  This function sleeps
+   and retries until it succeeds or aborts.
+*/
+static void _validate_and_attach(struct stm_commit_log_entry_s *new)
 {
     struct stm_commit_log_entry_s *old;
 
     OPT_ASSERT(new != NULL);
-    /* we are attaching a real CL entry: */
-    bool is_commit = new != INEV_RUNNING;
+    OPT_ASSERT(new != INEV_RUNNING);
 
-    while (1) {
-        if (!_stm_validate()) {
-            if (new != INEV_RUNNING)
-                free_cle((struct stm_commit_log_entry_s*)new);
-            stm_abort_transaction();
-        }
+    soon_finished_or_inevitable_thread_segment();
 
-#if STM_TESTS
-        if (STM_PSEGMENT->transaction_state != TS_INEVITABLE
-            && STM_PSEGMENT->last_commit_log_entry->next == INEV_RUNNING) {
-            /* abort for tests... */
-            stm_abort_transaction();
-        }
-#endif
-
-        if (is_commit) {
-            /* we must not remove the WB_EXECUTED flags before validation as
-               it is part of a condition in import_objects() called by
-               copy_bk_objs_in_page_from to not overwrite our modifications.
-               So we do it here: */
-            reset_wb_executed_flags();
-            check_all_write_barrier_flags(STM_SEGMENT->segment_base,
-                                          STM_PSEGMENT->modified_old_objects);
-
-            /* need to remove the entries in modified_old_objects "at the same
-               time" as the attach to commit log. Otherwise, another thread may
-               see the new CL entry, import it, look for backup copies in this
-               segment and find the old backup copies! */
-            acquire_modification_lock_wr(STM_SEGMENT->segment_num);
-        }
-
-        /* try to attach to commit log: */
-        old = STM_PSEGMENT->last_commit_log_entry;
-        if (old->next == NULL) {
-            if (new != INEV_RUNNING) /* INEVITABLE */
-                new->rev_num = old->rev_num + 1;
-
-            if (__sync_bool_compare_and_swap(&old->next, NULL, new))
-                break;   /* success! */
-        }
-
-        if (is_commit) {
-            release_modification_lock_wr(STM_SEGMENT->segment_num);
-            /* XXX: unfortunately, if we failed to attach our CL entry,
-               we have to re-add the WB_EXECUTED flags before we try to
-               validate again because of said condition (s.a) */
-            readd_wb_executed_flags();
-        }
-
-        if (old->next == INEV_RUNNING && !safe_point_requested()) {
-            /* we failed because there is an INEV transaction running */
-            /* XXXXXX for now just sleep.  We should really ask to inev
-               transaction to do the commit for us, and then we can
-               continue running. */
-            if (!can_sleep)
-                return false;
-            dprintf(("_validate_and_attach(%p) failed, "
-                     "waiting for inevitable\n", new));
-            wait_for_other_inevitable(old);
-        }
-
-        dprintf(("_validate_and_attach(%p) failed, enter safepoint\n", new));
-
-        /* check for requested safe point. otherwise an INEV transaction
-           may try to commit but cannot because of the busy-loop here. */
-        /* minor gc is fine here because we did one immediately before, so
-           there are no young objs anyway. major gc is fine because the
-           modified_old_objects list is still populated with the same
-           cl-entry objs */
-        /* XXXXXXXX: memory leak if we happen to do a major gc, we get aborted
-           in major_do_validation_and_minor_collections, and don't free 'new' */
-        _stm_collectable_safe_point();
+ retry_from_start:
+    if (!_stm_validate()) {
+        free_cle(new);
+        stm_abort_transaction();
     }
 
-    if (is_commit) {
+#if STM_TESTS
+    if (STM_PSEGMENT->transaction_state != TS_INEVITABLE
+        && STM_PSEGMENT->last_commit_log_entry->next == INEV_RUNNING) {
+        /* abort for tests... */
+        stm_abort_transaction();
+    }
+#endif
+
+    if (STM_PSEGMENT->last_commit_log_entry->next == INEV_RUNNING) {
+        s_mutex_lock();
+        if (safe_point_requested()) {
+            /* XXXXXX if the safe point below aborts, 'new' leaks */
+            enter_safe_point_if_requested();
+        }
+        else if (STM_PSEGMENT->last_commit_log_entry->next == INEV_RUNNING) {
+            cond_wait(C_SEGMENT_FREE_OR_SAFE_POINT);
+        }
+        s_mutex_unlock();
+        goto retry_from_start;   /* redo _stm_validate() now */
+    }
+
+    intptr_t detached = fetch_detached_transaction();
+    if (detached != 0) {
+        commit_fetched_detached_transaction(detached);
+        goto retry_from_start;
+    }
+
+    /* we must not remove the WB_EXECUTED flags before validation as
+       it is part of a condition in import_objects() called by
+       copy_bk_objs_in_page_from to not overwrite our modifications.
+       So we do it here: */
+    reset_wb_executed_flags();
+    check_all_write_barrier_flags(STM_SEGMENT->segment_base,
+                                  STM_PSEGMENT->modified_old_objects);
+
+    /* need to remove the entries in modified_old_objects "at the same
+       time" as the attach to commit log. Otherwise, another thread may
+       see the new CL entry, import it, look for backup copies in this
+       segment and find the old backup copies! */
+    acquire_modification_lock_wr(STM_SEGMENT->segment_num);
+
+    /* try to attach to commit log: */
+    old = STM_PSEGMENT->last_commit_log_entry;
+    new->rev_num = old->rev_num + 1;
+    if (__sync_bool_compare_and_swap(&old->next, NULL, new)) {
+        /* success! */
         /* compare with _validate_and_add_to_commit_log */
         list_clear(STM_PSEGMENT->modified_old_objects);
         STM_PSEGMENT->last_commit_log_entry = new;
         release_modification_lock_wr(STM_SEGMENT->segment_num);
     }
-    return true;
+    else {
+        /* fail */
+        release_modification_lock_wr(STM_SEGMENT->segment_num);
+        /* XXX: unfortunately, if we failed to attach our CL entry,
+           we have to re-add the WB_EXECUTED flags before we try to
+           validate again because of said condition (s.a) */
+        readd_wb_executed_flags();
+
+        dprintf(("_validate_and_attach(%p) failed, retrying\n", new));
+        goto retry_from_start;
+    }
 }
 
-static bool _validate_and_turn_inevitable(bool can_sleep)
+/* This is called to do stm_validate() and then attach INEV_RUNNING to
+   the head of the 'commit_log_root' chained list.  This function
+   may succeed or fail (or abort).
+*/
+static bool _validate_and_turn_inevitable(void)
 {
-    return _validate_and_attach((struct stm_commit_log_entry_s *)INEV_RUNNING,
-                                can_sleep);
+    struct stm_commit_log_entry_s *old;
+
+    if (!_stm_validate())
+        stm_abort_transaction();
+
+    /* try to attach to commit log: */
+    old = STM_PSEGMENT->last_commit_log_entry;
+    return __sync_bool_compare_and_swap(&old->next, NULL, INEV_RUNNING);
 }
 
 static void _validate_and_add_to_commit_log(void)
@@ -645,7 +623,7 @@ static void _validate_and_add_to_commit_log(void)
         release_modification_lock_wr(STM_SEGMENT->segment_num);
     }
     else {
-        _validate_and_attach(new, /*can_sleep=*/true);
+        _validate_and_attach(new);
     }
 }
 
@@ -1571,19 +1549,39 @@ void stm_abort_transaction(void)
 
 void _stm_become_inevitable(const char *msg)
 {
+    int num_waits = 0;
+
+ retry_from_start:
     assert(STM_PSEGMENT->transaction_state == TS_REGULAR);
     _stm_collectable_safe_point();
 
     if (msg != MSG_INEV_DONT_SLEEP) {
         dprintf(("become_inevitable: %s\n", msg));
-        timing_become_inevitable();
-        _validate_and_turn_inevitable(/*can_sleep=*/true);
+
+        if (any_soon_finished_or_inevitable_thread_segment() &&
+                num_waits <= NB_SEGMENTS) {
+#if STM_TESTS
+            timing_become_inevitable(); /* for tests: another transaction */
+            stm_abort_transaction();    /* is already inevitable, abort   */
+#endif
+            s_mutex_lock();
+            if (any_soon_finished_or_inevitable_thread_segment() &&
+                    !safe_point_requested()) {
+                cond_wait(C_SEGMENT_FREE_OR_SAFE_POINT);
+            }
+            s_mutex_unlock();
+            num_waits++;
+            goto retry_from_start;
+        }
+        if (!_validate_and_turn_inevitable())
+            goto retry_from_start;
     }
     else {
-        if (!_validate_and_turn_inevitable(/*can_sleep=*/false))
+        if (!_validate_and_turn_inevitable())
             return;
-        timing_become_inevitable();
     }
+    timing_become_inevitable();
+    soon_finished_or_inevitable_thread_segment();
     STM_PSEGMENT->transaction_state = TS_INEVITABLE;
 
     stm_rewind_jmp_forget(STM_SEGMENT->running_thread);

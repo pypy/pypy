@@ -109,7 +109,7 @@ int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
         int res = pthread_atfork(prof_forksupport_prepare,
                                  NULL, prof_forksupport_child);
         if (res != 0)
-            stm_fatalerror("pthread_atfork() failed: %m");
+            stm_fatalerror("pthread_atfork() failed: %d", res);
         fork_support_ready = true;
     }
 

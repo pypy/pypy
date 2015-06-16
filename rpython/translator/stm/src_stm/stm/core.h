@@ -165,6 +165,7 @@ enum /* safe_point */ {
     SP_RUNNING,
     SP_WAIT_FOR_C_REQUEST_REMOVED,
     SP_WAIT_FOR_C_AT_SAFE_POINT,
+    SP_WAIT_FOR_INEV,
 #ifdef STM_TESTS
     SP_WAIT_FOR_OTHER_THREAD,
 #endif
