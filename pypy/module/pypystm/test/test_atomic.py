@@ -5,7 +5,8 @@ class AppTestAtomic:
 
     def test_simple(self):
         import pypystm
-        for atomic in pypystm.atomic, pypystm.exclusive_atomic:
+        for atomic in (pypystm.atomic, pypystm.exclusive_atomic,
+                       pypystm.single_transaction):
             with atomic:
                 assert pypystm.is_atomic()
             try:

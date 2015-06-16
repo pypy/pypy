@@ -44,7 +44,8 @@ class StmHeader_OpaqueNode(ContainerNode):
 
 
 def stm_hint_commit_soon(funcgen, op):
-    return '/* stmcb_commit_soon(); XXX */'
+    return ('if (!stm_is_atomic(&stm_thread_local))\n'
+            '\tstm_force_transaction_break(&stm_thread_local);')
 
 def stm_register_thread_local(funcgen, op):
     return 'pypy_stm_register_thread_local();'

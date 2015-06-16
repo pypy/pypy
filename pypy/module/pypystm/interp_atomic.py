@@ -73,3 +73,14 @@ def hint_commit_soon(space):
     if space.config.translation.stm:
         from rpython.rlib.rstm import hint_commit_soon
         hint_commit_soon()
+
+def single_transaction_enter(space):
+    # hint_commit_soon() is really stm_force_transaction_break() if not
+    # atomic already
+    hint_commit_soon(space)
+    atomic_enter(space)
+
+def single_transaction_exit(space, w_ignored1=None, w_ignored2=None,
+                            w_ignored3=None):
+    atomic_exit(space, w_ignored1, w_ignored2, w_ignored3)
+    hint_commit_soon(space)
