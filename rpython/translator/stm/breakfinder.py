@@ -3,8 +3,8 @@ from rpython.translator.stm import funcgen
 
 
 TRANSACTION_BREAK = set([
-    'stm_commit_if_not_atomic',
-    'stm_start_if_not_atomic',
+    'stm_enter_transactional_zone',
+    'stm_leave_transactional_zone',
     #'jit_assembler_call',
     'stm_enter_callback_call',
     'stm_leave_callback_call',

@@ -684,41 +684,70 @@ class CallBuilder64(CallBuilderX86):
             self.mc.MOV_rs(eax.value, 0)
 
     def call_stm_before_ex_call(self):
+        from rpython.jit.backend.x86 import rx86
         from rpython.rlib import rstm
-        # XXX slowish: before any CALL_RELEASE_GIL, invoke the
-        # pypy_stm_commit_if_not_atomic() function.  Messy because
-        # we need to save the register arguments first.
+        # Generate the same logic as stm_leave_transactional_zone()
         #
-        n = min(self.next_arg_gpr, len(self.ARGUMENTS_GPR))
-        for i in range(n):
-            self.mc.PUSH_r(self.ARGUMENTS_GPR[i].value)    # PUSH gpr arg
-        m = min(self.next_arg_xmm, len(self.ARGUMENTS_XMM))
-        extra = m + ((n + m) & 1)
-        # in total the stack is moved down by (n + extra) words,
-        # which needs to be an even value for alignment:
-        assert ((n + extra) & 1) == 0
-        if extra > 0:
-            self.mc.SUB_ri(esp.value, extra * WORD)        # SUB rsp, extra
-            for i in range(m):
-                self.mc.MOVSD_sx(i * WORD, self.ARGUMENTS_XMM[i].value)
-                                                           # MOVSD [rsp+..], xmm
+        # First, stm_is_inevitable(), which is '!rewind_jmp_armed()',
+        # which is 'moved_off_base == 0':
+        rjmovd_o_b = self.asm.heap_rjthread_moved_off_base()
+        mc = self.mc
+        mc.CMP(rjmovd_o_b, imm(0))
+        mc.J_il8(rx86.Conditions['E'], 0)
+        je_location = mc.get_relative_pos()
         #
-        self.mc.CALL(imm(rstm.adr_pypy_stm_commit_if_not_atomic))
+        # Slow path: call a helper that will save all registers and
+        # call _stm_leave_noninevitable_transactional_zone()
+        mc.CALL(imm(self.asm._stm_leave_noninevitable_tr_slowpath))
+        mc.JMP_l8(0)      # jump to done, patched later
+        jmp_location = mc.get_relative_pos()
         #
-        if extra > 0:
-            for i in range(m):
-                self.mc.MOVSD_xs(self.ARGUMENTS_XMM[i].value, i * WORD)
-            self.mc.ADD_ri(esp.value, extra * WORD)
-        for i in range(n-1, -1, -1):
-            self.mc.POP_r(self.ARGUMENTS_GPR[i].value)
+        offset = jmp_location - je_location
+        assert 0 < offset <= 127
+        mc.overwrite(je_location - 1, chr(offset))
+        #
+        # Fast path: inline _stm_detach_inevitable_transaction()
+        # <- Here comes the write_fence(), which is not needed in x86 assembler
+        # assert(_stm_detached_inevitable_from_thread == 0): dropped
+        # _stm_detached_inevitable_from_thread = tl->self_or_0_if_atomic:
+        mc.MOV(eax, self.asm.heap_stm_thread_local_self_or_0_if_atomic())
+        mc.MOV(self.asm.heap_stm_detached_inevitable_from_thread(), eax)
+        #
+        offset = mc.get_relative_pos() - jmp_location
+        assert 0 < offset <= 127
+        mc.overwrite(jmp_location - 1, chr(offset))
 
     def call_stm_after_ex_call(self):
+        from rpython.jit.backend.x86 import rx86
         from rpython.rlib import rstm
-        # after any CALL_RELEASE_GIL, invoke the
-        # pypy_stm_start_if_not_atomic() function
-        self.save_result_value(True)
-        self.mc.CALL(imm(rstm.adr_pypy_stm_start_if_not_atomic))
-        self.restore_result_value(True)
+        # Generate the same logic as stm_enter_transactional_zone()
+        #
+        # Need to save away the result value, which is (likely) in eax
+        assert not self.result_value_saved_early
+        mc = self.mc
+        mc.MOV(edi, eax)
+        #
+        # compare_and_swap(&_stm_detached_inevitable_from_thread, self_or_0, 0)
+        mc.MOV(eax, self.asm.heap_stm_thread_local_self_or_0_if_atomic())
+        mc.XOR(esi, esi)
+        adr = self.asm.heap_stm_detached_inevitable_from_thread()
+        m_address = mc._addr_as_reg_offset(adr.value_j())
+        mc.LOCK()
+        mc.CMPXCHG_mr(m_address, esi.value)
+        #
+        # restore the result value, back to eax
+        mc.MOV(eax, edi)
+        #
+        # if successful, jump over the next CALL
+        mc.J_il8(rx86.Conditions['Z'], 0)
+        jz_location = mc.get_relative_pos()
+        #
+        # if unsuccessful, invoke _stm_reattach_transaction()
+        mc.CALL(imm(self.asm._stm_reattach_tr_slowpath))
+        #
+        offset = mc.get_relative_pos() - jz_location
+        assert 0 < offset <= 127
+        mc.overwrite(jz_location - 1, chr(offset))
 
 
 if IS_X86_32:

@@ -134,8 +134,12 @@ void stm_setup(void)
     setup_pages();
     setup_forksupport();
     setup_finalizer();
+    setup_detach();
 
     set_gs_register(get_segment_base(0));
+
+    dprintf(("nursery: %p -> %p\n", (void *)NURSERY_START,
+                                    (void *)NURSERY_END));
 }
 
 void stm_teardown(void)
@@ -229,6 +233,7 @@ void stm_register_thread_local(stm_thread_local_t *tl)
 {
     int num;
     s_mutex_lock();
+    tl->self_or_0_if_atomic = (intptr_t)tl;    /* 'not atomic' */
     if (stm_all_thread_locals == NULL) {
         stm_all_thread_locals = tl->next = tl->prev = tl;
         num = 0;
@@ -244,7 +249,6 @@ void stm_register_thread_local(stm_thread_local_t *tl)
     /* assign numbers consecutively, but that's for tests; we could also
        assign the same number to all of them and they would get their own
        numbers automatically. */
-    tl->associated_segment_num = -1;
     tl->last_associated_segment_num = num + 1;
     tl->thread_local_counter = ++thread_local_counters;
     *_get_cpth(tl) = pthread_self();
@@ -264,6 +268,8 @@ void stm_register_thread_local(stm_thread_local_t *tl)
 
 void stm_unregister_thread_local(stm_thread_local_t *tl)
 {
+    commit_detached_transaction_if_from(tl);
+
     s_mutex_lock();
     assert(tl->prev != NULL);
     assert(tl->next != NULL);

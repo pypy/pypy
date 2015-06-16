@@ -78,6 +78,8 @@ class Assembler386(BaseAssembler):
         if self.cpu.supports_floats:
             support.ensure_sse2_floats()
             self._build_float_constants()
+        if self.cpu.gc_ll_descr.stm:
+            self._build_stm_enter_leave_transactional_zone_helpers()
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
@@ -124,6 +126,36 @@ class Assembler386(BaseAssembler):
             addr[i] = data[i]
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
+
+    def _build_stm_enter_leave_transactional_zone_helpers(self):
+        assert IS_X86_64 and self.cpu.supports_floats
+        # a helper to call _stm_leave_noninevitable_transactional_zone(),
+        # preserving all registers that are used to pass arguments.
+        # (Push an odd total number of registers, to align the stack.)
+        mc = codebuf.MachineCodeBlockWrapper()
+        self._push_all_regs_to_frame(mc, [eax], True, callee_only=True)
+        mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
+        self._pop_all_regs_from_frame(mc, [eax], True, callee_only=True)
+        mc.RET()
+        self._stm_leave_noninevitable_tr_slowpath = mc.materialize(
+            self.cpu.asmmemmgr, [])
+        #
+        # a second helper to call _stm_reattach_transaction(tl),
+        # preserving only registers that might store the result of a call
+        mc = codebuf.MachineCodeBlockWrapper()
+        mc.SUB_ri(esp.value, 3 * WORD)     # 3 instead of 2 to align the stack
+        mc.MOV_sr(0, eax.value)     # not edx, we're not running 32-bit
+        mc.MOVSD_sx(1, xmm0.value)
+        # load the value of 'tl->self_or_0_if_atomic' into edi as argument
+        mc.MOV(edi, self.heap_stm_thread_local_self_or_0_if_atomic())
+        mc.CALL(imm(rstm.adr_stm_reattach_transaction))
+        # pop
+        mc.MOVSD_xs(xmm0.value, 1)
+        mc.MOV_rs(eax.value, 0)
+        mc.ADD_ri(esp.value, 3 * WORD)
+        mc.RET()
+        self._stm_reattach_tr_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+
 
     def set_extra_stack_depth(self, mc, value):
         if self._is_asmgcc():
@@ -898,6 +930,16 @@ class Assembler386(BaseAssembler):
         """STM: AddressLoc for '&stm_thread_local.rjthread.moved_off_base'."""
         return self.heap_tl(rstm.adr_rjthread_moved_off_base)
 
+    def heap_stm_thread_local_self_or_0_if_atomic(self):
+        """STM: AddressLoc for '&stm_thread_local.self', i.e. such that
+        reading it returns the (absolute) address of 'stm_thread_local'."""
+        return self.heap_tl(rstm.adr_stm_thread_local_self_or_0_if_atomic)
+
+    def heap_stm_detached_inevitable_from_thread(self):
+        """STM: AddressLoc for '&stm_detached_inevitable_from_thread'."""
+        return heap(self.SEGMENT_NO,
+                    rstm.adr_stm_detached_inevitable_from_thread)
+
     def _call_header_shadowstack(self):
         # put the frame in ebp on the shadowstack for the GC to find
         # (ebp is a writeable object and does not need a write-barrier
@@ -1112,8 +1154,7 @@ class Assembler386(BaseAssembler):
     def convert_addresses_to_linear(self, reg1, reg2=None):
         if not self.cpu.gc_ll_descr.stm:   # stm-only
             return
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
+        assert IS_X86_64
         sb_adr = rstm.adr_segment_base
         assert rx86.fits_in_32bits(sb_adr)    # because it is in the 2nd page
         self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, sb_adr))
@@ -2791,24 +2832,24 @@ class Assembler386(BaseAssembler):
         self.mc.MOV_rr(reg.value, ebp.value)
 
     def _generate_cmp_break_transaction(self):
-        # emits the check with a CMP instruction:
-        #    pypy_stm_nursery_low_fill_mark < STM_SEGMENT->nursery_current
-        # so if it is followed with a JB, it will follow the jump if
+        # emits the check with a CMP instruction (as signed integers):
+        #    STM_SEGMENT->nursery_current >= STM_SEGMENT->nursery_mark
+        # so if it is followed by a JGE, it will follow the jump if
         # we should break the transaction now.
         #
         assert self.cpu.gc_ll_descr.stm
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
-        psnlfm_adr = rstm.adr_pypy_stm_nursery_low_fill_mark
-        self.mc.MOV(X86_64_SCRATCH_REG, self.heap_tl(psnlfm_adr))
-        nf_adr = rstm.adr_nursery_free
-        assert rx86.fits_in_32bits(nf_adr)    # because it is in the 2nd page
-        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nf_adr))
+        assert IS_X86_64
+        nc_adr = rstm.adr_nursery_free
+        nm_adr = rstm.adr_nursery_mark
+        assert rx86.fits_in_32bits(nc_adr)    # because it is in the 2nd page
+        assert rx86.fits_in_32bits(nm_adr)    # because it is in the 2nd page
+        self.mc.MOV_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nc_adr))
+        self.mc.CMP_rj(X86_64_SCRATCH_REG.value, (self.SEGMENT_GC, nm_adr))
 
     def genop_stm_should_break_transaction(self, op, arglocs, result_loc):
         self._generate_cmp_break_transaction()
         rl = result_loc.lowest8bits()
-        self.mc.SET_ir(rx86.Conditions['B'], rl.value)
+        self.mc.SET_ir(rx86.Conditions['GE'], rl.value)
         self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
     def genop_guard_stm_should_break_transaction(self, op, guard_op,
@@ -2816,14 +2857,13 @@ class Assembler386(BaseAssembler):
                                                  result_loc):
         self._generate_cmp_break_transaction()
         if guard_op.getopnum() == rop.GUARD_FALSE:
-            self.implement_guard(guard_token, 'B')   # JB goes to "yes, break"
+            self.implement_guard(guard_token, 'GE')  # JGE goes to "yes, break"
         else:
-            self.implement_guard(guard_token, 'AE')  # JAE goes to "no, don't"
+            self.implement_guard(guard_token, 'L')   # JL goes to "no, don't"
 
     def genop_discard_stm_read(self, op, arglocs):
         assert self.cpu.gc_ll_descr.stm
-        if not IS_X86_64:
-            todo()   # "needed for X86_64_SCRATCH_REG"
+        assert IS_X86_64
         mc = self.mc
         rmreg = X86_64_SCRATCH_REG.value
         mc.MOVZX8_rj(rmreg, (self.SEGMENT_GC,
@@ -2965,9 +3005,6 @@ def not_implemented(msg):
     raise NotImplementedError(msg)
 
 cond_call_register_arguments = [edi, esi, edx, ecx]
-
-def todo():
-    CRASH   # not done yet
 
 class BridgeAlreadyCompiled(Exception):
     pass

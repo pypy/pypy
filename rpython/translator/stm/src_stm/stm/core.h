@@ -152,6 +152,12 @@ struct stm_priv_segment_info_s {
     stm_char *sq_fragments[SYNC_QUEUE_SIZE];
     int sq_fragsizes[SYNC_QUEUE_SIZE];
     int sq_len;
+
+    /* For nursery_mark */
+    uintptr_t total_throw_away_nursery;
+
+    /* For stm_enable_atomic() */
+    uintptr_t atomic_nesting_levels;
 };
 
 enum /* safe_point */ {
@@ -159,6 +165,7 @@ enum /* safe_point */ {
     SP_RUNNING,
     SP_WAIT_FOR_C_REQUEST_REMOVED,
     SP_WAIT_FOR_C_AT_SAFE_POINT,
+    SP_WAIT_FOR_INEV,
 #ifdef STM_TESTS
     SP_WAIT_FOR_OTHER_THREAD,
 #endif
@@ -169,6 +176,12 @@ enum /* transaction_state */ {
     TS_REGULAR,
     TS_INEVITABLE,
 };
+
+#define MSG_INEV_DONT_SLEEP  ((const char *)1)
+
+#define in_transaction(tl)                                              \
+    (get_segment((tl)->last_associated_segment_num)->running_thread == (tl))
+
 
 /* Commit Log things */
 struct stm_undo_s {
@@ -293,6 +306,7 @@ static void synchronize_objects_flush(void);
 
 static void _signal_handler(int sig, siginfo_t *siginfo, void *context);
 static bool _stm_validate(void);
+static void _core_commit_transaction(bool external);
 
 static inline bool was_read_remote(char *base, object_t *obj)
 {

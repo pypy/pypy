@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include "stm/atomic.h"
 #include "stm/rewind_setjmp.h"
 
 #if LONG_MAX == 2147483647
@@ -39,9 +40,11 @@ struct stm_read_marker_s {
 
 struct stm_segment_info_s {
     uint8_t transaction_read_version;
+    uint8_t no_safe_point_here;    /* set from outside, triggers an assert */
     int segment_num;
     char *segment_base;
     stm_char *nursery_current;
+    stm_char *nursery_mark;
     uintptr_t nursery_end;
     struct stm_thread_local_s *running_thread;
 };
@@ -65,14 +68,11 @@ typedef struct stm_thread_local_s {
        the following raw region of memory is cleared. */
     char *mem_clear_on_abort;
     size_t mem_bytes_to_clear_on_abort;
-    /* after an abort, some details about the abort are stored there.
-       (this field is not modified on a successful commit) */
-    long last_abort__bytes_in_nursery;
     /* the next fields are handled internally by the library */
-    int associated_segment_num;
-    int last_associated_segment_num;
+    int last_associated_segment_num;   /* always a valid seg num */
     int thread_local_counter;
     struct stm_thread_local_s *prev, *next;
+    intptr_t self_or_0_if_atomic;
     void *creating_pthread[2];
 } stm_thread_local_t;
 
@@ -83,6 +83,17 @@ void _stm_write_slowpath(object_t *);
 void _stm_write_slowpath_card(object_t *, uintptr_t);
 object_t *_stm_allocate_slowpath(ssize_t);
 object_t *_stm_allocate_external(ssize_t);
+
+extern volatile intptr_t _stm_detached_inevitable_from_thread;
+long _stm_start_transaction(stm_thread_local_t *tl);
+void _stm_commit_transaction(void);
+void _stm_leave_noninevitable_transactional_zone(void);
+#define _stm_detach_inevitable_transaction(tl)  do {                    \
+    write_fence();                                                      \
+    assert(_stm_detached_inevitable_from_thread == 0);                  \
+    _stm_detached_inevitable_from_thread = tl->self_or_0_if_atomic;     \
+} while (0)
+void _stm_reattach_transaction(intptr_t);
 void _stm_become_inevitable(const char*);
 void _stm_collectable_safe_point(void);
 
@@ -380,30 +391,82 @@ void stm_unregister_thread_local(stm_thread_local_t *tl);
     rewind_jmp_enum_shadowstack(&(tl)->rjthread, callback)
 
 
-/* Starting and ending transactions.  stm_read(), stm_write() and
-   stm_allocate() should only be called from within a transaction.
-   The stm_start_transaction() call returns the number of times it
-   returned, starting at 0.  If it is > 0, then the transaction was
-   aborted and restarted this number of times. */
-long stm_start_transaction(stm_thread_local_t *tl);
-void stm_start_inevitable_transaction(stm_thread_local_t *tl);
-void stm_commit_transaction(void);
-
-/* Temporary fix?  Call this outside a transaction.  If there is an
-   inevitable transaction running somewhere else, wait until it finishes. */
-void stm_wait_for_current_inevitable_transaction(void);
-
-/* Abort the currently running transaction.  This function never
-   returns: it jumps back to the stm_start_transaction(). */
-void stm_abort_transaction(void) __attribute__((noreturn));
-
 #ifdef STM_NO_AUTOMATIC_SETJMP
-int stm_is_inevitable(void);
+int stm_is_inevitable(stm_thread_local_t *tl);
 #else
-static inline int stm_is_inevitable(void) {
-    return !rewind_jmp_armed(&STM_SEGMENT->running_thread->rjthread);
+static inline int stm_is_inevitable(stm_thread_local_t *tl) {
+    return !rewind_jmp_armed(&tl->rjthread);
 }
 #endif
+
+
+/* Entering and leaving a "transactional code zone": a (typically very
+   large) section in the code where we are running a transaction.
+   This is the STM equivalent to "acquire the GIL" and "release the
+   GIL", respectively.  stm_read(), stm_write(), stm_allocate(), and
+   other functions should only be called from within a transaction.
+
+   Note that transactions, in the STM sense, cover _at least_ one
+   transactional code zone.  They may be longer; for example, if one
+   thread does a lot of stm_enter_transactional_zone() +
+   stm_become_inevitable() + stm_leave_transactional_zone(), as is
+   typical in a thread that does a lot of C function calls, then we
+   get only a few bigger inevitable transactions that cover the many
+   short transactional zones.  This is done by having
+   stm_leave_transactional_zone() turn the current transaction
+   inevitable and detach it from the running thread (if there is no
+   other inevitable transaction running so far).  Then
+   stm_enter_transactional_zone() will try to reattach to it.  This is
+   far more efficient than constantly starting and committing
+   transactions.
+
+   stm_enter_transactional_zone() and stm_leave_transactional_zone()
+   preserve the value of errno.
+*/
+#ifdef STM_DEBUGPRINT
+#include <stdio.h>
+#endif
+static inline void stm_enter_transactional_zone(stm_thread_local_t *tl) {
+    intptr_t self = tl->self_or_0_if_atomic;
+    if (__sync_bool_compare_and_swap(&_stm_detached_inevitable_from_thread,
+                                     self, 0)) {
+#ifdef STM_DEBUGPRINT
+        fprintf(stderr, "stm_enter_transactional_zone fast path\n");
+#endif
+    }
+    else {
+        _stm_reattach_transaction(self);
+        /* _stm_detached_inevitable_from_thread should be 0 here, but
+           it can already have been changed from a parallel thread
+           (assuming we're not inevitable ourselves) */
+    }
+}
+static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
+    assert(STM_SEGMENT->running_thread == tl);
+    if (stm_is_inevitable(tl)) {
+#ifdef STM_DEBUGPRINT
+        fprintf(stderr, "stm_leave_transactional_zone fast path\n");
+#endif
+        _stm_detach_inevitable_transaction(tl);
+    }
+    else {
+        _stm_leave_noninevitable_transactional_zone();
+    }
+}
+
+/* stm_force_transaction_break() is in theory equivalent to
+   stm_leave_transactional_zone() immediately followed by
+   stm_enter_transactional_zone(); however, it is supposed to be
+   called in CPU-heavy threads that had a transaction run for a while,
+   and so it *always* forces a commit and starts the next transaction.
+   The new transaction is never inevitable.  See also
+   stm_should_break_transaction(). */
+void stm_force_transaction_break(stm_thread_local_t *tl);
+
+/* Abort the currently running transaction.  This function never
+   returns: it jumps back to the start of the transaction (which must
+   not be inevitable). */
+void stm_abort_transaction(void) __attribute__((noreturn));
 
 /* Turn the current transaction inevitable.
    stm_become_inevitable() itself may still abort the transaction instead
@@ -411,8 +474,10 @@ static inline int stm_is_inevitable(void) {
 static inline void stm_become_inevitable(stm_thread_local_t *tl,
                                          const char* msg) {
     assert(STM_SEGMENT->running_thread == tl);
-    if (!stm_is_inevitable())
+    if (!stm_is_inevitable(tl))
         _stm_become_inevitable(msg);
+    /* now, we're running the inevitable transaction, so this var should be 0 */
+    assert(_stm_detached_inevitable_from_thread == 0);
 }
 
 /* Forces a safe-point if needed.  Normally not needed: this is
@@ -424,6 +489,32 @@ static inline void stm_safe_point(void) {
 
 /* Forces a collection. */
 void stm_collect(long level);
+
+
+/* A way to detect that we've run for a while and should call
+   stm_force_transaction_break() */
+static inline int stm_should_break_transaction(void)
+{
+    return ((intptr_t)STM_SEGMENT->nursery_current >=
+            (intptr_t)STM_SEGMENT->nursery_mark);
+}
+extern uintptr_t stm_fill_mark_nursery_bytes;
+/* ^^^ at the start of a transaction, 'nursery_mark' is initialized to
+   'stm_fill_mark_nursery_bytes' inside the nursery.  This value can
+   be larger than the nursery; every minor collection shifts the
+   current 'nursery_mark' down by one nursery-size.  After an abort
+   and restart, 'nursery_mark' is set to ~90% of the value it reached
+   in the last attempt.
+*/
+
+/* "atomic" transaction: a transaction where stm_should_break_transaction()
+   always returns false, and where stm_leave_transactional_zone() never
+   detach nor terminates the transaction.  (stm_force_transaction_break()
+   crashes if called with an atomic transaction.)
+*/
+uintptr_t stm_is_atomic(stm_thread_local_t *tl);
+void stm_enable_atomic(stm_thread_local_t *tl);
+void stm_disable_atomic(stm_thread_local_t *tl);
 
 
 /* Prepare an immortal "prebuilt" object managed by the GC.  Takes a
@@ -467,8 +558,8 @@ long stm_call_on_commit(stm_thread_local_t *, void *key, void callback(void *));
    other threads.  A very heavy-handed way to make sure that no other
    transaction is running concurrently.  Avoid as much as possible.
    Other transactions will continue running only after this transaction
-   commits.  (xxx deprecated and may be removed) */
-void stm_become_globally_unique_transaction(stm_thread_local_t *tl, const char *msg);
+   commits.  (deprecated, not working any more according to demo_random2) */
+//void stm_become_globally_unique_transaction(stm_thread_local_t *tl, const char *msg);
 
 /* Moves the transaction forward in time by validating the read and
    write set with all commits that happened since the last validation

@@ -630,6 +630,11 @@ class AbstractX86CodeBuilder(object):
     FLDL_s  = insn('\xDD', orbyte(0<<3), stack_sp(1))
     FLDS_s  = insn('\xD9', orbyte(0<<3), stack_sp(1))
 
+    # the 'lock' and 'cmpxchg' instructions
+    LOCK = insn('\xF0')
+    CMPXCHG_mr = insn(rex_w, '\x0F\xB1', register(2,8), mem_reg_plus_const(1))
+    CMPXCHG_jr = insn(rex_w, '\x0F\xB1', register(2,8), abs_(1))
+
     # ------------------------------ Random mess -----------------------
     RDTSC = insn('\x0F\x31')
 

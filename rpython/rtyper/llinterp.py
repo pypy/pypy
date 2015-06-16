@@ -969,8 +969,8 @@ class LLFrame(object):
     op_stm_push_root = _stm_not_implemented
     op_stm_pop_root_into = _stm_not_implemented
     op_stm_get_root_stack_top = _stm_not_implemented
-    op_stm_start_if_not_atomic = _stm_not_implemented
-    op_stm_commit_if_not_atomic = _stm_not_implemented
+    op_stm_enter_transactional_zone = _stm_not_implemented
+    op_stm_leave_transactional_zone = _stm_not_implemented
     op_stm_enter_callback_call = _stm_not_implemented
     op_stm_leave_callback_call = _stm_not_implemented
     op_stm_get_atomic = _stm_not_implemented

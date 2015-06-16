@@ -19,6 +19,7 @@ stmflags_offset = CFlexSymbolic('offsetof(struct rpyobj_s, lib)')
 stm_nb_segments = CFlexSymbolic('STM_NB_SEGMENTS')
 adr_nursery_free = CFlexSymbolic('((long)&STM_SEGMENT->nursery_current)')
 adr_nursery_top  = CFlexSymbolic('((long)&STM_SEGMENT->nursery_end)')
+adr_nursery_mark = CFlexSymbolic('((long)&STM_SEGMENT->nursery_mark)')
 adr_pypy_stm_nursery_low_fill_mark = (
     CFlexSymbolic('((long)&pypy_stm_nursery_low_fill_mark)'))
 adr_rjthread_head = (
@@ -43,10 +44,14 @@ FAST_ALLOC = CFlexSymbolic('_STM_FAST_ALLOC')
 
 adr_pypy__rewind_jmp_copy_stack_slice = (
     CFlexSymbolic('((long)&pypy__rewind_jmp_copy_stack_slice)'))
-adr_pypy_stm_commit_if_not_atomic = (
-    CFlexSymbolic('((long)&pypy_stm_commit_if_not_atomic)'))
-adr_pypy_stm_start_if_not_atomic = (
-    CFlexSymbolic('((long)&pypy_stm_start_if_not_atomic)'))
+adr_stm_detached_inevitable_from_thread = (
+    CFlexSymbolic('((long)&_stm_detached_inevitable_from_thread)'))
+adr_stm_thread_local_self_or_0_if_atomic = (
+    CFlexSymbolic('((long)&stm_thread_local.self_or_0_if_atomic)'))
+adr_stm_leave_noninevitable_transactional_zone = (
+    CFlexSymbolic('((long)&_stm_leave_noninevitable_transactional_zone)'))
+adr_stm_reattach_transaction = (
+    CFlexSymbolic('((long)&_stm_reattach_transaction)'))
 
 
 def rewind_jmp_frame():
@@ -123,16 +128,14 @@ def abort_and_retry():
 @dont_look_inside
 def before_external_call():
     if we_are_translated():
-        # this tries to commit, or becomes inevitable if atomic
-        llop.stm_commit_if_not_atomic(lltype.Void)
+        llop.stm_leave_transactional_zone(lltype.Void)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
 @dont_look_inside
 def after_external_call():
     if we_are_translated():
-        # starts a new transaction if we are not atomic already
-        llop.stm_start_if_not_atomic(lltype.Void)
+        llop.stm_enter_transactional_zone(lltype.Void)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 

@@ -494,11 +494,11 @@ static void _invoke_general_finalizers(stm_thread_local_t *tl)
 
     rewind_jmp_buf rjbuf;
     stm_rewind_jmp_enterframe(tl, &rjbuf);
-    stm_start_transaction(tl);
+    _stm_start_transaction(tl);
 
     _execute_finalizers(&g_finalizers);
 
-    stm_commit_transaction();
+    _stm_commit_transaction();
     stm_rewind_jmp_leaveframe(tl, &rjbuf);
 
     __sync_lock_release(&lock);
