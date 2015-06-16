@@ -57,7 +57,7 @@ def create_entry_point(space, w_dict):
                 space.startup()
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
-                w_exitcode = space.wrap(-1) #space.call_function(w_entry_point, w_executable, w_argv)
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in
             ##    from pypy.interpreter import main, interactive, error
@@ -312,6 +312,7 @@ class PyPyTarget(object):
 
         @taskdef(['compile_c'], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
+            from pypy.tool.build_cffi_imports import create_cffi_import_libraries
             ''' Use cffi to compile cffi interfaces to modules'''
             exename = mkexename(driver.compute_exe_name())
             basedir = exename
@@ -323,7 +324,7 @@ class PyPyTarget(object):
                 basedir = _basedir
             modules = self.config.objspace.usemodules.getpaths()
             options = Options()
-            # possibly adapt options using modules
+            # XXX possibly adapt options using modules
             create_cffi_import_libraries(exename, options, basedir)      
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
