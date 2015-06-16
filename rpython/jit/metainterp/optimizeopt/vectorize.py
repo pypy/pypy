@@ -287,10 +287,9 @@ class VectorizingOptimizer(Optimizer):
         loop = self.loop
         operations = loop.operations
 
-        vsize = self.cpu.vector_register_size
         self.packset = PackSet(self.dependency_graph, operations,
                                self.unroll_count, self.smallest_type_bytes,
-                               vsize)
+                               self.cpu)
         graph = self.dependency_graph
         memory_refs = graph.memory_refs.items()
         # initialize the pack set
@@ -561,13 +560,14 @@ def isomorphic(l_op, r_op):
 
 class PackSet(object):
     def __init__(self, dependency_graph, operations, unroll_count,
-                 smallest_type_bytes, vec_reg_size):
+                 smallest_type_bytes, cpu):
         self.packs = []
         self.dependency_graph = dependency_graph
         self.operations = operations
         self.unroll_count = unroll_count
         self.smallest_type_bytes = smallest_type_bytes
-        self.vec_reg_size = vec_reg_size
+        self.cpu = cpu
+        self.vec_reg_size = self.cpu.vector_register_size
 
     def pack_count(self):
         return len(self.packs)
@@ -693,6 +693,14 @@ class PackSet(object):
 
             # this can be handled by accumulation
             ptype = origin_pack.output_type
+            if ptype.getsize() != 8:
+                # do not support if if the type size is smaller
+                # than the cpu word size.
+                # WHY?
+                # to ensure accum is done on the right size, the dependencies
+                # of leading/preceding signext/floatcast instructions needs to be
+                # considered. => tree pattern matching problem.
+                return None
             accum = Accum(accum_var, accum_pos, Accum.PLUS)
             return AccumPair(lnode, rnode, ptype, ptype, accum)
 

@@ -261,7 +261,8 @@ class TestNumpyJit(Jit386Mixin):
         result = self.run("int16_expand")
         i = 8
         assert int(result) == i*16 + sum(range(7,7+i))
-        self.check_vectorized(3, 2) # TODO sum at the end
+        # currently is is not possible to accum for types with < 8 bytes
+        self.check_vectorized(3, 2)
 
     def define_int8_expand():
         return """
