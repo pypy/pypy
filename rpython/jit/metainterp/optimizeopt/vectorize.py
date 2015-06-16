@@ -86,7 +86,8 @@ class VectorizingOptimizer(Optimizer):
         self.smallest_type_bytes = 0
         self.early_exit_idx = -1
         self.sched_data = None
-        self.costmodel = X86_CostModel(cost_threshold)
+        self.cpu = metainterp_sd.cpu
+        self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
@@ -100,7 +101,7 @@ class VectorizingOptimizer(Optimizer):
 
         self.linear_find_smallest_type(self.loop)
         byte_count = self.smallest_type_bytes
-        vsize = self.metainterp_sd.cpu.vector_register_size
+        vsize = self.cpu.vector_register_size
         if vsize == 0 or byte_count == 0 or label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
@@ -122,9 +123,10 @@ class VectorizingOptimizer(Optimizer):
         self.find_adjacent_memory_refs()
         self.extend_packset()
         self.combine_packset()
-        if not self.costmodel.profitable(self.packset):
-            raise NotAProfitableLoop()
+        self.costmodel.reset_savings()
         self.schedule(True)
+        if not self.costmodel.profitable():
+            raise NotAProfitableLoop()
 
         gso = GuardStrengthenOpt(self.dependency_graph.index_vars)
         gso.propagate_all_forward(self.loop)
@@ -278,7 +280,7 @@ class VectorizingOptimizer(Optimizer):
         loop = self.loop
         operations = loop.operations
 
-        vsize = self.metainterp_sd.cpu.vector_register_size
+        vsize = self.cpu.vector_register_size
         self.packset = PackSet(self.dependency_graph, operations,
                                self.unroll_count, self.smallest_type_bytes,
                                vsize)
@@ -374,7 +376,7 @@ class VectorizingOptimizer(Optimizer):
     def schedule(self, vector=False):
         self.guard_early_exit = -1
         self.clear_newoperations()
-        sched_data = VecScheduleData(self.metainterp_sd.cpu.vector_register_size)
+        sched_data = VecScheduleData(self.cpu.vector_register_size, self.costmodel)
         scheduler = Scheduler(self.dependency_graph, sched_data)
         renamer = Renamer()
         #
@@ -480,8 +482,22 @@ class VectorizingOptimizer(Optimizer):
                 guard_node.relax_guard_to(ee_guard_node)
 
 class CostModel(object):
-    def __init__(self, threshold):
+    def __init__(self, threshold, vec_reg_size):
         self.threshold = threshold
+        self.vec_reg_size = vec_reg_size
+        self.savings = 0
+
+    def reset_savings(self):
+        self.savings = 0
+
+    def record_pack_savings(self, pack):
+        pass
+
+    def record_vector_pack(self, box, index, count):
+        raise NotImplementedError("unpack cost")
+
+    def record_vector_unpack(self, box, index, count):
+        raise NotImplementedError("unpack cost")
 
     def unpack_cost(self, op, index, count):
         raise NotImplementedError("unpack cost")
@@ -489,45 +505,20 @@ class CostModel(object):
     def savings_for_pack(self, pack, times):
         raise NotImplementedError("savings for pack")
 
-    def savings_for_unpacking(self, node, index):
-        savings = 0
-        result = node.getoperation().result
-        for use in node.provides():
-            if use.to.pack is None and use.because_of(result):
-                savings -= self.unpack_cost(node.getoperation(), index, 1)
-        return savings
-
-    def calculate_savings(self, packset):
-        savings = 0
-        for pack in packset.packs:
-            op0 = pack.operations[0].getoperation()
-            savings += self.savings_for_pack(pack, pack.opcount())
-            if op0.result:
-                for i,node in enumerate(pack.operations):
-                    savings += self.savings_for_unpacking(node, i)
-        return savings
-
-    def profitable(self, packset):
-        return self.calculate_savings(packset) >= self.threshold
+    def profitable(self):
+        return self.savings >= 0
 
 class X86_CostModel(CostModel):
 
-    def savings_for_pack(self, pack, times):
+    def record_pack_savings(self, pack):
+        times = pack.opcount()
         cost, benefit_factor = (1,1)
         node = pack.operations[0]
         op = node.getoperation()
         if op.getopnum() == rop.INT_SIGNEXT:
             cost, benefit_factor = self.cb_signext(pack)
         #
-        savings = benefit_factor * times - cost
-        op2vop = determine_trans(op)
-        split = op2vop.split_pack(pack)
-        pack_count = len(pack.operations)
-        if split != pack_count:
-            for i in range(0,pack_count,split):
-                savings -= self.unpack_cost(op, i, split)
-
-        return savings
+        self.savings += benefit_factor * times - cost
 
     def cb_signext(self, pack):
         op0 = pack.operations[0].getoperation()
@@ -540,14 +531,15 @@ class X86_CostModel(CostModel):
         # no benefit for this operation! needs many x86 instrs
         return 1,0
 
-    def unpack_cost(self, op, index, count):
-        if op.getdescr():
-            if op.getdescr().is_array_of_floats():
-                if index == 1:
-                    return 2
-        if count >= 2:
-            return count
-        return 1
+    def record_vector_pack(self, src, index, count):
+        if src.gettype() == FLOAT:
+            if index == 1 and count == 1:
+                self.savings -= 2
+                return
+        self.savings -= count
+
+    def record_vector_unpack(self, src, index, count):
+        self.record_vector_pack(src, index, count)
 
 def isomorphic(l_op, r_op):
     """ Subject of definition """

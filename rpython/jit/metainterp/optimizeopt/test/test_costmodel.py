@@ -46,7 +46,9 @@ class CostModelBaseTest(SchedulerBaseTest):
             print "pack: \n   ",
             print '\n    '.join([str(op.getoperation()) for op in pack.operations])
             print
-        return opt.costmodel.calculate_savings(opt.packset)
+        opt.costmodel.reset_savings()
+        opt.schedule(True)
+        return opt.costmodel.savings
 
     def assert_operations_match(self, loop_a, loop_b):
         assert equaloplists(loop_a.operations, loop_b.operations)
@@ -219,7 +221,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         #raw_store(i20, i17, i33, descr=<ArrayU 4>)
         """)
         savings = self.savings(loop1)
-        print savings
+        assert savings < 0
 
 class Test(CostModelBaseTest, LLtypeMixin):
     pass

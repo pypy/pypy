@@ -223,6 +223,7 @@ class OpToVectorOp(object):
         self.pack = None
         self.input_type = None
         self.output_type = None
+        self.costmodel = None
 
     def is_vector_arg(self, i):
         if i < 0 or i >= len(self.arg_ptypes):
@@ -251,9 +252,9 @@ class OpToVectorOp(object):
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
         self.preamble_ops = oplist
+        self.costmodel = sched_data.costmodel
         self.update_input_output(pack)
-
-
+        #
         off = 0
         stride = self.split_pack(pack, self.sched_data.vec_reg_size)
         left = len(pack.operations)
@@ -265,11 +266,13 @@ class OpToVectorOp(object):
                 continue
             ops = pack.operations[off:off+stride]
             self.pack = Pack(ops, pack.input_type, pack.output_type)
+            self.costmodel.record_pack_savings(self.pack)
             self.transform_pack(ops, off, stride)
             off += stride
             left -= stride
 
         self.pack = None
+        self.costmodel = None
         self.preamble_ops = None
         self.sched_data = None
         self.input_type = None
@@ -377,6 +380,7 @@ class OpToVectorOp(object):
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
         opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
+        self.costmodel.record_vector_unpack(vbox, index, count)
         self.preamble_ops.append(op)
         return vbox_cloned
 
@@ -401,6 +405,7 @@ class OpToVectorOp(object):
             op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
                                       ConstInt(src_box.item_count)], new_box)
             self.preamble_ops.append(op)
+            self.costmodel.record_vector_pack(src_box, i, src_box.item_count)
             if not we_are_translated():
                 self._check_vec_pack(op)
             i += src_box.item_count
@@ -489,13 +494,12 @@ class OpToVectorOpConv(OpToVectorOp):
     def determine_output_type(self, op):
         return self.result_ptype
 
-    def split_pack(self, pack):
+    def split_pack(self, pack, vec_reg_size):
         if self.from_size > self.to_size:
             # cast down
-            return OpToVectorOp.split_pack(self, pack)
+            return OpToVectorOp.split_pack(self, pack, vec_reg_size)
         op0 = pack.operations[0].getoperation()
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
-        vec_reg_size = self.sched_data.vec_reg_size
         if vbox.getcount() * self.to_size > vec_reg_size:
             return vec_reg_size // self.to_size
         return len(pack.operations)
@@ -515,7 +519,7 @@ class SignExtToVectorOp(OpToVectorOp):
         OpToVectorOp.__init__(self, intype, outtype)
         self.size = -1
 
-    def split_pack(self, pack):
+    def split_pack(self, pack, vec_reg_size):
         op0 = pack.operations[0].getoperation()
         sizearg = op0.getarg(1)
         assert isinstance(sizearg, ConstInt)
@@ -524,7 +528,6 @@ class SignExtToVectorOp(OpToVectorOp):
             # cast down
             return OpToVectorOp.split_pack(self, pack)
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
-        vec_reg_size = self.sched_data.vec_reg_size
         if vbox.getcount() * self.size > vec_reg_size:
             return vec_reg_size // self.size
         return vbox.getcount()
@@ -622,17 +625,17 @@ def determine_trans(op):
     return op2vecop
 
 class VecScheduleData(SchedulerData):
-    def __init__(self, vec_reg_size):
+    def __init__(self, vec_reg_size, costmodel):
         self.box_to_vbox = {}
         self.vec_reg_size = vec_reg_size
         self.invariant_oplist = []
         self.invariant_vector_vars = []
         self.expanded_map = {}
+        self.costmodel = costmodel
 
     def as_vector_operation(self, pack, preproc_renamer):
         op_count = len(pack.operations)
         assert op_count > 1
-        self.pack = pack
         # properties that hold for the pack are:
         # + isomorphism (see func above)
         # + tight packed (no room between vector elems)
