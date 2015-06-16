@@ -423,6 +423,7 @@ class VectorizingOptimizer(Optimizer):
             ci = ConstInt(1)
             opnum = getunpackopnum(vbox.item_type)
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
+            self.costmodel.record_vector_unpack(vbox, j, 1)
             self.emit_operation(unpack_op)
             return arg_cloned
         return arg

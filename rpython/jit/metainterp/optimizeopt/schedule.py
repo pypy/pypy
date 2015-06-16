@@ -526,7 +526,7 @@ class SignExtToVectorOp(OpToVectorOp):
         self.size = sizearg.value
         if self.input_type.getsize() > self.size:
             # cast down
-            return OpToVectorOp.split_pack(self, pack)
+            return OpToVectorOp.split_pack(self, pack, vec_reg_size)
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
         if vbox.getcount() * self.size > vec_reg_size:
             return vec_reg_size // self.size
@@ -634,18 +634,14 @@ class VecScheduleData(SchedulerData):
         self.costmodel = costmodel
 
     def as_vector_operation(self, pack, preproc_renamer):
-        op_count = len(pack.operations)
-        assert op_count > 1
+        assert pack.opcount() > 1
         # properties that hold for the pack are:
         # + isomorphism (see func above)
-        # + tight packed (no room between vector elems)
+        # + tightly packed (no room between vector elems)
 
-        op0 = pack.operations[0].getoperation()
-        tovector = ROP_ARG_RES_VECTOR.get(op0.vector, None)
-        if tovector is None:
-            raise NotImplementedError("missing vecop for '%s'" % (op0.getopname(),))
         oplist = []
-        tovector.as_vector_operation(pack, self, oplist)
+        op = pack.operations[0].getoperation()
+        determine_trans(op).as_vector_operation(pack, self, oplist)
         #
         if pack.is_accumulating():
             box = oplist[0].result
