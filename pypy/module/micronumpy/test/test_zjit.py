@@ -349,11 +349,20 @@ class TestNumpyJit(Jit386Mixin):
         a = |30|
         sum(a)
         """
-
     def test_sum(self):
         result = self.run("sum")
         assert result == sum(range(30))
         self.check_vectorized(1, 1)
+
+    def define_sum_int():
+        return """
+        a = astype(|65|,int)
+        sum(a)
+        """
+    def test_sum_int(self):
+        result = self.run("sum_int")
+        assert result == sum(range(65))
+        self.check_vectorized(2, 2) # 1 vecopt try+success for type conversion
 
     def define_sum_multi():
         return """

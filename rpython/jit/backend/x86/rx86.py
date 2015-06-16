@@ -750,6 +750,7 @@ class AbstractX86CodeBuilder(object):
     # SSE3
     HADDPD_xx = xmminsn('\x66', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
     HADDPS_xx = xmminsn('\xF2', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
+    PHADDD_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x02', register(1,8), register(2), '\xC0')
 
     # following require SSE4_1
     PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(1), register(2,8), '\xC0', immediate(3, 'b'))

@@ -2482,14 +2482,17 @@ class Assembler386(BaseAssembler):
         for i,arg in enumerate(fail_args):
             if isinstance(arg, BoxVectorAccum):
                 loc = fail_locs[i]
+                tgtloc = self._regalloc.force_allocate_reg(arg.scalar_var, fail_args)
                 if arg.operator == '+':
                     # reduction using plus
-                    self._accum_reduce_sum(arg, loc)
+                    self._accum_reduce_sum(arg, loc, tgtloc)
+                    fail_locs[i] = tgtloc
+                    self._regalloc.possibly_free_var(arg)
                 else:
                     raise NotImplementedError("accum operator %s not implemented" %
                                                 (arg.operator)) 
 
-    def _accum_reduce_sum(self, vector_var, regloc):
+    def _accum_reduce_sum(self, vector_var, accumloc, targetloc):
         assert isinstance(vector_var, BoxVectorAccum)
         #
         type = vector_var.gettype()
@@ -2497,22 +2500,33 @@ class Assembler386(BaseAssembler):
         if type == FLOAT:
             if size == 8:
                 # r = (r[0]+r[1],r[0]+r[1])
-                self.mc.HADDPD(regloc, regloc)
+                self.mc.HADDPD(accumloc, accumloc)
                 # upper bits (> 64) are dirty (but does not matter)
+                if accumloc is not targetloc:
+                    self.mov(targetloc, accumloc)
                 return
             if size == 4:
                 # r = (r[0]+r[1],r[2]+r[3],r[0]+r[1],r[2]+r[3])
-                self.mc.HADDPS(regloc, regloc)
-                self.mc.HADDPS(regloc, regloc)
+                self.mc.HADDPS(accumloc, accumloc)
+                self.mc.HADDPS(accumloc, accumloc)
                 # invoking it a second time will gather the whole sum
                 # at the first element position
                 # the upper bits (>32) are dirty (but does not matter)
+                if accumloc is not targetloc:
+                    self.mov(targetloc, accumloc)
                 return
         elif type == INT:
+            scratchloc = X86_64_SCRATCH_REG
             if size == 8:
-                pass
+                self.mc.PEXTRQ_rxi(targetloc.value, accumloc.value, 0)
+                self.mc.PEXTRQ_rxi(scratchloc.value, accumloc.value, 1)
+                self.mc.ADD(targetloc, scratchloc)
+                return
             if size == 4:
-                pass
+                self.mc.PHADDD(accumloc, accumloc)
+                self.mc.PHADDD(accumloc, accumloc)
+                self.mc.PEXTRD_rxi(targetloc.value, accumloc.value, 0)
+                return
             if size == 2:
                 pass
             if size == 1:
@@ -2732,27 +2746,35 @@ class Assembler386(BaseAssembler):
         k = count
         while k > 0:
             if size == 8:
-                if resultloc.is_xmm:
+                if resultloc.is_xmm and sourceloc.is_xmm: # both xmm
                     self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRQ_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
-                else:
+                elif resultloc.is_xmm: # xmm <- reg
+                    self.mc.PINSRQ_xri(resultloc.value, sourceloc.value, ri)
+                else: # reg <- xmm
                     self.mc.PEXTRQ_rxi(resultloc.value, sourceloc.value, si)
             elif size == 4:
-                if resultloc.is_xmm:
+                if resultloc.is_xmm and sourceloc.is_xmm:
                     self.mc.PEXTRD_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRD_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                elif resultloc.is_xmm:
+                    self.mc.PINSRD_xri(resultloc.value, sourceloc.value, ri)
                 else:
                     self.mc.PEXTRD_rxi(resultloc.value, sourceloc.value, si)
             elif size == 2:
-                if resultloc.is_xmm:
+                if resultloc.is_xmm and sourceloc.is_xmm:
                     self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRW_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                elif resultloc.is_xmm:
+                    self.mc.PINSRW_xri(resultloc.value, source.value, ri)
                 else:
                     self.mc.PEXTRW_rxi(resultloc.value, sourceloc.value, si)
             elif size == 1:
-                if resultloc.is_xmm:
+                if resultloc.is_xmm and sourceloc.is_xmm:
                     self.mc.PEXTRB_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRB_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
+                elif resultloc.is_xmm:
+                    self.mc.PINSRB_xri(resultloc.value, sourceloc.value, ri)
                 else:
                     self.mc.PEXTRB_rxi(resultloc.value, sourceloc.value, si)
             si += 1
