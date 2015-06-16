@@ -6,6 +6,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, appdef
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.objspace import StdObjSpace
 
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
@@ -177,6 +178,9 @@ def get_order_as_CF(proto_order, req_order):
 
 
 def descr_set_docstring(space, w_obj, w_docstring):
+    if not isinstance(space, StdObjSpace):
+        raise oefmt(space.w_NotImplementedError,
+                    "This only works with the real object space")
     if isinstance(w_obj, W_TypeObject):
         w_obj.w_doc = w_docstring
         return
