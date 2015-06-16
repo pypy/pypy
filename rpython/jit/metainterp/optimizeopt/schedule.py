@@ -333,6 +333,10 @@ class OpToVectorOp(object):
             # constant/variable expand this box
             vbox = self.expand(ops, arg, argidx)
             box_pos = 0
+        # convert size i64 -> i32, i32 -> i64, ...
+        if self.input_type.getsize() > 0 and \
+           self.input_type.getsize() != vbox.getsize():
+            vbox = self.extend(vbox, self.input_type)
 
         # use the input as an indicator for the pack type
         packable = self.input_type.getcount()
@@ -358,10 +362,6 @@ class OpToVectorOp(object):
             args = [op.getoperation().getarg(argidx) for op in ops]
             vbox = self.unpack(vbox, args, off, len(ops), self.input_type)
             self.update_input_output(self.pack)
-        # convert size i64 -> i32, i32 -> i64, ...
-        if self.input_type.getsize() > 0 and \
-           self.input_type.getsize() != vbox.getsize():
-            vbox = self.extend(vbox, self.input_type)
         #
         return vbox
 
@@ -382,6 +382,7 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, args, index, count, arg_ptype):
+        import py; py.test.set_trace()
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
         opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
@@ -389,7 +390,6 @@ class OpToVectorOp(object):
         self.preamble_ops.append(op)
         #
         for i,arg in enumerate(args):
-            print "unpacking", arg, "to", i, vbox_cloned
             self.sched_data.setvector_of_box(arg, i, vbox_cloned)
         #
         return vbox_cloned
@@ -425,6 +425,7 @@ class OpToVectorOp(object):
             for j in range(i):
                 arg = args[j]
                 self.sched_data.setvector_of_box(arg, j, new_box)
+                print new_box, "[", j, "] = ", arg
             tgt_box = new_box
         _, vbox = self.sched_data.getvector_of_box(args[0])
         return vbox
@@ -504,14 +505,11 @@ class OpToVectorOpConv(OpToVectorOp):
         return self.result_ptype
 
     def split_pack(self, pack, vec_reg_size):
-        if self.from_size > self.to_size:
-            # cast down
-            return OpToVectorOp.split_pack(self, pack, vec_reg_size)
         op0 = pack.operations[0].getoperation()
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
         if vbox.getcount() * self.to_size > vec_reg_size:
             return vec_reg_size // self.to_size
-        return len(pack.operations)
+        return vbox.getcount()
 
     def new_result_vector_box(self):
         type = self.output_type.gettype()
@@ -533,9 +531,6 @@ class SignExtToVectorOp(OpToVectorOp):
         sizearg = op0.getarg(1)
         assert isinstance(sizearg, ConstInt)
         self.size = sizearg.value
-        if self.input_type.getsize() > self.size:
-            # cast down
-            return OpToVectorOp.split_pack(self, pack, vec_reg_size)
         _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
         if vbox.getcount() * self.size > vec_reg_size:
             return vec_reg_size // self.size

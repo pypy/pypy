@@ -1377,23 +1377,20 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
-        py.test.skip()
         trace ="""
-        [p0, p1, p5, p6, p7, p17, p19, i46, i37, i41]
-        guard_not_invalidated() [p1, p0, p5, p6, p7, p17, p19]
-        i59 = int_lt(i46, i37)
-        guard_true(i59) [p1, p0, i46, p5, p6, p7, p17, p19]
-        f60 = getarrayitem_raw(i41, i46, descr=floatarraydescr)
-        f61 = float_add(f60, 1.000000)
-        setarrayitem_raw(i41, i46, f61, descr=floatarraydescr)
-        i62 = int_add(i46, 1)
-        setfield_gc(50, i62, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
-        i63 = int_ge(i62, 2024)
-        guard_false(i63) [p1, p0, p5, p6, p7, p17, p19, i62]
-        i64 = getfield_raw(140099887568000, descr=<FieldS pypysig_long_struct.c_value 0>)
-        i65 = int_lt(i64, 0)
-        guard_false(i65) [p1, p0, p5, p6, p7, p17, p19, None]
-        jump(p0, p1, p5, p6, p7, p17, p19, i62, i37, i41)
+        [p5, i6, p4, i7, p1, p8, i9, p3, i10, i11, i12, i13]
+        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7fece2eb8c10>) [p4, p3, p1, i7, i9, i10, p5, p8, i6]
+        f14 = raw_load(i11, i7, descr=floatarraydescr)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7fece2efc210>) [p4, p3, p1, f14, i7, i9, i10, p5, p8, i6]
+        i15 = cast_float_to_int(f14)
+        i17 = int_signext(i15, 2)
+        raw_store(i12, i10, i17, descr=int16arraydescr)
+        i19 = int_add(i9, 1)
+        i21 = int_add(i10, 2)
+        i23 = int_add(i7, 8)
+        i24 = int_ge(i19, i13)
+        guard_false(i24, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fece2ecbb50>) [p4, p3, p1, i23, i21, i19, None, None, None, None, p5, p8, i6]
+        jump(p5, i6, p4, i23, p1, p8, i19, p3, i21, i11, i12, i13)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)

@@ -5,6 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import equaloplists, Renamer
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
         Pack, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel)
 from rpython.jit.metainterp.optimizeopt.dependency import Node
+from rpython.jit.metainterp.optimizeopt.schedule import PackType
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
 from rpython.jit.metainterp.optimizeopt.test.test_vectorize import (FakeMetaInterpStaticData,
@@ -39,7 +40,7 @@ class SchedulerBaseTest(DependencyBaseTest):
         return loop
 
     def pack(self, loop, l, r):
-        return [Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])]
+        return Pack([Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])], None, None)
 
     def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False, getvboxfunc=None):
         loop = get_model(False).ExtendedTreeLoop("loop")
@@ -53,10 +54,10 @@ class SchedulerBaseTest(DependencyBaseTest):
             vsd.getvector_of_box = getvboxfunc
         renamer = Renamer()
         for pack in packs:
-            if len(pack) == 1:
-                ops.append(pack[0].getoperation())
+            if pack.opcount() == 1:
+                ops.append(pack.operations[0].getoperation())
             else:
-                for op in vsd.as_vector_operation(Pack(pack, None, None), renamer):
+                for op in vsd.as_vector_operation(pack, renamer):
                     ops.append(op)
         loop.operations = ops
         if prepend_invariant:
@@ -176,5 +177,68 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True, getvboxfunc=i1inv103204)
         loop3 = self.parse("""
         v11[i16|4] = vec_int_signext(v103204[i32|4], 2)
+        """, False)
+        self.assert_equal(loop2, loop3)
+
+    def test_float_to_int(self):
+        loop1 = self.parse("""
+        f10 = raw_load(p0, i1, descr=double)
+        f11 = raw_load(p0, i2, descr=double)
+        f12 = raw_load(p0, i3, descr=double)
+        f13 = raw_load(p0, i4, descr=double)
+        f14 = raw_load(p0, i5, descr=double)
+        f15 = raw_load(p0, i6, descr=double)
+        f16 = raw_load(p0, i7, descr=double)
+        f17 = raw_load(p0, i8, descr=double)
+        #
+        i10 = cast_float_to_int(f10)
+        i11 = cast_float_to_int(f11)
+        i12 = cast_float_to_int(f12)
+        i13 = cast_float_to_int(f13)
+        i14 = cast_float_to_int(f14)
+        i15 = cast_float_to_int(f15)
+        i16 = cast_float_to_int(f16)
+        i17 = cast_float_to_int(f17)
+        #
+        i18 = int_signext(i10, 2)
+        i19 = int_signext(i11, 2)
+        i20 = int_signext(i12, 2)
+        i21 = int_signext(i13, 2)
+        i22 = int_signext(i14, 2)
+        i23 = int_signext(i15, 2)
+        i24 = int_signext(i17, 2)
+        i25 = int_signext(i18, 2)
+        #
+        raw_store(p1, i1, i18, descr=short)
+        raw_store(p1, i2, i19, descr=short)
+        raw_store(p1, i3, i20, descr=short)
+        raw_store(p1, i4, i21, descr=short)
+        raw_store(p1, i5, i22, descr=short)
+        raw_store(p1, i6, i23, descr=short)
+        raw_store(p1, i7, i24, descr=short)
+        raw_store(p1, i8, i25, descr=short)
+        """)
+        pack1 = self.pack(loop1, 0, 8)
+        pack2 = self.pack(loop1, 8, 16)
+        pack3 = self.pack(loop1, 16, 24)
+        pack4 = self.pack(loop1, 24, 32)
+        loop2 = self.schedule(loop1, [pack1,pack2,pack3,pack4])
+        loop3 = self.parse("""
+        v10[f64|2] = vec_raw_load(p0, i1, 2, descr=double)
+        v11[f64|2] = vec_raw_load(p0, i3, 2, descr=double)
+        v12[f64|2] = vec_raw_load(p0, i5, 2, descr=double)
+        v13[f64|2] = vec_raw_load(p0, i7, 2, descr=double)
+        v14[i32|2] = vec_cast_float_to_int(v10[f64|2])
+        v15[i32|2] = vec_cast_float_to_int(v11[f64|2])
+        v16[i32|2] = vec_cast_float_to_int(v12[f64|2])
+        v17[i32|2] = vec_cast_float_to_int(v13[f64|2])
+        v18[i16|2] = vec_int_signext(v14[i32|2],2)
+        v19[i16|2] = vec_int_signext(v15[i32|2],2)
+        v20[i16|2] = vec_int_signext(v16[i32|2],2)
+        v21[i16|2] = vec_int_signext(v17[i32|2],2)
+        v22[i16|4] = vec_int_pack(v18[i16|2], v19[i16|2], 2, 2)
+        v23[i16|6] = vec_int_pack(v22[i16|4], v20[i16|2], 4, 2)
+        v24[i16|8] = vec_int_pack(v23[i16|6], v20[i16|2], 6, 2)
+        vec_raw_store(p1, i1, v24[i16|8], descr=short)
         """, False)
         self.assert_equal(loop2, loop3)
