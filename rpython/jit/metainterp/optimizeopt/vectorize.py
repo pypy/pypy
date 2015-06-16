@@ -162,6 +162,7 @@ class VectorizingOptimizer(Optimizer):
 
         self.emit_unrolled_operation(label_op)
 
+        renamer = Renamer()
         oi = 0
         pure = True
         operations = []
@@ -173,6 +174,13 @@ class VectorizingOptimizer(Optimizer):
             if opnum == rop.GUARD_EARLY_EXIT:
                 ee_pos = i
                 ee_guard = op
+
+            if op.is_guard():
+                assert isinstance(op, GuardResOp)
+                failargs = renamer.rename_failargs(op, clone=True)
+                snapshot = renamer.rename_rd_snapshot(op.rd_snapshot, clone=True)
+                op.setfailargs(failargs)
+                op.rd_snapshot = snapshot
             operations.append(op)
             self.emit_unrolled_operation(op)
 
@@ -182,7 +190,6 @@ class VectorizingOptimizer(Optimizer):
         orig_jump_args = jump_op.getarglist()[:]
         # it is assumed that #label_args == #jump_args
         label_arg_count = len(orig_jump_args)
-        renamer = Renamer()
         for i in range(0, unroll_count):
             # fill the map with the renaming boxes. keys are boxes from the label
             for i in range(label_arg_count):
@@ -394,6 +401,8 @@ class VectorizingOptimizer(Optimizer):
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
                 assert node.emitted
+        if vector and not self.costmodel.profitable():
+            return
         self.loop.operations = \
             sched_data.prepend_invariant_operations(self._newoperations)
         self.clear_newoperations()
@@ -401,11 +410,13 @@ class VectorizingOptimizer(Optimizer):
     def unpack_from_vector(self, op, sched_data, renamer):
         renamer.rename(op)
         args = op.getarglist()
+        # unpack for an immediate use
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
                 argument = self._unpack_from_vector(i, arg, sched_data, renamer)
                 if arg is not argument:
                     op.setarg(i, argument)
+        # unpack for a guard exit
         if op.is_guard():
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
