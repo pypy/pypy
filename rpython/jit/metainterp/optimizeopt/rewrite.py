@@ -600,7 +600,7 @@ class OptRewrite(Optimization):
         if b1.known_ge(IntBound(0, 0)) and b2.is_constant():
             val = b2.getint()
             if val & (val - 1) == 0 and val > 0: # val == 2**shift
-                op = self.replace_op_with(rop.INT_RSHIFT,
+                op = self.replace_op_with(op, rop.INT_RSHIFT,
                             args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
 
