@@ -1,4 +1,5 @@
-import subprocess, sys, shutil
+import sys, shutil
+from rpython.tool.runsubprocess import run_subprocess
 
 class MissingDependenciesError(Exception):
     pass
@@ -22,15 +23,16 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
         if module is None or getattr(options, 'no_' + key, False):
             continue
         if module.endswith('.py'):
-            args = [str(pypy_c), module]
+            args = [module]
             cwd = str(basedir.join('lib_pypy'))
         else:
-            args = [str(pypy_c), '-c', 'import ' + module]
+            args = ['-c', 'import ' + module]
             cwd = None
         print >> sys.stderr, '*', ' '.join(args)
         try:
-            subprocess.check_call(args, cwd=cwd)
-        except subprocess.CalledProcessError:
+            results = run_subprocess(str(pypy_c), args, cwd=cwd)
+        except:
+            import traceback;traceback.print_exc()
             print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
 You can either install development headers package,
 add the --without-{0} option to skip packaging this

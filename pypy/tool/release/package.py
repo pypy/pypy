@@ -26,7 +26,8 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
 STDLIB_VER = "2.7"
 
-from pypy.tool.build_cffi_imports import create_cffi_import_libraries, MissingDependenciesError
+from pypy.tool.build_cffi_imports import (create_cffi_import_libraries, 
+        MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
