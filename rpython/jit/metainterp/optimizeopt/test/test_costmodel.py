@@ -165,22 +165,14 @@ class CostModelBaseTest(SchedulerBaseTest):
         i102 = raw_load(p0, i3, descr=float)
         i103 = raw_load(p0, i4, descr=float)
         #
-        i104 = raw_load(p1, i1, descr=char)
-        i105 = raw_load(p1, i2, descr=char)
-        i106 = raw_load(p1, i3, descr=char)
-        i107 = raw_load(p1, i4, descr=char)
-        i108 = raw_load(p1, i5, descr=char)
-        i109 = raw_load(p1, i6, descr=char)
-        i110 = raw_load(p1, i7, descr=char)
-        i111 = raw_load(p1, i8, descr=char)
-        i112 = raw_load(p1, i9, descr=char)
-        i113 = raw_load(p1, i8, descr=char)
-        i114 = raw_load(p1, i7, descr=char)
-        i115 = raw_load(p1, i6, descr=char)
-        i116 = raw_load(p1, i5, descr=char)
-        i117 = raw_load(p1, i4, descr=char)
-        i118 = raw_load(p1, i3, descr=char)
-        i119 = raw_load(p1, i2, descr=char)
+        i104 = raw_load(p1, i1, descr=short)
+        i105 = raw_load(p1, i2, descr=short)
+        i106 = raw_load(p1, i3, descr=short)
+        i107 = raw_load(p1, i4, descr=short)
+        i108 = raw_load(p1, i5, descr=short)
+        i109 = raw_load(p1, i6, descr=short)
+        i110 = raw_load(p1, i7, descr=short)
+        i111 = raw_load(p1, i8, descr=short)
         #
         f100 = cast_int_to_float(i104)
         f101 = cast_int_to_float(i105)
@@ -190,38 +182,9 @@ class CostModelBaseTest(SchedulerBaseTest):
         f105 = cast_int_to_float(i109)
         f106 = cast_int_to_float(i110)
         f107 = cast_int_to_float(i111)
-        f108 = cast_int_to_float(i112)
-        f109 = cast_int_to_float(i113)
-        f110 = cast_int_to_float(i114)
-        f111 = cast_int_to_float(i115)
-        f112 = cast_int_to_float(i116)
-        f113 = cast_int_to_float(i117)
-        f114 = cast_int_to_float(i118)
-        f115 = cast_int_to_float(i119)
-        #
-        #i27 = cast_float_to_singlefloat(f26)
-        #i29 = int_add(i14, 1)
-        ##
-        #f10 = cast_singlefloat_to_float(i100)
-        #f11 = cast_singlefloat_to_float(i101)
-        #f12 = cast_singlefloat_to_float(i102)
-        #f13 = cast_singlefloat_to_float(i103)
-        #
-        #f14 = cast_singlefloat_to_float(i27)
-        #f15 = cast_singlefloat_to_float(i27)
-        #f16 = cast_singlefloat_to_float(i27)
-        #f17 = cast_singlefloat_to_float(i27)
-        ##
-        #f32 = float_add(f10, f100)
-        #f32 = float_add(f11, f101)
-        #f32 = float_add(f12, f102)
-        #f32 = float_add(f13, f103)
-        #
-        #i33 = cast_float_to_singlefloat(f32)
-        #raw_store(i20, i17, i33, descr=<ArrayU 4>)
         """)
         savings = self.savings(loop1)
-        assert savings < 0
+        assert savings <= -2
 
 class Test(CostModelBaseTest, LLtypeMixin):
     pass

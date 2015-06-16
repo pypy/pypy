@@ -335,7 +335,7 @@ class OpToVectorOp(object):
             box_pos = 0
 
         # use the input as an indicator for the pack type
-        packable = self.sched_data.vec_reg_size // self.input_type.getsize()
+        packable = self.input_type.getcount()
         packed = vbox.item_count
         assert packed >= 0
         assert packable >= 0
@@ -344,15 +344,19 @@ class OpToVectorOp(object):
             args = [op.getoperation().getarg(argidx) for op in ops]
             vbox = self._pack(vbox, packed, args, packable)
             self.update_input_output(self.pack)
+            box_pos = 0
         elif packed > packable:
             # the argument has more items than the operation is able to process!
-            vbox = self.unpack(vbox, off, packable, self.input_type)
+            args = [op.getoperation().getarg(argidx) for op in ops]
+            vbox = self.unpack(vbox, args, off, packable, self.input_type)
             self.update_input_output(self.pack)
+            box_pos = 0
         #
         if off != 0 and box_pos != 0:
             # The original box is at a position != 0 but it
             # is required to be at position 0. Unpack it!
-            vbox = self.unpack(vbox, off, len(ops), self.input_type)
+            args = [op.getoperation().getarg(argidx) for op in ops]
+            vbox = self.unpack(vbox, args, off, len(ops), self.input_type)
             self.update_input_output(self.pack)
         # convert size i64 -> i32, i32 -> i64, ...
         if self.input_type.getsize() > 0 and \
@@ -373,15 +377,21 @@ class OpToVectorOp(object):
         op = ResOperation(rop.VEC_INT_SIGNEXT, 
                           [vbox, ConstInt(newtype.getsize())],
                           vbox_cloned)
+        self.costmodel.record_cast_int(vbox.getsize(), newtype.getsize(), vbox.getcount())
         self.preamble_ops.append(op)
         return vbox_cloned
 
-    def unpack(self, vbox, index, count, arg_ptype):
+    def unpack(self, vbox, args, index, count, arg_ptype):
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
         opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
         self.costmodel.record_vector_unpack(vbox, index, count)
         self.preamble_ops.append(op)
+        #
+        for i,arg in enumerate(args):
+            print "unpacking", arg, "to", i, vbox_cloned
+            self.sched_data.setvector_of_box(arg, i, vbox_cloned)
+        #
         return vbox_cloned
 
     def _pack(self, tgt_box, index, args, packable):
@@ -480,7 +490,6 @@ class OpToVectorOp(object):
 
         invariant_vars.append(vbox)
         return vbox
-
 
 class OpToVectorOpConv(OpToVectorOp):
     def __init__(self, intype, outtype):

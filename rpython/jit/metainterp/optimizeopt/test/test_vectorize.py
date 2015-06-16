@@ -112,9 +112,10 @@ class VecTestHelper(DependencyBaseTest):
         opt.find_adjacent_memory_refs()
         opt.extend_packset()
         opt.combine_packset()
-        if not opt.costmodel.profitable(opt.packset):
-            raise NotAProfitableLoop()
+        opt.costmodel.reset_savings()
         opt.schedule(True)
+        if not opt.costmodel.profitable():
+            raise NotAProfitableLoop()
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         gso.propagate_all_forward(opt.loop)
         return opt
@@ -1075,6 +1076,7 @@ class BaseTestVectorize(VecTestHelper):
         self.debug_print_operations(opt.loop)
 
     def test_accumulate_int16(self):
+        py.test.skip("only sum int64 on x64 is supported")
         trace = """
         [p3, i4, p1, i5, i6, i7, i8]
         guard_early_exit() [p1, i4, i5, i6, p3]
@@ -1087,7 +1089,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i15) [p1, i14, i10, i12, None, None, None, p3]
         jump(p3, i12, p1, i14, i10, i7, i8)
         """
-        opt = self.vectorize(self.parse_loop(trace))
+        opt = self.schedule(self.parse_loop(trace))
         assert len(opt.packset.packs) == 2
         assert len(opt.packset.accum_vars) == 1
         assert opt.loop.inputargs[4] in opt.packset.accum_vars
@@ -1375,6 +1377,7 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
+        py.test.skip()
         trace ="""
         [p0, p1, p5, p6, p7, p17, p19, i46, i37, i41]
         guard_not_invalidated() [p1, p0, p5, p6, p7, p17, p19]

@@ -3,7 +3,7 @@ import py
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists, Renamer
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
-        Pack, NotAProfitableLoop, VectorizingOptimizer)
+        Pack, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel)
 from rpython.jit.metainterp.optimizeopt.dependency import Node
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
@@ -21,6 +21,7 @@ class SchedulerBaseTest(DependencyBaseTest):
             'float': self.singlefloatarraydescr,
             'long': self.intarraydescr,
             'int': self.int32arraydescr,
+            'short': self.int16arraydescr,
             'char': self.chararraydescr,
         }
         loop = opparse("        [p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5,v103204[i32|4]]\n" + source + \
@@ -46,7 +47,8 @@ class SchedulerBaseTest(DependencyBaseTest):
         loop.inputargs = loop_orig.inputargs
 
         ops = []
-        vsd = VecScheduleData(vec_reg_size)
+        cm = X86_CostModel(0, vec_reg_size)
+        vsd = VecScheduleData(vec_reg_size, cm)
         if getvboxfunc is not None:
             vsd.getvector_of_box = getvboxfunc
         renamer = Renamer()

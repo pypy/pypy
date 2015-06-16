@@ -501,20 +501,23 @@ class CostModel(object):
     def reset_savings(self):
         self.savings = 0
 
+    def record_cast_int(self, op):
+        raise NotImplementedError
+
     def record_pack_savings(self, pack):
-        pass
+        raise NotImplementedError
 
     def record_vector_pack(self, box, index, count):
-        raise NotImplementedError("unpack cost")
+        raise NotImplementedError
 
     def record_vector_unpack(self, box, index, count):
-        raise NotImplementedError("unpack cost")
+        raise NotImplementedError
 
     def unpack_cost(self, op, index, count):
-        raise NotImplementedError("unpack cost")
+        raise NotImplementedError
 
     def savings_for_pack(self, pack, times):
-        raise NotImplementedError("savings for pack")
+        raise NotImplementedError
 
     def profitable(self):
         return self.savings >= 0
@@ -541,6 +544,10 @@ class X86_CostModel(CostModel):
             return 0,0
         # no benefit for this operation! needs many x86 instrs
         return 1,0
+
+    def record_cast_int(self, fromsize, tosize, count):
+        # for each move there is 1 instruction
+        self.savings += -count
 
     def record_vector_pack(self, src, index, count):
         if src.gettype() == FLOAT:

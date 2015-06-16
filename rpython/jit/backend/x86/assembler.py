@@ -2735,6 +2735,7 @@ class Assembler386(BaseAssembler):
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
         assert isinstance(resultloc, RegLoc)
+        assert isinstance(sourceloc, RegLoc)
         size = sizeloc.value
         srcidx = srcidxloc.value
         residx = residxloc.value
@@ -2766,7 +2767,7 @@ class Assembler386(BaseAssembler):
                     self.mc.PEXTRW_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
                     self.mc.PINSRW_xri(resultloc.value, X86_64_SCRATCH_REG.value, ri)
                 elif resultloc.is_xmm:
-                    self.mc.PINSRW_xri(resultloc.value, source.value, ri)
+                    self.mc.PINSRW_xri(resultloc.value, sourceloc.value, ri)
                 else:
                     self.mc.PEXTRW_rxi(resultloc.value, sourceloc.value, si)
             elif size == 1:
