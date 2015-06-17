@@ -180,7 +180,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """, False)
         self.assert_equal(loop2, loop3)
 
-    def test_float_to_int(self):
+    def test_cast_float_to_int(self):
         loop1 = self.parse("""
         f10 = raw_load(p0, i1, descr=double)
         f11 = raw_load(p0, i2, descr=double)
@@ -206,8 +206,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i21 = int_signext(i13, 2)
         i22 = int_signext(i14, 2)
         i23 = int_signext(i15, 2)
-        i24 = int_signext(i17, 2)
-        i25 = int_signext(i18, 2)
+        i24 = int_signext(i16, 2)
+        i25 = int_signext(i17, 2)
         #
         raw_store(p1, i1, i18, descr=short)
         raw_store(p1, i2, i19, descr=short)
@@ -238,7 +238,38 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v21[i16|2] = vec_int_signext(v17[i32|2],2)
         v22[i16|4] = vec_int_pack(v18[i16|2], v19[i16|2], 2, 2)
         v23[i16|6] = vec_int_pack(v22[i16|4], v20[i16|2], 4, 2)
-        v24[i16|8] = vec_int_pack(v23[i16|6], v20[i16|2], 6, 2)
+        v24[i16|8] = vec_int_pack(v23[i16|6], v21[i16|2], 6, 2)
         vec_raw_store(p1, i1, v24[i16|8], descr=short)
+        """, False)
+        self.assert_equal(loop2, loop3)
+
+    def test_cast_float_to_single_float(self):
+        loop1 = self.parse("""
+        f10 = raw_load(p0, i1, descr=double)
+        f11 = raw_load(p0, i2, descr=double)
+        f12 = raw_load(p0, i3, descr=double)
+        f13 = raw_load(p0, i4, descr=double)
+        #
+        i10 = cast_float_to_singlefloat(f10)
+        i11 = cast_float_to_singlefloat(f11)
+        i12 = cast_float_to_singlefloat(f12)
+        i13 = cast_float_to_singlefloat(f13)
+        #
+        raw_store(p1, i1, i10, descr=float)
+        raw_store(p1, i2, i11, descr=float)
+        raw_store(p1, i3, i12, descr=float)
+        raw_store(p1, i4, i13, descr=float)
+        """)
+        pack1 = self.pack(loop1, 0, 4)
+        pack2 = self.pack(loop1, 4, 8)
+        pack3 = self.pack(loop1, 8, 12)
+        loop2 = self.schedule(loop1, [pack1,pack2,pack3])
+        loop3 = self.parse("""
+        v44[f64|2] = vec_raw_load(p0, i1, 2, descr=double) 
+        v45[f64|2] = vec_raw_load(p0, i3, 2, descr=double) 
+        v46[f32|2] = vec_cast_float_to_singlefloat(v44[f64|2]) 
+        v47[f32|2] = vec_cast_float_to_singlefloat(v45[f64|2]) 
+        v41[f32|4] = vec_float_pack(v46[f32|2], v47[f32|2], 2, 2) 
+        vec_raw_store(p1, i1, v41[f32|4], descr=float)
         """, False)
         self.assert_equal(loop2, loop3)

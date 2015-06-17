@@ -1377,20 +1377,8 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
-        trace ="""
-        [p5, i6, p4, i7, p1, p8, i9, p3, i10, i11, i12, i13]
-        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7fece2eb8c10>) [p4, p3, p1, i7, i9, i10, p5, p8, i6]
-        f14 = raw_load(i11, i7, descr=floatarraydescr)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7fece2efc210>) [p4, p3, p1, f14, i7, i9, i10, p5, p8, i6]
-        i15 = cast_float_to_int(f14)
-        i17 = int_signext(i15, 2)
-        raw_store(i12, i10, i17, descr=int16arraydescr)
-        i19 = int_add(i9, 1)
-        i21 = int_add(i10, 2)
-        i23 = int_add(i7, 8)
-        i24 = int_ge(i19, i13)
-        guard_false(i24, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fece2ecbb50>) [p4, p3, p1, i23, i21, i19, None, None, None, None, p5, p8, i6]
-        jump(p5, i6, p4, i23, p1, p8, i19, p3, i21, i11, i12, i13)
+        py.test.skip()
+        trace="""
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
