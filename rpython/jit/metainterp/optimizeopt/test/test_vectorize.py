@@ -1379,6 +1379,23 @@ class BaseTestVectorize(VecTestHelper):
     def test_abc(self):
         py.test.skip()
         trace="""
+        label(p0, p1, p5, p6, p7, p17, p19, i53, i39, i44, i49, i51, descr=TargetToken(140531585719072))
+        guard_not_invalidated(descr=<Guard0x7fd00f3ebdb0>) [p1, p0, p5, p6, p7, p17, p19]
+        i63 = int_ge(i53, 2024)
+        guard_false(i63, descr=<Guard0x7fd00f3ebe08>) [p1, p0, p5, p6, p7, p17, p19, i53]
+        i64 = int_lt(i53, i39)
+        guard_true(i64, descr=<Guard0x7fd00f3ebe60>) [p1, p0, i53, p5, p6, p7, p17, p19, None]
+        f65 = getarrayitem_raw(i44, i53, descr=floatarraydescr)
+        f66 = float_add(f65, 1.000000)
+        i67 = int_lt(i53, i49)
+        guard_true(i67, descr=<Guard0x7fd00f3ebeb8>) [p1, p0, i53, p5, p6, p7, p17, p19, f66, None]
+        setarrayitem_raw(i51, i53, f66, descr=floatarraydescr)
+        i68 = int_add(i53, 1)
+        i69 = getfield_raw(140531584083072, descr=<FieldS pypysig_long_struct.c_value 0>)
+        setfield_gc(59, i68, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
+        i70 = int_lt(i69, 0)
+        guard_false(i70, descr=<Guard0x7fd00f3ebf10>) [p1, p0, p5, p6, p7, p17, p19, None, None]
+        jump(p0, p1, p5, p6, p7, p17, p19, i68, i39, i44, i49, i51)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)

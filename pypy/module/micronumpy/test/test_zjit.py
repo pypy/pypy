@@ -521,7 +521,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_any(self):
         result = self.run("any")
         assert result == 1
-        self.check_vectorized(1, 1)
+        self.check_vectorized(1, 0)
 
     def define_all():
         return """
@@ -532,7 +532,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_all(self):
         result = self.run("all")
         assert result == 1
-        self.check_vectorized(1, 1)
+        self.check_vectorized(1, 0) # success?
 
     def define_logical_xor_reduce():
         return """

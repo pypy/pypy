@@ -752,9 +752,9 @@ _opvector = {
     rop.INT_ADD:   rop.VEC_INT_ADD,
     rop.INT_SUB:   rop.VEC_INT_SUB,
     rop.INT_MUL:   rop.VEC_INT_MUL,
-    #rop.INT_AND:   rop.VEC_INT_AND,
-    #rop.INT_OR:   rop.VEC_INT_OR,
-    #rop.INT_XOR:   rop.VEC_INT_XOR,
+    rop.INT_AND:   rop.VEC_INT_AND,
+    rop.INT_OR:   rop.VEC_INT_OR,
+    rop.INT_XOR:   rop.VEC_INT_XOR,
     rop.FLOAT_ADD: rop.VEC_FLOAT_ADD,
     rop.FLOAT_SUB: rop.VEC_FLOAT_SUB,
     rop.FLOAT_MUL: rop.VEC_FLOAT_MUL,
@@ -763,8 +763,8 @@ _opvector = {
     rop.FLOAT_NEG: rop.VEC_FLOAT_NEG,
     rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
 
+    # casts
     rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,
-
     rop.CAST_FLOAT_TO_SINGLEFLOAT: rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT,
     rop.CAST_SINGLEFLOAT_TO_FLOAT: rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT,
     rop.CAST_INT_TO_FLOAT: rop.VEC_CAST_INT_TO_FLOAT,
