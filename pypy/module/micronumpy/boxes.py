@@ -566,7 +566,7 @@ class W_VoidBox(W_FlexibleBox):
         else:
             raise oefmt(space.w_IndexError, "invalid index")
         try:
-            ofs, dtype = self.dtype.fields[item][:2]
+            ofs, dtype, name, title = self.dtype.fields[item]
         except KeyError:
             raise oefmt(space.w_IndexError, "invalid index")
 
@@ -589,9 +589,9 @@ class W_VoidBox(W_FlexibleBox):
         else:
             raise oefmt(space.w_IndexError, "invalid index")
         try:
-            ofs, dtype = self.dtype.fields[item][:2]
+            ofs, dtype, name, title = self.dtype.fields[item]
         except KeyError:
-            raise oefmt(space.w_IndexError, "222only integers, slices (`:`), "
+            raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")
         dtype.store(self.arr, self.ofs, ofs,

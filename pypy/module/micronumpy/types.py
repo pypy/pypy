@@ -2318,7 +2318,7 @@ class VoidType(FlexibleType):
         dt = item.arr.dtype
         ret_unwrapped = []
         for name in dt.names:
-            ofs, dtype = dt.fields[name][:2]
+            ofs, dtype, _name, title = dt.fields[name]
             # XXX: code duplication with W_VoidBox.descr_getitem()
             if isinstance(dtype.itemtype, VoidType):
                 read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
@@ -2353,14 +2353,14 @@ class RecordType(FlexibleType):
                 return w_item
             else:
                 # match up the field names
-                items_w = [None] * len(dtype.fields)
-                for i in range(len(dtype.fields)):
+                items_w = [None] * len(dtype.names)
+                for i in range(len(dtype.names)):
                     name = dtype.names[i]
                     if name in w_item.dtype.names:
                         items_w[i] = w_item.descr_getitem(space, space.wrap(name))
         elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
-                if len(dtype.fields) != space.len_w(w_item):
+                if len(dtype.names) != space.len_w(w_item):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "size of tuple must match number of fields."))
                 items_w = space.fixedview(w_item)
@@ -2371,12 +2371,12 @@ class RecordType(FlexibleType):
                             "expected a readable buffer object")
             else:
                 # XXX support initializing from readable buffers
-                items_w = [w_item] * len(dtype.fields)
+                items_w = [w_item] * len(dtype.names)
         else:
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.elsize, dtype)
-        for i in range(len(dtype.fields)):
-            ofs, subdtype = dtype.fields[dtype.names[i]][:2]
+        for i in range(len(dtype.names)):
+            ofs, subdtype, name, title = dtype.fields[dtype.names[i]]
             try:
                 w_box = subdtype.coerce(space, items_w[i])
             except IndexError:
@@ -2414,7 +2414,7 @@ class RecordType(FlexibleType):
         items = []
         dtype = box.dtype
         for name in dtype.names:
-            ofs, subdtype = dtype.fields[name][:2]
+            ofs, subdtype, _name, title = dtype.fields[name]
             subbox = subdtype.read(box.arr, box.ofs, ofs)
             items.append(subdtype.itemtype.to_builtin_type(space, subbox))
         return space.newtuple(items)
@@ -2425,7 +2425,7 @@ class RecordType(FlexibleType):
         pieces = ["("]
         first = True
         for name in box.dtype.names:
-            ofs, subdtype = box.dtype.fields[name][:2]
+            ofs, subdtype, _name, title = box.dtype.fields[name]
             if first:
                 first = False
             else:
