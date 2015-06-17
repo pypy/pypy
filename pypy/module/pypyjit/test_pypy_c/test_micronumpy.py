@@ -21,7 +21,7 @@ class TestMicroNumPy(BaseTestPyPyC):
              ('|','int','int',     0,        1500, 0,0),
             ]
     type_permuated = []
-    types = { 'int': ['int8','int16','int32','int64'],
+    types = { 'int': ['int32','int64'],
               'float': ['float32', 'float64']
             }
     for arith in arith_comb:
@@ -45,6 +45,43 @@ class TestMicroNumPy(BaseTestPyPyC):
             c = a {op} b
             return c.sum()
         """.format(op=op, adtype=adtype, bdtype=bdtype, count=count, a=a, b=b)
+        exec py.code.Source(source).compile()
+        vlog = self.run(main, [], vectorize=1)
+        log = self.run(main, [], vectorize=0)
+        assert log.result == vlog.result
+        assert log.result == result
+
+
+    arith_comb = [
+        ('sum','int', 1742, 1742, 1),
+        ('sum','float', 2581, 2581, 1),
+        ('prod','float', 1, 3178, 1),
+        ('prod','int', 1, 3178, 1),
+        ('any','int', 1, 1239, 1),
+        ('any','int', 0, 4912, 0),
+        ('all','int', 0, 3420, 0),
+        ('all','int', 1, 6757, 1),
+    ]
+    type_permuated = []
+    types = { 'int': ['int64'],
+              'float': ['float64']
+            }
+    for arith in arith_comb:
+        t1 = arith[1]
+        possible_t1 = types[t1]
+        for ta in possible_t1:
+            op, _, r, c, a = arith
+            t = (op, ta, r, c, a)
+            type_permuated.append(t)
+
+    @py.test.mark.parametrize("op,dtype,result,count,a", type_permuated)
+    def test_reduce_generic(self,op,dtype,result,count,a):
+        source = """
+        def main():
+            import _numpypy.multiarray as np
+            a = np.array([{a}]*{count}, dtype='{dtype}')
+            return a.{method}()
+        """.format(method=op, dtype=dtype, count=count, a=a)
         exec py.code.Source(source).compile()
         vlog = self.run(main, [], vectorize=1)
         log = self.run(main, [], vectorize=0)

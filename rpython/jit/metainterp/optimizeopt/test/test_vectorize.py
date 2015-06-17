@@ -1377,7 +1377,6 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
-        py.test.skip()
         trace="""
         label(p0, p1, p5, p6, p7, p17, p19, i53, i39, i44, i49, i51, descr=TargetToken(140531585719072))
         guard_not_invalidated(descr=<Guard0x7fd00f3ebdb0>) [p1, p0, p5, p6, p7, p17, p19]
@@ -1396,6 +1395,23 @@ class BaseTestVectorize(VecTestHelper):
         i70 = int_lt(i69, 0)
         guard_false(i70, descr=<Guard0x7fd00f3ebf10>) [p1, p0, p5, p6, p7, p17, p19, None, None]
         jump(p0, p1, p5, p6, p7, p17, p19, i68, i39, i44, i49, i51)
+        """
+        trace="""
+        [p3, i4, p1, i5, i6, i7]
+        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7f3afe4fb830>) [p1, i5, i4, p3]
+        i8 = raw_load(i6, i5, descr=intarraydescr)
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7f3afe4fb888>) [p1, i8, i5, i4, p3]
+        i10 = int_and(i8, 255)
+        guard_false(i10, descr=<ResumeGuardFalseDescr object at 0x7f3afe4fb8e0>) [p1, i5, i4, p3]
+        i13 = getarrayitem_raw(139891327308826, 2, descr=chararraydescr)
+        guard_value(i13, 1, descr=<ResumeGuardValueDescr object at 0x7f3afe4fb938>) [i13, p1, i5, i4, p3]
+        i17 = getarrayitem_raw(139891327308824, 1, descr=chararraydescr)
+        i19 = int_add(i4, 1)
+        i21 = int_add(i5, 8)
+        i22 = int_ge(i19, i7)
+        guard_false(i22, descr=<ResumeGuardFalseDescr object at 0x7f3afe4fb990>) [i17, p1, i21, i19, None, None, p3]
+        guard_value(i17, 2, descr=<ResumeGuardValueDescr object at 0x7f3afe4fb9e8>) [i17, p1, i21, i19, None, None, p3]
+        jump(p3, i19, p1, i21, i6, i7)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
