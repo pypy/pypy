@@ -420,7 +420,6 @@ class OpToVectorOp(object):
             for j in range(i):
                 arg = args[j]
                 self.sched_data.setvector_of_box(arg, j, new_box)
-                print new_box, "[", j, "] = ", arg
             tgt_box = new_box
         _, vbox = self.sched_data.getvector_of_box(args[0])
         return vbox

@@ -497,7 +497,7 @@ class Assembler386(BaseAssembler):
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
@@ -561,7 +561,7 @@ class Assembler386(BaseAssembler):
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
-        self.write_pending_failure_recoveries()
+        self.write_pending_failure_recoveries(regalloc)
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
@@ -587,11 +587,11 @@ class Assembler386(BaseAssembler):
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    def write_pending_failure_recoveries(self):
+    def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
-            tok.pos_recovery_stub = self.generate_quick_failure(tok)
+            tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
             self.error_trampoline_64 = self.generate_propagate_error_64()
 
@@ -1805,13 +1805,14 @@ class Assembler386(BaseAssembler):
         self.mc.JMP(imm(self.propagate_exception_path))
         return startpos
 
-    def generate_quick_failure(self, guardtok):
+    def generate_quick_failure(self, guardtok, regalloc):
         """ Gather information about failure
         """
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
         #
-        self._accum_update_at_exit(guardtok.fail_locs, guardtok.failargs)
+        self._accum_update_at_exit(guardtok.fail_locs, guardtok.failargs,
+                                   regalloc)
         #
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
@@ -2475,19 +2476,20 @@ class Assembler386(BaseAssembler):
     # vector operations
     # ________________________________________
 
-    def _accum_update_at_exit(self, fail_locs, fail_args):
+    def _accum_update_at_exit(self, fail_locs, fail_args, regalloc):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
 
         for i,arg in enumerate(fail_args):
             if isinstance(arg, BoxVectorAccum):
                 loc = fail_locs[i]
-                tgtloc = self._regalloc.force_allocate_reg(arg.scalar_var, fail_args)
+                tgtloc = regalloc.force_allocate_reg(arg.scalar_var, fail_args)
                 if arg.operator == '+':
                     # reduction using plus
                     self._accum_reduce_sum(arg, loc, tgtloc)
                     fail_locs[i] = tgtloc
                     self._regalloc.possibly_free_var(arg)
+                    fail_args[i] = arg.scalar_var
                 else:
                     raise NotImplementedError("accum operator %s not implemented" %
                                                 (arg.operator)) 
