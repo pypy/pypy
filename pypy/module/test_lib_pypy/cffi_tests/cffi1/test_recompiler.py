@@ -1041,3 +1041,17 @@ def test_alignment_of_longlong():
                  "struct foo_s { unsigned long long x; };")
     assert ffi.alignof('unsigned long long') == x1
     assert ffi.alignof('struct foo_s') == x1
+
+def test_import_from_lib():
+    ffi = FFI()
+    ffi.cdef("int mybar(int); int myvar;\n#define MYFOO ...")
+    lib = verify(ffi, 'test_import_from_lib',
+                 "#define MYFOO 42\n"
+                 "static int mybar(int x) { return x + 1; }\n"
+                 "static int myvar = -5;")
+    assert sys.modules['_CFFI_test_import_from_lib'].lib is lib
+    assert sys.modules['_CFFI_test_import_from_lib.lib'] is lib
+    from _CFFI_test_import_from_lib.lib import MYFOO
+    assert MYFOO == 42
+    assert not hasattr(lib, '__dict__')
+    assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
