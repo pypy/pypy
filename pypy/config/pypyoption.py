@@ -1,3 +1,4 @@
+import os
 import sys
 
 import py
@@ -39,7 +40,7 @@ working_modules.update([
     "_csv", "_pypyjson", "_posixsubprocess", # "cppyy", "micronumpy"
 ])
 
-if sys.platform.startswith('linux') and sys.maxint > 2147483647:
+if sys.platform.startswith('linux') and os.uname()[4] == 'x86_64':
     working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()

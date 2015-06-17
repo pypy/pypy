@@ -18,7 +18,9 @@ def execfile(filename, glob):
     # __init__.py files may already try to import the file that
     # we are generating.
     with open(filename) as f:
-        code = compile(f.read(), filename, 'exec')
+        src = f.read()
+    src += '\n'      # Python 2.6 compatibility
+    code = compile(src, filename, 'exec')
     exec(code, glob, glob)
 
 

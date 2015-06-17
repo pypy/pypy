@@ -749,10 +749,12 @@ class Recompiler:
     # named structs or unions
 
     def _field_type(self, tp_struct, field_name, tp_field):
-        if isinstance(tp_field, model.ArrayType) and tp_field.length == '...':
-            ptr_struct_name = tp_struct.get_c_name('*')
-            actual_length = '_cffi_array_len(((%s)0)->%s)' % (
-                ptr_struct_name, field_name)
+        if isinstance(tp_field, model.ArrayType):
+            actual_length = tp_field.length
+            if actual_length == '...':
+                ptr_struct_name = tp_struct.get_c_name('*')
+                actual_length = '_cffi_array_len(((%s)0)->%s)' % (
+                    ptr_struct_name, field_name)
             tp_item = self._field_type(tp_struct, '%s[0]' % field_name,
                                        tp_field.item)
             tp_field = model.ArrayType(tp_item, actual_length)
@@ -775,7 +777,8 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt('  (void)((p->%s) << 1);' % fname)
+                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                         "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
                 # is interpreted as a '*' and so will match any array length.
@@ -949,7 +952,7 @@ class Recompiler:
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
             prnt('  *o = (unsigned long long)((%s) << 0);'
-                 '  /* check that we get an integer */' % (name,))
+                 '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
                     check_value = '%dU' % (check_value,)
@@ -1054,8 +1057,10 @@ class Recompiler:
     # global variables
 
     def _global_type(self, tp, global_name):
-        if isinstance(tp, model.ArrayType) and tp.length == '...':
-            actual_length = '_cffi_array_len(%s)' % (global_name,)
+        if isinstance(tp, model.ArrayType):
+            actual_length = tp.length
+            if actual_length == '...':
+                actual_length = '_cffi_array_len(%s)' % (global_name,)
             tp_item = self._global_type(tp.item, '%s[0]' % global_name)
             tp = model.ArrayType(tp_item, actual_length)
         return tp
@@ -1088,8 +1093,9 @@ class Recompiler:
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, prim_index)
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
-        s = '_cffi_prim_int(sizeof(%s), (((%s)-1) << 0) <= 0)' % (
-            tp.name, tp.name)
+        s = ('_cffi_prim_int(sizeof(%s), (\n'
+             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '         ) <= 0)' % (tp.name, tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):

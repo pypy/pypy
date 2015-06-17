@@ -21,12 +21,10 @@ class StringMethods(object):
         #    return orig_obj
         return self._new(s[start:stop])
 
-    @specialize.arg(4)
-    def _convert_idx_params(self, space, w_start, w_end, upper_bound=False):
+    def _convert_idx_params(self, space, w_start, w_end):
         value = self._val(space)
         lenself = len(value)
-        start, end = unwrap_start_stop(space, lenself, w_start, w_end,
-                                       upper_bound=upper_bound)
+        start, end = unwrap_start_stop(space, lenself, w_start, w_end)
         return (value, start, end)
 
     @staticmethod
@@ -614,8 +612,7 @@ class StringMethods(object):
         return "bytes"
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end,
-                                                       True)
+        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
             for w_prefix in space.fixedview(w_prefix):
                 if self._startswith(space, value, w_prefix, start, end):
@@ -633,11 +630,17 @@ class StringMethods(object):
         return space.newbool(res)
 
     def _startswith(self, space, value, w_prefix, start, end):
-        return startswith(value, self._op_val(space, w_prefix), start, end)
+        prefix = self._op_val(space, w_prefix)
+        if start > len(value):
+            return self._starts_ends_overflow(prefix)
+        return startswith(value, prefix, start, end)
+
+    def _starts_ends_overflow(self, prefix):
+        return False     # bug-to-bug compat: this is for strings and
+                         # bytearrays, but overridden for unicodes
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end,
-                                                       True)
+        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
             for w_suffix in space.fixedview(w_suffix):
                 if self._endswith(space, value, w_suffix, start, end):
@@ -655,7 +658,10 @@ class StringMethods(object):
         return space.newbool(res)
 
     def _endswith(self, space, value, w_prefix, start, end):
-        return endswith(value, self._op_val(space, w_prefix), start, end)
+        prefix = self._op_val(space, w_prefix)
+        if start > len(value):
+            return self._starts_ends_overflow(prefix)
+        return endswith(value, prefix, start, end)
 
     def _strip(self, space, w_chars, left, right):
         "internal function called by str_xstrip methods"

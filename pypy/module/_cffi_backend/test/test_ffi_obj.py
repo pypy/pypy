@@ -181,6 +181,12 @@ class AppTestFFIObj:
         assert str(e.value) == ("undefined struct/union name\n"
                                 "struct never_heard_of_s\n"
                                 "       ^")
+        e = raises(ffi.error, ffi.cast, "\t\n\x01\x1f~\x7f\x80\xff", 0)
+        assert str(e.value) == ("identifier expected\n"
+                                "  ??~???\n"
+                                "  ^")
+        e = raises(ffi.error, ffi.cast, "X" * 600, 0)
+        assert str(e.value) == ("undefined type name")
 
     def test_ffi_buffer(self):
         import _cffi_backend as _cffi1_backend

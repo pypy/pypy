@@ -1085,6 +1085,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
         from numpy import dtype, void
 
+        d = dtype([('x', 'i4'), ('y', 'i1')], align=True)
+        assert d.itemsize == 8
         raises(ValueError, "dtype([('x', int), ('x', float)])")
         d = dtype([("x", "<i4"), ("y", "<f4"), ("z", "<u2"), ("v", "<f8")])
         assert d.fields['x'] == (dtype('<i4'), 0)
@@ -1130,6 +1132,20 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.descr == [('a', '<i8'), ('f1', '<f8')]
         exc = raises(ValueError, "dtype([('a', '<i8'), ('a', '<f8')])")
         assert exc.value[0] == 'two fields with the same name'
+
+    def test_array_from_record(self):
+        import numpy as np
+        a = np.array(('???', -999, -12345678.9), 
+                     dtype=[('c', '|S3'), ('a', '<i8'), ('b', '<f8')])
+        # Change the order of the keys
+        b = np.array(a, dtype=[('a', '<i8'), ('b', '<f8'), ('c', '|S3')])
+        assert b.base is None
+        assert b.dtype.fields['a'][1] == 0
+        assert b['a'] == -999
+        a = np.array(('N/A', 1e+20, 1e+20, 999999),
+                     dtype=[('name', '|S4'), ('x', '<f8'), 
+                            ('y', '<f8'), ('block', '<i8', (2, 3))])
+        assert (a['block'] == 999999).all()
 
     def test_create_from_dict(self):
         import numpy as np

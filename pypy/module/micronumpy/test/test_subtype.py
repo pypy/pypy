@@ -656,6 +656,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 self.output += 'In __array_wrap__:'
                 self.output += '   self is %s' % repr(self)
                 self.output += '   arr is %r\n' % (out_arr,)
+                self.output += '   context is %r\n' % (context,)
                 # then just call the parent
                 ret = np.ndarray.__array_wrap__(self, out_arr, context)
                 print 'wrap',self.output

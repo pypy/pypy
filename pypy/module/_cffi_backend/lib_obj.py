@@ -65,7 +65,7 @@ class W_LibObject(W_Root):
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
         return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn, w_ct,
-                                 locs, rawfunctype, fnname)
+                                 locs, rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -164,13 +164,15 @@ class W_LibObject(W_Root):
         self.dict_w[attr] = w_result
         return w_result
 
-    def _get_attr(self, w_attr):
+    def _get_attr(self, w_attr, is_getattr=False):
         attr = self.space.str_w(w_attr)
         try:
             w_value = self._get_attr_elidable(attr)
         except KeyError:
             w_value = self._build_attr(attr)
             if w_value is None:
+                if is_getattr and attr == '__all__':
+                    return self.dir1(ignore_type=cffi_opcode.OP_GLOBAL_VAR)
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
@@ -178,7 +180,7 @@ class W_LibObject(W_Root):
         return w_value
 
     def descr_getattribute(self, w_attr):
-        w_value = self._get_attr(w_attr)
+        w_value = self._get_attr(w_attr, is_getattr=True)
         if isinstance(w_value, cglob.W_GlobSupport):
             w_value = w_value.read_global_var()
         return w_value
@@ -198,11 +200,16 @@ class W_LibObject(W_Root):
                     "C attribute cannot be deleted")
 
     def descr_dir(self):
+        return self.dir1()
+
+    def dir1(self, ignore_type=-1):
         space = self.space
         total = rffi.getintfield(self.ctx, 'c_num_globals')
         g = self.ctx.c_globals
-        names_w = [space.wrap(rffi.charp2str(g[i].c_name))
-                   for i in range(total)]
+        names_w = []
+        for i in range(total):
+            if getop(g[i].c_type_op) != ignore_type:
+                names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
 
     def address_of_func_or_global_var(self, varname):

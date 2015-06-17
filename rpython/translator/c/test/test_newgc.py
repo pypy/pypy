@@ -1246,6 +1246,28 @@ class UsingFrameworkTest(object):
     def test_check_zero_works(self):
         self.run("check_zero_works")
 
+    def define_long_chain_of_instances(self):
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        a = None
+        for i in range(1500):
+            a = A(a)
+
+        def fn():
+            i = 0
+            x = a
+            while x is not None:
+                i += 1
+                x = x.next
+            return i
+        return fn
+
+    def test_long_chain_of_instances(self):
+        res = self.run("long_chain_of_instances")
+        assert res == 1500
+        
+
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True

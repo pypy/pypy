@@ -460,17 +460,18 @@ class W_NDIter(W_NumpyObject):
         # handle w_op_dtypes part 2: copy where needed if possible
         if len(self.dtypes) > 0:
             for i in range(len(self.seq)):
-                selfd = self.dtypes[i]
+                self_d = self.dtypes[i]
                 seq_d = self.seq[i].get_dtype()
-                if not selfd:
+                if not self_d:
                     self.dtypes[i] = seq_d
-                elif selfd != seq_d:
+                elif self_d != seq_d:
                     if not 'r' in self.op_flags[i].tmp_copy:
                         raise oefmt(space.w_TypeError,
                                     "Iterator operand required copying or "
                                     "buffering for operand %d", i)
                     impl = self.seq[i].implementation
-                    new_impl = impl.astype(space, selfd)
+                    order = support.get_order_as_CF(impl.order, self.order)
+                    new_impl = impl.astype(space, self_d, order)
                     self.seq[i] = W_NDimArray(new_impl)
         else:
             #copy them from seq

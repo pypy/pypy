@@ -103,6 +103,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
+
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
                  full_preamble_needed=True,
@@ -148,27 +149,28 @@ def compile_loop(metainterp, greenkey, start,
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     if part.operations[-1].getopnum() == rop.LABEL:
-        inliner = Inliner(inputargs, jumpargs)
-        part.quasi_immutable_deps = None
-        part.operations = [part.operations[-1]] + \
-                          [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-                                        None, descr=jitcell_token)]
-        target_token = part.operations[0].getdescr()
-        assert isinstance(target_token, TargetToken)
-        all_target_tokens.append(target_token)
-        inputargs = jumpargs
-        jumpargs = part.operations[-1].getarglist()
+        if start_state is not None:
+            inliner = Inliner(inputargs, jumpargs)
+            part.quasi_immutable_deps = None
+            part.operations = [part.operations[-1]] + \
+                              [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+                              [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+                                            None, descr=jitcell_token)]
+            target_token = part.operations[0].getdescr()
+            assert isinstance(target_token, TargetToken)
+            all_target_tokens.append(target_token)
+            inputargs = jumpargs
+            jumpargs = part.operations[-1].getarglist()
 
-        try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-                           start_state=start_state, export_state=False)
-        except InvalidLoop:
-            return None
+            try:
+                optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
+                               start_state=start_state, export_state=False)
+            except InvalidLoop:
+                return None
 
-        loop.operations = loop.operations[:-1] + part.operations
-        if part.quasi_immutable_deps:
-            loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+            loop.operations = loop.operations[:-1] + part.operations
+            if part.quasi_immutable_deps:
+                loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:

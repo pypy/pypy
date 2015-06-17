@@ -5,8 +5,10 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty, interp_attrproperty_w)
+from rpython.annotator.model import SomeChar
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize, compute_hash, we_are_translated
+from rpython.rlib.objectmodel import (
+        specialize, compute_hash, we_are_translated, enforceargs)
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
@@ -38,6 +40,15 @@ def dtype_agreement(space, w_arr_list, shape, out=None):
     out = W_NDimArray.from_shape(space, shape, dtype)
     return out
 
+def byteorder_w(space, w_str):
+    order = space.str_w(w_str)
+    if len(order) != 1:
+        raise oefmt(space.w_ValueError,
+                "endian is not 1-char string in Numpy dtype unpickling")
+    endian = order[0]
+    if endian not in (NPY.LITTLE, NPY.BIG, NPY.NATIVE, NPY.IGNORE):
+        raise oefmt(space.w_ValueError, "Invalid byteorder %s", endian)
+    return endian
 
 
 class W_Dtype(W_Root):
@@ -45,15 +56,13 @@ class W_Dtype(W_Root):
         "itemtype?", "w_box_type", "byteorder?", "names?", "fields?",
         "elsize?", "alignment?", "shape?", "subdtype?", "base?"]
 
-    def __init__(self, itemtype, w_box_type, byteorder=None, names=[],
+    @enforceargs(byteorder=SomeChar())
+    def __init__(self, itemtype, w_box_type, byteorder=NPY.NATIVE, names=[],
                  fields={}, elsize=None, shape=[], subdtype=None):
         self.itemtype = itemtype
         self.w_box_type = w_box_type
-        if byteorder is None:
-            if itemtype.get_element_size() == 1 or isinstance(itemtype, types.ObjectType):
-                byteorder = NPY.IGNORE
-            else:
-                byteorder = NPY.NATIVE
+        if itemtype.get_element_size() == 1 or isinstance(itemtype, types.ObjectType):
+            byteorder = NPY.IGNORE
         self.byteorder = byteorder
         self.names = names
         self.fields = fields
@@ -137,7 +146,8 @@ class W_Dtype(W_Root):
         return bool(self.fields)
 
     def is_native(self):
-        return self.byteorder in (NPY.NATIVE, NPY.NATBYTE)
+        # Use ord() to ensure that self.byteorder is a char and JITs properly
+        return ord(self.byteorder) in (ord(NPY.NATIVE), ord(NPY.NATBYTE))
 
     def as_signed(self, space):
         """Convert from an unsigned integer dtype to its signed partner"""
@@ -398,6 +408,20 @@ class W_Dtype(W_Root):
             return space.wrap(0)
         return space.wrap(len(self.fields))
 
+    def runpack_str(self, space, s):
+        if self.is_str_or_unicode():
+            return self.coerce(space, space.wrap(s))
+        return self.itemtype.runpack_str(space, s, self.is_native())
+
+    def store(self, arr, i, offset, value):
+        return self.itemtype.store(arr, i, offset, value, self.is_native())
+
+    def read(self, arr, i, offset):
+        return self.itemtype.read(arr, i, offset, self)
+
+    def read_bool(self, arr, i, offset):
+        return self.itemtype.read_bool(arr, i, offset, self)
+
     def descr_reduce(self, space):
         w_class = space.type(self)
         builder_args = space.newtuple([
@@ -433,7 +457,7 @@ class W_Dtype(W_Root):
                         "can't handle version %d of numpy.dtype pickle",
                         version)
 
-        endian = space.str_w(space.getitem(w_data, space.wrap(1)))
+        endian = byteorder_w(space, space.getitem(w_data, space.wrap(1)))
         if endian == NPY.NATBYTE:
             endian = NPY.NATIVE
 
@@ -493,22 +517,22 @@ class W_Dtype(W_Root):
                 endian = NPY.OPPBYTE if self.is_native() else NPY.NATBYTE
             elif newendian != NPY.IGNORE:
                 endian = newendian
-        itemtype = self.itemtype.__class__(space, endian in (NPY.NATIVE, NPY.NATBYTE))
         fields = self.fields
         if fields is None:
             fields = {}
-        return W_Dtype(itemtype,
+        return W_Dtype(self.itemtype,
                        self.w_box_type, byteorder=endian, elsize=self.elsize,
                        names=self.names, fields=fields,
                        shape=self.shape, subdtype=self.subdtype)
 
 
 @specialize.arg(2)
-def dtype_from_list(space, w_lst, simple):
+def dtype_from_list(space, w_lst, simple, align=False):
     lst_w = space.listview(w_lst)
     fields = {}
     offset = 0
     names = []
+    maxalign = 0
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
         if simple:
@@ -531,7 +555,11 @@ def dtype_from_list(space, w_lst, simple):
         assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         offset += subdtype.elsize
+        maxalign = max(subdtype.elsize, maxalign)
         names.append(fldname)
+    if align:
+        # Set offset to the next power-of-two above offset
+        offset = (offset + maxalign -1) & (-maxalign)
     return W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=offset)
 
@@ -581,14 +609,14 @@ def _check_for_commastring(s):
             sqbracket -= 1
     return False
 
-
-def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=None):
-    # w_align and w_copy are necessary for pickling
+@unwrap_spec(align=bool)
+def descr__new__(space, w_subtype, w_dtype, align=False, w_copy=None, w_shape=None):
+    # align and w_copy are necessary for pickling
     cache = get_dtype_cache(space)
 
     if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
                                 space.len_w(w_shape) > 0):
-        subdtype = descr__new__(space, w_subtype, w_dtype, w_align, w_copy)
+        subdtype = descr__new__(space, w_subtype, w_dtype, align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         size = 1
         if space.isinstance_w(w_shape, space.w_int):
@@ -626,16 +654,16 @@ def descr__new__(space, w_subtype, w_dtype, w_align=None, w_copy=None, w_shape=N
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
-        return dtype_from_list(space, w_dtype, False)
+        return dtype_from_list(space, w_dtype, False, align=align)
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
-        subdtype = descr__new__(space, w_subtype, w_dtype0, w_align, w_copy)
+        subdtype = descr__new__(space, w_subtype, w_dtype0, align, w_copy)
         assert isinstance(subdtype, W_Dtype)
         if subdtype.elsize == 0:
             name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
-            return descr__new__(space, w_subtype, space.wrap(name), w_align, w_copy)
-        return descr__new__(space, w_subtype, w_dtype0, w_align, w_copy, w_shape=w_dtype1)
+            return descr__new__(space, w_subtype, space.wrap(name), align, w_copy)
+        return descr__new__(space, w_subtype, w_dtype0, align, w_copy, w_shape=w_dtype1)
     elif space.isinstance_w(w_dtype, space.w_dict):
         return dtype_from_dict(space, w_dtype)
     for dtype in cache.builtin_dtypes:
