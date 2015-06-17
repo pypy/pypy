@@ -70,7 +70,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
-                    function_threshold=4,
+                    function_threshold=4, disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
                     max_unroll_recursion=7, **kwds):
     from rpython.config.config import ConfigError
@@ -95,6 +95,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
+        jd.warmstate.set_param_disable_unrolling(disable_unrolling)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph

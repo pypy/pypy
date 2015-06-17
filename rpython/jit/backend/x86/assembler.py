@@ -2434,7 +2434,7 @@ class Assembler386(BaseAssembler):
         while i < nbytes:
             addr = addr_add(base_loc, startindex_loc, baseofs + i, scale)
             current = nbytes - i
-            if current >= 16:
+            if current >= 16 and self.cpu.supports_floats:
                 current = 16
                 if not null_reg_cleared:
                     self.mc.XORPS_xx(null_loc.value, null_loc.value)

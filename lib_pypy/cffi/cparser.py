@@ -337,7 +337,7 @@ class Parser(object):
                 length = self._parse_constant(
                     typenode.dim, partial_length_ok=partial_length_ok)
             tp = self._get_type(typenode.type,
-                                partial_length_ok=(length == '...'))
+                                partial_length_ok=partial_length_ok)
             return model.ArrayType(tp, length)
         #
         if isinstance(typenode, pycparser.c_ast.PtrDecl):

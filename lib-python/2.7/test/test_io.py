@@ -564,13 +564,44 @@ class IOTest(unittest.TestCase):
         with self.open(zero, "r") as f:
             self.assertRaises(OverflowError, f.read)
 
-    def test_flush_error_on_close(self):
-        f = self.open(support.TESTFN, "wb", buffering=0)
+    def check_flush_error_on_close(self, *args, **kwargs):
+        # Test that the file is closed despite failed flush
+        # and that flush() is called before file closed.
+        f = self.open(*args, **kwargs)
+        closed = []
         def bad_flush():
+            closed[:] = [f.closed]
             raise IOError()
         f.flush = bad_flush
         self.assertRaises(IOError, f.close) # exception not swallowed
         self.assertTrue(f.closed)
+        self.assertTrue(closed)      # flush() called
+        self.assertFalse(closed[0])  # flush() called before file closed
+        f.flush = lambda: None  # break reference loop
+
+    def test_flush_error_on_close(self):
+        # raw file
+        # Issue #5700: io.FileIO calls flush() after file closed
+        self.check_flush_error_on_close(support.TESTFN, 'wb', buffering=0)
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb', buffering=0)
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb', buffering=0, closefd=False)
+        os.close(fd)
+        # buffered io
+        self.check_flush_error_on_close(support.TESTFN, 'wb')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'wb', closefd=False)
+        os.close(fd)
+        # text io
+        self.check_flush_error_on_close(support.TESTFN, 'w')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'w')
+        fd = os.open(support.TESTFN, os.O_WRONLY|os.O_CREAT)
+        self.check_flush_error_on_close(fd, 'w', closefd=False)
+        os.close(fd)
 
     def test_multi_close(self):
         f = self.open(support.TESTFN, "wb", buffering=0)
@@ -653,6 +684,8 @@ class CommonBufferedTests:
         buf = self.tp(raw)
         self.assertIs(buf.detach(), raw)
         self.assertRaises(ValueError, buf.detach)
+
+        repr(buf)  # Should still work
 
     def test_fileno(self):
         rawio = self.MockRawIO()
@@ -739,13 +772,22 @@ class CommonBufferedTests:
         self.assertEqual(repr(b), "<%s name='dummy'>" % clsname)
 
     def test_flush_error_on_close(self):
+        # Test that buffered file is closed despite failed flush
+        # and that flush() is called before file closed.
         raw = self.MockRawIO()
+        closed = []
         def bad_flush():
+            closed[:] = [b.closed, raw.closed]
             raise IOError()
         raw.flush = bad_flush
         b = self.tp(raw)
         self.assertRaises(IOError, b.close) # exception not swallowed
         self.assertTrue(b.closed)
+        self.assertTrue(raw.closed)
+        self.assertTrue(closed)      # flush() called
+        self.assertFalse(closed[0])  # flush() called before file closed
+        self.assertFalse(closed[1])
+        raw.flush = lambda: None  # break reference loop
 
     def test_close_error_on_close(self):
         raw = self.MockRawIO()
@@ -943,11 +985,8 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
                         errors.append(e)
                         raise
                 threads = [threading.Thread(target=f) for x in range(20)]
-                for t in threads:
-                    t.start()
-                time.sleep(0.02) # yield
-                for t in threads:
-                    t.join()
+                with support.start_threads(threads):
+                    time.sleep(0.02) # yield
                 self.assertFalse(errors,
                     "the following exceptions were caught: %r" % errors)
                 s = b''.join(results)
@@ -1258,11 +1297,8 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
                         errors.append(e)
                         raise
                 threads = [threading.Thread(target=f) for x in range(20)]
-                for t in threads:
-                    t.start()
-                time.sleep(0.02) # yield
-                for t in threads:
-                    t.join()
+                with support.start_threads(threads):
+                    time.sleep(0.02) # yield
                 self.assertFalse(errors,
                     "the following exceptions were caught: %r" % errors)
                 bufio.close()
@@ -1454,6 +1490,51 @@ class BufferedRWPairTest(unittest.TestCase):
         self.assertFalse(pair.closed)
         pair.close()
         self.assertTrue(pair.closed)
+
+    def test_reader_close_error_on_close(self):
+        def reader_close():
+            reader_non_existing
+        reader = self.MockRawIO()
+        reader.close = reader_close
+        writer = self.MockRawIO()
+        pair = self.tp(reader, writer)
+        with self.assertRaises(NameError) as err:
+            pair.close()
+        self.assertIn('reader_non_existing', str(err.exception))
+        self.assertTrue(pair.closed)
+        self.assertFalse(reader.closed)
+        self.assertTrue(writer.closed)
+
+    def test_writer_close_error_on_close(self):
+        def writer_close():
+            writer_non_existing
+        reader = self.MockRawIO()
+        writer = self.MockRawIO()
+        writer.close = writer_close
+        pair = self.tp(reader, writer)
+        with self.assertRaises(NameError) as err:
+            pair.close()
+        self.assertIn('writer_non_existing', str(err.exception))
+        self.assertFalse(pair.closed)
+        self.assertTrue(reader.closed)
+        self.assertFalse(writer.closed)
+
+    def test_reader_writer_close_error_on_close(self):
+        def reader_close():
+            reader_non_existing
+        def writer_close():
+            writer_non_existing
+        reader = self.MockRawIO()
+        reader.close = reader_close
+        writer = self.MockRawIO()
+        writer.close = writer_close
+        pair = self.tp(reader, writer)
+        with self.assertRaises(NameError) as err:
+            pair.close()
+        self.assertIn('reader_non_existing', str(err.exception))
+        self.assertFalse(pair.closed)
+        self.assertFalse(reader.closed)
+        self.assertFalse(writer.closed)
 
     def test_isatty(self):
         class SelectableIsAtty(MockRawIO):
@@ -1912,6 +1993,17 @@ class TextIOWrapperTest(unittest.TestCase):
         self.assertRaises(TypeError, t.__init__, b, newline=42)
         self.assertRaises(ValueError, t.__init__, b, newline='xyzzy')
 
+    def test_uninitialized(self):
+        t = self.TextIOWrapper.__new__(self.TextIOWrapper)
+        del t
+        t = self.TextIOWrapper.__new__(self.TextIOWrapper)
+        self.assertRaises(Exception, repr, t)
+        self.assertRaisesRegexp((ValueError, AttributeError),
+                                'uninitialized|has no attribute',
+                                t.read, 0)
+        t.__init__(self.MockRawIO())
+        self.assertEqual(t.read(0), u'')
+
     def test_detach(self):
         r = self.BytesIO()
         b = self.BufferedWriter(r)
@@ -1924,6 +2016,12 @@ class TextIOWrapperTest(unittest.TestCase):
         t.detach()
         self.assertEqual(r.getvalue(), b"howdy")
         self.assertRaises(ValueError, t.detach)
+
+        # Operations independent of the detached stream should still work
+        repr(t)
+        self.assertEqual(t.encoding, "ascii")
+        self.assertEqual(t.errors, "strict")
+        self.assertFalse(t.line_buffering)
 
     def test_repr(self):
         raw = self.BytesIO("hello".encode("utf-8"))
@@ -1938,6 +2036,9 @@ class TextIOWrapperTest(unittest.TestCase):
         raw.name = b"dummy"
         self.assertEqual(repr(t),
                          "<%s.TextIOWrapper name='dummy' encoding='utf-8'>" % modname)
+
+        t.buffer.detach()
+        repr(t)  # Should not raise an exception
 
     def test_line_buffering(self):
         r = self.BytesIO()
@@ -2462,26 +2563,31 @@ class TextIOWrapperTest(unittest.TestCase):
                 text = "Thread%03d\n" % n
                 event.wait()
                 f.write(text)
-            threads = [threading.Thread(target=lambda n=x: run(n))
+            threads = [threading.Thread(target=run, args=(x,))
                        for x in range(20)]
-            for t in threads:
-                t.start()
-            time.sleep(0.02)
-            event.set()
-            for t in threads:
-                t.join()
+            with support.start_threads(threads, event.set):
+                time.sleep(0.02)
         with self.open(support.TESTFN) as f:
             content = f.read()
             for n in range(20):
                 self.assertEqual(content.count("Thread%03d\n" % n), 1)
 
     def test_flush_error_on_close(self):
+        # Test that text file is closed despite failed flush
+        # and that flush() is called before file closed.
         txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")
+        closed = []
         def bad_flush():
+            closed[:] = [txt.closed, txt.buffer.closed]
             raise IOError()
         txt.flush = bad_flush
         self.assertRaises(IOError, txt.close) # exception not swallowed
         self.assertTrue(txt.closed)
+        self.assertTrue(txt.buffer.closed)
+        self.assertTrue(closed)      # flush() called
+        self.assertFalse(closed[0])  # flush() called before file closed
+        self.assertFalse(closed[1])
+        txt.flush = lambda: None  # break reference loop
 
     def test_multi_close(self):
         txt = self.TextIOWrapper(self.BytesIO(self.testdata), encoding="ascii")
@@ -2539,6 +2645,9 @@ class CTextIOWrapperTest(TextIOWrapperTest):
         self.assertRaises(ValueError, t.read)
         self.assertRaises(ValueError, t.__init__, b, newline='xyzzy')
         self.assertRaises(ValueError, t.read)
+
+        t = self.TextIOWrapper.__new__(self.TextIOWrapper)
+        self.assertRaises(Exception, repr, t)
 
     def test_garbage_collection(self):
         # C TextIOWrapper objects are collected, and collecting them flushes
@@ -2962,9 +3071,11 @@ class SignalsTest(unittest.TestCase):
             # return with a successful (partial) result rather than an EINTR.
             # The buffered IO layer must check for pending signal
             # handlers, which in this case will invoke alarm_interrupt().
-            self.assertRaises(ZeroDivisionError,
-                        wio.write, item * (support.PIPE_MAX_SIZE // len(item) + 1))
-            t.join()
+            try:
+                with self.assertRaises(ZeroDivisionError):
+                    wio.write(item * (support.PIPE_MAX_SIZE // len(item) + 1))
+            finally:
+                t.join()
             # We got one byte, get another one and check that it isn't a
             # repeat of the first one.
             read_results.append(os.read(r, 1))
@@ -3069,11 +3180,15 @@ class SignalsTest(unittest.TestCase):
         # received (forcing a first EINTR in write()).
         read_results = []
         write_finished = False
+        error = [None]
         def _read():
-            while not write_finished:
-                while r in select.select([r], [], [], 1.0)[0]:
-                    s = os.read(r, 1024)
-                    read_results.append(s)
+            try:
+                while not write_finished:
+                    while r in select.select([r], [], [], 1.0)[0]:
+                        s = os.read(r, 1024)
+                        read_results.append(s)
+            except BaseException as exc:
+                error[0] = exc
         t = threading.Thread(target=_read)
         t.daemon = True
         def alarm1(sig, frame):
@@ -3094,6 +3209,8 @@ class SignalsTest(unittest.TestCase):
             wio.flush()
             write_finished = True
             t.join()
+
+            self.assertIsNone(error[0])
             self.assertEqual(N, sum(len(x) for x in read_results))
         finally:
             write_finished = True

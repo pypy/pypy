@@ -89,9 +89,11 @@ class TestPartial(unittest.TestCase):
         # exercise special code paths for no keyword args in
         # either the partial object or the caller
         p = self.thetype(capture)
+        self.assertEqual(p.keywords, {})
         self.assertEqual(p(), ((), {}))
         self.assertEqual(p(a=1), ((), {'a':1}))
         p = self.thetype(capture, a=1)
+        self.assertEqual(p.keywords, {'a':1})
         self.assertEqual(p(), ((), {'a':1}))
         self.assertEqual(p(b=2), ((), {'a':1, 'b':2}))
         # keyword args in the call override those in the partial object
@@ -147,8 +149,9 @@ class TestPartial(unittest.TestCase):
     def test_pickle(self):
         f = self.thetype(signature, 'asdf', bar=True)
         f.add_something_to__dict__ = True
-        f_copy = pickle.loads(pickle.dumps(f))
-        self.assertEqual(signature(f), signature(f_copy))
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            f_copy = pickle.loads(pickle.dumps(f, proto))
+            self.assertEqual(signature(f), signature(f_copy))
 
     # Issue 6083: Reference counting bug
     @unittest.skipUnless(test_support.check_impl_detail(), "ref counting")

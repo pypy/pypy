@@ -3335,4 +3335,4 @@ def test_from_buffer_more_cases():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "1.1.1"
+    assert __version__ == "1.1.2"
