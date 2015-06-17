@@ -2479,8 +2479,11 @@ class Assembler386(BaseAssembler):
     def _accum_update_at_exit(self, fail_locs, fail_args, regalloc):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
-
+        assert regalloc is not None
+        assert arg.scalar_var is not None
         for i,arg in enumerate(fail_args):
+            if arg is None:
+                continue
             if isinstance(arg, BoxVectorAccum):
                 loc = fail_locs[i]
                 tgtloc = regalloc.force_allocate_reg(arg.scalar_var, fail_args)
