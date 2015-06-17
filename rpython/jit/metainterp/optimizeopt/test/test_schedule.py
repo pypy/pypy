@@ -273,3 +273,26 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         vec_raw_store(p1, i1, v41[f32|4], descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
+
+    def test_all(self):
+        py.test.skip("this could be an improvement")
+        loop1 = self.parse("""
+        i10 = raw_load(p0, i1, descr=long)
+        i11 = raw_load(p0, i2, descr=long)
+        #
+        i12 = int_and(i10, i6)
+        i13 = int_and(i11, i12)
+        #
+        guard_true(i12) []
+        guard_true(i13) []
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        pack2 = self.pack(loop1, 2, 4)
+        pack3 = self.pack(loop1, 4, 6)
+        loop2 = self.schedule(loop1, [pack1,pack2,pack3])
+        loop3 = self.parse("""
+        v10[i64|2] = vec_raw_load(p0, i1, 2, descr=long) 
+        v11[i64|2] = vec_int_and(v10[i64|2], v9[i64|2])
+        guard_true(v11[i64|2]) []
+        """, False)
+        self.assert_equal(loop2, loop3)
