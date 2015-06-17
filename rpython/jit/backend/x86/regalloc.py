@@ -1568,9 +1568,9 @@ class RegAlloc(BaseRegalloc):
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
-        loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
-        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [loc0, loc1, imm(size)], loc0)
+        source = self.make_sure_var_in_reg(op.getarg(1), args)
+        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        self.perform(op, [source, imm(size)], result)
 
     consider_vec_float_eq = consider_vec_logic
     consider_vec_int_and = consider_vec_logic
