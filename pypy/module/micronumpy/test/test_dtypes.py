@@ -482,7 +482,6 @@ class AppTestDtypes(BaseAppTestDtypes):
         class O(object):
             pass
         for o in [object, O]:
-            print np.dtype(o).byteorder
             if self.ptr_size == 4:
                 assert np.dtype(o).str == '|O4'
             elif self.ptr_size == 8:
@@ -1359,15 +1358,15 @@ class AppTestMonsterType(BaseNumpyAppTest):
         import numpy as np
         simple1 = np.dtype({'names': ['r', 'b'], 'formats': ['u1', 'u1'],
             'titles': ['Red pixel', 'Blue pixel']})
-        a = np.dtype([('yo', np.int), ('ye', simple1),
-            ('yi', np.dtype((np.int, (3, 2))))])
-        b = np.dtype([('yo', np.int), ('ye', simple1),
-            ('yi', np.dtype((np.int, (3, 2))))])
+        a = np.dtype([('yo', int), ('ye', simple1),
+            ('yi', np.dtype((int, (3, 2))))])
+        b = np.dtype([('yo', int), ('ye', simple1),
+            ('yi', np.dtype((int, (3, 2))))])
         assert a == b
 
-        c = np.dtype([('yo', np.int), ('ye', simple1),
+        c = np.dtype([('yo', int), ('ye', simple1),
             ('yi', np.dtype((a, (3, 2))))])
-        d = np.dtype([('yo', np.int), ('ye', simple1),
+        d = np.dtype([('yo', int), ('ye', simple1),
             ('yi', np.dtype((a, (3, 2))))])
         assert c == d
 

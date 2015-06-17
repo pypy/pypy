@@ -248,8 +248,14 @@ class W_Dtype(W_Root):
         if not self.fields:
             return space.w_None
         w_fields = space.newdict()
-        for name, (offset, subdtype) in self.fields.iteritems():
-            space.setitem(w_fields, space.wrap(name),
+        for name, tup in self.fields.iteritems():
+            offset, subdtype, name, title = tup
+            if title is not None:
+                w_nt = space.newtuple([space.wrap(name), space.wrap(title)]) 
+                space.setitem(w_fields, w_nt,
+                          space.newtuple([subdtype, space.wrap(offset)]))
+            else:
+                space.setitem(w_fields, space.wrap(name),
                           space.newtuple([subdtype, space.wrap(offset)]))
         return w_fields
 
@@ -278,7 +284,10 @@ class W_Dtype(W_Root):
         for i in range(len(self.names)):
             if names[i] in fields:
                 raise oefmt(space.w_ValueError, "Duplicate field names given.")
-            fields[names[i]] = self.fields[self.names[i]]
+            tup = self.fields[self.names[i]]
+            tup = tup[:2] + (names[i],) + tup[3:]
+            assert isinstance(tup[1], W_Dtype)
+            fields[names[i]] = tup
         self.fields = fields
         self.names = names
 
@@ -352,7 +361,8 @@ class W_Dtype(W_Root):
                 y = intmask((1000003 * y) ^ self.alignment)
             return intmask((1000003 * x) ^ y)
         if self.fields:
-            for name, (offset, subdtype) in self.fields.iteritems():
+            for name in self.fields.keys():
+                offset, subdtype = self.fields[name][:2]
                 assert isinstance(subdtype, W_Dtype)
                 y = intmask(1000003 * (0x345678 ^ compute_hash(name)))
                 y = intmask(1000003 * (y ^ compute_hash(offset)))
@@ -514,6 +524,7 @@ class W_Dtype(W_Root):
             self.names = []
             self.fields = {}
             for w_name in space.fixedview(w_names):
+                # XXX what happens if there is a title in the pickled dtype?
                 name = space.str_w(w_name)
                 value = space.getitem(w_fields, w_name)
 
@@ -522,7 +533,7 @@ class W_Dtype(W_Root):
                 offset = space.int_w(space.getitem(value, space.wrap(1)))
 
                 self.names.append(name)
-                self.fields[name] = offset, dtype
+                self.fields[name] = (offset, dtype, name, None)
             self.itemtype = types.RecordType(space)
 
         if self.is_flexible():
@@ -557,9 +568,11 @@ def dtype_from_list(space, w_lst, simple, align=False):
     maxalign = 0
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
+        title = None
         if simple:
             subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_elem)
             fldname = 'f%d' % i
+            tup = (offset, subdtype, fldname)
         else:
             w_shape = space.newtuple([])
             if space.len_w(w_elem) == 3:
@@ -569,13 +582,26 @@ def dtype_from_list(space, w_lst, simple, align=False):
             else:
                 w_fldname, w_flddesc = space.fixedview(w_elem, 2)
             subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
-            fldname = space.str_w(w_fldname)
+            if space.isinstance_w(w_fldname, space.w_tuple):
+                fldlist = space.listview(w_fldname)
+                fldname = space.str_w(fldlist[0])
+                title = space.str_w(fldlist[1])
+                if len(fldlist) != 2:
+                    raise oefmt(space.w_TypeError, "data type not understood")
+            elif space.isinstance_w(w_fldname, space.w_str): 
+                fldname = space.str_w(w_fldname)
+            else:
+                raise oefmt(space.w_TypeError, "data type not understood")
             if fldname == '':
                 fldname = 'f%d' % i
             if fldname in fields:
                 raise oefmt(space.w_ValueError, "two fields with the same name")
+            tup = (offset, subdtype, fldname, title)
         assert isinstance(subdtype, W_Dtype)
-        fields[fldname] = (offset, subdtype)
+        assert isinstance(tup[1], W_Dtype)
+        fields[fldname] = tup
+        if title is not None:
+            fields[title] = tup
         offset += subdtype.elsize
         maxalign = max(subdtype.elsize, maxalign)
         names.append(fldname)
@@ -588,30 +614,30 @@ def dtype_from_list(space, w_lst, simple, align=False):
     return retval
 
 def dtype_from_dict(space, w_dict, align):
-    def get_list_or_none(key):
+    def get_list_or_none(space, w_dict, key):
         w_key = space.wrap(key)
         if space.is_true(w_dict.descr_has_key(space, w_key)):
             return space.listview(w_dict.descr_getitem(space, w_key))
         return None
 
-    def get_val_or_none(key):
+    def get_val_or_none(space, w_dict, key):
         w_key = space.wrap(key)
         if space.is_true(w_dict.descr_has_key(space, w_key)):
             return w_dict.descr_getitem(space, w_key)
         return None
 
-    names_w = get_list_or_none('names')
-    formats_w = get_list_or_none('formats') 
-    offsets_w = get_list_or_none('offsets')
-    titles_w = get_list_or_none('titles')
-    metadata_w = get_list_or_none('metadata')
-    aligned_w = get_val_or_none('align')
+    names_w = get_list_or_none(space, w_dict, 'names')
+    formats_w = get_list_or_none(space, w_dict, 'formats') 
+    offsets_w = get_list_or_none(space, w_dict, 'offsets')
+    titles_w = get_list_or_none(space, w_dict, 'titles')
+    metadata_w = get_list_or_none(space, w_dict, 'metadata')
+    aligned_w = get_val_or_none(space, w_dict, 'align')
     if names_w is None or formats_w is None:
         return get_appbridge_cache(space).call_method(space,
             'numpy.core._internal', '_usefields', Arguments(space, [w_dict, space.wrap(align)]))
     n = len(names_w)
     if (n != len(formats_w) or 
-        (offsets_w is not None and n != len(ofsets_w)) or
+        (offsets_w is not None and n != len(offsets_w)) or
         (titles_w is not None and n != len(titles_w))):
         raise oefmt(space.w_ValueError, "'names', 'formats', 'offsets', and "
             "'titles' dicct entries must have the same length") 
@@ -622,10 +648,11 @@ def dtype_from_dict(space, w_dict, align):
             raise oefmt(space.w_ValueError,
                     "NumPy dtype descriptor includes 'aligned' entry, "
                     "but its value is neither True nor False");
-    if offsets_w is not None or titles_w is not None:
-        raise oefmt(space.w_NotImplementedError, "'offsets' or "
-            "'titles' dicct entries not implemented yet") 
-        
+    if offsets_w is not None:
+        raise oefmt(space.w_NotImplementedError, "'offsets' "
+            "dict entries not implemented yet") 
+    if titles_w is not None:
+        names_w = [space.newtuple([w_n, w_t]) for w_n, w_t in zip(names_w, titles_w)]
     aslist_w = space.newlist([space.newtuple([w_n, w_f]) for w_n, w_f in zip(
         names_w, formats_w)])
     retval = dtype_from_list(space, aslist_w, False, align)
@@ -674,18 +701,21 @@ def _check_for_commastring(s):
             sqbracket -= 1
     return False
 
+def _set_metadata_and_copy(dtype, space, w_metadata, copy=False):
+    cache = get_dtype_cache(space)
+    assert isinstance(dtype, W_Dtype)
+    if copy or (dtype in cache.builtin_dtypes and w_metadata is not None):
+        dtype = W_Dtype(dtype.itemtype, dtype.w_box_type, dtype.byteorder)
+    if w_metadata is not None:
+        dtype.descr_set_metadata(space, w_metadata)
+    return dtype
+
+
 @unwrap_spec(align=bool, copy=bool)
 def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
                  w_shape=None, w_metadata=None):
 
     cache = get_dtype_cache(space)
-    def set_metadata_and_copy(dtype, space, w_metadata, copy=False):
-        if copy or (dtype in cache.builtin_dtypes and w_metadata is not None):
-            dtype = W_Dtype(dtype.itemtype, dtype.w_box_type, dtype.byteorder)
-        if w_metadata is not None:
-            dtype.descr_set_metadata(space, w_metadata)
-        return dtype
-
     if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
                                 space.len_w(w_shape) > 0):
         subdtype = descr__new__(space, w_subtype, w_dtype, align, copy, w_metadata=w_metadata)
@@ -717,7 +747,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
         if size >= 2 ** 31:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                   "dtype size in bytes must fit into a C int.")
-        return set_metadata_and_copy(W_Dtype(types.VoidType(space),
+        return _set_metadata_and_copy(W_Dtype(types.VoidType(space),
                        space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size),
                     space, w_metadata)
@@ -731,7 +761,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
     if space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
         if _check_for_commastring(name):
-            return set_metadata(dtype_from_spec(space, w_dtype), space, w_metadata)
+            return _set_metadata_and_copy(dtype_from_spec(space, w_dtype), space, w_metadata)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
             dtype = cache.dtypes_by_name[cname]
@@ -745,7 +775,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
             return variable_dtype(space, name)
         raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
     elif space.isinstance_w(w_dtype, space.w_list):
-        return set_metadata_and_copy(dtype_from_list(space, w_dtype, False, align=align),
+        return _set_metadata_and_copy(dtype_from_list(space, w_dtype, False, align=align),
                     space, w_metadata, copy)
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
@@ -757,22 +787,22 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
             retval = descr__new__(space, w_subtype, space.wrap(name), align, copy)
         else:
             retval = descr__new__(space, w_subtype, w_dtype0, align, copy, w_shape=w_dtype1)
-        return set_metadata_and_copy(retval, space, w_metadata, copy)
+        return _set_metadata_and_copy(retval, space, w_metadata, copy)
     elif space.isinstance_w(w_dtype, space.w_dict):
-        return set_metadata_and_copy(dtype_from_dict(space, w_dtype, align),
+        return _set_metadata_and_copy(dtype_from_dict(space, w_dtype, align),
                     space, w_metadata, copy)
     for dtype in cache.builtin_dtypes:
         if dtype.num in cache.alternate_constructors and \
                 w_dtype in cache.alternate_constructors[dtype.num]:
-            return set_metadata_and_copy(dtype, space, w_metadata, copy)
+            return _set_metadata_and_copy(dtype, space, w_metadata, copy)
         if w_dtype is dtype.w_box_type:
-            return set_metadata_and_copy(dtype, space, w_metadata, copy)
+            return _set_metadata_and_copy(dtype, space, w_metadata, copy)
         if space.isinstance_w(w_dtype, space.w_type) and \
            space.is_true(space.issubtype(w_dtype, dtype.w_box_type)):
-            return set_metadata_and_copy(W_Dtype(dtype.itemtype, w_dtype, elsize=0),
+            return _set_metadata_and_copy(W_Dtype(dtype.itemtype, w_dtype, elsize=0),
                     space, w_metadata, copy)
     if space.isinstance_w(w_dtype, space.w_type):
-        return set_metadata_and_copy(cache.w_objectdtype, space, w_metadata, copy)
+        return _set_metadata_and_copy(cache.w_objectdtype, space, w_metadata, copy)
     raise oefmt(space.w_TypeError, "data type not understood")
 
 
