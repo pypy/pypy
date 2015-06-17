@@ -225,21 +225,10 @@ class OpToVectorOp(object):
         self.output_type = None
         self.costmodel = None
 
-    def is_vector_arg(self, i):
-        if i < 0 or i >= len(self.arg_ptypes):
-            return False
-        return self.arg_ptypes[i] is not None
-
-    def getsplitsize(self):
-        return self.input_type.getsize()
-
     def determine_input_type(self, op):
         arg = op.getarg(0)
-        _, vbox = self.sched_data.getvector_of_box(op.getarg(0))
-        if vbox:
-            return PackType.of(vbox)
-        else:
-            return packtype_outof_box(arg)
+        _, vbox = self.sched_data.getvector_of_box(arg)
+        return packtype_outof_box(vbox or arg)
 
     def determine_output_type(self, op):
         return self.determine_input_type(op)
@@ -279,13 +268,20 @@ class OpToVectorOp(object):
         self.output_type = None
 
     def split_pack(self, pack, vec_reg_size):
-        pack_count = len(pack.operations)
-        bytes = pack_count * self.getsplitsize()
+        """ Returns how many items of the pack should be
+            emitted as vector operation. """
+        bytes = pack.opcount() * self.getscalarsize()
         if bytes > vec_reg_size:
-            return vec_reg_size // self.getsplitsize()
+            # too many bytes. does not fit into the vector register
+            return vec_reg_size // self.getscalarsize()
         if bytes < vec_reg_size:
+            # not enough to fill the vector register
             return 1
-        return pack_count
+        return pack.opcount()
+
+    def getscalarsize(self):
+        """ return how many bytes a scalar operation processes """
+        return self.input_type.getsize()
 
     def before_argument_transform(self, args):
         pass
@@ -349,14 +345,14 @@ class OpToVectorOp(object):
             vbox = self._pack(vbox, packed, args, packable)
             self.update_input_output(self.pack)
             box_pos = 0
-        elif packed > packable:
+        elif packed > packable and box_pos != 0:
+            # box_pos == 0 then it is already at the right place
             # the argument has more items than the operation is able to process!
             args = [op.getoperation().getarg(argidx) for op in ops]
             vbox = self.unpack(vbox, args, off, packable, self.input_type)
             self.update_input_output(self.pack)
             box_pos = 0
-        #
-        if off != 0 and box_pos != 0:
+        elif off != 0 and box_pos != 0:
             # The original box is at a position != 0 but it
             # is required to be at position 0. Unpack it!
             args = [op.getoperation().getarg(argidx) for op in ops]
@@ -382,7 +378,6 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, args, index, count, arg_ptype):
-        import py; py.test.set_trace()
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
         opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
@@ -492,6 +487,11 @@ class OpToVectorOp(object):
         invariant_vars.append(vbox)
         return vbox
 
+    def is_vector_arg(self, i):
+        if i < 0 or i >= len(self.arg_ptypes):
+            return False
+        return self.arg_ptypes[i] is not None
+
 class OpToVectorOpConv(OpToVectorOp):
     def __init__(self, intype, outtype):
         self.from_size = intype.getsize()
@@ -558,7 +558,7 @@ class LoadToVectorLoad(OpToVectorOp):
     def before_argument_transform(self, args):
         args.append(ConstInt(len(self.pack.operations)))
 
-    def getsplitsize(self):
+    def getscalarsize(self):
         return self.output_type.getsize()
 
     def new_result_vector_box(self):
