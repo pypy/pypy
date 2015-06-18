@@ -108,7 +108,7 @@ static mchunk_t *next_chunk(mchunk_t *p)
 
 
 static struct {
-    int lock;
+    uint8_t lock;
     mchunk_t *first_chunk, *last_chunk;
     dlist_t largebins[N_BINS];
 } lm __attribute__((aligned(64)));

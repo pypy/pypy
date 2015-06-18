@@ -479,6 +479,12 @@ LL_OPERATIONS = {
     'stm_hashtable_list'  :   LLOp(),
     'stm_hashtable_tracefn':  LLOp(),
 
+    'stm_queue_create':       LLOp(),
+    'stm_queue_free':         LLOp(),
+    'stm_queue_get':          LLOp(canmallocgc=True),   # push roots!
+    'stm_queue_put':          LLOp(),
+    'stm_queue_tracefn':      LLOp(),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

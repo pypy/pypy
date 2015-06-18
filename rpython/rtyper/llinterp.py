@@ -1002,6 +1002,11 @@ class LLFrame(object):
     op_stm_hashtable_length_upper_bound = _stm_not_implemented
     op_stm_hashtable_list = _stm_not_implemented
     op_stm_hashtable_free = _stm_not_implemented
+    op_stm_queue_create = _stm_not_implemented
+    op_stm_queue_free = _stm_not_implemented
+    op_stm_queue_get = _stm_not_implemented
+    op_stm_queue_put = _stm_not_implemented
+    op_stm_queue_tracefn = _stm_not_implemented
     op_stm_register_thread_local = _stm_not_implemented
     op_stm_unregister_thread_local = _stm_not_implemented
     op_stm_really_force_cast_ptr = _stm_not_implemented

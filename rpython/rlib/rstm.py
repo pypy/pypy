@@ -356,3 +356,70 @@ class EntryObjectForTest(object):
                         " use h.writeobj() instead")
 
     object = property(_getobj, _setobj)
+
+# ____________________________________________________________
+
+_STM_QUEUE_P = rffi.COpaquePtr('stm_queue_t')
+
+@dont_look_inside
+def _ll_queue_get(q, timeout=-1.0):
+    # Returns a GCREF.
+    return llop.stm_queue_get(llmemory.GCREF, q, q.ll_raw_queue, timeout)
+
+@dont_look_inside
+def _ll_queue_put(q, newitem):
+    llop.stm_queue_put(lltype.Void, q, q.ll_raw_queue, newitem)
+
+_QUEUE_OBJ = lltype.GcStruct('QUEUE_OBJ',
+                             ('ll_raw_queue', _STM_QUEUE_P),
+                             hints={'immutable': True},
+                             rtti=True,
+                             adtmeths={'get': _ll_queue_get,
+                                       'put': _ll_queue_put})
+NULL_QUEUE = lltype.nullptr(_QUEUE_OBJ)
+
+def _ll_queue_trace(gc, obj, callback, arg):
+    from rpython.memory.gctransform.stmframework import get_visit_function
+    visit_fn = get_visit_function(callback, arg)
+    addr = obj + llmemory.offsetof(_QUEUE_OBJ, 'll_raw_queue')
+    llop.stm_queue_tracefn(lltype.Void, addr.address[0], visit_fn)
+lambda_queue_trace = lambda: _ll_queue_trace
+
+def _ll_queue_finalizer(q):
+    if q.ll_raw_queue:
+        llop.stm_queue_free(lltype.Void, q.ll_raw_queue)
+lambda_queue_finlz = lambda: _ll_queue_finalizer
+
+@dont_look_inside
+def create_queue():
+    if not we_are_translated():
+        return QueueForTest()      # for tests
+    rgc.register_custom_light_finalizer(_QUEUE_OBJ, lambda_queue_finlz)
+    rgc.register_custom_trace_hook(_QUEUE_OBJ, lambda_queue_trace)
+    q = lltype.malloc(_QUEUE_OBJ, zero=True)
+    q.ll_raw_queue = llop.stm_queue_create(_STM_QUEUE_P)
+    return q
+
+class QueueForTest(object):
+    def __init__(self):
+        import Queue
+        self._content = Queue.Queue()
+        self._Empty = Queue.Empty
+
+    def _cleanup_(self):
+        raise Exception("cannot translate a prebuilt rstm.Queue object")
+
+    def get(self, timeout=-1.0):
+        if timeout < 0.0:
+            return self._content.get()
+        try:
+            if timeout == 0.0:
+                return self._content.get(block=False)
+            else:
+                return self._content.get(timeout=timeout)
+        except self._Empty:
+            return NULL_GCREF
+
+    def put(self, newitem):
+        assert lltype.typeOf(newitem) == llmemory.GCREF
+        self._content.put(newitem)

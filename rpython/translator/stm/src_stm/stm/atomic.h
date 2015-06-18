@@ -42,12 +42,19 @@
 #endif
 
 
-#define spinlock_acquire(lock)                                          \
-    do { if (LIKELY(__sync_lock_test_and_set(&(lock), 1) == 0)) break;  \
-         spin_loop(); } while (1)
-#define spinlock_release(lock)                                          \
-    do { assert((lock) == 1);                                           \
-         __sync_lock_release(&(lock)); } while (0)
+static inline void _spinlock_acquire(uint8_t *plock) {
+ retry:
+    if (__builtin_expect(__sync_lock_test_and_set(plock, 1) != 0, 0)) {
+        spin_loop();
+        goto retry;
+    }
+}
+static inline void _spinlock_release(uint8_t *plock) {
+    assert(*plock == 1);
+    __sync_lock_release(plock);
+}
+#define spinlock_acquire(lock) _spinlock_acquire(&(lock))
+#define spinlock_release(lock) _spinlock_release(&(lock))
 
 
 #endif  /* _STM_ATOMIC_H */

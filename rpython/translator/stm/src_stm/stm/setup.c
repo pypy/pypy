@@ -167,6 +167,7 @@ void stm_teardown(void)
         tree_free(pr->callbacks_on_commit_and_abort[1]);
         list_free(pr->young_objects_with_light_finalizers);
         list_free(pr->old_objects_with_light_finalizers);
+        if (pr->active_queues) tree_free(pr->active_queues);
     }
 
     munmap(stm_object_pages, TOTAL_MEMORY);

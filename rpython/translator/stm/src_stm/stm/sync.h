@@ -6,6 +6,7 @@ enum cond_type_e {
     C_REQUEST_REMOVED,
     C_SEGMENT_FREE,
     C_SEGMENT_FREE_OR_SAFE_POINT,
+    C_QUEUE_OLD_ENTRIES,
     _C_TOTAL
 };
 

@@ -1146,6 +1146,7 @@ static void _do_start_transaction(stm_thread_local_t *tl)
     assert(tree_is_cleared(STM_PSEGMENT->callbacks_on_commit_and_abort[1]));
     assert(list_is_empty(STM_PSEGMENT->young_objects_with_light_finalizers));
     assert(STM_PSEGMENT->finalizers == NULL);
+    assert(STM_PSEGMENT->active_queues == NULL);
 #ifndef NDEBUG
     /* this should not be used when objects_pointing_to_nursery == NULL */
     STM_PSEGMENT->position_markers_len_old = 99999999999999999L;
@@ -1351,6 +1352,9 @@ static void _core_commit_transaction(bool external)
         STM_PSEGMENT->overflow_number_has_been_used = false;
     }
 
+    if (STM_PSEGMENT->active_queues)
+        queues_deactivate_all(/*at_commit=*/true);
+
     invoke_and_clear_user_callbacks(0);   /* for commit */
 
     /* done */
@@ -1504,6 +1508,9 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 
     if (tl->mem_clear_on_abort)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
+
+    if (STM_PSEGMENT->active_queues)
+        queues_deactivate_all(/*at_commit=*/false);
 
     invoke_and_clear_user_callbacks(1);   /* for abort */
 

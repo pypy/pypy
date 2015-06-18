@@ -368,3 +368,32 @@ def stm_hashtable_tracefn(funcgen, op):
     arg2 = funcgen.expr(op.args[2])
     return ('stm_hashtable_tracefn(%s, (stm_hashtable_t *)%s, '
             ' (void(*)(object_t**))%s);' % (arg0, arg1, arg2))
+
+def stm_queue_create(funcgen, op):
+    result = funcgen.expr(op.result)
+    return '%s = stm_queue_create();' % (result,)
+
+def stm_queue_free(funcgen, op):
+    arg = funcgen.expr(op.args[0])
+    return 'stm_queue_free(%s);' % (arg,)
+
+def stm_queue_get(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return ('%s = (rpygcchar_t *)stm_queue_get((object_t *)%s, %s, %s, '
+            '&stm_thread_local);' % (result, arg0, arg1, arg2))
+
+def stm_queue_put(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    return 'stm_queue_put((object_t *)%s, %s, (object_t *)%s);' % (
+        arg0, arg1, arg2)
+
+def stm_queue_tracefn(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return ('stm_queue_tracefn((stm_queue_t *)%s, '
+            ' (void(*)(object_t**))%s);' % (arg0, arg1))

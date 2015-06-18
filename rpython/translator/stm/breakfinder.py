@@ -9,6 +9,7 @@ TRANSACTION_BREAK = set([
     'stm_enter_callback_call',
     'stm_leave_callback_call',
     'stm_transaction_break',
+    'stm_queue_get',
     ])
 
 for tb in TRANSACTION_BREAK:

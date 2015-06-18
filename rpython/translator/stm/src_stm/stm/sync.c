@@ -125,7 +125,7 @@ static inline void timespec_delay(struct timespec *t, double incr)
     t->tv_nsec = nsec;
 }
 
-static inline bool cond_wait_timeout(enum cond_type_e ctype, double delay)
+static bool cond_wait_timespec(enum cond_type_e ctype, struct timespec *pt)
 {
 #ifdef STM_NO_COND_WAIT
     stm_fatalerror("*** cond_wait/%d called!", (int)ctype);
@@ -133,16 +133,20 @@ static inline bool cond_wait_timeout(enum cond_type_e ctype, double delay)
 
     assert(_has_mutex_here);
 
-    struct timespec t;
-    timespec_delay(&t, delay);
-
     int err = pthread_cond_timedwait(&sync_ctl.cond[ctype],
-                                     &sync_ctl.global_mutex, &t);
+                                     &sync_ctl.global_mutex, pt);
     if (err == 0)
         return true;     /* success */
     if (LIKELY(err == ETIMEDOUT))
         return false;    /* timeout */
     stm_fatalerror("pthread_cond_timedwait/%d: %d", (int)ctype, err);
+}
+
+static bool cond_wait_timeout(enum cond_type_e ctype, double delay)
+{
+    struct timespec t;
+    timespec_delay(&t, delay);
+    return cond_wait_timespec(ctype, &t);
 }
 
 static inline void cond_signal(enum cond_type_e ctype)

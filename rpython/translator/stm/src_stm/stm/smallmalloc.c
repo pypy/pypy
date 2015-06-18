@@ -44,7 +44,7 @@ static void teardown_smallmalloc(void)
     memset(full_pages_object_size, 0, sizeof(full_pages_object_size));
 }
 
-static int gmfp_lock = 0;
+static uint8_t gmfp_lock = 0;
 
 static void grab_more_free_pages_for_small_allocations(void)
 {

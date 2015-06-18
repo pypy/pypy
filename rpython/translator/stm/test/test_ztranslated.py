@@ -608,6 +608,46 @@ class TestSTMTranslated(CompiledSTMTests):
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
 
+    def test_queue(self):
+        class X(object):
+            pass
+
+        def main(argv):
+            q = rstm.create_queue()
+            p = q.get(0.0)
+            assert p == lltype.nullptr(llmemory.GCREF.TO)
+            p = q.get(0.001)
+            assert p == lltype.nullptr(llmemory.GCREF.TO)
+            #
+            x1 = X()
+            p1 = cast_instance_to_gcref(x1)
+            q.put(p1)
+            #
+            p2 = q.get()
+            x2 = cast_gcref_to_instance(X, p2)
+            assert x2 is x1
+            #
+            q.put(p1)
+            rgc.collect()
+            #
+            p2 = q.get()
+            x2 = cast_gcref_to_instance(X, p2)
+            assert x2 is x1
+            #
+            print "ok!"
+            return 0
+
+        res = main([])      # direct run
+        assert res == 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
+
+        t, cbuilder = self.compile(main, backendopt=True)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
+
     def test_allocate_preexisting(self):
         py.test.skip("kill me or re-add me")
         S = lltype.GcStruct('S', ('n', lltype.Signed))

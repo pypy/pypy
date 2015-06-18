@@ -48,7 +48,7 @@ static void setup_N_pages(char *pages_addr, long num)
 }
 
 
-static int lock_growth_large = 0;
+static uint8_t lock_growth_large = 0;
 
 static stm_char *allocate_outside_nursery_large(uint64_t size)
 {
