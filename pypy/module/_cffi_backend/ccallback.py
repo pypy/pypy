@@ -22,8 +22,9 @@ BIG_ENDIAN = sys.byteorder == 'big'
 class W_CDataCallback(W_CData):
     #_immutable_fields_ = ...
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
+    w_onerror = None
 
-    def __init__(self, space, ctype, w_callable, w_error):
+    def __init__(self, space, ctype, w_callable, w_error, w_onerror):
         raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
         W_CData.__init__(self, space, raw_closure, ctype)
         #
@@ -31,6 +32,12 @@ class W_CDataCallback(W_CData):
             raise oefmt(space.w_TypeError,
                         "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
+        if not space.is_none(w_onerror):
+            if not space.is_true(space.callable(w_onerror)):
+                raise oefmt(space.w_TypeError,
+                            "expected a callable object for 'onerror', not %T",
+                            w_onerror)
+            self.w_onerror = w_onerror
         #
         fresult = self.getfunctype().ctitem
         size = fresult.size
@@ -196,6 +203,15 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             callback.convert_result(ll_res, w_res)
         except OperationError, e:
             # got an app-level exception
+            if callback.w_onerror is not None:
+                try:
+                    e.normalize_exception(space)
+                    w_t = e.w_type
+                    w_v = e.get_w_value(space)
+                    w_tb = space.wrap(e.get_traceback())
+                    space.call_function(callback.w_onerror, w_t, w_v, w_tb)
+                except OperationError, e2:
+                    e = e2
             callback.print_error(e, extra_line)
             callback.write_error_return_value(ll_res)
         #

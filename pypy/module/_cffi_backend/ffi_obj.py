@@ -276,8 +276,9 @@ manipulated with:
 
 
     @unwrap_spec(w_python_callable=WrappedDefault(None),
-                 w_error=WrappedDefault(None))
-    def descr_callback(self, w_cdecl, w_python_callable, w_error):
+                 w_error=WrappedDefault(None),
+                 w_onerror=WrappedDefault(None))
+    def descr_callback(self, w_cdecl, w_python_callable, w_error, w_onerror):
         """\
 Return a callback object or a decorator making such a callback object.
 'cdecl' must name a C function pointer type.  The callback invokes the
@@ -290,14 +291,16 @@ kept alive for as long as the callback may be invoked from the C code."""
         space = self.space
         if not space.is_none(w_python_callable):
             return ccallback.W_CDataCallback(space, w_ctype,
-                                             w_python_callable, w_error)
+                                             w_python_callable, w_error,
+                                             w_onerror)
         else:
             # decorator mode: returns a single-argument function
-            return space.appexec([w_ctype, w_error],
-            """(ctype, error):
+            return space.appexec([w_ctype, w_error, w_onerror],
+            """(ctype, error, onerror):
                 import _cffi_backend
                 return lambda python_callable: (
-                    _cffi_backend.callback(ctype, python_callable, error))""")
+                    _cffi_backend.callback(ctype, python_callable,
+                                           error, onerror))""")
 
 
     def descr_cast(self, w_arg, w_ob):

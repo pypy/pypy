@@ -114,6 +114,18 @@ class AppTestFFIObj:
         assert ffi.callback("int(int)", lambda x: x + "", -66)(10) == -66
         assert ffi.callback("int(int)", lambda x: x + "", error=-66)(10) == -66
 
+    def test_ffi_callback_onerror(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myerror(exc, val, tb):
+            seen.append(exc)
+        cb = ffi.callback("int(int)", lambda x: x + "", onerror=myerror)
+        assert cb(10) == 0
+        cb = ffi.callback("int(int)", lambda x:int(1E100), -66, onerror=myerror)
+        assert cb(10) == -66
+        assert seen == [TypeError, OverflowError]
+
     def test_ffi_callback_decorator(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()

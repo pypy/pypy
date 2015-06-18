@@ -18,9 +18,9 @@ def cast(space, w_ctype, w_ob):
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
-def callback(space, w_ctype, w_callable, w_error=None):
+def callback(space, w_ctype, w_callable, w_error=None, w_onerror=None):
     from pypy.module._cffi_backend.ccallback import W_CDataCallback
-    return W_CDataCallback(space, w_ctype, w_callable, w_error)
+    return W_CDataCallback(space, w_ctype, w_callable, w_error, w_onerror)
 
 # ____________________________________________________________
 
