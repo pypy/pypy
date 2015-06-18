@@ -75,10 +75,12 @@ Minimal example
 Note that this API is a lot more minimal than say CPython C API, so at first
 it's obvious to think that you can't do much. However, the trick is to do
 all the logic in Python and expose it via `cffi`_ callbacks. Let's assume
-we're on linux and pypy is installed in ``/opt/pypy`` with the
+we're on linux and pypy is installed in ``/opt/pypy`` (with
+subdirectories like ``lib-python`` and ``lib_pypy``), and with the
 library in ``/opt/pypy/bin/libpypy-c.so``.  (It doesn't need to be
-installed; you can also replace this path with your local checkout.)
-We write a little C program:
+installed; you can also replace these paths with a local extract of the
+installation tarballs, or with your local checkout of pypy.) We write a
+little C program:
 
 .. code-block:: c
 
@@ -92,7 +94,9 @@ We write a little C program:
         int res;
 
         rpython_startup_code();
-        res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
+        /* note: in the path /opt/pypy/x, the final x is ignored and
+           replaced with lib-python and lib_pypy. */
+        res = pypy_setup_home("/opt/pypy/x", 1);
         if (res) {
             printf("Error setting pypy home!\n");
             return 1;
@@ -179,7 +183,7 @@ embedding interface:
         int res;
 
         rpython_startup_code();
-        res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
+        res = pypy_setup_home("/opt/pypy/x", 1);
         if (res) {
             fprintf(stderr, "Error setting pypy home!\n");
             return -1;
@@ -220,9 +224,15 @@ communicate via this single C structure that defines your API.
 Finding pypy_home
 -----------------
 
-Function pypy_setup_home takes one parameter - the path to libpypy. There's 
-currently no "clean" way (pkg-config comes to mind) how to find this path. You 
-can try the following (GNU-specific) hack (don't forget to link against *dl*):
+The function pypy_setup_home() takes as first parameter the path to a
+file from which it can deduce the location of the standard library.
+More precisely, it tries to remove final components until it finds
+``lib-python`` and ``lib_pypy``.  There is currently no "clean" way
+(pkg-config comes to mind) to find this path.  You can try the following
+(GNU-specific) hack (don't forget to link against *dl*), which assumes
+that the ``libpypy-c.so`` is inside the standard library directory.
+(This must more-or-less be the case anyway, otherwise the ``pypy``
+program itself would not run.)
 
 .. code-block:: c
 
@@ -236,7 +246,7 @@ can try the following (GNU-specific) hack (don't forget to link against *dl*):
 
     // caller should free returned pointer to avoid memleaks
     // returns NULL on error
-    char* guess_pypyhome() {
+    char* guess_pypyhome(void) {
         // glibc-only (dladdr is why we #define _GNU_SOURCE)
         Dl_info info;
         void *_rpython_startup_code = dlsym(0,"rpython_startup_code");
