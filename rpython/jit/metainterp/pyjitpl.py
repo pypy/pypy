@@ -2105,11 +2105,11 @@ class MetaInterp(object):
             return self._record_helper_nonpure_varargs(opnum, resvalue, descr,
                                                        list(argboxes))
 
-    def _record_helper_ovf(self, opnum, resbox, descr, *argboxes):
+    def _record_helper_ovf(self, opnum, resvalue, descr, *argboxes):
         if (not self.last_exc_value and
                 self._all_constants(*argboxes)):
             return history.newconst(resvalue)
-        return self._record_helper_nonpure_varargs(opnum, resbox, descr, list(argboxes))
+        return self._record_helper_nonpure_varargs(opnum, resvalue, descr, list(argboxes))
 
     @specialize.argtype(2)
     def _record_helper_pure_varargs(self, opnum, resvalue, descr, argboxes):
