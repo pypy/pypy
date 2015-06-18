@@ -282,8 +282,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     lenbound = None
     intbound = None
     
-    def __init__(self, box, is_opaque=False):
+    def __init__(self, cpu, ptrinfo, is_opaque=False):
         self.level = LEVEL_UNKNOWN
+        if ptrinfo is not None:
+            self.known_class = ptrinfo.get_known_class(cpu)
         return
         xxx
         self.is_opaque = is_opaque
@@ -599,7 +601,11 @@ class VirtualStateConstructor(VirtualVisitor):
     
     def visit_not_virtual(self, box):
         is_opaque = box in self.optimizer.opaque_pointers
-        return NotVirtualStateInfo(box, is_opaque)
+        if box.type == 'r':
+            ptrinfo = self.optimizer.getptrinfo(box)
+        else:
+            return self.visit_not_ptr(box, self.optimizer.getintbound(box))
+        return NotVirtualStateInfo(self.optimizer.cpu, ptrinfo, is_opaque)
 
     def visit_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)

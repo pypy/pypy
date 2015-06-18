@@ -225,14 +225,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_remove_guard_class_2(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(descr=nodesize)
         escape_n(p0)
         guard_class(p0, ConstClass(node_vtable)) []
         jump(i0)
         """
         expected = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(descr=nodesize)
         escape_n(p0)
         jump(i0)
         """

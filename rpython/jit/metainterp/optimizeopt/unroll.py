@@ -38,8 +38,6 @@ class UnrollableOptimizer(Optimizer):
             imp.import_value(value)
 
     def emit_operation(self, op):
-        if op.returns_bool_result():
-            self.bool_boxes[self.getvalue(op)] = None
         if self.emitting_dissabled:
             return
         if op.is_guard():

@@ -77,9 +77,9 @@ class Optimization(object):
             opinfo.mark_last_guard(self.optimizer)
         return opinfo
 
-    def getptrinfo(self, op, create=False, is_object=False):
+    def getptrinfo(self, op, is_object=False):
         if op.type == 'i':
-            return self.getrawptrinfo(op, create)
+            return self.getrawptrinfo(op)
         elif op.type == 'f':
             return None
         assert op.type == 'r'
@@ -288,7 +288,12 @@ class Optimizer(Optimization):
             zzz
 
     def setinfo_from_preamble(self, op, old_info):
-        pass # deal with later
+        if isinstance(old_info, info.PtrInfo):
+            if op.is_constant():
+                return # nothing we can learn
+            known_class = old_info.get_known_class(self.cpu)
+            if known_class:
+                self.make_constant_class(op, known_class, False)
 
     def get_box_replacement(self, op):
         if op is None:
