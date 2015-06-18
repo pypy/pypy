@@ -5,7 +5,8 @@ The class pypystm.queue, an unordered minimal queue
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.module.thread.error import wrap_thread_error
 
 from rpython.rlib import rstm
 from rpython.rtyper.annlowlevel import cast_gcref_to_instance
@@ -46,6 +47,14 @@ class W_Queue(W_Root):
             timeout = -1.0     # no timeout
         else:
             timeout = space.float_w(w_timeout)
+            if timeout < 0.0:
+                raise oefmt(space.w_ValueError,
+                            "'timeout' must be a non-negative number")
+
+        if space.config.translation.stm:    # for tests
+            if rstm.is_atomic() and timeout != 0.0:
+                raise wrap_thread_error(space,
+                    "can't use queue.get(block=True) in an atomic context")
 
         gcref = self.q.get(timeout)
         if not gcref:
