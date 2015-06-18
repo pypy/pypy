@@ -387,6 +387,7 @@ void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **))
 static void collect_active_queues(void)
 {
     wlog_t *item;
+    queue_lock_acquire();
     TREE_LOOP_FORWARD(STM_PSEGMENT->active_queues, item) {
         /* it is enough to trace the objects added in the current
            transaction.  All other objects reachable from the queue
@@ -406,4 +407,5 @@ static void collect_active_queues(void)
             seg->added_young_limit = seg->added_in_this_transaction;
         }
     } TREE_LOOP_END;
+    queue_lock_release();
 }
