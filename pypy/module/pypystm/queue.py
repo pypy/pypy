@@ -75,8 +75,9 @@ class W_Queue(W_Root):
         """
         res = self.q.join()
         if res != 0:
-            raise oefmt('task_done() called too many times (%d more than '
-                        'there were items placed in the queue)', -res)
+            raise oefmt(space.w_ValueError,
+                'task_done() called too many times '
+                '(%d more than there were items placed in the queue)', -res)
 
 
 def W_Queue___new__(space, w_subtype):
