@@ -341,6 +341,7 @@ class RegAlloc(BaseRegalloc):
             op = operations[i]
             self.assembler.mc.mark_op(op)
             assert self.assembler.mc._frame_size == DEFAULT_FRAME_BYTES
+            self.assembler.position = i
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:

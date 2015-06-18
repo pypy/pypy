@@ -22,10 +22,11 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
 )
 
 class GuardToken(object):
-    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
+    def __init__(self, cpu, pos, gcmap, faildescr, failargs, fail_locs, exc,
                  frame_depth, is_guard_not_invalidated, is_guard_not_forced):
         assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
+        self.position = pos
         self.faildescr = faildescr
         self.failargs = failargs
         self.fail_locs = fail_locs
@@ -62,6 +63,7 @@ class BaseAssembler(object):
 
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
+        self.position = 0
         self.memcpy_addr = 0
         self.memset_addr = 0
         self.rtyper = cpu.rtyper
@@ -127,6 +129,7 @@ class BaseAssembler(object):
         self.gcmap_for_finish[0] = r_uint(1)
 
     def setup(self, looptoken):
+        self.position = 0
         if self.cpu.HAS_CODEMAP:
             self.codemap_builder = CodemapBuilder()
         self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)

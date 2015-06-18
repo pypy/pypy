@@ -591,6 +591,7 @@ class Assembler386(BaseAssembler):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
+            regalloc.position = tok.position
             tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
             self.error_trampoline_64 = self.generate_propagate_error_64()
@@ -1794,7 +1795,7 @@ class Assembler386(BaseAssembler):
         is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
         is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        return GuardToken(self.cpu, gcmap, faildescr, failargs,
+        return GuardToken(self.cpu, self.position, gcmap, faildescr, failargs,
                           fail_locs, exc, frame_depth,
                           is_guard_not_invalidated, is_guard_not_forced)
 
@@ -2483,14 +2484,18 @@ class Assembler386(BaseAssembler):
         for i,arg in enumerate(fail_args):
             if arg is None:
                 continue
+            assert arg.scalar_var is not None
             if isinstance(arg, BoxVectorAccum):
                 loc = fail_locs[i]
+                assert isinstance(loc, RegLoc)
+                assert loc.is_xmm
                 tgtloc = regalloc.force_allocate_reg(arg.scalar_var, fail_args)
+                assert tgtloc is not None
                 if arg.operator == '+':
                     # reduction using plus
                     self._accum_reduce_sum(arg, loc, tgtloc)
                     fail_locs[i] = tgtloc
-                    self._regalloc.possibly_free_var(arg)
+                    regalloc.possibly_free_var(arg)
                     fail_args[i] = arg.scalar_var
                 else:
                     raise NotImplementedError("accum operator %s not implemented" %

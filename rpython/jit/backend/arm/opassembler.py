@@ -37,10 +37,10 @@ from rpython.rlib.rarithmetic import r_uint
 
 
 class ArmGuardToken(GuardToken):
-    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+    def __init__(self, cpu, pos, gcmap, faildescr, failargs, fail_locs,
                  offset, exc, frame_depth, is_guard_not_invalidated=False,
                  is_guard_not_forced=False, fcond=c.AL):
-        GuardToken.__init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+        GuardToken.__init__(self, cpu, pos, gcmap, faildescr, failargs, fail_locs,
                             exc, frame_depth, is_guard_not_invalidated,
                             is_guard_not_forced)
         self.fcond = fcond
@@ -211,16 +211,16 @@ class ResOpAssembler(BaseAssembler):
         assert isinstance(descr, AbstractFailDescr)
 
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        token = ArmGuardToken(self.cpu, gcmap,
-                                    descr,
-                                    failargs=op.getfailargs(),
-                                    fail_locs=arglocs,
-                                    offset=offset,
-                                    exc=save_exc,
-                                    frame_depth=frame_depth,
-                                    is_guard_not_invalidated=is_guard_not_invalidated,
-                                    is_guard_not_forced=is_guard_not_forced,
-                                    fcond=fcond)
+        token = ArmGuardToken(self.cpu, self.position, gcmap,
+                              descr,
+                              failargs=op.getfailargs(),
+                              fail_locs=arglocs,
+                              offset=offset,
+                              exc=save_exc,
+                              frame_depth=frame_depth,
+                              is_guard_not_invalidated=is_guard_not_invalidated,
+                              is_guard_not_forced=is_guard_not_forced,
+                              fcond=fcond)
         return token
 
     def _emit_guard(self, op, arglocs, fcond, save_exc,
