@@ -203,10 +203,11 @@ void stm_wait_for_current_inevitable_transaction(void)
 #endif
 
 
-static bool acquire_thread_segment(stm_thread_local_t *tl)
+static void acquire_thread_segment(stm_thread_local_t *tl)
 {
     /* This function acquires a segment for the currently running thread,
        and set up the GS register if it changed. */
+ retry_from_start:
     assert(_has_mutex());
     assert(_is_tl_registered(tl));
 
@@ -240,13 +241,13 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
         }
     }
     /* No segment available.  Wait until release_thread_segment()
-       signals that one segment has been freed. */
+       signals that one segment has been freed.  Note that we prefer
+       waiting rather than detaching an inevitable transaction, here. */
     timing_event(tl, STM_WAIT_FREE_SEGMENT);
     cond_wait(C_SEGMENT_FREE);
     timing_event(tl, STM_WAIT_DONE);
 
-    /* Return false to the caller, which will call us again */
-    return false;
+    goto retry_from_start;
 
  got_num:
     OPT_ASSERT(num >= 0 && num < NB_SEGMENTS-1);
@@ -257,7 +258,6 @@ static bool acquire_thread_segment(stm_thread_local_t *tl)
     assert(!in_transaction(tl));
     STM_SEGMENT->running_thread = tl;
     assert(in_transaction(tl));
-    return true;
 }
 
 static void release_thread_segment(stm_thread_local_t *tl)
@@ -266,7 +266,7 @@ static void release_thread_segment(stm_thread_local_t *tl)
     assert(_has_mutex());
 
     cond_signal(C_SEGMENT_FREE);
-    cond_broadcast(C_SEGMENT_FREE_OR_SAFE_POINT);   /* often no listener */
+    cond_broadcast(C_SEGMENT_FREE_OR_SAFE_POINT_REQ);  /* often no listener */
 
     assert(STM_SEGMENT->running_thread == tl);
     segnum = STM_SEGMENT->segment_num;
@@ -362,7 +362,7 @@ static void signal_everybody_to_pause_running(void)
     assert(!pause_signalled);
     pause_signalled = true;
     dprintf(("request to pause\n"));
-    cond_broadcast(C_SEGMENT_FREE_OR_SAFE_POINT);
+    cond_broadcast(C_SEGMENT_FREE_OR_SAFE_POINT_REQ);
 }
 
 static inline long count_other_threads_sp_running(void)

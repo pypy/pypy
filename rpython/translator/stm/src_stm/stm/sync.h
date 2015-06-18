@@ -5,7 +5,7 @@ enum cond_type_e {
     C_AT_SAFE_POINT,
     C_REQUEST_REMOVED,
     C_SEGMENT_FREE,
-    C_SEGMENT_FREE_OR_SAFE_POINT,
+    C_SEGMENT_FREE_OR_SAFE_POINT_REQ,
     C_QUEUE_OLD_ENTRIES,
     C_QUEUE_FINISHED_MORE_TASKS,
     _C_TOTAL
@@ -25,7 +25,7 @@ static void ensure_gs_register(long segnum);
 
 /* acquire and release one of the segments for running the given thread
    (must have the mutex acquired!) */
-static bool acquire_thread_segment(stm_thread_local_t *tl);
+static void acquire_thread_segment(stm_thread_local_t *tl);
 static void release_thread_segment(stm_thread_local_t *tl);
 static void soon_finished_or_inevitable_thread_segment(void);
 static bool any_soon_finished_or_inevitable_thread_segment(void);
