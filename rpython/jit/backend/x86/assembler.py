@@ -2484,8 +2484,8 @@ class Assembler386(BaseAssembler):
         for i,arg in enumerate(fail_args):
             if arg is None:
                 continue
-            assert arg.scalar_var is not None
             if isinstance(arg, BoxVectorAccum):
+                assert arg.scalar_var is not None
                 loc = fail_locs[i]
                 assert isinstance(loc, RegLoc)
                 assert loc.is_xmm
