@@ -61,7 +61,7 @@ cffi_build_scripts = {
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
     "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
     "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
-    "lzma": None, # XXX change _lzma to use CFFI 1.0
+    "lzma": "_lzma_build.py",
     "_decimal": None, # XXX change _decimal to use CFFI 1.0
     "xx": None,    # for testing: 'None' should be completely ignored
     }
