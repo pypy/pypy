@@ -18,3 +18,12 @@ class AppTestHashtable:
         q.put(obj)
         obj1 = q.get(timeout=0.01)
         assert obj1 is obj
+
+    def test_task_done(self):
+        import pypystm
+        q = pypystm.queue()
+        q.put([])
+        q.get()
+        # --q.join() here would cause deadlock, but hard to test--
+        q.task_done()
+        q.join()
