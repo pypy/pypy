@@ -39,8 +39,10 @@ struct stm_queue_s {
        and the 'segs' is an array of items 64 bytes each */
     stm_queue_segment_t segs[STM_NB_SEGMENTS];
 
-    /* a chained list of old entries in the queue */
-    queue_entry_t *volatile old_entries;
+    /* a chained list of old entries in the queue; modified only
+       with the lock */
+    queue_entry_t *old_entries;
+    uint8_t old_entries_lock;
 
     /* total of 'unfinished_tasks_in_this_transaction' for all
        committed transactions */
@@ -74,17 +76,6 @@ void stm_queue_free(stm_queue_t *queue)
     for (i = 0; i < STM_NB_SEGMENTS; i++) {
         stm_queue_segment_t *seg = &queue->segs[i];
 
-        /* it is possible that queues_deactivate_all() runs in parallel,
-           but it should not be possible at this point for another thread
-           to change 'active' from false to true.  if it is false, then
-           that's it */
-        if (!seg->active) {
-            assert(!seg->added_in_this_transaction);
-            assert(!seg->added_young_limit);
-            assert(!seg->old_objects_popped);
-            continue;
-        }
-
         struct stm_priv_segment_info_s *pseg = get_priv_segment(i + 1);
         spinlock_acquire(pseg->active_queues_lock);
 
@@ -94,10 +85,16 @@ void stm_queue_free(stm_queue_t *queue)
             assert(ok);
             (void)ok;
         }
-        queue_free_entries(seg->added_in_this_transaction);
-        queue_free_entries(seg->old_objects_popped);
+        else {
+            assert(!seg->added_in_this_transaction);
+            assert(!seg->added_young_limit);
+            assert(!seg->old_objects_popped);
+        }
 
         spinlock_release(pseg->active_queues_lock);
+
+        queue_free_entries(seg->added_in_this_transaction);
+        queue_free_entries(seg->old_objects_popped);
     }
     free(queue);
 }
@@ -113,9 +110,9 @@ static inline void queue_lock_release(void)
     spinlock_release(get_priv_segment(num)->active_queues_lock);
 }
 
-static void queue_activate(stm_queue_t *queue)
+static void queue_activate(stm_queue_t *queue, stm_queue_segment_t *seg)
 {
-    stm_queue_segment_t *seg = &queue->segs[STM_SEGMENT->segment_num - 1];
+    assert(seg == &queue->segs[STM_SEGMENT->segment_num - 1]);
 
     if (!seg->active) {
         queue_lock_acquire();
@@ -168,14 +165,19 @@ static void queues_deactivate_all(bool at_commit)
         if (head != NULL) {
             queue_entry_t *old;
             queue_entry_t *tail = head;
-            while (tail->next != NULL)
+            assert(!_is_in_nursery(head->object));
+            while (tail->next != NULL) {
                 tail = tail->next;
+                assert(!_is_in_nursery(tail->object));
+            }
             dprintf(("items move to old_entries in queue %p\n", queue));
-         retry:
+
+            spinlock_acquire(queue->old_entries_lock);
             old = queue->old_entries;
             tail->next = old;
-            if (!__sync_bool_compare_and_swap(&queue->old_entries, old, head))
-                goto retry;
+            queue->old_entries = head;
+            spinlock_release(queue->old_entries_lock);
+
             added_any_old_entries = true;
         }
 
@@ -204,21 +206,20 @@ void stm_queue_put(object_t *qobj, stm_queue_t *queue, object_t *newitem)
        delays or transaction breaks.  you need to push roots!
     */
     stm_queue_segment_t *seg = &queue->segs[STM_SEGMENT->segment_num - 1];
+    queue_activate(queue, seg);
+
     queue_entry_t *entry = malloc(sizeof(queue_entry_t));
     assert(entry);
     entry->object = newitem;
     entry->next = seg->added_in_this_transaction;
     seg->added_in_this_transaction = entry;
-
-    queue_activate(queue);
     seg->unfinished_tasks_in_this_transaction++;
+}
 
-    /* add qobj to 'objects_pointing_to_nursery' if it has the
-       WRITE_BARRIER flag */
-    if (qobj->stm_flags & GCFLAG_WRITE_BARRIER) {
-        qobj->stm_flags &= ~GCFLAG_WRITE_BARRIER;
-        LIST_APPEND(STM_PSEGMENT->objects_pointing_to_nursery, qobj);
-    }
+static void queue_check_entry(queue_entry_t *entry)
+{
+    assert(entry->object != NULL);
+    assert(((TLPREFIX int *)entry->object)[1] != 0);   /* userdata != 0 */
 }
 
 object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
@@ -239,26 +240,45 @@ object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
         seg->added_in_this_transaction = entry->next;
         if (entry == seg->added_young_limit)
             seg->added_young_limit = entry->next;
+        queue_check_entry(entry);
         result = entry->object;
-        assert(result != NULL);
         free(entry);
         return result;
     }
 
  retry:
-    entry = queue->old_entries;
-    if (entry != NULL) {
-        if (!__sync_bool_compare_and_swap(&queue->old_entries,
-                                          entry, entry->next))
-            goto retry;
+    /* careful, STM_SEGMENT->segment_num may change here because
+       we're starting new transactions below! */
+    seg = &queue->segs[STM_SEGMENT->segment_num - 1];
+    assert(!seg->added_in_this_transaction);
 
+    /* can't easily use compare_and_swap here.  The issue is that
+       if we do "compare_and_swap(&old_entry, entry, entry->next)",
+       then we need to read entry->next, but a parallel thread
+       could have grabbed the same entry and already freed it.
+       More subtly, there is also an ABA problem: even if we
+       read the correct entry->next, maybe a parallel thread
+       can free and reuse this entry.  Then the compare_and_swap
+       succeeds, but the value written is outdated nonsense.
+    */
+    spinlock_acquire(queue->old_entries_lock);
+    entry = queue->old_entries;
+    if (entry != NULL)
+        queue->old_entries = entry->next;
+    spinlock_release(queue->old_entries_lock);
+
+    if (entry != NULL) {
         /* successfully popped the old 'entry'.  It remains in the
-           'old_objects_popped' list for now. */
+           'old_objects_popped' list for now.  From now on, this entry
+           "belongs" to this segment and should never be read by
+           another segment. */
+        queue_activate(queue, seg);
+
+        queue_check_entry(entry);
+        assert(!_is_in_nursery(entry->object));
+
         entry->next = seg->old_objects_popped;
         seg->old_objects_popped = entry;
-
-        queue_activate(queue);
-        assert(entry->object != NULL);
         return entry->object;
     }
     else {
@@ -268,7 +288,9 @@ object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
 #endif
         if (timeout == 0.0) {
             if (!stm_is_inevitable(tl)) {
+                STM_PUSH_ROOT(*tl, qobj);
                 stm_become_inevitable(tl, "stm_queue_get");
+                STM_POP_ROOT(*tl, qobj);
                 goto retry;
             }
             else
@@ -304,8 +326,8 @@ object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
 
 void stm_queue_task_done(stm_queue_t *queue)
 {
-    queue_activate(queue);
     stm_queue_segment_t *seg = &queue->segs[STM_SEGMENT->segment_num - 1];
+    queue_activate(queue, seg);
     seg->unfinished_tasks_in_this_transaction--;
 }
 
@@ -358,14 +380,30 @@ void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **))
         }
         queue_trace_list(queue->old_entries, trace, NULL);
     }
-    else {
-        /* for minor collections: it is enough to trace the objects
-           added in the current transaction.  All other objects are
-           old (or, worse, belong to a parallel thread and must not
-           be traced). */
+    /* for minor collections, done differently.
+       see collect_active_queues() below */
+}
+
+static void collect_active_queues(void)
+{
+    wlog_t *item;
+    TREE_LOOP_FORWARD(STM_PSEGMENT->active_queues, item) {
+        /* it is enough to trace the objects added in the current
+           transaction.  All other objects reachable from the queue
+           are old (or, worse, belong to a parallel thread and must
+           not be traced).  Performance note: this is linear in the
+           total number of active queues, but at least each queue that
+           has not been touched for a while in a long transaction is
+           handled very cheaply.
+        */
+        stm_queue_t *queue = (stm_queue_t *)item->addr;
         stm_queue_segment_t *seg = &queue->segs[STM_SEGMENT->segment_num - 1];
-        queue_trace_list(seg->added_in_this_transaction, trace,
-                         seg->added_young_limit);
-        seg->added_young_limit = seg->added_in_this_transaction;
-    }
+        if (seg->added_young_limit != seg->added_in_this_transaction) {
+            dprintf(("minor collection trace queue %p\n", queue));
+            queue_trace_list(seg->added_in_this_transaction,
+                             &minor_trace_if_young,
+                             seg->added_young_limit);
+            seg->added_young_limit = seg->added_in_this_transaction;
+        }
+    } TREE_LOOP_END;
 }
