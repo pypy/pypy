@@ -269,7 +269,7 @@ class AssemblerARM(ResOpAssembler):
         #
         self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats, callee_only)
         ## args are in their respective positions
-        mlc.PUSH([r.ip.value, r.lr.value])
+        mc.PUSH([r.ip.value, r.lr.value])
         mc.BLX(r.r4.value)
         self._reload_frame_if_necessary(mc)
         self._pop_all_regs_from_jitframe(mc, [], supports_floats,
