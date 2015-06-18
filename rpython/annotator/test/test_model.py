@@ -37,6 +37,10 @@ def test_contains():
                                            (s4, s4), (s4, s6),
                                                      (s6, s6)])
 
+def test_signedness():
+    assert not SomeInteger(unsigned=True).contains(SomeInteger())
+    assert SomeInteger(unsigned=True).contains(SomeInteger(nonneg=True))
+
 def test_commonbase_simple():
     class A0:
         pass
@@ -117,3 +121,11 @@ def test_not_const():
     assert s_int != SomeInteger()
     assert not_const(s_int) == SomeInteger()
     assert not_const(s_None) == s_None
+
+
+def test_nonnulify():
+    s = SomeString(can_be_None=True).nonnulify()
+    assert s.can_be_None is True
+    assert s.no_nul is True
+    s = SomeChar().nonnulify()
+    assert s.no_nul is True

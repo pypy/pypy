@@ -45,7 +45,6 @@ class LowLevelDatabase(object):
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
-        self.externalfuncs = {}
         self.helper2ptr = {}
 
         # late_initializations is for when the value you want to

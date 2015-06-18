@@ -53,17 +53,21 @@ def test_create_exe():
 
     dst_name = udir.join('dst/pypy.exe')
     src_name = udir.join('src/dydy2.exe')
+    wsrc_name = udir.join('src/dydy2w.exe')
     dll_name = udir.join('src/pypy.dll')
     lib_name = udir.join('src/pypy.lib')
     pdb_name = udir.join('src/pypy.pdb')
     src_name.ensure()
     src_name.write('exe')
+    wsrc_name.ensure()
+    wsrc_name.write('wexe')
     dll_name.ensure()
     dll_name.write('dll')
     lib_name.ensure()
     lib_name.write('lib')
     pdb_name.ensure()
     pdb_name.write('pdb')
+    # Create the dst directory
     dst_name.ensure()
 
     class CBuilder(object):
@@ -76,6 +80,7 @@ def test_create_exe():
     assert dst_name.read() == 'exe'
     assert dst_name.new(ext='dll').read() == 'dll'
     assert dst_name.new(purebasename='python27',ext='lib').read() == 'lib'
+    assert dst_name.new(purebasename=dst_name.purebasename + 'w').read() == 'wexe'
 
 def test_shutil_copy():
     if os.name == 'nt':

@@ -581,22 +581,52 @@ class Optimizer(Optimization):
                                        op.getdescr(), op.type)
 
     def pure_reverse(self, op):
+        import sys
         if self.optpure is None:
             return
         optpure = self.optpure
         if op.getopnum() == rop.INT_ADD:
-            optpure.pure_from_args(rop.INT_ADD, [op.getarg(1), op.getarg(0)],
-                                   op)
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+            optpure.pure_from_args(rop.INT_ADD, [arg1, arg0], op)
             # Synthesize the reverse op for optimize_default to reuse
-            optpure.pure_from_args(rop.INT_SUB, [op, op.getarg(1)],
-                                   op.getarg(0))
-            optpure.pure_from_args(rop.INT_SUB,
-                                   [op, op.getarg(0)], op.getarg(1))
+            optpure.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
+            optpure.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
+            if isinstance(arg0, ConstInt):
+                # invert the constant
+                i0 = arg0.getint()
+                if i0 == -sys.maxint - 1:
+                    return
+                inv_arg0 = ConstInt(-i0)
+            elif isinstance(arg1, ConstInt):
+                # commutative
+                i0 = arg1.getint()
+                if i0 == -sys.maxint - 1:
+                    return
+                inv_arg0 = ConstInt(-i0)
+                arg1 = arg0
+            else:
+                return
+            optpure.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
+            optpure.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
+            optpure.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
+            optpure.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
+
         elif op.getopnum() == rop.INT_SUB:
-            optpure.pure_from_args(rop.INT_ADD,
-                                   [op, op.getarg(1)], op.getarg(0))
-            optpure.pure_from_args(rop.INT_SUB,
-                                   [op.getarg(0), op], op.getarg(1))
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+            optpure.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
+            optpure.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
+            if isinstance(arg1, ConstInt):
+                # invert the constant
+                i1 = arg1.getint()
+                if i1 == -sys.maxint - 1:
+                    return
+                inv_arg1 = ConstInt(-i1)
+                optpure.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
+                optpure.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
+                optpure.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
+                optpure.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
         elif op.getopnum() == rop.FLOAT_MUL:
             optpure.pure_from_args(rop.FLOAT_MUL,
                                    [op.getarg(1), op.getarg(0)], op)

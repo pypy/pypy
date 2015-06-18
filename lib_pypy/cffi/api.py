@@ -70,6 +70,7 @@ class FFI(object):
         self._function_caches = []
         self._libraries = []
         self._cdefsources = []
+        self._included_ffis = []
         self._windows_unicode = None
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
@@ -108,6 +109,11 @@ class FFI(object):
             if override:
                 for cache in self._function_caches:
                     cache.clear()
+            finishlist = self._parser._recomplete
+            if finishlist:
+                self._parser._recomplete = []
+                for tp in finishlist:
+                    tp.finish_backend_type(self, finishlist)
 
     def dlopen(self, name, flags=0):
         """Load and return a dynamic library identified by 'name'.
@@ -418,12 +424,17 @@ class FFI(object):
         variables, which must anyway be accessed directly from the
         lib object returned by the original FFI instance.
         """
+        if not isinstance(ffi_to_include, FFI):
+            raise TypeError("ffi.include() expects an argument that is also of"
+                            " type cffi.FFI, not %r" % (
+                                type(ffi_to_include).__name__,))
         with ffi_to_include._lock:
             with self._lock:
                 self._parser.include(ffi_to_include._parser)
                 self._cdefsources.append('[')
                 self._cdefsources.extend(ffi_to_include._cdefsources)
                 self._cdefsources.append(']')
+                self._included_ffis.append(ffi_to_include)
 
     def new_handle(self, x):
         return self._backend.newp_handle(self.BVoidP, x)
@@ -468,6 +479,74 @@ class FFI(object):
         defmacros = list(defmacros) + [('UNICODE', '1'),
                                        ('_UNICODE', '1')]
         kwds['define_macros'] = defmacros
+
+    def set_source(self, module_name, source, source_extension='.c', **kwds):
+        if hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() cannot be called several times "
+                             "per ffi object")
+        if not isinstance(module_name, basestring):
+            raise TypeError("'module_name' must be a string")
+        self._assigned_source = (str(module_name), source,
+                                 source_extension, kwds)
+
+    def distutils_extension(self, tmpdir='build', verbose=True):
+        from distutils.dir_util import mkpath
+        from .recompiler import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            if hasattr(self, 'verifier'):     # fallback, 'tmpdir' ignored
+                return self.verifier.get_extension()
+            raise ValueError("set_source() must be called before"
+                             " distutils_extension()")
+        module_name, source, source_extension, kwds = self._assigned_source
+        if source is None:
+            raise TypeError("distutils_extension() is only for C extension "
+                            "modules, not for dlopen()-style pure Python "
+                            "modules")
+        mkpath(tmpdir)
+        ext, updated = recompile(self, module_name,
+                                 source, tmpdir=tmpdir, extradir=tmpdir,
+                                 source_extension=source_extension,
+                                 call_c_compiler=False, **kwds)
+        if verbose:
+            if updated:
+                sys.stderr.write("regenerated: %r\n" % (ext.sources[0],))
+            else:
+                sys.stderr.write("not modified: %r\n" % (ext.sources[0],))
+        return ext
+
+    def emit_c_code(self, filename):
+        from .recompiler import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() must be called before emit_c_code()")
+        module_name, source, source_extension, kwds = self._assigned_source
+        if source is None:
+            raise TypeError("emit_c_code() is only for C extension modules, "
+                            "not for dlopen()-style pure Python modules")
+        recompile(self, module_name, source,
+                  c_file=filename, call_c_compiler=False, **kwds)
+
+    def emit_python_code(self, filename):
+        from .recompiler import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() must be called before emit_c_code()")
+        module_name, source, source_extension, kwds = self._assigned_source
+        if source is not None:
+            raise TypeError("emit_python_code() is only for dlopen()-style "
+                            "pure Python modules, not for C extension modules")
+        recompile(self, module_name, source,
+                  c_file=filename, call_c_compiler=False, **kwds)
+
+    def compile(self, tmpdir='.'):
+        from .recompiler import recompile
+        #
+        if not hasattr(self, '_assigned_source'):
+            raise ValueError("set_source() must be called before compile()")
+        module_name, source, source_extension, kwds = self._assigned_source
+        return recompile(self, module_name, source, tmpdir=tmpdir,
+                         source_extension=source_extension, **kwds)
 
 
 def _load_backend_lib(backend, name, flags):
@@ -531,6 +610,11 @@ def _make_ffi_library(ffi, libname, flags):
             copied_enums.append(True)
             if name in library.__dict__:
                 return
+        #
+        key = 'constant ' + name
+        if key in ffi._parser._declarations:
+            raise NotImplementedError("fetching a non-integer constant "
+                                      "after dlopen()")
         #
         raise AttributeError(name)
     #

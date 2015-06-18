@@ -26,9 +26,8 @@ static char *debug_prefix = NULL;
 static char *debug_filename = NULL;
 static char *debug_filename_with_fork = NULL;
 
-static void pypy_debug_open(void)
+static void _pypy_debug_open(char *filename)
 {
-  char *filename = getenv("PYPYLOG");
   if (filename && filename[0])
     {
       char *colon = strchr(filename, ':');
@@ -75,6 +74,11 @@ static void pypy_debug_open(void)
     putenv("PYPYLOG=");    /* don't pass it to subprocesses */
 #endif
   debug_ready = 1;
+}
+
+static void pypy_debug_open(void)
+{
+    _pypy_debug_open(getenv("PYPYLOG"));
 }
 
 long pypy_debug_offset(void)
@@ -134,6 +138,7 @@ void pypy_debug_forked(long original_offset)
 
 static unsigned char startswithoneof(const char *str, const char *substr)
 {
+    /* any([str.startswith(x) for x in substr.split(',')]) */
   const char *p = str;
   for (; *substr; substr++)
     {
@@ -148,6 +153,23 @@ static unsigned char startswithoneof(const char *str, const char *substr)
         p = str;    /* mismatched, retry with the next */
     }
   return p != NULL;
+}
+
+static long oneofstartswith(const char *str, const char *substr)
+{
+    /* any([x.startswith(substr) for x in str.split(',')]) */
+    const char *p = substr;
+    for (; *str; str++) {
+        if (p) {
+            if (*p++ != *str)
+                p = NULL;   /* mismatch */
+            else if (*p == '\0')
+                return 1;   /* full substring match */
+        }
+        if (*str == ',')
+            p = substr;     /* restart looking */
+    }
+    return 0;
 }
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
@@ -194,4 +216,14 @@ void pypy_debug_stop(const char *category)
   if (debug_profile | (pypy_have_debug_prints & 1))
     display_startstop("", "}", category, debug_start_colors_2);
   pypy_have_debug_prints >>= 1;
+}
+
+long pypy_have_debug_prints_for(const char *category_prefix)
+{
+  pypy_debug_ensure_opened();
+  return (!debug_profile && debug_prefix &&
+          /* if 'PYPYLOG=abc,xyz:-' and prefix=="ab", then return 1 */
+          (oneofstartswith(debug_prefix, category_prefix) ||
+           /* if prefix=="abcdef" and 'PYPYLOG=abc,xyz:-' then return 1 */
+           startswithoneof(category_prefix, debug_prefix)));
 }

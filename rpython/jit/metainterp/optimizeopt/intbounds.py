@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.optimizeopt import vstring
+from rpython.rlib.rarithmetic import intmask
 
 def get_integer_min(is_unsigned, byte_size):
     if is_unsigned:
@@ -116,6 +117,41 @@ class OptIntBounds(Optimization):
             self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+        v1 = self.getintbound(arg1)
+        v2 = self.getintbound(arg2)
+
+        # Optimize for addition chains in code "b = a + 1; c = b + 1" by
+        # detecting the int_add chain, and swapping with "b = a + 1;
+        # c = a + 2". If b is not used elsewhere, the backend eliminates
+        # it.
+
+        # either v1 or v2 can be a constant, swap the arguments around if
+        # v1 is the constant
+        if v1.is_constant():
+            arg1, arg2 = arg2, arg1
+            v1, v2 = v2, v1
+        # if both are constant, the pure optimization will deal with it
+        if v2.is_constant() and not v1.is_constant():
+            if isinstance(arg1, AbstractResOp):
+                if arg1.getopnum() == rop.INT_ADD:
+                    prod_arg1 = arg1.getarg(0)
+                    prod_arg2 = arg1.getarg(1)
+                    prod_v1 = self.getintbound(prod_arg1)
+                    prod_v2 = self.getintbound(prod_arg2)
+
+                    # same thing here: prod_v1 or prod_v2 can be a
+                    # constant
+                    if prod_v1.is_constant():
+                        prod_arg1, prod_arg2 = prod_arg2, prod_arg1
+                        prod_v1, prod_v2 = prod_v2, prod_v1
+                    if prod_v2.is_constant():
+                        sum = intmask(arg2.getint() + prod_arg2.getint())
+                        arg1 = prod_arg1
+                        arg2 = ConstInt(sum)
+                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+
         self.emit_operation(op)
         if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
             return

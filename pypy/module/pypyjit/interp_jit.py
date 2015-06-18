@@ -19,13 +19,12 @@ from opcode import opmap
 
 
 PyFrame._virtualizable_ = ['last_instr', 'pycode',
-                           'valuestackdepth', 'locals_stack_w[*]',
-                           'cells[*]',
+                           'valuestackdepth',
+                           'locals_cells_stack_w[*]',
+                           'debugdata',
                            'last_exception',
                            'lastblock',
-                           'is_being_profiled',
                            'w_globals',
-                           'w_f_trace',
                            ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
@@ -34,6 +33,9 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     name = opcode_method_names[ord(bytecode.co_code[next_instr])]
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
+
+def get_unique_id(next_instr, is_being_profiled, bytecode):
+    return bytecode._unique_id
 
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
@@ -45,6 +47,7 @@ class PyPyJitDriver(JitDriver):
     virtualizables = ['frame']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
+                              get_unique_id = get_unique_id,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
                               name='pypyjit')
@@ -54,7 +57,7 @@ class __extend__(PyFrame):
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
-        is_being_profiled = self.is_being_profiled
+        is_being_profiled = self.get_is_being_profiled()
         try:
             while True:
                 pypyjitdriver.jit_merge_point(ec=ec,
@@ -63,7 +66,7 @@ class __extend__(PyFrame):
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                is_being_profiled = self.is_being_profiled
+                is_being_profiled = self.get_is_being_profiled()
         except Yield:
             self.last_exception = None
             w_result = self.popvalue()
@@ -87,8 +90,8 @@ class __extend__(PyFrame):
             jumpto = r_uint(self.last_instr)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
-                                    pycode=self.getcode(),
-                                    is_being_profiled=self.is_being_profiled)
+                                 pycode=self.getcode(),
+                                 is_being_profiled=self.get_is_being_profiled())
         return jumpto
 
 def _get_adapted_tick_counter():

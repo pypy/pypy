@@ -74,7 +74,7 @@ class TestDicts(BaseTestPyPyC):
             setfield_gc(p13, p15, descr=<FieldP dicttable.indexes .+>)
             setfield_gc(p13, ConstPtr(0), descr=<FieldP dicttable.entries .+>)
             }}}
-            i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, 1, descr=<Calli . rrii EF=4 OS=4>)
+            i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, 1, descr=<Calli . rrii EF=5 OS=4>)
             {{{
             setfield_gc(p13, 0, descr=<FieldS dicttable.lookup_function_no .+>)
             setfield_gc(p13, 0, descr=<FieldS dicttable.num_live_items .+>)
@@ -82,10 +82,10 @@ class TestDicts(BaseTestPyPyC):
             }}}
             guard_no_exception(descr=...)
             p20 = new_with_vtable(ConstClass(W_IntObject))
-            call(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=4>)
+            call(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=5>)
             setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .*>)
             guard_no_exception(descr=...)
-            i23 = call(ConstClass(ll_call_lookup_function), p13, p10, i12, 0, descr=<Calli . rrii EF=4 OS=4>)
+            i23 = call(ConstClass(ll_call_lookup_function), p13, p10, i12, 0, descr=<Calli . rrii EF=5 OS=4>)
             guard_no_exception(descr=...)
             i27 = int_lt(i23, 0)
             guard_false(i27, descr=...)

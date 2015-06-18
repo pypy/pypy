@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
@@ -131,6 +132,8 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
+                if (1 << (8*align-2)) > sys.maxint:
+                    align /= 2
         else:
             # a different hack when translated, to avoid seeing constants
             # of a symbolic integer type
@@ -141,6 +144,24 @@ class W_CType(W_Root):
         space = self.space
         raise oefmt(space.w_ValueError, "ctype '%s' is of unknown alignment",
                     self.name)
+
+    def direct_typeoffsetof(self, w_field_or_index, following=0):
+        space = self.space
+        try:
+            fieldname = space.str_w(w_field_or_index)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            try:
+                index = space.int_w(w_field_or_index)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise OperationError(space.w_TypeError,
+                        space.wrap("field name or array index expected"))
+            return self.typeoffsetof_index(index)
+        else:
+            return self.typeoffsetof_field(fieldname, following)
 
     def typeoffsetof_field(self, fieldname, following):
         space = self.space
@@ -177,8 +198,8 @@ class W_CType(W_Root):
         raise oefmt(space.w_AttributeError,
                     "cdata '%s' has no attribute '%s'", self.name, attr)
 
-    def copy_and_convert_to_object(self, cdata):
-        return self.convert_to_object(cdata)
+    def copy_and_convert_to_object(self, source):
+        return self.convert_to_object(source)
 
     # __________ app-level attributes __________
     def dir(self):

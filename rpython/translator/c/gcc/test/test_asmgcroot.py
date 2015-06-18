@@ -65,7 +65,9 @@ class AbstractTestAsmGCRoot:
             t.view()
         exe_name = cbuilder.compile()
 
-        def run(arg0, arg1):
+        def run(arg0, arg1, runner=None):
+            if runner is not None:
+                py.test.skip("unsupported test: runner=%r" % (runner,))
             lines = []
             print >> sys.stderr, 'RUN: starting', exe_name, arg0, arg1
             if sys.platform == 'win32':

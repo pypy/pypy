@@ -146,6 +146,26 @@ but they are not really tested any more.  Look, for example, at the
 :doc:`objspace proxies <objspace-proxies>` document.
 
 
+Packaging (preparing for installation)
+--------------------------------------
+
+Packaging is required if you want to install PyPy system-wide, even to
+install on the same machine.  The reason is that doing so prepares a
+number of extra features that cannot be done lazily on a root-installed
+PyPy, because the normal users don't have write access.  This concerns
+mostly libraries that would normally be compiled if and when they are
+imported the first time.
+
+::
+    
+    cd pypy/tool/release
+    ./package.py pypy-VER-PLATFORM
+
+This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
+with the same content; both are found by default in
+``/tmp/usession-YOURNAME/build/``.  You can then either move the file
+hierarchy or unpack the ``.tar.bz2`` at the correct place.
+
 
 Installation
 ------------

@@ -33,7 +33,8 @@ PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
 PY_SSL_CLIENT, PY_SSL_SERVER = 0, 1
 
 (PY_SSL_VERSION_SSL2, PY_SSL_VERSION_SSL3,
- PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1) = range(4)
+ PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1, PY_SSL_VERSION_TLS1_1,
+ PY_SSL_VERSION_TLS1_2) = range(6)
 
 SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
@@ -64,7 +65,8 @@ constants["VERIFY_X509_STRICT"] = X509_V_FLAG_X509_STRICT
 constants["HAS_SNI"] = HAS_SNI
 constants["HAS_TLS_UNIQUE"] = HAVE_OPENSSL_FINISHED
 constants["HAS_ECDH"] = not OPENSSL_NO_ECDH
-constants["HAS_NPN"] = OPENSSL_NPN_NEGOTIATED
+constants["HAS_NPN"] = HAS_NPN
+constants["HAS_ALPN"] = HAS_ALPN
 
 if not OPENSSL_NO_SSL2:
     constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
@@ -72,6 +74,11 @@ if not OPENSSL_NO_SSL3:
     constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
 constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
+if HAVE_TLSv1_2:
+    constants["PROTOCOL_TLSv1_1"] = PY_SSL_VERSION_TLS1_1
+    constants["OP_NO_TLSv1_1"] = SSL_OP_NO_TLSv1_1
+    constants["PROTOCOL_TLSv1_2"] = PY_SSL_VERSION_TLS1_2
+    constants["OP_NO_TLSv1_2"] = SSL_OP_NO_TLSv1_2
 
 constants["OP_ALL"] = SSL_OP_ALL &~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 constants["OP_NO_SSLv2"] = SSL_OP_NO_SSLv2
@@ -140,7 +147,7 @@ class SSLNpnProtocols(object):
 
     def __del__(self):
         rffi.free_nonmovingbuffer(
-            self.protos, self.buf, self.pinned, self.is_raw)    
+            self.protos, self.buf, self.pinned, self.is_raw)
 
     @staticmethod
     def advertiseNPN_cb(s, data_ptr, len_ptr, args):
@@ -162,14 +169,52 @@ class SSLNpnProtocols(object):
             client_len = len(npn.protos)
         else:
             client = lltype.nullptr(rffi.CCHARP.TO)
-            client_len = 0            
+            client_len = 0
 
         libssl_SSL_select_next_proto(out_ptr, outlen_ptr,
                                      server, server_len,
                                      client, client_len)
         return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_OK)
 
+
+class SSLAlpnProtocols(object):
+
+    def __init__(self, ctx, protos):
+        self.protos = protos
+        self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
+        ALPN_STORAGE.set(r_uint(rffi.cast(rffi.UINT, self.buf)), self)
+
+        with rffi.scoped_str2charp(protos) as protos_buf:
+            if libssl_SSL_CTX_set_alpn_protos(
+                    ctx, rffi.cast(rffi.UCHARP, protos_buf), len(protos)):
+                raise MemoryError
+        libssl_SSL_CTX_set_alpn_select_cb(
+            ctx, self.selectALPN_cb, self.buf)
+
+    def __del__(self):
+        rffi.free_nonmovingbuffer(
+            self.protos, self.buf, self.pinned, self.is_raw)
+
+    @staticmethod
+    def selectALPN_cb(s, out_ptr, outlen_ptr, client, client_len, args):
+        alpn = ALPN_STORAGE.get(r_uint(rffi.cast(rffi.UINT, args)))
+        if alpn and alpn.protos:
+            server = alpn.buf
+            server_len = len(alpn.protos)
+        else:
+            server = lltype.nullptr(rffi.CCHARP.TO)
+            server_len = 0
+
+        ret = libssl_SSL_select_next_proto(out_ptr, outlen_ptr,
+                                           server, server_len,
+                                           client, client_len)
+        if ret != OPENSSL_NPN_NEGOTIATED:
+            return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_NOACK)
+        return rffi.cast(rffi.INT, SSL_TLSEXT_ERR_OK)
+
+
 NPN_STORAGE = RWeakValueDictionary(r_uint, SSLNpnProtocols)
+ALPN_STORAGE = RWeakValueDictionary(r_uint, SSLAlpnProtocols)
 
 SOCKET_STORAGE = RWeakValueDictionary(int, W_Root)
 
@@ -565,6 +610,18 @@ class _SSLSocket(W_Root):
                     return space.wrap(
                         rffi.charpsize2str(out_ptr[0], intmask(len_ptr[0])))
 
+    def selected_alpn_protocol(self, space):
+        if not HAS_ALPN:
+            raise oefmt(space.w_NotImplementedError,
+                        "The ALPN extension requires OpenSSL 1.0.2 or later.")
+        with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as out_ptr:
+            with lltype.scoped_alloc(rffi.UINTP.TO, 1) as len_ptr:
+                libssl_SSL_get0_alpn_selected(self.ssl,
+                                              out_ptr, len_ptr)
+                if out_ptr[0]:
+                    return space.wrap(
+                        rffi.charpsize2str(out_ptr[0], intmask(len_ptr[0])))
+
     def compression_w(self, space):
         if not self.ssl:
             return space.w_None
@@ -593,14 +650,14 @@ class _SSLSocket(W_Root):
         CB_MAXLEN = 128
 
         with lltype.scoped_alloc(rffi.CCHARP.TO, CB_MAXLEN) as buf:
-            if (libssl_SSL_session_reused(self.ssl) ^ 
+            if (libssl_SSL_session_reused(self.ssl) ^
                 (self.socket_type == PY_SSL_CLIENT)):
                 # if session is resumed XOR we are the client
                 length = libssl_SSL_get_finished(self.ssl, buf, CB_MAXLEN)
             else:
                 # if a new session XOR we are the server
                 length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
-            
+
             if length > 0:
                 return space.wrap(rffi.charpsize2str(buf, intmask(length)))
 
@@ -628,6 +685,7 @@ _SSLSocket.typedef = TypeDef(
     cipher=interp2app(_SSLSocket.cipher),
     shutdown=interp2app(_SSLSocket.shutdown),
     selected_npn_protocol = interp2app(_SSLSocket.selected_npn_protocol),
+    selected_alpn_protocol = interp2app(_SSLSocket.selected_alpn_protocol),
     compression = interp2app(_SSLSocket.compression_w),
     version = interp2app(_SSLSocket.version_w),
     tls_unique_cb = interp2app(_SSLSocket.tls_unique_cb_w),
@@ -1107,7 +1165,7 @@ def _password_callback(buf, size, rwflag, userdata):
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise oefmt(space.w_TypeError, 
+                raise oefmt(space.w_TypeError,
                             "password callback must return a string")
         except OperationError as e:
             pw_info.operationerror = e
@@ -1196,6 +1254,10 @@ class _SSLContext(W_Root):
             method = libssl_SSLv2_method()
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
+        elif protocol == PY_SSL_VERSION_TLS1_1 and HAVE_TLSv1_2:
+            method = libssl_TLSv1_1_method()
+        elif protocol == PY_SSL_VERSION_TLS1_2 and HAVE_TLSv1_2:
+            method = libssl_TLSv1_2_method()
         else:
             raise oefmt(space.w_ValueError, "invalid protocol version")
         ctx = libssl_SSL_CTX_new(method)
@@ -1348,7 +1410,7 @@ class _SSLContext(W_Root):
                 except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
-                    raise oefmt(space.w_TypeError, 
+                    raise oefmt(space.w_TypeError,
                                 "password should be a string or callable")
 
             libssl_SSL_CTX_set_default_passwd_cb(
@@ -1452,7 +1514,7 @@ class _SSLContext(W_Root):
         if cadata is not None:
             with rffi.scoped_nonmovingbuffer(cadata) as buf:
                 self._add_ca_certs(space, buf, len(cadata), ca_file_type)
-            
+
         # load cafile or capath
         if cafile is not None or capath is not None:
             ret = libssl_SSL_CTX_load_verify_locations(
@@ -1551,6 +1613,14 @@ class _SSLContext(W_Root):
 
         self.npn_protocols = SSLNpnProtocols(self.ctx, protos)
 
+    @unwrap_spec(protos='bufferstr')
+    def set_alpn_protocols_w(self, space, protos):
+        if not HAS_ALPN:
+            raise oefmt(space.w_NotImplementedError,
+                        "The ALPN extension requires OpenSSL 1.0.2 or later.")
+
+        self.alpn_protocols = SSLAlpnProtocols(self.ctx, protos)
+
     def get_ca_certs_w(self, space, w_binary_form=None):
         if w_binary_form and space.is_true(w_binary_form):
             binary_mode = True
@@ -1619,6 +1689,7 @@ _SSLContext.typedef = TypeDef(
     session_stats = interp2app(_SSLContext.session_stats_w),
     set_default_verify_paths=interp2app(_SSLContext.descr_set_default_verify_paths),
     _set_npn_protocols=interp2app(_SSLContext.set_npn_protocols_w),
+    _set_alpn_protocols=interp2app(_SSLContext.set_alpn_protocols_w),
     get_ca_certs=interp2app(_SSLContext.get_ca_certs_w),
     set_ecdh_curve=interp2app(_SSLContext.set_ecdh_curve_w),
     set_servername_callback=interp2app(_SSLContext.set_servername_callback_w),

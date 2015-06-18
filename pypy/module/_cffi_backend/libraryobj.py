@@ -91,7 +91,7 @@ W_Library.typedef = TypeDef(
     read_variable = interp2app(W_Library.read_variable),
     write_variable = interp2app(W_Library.write_variable),
     )
-W_Library.acceptable_as_base_class = False
+W_Library.typedef.acceptable_as_base_class = False
 
 
 @unwrap_spec(filename="str_or_None", flags=int)

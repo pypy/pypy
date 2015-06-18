@@ -11,7 +11,7 @@ from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
     INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction)
+    UserDelAction, CodeUniqueIds)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
@@ -388,6 +388,7 @@ class ObjSpace(object):
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
+        self.code_unique_ids = CodeUniqueIds()
         self._code_of_sys_exc_info = None
 
         # can be overridden to a subclass
@@ -665,6 +666,16 @@ class ObjSpace(object):
             ec = self.threadlocals.get_ec()
             assert ec is not None
             return ec
+
+    def register_code_callback(self, callback):
+        cui = self.code_unique_ids
+        cui.code_callback = callback
+
+    def register_code_object(self, pycode):
+        cui = self.code_unique_ids
+        if cui.code_callback is None:
+            return
+        cui.code_callback(self, pycode)
 
     def _freeze_(self):
         return True
@@ -1080,7 +1091,7 @@ class ObjSpace(object):
 
     def call_valuestack(self, w_func, nargs, frame):
         from pypy.interpreter.function import Function, Method, is_builtin_code
-        if frame.is_being_profiled and is_builtin_code(w_func):
+        if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
             args = frame.make_arguments(nargs)

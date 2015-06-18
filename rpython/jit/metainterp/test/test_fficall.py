@@ -9,7 +9,7 @@ from rpython.jit.codewriter.longlong import is_longlong, is_64_bit
 from rpython.rlib import jit
 from rpython.rlib import jit_libffi
 from rpython.rlib.jit_libffi import (types, CIF_DESCRIPTION, FFI_TYPE_PP,
-                                     jit_ffi_call, jit_ffi_save_result)
+                                     jit_ffi_call)
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, r_longlong, r_singlefloat
 from rpython.rlib.longlong2float import float2longlong
@@ -48,13 +48,17 @@ class FfiCallTests(object):
     def _run(self, atypes, rtype, avalues, rvalue,
              expected_call_release_gil=1,
              supports_floats=True,
-             supports_longlong=True,
-             supports_singlefloats=True):
+             supports_longlong=False,
+             supports_singlefloats=False):
 
         cif_description = get_description(atypes, rtype)
 
         def verify(*args):
-            assert args == tuple(avalues)
+            for a, exp_a in zip(args, avalues):
+                if (lltype.typeOf(exp_a) == rffi.ULONG and
+                    lltype.typeOf(a) == lltype.Signed):
+                    a = rffi.cast(rffi.ULONG, a)
+                assert a == exp_a
             return rvalue
         FUNC = lltype.FuncType([lltype.typeOf(avalue) for avalue in avalues],
                                lltype.typeOf(rvalue))
@@ -76,6 +80,10 @@ class FfiCallTests(object):
                 if lltype.typeOf(avalue) is lltype.SingleFloat:
                     got = float(got)
                     avalue = float(avalue)
+                elif (lltype.typeOf(avalue) is rffi.SIGNEDCHAR or
+                      lltype.typeOf(avalue) is rffi.UCHAR):
+                    got = intmask(got)
+                    avalue = intmask(avalue)
                 assert got == avalue
                 ofs += 16
             if rvalue is not None:
@@ -115,6 +123,9 @@ class FfiCallTests(object):
                 return res == 654321
             if isinstance(rvalue, r_singlefloat):
                 rvalue = float(rvalue)
+            if lltype.typeOf(rvalue) is rffi.ULONG:
+                res = intmask(res)
+                rvalue = intmask(rvalue)
             return res == rvalue
 
         with FakeFFI(fake_call_impl_any):
@@ -156,20 +167,24 @@ class FfiCallTests(object):
                       -42434445)
 
     def test_simple_call_float(self, **kwds):
+        kwds.setdefault('supports_floats', True)
         self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2, **kwds)
 
     def test_simple_call_longlong(self, **kwds):
+        kwds.setdefault('supports_longlong', True)
         maxint32 = 2147483647
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
         self._run([types.slonglong] * 2, types.slonglong, [a, b], a, **kwds)
 
-    def test_simple_call_singlefloat_args(self):
+    def test_simple_call_singlefloat_args(self, **kwds):
+        kwds.setdefault('supports_singlefloats', True)
         self._run([types.float] * 2, types.double,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
                   -4.5)
 
     def test_simple_call_singlefloat(self, **kwds):
+        kwds.setdefault('supports_singlefloats', True)
         self._run([types.float] * 2, types.float,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
                   r_singlefloat(-4.5), **kwds)
@@ -183,8 +198,19 @@ class FfiCallTests(object):
         self._run([types.signed] * 2, types.void, [456, 789], None)
 
     def test_returns_signedchar(self):
-        self._run([types.signed], types.sint8, [456],
+        self._run([types.sint8], types.sint8,
+                  [rffi.cast(rffi.SIGNEDCHAR, -28)],
                   rffi.cast(rffi.SIGNEDCHAR, -42))
+
+    def test_handle_unsigned(self):
+        self._run([types.ulong], types.ulong,
+                  [rffi.cast(rffi.ULONG, sys.maxint + 91348)],
+                  rffi.cast(rffi.ULONG, sys.maxint + 4242))
+
+    def test_handle_unsignedchar(self):
+        self._run([types.uint8], types.uint8,
+                  [rffi.cast(rffi.UCHAR, 191)],
+                  rffi.cast(rffi.UCHAR, 180))
 
     def _add_libffi_types_to_ll2types_maybe(self):
         # not necessary on the llgraph backend, but needed for x86.
@@ -255,7 +281,7 @@ class FfiCallTests(object):
                 # when n==50, fn() will force the frame, so guard_not_forced
                 # fails and we enter blackholing: this test makes sure that
                 # the result of call_release_gil is kept alive before the
-                # libffi_save_result, and that the corresponding box is passed
+                # raw_store, and that the corresponding box is passed
                 # in the fail_args. Before the fix, the result of
                 # call_release_gil was simply lost and when guard_not_forced
                 # failed, and the value of "res" was unpredictable.
@@ -291,7 +317,6 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
         cd.atypes = atypes
         cd.exchange_size = 64    # 64 bytes of exchange data
         cd.exchange_result = 24
-        cd.exchange_result_libffi = 24
         cd.exchange_args[0] = 16
 
         def f():
@@ -324,8 +349,3 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_simple_call_singlefloat_unsupported(self):
         self.test_simple_call_singlefloat(supports_singlefloats=False,
                                           expected_call_release_gil=0)
-
-    def test_simple_call_float_even_if_other_unsupported(self):
-        self.test_simple_call_float(supports_longlong=False,
-                                    supports_singlefloats=False)
-        # this is the default:      expected_call_release_gil=1

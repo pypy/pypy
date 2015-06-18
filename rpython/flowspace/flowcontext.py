@@ -7,7 +7,6 @@ import types
 import __builtin__
 
 from rpython.tool.error import source_lines
-from rpython.translator.simplify import eliminate_empty_blocks
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -124,7 +123,6 @@ class BlockRecorder(Recorder):
 
     def guessexception(self, ctx, *cases):
         block = self.crnt_block
-        bvars = vars = vars2 = block.getvariables()
         links = []
         for case in [None] + list(cases):
             if case is not None:
@@ -774,15 +772,10 @@ class FlowContext(object):
 
     def FOR_ITER(self, target):
         w_iterator = self.peekvalue()
-        try:
-            w_nextitem = op.next(w_iterator).eval(self)
-            self.pushvalue(w_nextitem)
-        except Raise as e:
-            if self.exception_match(e.w_exc.w_type, const(StopIteration)):
-                self.popvalue()
-                return target
-            else:
-                raise
+        self.blockstack.append(IterBlock(self, target))
+        w_nextitem = op.next(w_iterator).eval(self)
+        self.blockstack.pop()
+        self.pushvalue(w_nextitem)
 
     def SETUP_LOOP(self, target):
         block = LoopBlock(self, target)
@@ -1334,6 +1327,16 @@ class ExceptBlock(FrameBlock):
         ctx.pushvalue(w_exc.w_type)
         ctx.last_exception = w_exc
         return self.handlerposition   # jump to the handler
+
+class IterBlock(ExceptBlock):
+    """A pseudo-block to catch the StopIteration inside FOR_ITER"""
+    def handle(self, ctx, unroller):
+        w_exc = unroller.w_exc
+        if ctx.exception_match(w_exc.w_type, const(StopIteration)):
+            ctx.popvalue()
+            return self.handlerposition
+        else:
+            return ctx.unroll(unroller)
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""

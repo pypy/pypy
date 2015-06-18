@@ -31,6 +31,8 @@ class CallControl(object):
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
             self.raise_analyzer = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror.do_ignore_memory_error()
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
@@ -141,7 +143,7 @@ class CallControl(object):
     def grab_initial_jitcodes(self):
         for jd in self.jitdrivers_sd:
             jd.mainjitcode = self.get_jitcode(jd.portal_graph)
-            jd.mainjitcode.is_portal = True
+            jd.mainjitcode.jitdriver_sd = jd
 
     def enum_pending_graphs(self):
         while self.unfinished_graphs:
@@ -260,11 +262,14 @@ class CallControl(object):
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
             elif elidable:
-                if self._canraise(op):
+                cr = self._canraise(op)
+                if cr == "mem":
+                    extraeffect = EffectInfo.EF_ELIDABLE_OR_MEMORYERROR
+                elif cr:
                     extraeffect = EffectInfo.EF_ELIDABLE_CAN_RAISE
                 else:
                     extraeffect = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
-            elif self._canraise(op):
+            elif self._canraise(op):   # True or "mem"
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
@@ -278,6 +283,7 @@ class CallControl(object):
                 " effects): EF=%s" % (op, extraeffect))
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                                   EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
                 raise Exception(
                 "in operation %r: this calls an _elidable_function_,"
@@ -301,10 +307,17 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        """Returns True, False, or "mem" to mean 'only MemoryError'."""
         if op.opname == 'pseudo_call_cannot_raise':
             return False
         try:
-            return self.raise_analyzer.can_raise(op)
+            if self.raise_analyzer.can_raise(op):
+                if self.raise_analyzer_ignore_memoryerror.can_raise(op):
+                    return True
+                else:
+                    return "mem"
+            else:
+                return False
         except lltype.DelayedPointer:
             return True  # if we need to look into the delayed ptr that is
                          # the portal, then it's certainly going to raise

@@ -1,11 +1,12 @@
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
-from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
+from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
@@ -108,10 +109,13 @@ class BaseAssembler(object):
                 kind='unicode')
         else:
             self.malloc_slowpath_unicode = None
-        self.cond_call_slowpath = [self._build_cond_call_slowpath(False, False),
-                                   self._build_cond_call_slowpath(False, True),
-                                   self._build_cond_call_slowpath(True, False),
-                                   self._build_cond_call_slowpath(True, True)]
+        lst = [0, 0, 0, 0]
+        lst[0] = self._build_cond_call_slowpath(False, False)
+        lst[1] = self._build_cond_call_slowpath(False, True)
+        if self.cpu.supports_floats:
+            lst[2] = self._build_cond_call_slowpath(True, False)
+            lst[3] = self._build_cond_call_slowpath(True, True)
+        self.cond_call_slowpath = lst
 
         self._build_stack_check_slowpath()
         self._build_release_gil(gc_ll_descr.gcrootmap)
@@ -119,14 +123,17 @@ class BaseAssembler(object):
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
+            self.set_debug(have_debug_prints_for('jit-backend-counts'))
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
                                               flavor='raw',
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
+
+    def setup(self, looptoken):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder = CodemapBuilder()
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def set_debug(self, v):
         r = self._debug
@@ -193,6 +200,17 @@ class BaseAssembler(object):
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         return fail_descr, target
+
+    def enter_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
+                                                    op.getarg(1).getint(),
+                                                    self.mc.get_relative_pos())
+
+    def leave_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
+                                                    self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)
@@ -276,6 +294,9 @@ class BaseAssembler(object):
         # YYY very minor leak -- we need the counters to stay alive
         # forever, just because we want to report them at the end
         # of the process
+
+        # XXX the numbers here are ALMOST unique, but not quite, use a counter
+        #     or something
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                track_allocation=False)
         struct.i = 0

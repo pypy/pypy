@@ -129,7 +129,8 @@ class DescrOperation(object):
     # This is meant to be a *mixin*.
 
     def is_data_descr(space, w_obj):
-        return space.lookup(w_obj, '__set__') is not None
+        return (space.lookup(w_obj, '__set__') is not None or
+                space.lookup(w_obj, '__delete__') is not None)
 
     def get_and_call_args(space, w_descr, w_obj, args):
         # a special case for performance and to avoid infinite recursion
@@ -180,14 +181,14 @@ class DescrOperation(object):
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
         if w_set is None:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a descriptor with set", w_descr)
         return space.get_and_call_function(w_set, w_descr, w_obj, w_val)
 
     def delete(space, w_descr, w_obj):
         w_delete = space.lookup(w_descr, '__delete__')
         if w_delete is None:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a descriptor with delete", w_descr)
         return space.get_and_call_function(w_delete, w_descr, w_obj)
 
@@ -758,9 +759,26 @@ def _make_inplace_impl(symbol, specialnames):
     noninplacespacemethod = specialname[3:-2]
     if noninplacespacemethod in ['or', 'and']:
         noninplacespacemethod += '_'     # not too clean
+    seq_bug_compat = (symbol == '+=' or symbol == '*=')
+    rhs_method = '__r' + specialname[3:]
+
     def inplace_impl(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, specialname)
         if w_impl is not None:
+            # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
+            # see objspace/test/test_descrobject.*rmul_overrides.
+            # For cases like "list += object-overriding-__radd__".
+            if (seq_bug_compat and space.type(w_lhs).flag_sequence_bug_compat
+                           and not space.type(w_rhs).flag_sequence_bug_compat):
+                w_res = _invoke_binop(space, space.lookup(w_rhs, rhs_method),
+                                      w_rhs, w_lhs)
+                if w_res is not None:
+                    return w_res
+                # xxx if __radd__ is defined but returns NotImplemented,
+                # then it might be called again below.  Oh well, too bad.
+                # Anyway that's a case where we're likely to end up in
+                # a TypeError.
+            #
             w_res = space.get_and_call_function(w_impl, w_lhs, w_rhs)
             if _check_notimplemented(space, w_res):
                 return w_res

@@ -15,11 +15,21 @@ READABLE, WRITABLE = range(1, 3)
 PY_SSIZE_T_MAX = sys.maxint
 PY_SSIZE_T_MIN = -sys.maxint - 1
 
+class State(object):
+    def __init__(self, space):
+        pass
+
+    def init(self, space):
+        w_builtins = space.getbuiltinmodule('__builtin__')
+        w_module = space.call_method(
+            w_builtins, '__import__', space.wrap("multiprocessing"))
+        self.w_BufferTooShort = space.getattr(w_module, space.wrap("BufferTooShort"))
+
+        self.w_picklemodule = space.call_method(
+            w_builtins, '__import__', space.wrap("pickle"))
+
 def BufferTooShort(space, w_data):
-    w_builtins = space.getbuiltinmodule('__builtin__')
-    w_module = space.call_method(
-        w_builtins, '__import__', space.wrap("multiprocessing"))
-    w_BufferTooShort = space.getattr(w_module, space.wrap("BufferTooShort"))
+    w_BufferTooShort = space.fromcache(State).w_BufferTooShort
     return OperationError(w_BufferTooShort, w_data)
 
 def w_handle(space, handle):
@@ -28,6 +38,7 @@ def w_handle(space, handle):
 
 class W_BaseConnection(W_Root):
     BUFFER_SIZE = 1024
+    buffer = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, flags):
         self.flags = flags
@@ -35,7 +46,8 @@ class W_BaseConnection(W_Root):
                                     flavor='raw')
 
     def __del__(self):
-        lltype.free(self.buffer, flavor='raw')
+        if self.buffer:
+            lltype.free(self.buffer, flavor='raw')
         try:
             self.do_close()
         except OSError:
@@ -142,9 +154,7 @@ class W_BaseConnection(W_Root):
     def send(self, space, w_obj):
         self._check_writable(space)
 
-        w_builtins = space.getbuiltinmodule('__builtin__')
-        w_picklemodule = space.call_method(
-            w_builtins, '__import__', space.wrap("pickle"))
+        w_picklemodule = space.fromcache(State).w_picklemodule
         w_protocol = space.getattr(
             w_picklemodule, space.wrap("HIGHEST_PROTOCOL"))
         w_pickled = space.call_method(
@@ -168,8 +178,7 @@ class W_BaseConnection(W_Root):
                 rffi.free_charp(newbuf)
 
         w_builtins = space.getbuiltinmodule('__builtin__')
-        w_picklemodule = space.call_method(
-            w_builtins, '__import__', space.wrap("pickle"))
+        w_picklemodule = space.fromcache(State).w_picklemodule
         w_unpickled = space.call_method(
             w_picklemodule, "loads", w_received)
 
@@ -204,6 +213,7 @@ W_BaseConnection.typedef = TypeDef(
 
 class W_FileConnection(W_BaseConnection):
     INVALID_HANDLE_VALUE = -1
+    fd = INVALID_HANDLE_VALUE
 
     if sys.platform == 'win32':
         def WRITE(self, data):

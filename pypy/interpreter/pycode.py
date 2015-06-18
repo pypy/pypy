@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import dis, imp, struct, types, new, sys
+import dis, imp, struct, types, new, sys, os
 
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
@@ -14,9 +14,10 @@ from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import jit
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
 
 class BytecodeCorruption(Exception):
@@ -54,8 +55,9 @@ class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
-
+                          "co_freevars[*]", "co_cellvars[*]",
+                          "_args_as_cellvars[*]"]
+    
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -83,6 +85,7 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
+        space.register_code_object(self)
 
     def _initialize(self):
         if self.co_cellvars:
@@ -124,10 +127,30 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
+        cui = self.space.code_unique_ids
+        self._unique_id = cui.code_unique_id
+        cui.code_unique_id += 4  # so we have two bits that we can mark stuff
+        # with
+
+    def _get_full_name(self):
+        return "py:%s:%d:%s" % (self.co_name, self.co_firstlineno,
+                                self.co_filename)
+
     def _cleanup_(self):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
+        # When translating PyPy, freeze the file name
+        #     <builtin>/lastdirname/basename.py
+        # instead of freezing the complete translation-time path.
+        filename = self.co_filename.lstrip('<').rstrip('>')
+        if filename.lower().endswith('.pyc'):
+            filename = filename[:-1]
+        basename = os.path.basename(filename)
+        lastdirname = os.path.basename(os.path.dirname(filename))
+        if lastdirname:
+            basename = '%s/%s' % (lastdirname, basename)
+        self.co_filename = '<builtin>/%s' % (basename,)
 
     co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
 
@@ -186,7 +209,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(None, fresh_frame.locals_stack_w, func.name,
+        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
@@ -198,7 +221,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(w_obj, fresh_frame.locals_stack_w, func.name,
+        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()

@@ -144,8 +144,11 @@ class OptPure(Optimization):
         if self.optimizer.emitting_dissabled:
             self.extra_call_pure.append(op) # XXX
         else:
-            self.call_pure_positions.append(len(self.optimizer._newoperations)
-                                            - 1)
+            effectinfo = op.getdescr().get_extra_info()
+            if not effectinfo.check_can_raise(ignore_memoryerror=True):
+                self.call_pure_positions.append(
+                    len(self.optimizer._newoperations) - 1)
+
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I

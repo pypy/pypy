@@ -3,8 +3,7 @@ from rpython.translator.c.support import USESLOTS # set to False if necessary wh
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant
-from rpython.flowspace.model import c_last_exception, copygraph
+from rpython.flowspace.model import Variable, Constant, copygraph
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -233,7 +232,7 @@ class FunctionCodeGenerator(object):
                 for op in self.gen_link(block.exits[0]):
                     yield op
             else:
-                assert block.exitswitch != c_last_exception
+                assert not block.canraise
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
                 if TYPE == Bool:
@@ -796,6 +795,13 @@ class FunctionCodeGenerator(object):
 
     def OP_DEBUG_STOP(self, op):
         return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
+
+    def OP_HAVE_DEBUG_PRINTS_FOR(self, op):
+        arg = op.args[0]
+        assert isinstance(arg, Constant) and isinstance(arg.value, str)
+        string_literal = c_string_constant(arg.value)
+        return '%s = pypy_have_debug_prints_for(%s);' % (
+            self.expr(op.result), string_literal)
 
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),

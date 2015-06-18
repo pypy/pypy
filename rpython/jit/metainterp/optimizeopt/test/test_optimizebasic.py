@@ -1233,12 +1233,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape_n(i2)
         jump()
         """
+        # also check that the length of the forced array is known
         expected = """
         []
         p1 = new_array(3, descr=arraydescr)
         escape_n(p1)
-        i2 = arraylen_gc(p1)
-        escape_n(i2)
+        escape_n(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -3699,6 +3699,67 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_add_sub_constants_inverse(self):
+        import sys
+        ops = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(1, i0)
+        i3 = int_add(-1, i2)
+        i4 = int_sub(i0, -1)
+        i5 = int_sub(i0, i2)
+        jump(i0, i2, i3, i4, i5)
+        """
+        expected = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(1, i0)
+        jump(i0, i2, i0, i2, -1)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(i0, 1)
+        i3 = int_add(-1, i2)
+        i4 = int_sub(i0, -1)
+        i5 = int_sub(i0, i2)
+        jump(i0, i2, i3, i4, i5)
+        """
+        expected = """
+        [i0, i10, i11, i12, i13]
+        i2 = int_add(i0, 1)
+        jump(i0, i2, i0, i2, -1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0, i10, i11, i12, i13, i14]
+        i2 = int_sub(i0, 1)
+        i3 = int_add(-1, i0)
+        i4 = int_add(i0, -1)
+        i5 = int_sub(i2, -1)
+        i6 = int_sub(i2, i0)
+        jump(i0, i2, i3, i4, i5, i6)
+        """
+        expected = """
+        [i0, i10, i11, i12, i13, i14]
+        i2 = int_sub(i0, 1)
+        jump(i0, i2, i2, i2, i0, -1)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [i0, i10, i11, i12]
+        i2 = int_add(%s, i0)
+        i3 = int_add(i2, %s)
+        i4 = int_sub(i0, %s)
+        jump(i0, i2, i3, i4)
+        """ % ((-sys.maxint - 1, ) * 3)
+        expected = """
+        [i0, i10, i11, i12]
+        i2 = int_add(%s, i0)
+        i4 = int_sub(i0, %s)
+        jump(i0, i2, i0, i4)
+        """ % ((-sys.maxint - 1, ) * 2)
+        self.optimize_loop(ops, expected)
+
     def test_framestackdepth_overhead(self):
         ops = """
         [p0, i22]
@@ -4172,7 +4233,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
-        i6 = int_add(i5, 1)      # will be killed by the backend
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4544,6 +4604,58 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1]
         i0 = ptr_eq(p1, NULL)
+        escape_n(i0)
+        jump(p1)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none3(self):
+        ops = """
+        []
+        p5 = newstr(0)
+        i0 = call_i(0, NULL, p5, descr=strequaldescr)
+        escape_n(i0)
+        jump()
+        """
+        expected = """
+        []
+        escape_n(0)
+        jump()
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none4(self):
+        ops = """
+        [p1]
+        p5 = newstr(0)
+        i0 = call_i(0, p5, p1, descr=strequaldescr)
+        escape_n(i0)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        # can't optimize more: p1 may be NULL!
+        i0 = call_i(0, s"", p1, descr=strequaldescr)
+        escape_n(i0)
+        jump(p1)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none5(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1) []
+        p5 = newstr(0)
+        i0 = call_i(0, p5, p1, descr=strequaldescr)
+        escape_n(i0)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1) []
+        # p1 is not NULL, so the string comparison (p1=="") becomes:
+        i6 = strlen(p1)
+        i0 = int_eq(i6, 0)
         escape_n(i0)
         jump(p1)
         """

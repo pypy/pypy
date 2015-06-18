@@ -151,8 +151,6 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                                 inline_heuristic,
                                 call_count_pred=None,
                                 inline_graph_from_anywhere=False):
-
-    type_system = translator.rtyper.type_system.name
     # inline functions in each other
     if inline_threshold:
         log.inlining("phase with threshold factor: %s" % inline_threshold)
@@ -171,7 +169,7 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
     # vaporize mallocs
     if config.mallocs:
         log.malloc("starting malloc removal")
-        remove_mallocs(translator, graphs, type_system)
+        remove_mallocs(translator, graphs)
 
         if config.print_statistics:
             print "after malloc removal:"

@@ -8,7 +8,7 @@ from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant, c_last_exception
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -110,7 +110,7 @@ class Transformer(object):
                 else:
                     raise TypeError(repr(op1))
         #
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             if len(newoperations) == count_before_last_operation:
                 self._killed_exception_raising_operation(block)
         block.operations = newoperations
@@ -143,13 +143,16 @@ class Transformer(object):
             return
         for v in list:
             if v in self.vable_array_vars:
+                vars = self.vable_array_vars[v]
+                (v_base, arrayfielddescr, arraydescr) = vars
                 raise AssertionError(
                     "A virtualizable array is passed around; it should\n"
                     "only be used immediately after being read.  Note\n"
                     "that a possible cause is indexing with an index not\n"
                     "known non-negative, or catching IndexError, or\n"
                     "not inlining at all (for tests: use listops=True).\n"
-                    "Occurred in: %r" % self.graph)
+                    "This is about: %r\n"
+                    "Occurred in: %r" % (arrayfielddescr, self.graph))
             # extra explanation: with the way things are organized in
             # rpython/rlist.py, the ll_getitem becomes a function call
             # that is typically meant to be inlined by the JIT, but
@@ -175,7 +178,7 @@ class Transformer(object):
 
     def follow_constant_exit(self, block):
         v = block.exitswitch
-        if isinstance(v, Constant) and v != c_last_exception:
+        if isinstance(v, Constant) and not block.canraise:
             llvalue = v.value
             for link in block.exits:
                 if link.llexitcase == llvalue:
@@ -192,7 +195,7 @@ class Transformer(object):
         if len(block.exits) != 2:
             return False
         v = block.exitswitch
-        if (v == c_last_exception or isinstance(v, tuple)
+        if (block.canraise or isinstance(v, tuple)
             or v.concretetype != lltype.Bool):
             return False
         for op in block.operations[::-1]:
@@ -1845,6 +1848,13 @@ class Transformer(object):
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
+        can_raise_memoryerror = {
+                    "stroruni.concat": True,
+                    "stroruni.slice":  True,
+                    "stroruni.equal":  False,
+                    "stroruni.cmp":    False,
+                    "stroruni.copy_string_to_raw": False,
+                    }
         if SoU.TO == rstr.STR:
             dict = {"stroruni.concat": EffectInfo.OS_STR_CONCAT,
                     "stroruni.slice":  EffectInfo.OS_STR_SLICE,
@@ -1911,8 +1921,11 @@ class Transformer(object):
                                             argtypes, resulttype,
                                            EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
         #
-        return self._handle_oopspec_call(op, args, dict[oopspec_name],
-                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+        if can_raise_memoryerror[oopspec_name]:
+            extra = EffectInfo.EF_ELIDABLE_OR_MEMORYERROR
+        else:
+            extra = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
+        return self._handle_oopspec_call(op, args, dict[oopspec_name], extra)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
         # ll_str2unicode can raise UnicodeDecodeError
@@ -1941,11 +1954,6 @@ class Transformer(object):
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
 
-    def rewrite_op_jit_ffi_save_result(self, op):
-        kind = op.args[0].value
-        assert kind in ('int', 'float', 'longlong', 'singlefloat')
-        return SpaceOperation('libffi_save_result_%s' % kind, op.args[1:], None)
-
     def rewrite_op_jit_force_virtual(self, op):
         op0 = SpaceOperation('-live-', [], None)
         op1 = self._do_builtin_call(op)
@@ -1960,7 +1968,10 @@ class Transformer(object):
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables
         vinfo = self.get_vinfo(op.args[0])
-        assert vinfo is not None
+        assert vinfo is not None, (
+            "%r is a class with _virtualizable_, but no jitdriver was found"
+            " with a 'virtualizable' argument naming a variable of that class"
+            % op.args[0].concretetype)
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
 

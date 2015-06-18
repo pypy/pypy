@@ -270,15 +270,16 @@ class ShadowStackRootWalker(BaseRootWalker):
 
 class ShadowStackPool(object):
     """Manages a pool of shadowstacks.  The MAX most recently used
-    shadowstacks are fully allocated and can be directly jumped into.
+    shadowstacks are fully allocated and can be directly jumped into
+    (called "full stacks" below).
     The rest are stored in a more virtual-memory-friendly way, i.e.
     with just the right amount malloced.  Before they can run, they
-    must be copied into a full shadowstack.  XXX NOT IMPLEMENTED SO FAR!
+    must be copied into a full shadowstack.
     """
     _alloc_flavor_ = "raw"
     root_stack_depth = 163840
 
-    #MAX = 20  not implemented yet
+    MAX = 20
 
     def __init__(self, gcdata):
         self.unused_full_stack = llmemory.NULL
@@ -299,13 +300,21 @@ class ShadowStackPool(object):
         forget_current_state(), and then call restore_state_from()
         or start_fresh_new_state().
         """
-        self._prepare_unused_stack()
+        fresh_free_fullstack = shadowstackref.prepare_free_slot()
+        if self.unused_full_stack:
+            if fresh_free_fullstack:
+                llmemory.raw_free(fresh_free_fullstack)
+        elif fresh_free_fullstack:
+            self.unused_full_stack = fresh_free_fullstack
+        else:
+            self._prepare_unused_stack()
+        #
         shadowstackref.base = self.gcdata.root_stack_base
         shadowstackref.top  = self.gcdata.root_stack_top
         shadowstackref.context = ncontext
         ll_assert(shadowstackref.base <= shadowstackref.top,
                   "save_current_state_away: broken shadowstack")
-        #shadowstackref.fullstack = True
+        shadowstackref.attach()
         #
         # cannot use llop.gc_writebarrier() here, because
         # we are in a minimally-transformed GC helper :-/
@@ -328,6 +337,7 @@ class ShadowStackPool(object):
         ll_assert(bool(shadowstackref.base), "empty shadowstackref!")
         ll_assert(shadowstackref.base <= shadowstackref.top,
                   "restore_state_from: broken shadowstack")
+        self.unused_full_stack = shadowstackref.rebuild(self.unused_full_stack)
         self.gcdata.root_stack_base = shadowstackref.base
         self.gcdata.root_stack_top  = shadowstackref.top
         self._cleanup(shadowstackref)
@@ -343,28 +353,124 @@ class ShadowStackPool(object):
         shadowstackref.context = llmemory.NULL
 
     def _prepare_unused_stack(self):
+        ll_assert(self.unused_full_stack == llmemory.NULL,
+                  "already an unused_full_stack")
+        root_stack_size = sizeofaddr * self.root_stack_depth
+        self.unused_full_stack = llmemory.raw_malloc(root_stack_size)
         if self.unused_full_stack == llmemory.NULL:
-            root_stack_size = sizeofaddr * self.root_stack_depth
-            self.unused_full_stack = llmemory.raw_malloc(root_stack_size)
-            if self.unused_full_stack == llmemory.NULL:
-                raise MemoryError
+            raise MemoryError
 
 
 def get_shadowstackref(root_walker, gctransformer):
     if hasattr(gctransformer, '_SHADOWSTACKREF'):
         return gctransformer._SHADOWSTACKREF
 
+    # Helpers to same virtual address space by limiting to MAX the
+    # number of full shadow stacks.  If there are more, we compact
+    # them into a separately-allocated zone of memory of just the right
+    # size.  See the comments in the definition of fullstack_cache below.
+
+    def ll_prepare_free_slot(_unused):
+        """Free up a slot in the array of MAX entries, ready for storing
+        a new shadowstackref.  Return the memory of the now-unused full
+        shadowstack.
+        """
+        index = fullstack_cache[0]
+        if index > 0:
+            return llmemory.NULL     # there is already at least one free slot
+        #
+        # make a compact copy in one old entry and return the
+        # original full-sized memory
+        index = -index
+        ll_assert(index > 0, "prepare_free_slot: cache[0] == 0")
+        compacting = lltype.cast_int_to_ptr(SHADOWSTACKREFPTR,
+                                            fullstack_cache[index])
+        index += 1
+        if index >= ShadowStackPool.MAX:
+            index = 1
+        fullstack_cache[0] = -index    # update to the next value in order
+        #
+        compacting.detach()
+        original = compacting.base
+        size = compacting.top - original
+        new = llmemory.raw_malloc(size)
+        if new == llmemory.NULL:
+            return llmemory.NULL
+        llmemory.raw_memcopy(original, new, size)
+        compacting.base = new
+        compacting.top = new + size
+        return original
+
+    def ll_attach(shadowstackref):
+        """After prepare_free_slot(), store a shadowstackref in that slot."""
+        index = fullstack_cache[0]
+        ll_assert(index > 0, "fullstack attach: no free slot")
+        fullstack_cache[0] = fullstack_cache[index]
+        fullstack_cache[index] = lltype.cast_ptr_to_int(shadowstackref)
+        ll_assert(shadowstackref.fsindex == 0, "fullstack attach: already one?")
+        shadowstackref.fsindex = index    # > 0
+
+    def ll_detach(shadowstackref):
+        """Detach a shadowstackref from the array of MAX entries."""
+        index = shadowstackref.fsindex
+        ll_assert(index > 0, "detach: unattached shadowstackref")
+        ll_assert(fullstack_cache[index] ==
+                  lltype.cast_ptr_to_int(shadowstackref),
+                  "detach: bad fullstack_cache")
+        shadowstackref.fsindex = 0
+        fullstack_cache[index] = fullstack_cache[0]
+        fullstack_cache[0] = index
+
+    def ll_rebuild(shadowstackref, fullstack_base):
+        if shadowstackref.fsindex > 0:
+            shadowstackref.detach()
+            return fullstack_base
+        else:
+            # make an expanded copy of the compact shadowstack stored in
+            # 'shadowstackref' and free that
+            compact = shadowstackref.base
+            size = shadowstackref.top - compact
+            shadowstackref.base = fullstack_base
+            shadowstackref.top = fullstack_base + size
+            llmemory.raw_memcopy(compact, fullstack_base, size)
+            llmemory.raw_free(compact)
+            return llmemory.NULL
+
     SHADOWSTACKREFPTR = lltype.Ptr(lltype.GcForwardReference())
     SHADOWSTACKREF = lltype.GcStruct('ShadowStackRef',
-                                     ('base', llmemory.Address),
-                                     ('top', llmemory.Address),
-                                     ('context', llmemory.Address),
-                                     #('fullstack', lltype.Bool),
-                                     rtti=True)
+        ('base', llmemory.Address),
+        ('top', llmemory.Address),
+        ('context', llmemory.Address),
+        ('fsindex', lltype.Signed),
+        rtti=True,
+        adtmeths={'prepare_free_slot': ll_prepare_free_slot,
+                  'attach': ll_attach,
+                  'detach': ll_detach,
+                  'rebuild': ll_rebuild})
     SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
+
+    # Items 1..MAX-1 of the following array can be SHADOWSTACKREF
+    # addresses cast to integer.  Or, they are small numbers and they
+    # make up a free list, rooted in item 0, which goes on until
+    # terminated with a negative item.  This negative item gives (the
+    # opposite of) the index of the entry we try to remove next.
+    # Initially all items are in this free list and the end is '-1'.
+    fullstack_cache = lltype.malloc(lltype.Array(lltype.Signed),
+                                    ShadowStackPool.MAX,
+                                    flavor='raw', immortal=True)
+    for i in range(len(fullstack_cache) - 1):
+        fullstack_cache[i] = i + 1
+    fullstack_cache[len(fullstack_cache) - 1] = -1
 
     def customtrace(gc, obj, callback, arg):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
+        index = obj.fsindex
+        if index > 0:
+            # Haaaaaaack: fullstack_cache[] is just an integer, so it
+            # doesn't follow the SHADOWSTACKREF when it moves.  But we
+            # know this customtrace() will be called just after the
+            # move.  So we fix the fullstack_cache[] now... :-/
+            fullstack_cache[index] = lltype.cast_ptr_to_int(obj)
         addr = obj.top
         start = obj.base
         while addr != start:
@@ -384,6 +490,8 @@ def get_shadowstackref(root_walker, gctransformer):
             h = llmemory.cast_adr_to_ptr(h, _c.handle)
             shadowstackref.context = llmemory.NULL
         #
+        if shadowstackref.fsindex > 0:
+            shadowstackref.detach()
         base = shadowstackref.base
         shadowstackref.base    = llmemory.NULL
         shadowstackref.top     = llmemory.NULL

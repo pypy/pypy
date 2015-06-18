@@ -14,7 +14,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
 
 
-class BogusPureField(JitException):
+class BogusImmutableField(JitException):
     pass
 
 
@@ -489,7 +489,7 @@ class OptHeap(Optimization):
         #                        op.getdescr()):
         #    os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
         #             (op.getdescr().repr_of_descr()))
-        #    raise BogusPureField
+        #    raise BogusImmutableField
         #
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
@@ -551,7 +551,7 @@ class OptHeap(Optimization):
         #                        op.getdescr()):
         #    os.write(2, '[bogus immutable array declaration: %s]\n' %
         #             (op.getdescr().repr_of_descr()))
-        #    raise BogusPureField
+        #    raise BogusImmutableField
         #
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():

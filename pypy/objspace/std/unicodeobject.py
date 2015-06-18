@@ -392,6 +392,9 @@ class W_UnicodeObject(W_Root):
                 cased = True
         return space.newbool(cased)
 
+    def _starts_ends_overflow(self, prefix):
+        return len(prefix) == 0
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
@@ -439,12 +442,12 @@ def encode_object(space, w_object, encoding, errors):
             try:
                 if encoding == 'ascii':
                     u = space.unicode_w(w_object)
-                    eh = unicodehelper.rpy_encode_error_handler()
+                    eh = unicodehelper.raise_unicode_exception_encode
                     return space.wrap(unicode_encode_ascii(
                             u, len(u), None, errorhandler=eh))
                 if encoding == 'utf-8':
                     u = space.unicode_w(w_object)
-                    eh = unicodehelper.rpy_encode_error_handler()
+                    eh = unicodehelper.raise_unicode_exception_encode
                     return space.wrap(unicode_encode_utf_8(
                             u, len(u), None, errorhandler=eh,
                             allow_surrogates=True))
