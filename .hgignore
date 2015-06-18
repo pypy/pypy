@@ -75,6 +75,7 @@ syntax: regexp
 ^lib_pypy/__pycache__$
 ^lib_pypy/ctypes_config_cache/_.+_cache\.py$
 ^lib_pypy/ctypes_config_cache/_.+_.+_\.py$
+^lib_pypy/_libmpdec/.+.o$
 ^rpython/translator/cli/query-descriptions$
 ^pypy/doc/discussion/.+\.html$
 ^include/.+\.h$
