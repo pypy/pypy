@@ -2480,7 +2480,6 @@ class Assembler386(BaseAssembler):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
         assert regalloc is not None
-        assert arg.scalar_var is not None
         for i,arg in enumerate(fail_args):
             if arg is None:
                 continue
