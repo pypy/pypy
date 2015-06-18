@@ -9,6 +9,8 @@ from rpython.jit.metainterp.compile import Memo
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.objectmodel import we_are_translated
 
+LEVEL_UNKNOWN = '\x00'
+LEVEL_CONSTANT = '\x01'
 
 class BadVirtualState(Exception):
     pass
@@ -276,9 +278,14 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
-
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
-    def __init__(self, value, is_opaque=False):
+    lenbound = None
+    intbound = None
+    
+    def __init__(self, box, is_opaque=False):
+        self.level = LEVEL_UNKNOWN
+        return
+        xxx
         self.is_opaque = is_opaque
         self.known_class = value.get_known_class()
         self.level = value.getlevel()
@@ -385,6 +392,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         assert 0, "unreachable"
 
     def _generate_guards_intbounds(self, other, box, extra_guards):
+        if self.intbound is None:
+            return
         if self.intbound.contains_bound(other.intbound):
             return
         xxx
@@ -450,6 +459,15 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
+class IntNotVirtualStateInfo(NotVirtualStateInfo):
+    def __init__(self, intbound):
+        # XXX do we care about non null?
+        self.intbound = intbound
+        if intbound.is_constant():
+            self.level = LEVEL_CONSTANT
+        else:
+            self.level = LEVEL_UNKNOWN
+
 
 class VirtualState(object):
     def __init__(self, state):
@@ -478,10 +496,11 @@ class VirtualState(object):
                                           state)
         return state
 
-    def make_inputargs(self, values, optimizer, keyboxes=False):
+    def make_inputargs(self, inputargs, optimizer, keyboxes=False):
         if optimizer.optearlyforce:
             optimizer = optimizer.optearlyforce
-        assert len(values) == len(self.state)
+        assert len(inputargs) == len(self.state)
+        return inputargs
         inputargs = [None] * self.numnotvirtuals
 
         # We try twice. The first time around we allow boxes to be forced
@@ -555,20 +574,32 @@ class VirtualStateConstructor(VirtualVisitor):
             opt = self.optimizer.optearlyforce
         else:
             opt = self.optimizer
+        state = []
         for box in jump_args:
+            box = opt.get_box_replacement(box)
             if box.type == 'r':
-                zxsadsadsa
+                info = opt.getptrinfo(box)
+                if info is not None and info.is_virtual():
+                    xxx
+                else:
+                    state.append(self.visit_not_virtual(box))
+            elif box.type == 'i':
+                intbound = opt.getintbound(box)
+                state.append(self.visit_not_ptr(box, intbound))
+            else:
+                xxx
         #values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
         #                                                      opt)
         #          for box in jump_args]
 
-        #for value in values:
-        #    value.visitor_walk_recursive(self)
-        return VirtualState([self.state(box) for box in jump_args])
+        return VirtualState(state)
 
-    def visit_not_virtual(self, value):
-        is_opaque = value in self.optimizer.opaque_pointers
-        return NotVirtualStateInfo(value, is_opaque)
+    def visit_not_ptr(self, box, intbound):
+        return IntNotVirtualStateInfo(intbound=intbound)
+    
+    def visit_not_virtual(self, box):
+        is_opaque = box in self.optimizer.opaque_pointers
+        return NotVirtualStateInfo(box, is_opaque)
 
     def visit_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)
@@ -643,10 +674,6 @@ class ShortBoxes(object):
         return alts
 
     def add_to_short(self, box, op):
-        xxx
-        #if op:
-        #    op = op.clone(self.memo)
-        #    op.is_source_op = True
         if box in self.short_boxes:
             xxx
             return # XXX avoid those corner cases

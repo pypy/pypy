@@ -279,39 +279,16 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
         self.resumedata_memo.forget_numberings()
 
-    def getinterned(self, box):
-        constbox = self.get_constant_box(box)
-        if constbox is None:
-            return box
-        if constbox.type == REF:
-            value = constbox.getref_base()
-            if not value:
-                return box
-            return self.interned_refs.setdefault(value, box)
-        #elif constbox.type == INT:
-        #    value = constbox.getint()
-        #    return self.interned_ints.setdefault(value, box)
+    def getinfo(self, op):
+        if op.type == 'r':
+            return self.getptrinfo(op)
+        elif op.type == 'i':
+            return self.getintbound(op)
         else:
-            return box
+            zzz
 
-    ## def getinfo(self, op, create=False):
-    ##     xxx
-    ##     yyy
-
-    ##     XXX
-    ##     box = self.getinterned(box)
-    ##     try:
-    ##         value = self.values[box]
-    ##     except KeyError:
-    ##         if box.type == "r":
-    ##             value = self.values[box] = PtrOptValue(box)
-    ##         elif box.type == "i":
-    ##             value = self.values[box] = IntOptValue(box)
-    ##         else:
-    ##             assert box.type == "f"
-    ##             value = self.values[box] = OptValue(box)
-    ##     self.ensure_imported(value)
-    ##     return value
+    def setinfo_from_preamble(self, op, old_info):
+        pass # deal with later
 
     def get_box_replacement(self, op):
         if op is None:

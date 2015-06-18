@@ -179,9 +179,9 @@ class UnrollOptimizer(Optimization):
 
         virtual_state = self.get_virtual_state(jump_args)
 
-        values = [self.getinfo(arg) for arg in jump_args]
-        inputargs = virtual_state.make_inputargs(values, self.optimizer)
-        short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+        inputargs = virtual_state.make_inputargs(jump_args, self.optimizer)
+        short_inputargs = virtual_state.make_inputargs(jump_args,
+                                            self.optimizer, keyboxes=True)
 
         if self.boxes_created_this_iteration is not None:
             for box in self.inputargs:
@@ -190,16 +190,22 @@ class UnrollOptimizer(Optimization):
         short_boxes = ShortBoxes(self.optimizer, inputargs)
 
         self.optimizer.clear_newoperations()
-        for i in range(len(original_jump_args)):
-            srcbox = jump_args[i]
-            if values[i].is_virtual():
-                srcbox = values[i].force_box(self.optimizer)
-            if original_jump_args[i] is not srcbox:
-                opnum = OpHelpers.same_as_for_type(original_jump_args[i].type)
-                op = self.optimizer.replace_op_with(original_jump_args[i],
-                                                    opnum, [srcbox],
-                                                    descr=DONT_CHANGE)
-                self.optimizer.emit_operation(op)
+        # for i in range(len(original_jump_args)):
+        #     srcbox = jump_args[i]
+        #     if srcbox is not original_jump_args[i]:
+        #         xxx
+        #     if srcbox.type != 'r':
+        #         continue
+        #     info = self.optimizer.getptrinfo(srcbox)
+        #     if info and info.is_virtual():
+        #         xxx
+        #         srcbox = values[i].force_box(self.optimizer)
+        #     if original_jump_args[i] is not srcbox:
+        #         opnum = OpHelpers.same_as_for_type(original_jump_args[i].type)
+        #         op = self.optimizer.replace_op_with(original_jump_args[i],
+        #                                             opnum, [srcbox],
+        #                                             descr=DONT_CHANGE)
+        #         self.optimizer.emit_operation(op)
         inputarg_setup_ops = self.optimizer.get_newoperations()
 
         target_token = targetop.getdescr()
@@ -210,10 +216,10 @@ class UnrollOptimizer(Optimization):
 
         exported_values = {}
         for box in inputargs:
-            exported_values[box] = self.optimizer.getvalue(box)
+            exported_values[box] = self.optimizer.getinfo(box)
         for op in short_boxes.operations():
             if op and op.type != 'v':
-                exported_values[op] = self.optimizer.getvalue(op)
+                exported_values[op] = self.optimizer.getinfo(op)
 
         return ExportedState(short_boxes, inputarg_setup_ops, exported_values)
 
@@ -240,9 +246,8 @@ class UnrollOptimizer(Optimization):
         self.initial_virtual_state = target_token.virtual_state
 
         for box in self.inputargs:
-            preamble_value = exported_state.exported_values[box]
-            value = self.optimizer.getvalue(box)
-            value.import_from(preamble_value, self.optimizer)
+            preamble_info = exported_state.exported_values[box]
+            self.optimizer.setinfo_from_preamble(box, preamble_info)
 
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result
@@ -255,6 +260,7 @@ class UnrollOptimizer(Optimization):
             self.ensure_short_op_emitted(op, self.optimizer, seen)
             if op and op.type != 'v':
                 preamble_value = exported_state.exported_values[op]
+                continue
                 value = self.optimizer.getvalue(op)
                 if not value.is_virtual() and not value.is_constant():
                     imp = ValueImporter(self, preamble_value, op)
@@ -306,9 +312,10 @@ class UnrollOptimizer(Optimization):
 
         # Construct jumpargs from the virtual state
         original_jumpargs = jumpop.getarglist()[:]
-        values = [self.getvalue(arg) for arg in jumpop.getarglist()]
+        jump_boxes = [self.get_box_replacement(arg) for arg in
+                      jumpop.getarglist()]
         try:
-            jumpargs = virtual_state.make_inputargs(values, self.optimizer)
+            jumpargs = virtual_state.make_inputargs(jump_boxes, self.optimizer)
         except BadVirtualState:
             raise InvalidLoop('The state of the optimizer at the end of ' +
                               'peeled loop is inconsistent with the ' +
@@ -317,7 +324,7 @@ class UnrollOptimizer(Optimization):
         jumpop.initarglist(jumpargs)
 
         # Inline the short preamble at the end of the loop
-        jmp_to_short_args = virtual_state.make_inputargs(values,
+        jmp_to_short_args = virtual_state.make_inputargs(jump_boxes,
                                                          self.optimizer,
                                                          keyboxes=True)
         assert len(short_inputargs) == len(jmp_to_short_args)
