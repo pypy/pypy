@@ -60,6 +60,26 @@ class CacheEntry(object):
             if not value.is_unescaped:
                 del d[value]
 
+
+class FieldUpdater(object):
+    def __init__(self, heapcache, value, cache, fieldvalue):
+        self.heapcache = heapcache
+        self.value = value
+        self.cache = cache
+        if fieldvalue is not None:
+            self.currfieldbox = fieldvalue.box
+        else:
+            self.currfieldbox = None
+
+    def getfield_now_known(self, fieldbox):
+        fieldvalue = self.heapcache.getvalue(fieldbox)
+        self.cache.read_now_known(self.value, fieldvalue)
+
+    def setfield(self, fieldbox):
+        fieldvalue = self.heapcache.getvalue(fieldbox)
+        self.cache.do_write_with_aliasing(self.value, fieldvalue)
+
+
 class HeapCache(object):
     def __init__(self):
         self.reset()
@@ -311,21 +331,23 @@ class HeapCache(object):
                     return tovalue.box
         return None
 
-    def getfield_now_known(self, box, descr, fieldbox):
+    def get_field_updater(self, box, descr):
         value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
         cache = self.heap_cache.get(descr, None)
         if cache is None:
             cache = self.heap_cache[descr] = CacheEntry()
-        cache.read_now_known(value, fieldvalue)
+            fieldvalue = None
+        else:
+            fieldvalue = cache.read(value)
+        return FieldUpdater(self, value, cache, fieldvalue)
+
+    def getfield_now_known(self, box, descr, fieldbox):
+        upd = self.get_field_updater(box, descr)
+        upd.getfield_now_known(fieldbox)
 
     def setfield(self, box, fieldbox, descr):
-        cache = self.heap_cache.get(descr, None)
-        if cache is None:
-            cache = self.heap_cache[descr] = CacheEntry()
-        value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
-        cache.do_write_with_aliasing(value, fieldvalue)
+        upd = self.get_field_updater(box, descr)
+        upd.setfield(fieldbox)
 
     def getarrayitem(self, box, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
