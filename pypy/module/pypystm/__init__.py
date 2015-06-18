@@ -27,4 +27,6 @@ class Module(MixedModule):
         'clock': 'time.clock',
         'stmset': 'stmset.W_STMSet',
         'stmdict': 'stmdict.W_STMDict',
+        'queue': 'queue.W_Queue',
+        'Empty': 'space.fromcache(queue.Cache).w_Empty',
     }
