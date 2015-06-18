@@ -52,6 +52,10 @@ def get_so_extension(space):
 
     return '.' + soabi + SO
 
+def has_so_extension(space):
+    return (space.config.objspace.usemodules.cpyext or
+            space.config.objspace.usemodules._cffi_backend)
+
 def check_sys_modules(space, w_modulename):
     return space.finditem(space.sys.get('modules'), w_modulename)
 
