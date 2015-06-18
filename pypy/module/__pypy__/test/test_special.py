@@ -36,7 +36,7 @@ class AppTest(object):
         try:
             sneak()
         except ZeroDivisionError as e:
-            tb = e.__traceback__
+            tb = sys.exc_info()[2]
             assert tb.tb_frame == sys._getframe()
             assert tb.tb_next.tb_frame.f_code.co_name == '<lambda>'
         else:
@@ -53,9 +53,6 @@ class AppTest(object):
             try: e()
             except ZeroDivisionError as e:
                 assert sys.exc_info() == (None, None, None)
-                frame = e.__traceback__.tb_frame
-                assert frame != sys._getframe()
-                assert frame.f_code.co_name == 'e'
             else: assert False
             return 2
         assert test_hidden() == 2
