@@ -183,7 +183,7 @@ class AppTestFFIObj:
                                 "       ^")
         e = raises(ffi.error, ffi.cast, "\t\n\x01\x1f~\x7f\x80\xff", 0)
         assert str(e.value) == ("identifier expected\n"
-                                "  ??~???\n"
+                                "  ??~?????\n"
                                 "  ^")
         e = raises(ffi.error, ffi.cast, "X" * 600, 0)
         assert str(e.value) == ("undefined type name")
