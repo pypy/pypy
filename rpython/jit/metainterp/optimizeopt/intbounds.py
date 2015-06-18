@@ -150,7 +150,7 @@ class OptIntBounds(Optimization):
                         sum = intmask(arg2.getint() + prod_arg2.getint())
                         arg1 = prod_arg1
                         arg2 = ConstInt(sum)
-                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+                        op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
 
         self.emit_operation(op)
         if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
