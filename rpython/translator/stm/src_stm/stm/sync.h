@@ -7,6 +7,7 @@ enum cond_type_e {
     C_SEGMENT_FREE,
     C_SEGMENT_FREE_OR_SAFE_POINT,
     C_QUEUE_OLD_ENTRIES,
+    C_QUEUE_FINISHED_MORE_TASKS,
     _C_TOTAL
 };
 

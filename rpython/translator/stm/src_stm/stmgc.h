@@ -747,6 +747,11 @@ void stm_queue_put(object_t *qobj, stm_queue_t *queue, object_t *newitem);
    transaction (this is needed to ensure correctness). */
 object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
                         stm_thread_local_t *tl);
+/* task_done() and join(): see https://docs.python.org/2/library/queue.html */
+void stm_queue_task_done(stm_queue_t *queue);
+/* join() commits and waits outside a transaction (so push roots).
+   Unsuitable if the current transaction is atomic! */
+long stm_queue_join(object_t *qobj, stm_queue_t *queue, stm_thread_local_t *tl);
 void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **));
 
 

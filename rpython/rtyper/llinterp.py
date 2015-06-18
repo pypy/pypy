@@ -1006,6 +1006,8 @@ class LLFrame(object):
     op_stm_queue_free = _stm_not_implemented
     op_stm_queue_get = _stm_not_implemented
     op_stm_queue_put = _stm_not_implemented
+    op_stm_queue_task_done = _stm_not_implemented
+    op_stm_queue_join = _stm_not_implemented
     op_stm_queue_tracefn = _stm_not_implemented
     op_stm_register_thread_local = _stm_not_implemented
     op_stm_unregister_thread_local = _stm_not_implemented

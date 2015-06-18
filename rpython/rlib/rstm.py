@@ -370,12 +370,22 @@ def _ll_queue_get(q, timeout=-1.0):
 def _ll_queue_put(q, newitem):
     llop.stm_queue_put(lltype.Void, q, q.ll_raw_queue, newitem)
 
+@dont_look_inside
+def _ll_queue_task_done(q):
+    llop.stm_queue_task_done(lltype.Void, q.ll_raw_queue)
+
+@dont_look_inside
+def _ll_queue_join(q):
+    return llop.stm_queue_join(lltype.Signed, q, q.ll_raw_queue)
+
 _QUEUE_OBJ = lltype.GcStruct('QUEUE_OBJ',
                              ('ll_raw_queue', _STM_QUEUE_P),
                              hints={'immutable': True},
                              rtti=True,
                              adtmeths={'get': _ll_queue_get,
-                                       'put': _ll_queue_put})
+                                       'put': _ll_queue_put,
+                                       'task_done': _ll_queue_task_done,
+                                       'join': _ll_queue_join})
 NULL_QUEUE = lltype.nullptr(_QUEUE_OBJ)
 
 def _ll_queue_trace(gc, obj, callback, arg):
@@ -423,3 +433,10 @@ class QueueForTest(object):
     def put(self, newitem):
         assert lltype.typeOf(newitem) == llmemory.GCREF
         self._content.put(newitem)
+
+    def task_done(self):
+        self._content.task_done()
+
+    def join(self):
+        self._content.join()
+        return 0

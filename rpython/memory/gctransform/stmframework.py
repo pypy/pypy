@@ -225,6 +225,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     gct_stm_transaction_break                       = _gct_with_roots_pushed
     gct_stm_collect                                 = _gct_with_roots_pushed
     gct_stm_queue_get                               = _gct_with_roots_pushed
+    gct_stm_queue_join                              = _gct_with_roots_pushed
 
 
 class StmRootWalker(BaseRootWalker):

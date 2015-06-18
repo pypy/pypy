@@ -25,6 +25,10 @@ typedef union stm_queue_segment_u {
            notion is per segment.)  this flag says that the queue is
            already in the tree STM_PSEGMENT->active_queues. */
         bool active;
+
+        /* counts the number of put's done in this transaction, minus
+           the number of task_done's */
+        int64_t unfinished_tasks_in_this_transaction;
     };
     char pad[64];
 } stm_queue_segment_t;
@@ -37,6 +41,10 @@ struct stm_queue_s {
 
     /* a chained list of old entries in the queue */
     queue_entry_t *volatile old_entries;
+
+    /* total of 'unfinished_tasks_in_this_transaction' for all
+       committed transactions */
+    volatile int64_t unfinished_tasks;
 };
 
 
@@ -126,6 +134,7 @@ static void queues_deactivate_all(bool at_commit)
     queue_lock_acquire();
 
     bool added_any_old_entries = false;
+    bool finished_more_tasks = false;
     wlog_t *item;
     TREE_LOOP_FORWARD(STM_PSEGMENT->active_queues, item) {
         stm_queue_t *queue = (stm_queue_t *)item->addr;
@@ -133,6 +142,11 @@ static void queues_deactivate_all(bool at_commit)
         queue_entry_t *head, *freehead;
 
         if (at_commit) {
+            int64_t d = seg->unfinished_tasks_in_this_transaction;
+            if (d != 0) {
+                finished_more_tasks |= (d < 0);
+                __sync_add_and_fetch(&queue->unfinished_tasks, d);
+            }
             head = seg->added_in_this_transaction;
             freehead = seg->old_objects_popped;
         }
@@ -145,6 +159,7 @@ static void queues_deactivate_all(bool at_commit)
         seg->added_in_this_transaction = NULL;
         seg->added_young_limit = NULL;
         seg->old_objects_popped = NULL;
+        seg->unfinished_tasks_in_this_transaction = 0;
 
         /* free the list of entries that must disappear */
         queue_free_entries(freehead);
@@ -176,10 +191,11 @@ static void queues_deactivate_all(bool at_commit)
 
     queue_lock_release();
 
-    if (added_any_old_entries) {
-        assert(_has_mutex());
+    assert(_has_mutex());
+    if (added_any_old_entries)
         cond_broadcast(C_QUEUE_OLD_ENTRIES);
-    }
+    if (finished_more_tasks)
+        cond_broadcast(C_QUEUE_FINISHED_MORE_TASKS);
 }
 
 void stm_queue_put(object_t *qobj, stm_queue_t *queue, object_t *newitem)
@@ -195,6 +211,7 @@ void stm_queue_put(object_t *qobj, stm_queue_t *queue, object_t *newitem)
     seg->added_in_this_transaction = entry;
 
     queue_activate(queue);
+    seg->unfinished_tasks_in_this_transaction++;
 
     /* add qobj to 'objects_pointing_to_nursery' if it has the
        WRITE_BARRIER flag */
@@ -283,6 +300,41 @@ object_t *stm_queue_get(object_t *qobj, stm_queue_t *queue, double timeout,
         STM_POP_ROOT(*tl, qobj);   /* 'queue' should stay alive until here */
         goto retry;
     }
+}
+
+void stm_queue_task_done(stm_queue_t *queue)
+{
+    queue_activate(queue);
+    stm_queue_segment_t *seg = &queue->segs[STM_SEGMENT->segment_num - 1];
+    seg->unfinished_tasks_in_this_transaction--;
+}
+
+long stm_queue_join(object_t *qobj, stm_queue_t *queue, stm_thread_local_t *tl)
+{
+    int64_t result;
+
+#if STM_TESTS
+    result = queue->unfinished_tasks;   /* can't wait in tests */
+    result += (queue->segs[STM_SEGMENT->segment_num - 1]
+               .unfinished_tasks_in_this_transaction);
+    return result;
+#else
+    STM_PUSH_ROOT(*tl, qobj);
+    _stm_commit_transaction();
+
+    s_mutex_lock();
+    while ((result = queue->unfinished_tasks) > 0) {
+        cond_wait(C_QUEUE_FINISHED_MORE_TASKS);
+    }
+    s_mutex_unlock();
+
+    _stm_start_transaction(tl);
+    STM_POP_ROOT(*tl, qobj);   /* 'queue' should stay alive until here */
+#endif
+
+    /* returns 0 for 'ok', or negative if there was more task_done()
+       than put() so far */
+    return result;
 }
 
 static void queue_trace_list(queue_entry_t *entry, void trace(object_t **),

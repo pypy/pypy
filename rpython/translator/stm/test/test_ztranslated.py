@@ -634,6 +634,18 @@ class TestSTMTranslated(CompiledSTMTests):
             x2 = cast_gcref_to_instance(X, p2)
             assert x2 is x1
             #
+            q.task_done()
+            q.task_done()
+            res = q.join()
+            assert res == 0
+            res = q.join()
+            assert res == 0
+            if objectmodel.we_are_translated():
+                q.task_done()
+                q.task_done()
+                res = q.join()
+                assert res == -2
+            #
             print "ok!"
             return 0
 

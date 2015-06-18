@@ -392,6 +392,17 @@ def stm_queue_put(funcgen, op):
     return 'stm_queue_put((object_t *)%s, %s, (object_t *)%s);' % (
         arg0, arg1, arg2)
 
+def stm_queue_task_done(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    return 'stm_queue_task_done(%s);' % (arg0,)
+
+def stm_queue_join(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    result = funcgen.expr(op.result)
+    return ('%s = stm_queue_join((object_t *)%s, %s, '
+            '&stm_thread_local);' % (result, arg0, arg1,))
+
 def stm_queue_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])

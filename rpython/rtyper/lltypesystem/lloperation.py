@@ -483,6 +483,8 @@ LL_OPERATIONS = {
     'stm_queue_free':         LLOp(),
     'stm_queue_get':          LLOp(canmallocgc=True),   # push roots!
     'stm_queue_put':          LLOp(),
+    'stm_queue_task_done':    LLOp(),
+    'stm_queue_join':         LLOp(canmallocgc=True),   # push roots!
     'stm_queue_tracefn':      LLOp(),
 
     # __________ address operations __________
