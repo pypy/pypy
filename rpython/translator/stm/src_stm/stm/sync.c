@@ -115,7 +115,12 @@ static inline void timespec_delay(struct timespec *t, double incr)
     t->tv_sec = tv.tv_sec;
     t->tv_nsec = tv.tv_usec * 1000 + 999;
 #endif
-    /* assumes that "incr" is not too large, less than 1 second */
+
+    long integral_part = (long)incr;
+    t->tv_sec += integral_part;
+    incr -= integral_part;
+    assert(incr >= 0.0 && incr <= 1.0);
+
     long nsec = t->tv_nsec + (long)(incr * 1000000000.0);
     if (nsec >= 1000000000) {
         t->tv_sec += 1;
@@ -131,15 +136,21 @@ static bool cond_wait_timespec(enum cond_type_e ctype, struct timespec *pt)
     stm_fatalerror("*** cond_wait/%d called!", (int)ctype);
 #endif
 
+ retry:
     assert(_has_mutex_here);
 
     int err = pthread_cond_timedwait(&sync_ctl.cond[ctype],
                                      &sync_ctl.global_mutex, pt);
-    if (err == 0)
+    switch (err) {
+    case 0:
         return true;     /* success */
-    if (LIKELY(err == ETIMEDOUT))
+    case ETIMEDOUT:
         return false;    /* timeout */
-    stm_fatalerror("pthread_cond_timedwait/%d: %d", (int)ctype, err);
+    case EINTR:
+        goto retry;
+    default:
+        stm_fatalerror("pthread_cond_timedwait/%d: %d", (int)ctype, err);
+    }
 }
 
 static bool cond_wait_timeout(enum cond_type_e ctype, double delay)
