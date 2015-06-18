@@ -25,6 +25,8 @@ from rpython.jit.codewriter import support, codewriter
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+from rpython.rlib.entrypoint import all_jit_entrypoints,\
+     annotated_jit_entrypoints
 
 
 # ____________________________________________________________
@@ -68,7 +70,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
-                    function_threshold=4,
+                    function_threshold=4, disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
                     max_unroll_recursion=7, **kwds):
     from rpython.config.config import ConfigError
@@ -93,6 +95,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
+        jd.warmstate.set_param_disable_unrolling(disable_unrolling)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
@@ -228,6 +231,7 @@ class WarmRunnerDesc(object):
 
         verbose = False # not self.cpu.translate_support_code
         self.rewrite_access_helpers()
+        self.create_jit_entry_points()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
@@ -530,6 +534,8 @@ class WarmRunnerDesc(object):
         for jd in self.jitdrivers_sd:
             jd._get_printable_location_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.get_printable_location, s_Str)
+            jd._get_unique_id_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.get_unique_id, annmodel.SomeInteger())
             jd._confirm_enter_jit_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.confirm_enter_jit, annmodel.s_Bool,
                 onlygreens=False)
@@ -675,6 +681,11 @@ class WarmRunnerDesc(object):
         for graph, block, index in ah:
             op = block.operations[index]
             self.rewrite_access_helper(op)
+
+    def create_jit_entry_points(self):
+        for func, args, result in all_jit_entrypoints:
+            self.helper_func(lltype.Ptr(lltype.FuncType(args, result)), func)
+            annotated_jit_entrypoints.append((func, None))
 
     def rewrite_access_helper(self, op):
         # make sure we make a copy of function so it no longer belongs

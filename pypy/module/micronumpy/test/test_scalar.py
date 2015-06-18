@@ -3,6 +3,45 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
 
+    def test_integer_types(self):
+        import numpy as np
+        _32BIT = np.dtype('int').itemsize == 4
+        if _32BIT:
+            assert np.int32 is np.dtype('l').type
+            assert np.uint32 is np.dtype('L').type
+            assert np.intp is np.dtype('i').type
+            assert np.uintp is np.dtype('I').type
+            assert np.int64 is np.dtype('q').type
+            assert np.uint64 is np.dtype('Q').type
+        else:
+            assert np.int32 is np.dtype('i').type
+            assert np.uint32 is np.dtype('I').type
+            assert np.intp is np.dtype('l').type
+            assert np.uintp is np.dtype('L').type
+            assert np.int64 is np.dtype('l').type
+            assert np.uint64 is np.dtype('L').type
+        assert np.int16 is np.short is np.dtype('h').type
+        assert np.int_ is np.dtype('l').type
+        assert np.uint is np.dtype('L').type
+        assert np.dtype('intp') == np.dtype('int')
+        assert np.dtype('uintp') == np.dtype('uint')
+        assert np.dtype('i') is not np.dtype('l') is not np.dtype('q')
+        assert np.dtype('I') is not np.dtype('L') is not np.dtype('Q')
+
+    def test_hierarchy(self):
+        import numpy
+        assert issubclass(numpy.float64, numpy.floating)
+        assert issubclass(numpy.longfloat, numpy.floating)
+        assert not issubclass(numpy.float64, numpy.longfloat)
+        assert not issubclass(numpy.longfloat, numpy.float64)
+
+    def test_mro(self):
+        import numpy
+        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
+                                       numpy.integer, numpy.number,
+                                       numpy.generic, object)
+        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
+
     def test_init(self):
         import numpy as np
         import math
@@ -102,9 +141,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        assert b.round(decimals=5) is b
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
-        assert b.round(decimals=5) is b
 
     def test_astype(self):
         import numpy as np
@@ -183,10 +222,14 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_indexing(self):
         import numpy as np
         v = np.int32(2)
-        for b in [v[()], v[...]]:
-            assert isinstance(b, np.ndarray)
-            assert b.shape == ()
-            assert b == v
+        b = v[()]
+        assert isinstance(b, np.int32)
+        assert b.shape == ()
+        assert b == v
+        b = v[...]
+        assert isinstance(b, np.ndarray)
+        assert b.shape == ()
+        assert b == v
         raises(IndexError, "v['blah']")
 
     def test_realimag(self):

@@ -1060,9 +1060,13 @@ def test_cannot_call_with_a_autocompleted_struct():
     complete_struct_or_union(BStruct, [('c', BDouble, -1, 8),
                                        ('a', BSChar, -1, 2),
                                        ('b', BSChar, -1, 0)])
-    e = py.test.raises(TypeError, new_function_type, (BStruct,), BDouble)
-    msg ='cannot pass as an argument a struct that was completed with verify()'
-    assert msg in str(e.value)
+    BFunc = new_function_type((BStruct,), BDouble)   # internally not callable
+    dummy_func = cast(BFunc, 42)
+    e = py.test.raises(NotImplementedError, dummy_func, "?")
+    msg = ("ctype \'struct foo\' not supported as argument (it is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           'the missing fields)')
+    assert str(e.value) == msg
 
 def test_new_charp():
     BChar = new_primitive_type("char")
@@ -3247,6 +3251,88 @@ def test_from_buffer():
     cast(p, c)[1] += 500
     assert list(a) == [10000, 20500, 30000]
 
+def test_from_buffer_not_str_unicode_bytearray():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    py.test.raises(TypeError, from_buffer, BCharA, b"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, bytearray(b"foo"))
+    try:
+        from __builtin__ import buffer
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA,
+                       buffer(bytearray(b"foo")))
+    try:
+        from __builtin__ import memoryview
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA,
+                       memoryview(bytearray(b"foo")))
+
+def test_from_buffer_more_cases():
+    try:
+        from _cffi_backend import _testbuff
+    except ImportError:
+        py.test.skip("not for pypy")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    #
+    def check1(bufobj, expected):
+        c = from_buffer(BCharA, bufobj)
+        assert typeof(c) is BCharA
+        if sys.version_info >= (3,):
+            expected = [bytes(c, "ascii") for c in expected]
+        assert list(c) == list(expected)
+    #
+    def check(methods, expected, expected_for_memoryview=None):
+        if sys.version_info >= (3,):
+            if methods <= 7:
+                return
+            if expected_for_memoryview is not None:
+                expected = expected_for_memoryview
+        class X(object):
+            pass
+        _testbuff(X, methods)
+        bufobj = X()
+        check1(bufobj, expected)
+        try:
+            from __builtin__ import buffer
+            bufobjb = buffer(bufobj)
+        except (TypeError, ImportError):
+            pass
+        else:
+            check1(bufobjb, expected)
+        try:
+            bufobjm = memoryview(bufobj)
+        except (TypeError, NameError):
+            pass
+        else:
+            check1(bufobjm, expected_for_memoryview or expected)
+    #
+    check(1, "RDB")
+    check(2, "WRB")
+    check(4, "CHB")
+    check(8, "GTB")
+    check(16, "ROB")
+    #
+    check(1 | 2,  "RDB")
+    check(1 | 4,  "RDB")
+    check(2 | 4,  "CHB")
+    check(1 | 8,  "RDB", "GTB")
+    check(1 | 16, "RDB", "ROB")
+    check(2 | 8,  "WRB", "GTB")
+    check(2 | 16, "WRB", "ROB")
+    check(4 | 8,  "CHB", "GTB")
+    check(4 | 16, "CHB", "ROB")
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8.6+"
+    assert __version__ == "1.1.2"

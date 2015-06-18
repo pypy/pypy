@@ -69,8 +69,9 @@ class TestNtpath(unittest.TestCase):
                ('', '\\\\conky\\\\mountpoint\\foo\\bar'))
         tester('ntpath.splitunc("//conky//mountpoint/foo/bar")',
                ('', '//conky//mountpoint/foo/bar'))
-        self.assertEqual(ntpath.splitunc(u'//conky/MOUNTPO\u0130NT/foo/bar'),
-                         (u'//conky/MOUNTPO\u0130NT', u'/foo/bar'))
+        if test_support.have_unicode:
+            self.assertEqual(ntpath.splitunc(u'//conky/MOUNTPO%cNT/foo/bar' % 0x0130),
+                             (u'//conky/MOUNTPO%cNT' % 0x0130, u'/foo/bar'))
 
     def test_split(self):
         tester('ntpath.split("c:\\foo\\bar")', ('c:\\foo', 'bar'))
@@ -205,6 +206,7 @@ class TestNtpath(unittest.TestCase):
             tester('ntpath.expandvars("%?bar%")', "%?bar%")
             tester('ntpath.expandvars("%foo%%bar")', "bar%bar")
             tester('ntpath.expandvars("\'%foo%\'%bar")', "\'%foo%\'%bar")
+            tester('ntpath.expandvars("bar\'%foo%")', "bar\'%foo%")
 
     @unittest.skipUnless(test_support.FS_NONASCII, 'need test_support.FS_NONASCII')
     def test_expandvars_nonascii(self):
@@ -281,13 +283,14 @@ class TestNtpath(unittest.TestCase):
             tester('ntpath.abspath("C:\\")', "C:\\")
 
     def test_relpath(self):
-        currentdir = os.path.split(os.getcwd())[-1]
         tester('ntpath.relpath("a")', 'a')
         tester('ntpath.relpath(os.path.abspath("a"))', 'a')
         tester('ntpath.relpath("a/b")', 'a\\b')
         tester('ntpath.relpath("../a/b")', '..\\a\\b')
-        tester('ntpath.relpath("a", "../b")', '..\\'+currentdir+'\\a')
-        tester('ntpath.relpath("a/b", "../c")', '..\\'+currentdir+'\\a\\b')
+        with test_support.temp_cwd(test_support.TESTFN) as cwd_dir:
+            currentdir = os.path.basename(cwd_dir)
+            tester('ntpath.relpath("a", "../b")', '..\\'+currentdir+'\\a')
+            tester('ntpath.relpath("a/b", "../c")', '..\\'+currentdir+'\\a\\b')
         tester('ntpath.relpath("a", "b/c")', '..\\..\\a')
         tester('ntpath.relpath("//conky/mountpoint/a", "//conky/mountpoint/b/c")', '..\\..\\a')
         tester('ntpath.relpath("a", "a")', '.')

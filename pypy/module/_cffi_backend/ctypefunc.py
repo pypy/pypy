@@ -30,12 +30,13 @@ class W_CTypeFunc(W_CTypePtrBase):
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
     def __init__(self, space, fargs, fresult, ellipsis):
+        assert isinstance(ellipsis, bool)
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
         size = rffi.sizeof(rffi.VOIDP)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, fresult,
                                 could_cast_anything=False)
         self.fargs = fargs
-        self.ellipsis = bool(ellipsis)
+        self.ellipsis = ellipsis
         # fresult is stored in self.ctitem
 
         if not ellipsis:
@@ -188,7 +189,6 @@ def _get_abi(space, name):
 # ____________________________________________________________
 
 
-BIG_ENDIAN = sys.byteorder == 'big'
 USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 
@@ -291,30 +291,35 @@ class CifDescrBuilder(object):
         # here, so better safe (and forbid it) than sorry (and maybe
         # crash).
         space = self.space
-        if ctype.custom_field_pos:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap(
-               "cannot pass as an argument a struct that was completed "
-               "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
-               "for details)"))
+        ctype.force_lazy_struct()
+        if ctype._custom_field_pos:
+            # these NotImplementedErrors may be caught and ignored until
+            # a real call is made to a function of this type
+            place = "return value" if is_result_type else "argument"
+            raise oefmt(space.w_NotImplementedError,
+                "ctype '%s' not supported as %s (it is a struct declared "
+                "with \"...;\", but the C calling convention may depend "
+                "on the missing fields)", ctype.name, place)
 
         # walk the fields, expanding arrays into repetitions; first,
         # only count how many flattened fields there are
         nflat = 0
-        for i, cf in enumerate(ctype.fields_list):
+        for i, cf in enumerate(ctype._fields_list):
             if cf.is_bitfield():
+                place = "return value" if is_result_type else "argument"
                 raise oefmt(space.w_NotImplementedError,
-                    "ctype '%s' not supported as argument or return value"
-                    " (it is a struct with bit fields)", ctype.name)
+                    "ctype '%s' not supported as %s"
+                    " (it is a struct with bit fields)", ctype.name, place)
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
                 flat *= ct.length
                 ct = ct.ctitem
             if flat <= 0:
+                place = "return value" if is_result_type else "argument"
                 raise oefmt(space.w_NotImplementedError,
-                    "ctype '%s' not supported as argument or return value"
-                    " (it is a struct with a zero-length array)", ctype.name)
+                    "ctype '%s' not supported as %s (it is a struct"
+                    " with a zero-length array)", ctype.name, place)
             nflat += flat
 
         if USE_C_LIBFFI_MSVC and is_result_type:
@@ -333,7 +338,7 @@ class CifDescrBuilder(object):
 
         # fill it with the ffi types of the fields
         nflat = 0
-        for i, cf in enumerate(ctype.fields_list):
+        for i, cf in enumerate(ctype._fields_list):
             flat = 1
             ct = cf.ctype
             while isinstance(ct, ctypearray.W_CTypeArray):
@@ -399,16 +404,6 @@ class CifDescrBuilder(object):
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
-        cif_descr.exchange_result_libffi = exchange_offset
-
-        if BIG_ENDIAN and self.fresult.is_primitive_integer:
-            # For results of precisely these types, libffi has a
-            # strange rule that they will be returned as a whole
-            # 'ffi_arg' if they are smaller.  The difference
-            # only matters on big-endian.
-            if self.fresult.size < SIZE_OF_FFI_ARG:
-                diff = SIZE_OF_FFI_ARG - self.fresult.size
-                cif_descr.exchange_result += diff
 
         # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),

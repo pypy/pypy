@@ -65,15 +65,7 @@ def _PyArray_CheckExact(space, w_obj):
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyArray_FLAGS(space, w_array):
     assert isinstance(w_array, W_NDimArray)
-    flags = NPY_BEHAVED_NS
-    if isinstance(w_array.implementation, ConcreteArray):
-        flags |= NPY_OWNDATA
-    if len(w_array.get_shape()) < 2:
-        flags |= NPY_CONTIGUOUS
-    elif w_array.implementation.order == 'C':
-        flags |= NPY_C_CONTIGUOUS
-    else:
-        flags |= NPY_F_CONTIGUOUS
+    flags = NPY_BEHAVED_NS | w_array.get_flags()
     return flags
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)

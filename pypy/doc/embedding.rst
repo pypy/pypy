@@ -51,6 +51,9 @@ The API is:
    otherwise return 0.  You should really do your own error handling in the
    source. It'll acquire the GIL.
 
+   Note: this is meant to be called *only once* or a few times at most.  See
+   the `more complete example`_ below.
+
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
    .. note:: Not available in PyPy <= 2.2.1
@@ -65,8 +68,9 @@ The API is:
    Note that this function is not thread-safe itself, so you need to guard it
    with a mutex.
 
-Simple example
---------------
+
+Minimal example
+---------------
 
 Note that this API is a lot more minimal than say CPython C API, so at first
 it's obvious to think that you can't do much. However, the trick is to do
@@ -78,10 +82,10 @@ We write a little C program:
 
 .. code-block:: c
 
-    #include "include/PyPy.h"
+    #include "PyPy.h"
     #include <stdio.h>
 
-    const char source[] = "print 'hello from pypy'";
+    static char source[] = "print 'hello from pypy'";
 
     int main(void)
     {
@@ -103,154 +107,115 @@ We write a little C program:
 
 If we save it as ``x.c`` now, compile it and run it (on linux) with::
 
-    fijal@hermann:/opt/pypy$ gcc -o x x.c -lpypy-c -L.
-    fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
+    $ gcc -g -o x x.c -lpypy-c -L/opt/pypy/bin -I/opt/pypy/include
+    $ LD_LIBRARY_PATH=/opt/pypy/bin ./x
     hello from pypy
 
-on OSX it is necessary to set the rpath of the binary if one wants to link to it::
+.. note:: If the compilation fails because of missing PyPy.h header file,
+          you are running PyPy <= 2.2.1.  Get it here__.
+
+.. __: https://bitbucket.org/pypy/pypy/raw/c4cd6eca9358066571500ac82aaacfdaa3889e8c/include/PyPy.h
+
+On OSX it is necessary to set the rpath of the binary if one wants to link to it,
+with a command like::
 
     gcc -o x x.c -lpypy-c -L. -Wl,-rpath -Wl,@executable_path
     ./x
     hello from pypy
 
-Worked!
 
-.. note:: If the compilation fails because of missing PyPy.h header file,
-          you are running PyPy <= 2.2.1, please see the section `Missing PyPy.h`_.
-
-Missing PyPy.h
---------------
-
-.. note:: PyPy.h is in the nightly builds and goes to new PyPy releases (>2.2.1).
-
-For PyPy <= 2.2.1, you can download PyPy.h from PyPy repository (it has been added in commit c4cd6ec):
-
-.. code-block:: bash
-
-    cd /opt/pypy/include
-    wget https://bitbucket.org/pypy/pypy/raw/c4cd6eca9358066571500ac82aaacfdaa3889e8c/include/PyPy.h
-
-
-More advanced example
+More complete example
 ---------------------
 
 .. note:: This example depends on pypy_execute_source_ptr which is not available
-          in PyPy <= 2.2.1. You might want to see the alternative example
-          below.
+          in PyPy <= 2.2.1.
 
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.
 It's a bit longish, but it captures a gist what can be done with the PyPy
 embedding interface:
 
+.. code-block:: python
+
+    # file "interface.py"
+    
+    import cffi
+
+    ffi = cffi.FFI()
+    ffi.cdef('''
+    struct API {
+        double (*add_numbers)(double x, double y);
+    };
+    ''')
+
+    # Better define callbacks at module scope, it's important to
+    # keep this object alive.
+    @ffi.callback("double (double, double)")
+    def add_numbers(x, y):
+        return x + y
+
+    def fill_api(ptr):
+        global api
+        api = ffi.cast("struct API*", ptr)
+        api.add_numbers = add_numbers
+
 .. code-block:: c
 
-    #include "include/PyPy.h"
+    /* C example */
+    #include "PyPy.h"
     #include <stdio.h>
 
-    char source[] = "from cffi import FFI\n\
-    ffi = FFI()\n\
-    @ffi.callback('int(int)')\n\
-    def func(a):\n\
-        print 'Got from C %d' % a\n\
-        return a * 2\n\
-    ffi.cdef('int callback(int (*func)(int));')\n\
-    c_func = ffi.cast('int(*)(int(*)(int))', c_argument)\n\
-    c_func(func)\n\
-    print 'finished the Python part'\n\
-    ";
+    struct API {
+        double (*add_numbers)(double x, double y);
+    };
 
-    int callback(int (*func)(int))
-    {
-        printf("Calling to Python, result: %d\n", func(3));
-    }
+    struct API api;   /* global var */
 
-    int main()
+    int initialize_api(void)
     {
+        static char source[] =
+            "import sys; sys.path.insert(0, '.'); "
+            "import interface; interface.fill_api(c_argument)";
         int res;
-        void *lib, *func;
 
         rpython_startup_code();
         res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
         if (res) {
-            printf("Error setting pypy home!\n");
-            return 1;
+            fprintf(stderr, "Error setting pypy home!\n");
+            return -1;
         }
-        res = pypy_execute_source_ptr(source, (void*)callback);
+        res = pypy_execute_source_ptr(source, &api);
         if (res) {
-            printf("Error calling pypy_execute_source_ptr!\n");
+            fprintf(stderr, "Error calling pypy_execute_source_ptr!\n");
+            return -1;
         }
-        return res;
+        return 0;
+    }
+
+    int main(void)
+    {
+        if (initialize_api() < 0)
+            return 1;
+
+        printf("sum: %f\n", api.add_numbers(12.3, 45.6));
+
+        return 0;
     }
 
 you can compile and run it with::
 
-   fijal@hermann:/opt/pypy$ gcc -g -o x x.c -lpypy-c -L.
-   fijal@hermann:/opt/pypy$ LD_LIBRARY_PATH=. ./x
-   Got from C 3
-   Calling to Python, result: 6
-   finished the Python part
+    $ gcc -g -o x x.c -lpypy-c -L/opt/pypy/bin -I/opt/pypy/include
+    $ LD_LIBRARY_PATH=/opt/pypy/bin ./x
+    sum: 57.900000
 
-As you can see, we successfully managed to call Python from C and C from
-Python. Now having one callback might not be enough, so what typically happens
-is that we would pass a struct full of callbacks to ``pypy_execute_source_ptr``
-and fill the structure from Python side for the future use.
+As you can see, what we did is create a ``struct API`` that contains
+the custom API that we need in our particular case.  This struct is
+filled by Python to contain a function pointer that is then called
+form the C side.  It is also possible to do have other function
+pointers that are filled by the C side and called by the Python side,
+or even non-function-pointer fields: basically, the two sides
+communicate via this single C structure that defines your API.
 
-Alternative example
--------------------
-
-As ``pypy_execute_source_ptr`` is not available in PyPy 2.2.1, you might want to try 
-an alternative approach which relies on -export-dynamic flag to the GNU linker. 
-The downside to this approach is that it is platform dependent.
-
-.. code-block:: c
-
-    #include "include/PyPy.h"
-    #include <stdio.h>
-
-    char source[] = "from cffi import FFI\n\
-    ffi = FFI()\n\
-    @ffi.callback('int(int)')\n\
-    def func(a):\n\
-        print 'Got from C %d' % a\n\
-        return a * 2\n\
-    ffi.cdef('int callback(int (*func)(int));')\n\
-    lib = ffi.verify('int callback(int (*func)(int));')\n\
-    lib.callback(func)\n\
-    print 'finished the Python part'\n\
-    ";
-
-    int callback(int (*func)(int))
-    {
-        printf("Calling to Python, result: %d\n", func(3));
-    }
-
-    int main()
-    {
-        int res;
-        void *lib, *func;
-
-        rpython_startup_code();
-        res = pypy_setup_home("/opt/pypy/bin/libpypy-c.so", 1);
-        if (res) {
-            printf("Error setting pypy home!\n");
-            return 1;
-        }
-        res = pypy_execute_source(source);
-        if (res) {
-            printf("Error calling pypy_execute_source!\n");
-        }
-        return res;
-    }
-
-
-Make sure to pass -export-dynamic flag when compiling::
-
-   $ gcc -g -o x x.c -lpypy-c -L. -export-dynamic
-   $ LD_LIBRARY_PATH=. ./x
-   Got from C 3
-   Calling to Python, result: 6
-   finished the Python part
 
 Finding pypy_home
 -----------------

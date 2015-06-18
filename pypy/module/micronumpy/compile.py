@@ -3,7 +3,7 @@ It should not be imported by the module itself
 """
 import re
 from pypy.interpreter import special
-from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
+from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
@@ -47,7 +47,7 @@ class W_TypeObject(W_Root):
     def lookup(self, name):
         return self.getdictvalue(self, name)
 
-class FakeSpace(object):
+class FakeSpace(ObjSpace):
     w_ValueError = W_TypeObject("ValueError")
     w_TypeError = W_TypeObject("TypeError")
     w_IndexError = W_TypeObject("IndexError")
@@ -67,6 +67,8 @@ class FakeSpace(object):
     w_unicode = W_TypeObject("unicode")
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
+    w_object = W_TypeObject("object")
+    w_buffer = W_TypeObject("buffer")
 
     def __init__(self):
         """NOT_RPYTHON"""
@@ -88,7 +90,8 @@ class FakeSpace(object):
         return self.wrap(len(w_obj.items))
 
     def getattr(self, w_obj, w_attr):
-        return StringObject(NonConstant('foo'))
+        assert isinstance(w_attr, StringObject)
+        return w_obj.getdictvalue(self, w_attr.v)
 
     def isinstance_w(self, w_obj, w_tp):
         try:
@@ -201,6 +204,12 @@ class FakeSpace(object):
         assert isinstance(w_obj, BoolObject)
         return bool(w_obj.intval)
 
+    def gt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) > self.int_w(w_rhs))
+
+    def lt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) < self.int_w(w_rhs))
+
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
@@ -233,8 +242,7 @@ class FakeSpace(object):
 
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
-        return None
-        #return getattr(w_obj, 'descr_' + s)(self, *args)
+        return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):

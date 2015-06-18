@@ -375,8 +375,8 @@ class AppTestStruct(object):
         self.struct.pack_into("ii", memoryview(b2), 0, 17, 42)
         assert bytes(b2) == self.struct.pack("ii", 17, 42) + (b'\x00' * 11)
 
-        exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
-        assert str(exc.value) == "expected an object with a writable buffer interface"
+        exc = raises(TypeError, self.struct.pack_into, "ii", b'test', 0, 17, 42)
+        assert str(exc.value) == "must be read-write buffer, not bytes"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
@@ -512,6 +512,8 @@ class AppTestStructBuffer(object):
         assert b[:] == (b'\x00' * 2 +
                         self.struct.pack("ii", 17, 42) +
                         b'\x00' * (19-sz-2))
+        m = memoryview(b)
+        self.struct.pack_into("ii", m, 2, 17, 42)
 
     def test_unpack_from(self):
         b = self.bytebuffer(19)

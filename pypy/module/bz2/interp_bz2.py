@@ -295,10 +295,7 @@ class W_BZ2Compressor(W_Root):
         in_bufsize = datasize
 
         with OutBuffer(self.bzs) as out:
-            with lltype.scoped_alloc(rffi.CCHARP.TO, in_bufsize) as in_buf:
-
-                for i in range(datasize):
-                    in_buf[i] = data[i]
+            with rffi.scoped_nonmovingbuffer(data) as in_buf:
 
                 self.bzs.c_next_in = in_buf
                 rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
@@ -406,9 +403,7 @@ class W_BZ2Decompressor(W_Root):
 
         in_bufsize = len(data)
 
-        with lltype.scoped_alloc(rffi.CCHARP.TO, in_bufsize) as in_buf:
-            for i in range(in_bufsize):
-                in_buf[i] = data[i]
+        with rffi.scoped_nonmovingbuffer(data) as in_buf:
             self.bzs.c_next_in = in_buf
             rffi.setintfield(self.bzs, 'c_avail_in', in_bufsize)
 

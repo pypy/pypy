@@ -423,6 +423,7 @@ class FunctionGcRootTracker(object):
                 # the original value for gcmaptable.s.  That's a hack.
                 self.lines.insert(call.lineno+1, '%s=.+%d\n' % (label,
                                                                 self.OFFSET_LABELS))
+                self.lines.insert(call.lineno+1, '\t.hidden\t%s\n' % (label,))
                 self.lines.insert(call.lineno+1, '\t.globl\t%s\n' % (label,))
         call.global_label = label
 
@@ -525,6 +526,8 @@ class FunctionGcRootTracker(object):
         'andn', 'bextr', 'blsi', 'blsmask', 'blsr', 'tzcnt', 'lzcnt',
         # uh, this can occur with a 'call' on the following line...
         'rex64',
+        # movbe, converts from big-endian, so most probably not GC pointers
+        'movbe',
     ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -1069,6 +1072,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
     visit_leaq = FunctionGcRootTracker._visit_lea
 
     visit_xorq = FunctionGcRootTracker.binary_insn
+    visit_xchgl = FunctionGcRootTracker._visit_xchg
     visit_xchgq = FunctionGcRootTracker._visit_xchg
     visit_testq = FunctionGcRootTracker._visit_test
 

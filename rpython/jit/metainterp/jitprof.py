@@ -44,7 +44,10 @@ class EmptyProfiler(BaseProfiler):
         pass
 
     def get_counter(self, num):
-        return -1.0
+        return 0
+
+    def get_times(self, num):
+        return 0.0
 
 class Profiler(BaseProfiler):
     initialized = False
@@ -108,6 +111,9 @@ class Profiler(BaseProfiler):
         elif num == Counters.TOTAL_FREED_BRIDGES:
             return self.cpu.tracker.total_freed_bridges
         return self.counters[num]
+
+    def get_times(self, num):
+        return self.times[num]
 
     def count_ops(self, opnum, kind=Counters.OPS):
         from rpython.jit.metainterp.resoperation import rop

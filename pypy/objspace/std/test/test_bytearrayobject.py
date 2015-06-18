@@ -202,6 +202,14 @@ class AppTestBytesArray:
         else:
             assert False, 'Expected TypeError'
 
+    def test_startswith_too_large(self):
+        assert bytearray(b'ab').startswith(bytearray(b'b'), 1) is True
+        assert bytearray(b'ab').startswith(bytearray(b''), 2) is True
+        assert bytearray(b'ab').startswith(bytearray(b''), 3) is False
+        assert bytearray(b'ab').endswith(bytearray(b'b'), 1) is True
+        assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
+        assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
+
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)
         def check(result, expected):

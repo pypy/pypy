@@ -335,6 +335,14 @@ class AppTestBytesObject:
         assert b'abc'.startswith(b'bc', 1, 2) is False
         assert b'abc'.startswith(b'c', -1, 4) is True
 
+    def test_startswith_too_large(self):
+        assert b'ab'.startswith(b'b', 1) is True
+        assert b'ab'.startswith(b'', 2) is True
+        assert b'ab'.startswith(b'', 3) is False
+        assert b'ab'.endswith(b'b', 1) is True
+        assert b'ab'.endswith(b'', 2) is True
+        assert b'ab'.endswith(b'', 3) is False
+
     def test_startswith_tuples(self):
         assert b'hello'.startswith((b'he', b'ha'))
         assert not b'hello'.startswith((b'lo', b'llo'))
@@ -736,6 +744,18 @@ class AppTestBytesObject:
             def __bytes__(self):
                 return [3, 4]
         raises(TypeError, bytes, Z())
+
+    def test_fromobject___index__(self):
+        class WithIndex:
+            def __index__(self):
+                return 3
+        assert bytes(WithIndex()) == b'\x00\x00\x00'
+
+    def test_fromobject___int__(self):
+        class WithInt:
+            def __int__(self):
+                return 3
+        raises(TypeError, bytes, WithInt())
 
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)

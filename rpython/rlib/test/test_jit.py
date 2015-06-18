@@ -1,9 +1,10 @@
-import py
+import py, pytest
 
 from rpython.conftest import option
 from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
-    JitHintError, oopspec, isconstant, conditional_call)
+    JitHintError, oopspec, isconstant, conditional_call,
+    elidable, unroll_safe, dont_look_inside)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -90,6 +91,28 @@ def test_merge_enter_different():
 
     myjitdriver = JitDriver(greens=['n'], reds=[])
     py.test.raises(JitHintError, fn, 100)
+
+def test_invalid_hint_combinations_error():
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @elidable
+        def f():
+            pass
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @elidable
+        def f():
+            pass
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @dont_look_inside
+        def f():
+            pass
+    with pytest.raises(TypeError):
+        @unroll_safe
+        @dont_look_inside
+        def f():
+            pass
 
 class TestJIT(BaseRtypingTest):
     def test_hint(self):

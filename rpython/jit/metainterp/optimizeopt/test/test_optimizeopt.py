@@ -1278,7 +1278,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1288,7 +1288,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1688,8 +1688,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
-        i2 = arraylen_gc(p1)
-        escape(i2)
+        escape(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -3080,6 +3079,69 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_remove_multiple_add_1(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i1, 2)
+        i3 = int_add(i2, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_2(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(2, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(1, i5)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(i4, 6)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_3(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i1, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i3, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, sys.maxint - 2, -sys.maxint, -sys.maxint + 1)
+        expected = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i0, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i0, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, -5, -sys.maxint, 3)
+        self.optimize_loop(ops, expected)
+
     def test_remove_duplicate_pure_op(self):
         ops = """
         [p1, p2]
@@ -3605,7 +3667,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3617,11 +3679,73 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
+        i3 = call(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         i148 = same_as(i3)
         i147 = same_as(i3)
         jump(p1, i4, i3, i148)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_call_pure_invalidates_caches_2(self):
+        # same as test_call_pure_invalidates_caches, but with
+        # an EF_ELIDABLE_OR_MEMORYERROR, which can still be moved
+        # out of the main loop potentially into the short preamble
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(p1, descr=elidable2calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        expected = '''
+        [p1, i4, i3, i5]
+        setfield_gc(p1, i5, descr=valuedescr)
+        jump(p1, i3, i5, i5)
+        '''
+        preamble = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidable2calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        i148 = same_as(i3)
+        i147 = same_as(i3)
+        jump(p1, i4, i3, i148)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_call_pure_can_raise(self):
+        # same as test_call_pure_invalidates_caches, but this time
+        # with an EF_ELIDABLE_CAN_RAISE, which *cannot* be moved
+        # out of the main loop: the problem is that it cannot be
+        # present in the short preamble, because nobody would catch
+        # the potential exception
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(p1, descr=elidable3calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        expected = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidable3calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        preamble = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidable3calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        i167 = same_as(i3)
+        jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3630,7 +3754,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=elidablecalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3642,8 +3766,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
-        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidablecalldescr)
         i151 = same_as(i3)
         jump(p1, i4, i3, i151)
         '''
@@ -3656,15 +3779,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=elidablecalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=elidablecalldescr)
         jump(i0, i3, i4)
         '''
         preamble = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        i4 = call(123456, 4, i0, 6, descr=elidablecalldescr)
         i153 = same_as(i4)
         jump(i0, i4, i153)
         '''
@@ -3676,34 +3799,67 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
+    def test_call_pure_constant_folding_memoryerr(self):
+        ops = '''
+        [p0, i0]
+        escape(i0)
+        i3 = call_pure(123456, p0, descr=elidable2calldescr)
+        guard_no_exception() []
+        jump(p0, i3)
+        '''
+        preamble = '''
+        [p0, i0]
+        escape(i0)
+        i3 = call(123456, p0, descr=elidable2calldescr)
+        guard_no_exception() []
+        i4 = same_as(i3)
+        jump(p0, i3, i4)
+        '''
+        expected = '''
+        [p0, i3, i4]
+        escape(i3)
+        jump(p0, i4, i4)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
     def test_call_pure_constant_folding_exc(self):
         # CALL_PURE may be followed by GUARD_NO_EXCEPTION
+        # we can't remove such call_pures from the loop,
+        # because the short preamble can't call them safely.
+        # We can still check that an all-constant call_pure is removed,
+        # and that duplicate call_pures are folded.
         arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
         call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
-        [i0, i1, i2]
+        [i0, i1, i2, i9]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
+        escape(i9)
+        i3 = call_pure(123456, 4, 5, 6, descr=elidable3calldescr)
         guard_no_exception() []
-        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=elidable3calldescr)
         guard_no_exception() []
-        jump(i0, i3, i4)
+        i5 = call_pure(123456, 4, i0, 6, descr=elidable3calldescr)
+        guard_no_exception() []
+        jump(i0, i3, i4, i5)
         '''
         preamble = '''
-        [i0, i1, i2]
+        [i0, i1, i2, i9]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        escape(i9)
+        i4 = call(123456, 4, i0, 6, descr=elidable3calldescr)
         guard_no_exception() []
-        i155 = same_as(i4)
-        jump(i0, i4, i155)
+        jump(i0, i4)
         '''
         expected = '''
-        [i0, i2, i3]
+        [i0, i2]
         escape(42)
         escape(i2)
-        jump(i0, i3, i3)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=elidable3calldescr)
+        guard_no_exception() []
+        jump(i0, i4)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
@@ -3713,6 +3869,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i2]
         p2 = call_pure(0, p1, i1, i2, descr=strslicedescr)
+        guard_no_exception() []
         escape(p2)
         jump(p1, i1, i2)
         '''
@@ -4762,7 +4919,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusPureField
+        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
         ops = """
         [p3]
         p1 = escape()
@@ -4770,7 +4927,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """

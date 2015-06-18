@@ -59,7 +59,7 @@ Flow restrictions
 
 **exceptions**
 
-  fully supported
+  fully supported.
   see below `Exception rules`_ for restrictions on exceptions raised by built-in operations
 
 
@@ -92,6 +92,11 @@ We are using
   no variable-length tuples; use them to store or return pairs or n-tuples of
   values. Each combination of types for elements and length constitute
   a separate and not mixable type.
+  
+  There is no general way to convert a list into a tuple, because the
+  length of the result would not be known statically.  (You can of course
+  do ``t = (lst[0], lst[1], lst[2])`` if you know that ``lst`` has got 3
+  items.)
 
 **lists**
 
@@ -136,9 +141,16 @@ We are using
 
 **functions**
 
-+ statically called functions may use defaults and a variable number of
-  arguments (which may be passed as a list instead of a tuple, so write code
-  that does not depend on it being a tuple).
++ function declarations may use defaults and ``*args``, but not
+  ``**keywords``.
+
++ function calls may be done to a known function or to a variable one,
+  or to a method.  You can call with positional and keyword arguments,
+  and you can pass a ``*args`` argument (it must be a tuple).
+
++ as explained above, tuples are not of a variable length.  If you need
+  to call a function with a dynamic number of arguments, refactor the
+  function itself to accept a single argument which is a regular list.
 
 + dynamic dispatch enforces the use of signatures that are equal for all
   possible called function, or at least "compatible enough".  This

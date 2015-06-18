@@ -23,11 +23,15 @@ Content
 
    overview
    pyjitpl5
+   optimizer
    virtualizable
 
 - :doc:`Overview <overview>`: motivating our approach
 
 - :doc:`Notes <pyjitpl5>` about the current work in PyPy
+
+- :doc:`Optimizer <optimizer>`: the step between tracing and writing
+  machine code
 
 - :doc:`Virtulizable <virtualizable>` how virtualizables work and what they are
   (in other words how to make frames more efficient).

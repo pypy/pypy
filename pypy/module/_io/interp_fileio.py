@@ -264,11 +264,18 @@ class W_FileIO(W_RawIOBase):
                                exception_name='w_IOError')
 
     def close_w(self, space):
+        try:
+            W_RawIOBase.close_w(self, space)
+        except OperationError:
+            if not self.closefd:
+                self.fd = -1
+                raise
+            self._close(space)
+            raise
         if not self.closefd:
             self.fd = -1
             return
         self._close(space)
-        W_RawIOBase.close_w(self, space)
 
     def _dealloc_warn_w(self, space, w_source):
         if self.fd >= 0 and self.closefd:

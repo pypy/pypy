@@ -246,7 +246,12 @@ class CoverageResults:
         """Return True if the filename does not refer to a file
         we want to have reported.
         """
-        return filename.startswith('<') and filename.endswith('>')
+        return ((filename.startswith('<') and filename.endswith('>')) or
+                # XXX PyPy freezes some (pure-Python) modules at
+                # translation-time.  These contain filenames starting with
+                # "<builtin>/" instead of their actual filenames.  Ignore them
+                # for now.
+                filename.startswith("<builtin>/"))
 
     def update(self, other):
         """Merge in the data from another CoverageResults"""

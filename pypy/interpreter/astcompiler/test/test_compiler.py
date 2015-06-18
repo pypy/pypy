@@ -478,6 +478,14 @@ class TestCompiler:
         yield self.st, decl, 'A,A1,A2,B2,C,C1,C2,D1,E,G,G1,G2,N1', \
                              (6,6 ,4 ,1 ,5,5 ,5 ,3 ,8,2,2 ,2 ,7 )
 
+    def test_try_except(self):
+        yield self.simple_test, """
+        x = 42
+        try:
+            pass
+        except:
+            x = 0
+        """, 'x', 42
 
     def test_try_except_finally(self):
         yield self.simple_test, """
@@ -490,6 +498,32 @@ class TestCompiler:
                     x += 1
             except ValueError:
                 x *= 7
+        """, 'x', 42
+
+    def test_try_finally_bug(self):
+        yield self.simple_test, """
+        x = 0
+        try:
+            pass
+        finally:
+            x = 6
+        print(None, None, None, None)
+        x *= 7
+        """, 'x', 42
+
+    def test_with_bug(self):
+        yield self.simple_test, """
+        class ContextManager:
+            def __enter__(self, *args):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        x = 0
+        with ContextManager():
+            x = 6
+        print(None, None, None, None)
+        x *= 7
         """, 'x', 42
 
     def test_while_loop(self):
@@ -777,6 +811,73 @@ class TestCompiler:
             l.append(x)
         """
         self.simple_test(source, 'l', [1, 2])
+
+    def test_unpack_wrong_stackeffect(self):
+        source = """if 1:
+        l = [1, 2]
+        a, b = l
+        a, b = l
+        a, b = l
+        a, b = l
+        a, b = l
+        a, b = l
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 2
+
+    def test_stackeffect_bug3(self):
+        source = """if 1:
+        try: pass
+        finally: pass
+        try: pass
+        finally: pass
+        try: pass
+        finally: pass
+        try: pass
+        finally: pass
+        try: pass
+        finally: pass
+        try: pass
+        finally: pass
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 4
+
+    def test_stackeffect_bug4(self):
+        source = """if 1:
+        with a: pass
+        with a: pass
+        with a: pass
+        with a: pass
+        with a: pass
+        with a: pass
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 5
+
+    def test_stackeffect_bug5(self):
+        source = """if 1:
+        a[:]; a[:]; a[:]; a[:]; a[:]; a[:]
+        a[1:]; a[1:]; a[1:]; a[1:]; a[1:]; a[1:]
+        a[:2]; a[:2]; a[:2]; a[:2]; a[:2]; a[:2]
+        a[1:2]; a[1:2]; a[1:2]; a[1:2]; a[1:2]; a[1:2]
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 3
+
+    def test_stackeffect_bug6(self):
+        source = """if 1:
+        {1}; {1}; {1}; {1}; {1}; {1}; {1}
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 1
+
+    def test_stackeffect_bug7(self):
+        source = '''def f():
+            for i in a:
+                return
+        '''
+        code = compile_with_astcompiler(source, 'exec', self.space)
 
     def test_lambda(self):
         yield self.st, "y = lambda x: x", "y(4)", 4

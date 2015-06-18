@@ -35,7 +35,7 @@ def frame_attach(space, py_obj, w_obj):
     py_frame = rffi.cast(PyFrameObject, py_obj)
     py_frame.c_f_code = rffi.cast(PyCodeObject, make_ref(space, frame.pycode))
     py_frame.c_f_globals = make_ref(space, frame.w_globals)
-    rffi.setintfield(py_frame, 'c_f_lineno', frame.f_lineno)
+    rffi.setintfield(py_frame, 'c_f_lineno', frame.getorcreatedebug().f_lineno)
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def frame_dealloc(space, py_obj):
@@ -58,7 +58,8 @@ def frame_realize(space, py_obj):
     w_globals = from_ref(space, py_frame.c_f_globals)
 
     frame = space.FrameClass(space, code, w_globals, outer_func=None)
-    frame.f_lineno = rffi.getintfield(py_frame, 'c_f_lineno')
+    d = frame.getorcreatedebug()
+    d.f_lineno = rffi.getintfield(py_frame, 'c_f_lineno')
     w_obj = space.wrap(frame)
     track_reference(space, py_obj, w_obj)
     return w_obj

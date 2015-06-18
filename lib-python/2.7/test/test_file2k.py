@@ -4,6 +4,7 @@ import unittest
 import itertools
 import select
 import signal
+import stat
 import subprocess
 import time
 from array import array
@@ -236,19 +237,20 @@ class OtherFileTests(unittest.TestCase):
             else:
                 f.close()
 
-    def testStdin(self):
-        # This causes the interpreter to exit on OSF1 v5.1.
-        if sys.platform != 'osf1V5':
-            if sys.stdin.isatty():
-                self.assertRaises(IOError, sys.stdin.seek, -1)
-            else:
-                print >>sys.__stdout__, (
-                    '  Skipping sys.stdin.seek(-1): stdin is not a tty.'
-                    ' Test manualy.')
-        else:
-            print >>sys.__stdout__, (
-                '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'
-                ' Test manually.')
+    def testStdinSeek(self):
+        if sys.platform == 'osf1V5':
+            # This causes the interpreter to exit on OSF1 v5.1.
+            self.skipTest('Skipping sys.stdin.seek(-1), it may crash '
+                          'the interpreter. Test manually.')
+
+        if not sys.stdin.isatty():
+            # Issue #23168: if stdin is redirected to a file, stdin becomes
+            # seekable
+            self.skipTest('stdin must be a TTY in this test')
+
+        self.assertRaises(IOError, sys.stdin.seek, -1)
+
+    def testStdinTruncate(self):
         self.assertRaises(IOError, sys.stdin.truncate)
 
     def testUnicodeOpen(self):
@@ -437,17 +439,22 @@ class OtherFileTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix', 'test requires a posix system.')
     def test_write_full(self):
-        # Issue #17976
-        try:
-            f = open('/dev/full', 'w', 1)
-        except IOError:
-            self.skipTest("requires '/dev/full'")
-        try:
+        devfull = '/dev/full'
+        if not (os.path.exists(devfull) and
+                stat.S_ISCHR(os.stat(devfull).st_mode)):
+            # Issue #21934: OpenBSD does not have a /dev/full character device
+            self.skipTest('requires %r' % devfull)
+        with open(devfull, 'wb', 1) as f:
             with self.assertRaises(IOError):
+                f.write('hello\n')
+        with open(devfull, 'wb', 1) as f:
+            with self.assertRaises(IOError):
+                # Issue #17976
                 f.write('hello')
                 f.write('\n')
-        finally:
-            f.close()
+        with open(devfull, 'wb', 0) as f:
+            with self.assertRaises(IOError):
+                f.write('h')
 
     @unittest.skipUnless(sys.maxsize > 2**31, "requires 64-bit system")
     @test_support.precisionbigmemtest(2**31, 2.5, dry_run=False)

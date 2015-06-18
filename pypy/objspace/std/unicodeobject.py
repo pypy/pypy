@@ -443,6 +443,9 @@ class W_UnicodeObject(W_Root):
     descr_ljust = _fix_fillchar(StringMethods.descr_ljust)
     descr_rjust = _fix_fillchar(StringMethods.descr_rjust)
 
+    def _starts_ends_overflow(self, prefix):
+        return len(prefix) == 0
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)

@@ -2,6 +2,7 @@ import __builtin__
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import frame, transparent, callmethod
 from pypy.objspace.descroperation import (
@@ -572,6 +573,13 @@ class StdObjSpace(ObjSpace):
                     return w_value
                 if not is_data:
                     w_get = self.lookup(w_descr, "__get__")
+            typ = type(w_descr)
+            if typ is Function or typ is FunctionWithFixedCode:
+                # This shortcut is necessary if w_obj is None.  Otherwise e.g.
+                # None.__eq__ would return an unbound function because calling
+                # __get__ with None as the first argument returns the attribute
+                # as if it was accessed through the owner (type(None).__eq__).
+                return Method(self, w_descr, w_obj)
             if w_get is not None:
                 # __get__ is allowed to raise an AttributeError to trigger
                 # use of __getattr__.

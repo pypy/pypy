@@ -83,6 +83,8 @@ class Module(MixedModule):
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
+        'save_module_content_for_future_reload':
+                          'interp_magic.save_module_content_for_future_reload',
         'normalize_exc'             : 'interp_magic.normalize_exc',
     }
 

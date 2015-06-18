@@ -459,6 +459,8 @@ class ResOpAssembler(BaseAssembler):
         return fcond
     emit_op_jit_debug = emit_op_debug_merge_point
     emit_op_keepalive = emit_op_debug_merge_point
+    emit_op_enter_portal_frame = emit_op_debug_merge_point
+    emit_op_leave_portal_frame = emit_op_debug_merge_point
 
     def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
         self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, fcond)

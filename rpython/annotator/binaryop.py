@@ -2,7 +2,6 @@
 Binary operations between SomeValues.
 """
 
-import operator
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
@@ -14,7 +13,7 @@ from rpython.annotator.model import (
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import immutablevalue
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
 from rpython.annotator.model import AnnotatorError
@@ -133,13 +132,11 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         impl = pair(s_c1, s_o2).getitem
         return read_can_only_throw(impl, s_c1, s_o2)
 
-    def getitem_idx_key((s_c1, s_o2)):
+    def getitem_idx((s_c1, s_o2)):
         impl = pair(s_c1, s_o2).getitem
         return impl()
-    getitem_idx_key.can_only_throw = _getitem_can_only_throw
+    getitem_idx.can_only_throw = _getitem_can_only_throw
 
-    getitem_idx = getitem_idx_key
-    getitem_key = getitem_idx_key
 
 
 class __extend__(pairtype(SomeType, SomeType),
@@ -566,13 +563,9 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return lst1.listdef.read_item()
     getitem.can_only_throw = []
 
-    getitem_key = getitem
-
     def getitem_idx((lst1, int2)):
         return lst1.listdef.read_item()
     getitem_idx.can_only_throw = [IndexError]
-
-    getitem_idx_key = getitem_idx
 
     def setitem((lst1, int2), s_value):
         lst1.listdef.mutate()
@@ -589,13 +582,9 @@ class __extend__(pairtype(SomeString, SomeInteger)):
         return SomeChar(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
-    getitem_key = getitem
-
     def getitem_idx((str1, int2)):
         return SomeChar(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
-
-    getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
         return SomeString(no_nul=str1.no_nul)
@@ -605,13 +594,9 @@ class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
         return SomeUnicodeCodePoint()
     getitem.can_only_throw = []
 
-    getitem_key = getitem
-
     def getitem_idx((str1, int2)):
         return SomeUnicodeCodePoint()
     getitem_idx.can_only_throw = [IndexError]
-
-    getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
         return SomeUnicodeString()
@@ -689,12 +674,16 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             return super(thistype, pair(ins1, ins2)).improve()
 
 
-class __extend__(pairtype(SomeInstance, SomeObject)):
-    def getitem((s_ins, s_idx)):
-        return s_ins._emulate_call("__getitem__", s_idx)
+@op.getitem.register_transform(SomeInstance, SomeObject)
+def getitem_SomeInstance(annotator, v_ins, v_idx):
+    get_getitem = op.getattr(v_ins, const('__getitem__'))
+    return [get_getitem, op.simple_call(get_getitem.result, v_idx)]
 
-    def setitem((s_ins, s_idx), s_value):
-        return s_ins._emulate_call("__setitem__", s_idx, s_value)
+@op.setitem.register_transform(SomeInstance, SomeObject)
+def setitem_SomeInstance(annotator, v_ins, v_idx, v_value):
+    get_setitem = op.getattr(v_ins, const('__setitem__'))
+    return [get_setitem,
+            op.simple_call(get_setitem.result, v_idx, v_value)]
 
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
