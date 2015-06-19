@@ -66,6 +66,13 @@ def hidden_applevel(space, w_func):
     func.getcode().hidden_applevel = True
     return w_func
 
+def get_hidden_tb(space):
+    """Return the traceback of the current exception being handled by a
+    frame hidden from applevel.
+    """
+    operr = space.getexecutioncontext().sys_exc_info(for_hidden=True)
+    return space.w_None if operr is None else space.wrap(operr.get_traceback())
+
 @unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):
     """Lookup up a special method on an object."""

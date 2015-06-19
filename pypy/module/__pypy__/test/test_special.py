@@ -57,6 +57,22 @@ class AppTest(object):
             return 2
         assert test_hidden() == 2
 
+    def test_get_hidden_tb(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def test_hidden_with_tb():
+            def not_hidden(): 1/0
+            try: not_hidden()
+            except ZeroDivisionError as e:
+                assert sys.exc_info() == (None, None, None)
+                tb = __pypy__.get_hidden_tb()
+                assert tb.tb_frame.f_code.co_name == 'not_hidden'
+                return True
+            else: return False
+        assert test_hidden_with_tb()
+
     def test_lookup_special(self):
         from __pypy__ import lookup_special
         class X(object):

@@ -41,8 +41,9 @@ PYPYLOG: If set to a non-empty value, enable logging.
 """
 
 try:
-    from __pypy__ import hidden_applevel
+    from __pypy__ import get_hidden_tb, hidden_applevel
 except ImportError:
+    get_hidden_tb = lambda: sys.exc_info()[2]
     hidden_applevel = lambda f: f
 import sys
 
@@ -98,7 +99,7 @@ def run_toplevel(f, *fargs, **fkwds):
     return True   # success
 
 def display_exception(e):
-    etype, evalue, etraceback = type(e), e, e.__traceback__
+    etype, evalue, etraceback = type(e), e, get_hidden_tb()
     try:
         # extra debugging info in case the code below goes very wrong
         if DEBUG and hasattr(sys, 'stderr'):
@@ -697,7 +698,7 @@ def run_command_line(interactive,
     except SystemExit as e:
         status = e.code
         if inspect_requested():
-            display_exception()
+            display_exception(e)
     else:
         status = not success
 
