@@ -286,7 +286,7 @@ class FFI(object):
         """
         return self._backend.from_buffer(self.BCharA, python_buffer)
 
-    def callback(self, cdecl, python_callable=None, error=None):
+    def callback(self, cdecl, python_callable=None, error=None, onerror=None):
         """Return a callback object or a decorator making such a
         callback object.  'cdecl' must name a C function pointer type.
         The callback invokes the specified 'python_callable' (which may
@@ -298,7 +298,8 @@ class FFI(object):
             if not callable(python_callable):
                 raise TypeError("the 'python_callable' argument "
                                 "is not callable")
-            return self._backend.callback(cdecl, python_callable, error)
+            return self._backend.callback(cdecl, python_callable, error,
+                                          onerror)
         if isinstance(cdecl, basestring):
             cdecl = self._typeof(cdecl, consider_function_as_funcptr=True)
         if python_callable is None:
