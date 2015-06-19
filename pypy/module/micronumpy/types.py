@@ -2318,7 +2318,7 @@ class VoidType(FlexibleType):
         dt = item.arr.dtype
         ret_unwrapped = []
         for name in dt.names:
-            ofs, dtype, _name, title = dt.fields[name]
+            ofs, dtype = dt.fields[name[0]]
             # XXX: code duplication with W_VoidBox.descr_getitem()
             if isinstance(dtype.itemtype, VoidType):
                 read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
@@ -2357,7 +2357,7 @@ class RecordType(FlexibleType):
                 for i in range(len(dtype.names)):
                     name = dtype.names[i]
                     if name in w_item.dtype.names:
-                        items_w[i] = w_item.descr_getitem(space, space.wrap(name))
+                        items_w[i] = w_item.descr_getitem(space, space.wrap(name[0]))
         elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
                 if len(dtype.names) != space.len_w(w_item):
@@ -2376,7 +2376,7 @@ class RecordType(FlexibleType):
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.elsize, dtype)
         for i in range(len(dtype.names)):
-            ofs, subdtype, name, title = dtype.fields[dtype.names[i]]
+            ofs, subdtype = dtype.fields[dtype.names[i][0]]
             try:
                 w_box = subdtype.coerce(space, items_w[i])
             except IndexError:
@@ -2414,7 +2414,7 @@ class RecordType(FlexibleType):
         items = []
         dtype = box.dtype
         for name in dtype.names:
-            ofs, subdtype, _name, title = dtype.fields[name]
+            ofs, subdtype = dtype.fields[name[0]]
             subbox = subdtype.read(box.arr, box.ofs, ofs)
             items.append(subdtype.itemtype.to_builtin_type(space, subbox))
         return space.newtuple(items)
@@ -2425,7 +2425,7 @@ class RecordType(FlexibleType):
         pieces = ["("]
         first = True
         for name in box.dtype.names:
-            ofs, subdtype, _name, title = box.dtype.fields[name]
+            ofs, subdtype = box.dtype.fields[name[0]]
             if first:
                 first = False
             else:

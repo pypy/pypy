@@ -170,7 +170,7 @@ def can_cast_record(space, origin, target, casting):
         return False
     if len(origin.fields) != len(target.fields):
         return False
-    for name, (offset, orig_field, _name, title) in origin.fields.iteritems():
+    for name, (offset, orig_field) in origin.fields.iteritems():
         if name not in target.fields:
             return False
         target_field = target.fields[name][1]
