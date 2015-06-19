@@ -370,13 +370,15 @@ static void queue_trace_list(queue_entry_t *entry, void trace(object_t **),
 
 void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **))
 {
-    if (trace == TRACE_FOR_MAJOR_COLLECTION) {
+    if (trace != TRACE_FOR_MINOR_COLLECTION) {
         long i;
         for (i = 0; i < STM_NB_SEGMENTS; i++) {
             stm_queue_segment_t *seg = &queue->segs[i];
-            seg->added_young_limit = seg->added_in_this_transaction;
-            queue_trace_list(seg->added_in_this_transaction, trace, NULL);
             queue_trace_list(seg->old_objects_popped, trace, NULL);
+            /* seg->added_in_this_transaction cannot be traced from here,
+               because it typically contains overflow objects that need
+               to be traced in the correct segment.  This is done with
+               mark_visit_from_active_queues(). */
         }
         queue_trace_list(queue->old_entries, trace, NULL);
     }
@@ -386,6 +388,7 @@ void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **))
 
 static void collect_active_queues(void)
 {
+    /* for minor collections */
     wlog_t *item;
     queue_lock_acquire();
     TREE_LOOP_FORWARD(STM_PSEGMENT->active_queues, item) {
@@ -408,4 +411,29 @@ static void collect_active_queues(void)
         }
     } TREE_LOOP_END;
     queue_lock_release();
+}
+
+static void mark_visit_from_active_queues(void)
+{
+    /* for major collections */
+    long j;
+    for (j = 1; j < NB_SEGMENTS; j++) {
+        struct stm_priv_segment_info_s *pseg = get_priv_segment(j);
+        if (pseg->active_queues == NULL)
+            continue;
+
+        wlog_t *item;
+        TREE_LOOP_FORWARD(pseg->active_queues, item) {
+            stm_queue_t *queue = (stm_queue_t *)item->addr;
+            dprintf(("mark visit from active queue %p\n", queue));
+
+            stm_queue_segment_t *seg = &queue->segs[j - 1];
+            queue_entry_t *entry = seg->added_in_this_transaction;
+
+            while (entry != NULL) {
+                mark_visit_possibly_new_object(entry->object, pseg);
+                entry = entry->next;
+            }
+        } TREE_LOOP_END;
+    }
 }

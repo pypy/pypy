@@ -257,6 +257,9 @@ static void _reset_object_cards(struct stm_priv_segment_info_s *pseg,
 }
 
 
+#define TRACE_FOR_MINOR_COLLECTION  (&minor_trace_if_young)
+
+
 static void _trace_card_object(object_t *obj)
 {
     assert(!_is_in_nursery(obj));
@@ -293,7 +296,7 @@ static void _trace_card_object(object_t *obj)
 
             dprintf(("trace_cards on %p with start:%lu stop:%lu\n",
                      obj, start, stop));
-            stmcb_trace_cards(realobj, &minor_trace_if_young,
+            stmcb_trace_cards(realobj, TRACE_FOR_MINOR_COLLECTION,
                               start, stop);
         }
 
@@ -345,7 +348,7 @@ static inline void _collect_now(object_t *obj)
            outside the nursery, possibly forcing nursery objects out and
            adding them to 'objects_pointing_to_nursery' as well. */
         char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
-        stmcb_trace((struct object_s *)realobj, &minor_trace_if_young);
+        stmcb_trace((struct object_s *)realobj, TRACE_FOR_MINOR_COLLECTION);
 
         obj->stm_flags |= GCFLAG_WRITE_BARRIER;
     }
