@@ -2236,3 +2236,15 @@ def test_const_struct_global():
                      "const T myglob = { 0.1, 42 };")
     assert ffi.typeof(lib.myglob) == ffi.typeof("T")
     assert lib.myglob.x == 42
+
+def test_dont_support_int_dotdotdot():
+    ffi = FFI()
+    ffi.cdef("typedef int... t1;")
+    e = py.test.raises(VerificationError, ffi.verify, "")
+    assert str(e.value) == ("feature not supported with ffi.verify(), but only "
+                            "with ffi.set_source(): 'typedef int... t1'")
+    ffi = FFI()
+    ffi.cdef("typedef unsigned long... t1;")
+    e = py.test.raises(VerificationError, ffi.verify, "")
+    assert str(e.value) == ("feature not supported with ffi.verify(), but only "
+                         "with ffi.set_source(): 'typedef unsigned long... t1'")

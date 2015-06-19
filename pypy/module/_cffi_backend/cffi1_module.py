@@ -38,4 +38,6 @@ def load_cffi1_module(space, name, path, initptr):
     module.setdictvalue(space, '__file__', space.wrap(path))
     module.setdictvalue(space, 'ffi', space.wrap(ffi))
     module.setdictvalue(space, 'lib', space.wrap(lib))
-    space.setitem(space.sys.get('modules'), w_name, space.wrap(module))
+    w_modules_dict = space.sys.get('modules')
+    space.setitem(w_modules_dict, w_name, space.wrap(module))
+    space.setitem(w_modules_dict, space.wrap(name + '.lib'), space.wrap(lib))

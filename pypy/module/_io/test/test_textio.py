@@ -60,7 +60,7 @@ class AppTestTextIO:
 
         # Operations independent of the detached stream should still work
         repr(f)
-        assert f.encoding == "UTF-8"
+        assert isinstance(f.encoding, str)
         assert f.errors == "strict"
         assert not f.line_buffering
 

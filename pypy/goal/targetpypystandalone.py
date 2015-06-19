@@ -97,13 +97,16 @@ def create_entry_point(space, w_dict):
         from pypy.module.sys.initpath import pypy_find_stdlib
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home:
-            home = rffi.charp2str(ll_home)
+            home1 = rffi.charp2str(ll_home)
+            home = os.path.join(home1, 'x') # <- so that 'll_home' can be
+                                            # directly the root directory
         else:
-            home = pypydir
+            home = home1 = pypydir
         w_path = pypy_find_stdlib(space, home)
         if space.is_none(w_path):
             if verbose:
-                debug("Failed to find library based on pypy_find_stdlib")
+                debug("pypy_setup_home: directories 'lib-python' and 'lib_pypy'"
+                      " not found in '%s' or in any parent directory" % home1)
             return rffi.cast(rffi.INT, 1)
         space.startup()
         space.call_function(w_pathsetter, w_path)
