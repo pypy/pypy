@@ -86,6 +86,7 @@ class W_Ufunc(W_Root):
         "identity", "int_only", "allow_bool", "allow_complex",
         "complex_to_float", "nargs", "nout", "signature"
     ]
+    w_doc = None
 
     def __init__(self, name, promote_to_largest, promote_to_float, promote_bools,
                  identity, int_only, allow_bool, allow_complex, complex_to_float):
@@ -104,6 +105,15 @@ class W_Ufunc(W_Root):
 
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
+
+    def get_doc(self, space):
+        # Note: allows any object to be set as docstring, because why not?
+        if self.w_doc is None:
+            return space.w_None
+        return self.w_doc
+
+    def set_doc(self, space, w_doc):
+        self.w_doc = w_doc
 
     def descr_get_identity(self, space):
         if self.identity is None:
@@ -1144,6 +1154,7 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
     __name__ = GetSetProperty(W_Ufunc.descr_get_name),
+    __doc__ = GetSetProperty(W_Ufunc.get_doc, W_Ufunc.set_doc),
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
@@ -1155,8 +1166,6 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     reduce = interp2app(W_Ufunc.descr_reduce),
     outer = interp2app(W_Ufunc.descr_outer),
 )
-
-
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, nin, bool_result):
@@ -1481,7 +1490,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if w_ret.external_loop:
         _parse_signature(space, w_ret, w_ret.signature)
     if doc:
-        w_ret.w_doc = space.wrap(doc)
+        w_ret.set_doc(space.wrap(doc))
     return w_ret
 
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls
