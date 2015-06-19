@@ -93,14 +93,14 @@ class W_CDataCallback(W_CData):
         return ctype
 
     @jit.unroll_safe
-    def invoke(self, ll_args):
+    def prepare_invoke_args(self, ll_args):
         space = self.space
         ctype = self.getfunctype()
         args_w = []
         for i, farg in enumerate(ctype.fargs):
             ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
             args_w.append(farg.convert_to_object(ll_arg))
-        return space.call(self.w_callable, space.newtuple(args_w))
+        return space.newtuple(args_w)
 
     def convert_result(self, ll_res, w_res):
         fresult = self.getfunctype().ctitem
@@ -198,20 +198,22 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         must_leave = space.threadlocals.try_enter_thread(space)
         extra_line = ''
         try:
-            w_res = callback.invoke(ll_args)
-            extra_line = "Trying to convert the result back to C:\n"
-            callback.convert_result(ll_res, w_res)
+            w_args = callback.prepare_invoke_args(ll_args)
+            try:
+                w_res = space.call(callback.w_callable, w_args)
+                extra_line = "Trying to convert the result back to C:\n"
+                callback.convert_result(ll_res, w_res)
+            except OperationError, e:
+                # got an app-level exception
+                if callback.w_onerror is None:
+                    raise
+                e.normalize_exception(space)
+                w_t = e.w_type
+                w_v = e.get_w_value(space)
+                w_tb = space.wrap(e.get_traceback())
+                space.call_function(callback.w_onerror, w_t, w_v, w_tb, w_args)
+                callback.write_error_return_value(ll_res)
         except OperationError, e:
-            # got an app-level exception
-            if callback.w_onerror is not None:
-                try:
-                    e.normalize_exception(space)
-                    w_t = e.w_type
-                    w_v = e.get_w_value(space)
-                    w_tb = space.wrap(e.get_traceback())
-                    space.call_function(callback.w_onerror, w_t, w_v, w_tb)
-                except OperationError, e2:
-                    e = e2
             callback.print_error(e, extra_line)
             callback.write_error_return_value(ll_res)
         #
@@ -221,7 +223,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             os.write(STDERR, "SystemError: callback raised ")
             os.write(STDERR, str(e))
             os.write(STDERR, "\n")
-        except OSError:
+        except:
             pass
         callback.write_error_return_value(ll_res)
     if must_leave:
