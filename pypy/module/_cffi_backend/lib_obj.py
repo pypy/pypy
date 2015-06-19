@@ -173,6 +173,8 @@ class W_LibObject(W_Root):
             if w_value is None:
                 if is_getattr and attr == '__all__':
                     return self.dir1(ignore_type=cffi_opcode.OP_GLOBAL_VAR)
+                if is_getattr and attr == '__dict__':
+                    return self.full_dict_copy()
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
@@ -211,6 +213,17 @@ class W_LibObject(W_Root):
             if getop(g[i].c_type_op) != ignore_type:
                 names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
+
+    def full_dict_copy(self):
+        space = self.space
+        total = rffi.getintfield(self.ctx, 'c_num_globals')
+        g = self.ctx.c_globals
+        w_result = space.newdict()
+        for i in range(total):
+            w_attr = space.wrap(rffi.charp2str(g[i].c_name))
+            w_value = self._get_attr(w_attr)
+            space.setitem(w_result, w_attr, w_value)
+        return w_result
 
     def address_of_func_or_global_var(self, varname):
         # rebuild a string object from 'varname', to do typechecks and
