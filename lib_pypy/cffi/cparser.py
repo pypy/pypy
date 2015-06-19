@@ -102,6 +102,7 @@ class Parser(object):
         self._packed = False
         self._int_constants = {}
         self._recomplete = []
+        self._uses_new_feature = None
 
     def _parse(self, csource):
         csource, macros = _preprocess(csource)
@@ -337,7 +338,7 @@ class Parser(object):
                 length = self._parse_constant(
                     typenode.dim, partial_length_ok=partial_length_ok)
             tp = self._get_type(typenode.type,
-                                partial_length_ok=(length == '...'))
+                                partial_length_ok=partial_length_ok)
             return model.ArrayType(tp, length)
         #
         if isinstance(typenode, pycparser.c_ast.PtrDecl):
@@ -648,4 +649,7 @@ class Parser(object):
         for t in typenames[:-1]:
             if t not in ['int', 'short', 'long', 'signed', 'unsigned', 'char']:
                 raise api.FFIError(':%d: bad usage of "..."' % decl.coord.line)
+        if self._uses_new_feature is None:
+            self._uses_new_feature = "'typedef %s... %s'" % (
+                ' '.join(typenames[:-1]), decl.name)
         return model.UnknownIntegerType(decl.name)

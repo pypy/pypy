@@ -418,6 +418,11 @@ class AppTestRecompiler:
         # 'x' is another <built-in method> object on lib, made very indirectly
         x = type(lib).__dir__.__get__(lib)
         raises(TypeError, ffi.typeof, x)
+        #
+        # present on built-in functions on CPython; must be emulated on PyPy:
+        assert lib.sin.__name__ == 'sin'
+        assert lib.sin.__module__ == '_CFFI_test_math_sin_type'
+        assert lib.sin.__doc__=='direct call to the C function of the same name'
 
     def test_verify_anonymous_struct_with_typedef(self):
         ffi, lib = self.prepare(
@@ -966,3 +971,18 @@ class AppTestRecompiler:
             "struct foo_s { unsigned long long x; };")
         assert ffi.alignof('unsigned long long') == x1
         assert ffi.alignof('struct foo_s') == x1
+
+    def test_import_from_lib(self):
+        import sys
+        ffi, lib = self.prepare(
+            "int mybar(int); int myvar;\n#define MYFOO ...",
+            'test_import_from_lib',
+             "#define MYFOO 42\n"
+             "static int mybar(int x) { return x + 1; }\n"
+             "static int myvar = -5;")
+        assert sys.modules['_CFFI_test_import_from_lib'].lib is lib
+        assert sys.modules['_CFFI_test_import_from_lib.lib'] is lib
+        from _CFFI_test_import_from_lib.lib import MYFOO
+        assert MYFOO == 42
+        assert not hasattr(lib, '__dict__')
+        assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'

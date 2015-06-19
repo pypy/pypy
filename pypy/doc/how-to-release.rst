@@ -15,8 +15,7 @@ the documentation into an up-to-date state!
 Release Steps
 -------------
 
-* At code freeze make a release branch using release-x.x.x in mercurial
-  and add a release-specific tag
+* If needed, make a release branch
 * Bump the
   pypy version number in module/sys/version.py and in
   module/cpyext/include/patchlevel.h and . The branch

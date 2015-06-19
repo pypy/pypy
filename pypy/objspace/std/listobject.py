@@ -635,7 +635,8 @@ class W_ListObject(W_Root):
         first index of value'''
         # needs to be safe against eq_w() mutating the w_list behind our back
         size = self.length()
-        i, stop = unwrap_start_stop(space, size, w_start, w_stop, True)
+        i, stop = unwrap_start_stop(space, size, w_start, w_stop)
+        # note that 'i' and 'stop' can be bigger than the length of the list
         try:
             i = self.find(w_value, i, stop)
         except ValueError:

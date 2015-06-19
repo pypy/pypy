@@ -195,6 +195,14 @@ class AppTestBytesArray:
         assert bytearray('hello').endswith(bytearray('lo'))
         assert bytearray('hello').endswith((bytearray('lo'), 'he'))
 
+    def test_startswith_too_large(self):
+        assert bytearray('ab').startswith(bytearray('b'), 1) is True
+        assert bytearray('ab').startswith(bytearray(''), 2) is True
+        assert bytearray('ab').startswith(bytearray(''), 3) is False
+        assert bytearray('ab').endswith(bytearray('b'), 1) is True
+        assert bytearray('ab').endswith(bytearray(''), 2) is True
+        assert bytearray('ab').endswith(bytearray(''), 3) is False
+
     def test_stringlike_conversions(self):
         # methods that should return bytearray (and not str)
         def check(result, expected):
