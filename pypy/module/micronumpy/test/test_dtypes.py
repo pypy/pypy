@@ -1310,6 +1310,54 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         raises(ValueError, np.dtype, [('a', 'f4', -1)])
         raises(ValueError, np.dtype, [('a', 'f4', (-1, -1))])
 
+    def test_aligned_size(self):
+        import numpy as np
+        # Check that structured dtypes get padded to an aligned size
+        dt = np.dtype('i4, i1', align=True)
+        assert dt.itemsize == 8
+        dt = np.dtype([('f0', 'i4'), ('f1', 'i1')], align=True)
+        assert dt.itemsize == 8
+        dt = np.dtype({'names':['f0', 'f1'],
+                       'formats':['i4', 'u1'],
+                       'offsets':[0, 4]}, align=True)
+        assert dt.itemsize == 8
+        dt = np.dtype({'f0': ('i4', 0), 'f1':('u1', 4)}, align=True)
+        assert dt.itemsize == 8
+        # Nesting should preserve that alignment
+        dt1 = np.dtype([('f0', 'i4'),
+                       ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
+                       ('f2', 'i1')], align=True)
+        assert dt1.itemsize == 20
+        dt2 = np.dtype({'names':['f0', 'f1', 'f2'],
+                       'formats':['i4',
+                                  [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')],
+                                  'i1'],
+                       'offsets':[0, 4, 16]}, align=True)
+        assert dt2.itemsize == 20
+        dt3 = np.dtype({'f0': ('i4', 0),
+                       'f1': ([('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')], 4),
+                       'f2': ('i1', 16)}, align=True)
+        assert dt3.itemsize == 20
+        assert dt1 == dt2
+        assert dt2 == dt3
+        # Nesting should preserve packing
+        dt1 = np.dtype([('f0', 'i4'),
+                       ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
+                       ('f2', 'i1')], align=False)
+        assert dt1.itemsize == 11
+        dt2 = np.dtype({'names':['f0', 'f1', 'f2'],
+                       'formats':['i4',
+                                  [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')],
+                                  'i1'],
+                       'offsets':[0, 4, 10]}, align=False)
+        assert dt2.itemsize == 11
+        dt3 = np.dtype({'f0': ('i4', 0),
+                       'f1': ([('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')], 4),
+                       'f2': ('i1', 10)}, align=False)
+        assert dt3.itemsize == 11
+        assert dt1 == dt2
+        assert dt2 == dt3
+
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
