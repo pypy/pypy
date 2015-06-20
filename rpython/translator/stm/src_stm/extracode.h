@@ -133,12 +133,13 @@ static int _stm_expand_marker_for_pypy(char *segment_base,
         }
     }
 
+    uintptr_t next_instr = marker->odd_number >> 1;
+
     ll = _fetch_strlen(segment_base, co_lnotab);
     if (ll > 0) {
         long lnotablen = ll;
         unsigned char *lnotab = (unsigned char *)_fetch_stritems(segment_base,
                                                                  co_lnotab);
-        uintptr_t next_instr = marker->odd_number >> 1;
         line = co_firstlineno;
         uintptr_t ii, curaddr = 0;
         for (ii = 0; ii < lnotablen; ii += 2) {
@@ -151,8 +152,9 @@ static int _stm_expand_marker_for_pypy(char *segment_base,
 
     int result;
     result = snprintf(outputbuf, outputbufsize,
-                      "File \"%s%.*s\", line %ld, in %.*s%s",
-                      fntrunc, (int)fnlen, fn, line, (int)nlen, name, ntrunc);
+                      "File \"%s%.*s\", line %ld, in %.*s%s (#%ld)",
+                      fntrunc, (int)fnlen, fn, line, (int)nlen,
+                      name, ntrunc, next_instr);
     if (result >= outputbufsize)
         result = outputbufsize - 1;
     if (result < 0)
