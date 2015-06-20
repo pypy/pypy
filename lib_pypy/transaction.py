@@ -118,6 +118,8 @@ class TransactionQueue(object):
     finished.  The run() call only returns when the queue is completely
     empty.
     """
+    _nb_threads = 0
+    _thread_queue = queue()
 
     def __init__(self):
         self._queue = queue()
@@ -150,10 +152,16 @@ class TransactionQueue(object):
                 "TransactionQueue.run() cannot be called in an atomic context")
         if nb_segments <= 0:
             nb_segments = getsegmentlimit()
-
+        while TransactionQueue._nb_threads < nb_segments:
+            with atomic:
+                if TransactionQueue._nb_threads >= nb_segments:
+                    break
+                TransactionQueue._nb_threads += 1
+            thread.start_new_thread(TransactionQueue._thread_runner, ())
+        #
         self._exception = []
         for i in range(nb_segments):
-            thread.start_new_thread(self._thread_runner, ())
+            TransactionQueue._thread_queue.put((self._queue, self._exception))
         #
         # The threads run here until queue.join() returns, i.e. until
         # all add()ed transactions are executed.
@@ -164,29 +172,30 @@ class TransactionQueue(object):
         #
         if self._exception:
             exc_type, exc_value, exc_traceback = self._exception
-            self._exception = None
+            del self._exception
             raise exc_type, exc_value, exc_traceback
 
     #def number_of_transactions_executed(self):
     #    disabled for now
 
-    def _thread_runner(self):
-        queue = self._queue
-        exception = self._exception
+    @staticmethod
+    def _thread_runner():
         while True:
-            f, args, kwds = queue.get()
-            try:
-                if args is None:
-                    break
-                with atomic:
-                    if not exception:
-                        try:
-                            with signals_enabled:
-                                f(*args, **kwds)
-                        except:
-                            exception.extend(sys.exc_info())
-            finally:
-                queue.task_done()
+            queue, exception = TransactionQueue._thread_queue.get()
+            while True:
+                f, args, kwds = queue.get()
+                try:
+                    if args is None:
+                        break
+                    with atomic:
+                        if not exception:
+                            try:
+                                with signals_enabled:
+                                    f(*args, **kwds)
+                            except:
+                                exception.extend(sys.exc_info())
+                finally:
+                    queue.task_done()
 
 
 # ____________________________________________________________

@@ -1,5 +1,8 @@
 import py
-from lib_pypy import transaction
+try:
+    from lib_pypy import transaction
+except ImportError:
+    import transaction
 
 N = 1000
 VERBOSE = False
