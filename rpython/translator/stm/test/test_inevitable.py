@@ -5,6 +5,7 @@ from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.translator.stm.inevitable import insert_turn_inevitable
 from rpython.translator.stm import inevitable
+from rpython.rlib.rstm import stm_ignored
 from rpython.conftest import option
 import py
 
@@ -409,4 +410,20 @@ class TestTransform:
             return r
 
         res = self.interpret_inevitable(f1, [1])
+        assert res == []
+
+
+    def test_stm_ignored(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, flavor='raw', immortal=True)
+
+        def f1():
+            return x1.foo
+        res = self.interpret_inevitable(f1, [])
+        assert res == ['getfield']
+
+        def f2():
+            with stm_ignored:
+                return x1.foo
+        res = self.interpret_inevitable(f2, [])
         assert res == []

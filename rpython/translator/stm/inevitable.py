@@ -169,11 +169,23 @@ def turn_inevitable_op(info):
 
 def insert_turn_inevitable(graph):
     for block in graph.iterblocks():
+        stm_ignored = False
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
             inev = should_turn_inevitable(op, block)
-            if inev:
+            if inev and not stm_ignored:
                 if not isinstance(inev, str):
                     inev = op.opname
                 inev_op = turn_inevitable_op(inev)
                 block.operations.insert(i, inev_op)
+            if op.opname == 'stm_ignored_stop':
+                assert not stm_ignored, "nested stm_ignored_stop"
+                stm_ignored = True      # backward, so "stop" enables it
+            elif op.opname == 'stm_ignored_start':
+                if not stm_ignored:
+                    raise Exception("%r: 'with stm_ignored: stm_ignored start "
+                                    "without end in the same block" % (graph,))
+                stm_ignored = False     # backward, so "start" disables it
+        if stm_ignored:
+            raise Exception("%r: 'with stm_ignored:' code body too complex"
+                            % (graph,))
