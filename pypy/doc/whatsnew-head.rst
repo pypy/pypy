@@ -11,3 +11,8 @@ Correctly resolve the output dtype of ufunc(array, scalar) calls.
 .. branch: stdlib-2.7.10
 
 Update stdlib to version 2.7.10
+
+.. branch: issue2062
+
+.. branch: disable-unroll-for-short-loops
+The JIT no longer performs loop unrolling if the loop compiles to too much code.
