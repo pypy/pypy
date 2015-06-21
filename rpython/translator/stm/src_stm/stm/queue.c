@@ -126,16 +126,21 @@ static void queue_activate(stm_queue_t *queue, stm_queue_segment_t *seg)
     }
 }
 
-static void queues_deactivate_all(bool at_commit)
+static void queues_deactivate_all(struct stm_priv_segment_info_s *pseg,
+                                  bool at_commit)
 {
-    queue_lock_acquire();
+#pragma push_macro("STM_PSEGMENT")
+#pragma push_macro("STM_SEGMENT")
+#undef STM_PSEGMENT
+#undef STM_SEGMENT
+    spinlock_acquire(pseg->active_queues_lock);
 
     bool added_any_old_entries = false;
     bool finished_more_tasks = false;
     wlog_t *item;
-    TREE_LOOP_FORWARD(STM_PSEGMENT->active_queues, item) {
+    TREE_LOOP_FORWARD(pseg->active_queues, item) {
         stm_queue_t *queue = (stm_queue_t *)item->addr;
-        stm_queue_segment_t *seg = &queue->segs[STM_SEGMENT->segment_num - 1];
+        stm_queue_segment_t *seg = &queue->segs[pseg->pub.segment_num - 1];
         queue_entry_t *head, *freehead;
 
         if (at_commit) {
@@ -188,16 +193,17 @@ static void queues_deactivate_all(bool at_commit)
 
     } TREE_LOOP_END;
 
-    tree_free(STM_PSEGMENT->active_queues);
-    STM_PSEGMENT->active_queues = NULL;
+    tree_free(pseg->active_queues);
+    pseg->active_queues = NULL;
 
-    queue_lock_release();
+    spinlock_release(pseg->active_queues_lock);
 
-    assert(_has_mutex());
     if (added_any_old_entries)
         cond_broadcast(C_QUEUE_OLD_ENTRIES);
     if (finished_more_tasks)
         cond_broadcast(C_QUEUE_FINISHED_MORE_TASKS);
+#pragma pop_macro("STM_SEGMENT")
+#pragma pop_macro("STM_PSEGMENT")
 }
 
 void stm_queue_put(object_t *qobj, stm_queue_t *queue, object_t *newitem)

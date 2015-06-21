@@ -1365,7 +1365,8 @@ static void _core_commit_transaction(bool external)
     }
 
     if (STM_PSEGMENT->active_queues)
-        queues_deactivate_all(/*at_commit=*/true);
+        queues_deactivate_all(get_priv_segment(STM_SEGMENT->segment_num),
+                              /*at_commit=*/true);
 
     invoke_and_clear_user_callbacks(0);   /* for commit */
 
@@ -1476,6 +1477,9 @@ static void abort_data_structures_from_segment_num(int segment_num)
 #endif
     tl->thread_local_obj = pseg->threadlocal_at_start_of_transaction;
 
+    if (pseg->active_queues)
+        queues_deactivate_all(pseg, /*at_commit=*/false);
+
 
     /* Set the next nursery_mark: first compute the value that
        nursery_mark must have had at the start of the aborted transaction */
@@ -1520,9 +1524,6 @@ static stm_thread_local_t *abort_with_mutex_no_longjmp(void)
 
     if (tl->mem_clear_on_abort)
         memset(tl->mem_clear_on_abort, 0, tl->mem_bytes_to_clear_on_abort);
-
-    if (STM_PSEGMENT->active_queues)
-        queues_deactivate_all(/*at_commit=*/false);
 
     invoke_and_clear_user_callbacks(1);   /* for abort */
 
@@ -1569,6 +1570,8 @@ void stm_abort_transaction(void)
 void _stm_become_inevitable(const char *msg)
 {
     int num_waits = 0;
+
+    timing_become_inevitable();
 
  retry_from_start:
     assert(STM_PSEGMENT->transaction_state == TS_REGULAR);
@@ -1619,7 +1622,6 @@ void _stm_become_inevitable(const char *msg)
         if (!_validate_and_turn_inevitable())
             return;
     }
-    timing_become_inevitable();
     soon_finished_or_inevitable_thread_segment();
     STM_PSEGMENT->transaction_state = TS_INEVITABLE;
 
