@@ -111,6 +111,7 @@ class ThreadState(object):
     def progress(self, now, new_state):
         prev_time, prev_state = self._prev
         add_time = now - prev_time
+        add_time = abs(add_time) #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         assert add_time >= 0.0
         if prev_state == "run":
             self._transaction_cpu_time += add_time
@@ -226,7 +227,7 @@ r_marker = re.compile(r'File "(.+)", line (\d+)')
 
 def print_marker(marker):
     s = '  %s' % marker
-    match = r_marker.match(marker)
+    match = r_marker.search(marker)
     if match:
         filename = match.group(1)
         if not (filename.endswith('.pyc') or filename.endswith('.pyo')):
@@ -254,6 +255,7 @@ def summarize_log_entries(logentries, stmlog):
                 print >> sys.stderr, '%.0f%%' % (entry.frac * 100.0,),
         cnt += 1
         #
+        #print entry
         t = threads.get(entry.threadnum)
         if t is None:
             t = threads[entry.threadnum] = ThreadState(entry.threadnum)

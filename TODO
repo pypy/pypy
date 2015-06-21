@@ -1,5 +1,10 @@
 ------------------------------------------------------------
 
+ll_math_modf(), say, causes stm_become_inevitable()
+because of the raw array read "intpart_p[0]"
+
+------------------------------------------------------------
+
 fuse the two 32bit setfield_gc for stmflags & tid in the jit
 
 ------------------------------------------------------------
