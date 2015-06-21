@@ -316,7 +316,8 @@ class AppTestSocket:
         cls.w_udir = space.wrap(str(udir))
 
     def teardown_class(cls):
-        cls.space.sys.getmodule('_socket').shutdown(cls.space)
+        if not cls.runappdirect:
+            cls.space.sys.getmodule('_socket').shutdown(cls.space)
 
     def test_module(self):
         import _socket
