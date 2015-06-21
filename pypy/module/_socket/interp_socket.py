@@ -1,4 +1,5 @@
-from rpython.rlib import rsocket
+import sys
+from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
@@ -153,8 +154,9 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
-    def __init__(self, sock):
+    def __init__(self, space, sock):
         self.sock = sock
+        register_socket(space, sock)
 
     def get_type_w(self, space):
         return space.wrap(self.sock.type)
@@ -183,7 +185,7 @@ class W_Socket(W_Root):
             fd, addr = self.sock.accept()
             sock = rsocket.make_socket(
                 fd, self.sock.family, self.sock.type, self.sock.proto)
-            return space.newtuple([space.wrap(W_Socket(sock)),
+            return space.newtuple([space.wrap(W_Socket(space, sock)),
                                    addr_as_object(addr, sock.fd, space)])
         except SocketError as e:
             raise converted_error(space, e)
@@ -248,7 +250,7 @@ class W_Socket(W_Root):
     def dup_w(self, space):
         try:
             sock = self.sock.dup()
-            return W_Socket(sock)
+            return W_Socket(space, sock)
         except SocketError as e:
             raise converted_error(space, e)
 
@@ -592,9 +594,49 @@ def newsocket(space, w_subtype, family=AF_INET,
         sock = RSocket(family, type, proto)
     except SocketError as e:
         raise converted_error(space, e)
-    W_Socket.__init__(self, sock)
+    W_Socket.__init__(self, space, sock)
     return space.wrap(self)
 descr_socket_new = interp2app(newsocket)
+
+
+# ____________________________________________________________
+# Automatic shutdown()/close()
+
+# On some systems, the C library does not guarantee that when the program
+# finishes, all data sent so far is really sent even if the socket is not
+# explicitly closed.  This behavior has been observed on Windows but not
+# on Linux, so far.
+NEED_EXPLICIT_CLOSE = (sys.platform == 'win32')
+
+class OpenRSockets(rweaklist.RWeakListMixin):
+    pass
+class OpenRSocketsState:
+    def __init__(self, space):
+        self.openrsockets = OpenRSockets()
+        self.openrsockets.initialize()
+
+def getopenrsockets(space):
+    if NEED_EXPLICIT_CLOSE and space.config.translation.rweakref:
+        return space.fromcache(OpenRSocketsState).openrsockets
+    else:
+        return None
+
+def register_socket(space, socket):
+    openrsockets = getopenrsockets(space)
+    if openrsockets is not None:
+        openrsockets.add_handle(socket)
+
+def close_all_sockets(space):
+    openrsockets = getopenrsockets(space)
+    if openrsockets is not None:
+        for sock_wref in openrsockets.get_all_handles():
+            sock = sock_wref()
+            if sock is not None:
+                try:
+                    sock.close()
+                except SocketError:
+                    pass
+
 
 # ____________________________________________________________
 # Error handling

@@ -179,6 +179,7 @@ if HAVE_WIDE_INT_TYPE:
 typedef int... Tcl_WideInt;
 
 int Tcl_GetWideIntFromObj(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_WideInt *value);
+Tcl_Obj *Tcl_NewWideIntObj(Tcl_WideInt value);
 """)
 
 if HAVE_LIBTOMMATH:
