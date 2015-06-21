@@ -1327,6 +1327,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         dt1 = np.dtype([('f0', 'i4'),
                        ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
                        ('f2', 'i1')], align=True)
+        assert dt1['f1'].itemsize == 12
         assert dt1.itemsize == 20
         dt2 = np.dtype({'names':['f0', 'f1', 'f2'],
                        'formats':['i4',

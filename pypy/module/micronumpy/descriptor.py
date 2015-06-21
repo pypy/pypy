@@ -561,17 +561,20 @@ class W_Dtype(W_Root):
 
 
 @specialize.arg(2)
-def dtype_from_list(space, w_lst, simple, align=False):
+def dtype_from_list(space, w_lst, simple, align=False, offsets=None):
     lst_w = space.listview(w_lst)
     fields = {}
-    offset = 0
+    if offsets is None:
+        offsets = [0] * len(lst_w)
     names = []
     maxalign = 0
+    total = 0
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
         title = None
         if simple:
-            subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_elem)
+            subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_elem,
+                                    align=align)
             fldname = 'f%d' % i
         else:
             w_shape = space.newtuple([])
@@ -581,7 +584,8 @@ def dtype_from_list(space, w_lst, simple, align=False):
                     w_shape = space.newtuple([w_shape])
             else:
                 w_fldname, w_flddesc = space.fixedview(w_elem, 2)
-            subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc, w_shape=w_shape)
+            subdtype = descr__new__(space, space.gettypefor(W_Dtype),
+                                    w_flddesc, w_shape=w_shape, align=align)
             if space.isinstance_w(w_fldname, space.w_tuple):
                 fldlist = space.listview(w_fldname)
                 fldname = space.str_w(fldlist[0])
@@ -597,17 +601,27 @@ def dtype_from_list(space, w_lst, simple, align=False):
             if fldname in fields:
                 raise oefmt(space.w_ValueError, "two fields with the same name")
         assert isinstance(subdtype, W_Dtype)
-        fields[fldname] = offset, subdtype
+        fields[fldname] = offsets[i], subdtype
         if title is not None:
-            fields[title] = offset, subdtype
-        offset += subdtype.elsize
+            fields[title] = offsets[i], subdtype
         maxalign = max(subdtype.elsize, maxalign)
+        if  i + 1 < len(offsets) and offsets[i + 1] == 0:
+            delta = subdtype.elsize
+            if align:
+                # Set offset to the next power-of-two above delta
+                delta = (delta + maxalign -1) & (-maxalign)
+                if delta > offsets[i]:
+                    for j in range(i):
+                        offsets[j+1] = delta + offsets[j]
+            offsets[i + 1] = offsets[i] + delta
+            print maxalign, delta, subdtype, subdtype.elsize
+        if align:
+            total = len(offsets) * maxalign
+        else:
+            total += subdtype.elsize
         names.append((fldname, title))
-    if align:
-        # Set offset to the next power-of-two above offset
-        offset = (offset + maxalign -1) & (-maxalign)
     retval = W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
-                   names=names, fields=fields, elsize=offset)
+                   names=names, fields=fields, elsize=total)
     retval.flags |= NPY.NEEDS_PYAPI
     return retval
 
@@ -628,6 +642,28 @@ def _get_list_or_none(space, w_dict, key):
         return None
     return space.listview(w_val)
 
+def _usefields(space, w_dict, align):
+    # Only for testing, a shortened version of the real _usefields
+    allfields = []
+    for fname in w_dict.iterkeys().iterator:
+        obj = _get_list_or_none(space, w_dict, fname)
+        num = space.int_w(obj[1])
+        format = dtype_from_spec(space, obj[0], align=align)
+        if len(obj) > 2:
+            title = obj[2]
+        else:
+            title = None
+        allfields.append((fname, format, num, title))
+    allfields.sort(key=lambda x: x[2])
+    names   = [x[0] for x in allfields]
+    formats = [x[1] for x in allfields]
+    offsets = [x[2] for x in allfields]
+    titles  = [x[3] for x in allfields]
+    aslist = []
+    for i in range(len(names)):
+        aslist.append(space.newtuple([space.wrap(names[i]), space.wrap(formats[i])]))
+    return dtype_from_list(space, space.newlist(aslist), False, align=align, offsets=offsets)
+    
 def dtype_from_dict(space, w_dict, align):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject
     assert isinstance(w_dict, W_DictMultiObject)
@@ -638,8 +674,11 @@ def dtype_from_dict(space, w_dict, align):
     metadata_w = _get_val_or_none(space, w_dict, 'metadata')
     aligned_w = _get_val_or_none(space, w_dict, 'align')
     if names_w is None or formats_w is None:
-        return get_appbridge_cache(space).call_method(space,
-            'numpy.core._internal', '_usefields', Arguments(space, [w_dict, space.wrap(align)]))
+        if we_are_translated():
+            return get_appbridge_cache(space).call_method(space,
+                'numpy.core._internal', '_usefields', Arguments(space, [w_dict, space.wrap(align)]))
+        else:
+            return _usefields(space, w_dict, align)
     n = len(names_w)
     if (n != len(formats_w) or 
         (offsets_w is not None and n != len(offsets_w)) or
@@ -653,9 +692,10 @@ def dtype_from_dict(space, w_dict, align):
             raise oefmt(space.w_ValueError,
                     "NumPy dtype descriptor includes 'aligned' entry, "
                     "but its value is neither True nor False");
-    if offsets_w is not None:
-        raise oefmt(space.w_NotImplementedError, "'offsets' "
-            "dict entries not implemented yet") 
+    if offsets_w is None:
+        offsets = None
+    else:
+        offsets = [space.int_w(i) for i in offsets_w]
     if titles_w is not None:
         names_w = []
         for i in range(min(len(names_w), len(titles_w))):
@@ -663,34 +703,29 @@ def dtype_from_dict(space, w_dict, align):
     aslist = []
     for i in range(min(len(names_w), len(formats_w))):
         aslist.append(space.newtuple([names_w[i], formats_w[i]]))
-    retval = dtype_from_list(space, space.newlist(aslist), False, align)
+    retval = dtype_from_list(space, space.newlist(aslist), False, align=align, offsets=offsets)
     if metadata_w is not None:
         retval.descr_set_metadata(space, metadata_w)
     retval.flags |= NPY.NEEDS_PYAPI
     return retval 
 
-def dtype_from_spec(space, w_spec):
+def dtype_from_spec(space, w_spec, align):
 
     if we_are_translated():
         w_lst = get_appbridge_cache(space).call_method(space,
             'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
     else:
-        # testing, handle manually
-        if space.eq_w(w_spec, space.wrap('u4,u4,u4')):
-            w_lst = space.newlist([space.wrap('u4')]*3)
-        if space.eq_w(w_spec, space.wrap('u4,u4,u4')):
-            w_lst = space.newlist([space.wrap('u4')]*3)
-        else:
-            raise oefmt(space.w_RuntimeError,
-                    "cannot parse w_spec")
+        # handle only simple cases for testing
+        spec = [s.strip() for s in space.str_w(w_spec).split(',')]
+        w_lst = space.newlist([space.wrap(s) for s in spec]) 
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
         raise oefmt(space.w_RuntimeError,
                     "_commastring is not returning a list with len >= 1")
     if space.len_w(w_lst) == 1:
         return descr__new__(space, space.gettypefor(W_Dtype),
-                            space.getitem(w_lst, space.wrap(0)))
+                            space.getitem(w_lst, space.wrap(0)), align=align)
     else:
-        return dtype_from_list(space, w_lst, True)
+        return dtype_from_list(space, w_lst, True, align=align)
 
 
 def _check_for_commastring(s):
@@ -769,7 +804,7 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
     if space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
         if _check_for_commastring(name):
-            return _set_metadata_and_copy(dtype_from_spec(space, w_dtype), space, w_metadata)
+            return _set_metadata_and_copy(dtype_from_spec(space, w_dtype, align), space, w_metadata)
         cname = name[1:] if name[0] == NPY.OPPBYTE else name
         try:
             dtype = cache.dtypes_by_name[cname]
