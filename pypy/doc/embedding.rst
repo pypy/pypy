@@ -6,7 +6,7 @@ the usage of `cffi`_ and the philosophy that Python is a better language than
 C. It was developed in collaboration with Roberto De Ioris from the `uwsgi`_
 project. The `PyPy uwsgi plugin`_ is a good example of using the embedding API.
 
-**NOTE**: As of 1st of December, PyPy comes with ``--shared`` by default
+**NOTE**: As of 1st of December 2014, PyPy comes with ``--shared`` by default
 on linux, linux64 and windows. We will make it the default on all platforms
 by the time of the next release.
 
