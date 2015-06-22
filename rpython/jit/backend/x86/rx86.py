@@ -644,7 +644,7 @@ class AbstractX86CodeBuilder(object):
         self.PO1_b(ofs)
         self.stack_frame_size_delta(-self.WORD)
 
-    def POP_m(self, arg)
+    def POP_m(self, arg):
         self.PO1_m(arg)
         self.stack_frame_size_delta(-self.WORD)
 

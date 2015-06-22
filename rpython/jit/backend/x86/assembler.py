@@ -139,7 +139,7 @@ class Assembler386(BaseAssembler):
         self._pop_all_regs_from_frame(mc, [eax], True, callee_only=True)
         mc.RET()
         self._stm_leave_noninevitable_tr_slowpath = mc.materialize(
-            self.cpu.asmmemmgr, [])
+            self.cpu, [])
         #
         # a second helper to call _stm_reattach_transaction(tl),
         # preserving only registers that might store the result of a call
@@ -155,7 +155,7 @@ class Assembler386(BaseAssembler):
         mc.MOV_rs(eax.value, 0)
         mc.ADD_ri(esp.value, 3 * WORD)
         mc.RET()
-        self._stm_reattach_tr_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+        self._stm_reattach_tr_slowpath = mc.materialize(self.cpu, [])
 
 
     def set_extra_stack_depth(self, mc, value):

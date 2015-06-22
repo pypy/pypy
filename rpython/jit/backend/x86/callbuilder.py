@@ -107,7 +107,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.asm.set_extra_stack_depth(self.mc, -current_esp)
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
         gcmap = self.asm._regalloc.get_gcmap([eax], noregs=noregs)
-        self.asm.update_stm_location(self.mc, -self.current_esp)
+        self.asm.update_stm_location(self.mc, -self.get_current_esp())
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
