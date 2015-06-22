@@ -19,6 +19,7 @@ cffi_build_scripts = {
 def create_cffi_import_libraries(pypy_c, options, basedir):
     shutil.rmtree(str(basedir.join('lib_pypy', '__pycache__')),
                   ignore_errors=True)
+    failures = []
     for key, module in sorted(cffi_build_scripts.items()):
         if module is None or getattr(options, 'no_' + key, False):
             continue
@@ -30,17 +31,17 @@ def create_cffi_import_libraries(pypy_c, options, basedir):
             cwd = None
         print >> sys.stderr, '*', ' '.join(args)
         try:
-            results = run_subprocess(str(pypy_c), args, cwd=cwd)
+            status, stdout, stderr = run_subprocess(str(pypy_c), args, cwd=cwd)
+            if status != 0:
+                print >> sys.stderr, stdout, stderr
+                failures.append((key, module))
         except:
             import traceback;traceback.print_exc()
-            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
-You can either install development headers package,
-add the --without-{0} option to skip packaging this
-binary CFFI extension, or say --without-cffi.""".format(key)
-            raise MissingDependenciesError(module)
+            failures.append((key, module))
+    return failures
 
 if __name__ == '__main__':
-    import py
+    import py, os
     if '__pypy__' not in sys.builtin_module_names:
         print 'Call with a pypy interpreter'
         sys.exit(-1)
@@ -57,4 +58,18 @@ if __name__ == '__main__':
                                  str(exename))
         basedir = _basedir
     options = Options()
-    create_cffi_import_libraries(exename, options, basedir) 
+    print >> sys.stderr, "There should be no failures here"
+    failures = create_cffi_import_libraries(exename, options, basedir)
+    if len(failures) > 0:
+        print 'failed to build', [f[1] for f in failures]
+        assert False
+
+    # monkey patch a failure, just to test
+    print >> sys.stderr, 'This line should be followed by a traceback'
+    for k in cffi_build_scripts:
+        setattr(options, 'no_' + k, True)
+    must_fail = '_missing_build_script.py'
+    assert not os.path.exists(str(basedir.join('lib_pypy').join(must_fail)))
+    cffi_build_scripts['should_fail'] = must_fail
+    failures = create_cffi_import_libraries(exename, options, basedir)
+    assert len(failures) == 1

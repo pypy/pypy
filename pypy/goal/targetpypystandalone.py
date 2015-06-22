@@ -315,7 +315,7 @@ class PyPyTarget(object):
 
         @taskdef(['compile_c'], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
-            from pypy.tool.build_cffi_imports import create_cffi_import_libraries, MissingDependenciesError
+            from pypy.tool.build_cffi_imports import create_cffi_import_libraries
             ''' Use cffi to compile cffi interfaces to modules'''
             exename = mkexename(driver.compute_exe_name())
             basedir = exename
@@ -328,10 +328,8 @@ class PyPyTarget(object):
             modules = self.config.objspace.usemodules.getpaths()
             options = Options()
             # XXX possibly adapt options using modules
-            try:
-                create_cffi_import_libraries(exename, options, basedir)
-            except MissingDependenciesError:
-                pass
+            failures = create_cffi_import_libraries(exename, options, basedir)
+            # if failures, they were already printed
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
         driver.default_goal = 'build_cffi_imports'

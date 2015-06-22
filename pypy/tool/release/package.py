@@ -81,9 +81,13 @@ def create_package(basedir, options, _fake=False):
     if not _fake and not pypy_runs(pypy_c):
         raise OSError("Running %r failed!" % (str(pypy_c),))
     if not options.no_cffi:
-        try:
-            create_cffi_import_libraries(pypy_c, options, basedir)
-        except MissingDependenciesError:
+        failures = create_cffi_import_libraries(pypy_c, options, basedir)
+        for key, module in failures:
+            print >>sys.stderr, """!!!!!!!!!!\nBuilding {0} bindings failed.
+                You can either install development headers package,
+                add the --without-{0} option to skip packaging this
+                binary CFFI extension, or say --without-cffi.""".format(key)
+        if len(failures) > 0:
             return 1, None
 
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
