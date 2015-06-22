@@ -1,13 +1,12 @@
-from rpython.rlib import jit
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy import loop, descriptor, ufuncs, support, \
-    constants as NPY
+from pypy.module.micronumpy import loop, descriptor, support
+from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
-from pypy.module.micronumpy.strides import Chunk, Chunks, shape_agreement, \
-    shape_agreement_multiple
-from .boxes import W_GenericBox
+from pypy.module.micronumpy.strides import (
+    Chunk, Chunks, shape_agreement, shape_agreement_multiple)
+from .casting import find_binop_result_dtype, find_result_type
 
 
 def where(space, w_arr, w_x=None, w_y=None):
@@ -86,8 +85,7 @@ def where(space, w_arr, w_x=None, w_y=None):
         if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
             return x
         return y
-    dtype = ufuncs.find_binop_result_dtype(space, x.get_dtype(),
-                                                  y.get_dtype())
+    dtype = find_result_type(space, [x, y], [])
     shape = shape_agreement(space, arr.get_shape(), x)
     shape = shape_agreement(space, shape, y)
     out = W_NDimArray.from_shape(space, shape, dtype)
@@ -139,19 +137,8 @@ def concatenate(space, w_args, w_axis=None):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "all the input array dimensions except for the "
                     "concatenation axis must match exactly"))
-        a_dt = arr.get_dtype()
-        if dtype.is_record() and a_dt.is_record():
-            # Record types must match
-            for f in dtype.fields:
-                if f not in a_dt.fields or \
-                             dtype.fields[f] != a_dt.fields[f]:
-                    raise OperationError(space.w_TypeError,
-                               space.wrap("invalid type promotion"))
-        elif dtype.is_record() or a_dt.is_record():
-            raise OperationError(space.w_TypeError,
-                        space.wrap("invalid type promotion"))
-        dtype = ufuncs.find_binop_result_dtype(space, dtype,
-                                                      arr.get_dtype())
+
+    dtype = find_result_type(space, args_w, [])
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
     res = W_NDimArray.from_shape(space, shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
@@ -285,28 +272,3 @@ def diagonal(space, arr, offset, axis1, axis2):
     else:
         loop.diagonal_array(space, arr, out, offset, axis1, axis2, shape)
     return out
-
-
-@jit.unroll_safe
-def result_type(space, __args__):
-    args_w, kw_w = __args__.unpack()
-    if kw_w:
-        raise oefmt(space.w_TypeError, "result_type() takes no keyword arguments")
-    if not args_w:
-        raise oefmt(space.w_ValueError, "at least one array or dtype is required")
-    result = None
-    for w_arg in args_w:
-        if isinstance(w_arg, W_NDimArray):
-            dtype = w_arg.get_dtype()
-        elif isinstance(w_arg, W_GenericBox) or (
-                space.isinstance_w(w_arg, space.w_int) or
-                space.isinstance_w(w_arg, space.w_float) or
-                space.isinstance_w(w_arg, space.w_complex) or
-                space.isinstance_w(w_arg, space.w_long) or
-                space.isinstance_w(w_arg, space.w_bool)):
-            dtype = ufuncs.find_dtype_for_scalar(space, w_arg)
-        else:
-            dtype = space.interp_w(descriptor.W_Dtype,
-                space.call_function(space.gettypefor(descriptor.W_Dtype), w_arg))
-        result = ufuncs.find_binop_result_dtype(space, result, dtype)
-    return result

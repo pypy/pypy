@@ -1,14 +1,8 @@
 from rpython.annotator import model as annmodel
+from rpython.annotator.exception import standardexceptions
 from rpython.rtyper.llannotation import SomePtr
-from rpython.rlib import rstackovf
 from rpython.rtyper.rclass import (
     ll_issubclass, ll_type, ll_cast_to_object, getclassrepr, getinstancerepr)
-
-# the exceptions that can be implicitely raised by some operations
-standardexceptions = set([TypeError, OverflowError, ValueError,
-    ZeroDivisionError, MemoryError, IOError, OSError, StopIteration, KeyError,
-    IndexError, AssertionError, RuntimeError, UnicodeDecodeError,
-    UnicodeEncodeError, NotImplementedError, rstackovf._StackOverflow])
 
 class UnknownException(Exception):
     pass
@@ -20,7 +14,6 @@ class ExceptionData(object):
     standardexceptions = standardexceptions
 
     def __init__(self, rtyper):
-        self.make_standard_exceptions(rtyper)
         # (NB. rclass identifies 'Exception' and 'object')
         r_type = rtyper.rootclass_repr
         r_instance = getinstancerepr(rtyper, None)
@@ -31,11 +24,6 @@ class ExceptionData(object):
         self.lltype_of_exception_type = r_type.lowleveltype
         self.lltype_of_exception_value = r_instance.lowleveltype
         self.rtyper = rtyper
-
-    def make_standard_exceptions(self, rtyper):
-        bk = rtyper.annotator.bookkeeper
-        for cls in self.standardexceptions:
-            bk.getuniqueclassdef(cls)
 
     def finish(self, rtyper):
         bk = rtyper.annotator.bookkeeper

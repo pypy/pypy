@@ -141,7 +141,7 @@ def create_entry_point(space, w_dict):
         res = _pypy_execute_source(source)
         before = rffi.aroundstate.before
         if before: before()
-        return rffi.cast(rffi.INT, res)        
+        return rffi.cast(rffi.INT, res)
 
     @entrypoint('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
@@ -233,6 +233,9 @@ class PyPyTarget(object):
             config.translation.stm = True
             config.translation.thread = True
             config.objspace.usemodules.pypystm = True
+            # for now, disable _vmprof: the JIT's stm parts are not adapted
+            # to track the stack depth
+            config.objspace.usemodules._vmprof = False
 
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
@@ -246,6 +249,7 @@ class PyPyTarget(object):
         # and reading thread-locals is much slower with --shared
         if not config.translation.stm:
             config.translation.suggest(shared=True)
+        config.translation.suggest(icon=os.path.join(this_dir, 'pypy.ico'))
         if config.translation.shared:
             if config.translation.output is not None:
                 raise Exception("Cannot use the --output option with PyPy "
@@ -320,7 +324,7 @@ class PyPyTarget(object):
         w_dict = app.getwdict(space)
         entry_point, _ = create_entry_point(space, w_dict)
 
-        return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
+        return entry_point, None, PyPyAnnotatorPolicy()
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',

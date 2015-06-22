@@ -56,6 +56,7 @@ RPY_EXTERN void pypy_debug_start(const char *category);
 RPY_EXTERN void pypy_debug_stop(const char *category);
 RPY_EXTERN long pypy_debug_offset(void);
 RPY_EXTERN void pypy_debug_forked(long original_offset);
+RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);
 
 RPY_EXTERN __thread_if_stm char pypy_debug_threadid[];
 RPY_EXPORTED FILE *pypy_debug_file;

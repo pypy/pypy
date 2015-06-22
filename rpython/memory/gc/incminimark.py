@@ -47,6 +47,11 @@ Environment variables can be used to fine-tune the following parameters:
                          too slow for normal use.  Values are 0 (off),
                          1 (on major collections) or 2 (also on minor
                          collections).
+
+ PYPY_GC_MAX_PINNED      The maximal number of pinned objects at any point
+                         in time.  Defaults to a conservative value depending
+                         on nursery size and maximum object size inside the
+                         nursery.  Useful for debugging by setting it to 0.
 """
 # XXX Should find a way to bound the major collection threshold by the
 # XXX total addressable size.  Maybe by keeping some minimarkpage arenas
@@ -56,6 +61,7 @@ Environment variables can be used to fine-tune the following parameters:
 # XXX try merging old_objects_pointing_to_pinned into
 # XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
 import sys
+import os
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
@@ -463,9 +469,19 @@ class IncrementalMiniMarkGC(MovingGCBase):
             self.nursery_size = newsize
             self.allocate_nursery()
         #
-        # Estimate this number conservatively
-        bigobj = self.nonlarge_max + 1
-        self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
+        env_max_number_of_pinned_objects = os.environ.get('PYPY_GC_MAX_PINNED')
+        if env_max_number_of_pinned_objects:
+            try:
+                env_max_number_of_pinned_objects = int(env_max_number_of_pinned_objects)
+            except ValueError:
+                env_max_number_of_pinned_objects = 0
+            #
+            if env_max_number_of_pinned_objects >= 0: # 0 allows to disable pinning completely
+                self.max_number_of_pinned_objects = env_max_number_of_pinned_objects
+        else:
+            # Estimate this number conservatively
+            bigobj = self.nonlarge_max + 1
+            self.max_number_of_pinned_objects = self.nursery_size / (bigobj * 2)
 
     def _nursery_memory_size(self):
         extra = self.nonlarge_max + 1

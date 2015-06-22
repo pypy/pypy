@@ -41,9 +41,10 @@ class KeyComp(object):
     __repr__ = __str__
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
-    def __init__(pol, rtyper=None):
-        pol.rtyper = rtyper
+    def __init__(self, rtyper=None):
+        self.rtyper = rtyper
 
+    @staticmethod
     def lowlevelspecialize(funcdesc, args_s, key_for_args):
         args_s, key1, builder = flatten_star_args(funcdesc, args_s)
         key = []
@@ -73,21 +74,20 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         flowgraph = funcdesc.cachedgraph(key, builder=builder)
         args_s[:] = new_args_s
         return flowgraph
-    lowlevelspecialize = staticmethod(lowlevelspecialize)
 
+    @staticmethod
     def default_specialize(funcdesc, args_s):
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
-    default_specialize = staticmethod(default_specialize)
 
     specialize__ll = default_specialize
 
+    @staticmethod
     def specialize__ll_and_arg(funcdesc, args_s, *argindices):
         keys = {}
         for i in argindices:
             keys[i] = args_s[i].const
         return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s,
                                                           keys)
-    specialize__ll_and_arg = staticmethod(specialize__ll_and_arg)
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
     if policy is None:
@@ -99,24 +99,23 @@ def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
 
 class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
 
-    def __init__(pol, annhelper):
-        pol.annhelper = annhelper
-        pol.rtyper = annhelper.rtyper
+    def __init__(self, annhelper):
+        self.rtyper = annhelper.rtyper
 
-    def default_specialize(pol, funcdesc, args_s):
+    def default_specialize(self, funcdesc, args_s):
         name = funcdesc.name
         if name.startswith('ll_') or name.startswith('_ll_'): # xxx can we do better?
-            return super(MixLevelAnnotatorPolicy, pol).default_specialize(
+            return super(MixLevelAnnotatorPolicy, self).default_specialize(
                 funcdesc, args_s)
         else:
             return AnnotatorPolicy.default_specialize(funcdesc, args_s)
 
-    def specialize__arglltype(pol, funcdesc, args_s, i):
-        key = pol.rtyper.getrepr(args_s[i]).lowleveltype
+    def specialize__arglltype(self, funcdesc, args_s, i):
+        key = self.rtyper.getrepr(args_s[i]).lowleveltype
         alt_name = funcdesc.name+"__for_%sLlT" % key._short_name()
         return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))
 
-    def specialize__genconst(pol, funcdesc, args_s, i):
+    def specialize__genconst(self, funcdesc, args_s, i):
         # XXX this is specific to the JIT
         TYPE = annotation_to_lltype(args_s[i], 'genconst')
         args_s[i] = lltype_to_annotation(TYPE)

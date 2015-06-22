@@ -597,6 +597,9 @@ def op_debug_flush():
 def op_have_debug_prints():
     return debug.have_debug_prints()
 
+def op_have_debug_prints_for(prefix):
+    return True
+
 def op_debug_nonnull_pointer(x):
     assert x
 

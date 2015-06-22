@@ -55,6 +55,9 @@ else:
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
 
+# return address, followed by FRAME_FIXED_SIZE words
+DEFAULT_FRAME_BYTES = (1 + FRAME_FIXED_SIZE) * WORD
+
 
 # The STM rewind_jmp_buf (on x86-64) is two words wide:
 STM_REWIND_JMP_BUF_WORDS  = 2

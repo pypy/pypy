@@ -20,8 +20,11 @@ class MultiArrayModule(MixedModule):
         'concatenate': 'arrayops.concatenate',
         'count_nonzero': 'arrayops.count_nonzero',
         'dot': 'arrayops.dot',
-        'result_type': 'arrayops.result_type',
         'where': 'arrayops.where',
+        'result_type': 'casting.result_type',
+        'can_cast': 'casting.can_cast',
+        'min_scalar_type': 'casting.min_scalar_type',
+        'promote_types': 'casting.w_promote_types',
 
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
@@ -30,6 +33,9 @@ class MultiArrayModule(MixedModule):
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c
 
+    def startup(self, space):
+        from pypy.module.micronumpy.concrete import _setup
+        _setup()
 
 class UMathModule(MixedModule):
     appleveldefs = {}

@@ -536,17 +536,17 @@ class LLTypeMallocRemover(BaseMallocRemover):
             raise AssertionError(op.opname)
 
 
-def remove_simple_mallocs(graph, type_system='lltypesystem', verbose=True):
+def remove_simple_mallocs(graph, verbose=True):
     remover = LLTypeMallocRemover(verbose)
     return remover.remove_simple_mallocs(graph)
 
 
-def remove_mallocs(translator, graphs=None, type_system="lltypesystem"):
+def remove_mallocs(translator, graphs=None):
     if graphs is None:
         graphs = translator.graphs
     tot = 0
     for graph in graphs:
-        count = remove_simple_mallocs(graph, type_system=type_system, verbose=translator.config.translation.verbose)
+        count = remove_simple_mallocs(graph, verbose=translator.config.translation.verbose)
         if count:
             # remove typical leftovers from malloc removal
             removenoops.remove_same_as(graph)

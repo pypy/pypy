@@ -1,23 +1,27 @@
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.micronumpy import support, loop
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from pypy.module.micronumpy import support, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
-    ArrayArgumentException
+    ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
-    calculate_broadcast_strides, calc_backstrides)
+    calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
+    is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+from pypy.interpreter.baseobjspace import W_Root
 
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
-                          'strides[*]', 'backstrides[*]', 'order']
+                          'strides[*]', 'backstrides[*]', 'order', 'gcstruct',
+                          'flags']
     start = 0
     parent = None
     flags = 0
@@ -88,8 +92,9 @@ class BaseConcreteArray(object):
                               new_shape, self, orig_array)
         return None
 
-    def get_view(self, space, orig_array, dtype, new_shape):
-        strides, backstrides = calc_strides(new_shape, dtype,
+    def get_view(self, space, orig_array, dtype, new_shape, strides=None, backstrides=None):
+        if not strides:
+            strides, backstrides = calc_strides(new_shape, dtype,
                                                     self.order)
         return SliceArray(self.start, strides, backstrides, new_shape,
                           self, orig_array, dtype=dtype)
@@ -202,7 +207,7 @@ class BaseConcreteArray(object):
                     raise ArrayArgumentException
             return self._lookup_by_index(space, view_w)
         if shape_len == 0:
-            raise oefmt(space.w_IndexError, "0-d arrays can't be indexed")
+            raise oefmt(space.w_IndexError, "too many indices for array")
         elif shape_len > 1:
             raise IndexError
         idx = support.index_w(space, w_idx)
@@ -213,7 +218,11 @@ class BaseConcreteArray(object):
         if space.isinstance_w(w_idx, space.w_str):
             idx = space.str_w(w_idx)
             dtype = self.dtype
-            if not dtype.is_record() or idx not in dtype.fields:
+            if not dtype.is_record():
+                raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                    "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                    "boolean arrays are valid indices")
+            elif idx not in dtype.fields:
                 raise oefmt(space.w_ValueError, "field named %s not found", idx)
             return RecordChunk(idx)
         elif (space.isinstance_w(w_idx, space.w_int) or
@@ -321,17 +330,67 @@ class BaseConcreteArray(object):
 
     def __exit__(self, typ, value, traceback):
         keepalive_until_here(self)
-        
+
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
     def astype(self, space, dtype):
-        strides, backstrides = calc_strides(self.get_shape(), dtype,
-                                                    self.order)
-        impl = ConcreteArray(self.get_shape(), dtype, self.order,
-                             strides, backstrides)
+        # copy the general pattern of the strides
+        # but make the array storage contiguous in memory
+        shape = self.get_shape()
+        strides = self.get_strides()
+        if len(strides) > 0:
+            mins = strides[0]
+            t_elsize = dtype.elsize
+            for s in strides:
+                if s < mins:
+                    mins = s
+            t_strides = [s * t_elsize / mins for s in strides]
+            backstrides = calc_backstrides(t_strides, shape)
+        else:
+            t_strides = []
+            backstrides = []
+        impl = ConcreteArray(shape, dtype, self.order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
+
+OBJECTSTORE = lltype.GcStruct('ObjectStore',
+                              ('length', lltype.Signed),
+                              ('step', lltype.Signed),
+                              ('storage', llmemory.Address),
+                              rtti=True)
+offset_of_storage = llmemory.offsetof(OBJECTSTORE, 'storage')
+offset_of_length = llmemory.offsetof(OBJECTSTORE, 'length')
+offset_of_step = llmemory.offsetof(OBJECTSTORE, 'step')
+
+V_OBJECTSTORE = lltype.nullptr(OBJECTSTORE)
+
+def customtrace(gc, obj, callback, arg):
+    #debug_print('in customtrace w/obj', obj)
+    length = (obj + offset_of_length).signed[0]
+    step = (obj + offset_of_step).signed[0]
+    storage = (obj + offset_of_storage).address[0]
+    #debug_print('tracing', length, 'objects in ndarray.storage')
+    i = 0
+    while i < length:
+        gc._trace_callback(callback, arg, storage)
+        storage += step
+        i += 1
+    
+lambda_customtrace = lambda: customtrace
+
+def _setup():
+    rgc.register_custom_trace_hook(OBJECTSTORE, lambda_customtrace)
+
+@jit.dont_look_inside
+def _create_objectstore(storage, length, elsize):
+    gcstruct = lltype.malloc(OBJECTSTORE)
+    # JIT does not support cast_ptr_to_adr
+    gcstruct.storage = llmemory.cast_ptr_to_adr(storage)
+    #print 'create gcstruct',gcstruct,'with storage',storage,'as',gcstruct.storage
+    gcstruct.length = length
+    gcstruct.step = elsize
+    return gcstruct
 
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
@@ -347,10 +406,11 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.backstrides = backstrides
         self.storage = storage
         self.start = start
+        self.gcstruct = V_OBJECTSTORE
 
     def fill(self, space, box):
         self.dtype.itemtype.fill(self.storage, self.dtype.elsize,
-                                 box, 0, self.size, 0)
+                                 box, 0, self.size, 0, self.gcstruct)
 
     def set_shape(self, space, orig_array, new_shape):
         strides, backstrides = calc_strides(new_shape, self.dtype,
@@ -374,17 +434,30 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def base(self):
         return None
 
-
 class ConcreteArray(ConcreteArrayNotOwning):
     def __init__(self, shape, dtype, order, strides, backstrides,
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
+        gcstruct = V_OBJECTSTORE
         if storage == lltype.nullptr(RAW_STORAGE):
-            storage = dtype.itemtype.malloc(support.product(shape) *
-                                            dtype.elsize, zero=zero)
+            length = support.product(shape) 
+            if dtype.num == NPY.OBJECT:
+                storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
+                gcstruct = _create_objectstore(storage, length, dtype.elsize)
+            else:
+                storage = dtype.itemtype.malloc(length * dtype.elsize, zero=zero)
+        start = calc_start(shape, strides)
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order, strides, backstrides,
-                                        storage)
+                                        storage, start=start)
+        self.gcstruct = gcstruct
+        self.flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def __del__(self):
+        if self.gcstruct:
+            self.gcstruct.length = 0
         free_raw_storage(self.storage, track_allocation=False)
 
 
@@ -394,18 +467,39 @@ class ConcreteArrayWithBase(ConcreteArrayNotOwning):
         ConcreteArrayNotOwning.__init__(self, shape, dtype, order,
                                         strides, backstrides, storage, start)
         self.orig_base = orig_base
+        if isinstance(orig_base, W_NumpyObject):
+            self.flags = orig_base.get_flags() & NPY.ARRAY_ALIGNED
+            self.flags |=  orig_base.get_flags() & NPY.ARRAY_WRITEABLE
+        else:
+            self.flags = 0
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def base(self):
         return self.orig_base
 
 
 class ConcreteNonWritableArrayWithBase(ConcreteArrayWithBase):
+    def __init__(self, shape, dtype, order, strides, backstrides, storage,
+                 orig_base, start=0):
+        ConcreteArrayWithBase.__init__(self, shape, dtype, order, strides,
+                backstrides, storage, orig_base, start)
+        self.flags &= ~ NPY.ARRAY_WRITEABLE
+
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
 
 
 class NonWritableArray(ConcreteArray):
+    def __init__(self, shape, dtype, order, strides, backstrides,
+                 storage=lltype.nullptr(RAW_STORAGE), zero=True):
+        ConcreteArray.__init__(self, shape, dtype, order, strides, backstrides,
+                    storage, zero)
+        self.flags &= ~ NPY.ARRAY_WRITEABLE
+        
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
@@ -423,11 +517,18 @@ class SliceArray(BaseConcreteArray):
             parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
+        self.gcstruct = parent.gcstruct
         self.order = parent.order
         self.dtype = dtype
         self.size = support.product(shape) * self.dtype.elsize
         self.start = start
         self.orig_arr = orig_arr
+        self.flags = parent.flags & NPY.ARRAY_ALIGNED
+        self.flags |= parent.flags & NPY.ARRAY_WRITEABLE
+        if is_c_contiguous(self):
+            self.flags |= NPY.ARRAY_C_CONTIGUOUS
+        if is_f_contiguous(self):
+            self.flags |= NPY.ARRAY_F_CONTIGUOUS
 
     def base(self):
         return self.orig_arr
@@ -470,8 +571,17 @@ class SliceArray(BaseConcreteArray):
         return self.__class__(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
 
+    def sort(self, space, w_axis, w_order):
+        from .selection import sort_array
+        return sort_array(self, space, w_axis, w_order)
 
 class NonWritableSliceArray(SliceArray):
+    def __init__(self, start, strides, backstrides, shape, parent, orig_arr,
+                 dtype=None):
+        SliceArray.__init__(self, start, strides, backstrides, shape, parent,
+                        orig_arr, dtype)
+        self.flags &= ~NPY.ARRAY_WRITEABLE
+
     def descr_setitem(self, space, orig_array, w_index, w_value):
         raise OperationError(space.w_ValueError, space.wrap(
             "assignment destination is read-only"))
@@ -480,8 +590,11 @@ class NonWritableSliceArray(SliceArray):
 class VoidBoxStorage(BaseConcreteArray):
     def __init__(self, size, dtype):
         self.storage = alloc_raw_storage(size)
+        self.gcstruct = V_OBJECTSTORE
         self.dtype = dtype
         self.size = size
+        self.flags = (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
+                     NPY.ARRAY_WRITEABLE | NPY.ARRAY_ALIGNED)
 
     def __del__(self):
         free_raw_storage(self.storage)

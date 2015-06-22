@@ -185,8 +185,14 @@ def find_shape_and_elems(space, w_iterable, dtype):
 
 
 def _find_shape_and_elems(space, w_iterable, is_rec_type):
+    from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
-    batch = space.listview(w_iterable)
+    if space.isinstance_w(w_iterable, space.w_buffer):
+        batch = [space.wrap(0)] * shape[0]
+        for i in range(shape[0]):
+            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
+    else:
+        batch = space.listview(w_iterable)
     while True:
         if not batch:
             return shape[:], []
@@ -214,24 +220,6 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type):
         batch = new_batch
 
 
-def find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
-    if len(elems_w) == 1:
-        w_elem = elems_w[0]
-        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-            w_elem = w_elem.get_scalar_value()
-        return find_dtype_for_scalar(space, w_elem, dtype)
-    return _find_dtype_for_seq(space, elems_w, dtype)
-
-
-def _find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
-    for w_elem in elems_w:
-        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-            w_elem = w_elem.get_scalar_value()
-        dtype = find_dtype_for_scalar(space, w_elem, dtype)
-    return dtype
-
 
 @jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
@@ -241,11 +229,15 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     shape2 = w_arr2.get_shape()
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
+        def format_shape(shape):
+            if len(shape) > 1:
+                return ",".join([str(x) for x in shape])
+            else:
+                return '%d,' % shape[0]
         raise OperationError(space.w_ValueError,
             space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
-                ",".join([str(x) for x in shape1]),
-                ",".join([str(x) for x in shape2]),
-            ))
+                format_shape(shape1), format_shape(shape2)),
+            )
         )
     if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
         raise OperationError(space.w_ValueError,
@@ -428,6 +420,17 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
     return new_strides[:]
+
+def calc_start(shape, strides):
+    ''' Strides can be negative for non-contiguous data.
+    Calculate the appropriate positive starting position so
+    the indexing still works properly
+    '''
+    start = 0
+    for i in range(len(shape)):
+        if strides[i] < 0:
+            start -= strides[i] * (shape[i] - 1)
+    return start
 
 @jit.unroll_safe
 def is_c_contiguous(arr):

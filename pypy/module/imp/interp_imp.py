@@ -11,7 +11,7 @@ from pypy.interpreter.streamutil import wrap_streamerror
 def get_suffixes(space):
     w = space.wrap
     suffixes_w = []
-    if space.config.objspace.usemodules.cpyext:
+    if importing.has_so_extension(space):
         suffixes_w.append(
             space.newtuple([w(importing.get_so_extension(space)),
                             w('rb'), w(importing.C_EXTENSION)]))
@@ -128,7 +128,7 @@ def load_compiled(space, w_modulename, filename, w_file=None):
 
 @unwrap_spec(filename=str)
 def load_dynamic(space, w_modulename, filename, w_file=None):
-    if not space.config.objspace.usemodules.cpyext:
+    if not importing.has_so_extension(space):
         raise OperationError(space.w_ImportError, space.wrap(
             "Not implemented"))
     importing.load_c_extension(space, filename, space.str_w(w_modulename))

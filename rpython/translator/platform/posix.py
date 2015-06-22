@@ -99,7 +99,7 @@ class BasePosix(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = [], cc=None):
+                     no_precompile_cfiles = [], icon=None, cc=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:

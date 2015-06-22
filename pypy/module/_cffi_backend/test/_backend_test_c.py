@@ -1060,9 +1060,13 @@ def test_cannot_call_with_a_autocompleted_struct():
     complete_struct_or_union(BStruct, [('c', BDouble, -1, 8),
                                        ('a', BSChar, -1, 2),
                                        ('b', BSChar, -1, 0)])
-    e = py.test.raises(TypeError, new_function_type, (BStruct,), BDouble)
-    msg ='cannot pass as an argument a struct that was completed with verify()'
-    assert msg in str(e.value)
+    BFunc = new_function_type((BStruct,), BDouble)   # internally not callable
+    dummy_func = cast(BFunc, 42)
+    e = py.test.raises(NotImplementedError, dummy_func, "?")
+    msg = ("ctype \'struct foo\' not supported as argument (it is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           'the missing fields)')
+    assert str(e.value) == msg
 
 def test_new_charp():
     BChar = new_primitive_type("char")
@@ -3252,7 +3256,7 @@ def test_from_buffer_not_str_unicode_bytearray():
     BCharP = new_pointer_type(BChar)
     BCharA = new_array_type(BCharP, None)
     py.test.raises(TypeError, from_buffer, BCharA, b"foo")
-    py.test.raises(TypeError, from_buffer, BCharA, u"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
     py.test.raises(TypeError, from_buffer, BCharA, bytearray(b"foo"))
     try:
         from __builtin__ import buffer
@@ -3260,7 +3264,7 @@ def test_from_buffer_not_str_unicode_bytearray():
         pass
     else:
         py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
-        py.test.raises(TypeError, from_buffer, BCharA, buffer(u"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
         py.test.raises(TypeError, from_buffer, BCharA,
                        buffer(bytearray(b"foo")))
     try:
@@ -3331,4 +3335,4 @@ def test_from_buffer_more_cases():
 
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.9.2"
+    assert __version__ == "1.1.0"

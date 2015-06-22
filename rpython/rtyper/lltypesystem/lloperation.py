@@ -650,6 +650,7 @@ LL_OPERATIONS = {
     'debug_start':          LLOp(canrun=True),
     'debug_stop':           LLOp(canrun=True),
     'have_debug_prints':    LLOp(canrun=True),
+    'have_debug_prints_for':LLOp(canrun=True),
     'debug_offset':         LLOp(canrun=True),
     'debug_flush':          LLOp(canrun=True),
     'debug_assert':         LLOp(tryfold=True),
@@ -663,6 +664,7 @@ LL_OPERATIONS = {
     'debug_reraise_traceback': LLOp(),
     'debug_print_traceback':   LLOp(),
     'debug_nonnull_pointer':   LLOp(canrun=True),
+    'debug_forked':            LLOp(),
     'debug_stm_flush_barrier': LLOp(canrun=True),
 
     # __________ instrumentation _________

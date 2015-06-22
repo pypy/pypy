@@ -86,12 +86,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
         return False   # nothing to do, all signatures already match
 
     shape_cnt, shape_keys, shape_star = shape
-    if shape_star:
-        raise TyperError(
-            "not implemented: a call is done with a '*' argument, and the"
-            " multiple functions or methods that it can go to don't have"
-            " all the same signature (different argument names or defaults)."
-            " The call can go to:\n%s" % '\n'.join(map(repr, graphs)))
+    assert not shape_star, "should have been removed at this stage"
 
     # for the first 'shape_cnt' arguments we need to generalize to
     # a common type

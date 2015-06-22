@@ -161,6 +161,9 @@ class FakeBuiltinCallControl:
                 assert extraeffect == EI.EF_CANNOT_RAISE
             elif oopspecindex == EI.OS_THREADLOCALREF_GET:
                 assert extraeffect == self.expected_effect_of_threadlocalref_get
+            elif oopspecindex in (EI.OS_STR_CONCAT, EI.OS_UNI_CONCAT,
+                                  EI.OS_STR_SLICE, EI.OS_UNI_SLICE):
+                assert extraeffect == EI.EF_ELIDABLE_OR_MEMORYERROR
             else:
                 assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex

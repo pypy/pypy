@@ -54,7 +54,7 @@ class Bookkeeper(object):
 
     def __setstate__(self, dic):
         self.__dict__.update(dic) # normal action
-        delayed_imports()
+        self.register_builtins()
 
     def __init__(self, annotator):
         self.annotator = annotator
@@ -79,7 +79,13 @@ class Bookkeeper(object):
         self.needs_generic_instantiate = {}
         self.thread_local_fields = set()
 
-        delayed_imports()
+        self.register_builtins()
+
+    def register_builtins(self):
+        import rpython.annotator.builtin  # for side-effects
+        from rpython.annotator.exception import standardexceptions
+        for cls in standardexceptions:
+            self.getuniqueclassdef(cls)
 
     def get_policy(self):
         return getattr(self.bkTLS, 'policy', self.annotator.default_policy)
@@ -140,8 +146,7 @@ class Bookkeeper(object):
             if self.emulated_pbc_calls:
                 for pbc, args_s in self.emulated_pbc_calls.itervalues():
                     args = simple_args(args_s)
-                    self.consider_call_site_for_pbc(pbc, args,
-                                                    s_ImpossibleValue, None)
+                    self.consider_call_site(args, s_ImpossibleValue, None)
                 self.emulated_pbc_calls.clear()
         finally:
             self.leave()
@@ -192,15 +197,7 @@ class Bookkeeper(object):
             if s_result is None:
                 s_result = s_ImpossibleValue
             args = call_op.build_args(args_s)
-            self.consider_call_site_for_pbc(s_callable, args,
-                                            s_result, call_op)
-
-    def consider_call_site_for_pbc(self, s_callable, args, s_result,
-                                   call_op):
-        descs = list(s_callable.descriptions)
-        family = descs[0].getcallfamily()
-        s_callable.getKind().consider_call_site(self, family, descs, args,
-                                                s_result, call_op)
+            s_callable.consider_call_site(args, s_result, call_op)
 
     def getuniqueclassdef(self, cls):
         """Get the ClassDef associated with the given user cls.
@@ -563,6 +560,26 @@ class Bookkeeper(object):
         return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
+        """For annotating some operation that causes indirectly a Python
+        function to be called.  The annotation of the function is "pbc",
+        and the list of annotations of arguments is "args_s".
+
+        Can be called in various contexts, but from compute_annotation()
+        or compute_result_annotation() of an ExtRegistryEntry, call it
+        with both "unique_key" and "callback" set to
+        "self.bookkeeper.position_key".  If there are several calls from
+        the same operation, they need their own "unique_key", like
+        (position_key, "first") and (position_key, "second").
+
+        In general, "unique_key" should somehow uniquely identify where
+        the call is in the source code, and "callback" can be either a
+        position_key to reflow from when we see more general results,
+        or a real callback function that will be called with arguments
+        # "(annotator, called_graph)" whenever the result is generalized.
+
+        "replace" can be set to a list of old unique_key values to
+        forget now, because the given "unique_key" replaces them.
+        """
         emulate_enter = not hasattr(self, 'position_key')
         if emulate_enter:
             self.enter(None)
@@ -640,6 +657,3 @@ def getbookkeeper():
 
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
-
-def delayed_imports():
-    import rpython.annotator.builtin

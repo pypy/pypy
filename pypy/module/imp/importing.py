@@ -51,6 +51,10 @@ def file_exists(path):
     """Tests whether the given path is an existing regular file."""
     return os.path.isfile(path) and case_ok(path)
 
+def has_so_extension(space):
+    return (space.config.objspace.usemodules.cpyext or
+            space.config.objspace.usemodules._cffi_backend)
+
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
     which is a path without extension.  Returns PY_SOURCE, PY_COMPILED or
@@ -79,7 +83,7 @@ def find_modtype(space, filepart):
             # existing .pyc file
             return PY_COMPILED, ".pyc", "rb"
 
-    if space.config.objspace.usemodules.cpyext:
+    if has_so_extension(space):
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
         if file_exists(pydfile):
@@ -565,10 +569,9 @@ def add_module(space, w_name):
     return w_mod
 
 def load_c_extension(space, filename, modulename):
-    # the next line is mandatory to init cpyext
-    space.getbuiltinmodule("cpyext")
     from pypy.module.cpyext.api import load_extension_module
     load_extension_module(space, filename, modulename)
+    # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
 @jit.dont_look_inside
 def load_module(space, w_modulename, find_info, reuse=False):
@@ -621,11 +624,14 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 try:
                     load_module(space, w_modulename, find_info, reuse=True)
                 finally:
-                    find_info.stream.close()
+                    try:
+                        find_info.stream.close()
+                    except StreamErrors:
+                        pass
                 # fetch the module again, in case of "substitution"
                 w_mod = check_sys_modules(space, w_modulename)
                 return w_mod
-            elif find_info.modtype == C_EXTENSION and space.config.objspace.usemodules.cpyext:
+            elif find_info.modtype == C_EXTENSION and has_so_extension(space):
                 load_c_extension(space, find_info.filename, space.str_w(w_modulename))
                 return check_sys_modules(space, w_modulename)
         except OperationError:
@@ -663,7 +669,10 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    stream.close()
+                    try:
+                        stream.close()
+                    except StreamErrors:
+                        pass
 
     if tentative:
         return None
@@ -881,7 +890,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
         try:
             code_w = read_compiled_module(space, cpathname, stream.readall())
         finally:
-            stream.close()
+            try:
+                stream.close()
+            except StreamErrors:
+                pass
         space.setattr(w_mod, w('__file__'), w(cpathname))
     else:
         code_w = parse_source_module(space, pathname, source)
@@ -966,7 +978,10 @@ def check_compiled_module(space, pycfilename, expected_mtime):
         return stream
     except StreamErrors:
         if stream:
-            stream.close()
+            try:
+                stream.close()
+            except StreamErrors:
+                pass
         return None    # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 

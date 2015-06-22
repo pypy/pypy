@@ -1,13 +1,14 @@
 from __future__ import absolute_import
 import types
 from rpython.annotator.signature import (
-    enforce_signature_args, enforce_signature_return)
+    enforce_signature_args, enforce_signature_return, finish_type)
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
-from rpython.annotator.argument import rawshape, ArgErr
+from rpython.annotator.argument import rawshape, ArgErr, simple_args
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
-from rpython.annotator.model import AnnotatorError
+from rpython.annotator.model import (
+    AnnotatorError, SomeInteger, SomeString, s_ImpossibleValue)
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -75,7 +76,6 @@ class FrozenAttrFamily(object):
         try:
             return self.attrs[attrname]
         except KeyError:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
 
     def set_s_value(self, attrname, s_value):
@@ -97,7 +97,6 @@ class ClassAttrFamily(object):
     # ClassAttrFamily is more precise: it is only about one attribut name.
 
     def __init__(self, desc):
-        from rpython.annotator.model import s_ImpossibleValue
         self.descs = {desc: True}
         self.read_locations = {}     # set of position_keys
         self.s_value = s_ImpossibleValue    # union of possible values
@@ -321,6 +320,24 @@ class FunctionDesc(Desc):
         result = unionof(result, s_previous_result)
         return result
 
+    def get_call_parameters(self, args_s):
+        args = simple_args(args_s)
+        inputcells = self.parse_arguments(args)
+        graph = self.specialize(inputcells)
+        assert isinstance(graph, FunctionGraph)
+        # if that graph has a different signature, we need to re-parse
+        # the arguments.
+        # recreate the args object because inputcells may have been changed
+        new_args = args.unmatch_signature(self.signature, inputcells)
+        inputcells = self.parse_arguments(new_args, graph)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if signature:
+            s_result = finish_type(signature[1], self.bookkeeper, self.pyobj)
+            if s_result is not None:
+                self.bookkeeper.annotator.addpendingblock(
+                    graph, graph.returnblock, [s_result])
+        return graph, inputcells
+
     def bind_under(self, classdef, name):
         # XXX static methods
         return self.bookkeeper.getmethoddesc(self,
@@ -329,9 +346,10 @@ class FunctionDesc(Desc):
                                              name)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         shape = rawshape(args)
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     @staticmethod
@@ -351,7 +369,6 @@ class FunctionDesc(Desc):
     @staticmethod
     def row_to_consider(descs, args, op):
         # see comments in CallFamily
-        from rpython.annotator.model import s_ImpossibleValue
         row = {}
         for desc in descs:
             def enlist(graph, ignore):
@@ -404,6 +421,8 @@ class ClassDesc(Desc):
                  name=None, basedesc=None, classdict=None,
                  specialize=None):
         super(ClassDesc, self).__init__(bookkeeper, cls)
+        if '__NOT_RPYTHON__' in cls.__dict__:
+            raise AnnotatorError('Bad class')
 
         if name is None:
             name = cls.__module__ + '.' + cls.__name__
@@ -477,8 +496,7 @@ class ClassDesc(Desc):
 
         if (self.is_builtin_exception_class() and
                 self.all_enforced_attrs is None):
-            from rpython.annotator import classdef
-            if cls not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
+            if cls not in FORCE_ATTRIBUTES_INTO_CLASSES:
                 self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
@@ -573,8 +591,7 @@ class ClassDesc(Desc):
         try:
             return self._classdefs[key]
         except KeyError:
-            from rpython.annotator.classdef import (
-                ClassDef, FORCE_ATTRIBUTES_INTO_CLASSES)
+            from rpython.annotator.classdef import ClassDef
             classdef = ClassDef(self.bookkeeper, self)
             self.bookkeeper.classdefs.append(classdef)
             self._classdefs[key] = classdef
@@ -684,7 +701,6 @@ class ClassDesc(Desc):
         # look up an attribute in the class
         cdesc = self.lookup(name)
         if cdesc is None:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
         else:
             # delegate to s_get_value to turn it into an annotation
@@ -760,7 +776,7 @@ class ClassDesc(Desc):
         return s_result     # common case
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         from rpython.annotator.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -795,17 +811,14 @@ class ClassDesc(Desc):
                     "unexpected dynamic __init__?")
                 initfuncdesc, = s_init.descriptions
                 if isinstance(initfuncdesc, FunctionDesc):
-                    initmethdesc = bookkeeper.getmethoddesc(initfuncdesc,
-                                                            classdef,
-                                                            classdef,
-                                                            '__init__')
+                    from rpython.annotator.bookkeeper import getbookkeeper
+                    initmethdesc = getbookkeeper().getmethoddesc(
+                        initfuncdesc, classdef, classdef, '__init__')
                     initdescs.append(initmethdesc)
         # register a call to exactly these __init__ methods
         if initdescs:
             initdescs[0].mergecallfamilies(*initdescs[1:])
-            initfamily = initdescs[0].getcallfamily()
-            MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
-                                          args, s_None, op)
+            MethodDesc.consider_call_site(initdescs, args, s_None, op)
 
     def getallbases(self):
         desc = self
@@ -897,10 +910,11 @@ class MethodDesc(Desc):
                                              flags)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     def rowkey(self):
@@ -1000,7 +1014,6 @@ class FrozenDesc(Desc):
         try:
             value = self.read_attribute(attr)
         except AttributeError:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
         else:
             return self.bookkeeper.immutablevalue(value)
@@ -1058,10 +1071,11 @@ class MethodOfFrozenDesc(Desc):
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     def rowkey(self):
@@ -1077,3 +1091,18 @@ try:
     MemberDescriptorTypes.append(type(OSError.errno))
 except AttributeError:    # on CPython <= 2.4
     pass
+
+# ____________________________________________________________
+
+FORCE_ATTRIBUTES_INTO_CLASSES = {
+    EnvironmentError: {'errno': SomeInteger(),
+                       'strerror': SomeString(can_be_None=True),
+                       'filename': SomeString(can_be_None=True)},
+}
+
+try:
+    WindowsError
+except NameError:
+    pass
+else:
+    FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}

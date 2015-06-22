@@ -33,7 +33,8 @@ PY_SSL_CERT_NONE, PY_SSL_CERT_OPTIONAL, PY_SSL_CERT_REQUIRED = 0, 1, 2
 PY_SSL_CLIENT, PY_SSL_SERVER = 0, 1
 
 (PY_SSL_VERSION_SSL2, PY_SSL_VERSION_SSL3,
- PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1) = range(4)
+ PY_SSL_VERSION_SSL23, PY_SSL_VERSION_TLS1, PY_SSL_VERSION_TLS1_1,
+ PY_SSL_VERSION_TLS1_2) = range(6)
 
 SOCKET_IS_NONBLOCKING, SOCKET_IS_BLOCKING = 0, 1
 SOCKET_HAS_TIMED_OUT, SOCKET_HAS_BEEN_CLOSED = 2, 3
@@ -72,6 +73,11 @@ if not OPENSSL_NO_SSL3:
     constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
 constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
+if HAVE_TLSv1_2:
+    constants["PROTOCOL_TLSv1_1"] = PY_SSL_VERSION_TLS1_1
+    constants["OP_NO_TLSv1_1"] = SSL_OP_NO_TLSv1_1
+    constants["PROTOCOL_TLSv1_2"] = PY_SSL_VERSION_TLS1_2
+    constants["OP_NO_TLSv1_2"] = SSL_OP_NO_TLSv1_2
 
 constants["OP_ALL"] = SSL_OP_ALL &~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
 constants["OP_NO_SSLv2"] = SSL_OP_NO_SSLv2
@@ -140,7 +146,7 @@ class SSLNpnProtocols(object):
 
     def __del__(self):
         rffi.free_nonmovingbuffer(
-            self.protos, self.buf, self.pinned, self.is_raw)    
+            self.protos, self.buf, self.pinned, self.is_raw)
 
     @staticmethod
     def advertiseNPN_cb(s, data_ptr, len_ptr, args):
@@ -162,7 +168,7 @@ class SSLNpnProtocols(object):
             client_len = len(npn.protos)
         else:
             client = lltype.nullptr(rffi.CCHARP.TO)
-            client_len = 0            
+            client_len = 0
 
         libssl_SSL_select_next_proto(out_ptr, outlen_ptr,
                                      server, server_len,
@@ -593,14 +599,14 @@ class _SSLSocket(W_Root):
         CB_MAXLEN = 128
 
         with lltype.scoped_alloc(rffi.CCHARP.TO, CB_MAXLEN) as buf:
-            if (libssl_SSL_session_reused(self.ssl) ^ 
+            if (libssl_SSL_session_reused(self.ssl) ^
                 (self.socket_type == PY_SSL_CLIENT)):
                 # if session is resumed XOR we are the client
                 length = libssl_SSL_get_finished(self.ssl, buf, CB_MAXLEN)
             else:
                 # if a new session XOR we are the server
                 length = libssl_SSL_get_peer_finished(self.ssl, buf, CB_MAXLEN)
-            
+
             if length > 0:
                 return space.wrap(rffi.charpsize2str(buf, intmask(length)))
 
@@ -1107,7 +1113,7 @@ def _password_callback(buf, size, rwflag, userdata):
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                raise oefmt(space.w_TypeError, 
+                raise oefmt(space.w_TypeError,
                             "password callback must return a string")
         except OperationError as e:
             pw_info.operationerror = e
@@ -1196,6 +1202,10 @@ class _SSLContext(W_Root):
             method = libssl_SSLv2_method()
         elif protocol == PY_SSL_VERSION_SSL23:
             method = libssl_SSLv23_method()
+        elif protocol == PY_SSL_VERSION_TLS1_1 and HAVE_TLSv1_2:
+            method = libssl_TLSv1_1_method()
+        elif protocol == PY_SSL_VERSION_TLS1_2 and HAVE_TLSv1_2:
+            method = libssl_TLSv1_2_method()
         else:
             raise oefmt(space.w_ValueError, "invalid protocol version")
         ctx = libssl_SSL_CTX_new(method)
@@ -1348,7 +1358,7 @@ class _SSLContext(W_Root):
                 except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
-                    raise oefmt(space.w_TypeError, 
+                    raise oefmt(space.w_TypeError,
                                 "password should be a string or callable")
 
             libssl_SSL_CTX_set_default_passwd_cb(
@@ -1452,7 +1462,7 @@ class _SSLContext(W_Root):
         if cadata is not None:
             with rffi.scoped_nonmovingbuffer(cadata) as buf:
                 self._add_ca_certs(space, buf, len(cadata), ca_file_type)
-            
+
         # load cafile or capath
         if cafile is not None or capath is not None:
             ret = libssl_SSL_CTX_load_verify_locations(

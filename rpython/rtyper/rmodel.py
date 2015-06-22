@@ -25,6 +25,7 @@ class Repr(object):
     """
     __metaclass__ = extendabletype
     _initialized = setupstate.NOTINITIALIZED
+    __NOT_RPYTHON__ = True
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.lowleveltype)

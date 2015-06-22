@@ -19,7 +19,8 @@ from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
                                        PASS_ON_MY_FRAME, THREADLOCAL_OFS,
                                        STM_FRAME_FIXED_SIZE, STM_JMPBUF_OFS,
-                                       STM_SHADOWSTACK_BASE_OFS, STM_PREV_OFS)
+                                       STM_SHADOWSTACK_BASE_OFS, STM_PREV_OFS,
+                                       DEFAULT_FRAME_BYTES)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -82,6 +83,7 @@ class Assembler386(BaseAssembler):
             self._build_stm_enter_leave_transactional_zone_helpers()
 
     def setup(self, looptoken):
+        BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
@@ -102,7 +104,6 @@ class Assembler386(BaseAssembler):
                                                         allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
-        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -211,7 +212,7 @@ class Assembler386(BaseAssembler):
         mc.MOV_bi((self.SEGMENT_FRAME, gcmap_ofs), 0)
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
-        self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to
@@ -246,7 +247,7 @@ class Assembler386(BaseAssembler):
         self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
         self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
-        return mc.materialize(self.cpu.asmmemmgr, [])
+        return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -329,10 +330,14 @@ class Assembler386(BaseAssembler):
         # the correct "ret" arg
         offset = mc.get_relative_pos() - jz_location
         mc.overwrite32(jz_location-4, offset)
+        # From now on this function is basically "merged" with
+        # its caller and so contains DEFAULT_FRAME_BYTES bytes
+        # plus my own return address, which we'll ignore next
+        mc.force_frame_size(DEFAULT_FRAME_BYTES + WORD)
         mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         return rawstart
 
     def _build_propagate_exception_path(self):
@@ -340,6 +345,7 @@ class Assembler386(BaseAssembler):
             return      # not supported (for tests, or non-translated)
         #
         self.mc = codebuf.MachineCodeBlockWrapper()
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         #
         # read and reset the current exception
 
@@ -352,7 +358,7 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(self.raw_stack(ofs), imm(propagate_exception_descr))
         #
         self._call_footer()
-        rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = self.mc.materialize(self.cpu, [])
         self.propagate_exception_path = rawstart
         self.mc = None
 
@@ -395,11 +401,14 @@ class Assembler386(BaseAssembler):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
-        # adjust the esp to point back to the previous return
+        # From now on this function is basically "merged" with
+        # its caller and so contains DEFAULT_FRAME_BYTES bytes
+        # plus my own return address, which we'll ignore next
+        mc.force_frame_size(DEFAULT_FRAME_BYTES + WORD)
         mc.ADD_ri(esp.value, WORD)
         mc.JMP(imm(self.propagate_exception_path))
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
@@ -512,6 +521,8 @@ class Assembler386(BaseAssembler):
                 mc.RET16_i((3 + withcards) * WORD)
             else:
                 mc.RET16_i(WORD)
+            # Note that wb_slowpath[0..3] end with a RET16_i, which must be
+            # taken care of in the caller by stack_frame_size_delta(-WORD)
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 4 * WORD)
@@ -523,7 +534,7 @@ class Assembler386(BaseAssembler):
             mc.LEA_rs(esp.value, 7 * WORD)
             mc.RET()
 
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         if for_frame:
             self.wb_slowpath[4] = rawstart
         else:
@@ -531,8 +542,8 @@ class Assembler386(BaseAssembler):
 
 
     @rgc.no_release_gil
-    def assemble_loop(self, inputargs, operations, looptoken, log,
-                      loopname, logger):
+    def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
+                      operations, looptoken, log):
         '''adds the following attributes to looptoken:
                _ll_function_addr    (address of the generated func, as an int)
                _ll_loop_code       (debug: addr of the start of the ResOps)
@@ -550,7 +561,9 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+                                                    self.mc.get_relative_pos())
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
@@ -621,6 +634,10 @@ class Assembler386(BaseAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.inherit_code_from_position(
+                faildescr.adr_jump_offset)
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
@@ -783,8 +800,13 @@ class Assembler386(BaseAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
-                                   self.cpu.gc_ll_descr.gcrootmap)
+        size = self.mc.get_relative_pos()
+        res = self.mc.materialize(self.cpu, allblocks,
+                                  self.cpu.gc_ll_descr.gcrootmap)
+        if self.cpu.HAS_CODEMAP:
+            self.cpu.codemap.register_codemap(
+                self.codemap_builder.get_final_bytecode(res, size))
+        return res
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr.adr_jump_offset
@@ -806,6 +828,7 @@ class Assembler386(BaseAssembler):
         # place, but clobber the recovery stub with a jump to the real
         # target.
         mc = codebuf.MachineCodeBlockWrapper()
+        mc.force_frame_size(DEFAULT_FRAME_BYTES)
         if rx86.fits_in_32bits(offset):
             mc.writeimm32(offset)
             mc.copy_to_raw_memory(adr_jump_offset)
@@ -2033,6 +2056,7 @@ class Assembler386(BaseAssembler):
 
     def generate_propagate_error_64(self):
         assert WORD == 8
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
         self.mc.JMP(imm(self.propagate_exception_path))
         return startpos
@@ -2040,6 +2064,7 @@ class Assembler386(BaseAssembler):
     def generate_quick_failure(self, guardtok):
         """ Gather information about failure
         """
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         if self.cpu.gc_ll_descr.stm:
@@ -2155,6 +2180,9 @@ class Assembler386(BaseAssembler):
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = codebuf.MachineCodeBlockWrapper()
+        # this is jumped to, from a stack that has DEFAULT_FRAME_BYTES
+        # followed by 2 extra words just pushed
+        mc.force_frame_size(DEFAULT_FRAME_BYTES + 2 * WORD)
         self.mc = mc
 
         if self.cpu.gc_ll_descr.stm:    # see below
@@ -2201,7 +2229,7 @@ class Assembler386(BaseAssembler):
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The _call_footer below does it.
         self._call_footer()
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
@@ -2247,6 +2275,7 @@ class Assembler386(BaseAssembler):
             self.mc.J_il(rx86.Conditions[condition], 0)
         else:
             self.mc.JMP_l(0)
+            self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         guard_token.pos_jump_offset = self.mc.get_relative_pos() - 4
         self.pending_guard_tokens.append(guard_token)
 
@@ -2359,6 +2388,7 @@ class Assembler386(BaseAssembler):
         offset = jmp_location - je_location
         assert 0 < offset <= 127
         self.mc.overwrite(je_location - 1, chr(offset))
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         #
         return jmp_location
 
@@ -2544,6 +2574,8 @@ class Assembler386(BaseAssembler):
         if is_frame and align_stack:
             mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))
+        if not is_frame:
+            mc.stack_frame_size_delta(-WORD)
         if is_frame and align_stack:
             mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
@@ -2799,6 +2831,7 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr1
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr1-1, chr(offset))
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         # write down the tid, but not if it's the result of the CALL
         if self.cpu.gc_ll_descr.stm:
             assert IS_X86_64

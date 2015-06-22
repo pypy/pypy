@@ -182,6 +182,18 @@ class LLtypeMixin(object):
     FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
     plaincalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                      EffectInfo.MOST_GENERAL)
+    elidablecalldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo([valuedescr], [], [],
+                                               [valuedescr], [], [],
+                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE))
+    elidable2calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo([valuedescr], [], [],
+                                               [valuedescr], [], [],
+                                         EffectInfo.EF_ELIDABLE_OR_MEMORYERROR))
+    elidable3calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo([valuedescr], [], [],
+                                               [valuedescr], [], [],
+                                         EffectInfo.EF_ELIDABLE_CAN_RAISE))
     nonwritedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                     EffectInfo([], [], [], [], [], []))
     writeadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -255,20 +267,24 @@ class LLtypeMixin(object):
         ('streq_checknull_char_descr',   'OS_STREQ_CHECKNULL_CHAR'),
         ('streq_lengthok_descr',         'OS_STREQ_LENGTHOK'),
         ]:
+        if _name in ('strconcatdescr', 'strslicedescr'):
+            _extra = EffectInfo.EF_ELIDABLE_OR_MEMORYERROR
+        else:
+            _extra = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], _extra,
                            oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                EffectInfo([], [], [], [], [], [], _extra,
                            oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-            EffectInfo([], [], [], [], [], [],
+            EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CAN_RAISE,
                        oopspecindex=EffectInfo.OS_STR2UNICODE))
     #
 

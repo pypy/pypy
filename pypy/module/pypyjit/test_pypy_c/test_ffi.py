@@ -35,7 +35,7 @@ class Test__ffi(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i17 = force_token()
             setfield_gc(p0, i17, descr=<.* .*PyFrame.vable_token .*>)
-            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<Callf 8 ff EF=6>)
+            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<Callf 8 ff EF=7>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """ % pow_addr)
@@ -202,8 +202,96 @@ class Test__ffi(BaseTestPyPyC):
         assert loop.match_by_id('cfficall', """
             p96 = force_token()
             setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
-            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=6 OS=62>)
+            f97 = call_release_gil(91, i59, 1.0, 3, descr=<Callf 8 fi EF=7 OS=62>)
             guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+        """, ignore_ops=['guard_not_invalidated'])
+
+    def test__cffi_call_c_int(self):
+        if sys.platform == 'win32':
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
+        def main():
+            import os
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libc = _cffi_backend.load_library(None)
+            BInt = _cffi_backend.new_primitive_type("int")
+            BClose = _cffi_backend.new_function_type([BInt], BInt)
+            _dup = libc.load_function(BClose, 'dup')
+            i = 0
+            fd0, fd1 = os.pipe()
+            while i < 300:
+                tmp = _dup(fd0)   # ID: cfficall
+                os.close(tmp)
+                i += 1
+            os.close(fd0)
+            os.close(fd1)
+            BLong = _cffi_backend.new_primitive_type("long")
+            return 42
+        #
+        log = self.run(main, [])
+        assert log.result == 42
+        loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint > 2**32:
+            extra = "i98 = int_signext(i97, 4)"
+        else:
+            extra = ""
+        assert loop.match_by_id('cfficall', """
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            i97 = call_release_gil(91, i59, i50, descr=<Calli 4 i EF=7 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+            %s
+        """ % extra, ignore_ops=['guard_not_invalidated'])
+
+    def test__cffi_call_size_t(self):
+        if sys.platform == 'win32':
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
+        def main():
+            import os
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libc = _cffi_backend.load_library(None)
+            BInt = _cffi_backend.new_primitive_type("int")
+            BSizeT = _cffi_backend.new_primitive_type("size_t")
+            BChar = _cffi_backend.new_primitive_type("char")
+            BCharP = _cffi_backend.new_pointer_type(BChar)
+            BWrite = _cffi_backend.new_function_type([BInt, BCharP, BSizeT],
+                                                     BSizeT)  # not signed here!
+            _write = libc.load_function(BWrite, 'write')
+            i = 0
+            fd0, fd1 = os.pipe()
+            buffer = _cffi_backend.newp(BCharP, 'A')
+            while i < 300:
+                tmp = _write(fd1, buffer, 1)   # ID: cfficall
+                assert tmp == 1
+                assert os.read(fd0, 2) == 'A'
+                i += 1
+            os.close(fd0)
+            os.close(fd1)
+            return 42
+        #
+        log = self.run(main, [])
+        assert log.result == 42
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('cfficall', """
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            i97 = call_release_gil(91, i59, i10, i12, 1, descr=<Calli . iii EF=7 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+            p98 = call(ConstClass(fromrarith_int__r_uint), i97, descr=<Callr . i EF=4>)
             guard_no_exception(descr=...)
         """, ignore_ops=['guard_not_invalidated'])
 
@@ -266,7 +354,7 @@ class Test__ffi(BaseTestPyPyC):
         loop, = log.loops_by_id('cfficall')
         assert loop.match_by_id('cfficall', """
             ...
-            f1 = call_release_gil(..., descr=<Calli 4 ii EF=6 OS=62>)
+            f1 = call_release_gil(..., descr=<Calli 4 ii EF=7 OS=62>)
             ...
         """)
 
@@ -330,14 +418,14 @@ class Test__ffi(BaseTestPyPyC):
         guard_value(p165, ConstPtr(ptr70), descr=...)
         p166 = getfield_gc(p165, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .+>)
         guard_value(p166, ConstPtr(ptr72), descr=...)
-        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=4>)
+        p167 = call(ConstClass(_ll_0_alloc_with_del___), descr=<Callr . EF=5>)
         guard_no_exception(descr=...)
         i112 = int_signext(i160, 2)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
         --TICK--
-        i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=4 OS=110>)
+        i119 = call(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=5 OS=110>)
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)
         raw_store(i119, 4, i160, descr=<ArrayS 2>)

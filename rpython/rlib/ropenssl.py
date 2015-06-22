@@ -77,6 +77,7 @@ if cconfig["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
 else:
     ASN1_ITEM_EXP = ASN1_ITEM
 OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
+HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
 
 class CConfig:
     _compilation_info_ = eci
@@ -93,6 +94,9 @@ class CConfig:
     SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
     SSL_OP_NO_SSLv3 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv3")
     SSL_OP_NO_TLSv1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1")
+    if HAVE_TLSv1_2:
+        SSL_OP_NO_TLSv1_1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_1")
+        SSL_OP_NO_TLSv1_2 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_2")
     SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
         "SSL_OP_CIPHER_SERVER_PREFERENCE")
     SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
@@ -256,6 +260,7 @@ HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df and \
 if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
 
+
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
     return rffi.llexternal(
@@ -284,6 +289,9 @@ ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
 ssl_external('SSL_get_SSL_CTX', [SSL], SSL_CTX)
 ssl_external('SSL_set_SSL_CTX', [SSL, SSL_CTX], SSL_CTX)
 ssl_external('TLSv1_method', [], SSL_METHOD)
+if HAVE_TLSv1_2:
+    ssl_external('TLSv1_1_method', [], SSL_METHOD)
+    ssl_external('TLSv1_2_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)

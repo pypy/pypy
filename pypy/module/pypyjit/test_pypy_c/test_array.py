@@ -94,13 +94,25 @@ class TestArray(BaseTestPyPyC):
                 guard_not_invalidated(descr=...)
             # the bound check guard on img has been killed (thanks to the asserts)
                 i14 = getarrayitem_raw(i10, i8, descr=<ArrayS .>)
+            # advanced: the following int_add cannot overflow, because:
+            # - i14 fits inside 32 bits
+            # - i9 fits inside 33 bits, because:
+            #     - it comes from the previous iteration's i15
+            #     - prev i19 = prev i18 + prev i15
+            #         - prev i18 fits inside 32 bits
+            #         - prev i19 is guarded to fit inside 32 bits
+            #         - so as a consequence, prev i15 fits inside 33 bits
+            # the new i15 thus fits inside "33.5" bits, which is enough to
+            # guarantee that the next int_add(i18, i15) cannot overflow either...
                 i15 = int_add(i9, i14)
                 i17 = int_sub(i8, 640)
             # the bound check guard on intimg has been killed (thanks to the asserts)
                 i18 = getarrayitem_raw(i11, i17, descr=<ArrayS .>)
                 i19 = int_add(i18, i15)
-            # on 64bit, there is a guard checking that i19 actually fits into 32bit
-                ...
+            # guard checking that i19 actually fits into 32bit
+                i20 = int_signext(i19, 4)
+                i65 = int_ne(i20, i19)
+                guard_false(i65, descr=...)
                 setarrayitem_raw(i11, i8, _, descr=<ArrayS .>)
                 i28 = int_add(i8, 1)
                 --TICK--

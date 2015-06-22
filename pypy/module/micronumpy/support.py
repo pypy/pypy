@@ -7,8 +7,9 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
     return (space.isinstance_w(w_obj, space.w_tuple) or
-            space.isinstance_w(w_obj, space.w_list) or
-            isinstance(w_obj, W_NDimArray))
+           space.isinstance_w(w_obj, space.w_list) or
+           space.isinstance_w(w_obj, space.w_buffer) or
+           isinstance(w_obj, W_NDimArray))
 
 
 def index_w(space, w_obj):
@@ -18,7 +19,9 @@ def index_w(space, w_obj):
         try:
             return space.int_w(space.int(w_obj))
         except OperationError:
-            raise oefmt(space.w_IndexError, "cannot convert index to integer")
+            raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                "boolean arrays are valid indices")
 
 
 @jit.unroll_safe
@@ -152,3 +155,9 @@ def _parse_signature(space, ufunc, signature):
 def get_storage_as_int(storage, start=0):
         return rffi.cast(lltype.Signed, storage) + start
 
+def is_rhs_priority_higher(space, w_lhs, w_rhs):
+    w_zero = space.wrap(0.0)
+    w_priority_l = space.findattr(w_lhs, space.wrap('__array_priority__')) or w_zero
+    w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
+    # XXX what is better, unwrapping values or space.gt?
+    return space.is_true(space.gt(w_priority_r, w_priority_l))

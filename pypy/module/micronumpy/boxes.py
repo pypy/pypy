@@ -35,8 +35,8 @@ long_double_size = 8
 def new_dtype_getter(num):
     @specialize.memo()
     def _get_dtype(space):
-        from pypy.module.micronumpy.descriptor import get_dtype_cache
-        return get_dtype_cache(space).dtypes_by_num[num]
+        from pypy.module.micronumpy.descriptor import num2dtype
+        return num2dtype(space, num)
 
     def descr__new__(space, w_subtype, w_value=None):
         from pypy.module.micronumpy.ctors import array
@@ -143,6 +143,10 @@ class W_GenericBox(W_NumpyObject):
     def get_scalar_value(self):
         return self
 
+    def get_flags(self):
+        return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
+                NPY.ARRAY_WRITEABLE | NPY.ARRAY_OWNDATA)
+
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
@@ -176,10 +180,11 @@ class W_GenericBox(W_NumpyObject):
 
     def descr_getitem(self, space, w_item):
         from pypy.module.micronumpy.base import convert_to_array
-        if space.is_w(w_item, space.w_Ellipsis) or \
-                (space.isinstance_w(w_item, space.w_tuple) and
-                    space.len_w(w_item) == 0):
+        if space.is_w(w_item, space.w_Ellipsis):
             return convert_to_array(space, self)
+        elif (space.isinstance_w(w_item, space.w_tuple) and
+                    space.len_w(w_item) == 0):
+            return self
         raise OperationError(space.w_IndexError, space.wrap(
             "invalid index to scalar variable"))
 
@@ -189,13 +194,16 @@ class W_GenericBox(W_NumpyObject):
                     "'%T' object is not iterable", self)
 
     def descr_str(self, space):
-        return space.wrap(self.get_dtype(space).itemtype.str_format(self))
+        return space.wrap(self.get_dtype(space).itemtype.str_format(self, add_quotes=False))
 
     def descr_format(self, space, w_spec):
         return space.format(self.item(space), w_spec)
 
     def descr_hash(self, space):
         return space.hash(self.item(space))
+
+    def descr___array_priority__(self, space):
+        return space.wrap(0.0)
 
     def descr_index(self, space):
         return space.index(self.item(space))
@@ -232,7 +240,7 @@ class W_GenericBox(W_NumpyObject):
 
     # TODO: support all kwargs in ufuncs like numpy ufunc_object.c
     sig = None
-    cast = None
+    cast = 'unsafe'
     extobj = None
 
     def _unaryop_impl(ufunc_name):
@@ -571,7 +579,9 @@ class W_VoidBox(W_FlexibleBox):
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise oefmt(space.w_ValueError, "field named %s not found", item)
+            raise oefmt(space.w_IndexError, "222only integers, slices (`:`), "
+                "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                "boolean arrays are valid indices")
         dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
@@ -607,6 +617,19 @@ class W_UnicodeBox(W_CharacterBox):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
 
+class W_ObjectBox(W_GenericBox):
+    descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.OBJECT)
+
+    def __init__(self, w_obj):
+        self.w_obj = w_obj
+
+    def convert_to(self, space, dtype):
+        if dtype.is_bool():
+            return W_BoolBox(space.bool_w(self.w_obj))
+        return self # XXX
+
+    def descr__getattr__(self, space, w_key):
+        return space.getattr(self.w_obj, w_key)
 
 W_GenericBox.typedef = TypeDef("numpy.generic",
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
@@ -666,6 +689,8 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     __invert__ = interp2app(W_GenericBox.descr_invert),
 
     __hash__ = interp2app(W_GenericBox.descr_hash),
+
+    __array_priority__ = GetSetProperty(W_GenericBox.descr___array_priority__),
 
     tolist = interp2app(W_GenericBox.item),
     item = interp2app(W_GenericBox.descr_item),
@@ -855,4 +880,9 @@ W_StringBox.typedef = TypeDef("numpy.string_", (W_CharacterBox.typedef, W_BytesO
 W_UnicodeBox.typedef = TypeDef("numpy.unicode_", (W_CharacterBox.typedef, W_UnicodeObject.typedef),
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
     __len__ = interp2app(W_UnicodeBox.descr_len),
+)
+
+W_ObjectBox.typedef = TypeDef("numpy.object_", W_ObjectBox.typedef,
+    __new__ = interp2app(W_ObjectBox.descr__new__.im_func),
+    __getattr__ = interp2app(W_ObjectBox.descr__getattr__),
 )
