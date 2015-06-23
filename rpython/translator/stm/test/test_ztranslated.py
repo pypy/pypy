@@ -491,32 +491,32 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert ('starting baz\n'
-                'File "/tmp/foobar.py", line 41, in baz\n'
-                'File "/tmp/foobar.py", line 41, in baz\n'
-                'File "/tmp/foobar.py", line 41, in baz\n'
-                'File "/tmp/foobar.py", line 41, in baz\n'
-                'File "/tmp/foobar.py", line 41, in baz\n'
-                'File "/tmp/foobar.py", line 42, in baz\n'
-                'File "/tmp/foobar.py", line 42, in baz\n'
-                'File "/tmp/foobar.py", line 42, in baz\n'
-                'File "/tmp/foobar.py", line 42, in baz\n'
-                'File "/tmp/foobar.py", line 42, in baz\n'
+                'File "/tmp/foobar.py", line 41, in baz (#0)\n'
+                'File "/tmp/foobar.py", line 41, in baz (#1)\n'
+                'File "/tmp/foobar.py", line 41, in baz (#2)\n'
+                'File "/tmp/foobar.py", line 41, in baz (#3)\n'
+                'File "/tmp/foobar.py", line 41, in baz (#4)\n'
+                'File "/tmp/foobar.py", line 42, in baz (#5)\n'
+                'File "/tmp/foobar.py", line 42, in baz (#6)\n'
+                'File "/tmp/foobar.py", line 42, in baz (#7)\n'
+                'File "/tmp/foobar.py", line 42, in baz (#8)\n'
+                'File "/tmp/foobar.py", line 42, in baz (#9)\n'
                 'stopping baz\n') in data
         assert ('starting bar\n'
-                'File "/tmp/foobaz.py", line 71, in bar\n'
-                'File "/tmp/foobaz.py", line 71, in bar\n'
-                'File "/tmp/foobaz.py", line 71, in bar\n'
-                'File "/tmp/foobaz.py", line 71, in bar\n'
-                'File "/tmp/foobaz.py", line 73, in bar\n'
-                'File "/tmp/foobaz.py", line 73, in bar\n'
-                'File "/tmp/foobaz.py", line 73, in bar\n'
-                'File "/tmp/foobaz.py", line 73, in bar\n'
-                'File "/tmp/foobaz.py", line 73, in bar\n'
-                'File "/tmp/foobaz.py", line 73, in bar\n'
+                'File "/tmp/foobaz.py", line 71, in bar (#0)\n'
+                'File "/tmp/foobaz.py", line 71, in bar (#1)\n'
+                'File "/tmp/foobaz.py", line 71, in bar (#2)\n'
+                'File "/tmp/foobaz.py", line 71, in bar (#3)\n'
+                'File "/tmp/foobaz.py", line 73, in bar (#4)\n'
+                'File "/tmp/foobaz.py", line 73, in bar (#5)\n'
+                'File "/tmp/foobaz.py", line 73, in bar (#6)\n'
+                'File "/tmp/foobaz.py", line 73, in bar (#7)\n'
+                'File "/tmp/foobaz.py", line 73, in bar (#8)\n'
+                'File "/tmp/foobaz.py", line 73, in bar (#9)\n'
                 'stopping bar\n') in data
         assert ('starting some_extremely_longish_and_boring_function_name\n'
                 'File "<bla/br/project/foobaz.py", line 81,'
-                ' in some_extremely_longish_a>\n') in data
+                ' in some_extremely_longish_a> (#0)\n') in data
 
     def test_finalizer(self):
         class Counter:
