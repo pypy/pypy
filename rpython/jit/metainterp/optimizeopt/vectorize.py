@@ -48,7 +48,6 @@ def xxx_clock_stop(jitdriver_sd, fail=False):
     debug_stop("xxx-clock-stop")
 
 
-
 def debug_print_operations(loop):
     """ NOT_RPYTHON """
     if not we_are_translated():
@@ -98,7 +97,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                        gso.strength_reduced,
                        len(orig_ops),
                        len(loop.operations),
-                       ns)
+                       ns))
         debug_stop("vec-opt-clock")
 
     except NotAVectorizeableLoop:
