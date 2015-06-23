@@ -19,6 +19,8 @@ class W_FunctionWrapper(W_Root):
     wrapper is callable, and the arguments it expects and returns
     are directly the struct/union.  Calling ffi.typeof(wrapper)
     also returns the original struct/union signature.
+
+    This class cannot be used for variadic functions.
     """
     _immutable_ = True
     common_doc_str = 'direct call to the C function of the same name'
@@ -72,6 +74,7 @@ class W_FunctionWrapper(W_Root):
             args_w[i] = w_arg
 
     def descr_call(self, args_w):
+        self = jit.promote(self)
         if len(args_w) != self.nargs_expected:
             space = self.space
             if self.nargs_expected == 0:
