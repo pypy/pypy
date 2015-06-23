@@ -321,7 +321,7 @@ class RegAlloc(BaseRegalloc):
         while i < len(operations):
             op = operations[i]
             self.assembler.mc.mark_op(op)
-            if not self.assembler.cpu.gc_ll_descr.stm:   # incorrect with stm
+            if not rgc.stm_is_enabled():   # incorrect with stm
                 assert self.assembler.mc._frame_size == DEFAULT_FRAME_BYTES
             self.rm.position = i
             self.xrm.position = i

@@ -3,6 +3,7 @@ from rpython.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import rffi
 from rpython.jit.backend.x86.arch import IS_X86_64
 
@@ -504,12 +505,14 @@ class AbstractX86CodeBuilder(object):
     def stack_frame_size_delta(self, delta):
         "Called when we generate an instruction that changes the value of ESP"
         self._frame_size += delta
+        if rgc.stm_is_enabled():
+            return      # the rest is ignored with STM
         self.frame_positions.append(self.get_relative_pos()) 
         self.frame_assignments.append(self._frame_size)
         assert self._frame_size >= self.WORD
 
     def check_stack_size_at_ret(self):
-        if IS_X86_64:
+        if IS_X86_64 and not rgc.stm_is_enabled():
             assert self._frame_size == self.WORD
             if not we_are_translated():
                 self._frame_size = None
