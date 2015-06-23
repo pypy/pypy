@@ -37,8 +37,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newop(op)
             return
         # ----------  non-pure getfields  ----------
-        if opnum in (rop.GETFIELD_GC, rop.GETARRAYITEM_GC,
-                     rop.GETINTERIORFIELD_GC):
+        if opnum in (rop.GETARRAYITEM_GC, rop.GETINTERIORFIELD_GC):
             self.handle_getfields(op)
             return
         # ----------  calls  ----------
@@ -119,6 +118,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             op1 = ResOperation(rop.STM_READ, [v_ptr], None)
             self.newop(op1)
             self.read_barrier_applied[v_ptr] = None
+
+    def handle_getfield_gc(self, op):
+        self.emit_pending_zeros()
+        self.handle_getfields(op)
 
     def add_dummy_allocation(self):
         if not self.does_any_allocation:

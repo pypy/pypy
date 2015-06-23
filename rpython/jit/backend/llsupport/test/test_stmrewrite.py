@@ -31,6 +31,7 @@ def test_all_operations_with_gc_in_their_name():
     # these are handled by rewrite.py (sometimes with some overridden code
     # in stmrewrite.py too)
     words.append('DEBUG_MERGE_POINT')
+    words.append('GETFIELD_GC')
     words.append('SETFIELD_GC')
     words.append('SETARRAYITEM_GC')
     words.append('SETINTERIORFIELD_GC')
@@ -268,8 +269,8 @@ class TestStm(RewriteTests):
             p3 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p3, 0, descr=stmflagsdescr)
             setfield_gc(p3, %(tdescr.tid)d, descr=tiddescr)
-            p4 = getfield_gc(p1, descr=tzdescr)
             zero_ptr_field(p3, %(tdescr.gc_fielddescrs[0].offset)s)
+            p4 = getfield_gc(p1, descr=tzdescr)
             jump(p2)
         """)
 
@@ -299,8 +300,8 @@ class TestStm(RewriteTests):
             p2 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p2, 0, descr=stmflagsdescr)
             setfield_gc(p2, %(tdescr.tid)d, descr=tiddescr)
-            p1 = getfield_gc(p2, descr=tzdescr)
             zero_ptr_field(p2, %(tdescr.gc_fielddescrs[0].offset)s)
+            p1 = getfield_gc(p2, descr=tzdescr)
             jump(p1)
         """)
 
