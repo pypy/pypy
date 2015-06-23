@@ -6,12 +6,19 @@ because of the raw array read "intpart_p[0]"
 ------------------------------------------------------------
 
 fuse the two 32bit setfield_gc for stmflags & tid in the jit
+(note: unclear if it makes a major difference: a single
+64bit setfield of an immediate that doesn't fit 32bit
+requires two instructions too)
 
 ------------------------------------------------------------
 
 better heuristic of when to break transactions? e.g., we should
 rarely break if there are not threads running in parallel.
 But we need to break sometimes in order to run finalizers...
+
+IMPROVED, but we should check if we break often enough to run
+finaliers from time to time, or if we really make infinite
+transactions
 
 ------------------------------------------------------------
 
@@ -98,7 +105,8 @@ missing recursion detection (both in interpreted and JITted mode)
 
 ------------------------------------------------------------
 
-change the limit of 1 GB
+change the memory limit of a few GBs, try to replace it with something
+larger or even dynamic
 
 ------------------------------------------------------------
 
@@ -136,15 +144,6 @@ look at jit.elidables as a way to specify "this function can run
 earlier, in a separate transaction".  Useful to avoid pointless
 conflicts in cases the jit.edliable update some cache, like with
 MapDictStrategy.
-
-------------------------------------------------------------
-
-dicts: have an implementation that follows the principles in
-stmgc/hashtable/design.txt
-
-------------------------------------------------------------
-
-replace "atomic transactions" with better management of thread.locks.
 
 ------------------------------------------------------------
 
