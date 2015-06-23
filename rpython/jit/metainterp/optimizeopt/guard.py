@@ -122,6 +122,7 @@ class GuardStrengthenOpt(object):
         self.index_vars = index_vars
         self._newoperations = []
         self._same_as = {}
+        self.strength_reduced = 0 # how many guards could be removed?
 
     def find_compare_guard_bool(self, boolarg, operations, index):
         i = index - 1
@@ -211,6 +212,7 @@ class GuardStrengthenOpt(object):
                 guard = guards.get(i, None)
                 if not guard or guard.implied:
                     # this guard is implied or marked as not emitted (= None)
+                    self.strength_reduced += 1
                     continue
                 if guard.stronger:
                     guard.emit_operations(self)

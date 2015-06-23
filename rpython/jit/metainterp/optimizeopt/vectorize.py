@@ -60,10 +60,23 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
+        start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold)
         opt.propagate_all_forward()
+        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
+        gso.propagate_all_forward(opt.loop)
+        end = time.clock()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
+        debug_start("vec-opt-clock")
+        debug_print("unroll: %d gso count: %d opcount: (%d -> %d) took %fns" % \
+                      (opt.unroll_count+1,
+                       gso.strength_reduced,
+                       len(orig_ops),
+                       len(loop.operations),
+                       (end-start)*10.0**9))
+        debug_stop("vec-opt-clock")
+
     except NotAVectorizeableLoop:
         # vectorization is not possible
         loop.operations = orig_ops
@@ -134,9 +147,6 @@ class VectorizingOptimizer(Optimizer):
         self.schedule(True)
         if not self.costmodel.profitable():
             raise NotAProfitableLoop()
-
-        gso = GuardStrengthenOpt(self.dependency_graph.index_vars)
-        gso.propagate_all_forward(self.loop)
 
     def emit_operation(self, op):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
