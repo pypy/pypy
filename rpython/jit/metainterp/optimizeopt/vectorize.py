@@ -1,3 +1,10 @@
+"""
+This is the core of the vec. optimization. It combines dependency.py and schedule.py
+to rewrite a loop in vectorized form.
+
+See the rpython doc for more high level details.
+"""
+
 import py
 
 from rpython.jit.metainterp.resume import Snapshot
