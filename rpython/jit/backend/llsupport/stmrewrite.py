@@ -83,6 +83,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  other ignored ops  ----------
         if opnum in (rop.STM_SHOULD_BREAK_TRANSACTION, rop.FORCE_TOKEN,
+                     rop.ENTER_PORTAL_FRAME, rop.LEAVE_PORTAL_FRAME,
                      rop.MARK_OPAQUE_PTR,
                      rop.JIT_DEBUG, rop.KEEPALIVE,
                      rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
