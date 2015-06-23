@@ -531,8 +531,7 @@ class ResumeGuardDescr(ResumeDescr):
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         # XXX debug purpose only
-        from rpython.jit.metainterp.optimizeopt.vectorize import xxx_clock_stop
-        xxx_clock_stop(jitdriver_sd, fail=True)
+        jitdriver_sd.xxxbench.xxx_clock_stop(fail=True)
         # XXX debug purpose only end
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
             self.start_compiling()

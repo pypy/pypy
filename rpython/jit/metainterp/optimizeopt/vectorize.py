@@ -6,6 +6,7 @@ See the rpython doc for more high level details.
 """
 
 import py
+import time
 
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import JitException
@@ -28,26 +29,6 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-import time
-XXXBench = {}
-def xxx_clock_start(jitdriver_sd):
-    XXXBench[jitdriver_sd] = time.clock()
-def xxx_clock_stop(jitdriver_sd, fail=False):
-    end = time.clock()
-    if jitdriver_sd not in XXXBench:
-        raise AssertionError("trying to stop clock but timing for jit driver sd has never started")
-    start = XXXBench[jitdriver_sd]
-    name = "<unkown>"
-    if jitdriver_sd.jitdriver:
-        name = jitdriver_sd.jitdriver.name
-    unique_id = jitdriver_sd 
-    ns = (end - start) * 10**9
-    debug_start("xxx-clock-stop")
-    debug_print("name: %s id(jdsd): %s exe time: %dns fail? %d vec? %d" % \
-            (name, unique_id, int(ns), int(fail), int(jitdriver_sd.vectorize)))
-    debug_stop("xxx-clock-stop")
-
-
 def debug_print_operations(loop):
     """ NOT_RPYTHON """
     if not we_are_translated():
@@ -62,7 +43,6 @@ def debug_print_operations(loop):
                 print op.getfailargs()
             else:
                 print ""
-
 
 class NotAVectorizeableLoop(JitException):
     def __str__(self):

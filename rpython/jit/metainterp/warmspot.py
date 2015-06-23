@@ -28,6 +28,33 @@ from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 from rpython.rlib.entrypoint import all_jit_entrypoints,\
      annotated_jit_entrypoints
 
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+import time
+
+# XXX XXX XXX
+class XXXBench(object):
+    def __init__(self, name, id, vec):
+        self.t = []
+        self.name = name
+        self.unique_id = id
+        self.vec = vec
+
+    def xxx_clock_start(self):
+        self.t.append(time.clock())
+
+    def xxx_clock_stop(self, fail=False):
+        end = time.clock()
+        if len(self.t) == 0:
+            raise AssertionError("trying to stop clock but timing for jit driver sd has never started")
+        start = self.t[-1]
+        del self.t[-1]
+        ns = (end - start) * 10**9
+        debug_start("xxx-clock-stop")
+        debug_print("name: %s id(jdsd): %s exe time: %dns fail? %d vec? %d" % \
+                    (self.name, self.unique_id, int(ns), int(fail), int(self.vec)))
+        debug_stop("xxx-clock-stop")
+
+
 
 # ____________________________________________________________
 # Bootstrapping
@@ -403,6 +430,9 @@ class WarmRunnerDesc(object):
         jd.portal_runner_ptr = "<not set so far>"
         jd.result_type = history.getkind(jd.portal_graph.getreturnvar()
                                          .concretetype)[0]
+        # XXX XXX XXX
+        jd.xxxbench = XXXBench(jd.jitdriver.name, id(jd), jd.vectorize)
+        # XXX XXX XXX
         self.jitdrivers_sd.append(jd)
 
     def check_access_directly_sanity(self, graphs):
@@ -831,8 +861,7 @@ class WarmRunnerDesc(object):
                         raise Exception, value
                 finally:
                     # XXX debug purpose only
-                    from rpython.jit.metainterp.optimizeopt.vectorize import xxx_clock_stop
-                    xxx_clock_stop(jd, fail=False)
+                    jd.xxxbench.xxx_clock_stop(fail=False)
                     # XXX debug purpose only end
 
 
