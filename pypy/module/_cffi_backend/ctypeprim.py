@@ -184,12 +184,16 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         value = misc.read_raw_signed_data(cdata, self.size)
         return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
 
+    def _convert_to_long(self, w_ob):
+        value = misc.as_long(self.space, w_ob)
+        if self.value_smaller_than_long:
+            if value != misc.signext(value, self.size):
+                self._overflow(w_ob)
+        return value
+
     def convert_from_object(self, cdata, w_ob):
         if self.value_fits_long:
-            value = misc.as_long(self.space, w_ob)
-            if self.value_smaller_than_long:
-                if value != misc.signext(value, self.size):
-                    self._overflow(w_ob)
+            value = self._convert_to_long(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:
             self._convert_from_object_longlong(cdata, w_ob)
@@ -261,12 +265,16 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def cast_to_int(self, cdata):
         return self.convert_to_object(cdata)
 
+    def _convert_to_ulong(self, w_ob):
+        value = misc.as_unsigned_long(self.space, w_ob, strict=True)
+        if self.value_fits_long:
+            if value > self.vrangemax:
+                self._overflow(w_ob)
+        return value
+
     def convert_from_object(self, cdata, w_ob):
         if self.value_fits_ulong:
-            value = misc.as_unsigned_long(self.space, w_ob, strict=True)
-            if self.value_fits_long:
-                if value > self.vrangemax:
-                    self._overflow(w_ob)
+            value = self._convert_to_ulong(w_ob)
             misc.write_raw_unsigned_data(cdata, value, self.size)
         else:
             self._convert_from_object_longlong(cdata, w_ob)
@@ -373,9 +381,12 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         value = misc.read_raw_float_data(cdata, self.size)
         return self.space.wrap(value)
 
-    def convert_from_object(self, cdata, w_ob):
+    def _convert_to_double(self, w_ob):
         space = self.space
-        value = space.float_w(space.float(w_ob))
+        return space.float_w(space.float(w_ob))
+
+    def convert_from_object(self, cdata, w_ob):
+        value = self._convert_to_double(w_ob)
         misc.write_raw_float_data(cdata, value, self.size)
 
     def unpack_list_of_float_items(self, w_cdata):
