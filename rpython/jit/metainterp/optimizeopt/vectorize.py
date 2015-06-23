@@ -70,6 +70,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
         #
+        # XXX
         ns = int((end-start)*10.0**9)
         debug_start("vec-opt-clock")
         debug_print("unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \

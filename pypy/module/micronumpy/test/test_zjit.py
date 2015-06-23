@@ -344,6 +344,28 @@ class TestNumpyJit(Jit386Mixin):
         assert int(result) == 7*7+8*8+11*11+12*12
         self.check_vectorized(2, 2)
 
+    def define_conversion():
+        return """
+        a = astype(|30|, int8)
+        b = astype(|30|, int)
+        c = a + b
+        sum(c)
+        """
+    def test_conversion(self):
+        result = self.run("conversion")
+        assert result == sum(range(30)) + sum(range(30))
+        self.check_vectorized(4, 2) # only sum and astype(int) succeed
+
+    def define_sum():
+        return """
+        a = |30|
+        sum(a)
+        """
+    def test_sum(self):
+        result = self.run("sum")
+        assert result == sum(range(30))
+        self.check_vectorized(1, 1)
+
     def define_sum():
         return """
         a = |30|
