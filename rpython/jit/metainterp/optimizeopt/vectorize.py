@@ -658,6 +658,9 @@ class PackSet(object):
             if packed.getarg(1) == inquestion.result:
                 return True
         if inquestion.casts_box():
+            #input_type = packed.output_type
+            #if not input_type:
+            #    return True
             pass
         return False
 

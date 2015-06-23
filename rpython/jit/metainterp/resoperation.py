@@ -190,7 +190,8 @@ class AbstractResOp(object):
         return self._cls_has_bool_result
 
     def casts_box(self):
-        return self.getopnum() == rop.INT_SIGNEXT or \
+        opnum = self.getopnum()
+        return opnum == rop.INT_SIGNEXT or \
                rop.CAST_FLOAT_TO_INT <= opnum <= rop.CAST_SINGLEFLOAT_TO_FLOAT or \
                rop._VEC_CAST_FIRST <= opnum <= rop._VEC_CAST_LAST or \
                rop.CAST_PTR_TO_INT == opnum or \
