@@ -548,10 +548,6 @@ class W_TextIOWrapper(W_TextIOBase):
         remain buffered in the decoder, yet to be converted."""
 
         if not self.w_decoder:
-            # very unsure about the following check, but some tests seem
-            # to expect a ValueError instead of an IOError in case the
-            # file was already closed.
-            self._check_closed(space)
             raise OperationError(space.w_IOError, space.wrap("not readable"))
 
         if self.telling:
@@ -604,11 +600,8 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def read_w(self, space, w_size=None):
         self._check_attached(space)
+        self._check_closed(space)
         if not self.w_decoder:
-            # very unsure about the following check, but some tests seem
-            # to expect a ValueError instead of an IOError in case the
-            # file was already closed.
-            self._check_closed(space)
             raise OperationError(space.w_IOError, space.wrap("not readable"))
 
         size = convert_size(space, w_size)
@@ -649,6 +642,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def readline_w(self, space, w_limit=None):
         self._check_attached(space)
+        self._check_closed(space)
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
@@ -744,7 +738,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def write_w(self, space, w_text):
         self._check_attached(space)
-        # self._check_closed(space)
+        self._check_closed(space)
 
         if not self.w_encoder:
             raise OperationError(space.w_IOError, space.wrap("not writable"))
