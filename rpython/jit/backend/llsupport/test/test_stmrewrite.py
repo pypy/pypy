@@ -9,33 +9,54 @@ from rpython.rtyper import rclass
 
 
 def test_all_operations_with_gc_in_their_name():
-    # hack, but will fail if we add a new ResOperation called .._GC_..
+    # hack, but will fail if we add a new ResOperation that is not
+    # always pure or a guard, and we forget about it
     import os, re
-    r_gc = re.compile(r"(^|_)GC(_|$)")
     with open(os.path.join(os.path.dirname(
           os.path.dirname(os.path.abspath(__file__))), 'stmrewrite.py')) as f:
         source = f.read()
         words = re.split("\W", source)
-    # extra op names with GC in their name but where it's ok if stmrewrite
-    # doesn't mention them:
+    # op names where it's ok if stmrewrite doesn't mention
+    # them individually:
+    for opnum, name in resoperation.opname.items():
+        if (rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST or
+            rop._CALL_FIRST <= opnum <= rop._CALL_LAST or
+            rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST or
+            rop._OVF_FIRST <= opnum <= rop._OVF_LAST):
+            words.append(name)
+    # extra op names where it's ok if stmrewrite doesn't mention them:
     words.append('CALL_MALLOC_GC')
     words.append('COND_CALL_GC_WB')
     words.append('COND_CALL_GC_WB_ARRAY')
-    # these are pure, and can be done without any read barrier
-    words.append('ARRAYLEN_GC')
-    words.append('GETFIELD_GC_PURE')
-    words.append('GETARRAYITEM_GC_PURE')
-    # these are handled by rewrite.py
+    # these are handled by rewrite.py (sometimes with some overridden code
+    # in stmrewrite.py too)
+    words.append('DEBUG_MERGE_POINT')
     words.append('SETFIELD_GC')
     words.append('SETARRAYITEM_GC')
     words.append('SETINTERIORFIELD_GC')
+    words.append('NEW')
+    words.append('NEWSTR')
+    words.append('NEWUNICODE')
+    words.append('NEW_ARRAY')
+    words.append('NEW_ARRAY_CLEAR')
+    words.append('NEW_WITH_VTABLE')
+    words.append('ZERO_ARRAY')
+    words.append('ZERO_PTR_FIELD')
+    # these always turn inevitable
+    words.append('GETARRAYITEM_RAW')
+    words.append('SETARRAYITEM_RAW')
+    words.append('SETINTERIORFIELD_RAW')
+    words.append('RAW_LOAD')
+    words.append('RAW_STORE')
+    # these should be processed by the front-end and not reach this point
+    words.append('VIRTUAL_REF')
+    words.append('VIRTUAL_REF_FINISH')
     #
     words = set(words)
     missing = []
     for name in sorted(resoperation.opname.values()):
-        if r_gc.search(name):
-            if name not in words:
-                missing.append(name)
+        if name not in words:
+            missing.append(name)
     assert not missing
 
 
