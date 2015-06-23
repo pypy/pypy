@@ -657,6 +657,8 @@ class PackSet(object):
         if packed.is_raw_array_access():
             if packed.getarg(1) == inquestion.result:
                 return True
+        if inquestion.casts_box():
+            pass
         return False
 
     def combine(self, i, j):

@@ -40,18 +40,21 @@ class XXXBench(object):
         self.vec = vec
 
     def xxx_clock_start(self):
+        if not self.vec:
+            return
         now = time.clock()
         self.t.append(now)
         debug_start("xxx-clock-start")
         debug_print("name: %s id(jdsd): %s now: %dns" % \
-                (self.name, self.unique_id, int(now*10**9)))
+                (self.name, self.unique_id, int(now)*10**9) )
         debug_stop("xxx-clock-start")
 
     def xxx_clock_stop(self, fail=False):
+        if not self.vec:
+            return
         end = time.clock()
         if len(self.t) == 0:
             return
-        assert len(self.t) == 1
         start = self.t[-1]
         if not fail:
             del self.t[-1]

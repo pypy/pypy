@@ -2536,10 +2536,6 @@ class Assembler386(BaseAssembler):
                 self.mc.PHADDD(accumloc, accumloc)
                 self.mc.PEXTRD_rxi(targetloc.value, accumloc.value, 0)
                 return
-            if size == 2:
-                pass
-            if size == 1:
-                pass
 
         raise NotImplementedError("reduce sum for %s not impl." % vector_var)
 

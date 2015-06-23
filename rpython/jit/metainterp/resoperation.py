@@ -189,6 +189,12 @@ class AbstractResOp(object):
     def returns_bool_result(self):
         return self._cls_has_bool_result
 
+    def casts_box(self):
+        return self.getopnum() == rop.INT_SIGNEXT or \
+               rop.CAST_FLOAT_TO_INT <= opnum <= rop.CAST_SINGLEFLOAT_TO_FLOAT or \
+               rop._VEC_CAST_FIRST <= opnum <= rop._VEC_CAST_LAST or \
+               rop.CAST_PTR_TO_INT == opnum or \
+               rop.CAST_INT_TO_PTR == opnum
 
 # ===================
 # Top of the hierachy
@@ -472,6 +478,7 @@ _oplist = [
     '_VEC_ARITHMETIC_LAST',
     'VEC_FLOAT_EQ/2',
 
+    '_VEC_CAST_FIRST',
     'VEC_INT_SIGNEXT/2',
     # double -> float: v2 = cast(v1, 2) equal to v2 = (v1[0], v1[1], X, X)
     'VEC_CAST_FLOAT_TO_SINGLEFLOAT/1',
@@ -479,6 +486,7 @@ _oplist = [
     'VEC_CAST_SINGLEFLOAT_TO_FLOAT/1',
     'VEC_CAST_FLOAT_TO_INT/1',
     'VEC_CAST_INT_TO_FLOAT/1',
+    '_VEC_CAST_LAST',
 
     'VEC_FLOAT_UNPACK/3',        # iX|fX = VEC_FLOAT_UNPACK(vX, index, item_count)
     'VEC_FLOAT_PACK/4',          # VEC_FLOAT_PACK(vX, var/const, index, item_count)
