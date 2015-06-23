@@ -829,6 +829,12 @@ class WarmRunnerDesc(object):
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
+                finally:
+                    # XXX debug purpose only
+                    from rpython.jit.metainterp.optimizeopt.vectorize import xxx_clock_stop
+                    xxx_clock_stop(jd, fail=False)
+                    # XXX debug purpose only end
+
 
         def handle_jitexception(e):
             # XXX the bulk of this function is mostly a copy-paste from above

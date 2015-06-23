@@ -28,13 +28,26 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-class NotAVectorizeableLoop(JitException):
-    def __str__(self):
-        return 'NotAVectorizeableLoop()'
+import time
+XXXBench = {}
+def xxx_clock_start(jitdriver_sd):
+    XXXBench[jitdriver_sd] = time.clock()
+def xxx_clock_stop(jitdriver_sd, fail=False):
+    end = time.clock()
+    if jitdriver_sd not in XXXBench:
+        raise AssertionError("trying to stop clock but timing for jit driver sd has never started")
+    start = XXXBench[jitdriver_sd]
+    name = "<unkown>"
+    if jitdriver_sd.jitdriver:
+        name = jitdriver_sd.jitdriver.name
+    unique_id = jitdriver_sd 
+    ns = (end - start) * 10**9
+    debug_start("xxx-clock-stop")
+    debug_print("name: %s id(jdsd): %s exe time: %dns fail? %d vec? %d" % \
+            (name, unique_id, int(ns), int(fail), int(jitdriver_sd.vectorize)))
+    debug_stop("xxx-clock-stop")
 
-class NotAProfitableLoop(JitException):
-    def __str__(self):
-        return 'NotAProfitableLoop()'
+
 
 def debug_print_operations(loop):
     """ NOT_RPYTHON """
@@ -50,6 +63,15 @@ def debug_print_operations(loop):
                 print op.getfailargs()
             else:
                 print ""
+
+
+class NotAVectorizeableLoop(JitException):
+    def __str__(self):
+        return 'NotAVectorizeableLoop()'
+
+class NotAProfitableLoop(JitException):
+    def __str__(self):
+        return 'NotAProfitableLoop()'
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, cost_threshold):
@@ -68,13 +90,15 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         end = time.clock()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
+        #
+        ns = int((end-start)*10.0**9)
         debug_start("vec-opt-clock")
         debug_print("unroll: %d gso count: %d opcount: (%d -> %d) took %fns" % \
                       (opt.unroll_count+1,
                        gso.strength_reduced,
                        len(orig_ops),
                        len(loop.operations),
-                       (end-start)*10.0**9))
+                       ns)
         debug_stop("vec-opt-clock")
 
     except NotAVectorizeableLoop:

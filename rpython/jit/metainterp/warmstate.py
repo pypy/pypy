@@ -368,7 +368,11 @@ class WarmEnterState(object):
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
                 vinfo.clear_vable_token(virtualizable)
-            
+            # XXX debug purpose only
+            from rpython.jit.metainterp.optimizeopt.vectorize import xxx_clock_start
+            xxx_clock_start(jitdriver_sd)
+            # XXX debug purpose only end
+
             deadframe = func_execute_token(loop_token, *args)
             #
             # Record in the memmgr that we just ran this loop,

@@ -530,6 +530,10 @@ class ResumeGuardDescr(ResumeDescr):
             self.status = hash & self.ST_SHIFT_MASK
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
+        # XXX debug purpose only
+        from rpython.jit.metainterp.optimizeopt.vectorize import xxx_clock_stop
+        xxx_clock_stop(jitdriver_sd, fail=True)
+        # XXX debug purpose only end
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
             self.start_compiling()
             try:
