@@ -57,8 +57,8 @@ class XXXBench(object):
             del self.t[-1]
         ns = (end - start) * 10**9
         debug_start("xxx-clock-stop")
-        debug_print("name: %s id(jdsd): %s now: %ns exe time: %dns fail? %d vec? %d" % \
-                    (self.name, self.unique_id, int(end*10**9), int(ns), int(fail), int(self.vec)))
+        debug_print("name: %s id(jdsd): %s now: %dns exe time: %dns fail? %d vec? %d" % \
+                    (self.name, self.unique_id, int(end)*10**9, int(ns), int(fail), int(self.vec)))
         debug_stop("xxx-clock-stop")
 
 
