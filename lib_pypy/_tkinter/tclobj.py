@@ -108,6 +108,8 @@ def FromObj(app, value):
         return value.internalRep.doubleValue
     if value.typePtr == typeCache.IntType:
         return value.internalRep.longValue
+    if value.typePtr == typeCache.WideIntType:
+        return FromWideIntObj(app, value)
     if value.typePtr == typeCache.BigNumType and tklib.HAVE_LIBTOMMATH:
         return FromBignumObj(app, value)
     if value.typePtr == typeCache.ListType:
