@@ -11,6 +11,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'cast_ptr_to_weakrefptr', 'cast_weakrefptr_to_ptr',
     'debug_print', 'debug_assert', 'debug_flush', 'debug_offset',
     'debug_start', 'debug_stop', 'have_debug_prints',
+    'have_debug_prints_for',
     'debug_catch_exception', 'debug_nonnull_pointer',
     'debug_record_traceback', 'debug_start_traceback',
     'debug_reraise_traceback',
@@ -88,6 +89,7 @@ TURN_INEVITABLE_OPS = set([
     'gc_dump_rpy_heap', 'gc_thread_start', 'gc_thread_die',
     'raw_memclear', 'raw_memcopy', 'raw_memmove', 'raw_memset',
     'gc_thread_after_fork', 'gc_thread_before_fork',
+    'debug_forked',
     ])
 
 # ____________________________________________________________
