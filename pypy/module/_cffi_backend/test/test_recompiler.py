@@ -828,6 +828,22 @@ class AppTestRecompiler:
         assert isinstance(addr, ffi.CData)
         assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
 
+    def test_address_of_function_with_struct(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int x; }; long myfunc(struct foo_s);",
+            "test_addressof_function_with_struct", """
+                struct foo_s { int x; };
+                char myfunc(struct foo_s input) { return (char)(input.x + 42); }
+            """)
+        s = ffi.new("struct foo_s *", [5])[0]
+        assert lib.myfunc(s) == 47
+        assert not isinstance(lib.myfunc, ffi.CData)
+        assert ffi.typeof(lib.myfunc) == ffi.typeof("long(*)(struct foo_s)")
+        addr = ffi.addressof(lib, 'myfunc')
+        assert addr(s) == 47
+        assert isinstance(addr, ffi.CData)
+        assert ffi.typeof(addr) == ffi.typeof("long(*)(struct foo_s)")
+
     def test_issue198(self):
         ffi, lib = self.prepare("""
             typedef struct{...;} opaque_t;
