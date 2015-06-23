@@ -52,6 +52,12 @@ except ImportError:
     from time import time, clock
 
 try:
+    from _weakref import weakkeyiddict
+except ImportError:
+    # Not a STM-enabled PyPy.
+    from _weakkeyiddict import weakkeyiddict
+
+try:
     from pypystm import queue, Empty
 except ImportError:
     from Queue import Queue as queue
@@ -232,29 +238,32 @@ def XXXreport_abort_info(info):
 class threadlocalproperty(object):
     def __init__(self, default_factory=None):
         self.tl_default_factory = default_factory
-        self.tl_name = intern('tlprop.%d' % id(self))
+        self.tl_local = thread._local()
 
-    def tl_get(self, obj):
+    def tl_wrefs(self):
         try:
-            return obj._threadlocalproperties
+            return self.tl_local.wrefs
         except AttributeError:
-            return obj.__dict__.setdefault('_threadlocalproperties',
-                                           thread._local())
+            self.tl_local.wrefs = wrefs = weakkeyiddict()
+            return wrefs
 
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
+        wrefs = self.tl_wrefs()
         try:
-            return getattr(self.tl_get(obj), self.tl_name)
-        except AttributeError:
+            return wrefs[obj]
+        except KeyError:
             if self.tl_default_factory is None:
-                raise
-            result = self.tl_default_factory()
-            setattr(self.tl_get(obj), self.tl_name, result)
+                raise AttributeError
+            wrefs[obj] = result = self.tl_default_factory()
             return result
 
     def __set__(self, obj, value):
-        setattr(self.tl_get(obj), self.tl_name, value)
+        self.tl_wrefs()[obj] = value
 
     def __delete__(self, obj):
-        delattr(self.tl_get(obj), self.tl_name)
+        try:
+            del self.tl_wrefs()[obj]
+        except KeyError:
+            raise AttributeError
