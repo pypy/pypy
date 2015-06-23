@@ -60,12 +60,12 @@ class W_LibObject(W_Root):
             self.ffi, self.ctx.c_types, getarg(g.c_type_op))
         assert isinstance(rawfunctype, realize_c_type.W_RawFuncType)
         #
-        w_ct, locs = rawfunctype.unwrap_as_nostruct_fnptr(self.ffi)
+        rawfunctype.prepare_nostruct_fnptr(self.ffi)
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn, w_ct,
-                                 locs, rawfunctype, fnname, self.libname)
+        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+                                 rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -237,7 +237,8 @@ class W_LibObject(W_Root):
         if isinstance(w_value, W_FunctionWrapper):
             # '&func' returns a regular cdata pointer-to-function
             if w_value.directfnptr:
-                return W_CData(space, w_value.directfnptr, w_value.ctype)
+                ctype = w_value.rawfunctype.nostruct_ctype
+                return W_CData(space, w_value.directfnptr, ctype)
             else:
                 return w_value    # backward compatibility
         #
