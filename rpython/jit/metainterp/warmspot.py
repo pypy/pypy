@@ -36,22 +36,29 @@ class XXXBench(object):
     def __init__(self, name, id, vec):
         self.t = []
         self.name = name
-        self.unique_id = id
+        self.unique_id = hex(id)
         self.vec = vec
 
     def xxx_clock_start(self):
-        self.t.append(time.clock())
+        now = time.clock()
+        self.t.append(now)
+        debug_start("xxx-clock-start")
+        debug_print("name: %s id(jdsd): %s now: %dns" % \
+                (self.name, self.unique_id, int(now*10**9)))
+        debug_stop("xxx-clock-start")
 
     def xxx_clock_stop(self, fail=False):
         end = time.clock()
         if len(self.t) == 0:
-            raise AssertionError("trying to stop clock but timing for jit driver sd has never started")
+            return
+        assert len(self.t) == 1
         start = self.t[-1]
-        del self.t[-1]
+        if not fail:
+            del self.t[-1]
         ns = (end - start) * 10**9
         debug_start("xxx-clock-stop")
-        debug_print("name: %s id(jdsd): %s exe time: %dns fail? %d vec? %d" % \
-                    (self.name, self.unique_id, int(ns), int(fail), int(self.vec)))
+        debug_print("name: %s id(jdsd): %s now: %ns exe time: %dns fail? %d vec? %d" % \
+                    (self.name, self.unique_id, int(end*10**9), int(ns), int(fail), int(self.vec)))
         debug_stop("xxx-clock-stop")
 
 

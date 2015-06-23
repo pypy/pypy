@@ -72,7 +72,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         #
         ns = int((end-start)*10.0**9)
         debug_start("vec-opt-clock")
-        debug_print("unroll: %d gso count: %d opcount: (%d -> %d) took %fns" % \
+        debug_print("unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
                       (opt.unroll_count+1,
                        gso.strength_reduced,
                        len(orig_ops),
