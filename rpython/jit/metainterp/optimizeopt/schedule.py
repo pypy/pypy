@@ -241,13 +241,17 @@ class OpToVectorOp(object):
 
     def check_if_pack_supported(self, pack):
         op0 = pack.operations[0].getoperation()
+        if self.input_type is None:
+            # must be a load operation
+            assert op0.is_raw_load()
+            return
         insize = self.input_type.getsize()
         if op0.casts_box():
             # prohibit the packing of signext calls that
             # cast to int16/int8.
             _, outsize = op0.cast_to()
             self._prevent_signext(outsize, insize)
-        if op0.getopnum() == rop.INT_ADD:
+        if op0.getopnum() == rop.INT_MUL:
             if insize == 8 or insize == 1:
                 # see assembler for comment why
                 raise NotAProfitableLoop
