@@ -8,30 +8,32 @@ STM_TRANSACTION_START   = 0
 STM_TRANSACTION_COMMIT  = 1
 STM_TRANSACTION_ABORT   = 2
 
-# write-read contention: a "marker" is included in the PYPYSTM file
-# saying where the write was done.  Followed by STM_TRANSACTION_ABORT.
-STM_CONTENTION_WRITE_READ  = 3
-
 # inevitable contention: all threads that try to become inevitable
 # have a STM_BECOME_INEVITABLE event with a position marker.  Then,
 # if it waits it gets a STM_WAIT_OTHER_INEVITABLE.  It is possible
 # that a thread gets STM_BECOME_INEVITABLE followed by
 # STM_TRANSACTION_ABORT if it fails to become inevitable.
-STM_BECOME_INEVITABLE      = 4
+STM_BECOME_INEVITABLE      = 3
 
-# always one STM_WAIT_xxx followed later by STM_WAIT_DONE
+# write-read contention: a "marker" is included in the PYPYSTM file
+# saying where the write was done.  Followed by STM_TRANSACTION_ABORT.
+STM_CONTENTION_WRITE_READ  = 4
+
+# always one STM_WAIT_xxx followed later by STM_WAIT_DONE or
+# possibly STM_TRANSACTION_ABORT
 STM_WAIT_FREE_SEGMENT      = 5
-STM_WAIT_SYNC_PAUSE        = 6
-STM_WAIT_OTHER_INEVITABLE  = 7
-STM_WAIT_DONE              = 8
+STM_WAIT_SYNCING           = 6
+STM_WAIT_SYNC_PAUSE        = 7
+STM_WAIT_OTHER_INEVITABLE  = 8
+STM_WAIT_DONE              = 9
 
 # start and end of GC cycles
-STM_GC_MINOR_START  = 9
-STM_GC_MINOR_DONE   = 10
-STM_GC_MAJOR_START  = 11
-STM_GC_MAJOR_DONE   = 12
+STM_GC_MINOR_START  = 10
+STM_GC_MINOR_DONE   = 11
+STM_GC_MAJOR_START  = 12
+STM_GC_MAJOR_DONE   = 13
 
-_STM_EVENT_N  = 13
+_STM_EVENT_N  = 14
 
 PAUSE_AFTER_ABORT   = 0.000001      # usleep(1) after every abort
 
@@ -70,6 +72,7 @@ def parse_log(filename):
         frac = 1.0 / f.tell()
         f.seek(16, 0)
         result = []
+        prev_time = -1.0
         while True:
             packet = f.read(14)
             if len(packet) < 14: break
@@ -77,9 +80,13 @@ def parse_log(filename):
                   struct.unpack("IIIBB", packet)
             if event >= _STM_EVENT_N:
                 raise ValueError("the file %r appears corrupted" % (filename,))
+            timestamp = sec + 0.000000001 * nsec
+            if timestamp < prev_time:
+                raise ValueError("decreasing timestamps: %.9f -> %.9f" % (
+                    prev_time, timestamp))
+            prev_time = timestamp
             marker = f.read(markerlen)
-            yield LogEntry(sec + 0.000000001 * nsec,
-                           threadnum, event, marker,
+            yield LogEntry(timestamp, threadnum, event, marker,
                            f.tell() * frac)
     finally:
         f.close()
@@ -111,7 +118,6 @@ class ThreadState(object):
     def progress(self, now, new_state):
         prev_time, prev_state = self._prev
         add_time = now - prev_time
-        add_time = abs(add_time) #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         assert add_time >= 0.0
         if prev_state == "run":
             self._transaction_cpu_time += add_time
@@ -271,6 +277,7 @@ def summarize_log_entries(logentries, stmlog):
         elif entry.event == STM_CONTENTION_WRITE_READ:
             t.contention_write_read(entry, conflicts)
         elif entry.event in (STM_WAIT_FREE_SEGMENT,
+                             STM_WAIT_SYNCING,
                              STM_WAIT_SYNC_PAUSE,
                              STM_WAIT_OTHER_INEVITABLE):
             t.transaction_pause(entry)
