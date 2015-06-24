@@ -46,10 +46,10 @@ class XXXBench(object):
     def xxx_clock_start(self):
         now = time.clock()
         self.t.append(now)
-        debug_start("xxx-clock-start")
-        debug_print("name: %s id: %s now: %dns" % \
-                (self.name, self.unique_id, int(now)*10**9) )
-        debug_stop("xxx-clock-start")
+        debug_start("xxx-clock")
+        debug_print("start name: %s id: %s clock: %f" % \
+                (self.name, self.unique_id, now) )
+        debug_stop("xxx-clock")
 
     def xxx_clock_stop(self, fail=False):
         end = time.clock()
@@ -59,10 +59,10 @@ class XXXBench(object):
         if not fail:
             del self.t[-1]
         ns = (end - start) * 10**9
-        debug_start("xxx-clock-stop")
-        debug_print("name: %s id: %s now: %dns exe time: %dns fail? %d vec? %d" % \
-                    (self.name, self.unique_id, int(end)*10**9, int(ns), int(fail), int(self.vec)))
-        debug_stop("xxx-clock-stop")
+        debug_start("xxx-clock")
+        debug_print("stop name: %s id: %s clock: %f exe time: %dns fail? %d vec? %d" % \
+                    (self.name, self.unique_id, end, int(ns), int(fail), int(self.vec)))
+        debug_stop("xxx-clock")
 
 
 

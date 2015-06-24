@@ -49,6 +49,8 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
+    start = -1
+    end = -1
     try:
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
@@ -61,18 +63,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         end = time.clock()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
-        #
-        # XXX
-        ns = int((end-start)*10.0**9)
-        debug_start("vec-opt-clock")
-        debug_print("unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
-                      (opt.unroll_count+1,
-                       gso.strength_reduced,
-                       len(orig_ops),
-                       len(loop.operations),
-                       ns))
-        debug_stop("vec-opt-clock")
-
     except NotAVectorizeableLoop:
         # vectorization is not possible
         loop.operations = orig_ops
@@ -90,6 +80,19 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
             raise
     finally:
         debug_stop("vec-opt-loop")
+        #
+        # XXX
+        if end != -1:
+            ns = int((end-start)*10.0**9)
+            debug_start("xxx-clock")
+            debug_print("vecopt unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
+                          (opt.unroll_count+1,
+                           gso.strength_reduced,
+                           len(orig_ops),
+                           len(loop.operations),
+                           ns))
+            debug_stop("xxx-clock")
+
 
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
