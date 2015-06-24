@@ -13,6 +13,7 @@ class AppTestUnsafeOp:
         pypystm.unsafe_write(x, 1, '\xAA')
         assert x[0] == 'A'
         assert x[1] == '\xAA'
+        assert pypystm.unsafe_read(x, 1) == '\xAA'
 
     def test_unsafe_write_int32(self):
         import pypystm, _cffi_backend
@@ -23,6 +24,7 @@ class AppTestUnsafeOp:
         pypystm.unsafe_write(x, 1, -0x05060708)
         assert x[0] == -0x01020304
         assert x[1] == -0x05060708
+        assert pypystm.unsafe_read(x, 1) == -0x05060708
 
     def test_unsafe_write_uint64(self):
         import pypystm, _cffi_backend
@@ -33,6 +35,7 @@ class AppTestUnsafeOp:
         pypystm.unsafe_write(x, 1, 0xF506070855667788)
         assert x[0] == 0x0102030411223344
         assert x[1] == 0xF506070855667788
+        assert pypystm.unsafe_read(x, 1) == 0xF506070855667788
 
     def test_unsafe_write_unsupported_case(self):
         import pypystm, _cffi_backend
@@ -40,6 +43,7 @@ class AppTestUnsafeOp:
         BUniCharP = _cffi_backend.new_pointer_type(BUniChar)
         x = _cffi_backend.newp(_cffi_backend.new_array_type(BUniCharP, 2))
         raises(TypeError, pypystm.unsafe_write, x, 0, u'X')
+        raises(TypeError, pypystm.unsafe_read, x, 1)
 
     def test_unsafe_write_float(self):
         import pypystm, _cffi_backend
@@ -50,6 +54,7 @@ class AppTestUnsafeOp:
         pypystm.unsafe_write(x, 1, -42.0)
         assert x[0] == 12.25
         assert x[1] == -42.0
+        assert pypystm.unsafe_read(x, 1) == -42.0
 
     def test_unsafe_write_double(self):
         import pypystm, _cffi_backend
@@ -60,3 +65,4 @@ class AppTestUnsafeOp:
         pypystm.unsafe_write(x, 1, -42.0)
         assert x[0] == 12.25
         assert x[1] == -42.0
+        assert pypystm.unsafe_read(x, 1) == -42.0

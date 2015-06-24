@@ -31,4 +31,5 @@ class Module(MixedModule):
         'Empty': 'space.fromcache(queue.Cache).w_Empty',
 
         'unsafe_write': 'unsafe_op.unsafe_write',
+        'unsafe_read':  'unsafe_op.unsafe_read',
     }
