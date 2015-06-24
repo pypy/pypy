@@ -7,7 +7,7 @@ TBA
 Features
 --------
 
-Currently the following operations can be vectorized if the trace contains parallelism:
+Currently the following operations can be vectorized if the trace contains parallel operations:
 
 * float32/float64: add, substract, multiply, divide, negate, absolute
 * int8/int16/int32/int64 arithmetic: add, substract, multiply, negate, absolute
@@ -38,8 +38,11 @@ Future Work and Limitations
 ---------------------------
 
 * The only SIMD instruction architecture currently supported is SSE4.1
+* Packed mul for int8,int64 (see PMUL_)
 * Loop that convert types from int(8|16|32|64) to int(8|16) are not supported in
   the current SSE4.1 assembler implementation.
   The opcode needed spans over multiple instructions. In terms of performance
   there might only be little to non advantage to use SIMD instructions for this
   conversions.
+
+.. _PMUL: http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
