@@ -2,7 +2,10 @@
 Vectorization
 =============
 
-TBA
+To find parallel instructions the tracer must provide enough information about
+memory load/store operations. They must be adjacent in memory. The requirement for
+that is that they use the same index variable and offset can be expressed as a
+a linear or affine combination.
 
 Features
 --------
@@ -13,6 +16,9 @@ Currently the following operations can be vectorized if the trace contains paral
 * int8/int16/int32/int64 arithmetic: add, substract, multiply, negate, absolute
 * int8/int16/int32/int64 logical: and, or, xor
 
+Reduction
+---------
+
 Reduction is implemented:
 
 * sum
@@ -21,10 +27,13 @@ Planned reductions:
 
 * all, any, prod, min, max
 
-To find parallel instructions the tracer must provide enough information about
-memory load/store operations. They must be adjacent in memory. The requirement for
-that is that they use the same index variable and offset can be expressed as a
-a linear or affine combination.
+Constant & Variable Expansion
+-----------------------------
+
+Packed arithmetic operations expand scalar variables or contants into vector registers.
+
+Guard Strengthening
+-------------------
 
 Unrolled guards are strengthend on a arithmetical level (See GuardStrengthenOpt).
 The resulting vector trace will only have one guard that checks the index.

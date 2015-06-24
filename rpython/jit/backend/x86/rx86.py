@@ -746,6 +746,7 @@ class AbstractX86CodeBuilder(object):
     PSHUFLW_xxi = xmminsn('\xF2', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     PSHUFB_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), register(2), '\xC0')
     PSHUFB_xm = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), mem_reg_plus_const(2))
+    PSHUFB_xj = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), abs_(2))
 
     # SSE3
     HADDPD_xx = xmminsn('\x66', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
