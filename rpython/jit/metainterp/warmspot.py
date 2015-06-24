@@ -33,25 +33,25 @@ import time
 
 # XXX XXX XXX
 class XXXBench(object):
-    def __init__(self, name, id, vec):
+    def __init__(self, name, uid, vec):
         self.t = []
-        self.name = name
-        self.unique_id = hex(id)
+        if name is None:
+            name = "<unkown>"
+        if uid is None:
+            uid = 0
+        self.name = str(name)
+        self.unique_id = hex(uid)
         self.vec = vec
 
     def xxx_clock_start(self):
-        if not self.vec:
-            return
         now = time.clock()
         self.t.append(now)
         debug_start("xxx-clock-start")
-        debug_print("name: %s id(jdsd): %s now: %dns" % \
+        debug_print("name: %s id: %s now: %dns" % \
                 (self.name, self.unique_id, int(now)*10**9) )
         debug_stop("xxx-clock-start")
 
     def xxx_clock_stop(self, fail=False):
-        if not self.vec:
-            return
         end = time.clock()
         if len(self.t) == 0:
             return
@@ -60,7 +60,7 @@ class XXXBench(object):
             del self.t[-1]
         ns = (end - start) * 10**9
         debug_start("xxx-clock-stop")
-        debug_print("name: %s id(jdsd): %s now: %dns exe time: %dns fail? %d vec? %d" % \
+        debug_print("name: %s id: %s now: %dns exe time: %dns fail? %d vec? %d" % \
                     (self.name, self.unique_id, int(end)*10**9, int(ns), int(fail), int(self.vec)))
         debug_stop("xxx-clock-stop")
 
