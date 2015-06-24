@@ -7,9 +7,9 @@ from rpython.rlib.objectmodel import specialize
 
 @specialize.memo()
 def get_unsafe_type_ptr(TP):
-    UNSAFE = lltype.Struct('UNSAFE', ('x', TP),
-                           hints = {'stm_dont_track_raw_accesses': True})
-    return rffi.CArrayPtr(UNSAFE)
+    UNSAFE = lltype.Array(TP, hints={'nolength': True,
+                                     'stm_dont_track_raw_accesses': True})
+    return lltype.Ptr(UNSAFE)
 
 
 def unsafe_write_raw_signed_data(w_cdata, index, source, size):
@@ -17,7 +17,7 @@ def unsafe_write_raw_signed_data(w_cdata, index, source, size):
         for TP, _ in misc._prim_signed_types:
             if size == rffi.sizeof(TP):
                 TPP = get_unsafe_type_ptr(TP)
-                rffi.cast(TPP, target)[index].x = rffi.cast(TP, source)
+                rffi.cast(TPP, target)[index] = rffi.cast(TP, source)
                 return
     raise NotImplementedError("bad integer size")
 
@@ -26,7 +26,7 @@ def unsafe_write_raw_unsigned_data(w_cdata, index, source, size):
         for TP, _ in misc._prim_unsigned_types:
             if size == rffi.sizeof(TP):
                 TPP = get_unsafe_type_ptr(TP)
-                rffi.cast(TPP, target)[index].x = rffi.cast(TP, source)
+                rffi.cast(TPP, target)[index] = rffi.cast(TP, source)
                 return
     raise NotImplementedError("bad integer size")
 
@@ -35,7 +35,7 @@ def unsafe_write_raw_float_data(w_cdata, index, source, size):
         for TP, _ in misc._prim_float_types:
             if size == rffi.sizeof(TP):
                 TPP = get_unsafe_type_ptr(TP)
-                rffi.cast(TPP, target)[index].x = rffi.cast(TP, source)
+                rffi.cast(TPP, target)[index] = rffi.cast(TP, source)
                 return
     raise NotImplementedError("bad float size")
 
