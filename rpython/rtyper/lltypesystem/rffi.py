@@ -584,6 +584,9 @@ def setup():
         globals()[name.upper()] = tp
         tpp = lltype.Ptr(lltype.Array(tp, hints={'nolength': True}))
         globals()[name.upper()+'P'] = tpp
+        tppstm = lltype.Ptr(lltype.Array(tp, hints={'nolength': True,
+                                 'stm_dont_track_raw_accesses': True}))
+        globals()[name.upper()+'P_STM_NOTRACK'] = tppstm
         result.append(tp)
     return result
 
@@ -772,16 +775,25 @@ CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
 
 # double *
 DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
+DOUBLEP_STM_NOTRACK = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True,
+                                        'stm_dont_track_raw_accesses': True}))
 
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
+FLOATP_STM_NOTRACK = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True,
+                                        'stm_dont_track_raw_accesses': True}))
 
 # long double *
 LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
+LONGDOUBLEP_STM_NOTRACK = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={
+                                        'nolength': True,
+                                        'stm_dont_track_raw_accesses': True}))
 
 # Signed, Signed *
 SIGNED = lltype.Signed
 SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
+SIGNEDP_STM_NOTRACK = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True,
+                                        'stm_dont_track_raw_accesses': True}))
 
 # various type mapping
 

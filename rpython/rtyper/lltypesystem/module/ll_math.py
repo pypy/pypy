@@ -58,8 +58,10 @@ math_copysign = llexternal(UNDERSCORE_ON_WIN32 + 'copysign',
                            [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
-math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
+math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP_STM_NOTRACK],
+                        rffi.DOUBLE)
+math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP_STM_NOTRACK],
+                        rffi.DOUBLE)
 math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE,
                         save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
@@ -188,7 +190,7 @@ def ll_math_frexp(x):
         mantissa = x
         exponent = 0
     else:
-        exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        exp_p = lltype.malloc(rffi.INTP_STM_NOTRACK.TO, 1, flavor='raw')
         try:
             mantissa = math_frexp(x, exp_p)
             exponent = rffi.cast(lltype.Signed, exp_p[0])
@@ -229,7 +231,7 @@ def ll_math_modf(x):
             return (x, x)
         else:   # isinf(x)
             return (math_copysign(0.0, x), x)
-    intpart_p = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
+    intpart_p = lltype.malloc(rffi.DOUBLEP_STM_NOTRACK.TO, 1, flavor='raw')
     try:
         fracpart = math_modf(x, intpart_p)
         intpart = intpart_p[0]
