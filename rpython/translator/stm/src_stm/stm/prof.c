@@ -42,10 +42,10 @@ static void _stm_profiling_event(stm_thread_local_t *tl,
         return;
     flockfile(f);
 
-    /* We expect the following CLOCK_MONOTONIC to be really monotonic:
+    /* We expect the following CLOCK_MONOTONIC_RAW to be really monotonic:
        it should guarantee that the file will be perfectly ordered by time.
        That's why we do it inside flockfile()/funlockfile(). */
-    clock_gettime(CLOCK_MONOTONIC, &t);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &t);
     buf.tv_sec = t.tv_sec;
     buf.tv_nsec = t.tv_nsec;
 
@@ -102,7 +102,13 @@ static void prof_forksupport_prepare(void)
 
 static void prof_forksupport_child(void)
 {
-    if (close_timing_log() && profiling_basefn != NULL) {
+    /* XXX leaks the file descriptor.  I'm getting problems of
+       corrupted files if I fclose() it in the child, even though
+       we're supposed to have fflush()ed the file before the fork.
+       Why??? */
+    profiling_file = NULL;
+    stmcb_timing_event = NULL;
+    if (profiling_basefn != NULL) {
         char filename[1024];
         snprintf(filename, sizeof(filename),
                  "%s.fork%ld", profiling_basefn, (long)getpid());
