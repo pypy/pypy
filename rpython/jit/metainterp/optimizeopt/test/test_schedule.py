@@ -16,7 +16,12 @@ from rpython.jit.tool.oparser_model import get_model
 
 class SchedulerBaseTest(DependencyBaseTest):
 
-    def parse(self, source, inc_label_jump=True):
+    def parse(self, source, inc_label_jump=True,
+              pargs=2,
+              iargs=10,
+              fargs=6,
+              additional_args=None,
+              replace_args=None):
         ns = {
             'double': self.floatarraydescr,
             'float': self.singlefloatarraydescr,
@@ -25,10 +30,24 @@ class SchedulerBaseTest(DependencyBaseTest):
             'short': self.int16arraydescr,
             'char': self.chararraydescr,
         }
-        loop = opparse("        [p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5,v103204[i32|4]]\n" + source + \
-                       "\n        jump(p0,p1,p2,p3,p4,p5,i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,f0,f1,f2,f3,f4,f5,v103204[i32|4])",
-                       cpu=self.cpu,
-                       namespace=ns)
+        args = []
+        for prefix, rang in [('p',range(pargs)), ('i',range(iargs)), ('f',range(fargs))]:
+            for i in rang:
+                args.append(prefix + str(i))
+
+        assert additional_args is None or isinstance(additional_args,list)
+        for arg in additional_args or []:
+            args.append(arg)
+        for k,v in (replace_args or {}).items():
+            for i,_ in enumerate(args):
+                if k == args[i]:
+                    args[i] = v
+                    break
+        indent = "        "
+        joinedargs = ','.join(args)
+        fmt = (indent, joinedargs, source, indent, joinedargs)
+        src = "%s[%s]\n%s\n%sjump(%s)" % fmt
+        loop = opparse(src, cpu=self.cpu, namespace=ns)
         if inc_label_jump:
             token = JitCellToken()
             loop.operations = \
@@ -163,21 +182,19 @@ class Test(SchedulerBaseTest, LLtypeMixin):
                 return arg
         raise Exception("could not find %s in args %s" % (name, loop.inputargs))
 
-    def test_signext_int16(self):
+    def test_signext_int32(self):
         loop1 = self.parse("""
-        i10 = int_signext(i1, 2)
-        i11 = int_signext(i1, 2)
-        i12 = int_signext(i1, 2)
-        i13 = int_signext(i1, 2)
-        """)
-        pack1 = self.pack(loop1, 0, 4)
-        v103204 = self.find_input_arg('v103204', loop1)
-        def i1inv103204(var):
-            return 0, v103204
+        i10 = int_signext(i1, 4)
+        i11 = int_signext(i1, 4)
+        """, additional_args=['v10[i64|2]'])
+        pack1 = self.pack(loop1, 0, 2)
+        var = self.find_input_arg('v10', loop1)
+        def i1inv103204(v):
+            return 0, var
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True, getvboxfunc=i1inv103204)
         loop3 = self.parse("""
-        v11[i16|4] = vec_int_signext(v103204[i32|4], 2)
-        """, False)
+        v11[i32|2] = vec_int_signext(v10[i64|2], 4)
+        """, False, additional_args=['v10[i64|2]'])
         self.assert_equal(loop2, loop3)
 
     def test_cast_float_to_int(self):
@@ -275,13 +292,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         self.assert_equal(loop2, loop3)
 
     def test_all(self):
-        py.test.skip("this could be an improvement")
         loop1 = self.parse("""
         i10 = raw_load(p0, i1, descr=long)
         i11 = raw_load(p0, i2, descr=long)
         #
-        i12 = int_and(i10, i6)
-        i13 = int_and(i11, i12)
+        i12 = int_and(i10, 255)
+        i13 = int_and(i11, 255)
         #
         guard_true(i12) []
         guard_true(i13) []
@@ -289,9 +305,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2)
         pack2 = self.pack(loop1, 2, 4)
         pack3 = self.pack(loop1, 4, 6)
-        loop2 = self.schedule(loop1, [pack1,pack2,pack3])
+        loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse("""
-        v10[i64|2] = vec_raw_load(p0, i1, 2, descr=long) 
+        v9[i64|2] = vec_int_expand(255)
+        v10[i64|2] = vec_raw_load(p0, i1, 2, descr=long)
         v11[i64|2] = vec_int_and(v10[i64|2], v9[i64|2])
         guard_true(v11[i64|2]) []
         """, False)

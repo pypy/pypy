@@ -603,6 +603,18 @@ class StoreToVectorStore(OpToVectorOp):
     def determine_output_type(self, op):
         return None
 
+class PassThroughOp(OpToVectorOp):
+    """ This pass through is only applicable if the target
+    operation is capable of handling vector operations.
+    Guard true/false is such an example.
+    """
+    def __init__(self, args):
+        OpToVectorOp.__init__(self, args, None)
+
+    def determine_output_type(self, op):
+        return None
+
+GUARD_TF = PassThroughOp((PT_INT_GENERIC,))
 INT_OP_TO_VOP = OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES)
 FLOAT_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC, PT_FLOAT_GENERIC), FLOAT_RES)
 FLOAT_SINGLE_ARG_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC,), FLOAT_RES)
@@ -637,6 +649,9 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT: OpToVectorOpConv(PT_FLOAT_2, PT_DOUBLE_2),
     rop.VEC_CAST_FLOAT_TO_INT: OpToVectorOpConv(PT_DOUBLE_2, PT_INT32_2),
     rop.VEC_CAST_INT_TO_FLOAT: OpToVectorOpConv(PT_INT32_2, PT_DOUBLE_2),
+
+    rop.GUARD_TRUE: GUARD_TF,
+    rop.GUARD_FALSE: GUARD_TF,
 }
 
 def determine_output_type(node, input_type):

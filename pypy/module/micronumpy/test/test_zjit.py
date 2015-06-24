@@ -553,7 +553,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_all(self):
         result = self.run("all")
         assert result == 1
-        self.check_vectorized(1, 0) # success?
+        self.check_vectorized(1, 1)
 
     def define_logical_xor_reduce():
         return """
