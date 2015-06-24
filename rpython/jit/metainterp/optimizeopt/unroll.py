@@ -203,11 +203,20 @@ class UnrollOptimizer(Optimization):
 
         short_boxes = ShortBoxes(self.optimizer, inputargs)
 
-        self.optimizer.clear_newoperations()
-        # for i in range(len(original_jump_args)):
-        #     srcbox = jump_args[i]
-        #     if srcbox is not original_jump_args[i]:
-        #         xxx
+        inputarg_setup_ops = []
+        for i in range(len(original_jump_args)):
+            srcbox = jump_args[i]
+            if srcbox is not original_jump_args[i]:
+                if srcbox.type == 'r':
+                    info = self.optimizer.getptrinfo(srcbox)
+                    if info and info.is_virtual():
+                        xxx
+            if original_jump_args[i] is not srcbox and srcbox.is_constant():
+                inputarg_setup_ops.append((original_jump_args[i], srcbox))
+                #opnum = OpHelpers.same_as_for_type(original_jump_args[i].type)
+                #op = ResOperation(opnum, [srcbox])
+                #self.optimizer.emit_operation(op)
+            
         #     if srcbox.type != 'r':
         #         continue
         #     info = self.optimizer.getptrinfo(srcbox)
@@ -220,7 +229,8 @@ class UnrollOptimizer(Optimization):
         #                                             opnum, [srcbox],
         #                                             descr=DONT_CHANGE)
         #         self.optimizer.emit_operation(op)
-        inputarg_setup_ops = self.optimizer.get_newoperations()
+        #inputarg_setup_ops = original_jump_args
+        #inputarg_setup_ops = self.optimizer.get_newoperations()
 
         target_token = targetop.getdescr()
         assert isinstance(target_token, TargetToken)
@@ -266,8 +276,8 @@ class UnrollOptimizer(Optimization):
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result
         self.optimizer.emitting_dissabled = True
-        for op in exported_state.inputarg_setup_ops:
-            self.optimizer.send_extra_operation(op)
+        for source, target in exported_state.inputarg_setup_ops:
+            source.set_forwarded(target)
 
         seen = {}
         for op in self.short_boxes.operations():
@@ -476,7 +486,7 @@ class UnrollOptimizer(Optimization):
             optimizer.send_extra_operation(guard)
 
     def is_call_pure_with_exception(self, op):
-        if op.getopnum() == rop.CALL_PURE:
+        if op.is_call_pure():
             effectinfo = op.getdescr().get_extra_info()
             # Assert that only EF_ELIDABLE_CANNOT_RAISE or
             # EF_ELIDABLE_OR_MEMORYERROR end up here, not

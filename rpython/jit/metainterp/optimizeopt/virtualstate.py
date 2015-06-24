@@ -502,6 +502,7 @@ class VirtualState(object):
         if optimizer.optearlyforce:
             optimizer = optimizer.optearlyforce
         assert len(inputargs) == len(self.state)
+        return [x for x in inputargs if not isinstance(x, Const)]
         return inputargs
         inputargs = [None] * self.numnotvirtuals
 
