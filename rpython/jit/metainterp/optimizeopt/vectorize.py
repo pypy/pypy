@@ -63,13 +63,27 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         end = time.clock()
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
+        debug_stop("vec-opt-loop")
+        #
+        # XXX
+        ns = int((end-start)*10.0**9)
+        debug_start("xxx-clock")
+        debug_print("vecopt unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
+                      (opt.unroll_count+1,
+                       gso.strength_reduced,
+                       len(orig_ops),
+                       len(loop.operations),
+                       ns))
+        debug_stop("xxx-clock")
     except NotAVectorizeableLoop:
         # vectorization is not possible
         loop.operations = orig_ops
+        debug_stop("vec-opt-loop")
     except NotAProfitableLoop:
         # cost model says to skip this loop
         loop.operations = orig_ops
     except Exception as e:
+        debug_stop("vec-opt-loop")
         loop.operations = orig_ops
         debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
         if we_are_translated():
@@ -78,20 +92,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
-    finally:
-        debug_stop("vec-opt-loop")
-        #
-        # XXX
-        if start > 0 and end > 0:
-            ns = int((end-start)*10.0**9)
-            debug_start("xxx-clock")
-            debug_print("vecopt unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
-                          (opt.unroll_count+1,
-                           gso.strength_reduced,
-                           len(orig_ops),
-                           len(loop.operations),
-                           ns))
-            debug_stop("xxx-clock")
 
 
 class VectorizingOptimizer(Optimizer):

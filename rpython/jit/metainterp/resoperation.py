@@ -213,7 +213,9 @@ class CastResOp(AbstractResOp):
         _, _, to_type, size = self.casts
         if self.casts[3] == 0:
             if self.getopnum() == rop.INT_SIGNEXT:
+                from rpython.jit.metainterp.history import ConstInt
                 arg = self.getarg(1)
+                assert isinstance(arg, ConstInt)
                 return (to_type,arg.value)
             else:
                 raise NotImplementedError
