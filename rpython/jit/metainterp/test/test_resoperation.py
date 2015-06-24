@@ -83,3 +83,12 @@ def test_get_deep_immutable_oplist():
     py.test.raises(TypeError, "newops[0] = 'foobar'")
     py.test.raises(AssertionError, "newops[0].setarg(0, 'd')")
     py.test.raises(AssertionError, "newops[0].setdescr('foobar')")
+
+def test_cast_ops():
+    op = rop.ResOperation(rop.rop.INT_SIGNEXT, ['a', 1], 'c')
+    assert op.casts_box()
+    assert isinstance(op, rop.CastResOp)
+    assert op.cast_to == ('i',1)
+    op = rop.ResOperation(rop.rop.CAST_FLOAT_TO_INT, ['a'], 'c')
+    assert op.casts_box()
+    assert isinstance(op, rop.CastResOp)

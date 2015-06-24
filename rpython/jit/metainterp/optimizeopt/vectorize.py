@@ -642,15 +642,15 @@ class PackSet(object):
 
     def profitable_pack(self, lnode, rnode, origin_pack):
         lpacknode = origin_pack.left
-        if self.prohibit_packing(lpacknode.getoperation(), lnode.getoperation()):
+        if self.prohibit_packing(origin_pack, lpacknode.getoperation(), lnode.getoperation()):
             return False
         rpacknode = origin_pack.right
-        if self.prohibit_packing(rpacknode.getoperation(), rnode.getoperation()):
+        if self.prohibit_packing(origin_pack, rpacknode.getoperation(), rnode.getoperation()):
             return False
 
         return True
 
-    def prohibit_packing(self, packed, inquestion):
+    def prohibit_packing(self, pack, packed, inquestion):
         """ Blocks the packing of some operations """
         if inquestion.vector == -1:
             return True
@@ -658,10 +658,15 @@ class PackSet(object):
             if packed.getarg(1) == inquestion.result:
                 return True
         if inquestion.casts_box():
-            #input_type = packed.output_type
-            #if not input_type:
-            #    return True
-            pass
+            # prohibit the packing of signext calls that
+            # cast to int16/int8.
+            input_type = pack.output_type
+            if input_type:
+                py.test.set_trace()
+                insize = input_type.getsize()
+                outtype,outsize = inquestion.cast_to()
+                if outsize < 4 and insize != outsize:
+                    return True
         return False
 
     def combine(self, i, j):

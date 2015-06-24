@@ -2683,14 +2683,7 @@ class Assembler386(BaseAssembler):
         tosize = tosizeloc.value
         if size == tosize:
             return # already the right size
-        if size == 4 and tosize == 2:
-            scratch = X86_64_SCRATCH_REG
-            self.mc.PSHUFLW_xxi(resloc.value, srcloc.value, 0b11111000)
-            self.mc.PEXTRW_rxi(scratch.value, srcloc.value, 4)
-            self.mc.PINSRW_xri(resloc.value, scratch.value, 2)
-            self.mc.PEXTRW_rxi(scratch.value, srcloc.value, 6)
-            self.mc.PINSRW_xri(resloc.value, scratch.value, 3)
-        elif size == 4 and tosize == 8:
+        if size == 4 and tosize == 8:
             scratch = X86_64_SCRATCH_REG.value
             self.mc.PEXTRD_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRQ_xri(resloc.value, scratch, 1)
@@ -2704,7 +2697,13 @@ class Assembler386(BaseAssembler):
             self.mc.PEXTRQ_rxi(scratch, srcloc.value, 1)
             self.mc.PINSRD_xri(resloc.value, scratch, 1)
         else:
-            raise NotImplementedError("sign ext missing: " + str(size) + " -> " + str(tosize))
+            # note that all other conversions are not implemented
+            # on purpose. it needs many x86 op codes to implement
+            # the missing combinations. even if they are implemented
+            # the speedup might only be modest...
+            # the optimization does not emit such code!
+            msg = "vec int signext (%d->%d)" % (size, tosize)
+            raise NotImplementedError(msg)
 
     def genop_vec_float_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
@@ -2716,6 +2715,8 @@ class Assembler386(BaseAssembler):
             self.mc.SHUFPS_xxi(resloc.value, srcloc.value, 0)
         elif size == 8:
             self.mc.MOVDDUP(resloc, srcloc)
+        else:
+            raise AssertionError("float of size %d not supported" % (size,))
 
     def genop_vec_int_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
@@ -2737,7 +2738,7 @@ class Assembler386(BaseAssembler):
             self.mc.PINSRQ_xri(resloc.value, srcloc.value, 0)
             self.mc.PINSRQ_xri(resloc.value, srcloc.value, 1)
         else:
-            raise NotImplementedError("missing size %d for int expand" % (size,))
+            raise AssertionError("cannot handle size %d (int expand)" % (size,))
 
     def genop_vec_int_pack(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
@@ -2748,7 +2749,9 @@ class Assembler386(BaseAssembler):
         residx = residxloc.value
         count = countloc.value
         # for small data type conversion this can be quite costy
-        # j = pack(i,4,4)
+        # NOTE there might be some combinations that can be handled
+        # more efficiently! e.g.
+        # v2 = pack(v0,v1,4,4)
         si = srcidx
         ri = residx
         k = count

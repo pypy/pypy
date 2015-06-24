@@ -1,6 +1,5 @@
 from rpython.rlib.objectmodel import we_are_translated
 
-
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
     op = cls(result)
@@ -26,6 +25,7 @@ class AbstractResOp(object):
     boolreflex = -1
     boolinverse = -1
     vector = -1
+    casts = ('\x00', -1, '\x00', -1)
 
     _attrs_ = ('result',)
 
@@ -190,12 +190,13 @@ class AbstractResOp(object):
         return self._cls_has_bool_result
 
     def casts_box(self):
-        opnum = self.getopnum()
-        return opnum == rop.INT_SIGNEXT or \
-               rop.CAST_FLOAT_TO_INT <= opnum <= rop.CAST_SINGLEFLOAT_TO_FLOAT or \
-               rop._VEC_CAST_FIRST <= opnum <= rop._VEC_CAST_LAST or \
-               rop.CAST_PTR_TO_INT == opnum or \
-               rop.CAST_INT_TO_PTR == opnum
+        return False
+
+    def cast_to(self):
+        return ('\x00',-1)
+
+    def cast_from(self):
+        return ('\x00',-1)
 
 # ===================
 # Top of the hierachy
@@ -204,6 +205,23 @@ class AbstractResOp(object):
 class PlainResOp(AbstractResOp):
     pass
 
+class CastResOp(AbstractResOp):
+    def casts_box(self):
+        return True
+
+    def cast_to(self):
+        _, _, to_type, size = self.casts
+        if self.casts[3] == 0:
+            if self.getopnum() == rop.INT_SIGNEXT:
+                arg = self.getarg(1)
+                assert isinstance(arg, ConstInt)
+                return (to_type,arg.value)
+            else:
+                raise NotImplementedError
+        return (to_type,size)
+
+    def cast_from(self):
+        return ('\x00',-1)
 
 class ResOpWithDescr(AbstractResOp):
 
@@ -629,6 +647,20 @@ _oplist = [
     '_LAST',     # for the backend to add more internal operations
 ]
 
+FLOAT = 'f'
+INT = 'i'
+_cast_ops = {
+    'INT_SIGNEXT': (INT, 0, INT, 0),
+    'CAST_FLOAT_TO_INT': (FLOAT, 8, INT, 4),
+    'CAST_INT_TO_FLOAT': (INT, 4, FLOAT, 8),
+    'CAST_FLOAT_TO_SINGLEFLOAT': (FLOAT, 8, FLOAT, 4),
+    'CAST_SINGLEFLOAT_TO_FLOAT': (FLOAT, 4, FLOAT, 8),
+    'CAST_PTR_TO_INT': (INT, 0, INT, 4),
+    'CAST_INT_TO_PTR': (INT, 4, INT, 0),
+}
+del FLOAT
+del INT
+
 # ____________________________________________________________
 
 class rop(object):
@@ -638,7 +670,6 @@ opclasses = []   # mapping numbers to the concrete ResOp class
 opname = {}      # mapping numbers to the original names, for debugging
 oparity = []     # mapping numbers to the arity of the operation or -1
 opwithdescr = [] # mapping numbers to a flag "takes a descr"
-
 
 def setup(debug_print=False):
     for i, name in enumerate(_oplist):
@@ -691,6 +722,8 @@ def create_class_for_op(name, opnum, arity, withdescr):
     if is_guard:
         assert withdescr
         baseclass = GuardResOp
+    elif name in _cast_ops:
+        baseclass = CastResOp
     elif withdescr:
         baseclass = ResOpWithDescr
     else:
@@ -780,21 +813,26 @@ _opvector = {
     rop.CAST_FLOAT_TO_INT: rop.VEC_CAST_FLOAT_TO_INT,
 }
 
+
 def setup2():
     for cls in opclasses:
         if cls is None:
             continue
         opnum = cls.opnum
+        name = opname[opnum]
         if opnum in _opboolreflex:
             cls.boolreflex = _opboolreflex[opnum]
         if opnum in _opboolinverse:
             cls.boolinverse = _opboolinverse[opnum]
         if opnum in _opvector:
             cls.vector = _opvector[opnum]
+        if name in _cast_ops:
+            cls.casts = _cast_ops[name]
 setup2()
 del _opboolinverse
 del _opboolreflex
 del _opvector
+del _cast_ops
 
 def get_deep_immutable_oplist(operations):
     """
