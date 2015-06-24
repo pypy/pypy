@@ -6,6 +6,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.util import Renamer
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 
 
 class SchedulerData(object):
@@ -238,11 +239,30 @@ class OpToVectorOp(object):
         self.input_type = self.determine_input_type(op0)
         self.output_type = self.determine_output_type(op0)
 
+    def check_if_pack_supported(self, pack):
+        op0 = pack.operations[0].getoperation()
+        insize = self.input_type.getsize()
+        if op0.casts_box():
+            # prohibit the packing of signext calls that
+            # cast to int16/int8.
+            _, outsize = op0.cast_to()
+            self._prevent_signext(outsize, insize)
+        if op0.getopnum() == rop.INT_ADD:
+            if insize == 8 or insize == 1:
+                # see assembler for comment why
+                raise NotAProfitableLoop
+
+    def _prevent_signext(self, outsize, insize):
+        if outsize < 4 and insize != outsize:
+            raise NotAProfitableLoop
+
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
         self.preamble_ops = oplist
         self.costmodel = sched_data.costmodel
         self.update_input_output(pack)
+        #
+        self.check_if_pack_supported(pack)
         #
         off = 0
         stride = self.split_pack(pack, self.sched_data.vec_reg_size)
@@ -370,6 +390,7 @@ class OpToVectorOp(object):
 
     def extend_int(self, vbox, newtype):
         vbox_cloned = newtype.new_vector_box(vbox.item_count)
+        self._prevent_signext(newtype.getsize(), vbox.getsize())
         op = ResOperation(rop.VEC_INT_SIGNEXT, 
                           [vbox, ConstInt(newtype.getsize())],
                           vbox_cloned)

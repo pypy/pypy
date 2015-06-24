@@ -9,7 +9,7 @@ import py
 import time
 
 from rpython.jit.metainterp.resume import Snapshot
-from rpython.jit.metainterp.jitexc import JitException
+from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr, invent_fail_descr_for_op
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
@@ -43,14 +43,6 @@ def debug_print_operations(loop):
                 print op.getfailargs()
             else:
                 print ""
-
-class NotAVectorizeableLoop(JitException):
-    def __str__(self):
-        return 'NotAVectorizeableLoop()'
-
-class NotAProfitableLoop(JitException):
-    def __str__(self):
-        return 'NotAProfitableLoop()'
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, cost_threshold):
@@ -623,7 +615,7 @@ class PackSet(object):
                     else:
                         # store only has an input
                         return Pair(lnode, rnode, ptype, None)
-                if self.profitable_pack(lnode, rnode, origin_pack):
+                if self.profitable_pack(lnode, rnode, origin_pack, forward):
                     input_type = origin_pack.output_type
                     output_type = determine_output_type(lnode, input_type)
                     return Pair(lnode, rnode, input_type, output_type)
@@ -640,33 +632,29 @@ class PackSet(object):
                 return True
         return False
 
-    def profitable_pack(self, lnode, rnode, origin_pack):
+    def profitable_pack(self, lnode, rnode, origin_pack, forward):
         lpacknode = origin_pack.left
-        if self.prohibit_packing(origin_pack, lpacknode.getoperation(), lnode.getoperation()):
+        if self.prohibit_packing(origin_pack,
+                                 lpacknode.getoperation(),
+                                 lnode.getoperation(),
+                                 forward):
             return False
         rpacknode = origin_pack.right
-        if self.prohibit_packing(origin_pack, rpacknode.getoperation(), rnode.getoperation()):
+        if self.prohibit_packing(origin_pack,
+                                 rpacknode.getoperation(),
+                                 rnode.getoperation(),
+                                 forward):
             return False
 
         return True
 
-    def prohibit_packing(self, pack, packed, inquestion):
+    def prohibit_packing(self, pack, packed, inquestion, forward):
         """ Blocks the packing of some operations """
         if inquestion.vector == -1:
             return True
         if packed.is_raw_array_access():
             if packed.getarg(1) == inquestion.result:
                 return True
-        if inquestion.casts_box():
-            # prohibit the packing of signext calls that
-            # cast to int16/int8.
-            input_type = pack.output_type
-            if input_type:
-                py.test.set_trace()
-                insize = input_type.getsize()
-                outtype,outsize = inquestion.cast_to()
-                if outsize < 4 and insize != outsize:
-                    return True
         return False
 
     def combine(self, i, j):

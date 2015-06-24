@@ -214,7 +214,6 @@ class CastResOp(AbstractResOp):
         if self.casts[3] == 0:
             if self.getopnum() == rop.INT_SIGNEXT:
                 arg = self.getarg(1)
-                assert isinstance(arg, ConstInt)
                 return (to_type,arg.value)
             else:
                 raise NotImplementedError

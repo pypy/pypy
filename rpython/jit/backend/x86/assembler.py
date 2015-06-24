@@ -2598,10 +2598,12 @@ class Assembler386(BaseAssembler):
             self.mc.PMULLW(loc0, loc1)
         elif itemsize == 4:
             self.mc.PMULLD(loc0, loc1)
-        elif itemsize == 8:
-            self.mc.PMULDQ(loc0, loc1) # TODO
         else:
-            raise NotImplementedError("did not implement integer mul")
+            # NOTE see http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
+            # There is no 64x64 bit packed mul and I did not find one
+            # for 8 bit either. It is questionable if it gives any benefit
+            # for 8 bit.
+            raise NotImplementedError("")
 
     def genop_vec_int_add(self, op, arglocs, resloc):
         loc0, loc1, size_loc = arglocs
