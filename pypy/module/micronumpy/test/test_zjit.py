@@ -262,7 +262,7 @@ class TestNumpyJit(Jit386Mixin):
         i = 8
         assert int(result) == i*16 + sum(range(7,7+i))
         # currently is is not possible to accum for types with < 8 bytes
-        self.check_vectorized(3, 2)
+        self.check_vectorized(3, 1)
 
     def define_int8_expand():
         return """
@@ -769,8 +769,8 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_int_mul_array():
         return """
-        a = astype(|30|, int)
-        b = astype(|30|, int)
+        a = astype(|30|, int32)
+        b = astype(|30|, int32)
         c = a * b
         x1 = c -> 7
         x2 = c -> 8
@@ -779,6 +779,8 @@ class TestNumpyJit(Jit386Mixin):
         x1 + x2 + x3 + x4
         """
     def test_int_mul_array(self):
+        # note that int64 mul has not packed machine instr
+        # for SSE4 thus int32
         result = self.run("int_mul_array")
         assert int(result) == 7*7+8*8+11*11+12*12
         self.check_vectorized(2, 2)
