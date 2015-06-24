@@ -47,7 +47,8 @@ Future Work and Limitations
 ---------------------------
 
 * The only SIMD instruction architecture currently supported is SSE4.1
-* Packed mul for int8,int64 (see PMUL_)
+* Packed mul for int8,int64 (see PMUL_). It would be possible to use PCLMULQDQ. Only supported
+  by some CPUs and must be checked in the cpuid.
 * Loop that convert types from int(8|16|32|64) to int(8|16) are not supported in
   the current SSE4.1 assembler implementation.
   The opcode needed spans over multiple instructions. In terms of performance
