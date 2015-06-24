@@ -511,10 +511,12 @@ static void wait_for_inevitable(void)
            try to detach an inevitable transaction regularly */
         detached = fetch_detached_transaction();
         if (detached == 0) {
+            EMIT_WAIT(STM_WAIT_OTHER_INEVITABLE);
             if (!cond_wait_timeout(C_SEGMENT_FREE_OR_SAFE_POINT_REQ, 0.00001))
                 goto wait_some_more;
         }
     }
+    EMIT_WAIT_DONE();
     s_mutex_unlock();
 
     if (detached != 0)
@@ -1130,6 +1132,7 @@ static void readd_wb_executed_flags(void)
 static void _do_start_transaction(stm_thread_local_t *tl)
 {
     assert(!_stm_in_transaction(tl));
+    tl->wait_event_emitted = 0;
 
     acquire_thread_segment(tl);
     /* GS invalid before this point! */
@@ -1318,6 +1321,7 @@ static void _core_commit_transaction(bool external)
     }
     assert(STM_SEGMENT->running_thread->self_or_0_if_atomic ==
            (intptr_t)(STM_SEGMENT->running_thread));
+    assert(STM_SEGMENT->running_thread->wait_event_emitted == 0);
 
     dprintf(("> stm_commit_transaction(external=%d)\n", (int)external));
     minor_collection(/*commit=*/ true, external);
@@ -1582,9 +1586,8 @@ void _stm_become_inevitable(const char *msg)
 
         if (any_soon_finished_or_inevitable_thread_segment() &&
                 num_waits <= NB_SEGMENTS) {
-#if STM_TESTS
-            timing_become_inevitable(); /* for tests: another transaction */
-            stm_abort_transaction();    /* is already inevitable, abort   */
+#if STM_TESTS                           /* for tests: another transaction */
+            stm_abort_transaction();    /*   is already inevitable, abort */
 #endif
 
             bool timed_out = false;
@@ -1594,6 +1597,7 @@ void _stm_become_inevitable(const char *msg)
                     !safe_point_requested()) {
 
                 /* wait until C_SEGMENT_FREE_OR_SAFE_POINT_REQ is signalled */
+                EMIT_WAIT(STM_WAIT_OTHER_INEVITABLE);
                 if (!cond_wait_timeout(C_SEGMENT_FREE_OR_SAFE_POINT_REQ,
                                        0.000054321))
                     timed_out = true;
@@ -1607,14 +1611,17 @@ void _stm_become_inevitable(const char *msg)
                    not too common.  We don't want two threads constantly
                    detaching each other. */
                 intptr_t detached = fetch_detached_transaction();
-                if (detached != 0)
+                if (detached != 0) {
+                    EMIT_WAIT_DONE();
                     commit_fetched_detached_transaction(detached);
+                }
             }
             else {
                 num_waits++;
             }
             goto retry_from_start;
         }
+        EMIT_WAIT_DONE();
         if (!_validate_and_turn_inevitable())
             goto retry_from_start;
     }

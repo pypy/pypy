@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 
-static FILE *profiling_file;
+static FILE *volatile profiling_file;
 static char *profiling_basefn = NULL;
 static stm_expand_marker_fn profiling_expand_marker;
 
@@ -26,9 +26,6 @@ static void _stm_profiling_event(stm_thread_local_t *tl,
 
     struct buf_s buf;
     struct timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    buf.tv_sec = t.tv_sec;
-    buf.tv_nsec = t.tv_nsec;
     buf.thread_num = tl->thread_local_counter;
     buf.event = event;
     buf.marker_length = 0;
@@ -39,10 +36,29 @@ static void _stm_profiling_event(stm_thread_local_t *tl,
                                                     buf.extra, MARKER_LEN_MAX);
     }
 
-    if (fwrite(&buf, offsetof(struct buf_s, extra) + buf.marker_length,
-               1, profiling_file) != 1) {
+    size_t result, outsize = offsetof(struct buf_s, extra) + buf.marker_length;
+    FILE *f = profiling_file;
+    if (f == NULL)
+        return;
+    flockfile(f);
+
+    /* We expect the following CLOCK_MONOTONIC to be really monotonic:
+       it should guarantee that the file will be perfectly ordered by time.
+       That's why we do it inside flockfile()/funlockfile(). */
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    buf.tv_sec = t.tv_sec;
+    buf.tv_nsec = t.tv_nsec;
+
+    result = fwrite_unlocked(&buf, outsize, 1, f);
+    funlockfile(f);
+
+    if (result != 1) {
         fprintf(stderr, "stmgc: profiling log file closed unexpectedly: %m\n");
-        close_timing_log();
+
+        /* xxx the FILE leaks here, but it is better than random crashes if
+           we try to close it while other threads are still writing to it
+        */
+        profiling_file = NULL;
     }
 }
 
@@ -54,11 +70,12 @@ static int default_expand_marker(char *b, stm_loc_marker_t *m, char *p, int s)
 
 static bool open_timing_log(const char *filename)
 {
-    profiling_file = fopen(filename, "w");
-    if (profiling_file == NULL)
+    FILE *f = fopen(filename, "w");
+    profiling_file = f;
+    if (f == NULL)
         return false;
 
-    fwrite("STMGC-C8-PROF01\n", 16, 1, profiling_file);
+    fwrite("STMGC-C8-PROF01\n", 16, 1, f);
     stmcb_timing_event = _stm_profiling_event;
     return true;
 }
@@ -66,9 +83,11 @@ static bool open_timing_log(const char *filename)
 static bool close_timing_log(void)
 {
     if (stmcb_timing_event == &_stm_profiling_event) {
+        FILE *f = profiling_file;
         stmcb_timing_event = NULL;
-        fclose(profiling_file);
         profiling_file = NULL;
+        if (f != NULL)
+            fclose(f);
         return true;
     }
     return false;
@@ -76,8 +95,9 @@ static bool close_timing_log(void)
 
 static void prof_forksupport_prepare(void)
 {
-    if (profiling_file != NULL)
-        fflush(profiling_file);
+    FILE *f = profiling_file;
+    if (f != NULL)
+        fflush(f);
 }
 
 static void prof_forksupport_child(void)

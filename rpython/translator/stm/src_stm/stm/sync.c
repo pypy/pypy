@@ -243,13 +243,13 @@ static void acquire_thread_segment(stm_thread_local_t *tl)
     /* No segment available.  Wait until release_thread_segment()
        signals that one segment has been freed.  Note that we prefer
        waiting rather than detaching an inevitable transaction, here. */
-    timing_event(tl, STM_WAIT_FREE_SEGMENT);
+    emit_wait(tl, STM_WAIT_FREE_SEGMENT);
     cond_wait(C_SEGMENT_FREE);
-    timing_event(tl, STM_WAIT_DONE);
 
     goto retry_from_start;
 
  got_num:
+    emit_wait_done(tl);
     OPT_ASSERT(num >= 0 && num < NB_SEGMENTS-1);
     sync_ctl.in_use1[num+1] = 1;
     assert(STM_SEGMENT->segment_num == num+1);
@@ -425,15 +425,15 @@ static void enter_safe_point_if_requested(void)
 #ifdef STM_TESTS
         abort_with_mutex();
 #endif
-        timing_event(STM_SEGMENT->running_thread, STM_WAIT_SYNC_PAUSE);
+        EMIT_WAIT(STM_WAIT_SYNC_PAUSE);
         cond_signal(C_AT_SAFE_POINT);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_REQUEST_REMOVED;
         cond_wait(C_REQUEST_REMOVED);
         STM_PSEGMENT->safe_point = SP_RUNNING;
-        timing_event(STM_SEGMENT->running_thread, STM_WAIT_DONE);
         assert(!STM_SEGMENT->no_safe_point_here);
         dprintf(("left safe point\n"));
     }
+    EMIT_WAIT_DONE();
 }
 
 static void synchronize_all_threads(enum sync_type_e sync_type)
@@ -461,12 +461,14 @@ static void synchronize_all_threads(enum sync_type_e sync_type)
 
         intptr_t detached = fetch_detached_transaction();
         if (detached != 0) {
+            EMIT_WAIT_DONE();
             remove_requests_for_safe_point();    /* => C_REQUEST_REMOVED */
             s_mutex_unlock();
             commit_fetched_detached_transaction(detached);
             s_mutex_lock();
             goto restart;
         }
+        EMIT_WAIT(STM_WAIT_SYNCING);
         STM_PSEGMENT->safe_point = SP_WAIT_FOR_C_AT_SAFE_POINT;
         cond_wait_timeout(C_AT_SAFE_POINT, 0.00001);
         /* every 10 microsec, try again fetch_detached_transaction() */
@@ -477,6 +479,7 @@ static void synchronize_all_threads(enum sync_type_e sync_type)
             abort_with_mutex();
         }
     }
+    EMIT_WAIT_DONE();
 
     if (UNLIKELY(sync_type == STOP_OTHERS_AND_BECOME_GLOBALLY_UNIQUE)) {
         globally_unique_transaction = true;
