@@ -137,6 +137,42 @@ class TestTransform:
         res = self.interpret_inevitable(f1, [43])
         assert res == ['setfield']
 
+    def test_raw_setfield_with_hint(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed),
+                          hints={'stm_dont_track_raw_accesses': True})
+        x1 = lltype.malloc(X, immortal=True)
+
+        def f1():
+            x1.foo = 42
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == []
+
+    def test_raw_getarrayitem_with_hint(self):
+        X = lltype.Array(lltype.Signed,
+                         hints={'nolength': True,
+                                'stm_dont_track_raw_accesses': True})
+        x1 = lltype.malloc(X, 1, immortal=True)
+        x1[0] = 42
+
+        def f1():
+            return x1[0]
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == []
+
+    def test_raw_setarrayitem_with_hint(self):
+        X = lltype.Array(lltype.Signed,
+                         hints={'nolength': True,
+                                'stm_dont_track_raw_accesses': True})
+        x1 = lltype.malloc(X, 1, immortal=True)
+
+        def f1():
+            x1[0] = 42
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == []
+
     def test_malloc_no_inevitable(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
 
