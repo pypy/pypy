@@ -328,6 +328,9 @@ class Optimizer(Optimization):
     def ensure_imported(self, value):
         pass
 
+    def is_inputarg(self, op):
+        return op in self.inparg_dict
+
     def get_constant_box(self, box):
         box = self.get_box_replacement(box)
         if isinstance(box, Const):
@@ -456,6 +459,9 @@ class Optimizer(Optimization):
     def propagate_all_forward(self, clear=True):
         if clear:
             self.clear_newoperations()
+        self.inparg_dict = {}
+        for op in self.loop.inputargs:
+            self.inparg_dict[op] = None
         for op in self.loop.operations:
             self._really_emitted_operation = None
             self.first_optimization.propagate_forward(op)
