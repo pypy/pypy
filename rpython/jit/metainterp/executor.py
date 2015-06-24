@@ -112,7 +112,8 @@ def _do_getarrayitem_raw(cpu, pure, arraybox, indexbox, arraydescr):
                                                 pure))
 
 def do_getarrayitem_raw(cpu, _, arraybox, indexbox, arraydescr):
-    return _do_getarrayitem_raw(cpu, False, arraybox, indexbox, arraydescr)
+    pure = not arraydescr.stm_should_track_raw_accesses()
+    return _do_getarrayitem_raw(cpu, pure, arraybox, indexbox, arraydescr)
 
 def do_getarrayitem_raw_pure(cpu, _, arraybox, indexbox, arraydescr):
     return _do_getarrayitem_raw(cpu, True, arraybox, indexbox, arraydescr)

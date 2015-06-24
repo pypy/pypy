@@ -84,16 +84,20 @@ FLAG_VOID     = 'V'
 
 class ArrayOrFieldDescr(AbstractDescr):
     vinfo = None
+    stm_dont_track_raw_accesses = False
 
     def get_vinfo(self):
         return self.vinfo
+
+    def stm_should_track_raw_accesses(self):
+        return not self.stm_dont_track_raw_accesses
+
 
 class FieldDescr(ArrayOrFieldDescr):
     name = ''
     offset = 0      # help translation
     field_size = 0
     flag = '\x00'
-    stm_dont_track_raw_accesses = False
     _immutable = False
 
     def __init__(self, name, offset, field_size, flag,
@@ -146,9 +150,6 @@ class FieldDescr(ArrayOrFieldDescr):
 
     def repr_of_descr(self):
         return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
-
-    def stm_should_track_raw_accesses(self):
-        return not self.stm_dont_track_raw_accesses
 
 
 def get_field_descr(gccache, STRUCT, fieldname):
@@ -219,11 +220,13 @@ class ArrayDescr(ArrayOrFieldDescr):
     _immutable = False
 
     def __init__(self, basesize, itemsize, lendescr, flag,
+                 stm_dont_track_raw_accesses=False,
                  immutable=False):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
+        self.stm_dont_track_raw_accesses = stm_dont_track_raw_accesses
         self._immutable = immutable
 
     def is_immutable(self):
@@ -282,9 +285,12 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             lendescr = None
         else:
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
+        stm_dont_track_raw_accesses = ARRAY_INSIDE._hints.get(
+            'stm_dont_track_raw_accesses', False)
         flag = get_type_flag(ARRAY_INSIDE.OF)
         immutable = bool(ARRAY_INSIDE._immutable_field())
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag,
+                                stm_dont_track_raw_accesses,
                                 immutable)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)

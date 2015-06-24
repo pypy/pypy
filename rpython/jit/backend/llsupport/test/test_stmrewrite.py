@@ -44,8 +44,6 @@ def test_all_operations_with_gc_in_their_name():
     words.append('ZERO_ARRAY')
     words.append('ZERO_PTR_FIELD')
     # these always turn inevitable
-    words.append('GETARRAYITEM_RAW')
-    words.append('SETARRAYITEM_RAW')
     words.append('SETINTERIORFIELD_RAW')
     words.append('RAW_LOAD')
     words.append('RAW_STORE')
@@ -96,6 +94,7 @@ class TestStm(RewriteTests):
         to_operations  = to_operations .replace('$DUMMYALLOC', dummyalloc)
         for name, value in self.gc_ll_descr.__dict__.items():
             if name.endswith('descr') and name[1] == '2' and len(name) == 8:
+                assert name not in namespace
                 namespace[name] = value     # "X2Ydescr"
         self.gc_ll_descr.malloc_zero_filled = False
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
@@ -524,6 +523,55 @@ class TestStm(RewriteTests):
             $DUMMYALLOC
             jump(i2)
         """, fdescr=fdescr)
+
+    def test_setfield_raw_stm_dont_track_raw_accesses(self):
+        c1 = GcCache(True)
+        F = lltype.Struct('F', ('x', lltype.Signed),
+                          hints={'stm_dont_track_raw_accesses': True})
+        fdescr = get_field_descr(c1, F, 'x')
+        self.check_rewrite("""
+            [i1]
+            setfield_raw(i1, 42, descr=fdescr)
+            jump(i1)
+        """, """
+            [i1]
+            setfield_raw(i1, 42, descr=fdescr)
+            $DUMMYALLOC
+            jump(i1)
+        """, fdescr=fdescr)
+
+    def test_getarrayitem_raw_stm_dont_track_raw_accesses(self):
+        c1 = GcCache(True)
+        A = lltype.Array(lltype.Signed, hints={'nolength': True,
+                            'stm_dont_track_raw_accesses': True})
+        aadescr = get_array_descr(c1, A)
+        assert not aadescr.stm_should_track_raw_accesses()
+        self.check_rewrite("""
+            [i1]
+            i2 = getarrayitem_raw(i1, 5, descr=aadescr)
+            jump(i2)
+        """, """
+            [i1]
+            i2 = getarrayitem_raw(i1, 5, descr=aadescr)
+            $DUMMYALLOC
+            jump(i2)
+        """, aadescr=aadescr)
+
+    def test_setarrayitem_raw_stm_dont_track_raw_accesses(self):
+        c1 = GcCache(True)
+        A = lltype.Array(lltype.Signed, hints={'nolength': True,
+                            'stm_dont_track_raw_accesses': True})
+        aadescr = get_array_descr(c1, A)
+        self.check_rewrite("""
+            [i1]
+            setarrayitem_raw(i1, 5, 42, descr=aadescr)
+            jump(i1)
+        """, """
+            [i1]
+            setarrayitem_raw(i1, 5, 42, descr=aadescr)
+            $DUMMYALLOC
+            jump(i1)
+        """, aadescr=aadescr)
 
     def test_getfield_raw_over_label(self):
         self.check_rewrite("""

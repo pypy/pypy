@@ -1,5 +1,5 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
-from rpython.jit.backend.llsupport.descr import CallDescr, FieldDescr
+from rpython.jit.backend.llsupport.descr import CallDescr, ArrayOrFieldDescr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import BoxPtr, ConstInt
 from rpython.rlib.objectmodel import specialize
@@ -70,8 +70,9 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         if opnum in (rop.COPYSTRCONTENT, rop.COPYUNICODECONTENT):
             self.handle_setters_for_pure_fields(op, 1)
             return
-        # ----------  raw getfields and setfields  ----------
-        if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW):
+        # ----------  raw getfields and setfields and arrays  ----------
+        if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW,
+                     rop.GETARRAYITEM_RAW, rop.SETARRAYITEM_RAW):
             if self.maybe_handle_raw_accesses(op):
                 return
         # ----------  labels  ----------
@@ -168,7 +169,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def maybe_handle_raw_accesses(self, op):
         descr = op.getdescr()
-        assert isinstance(descr, FieldDescr)
+        assert isinstance(descr, ArrayOrFieldDescr)
         if descr.stm_dont_track_raw_accesses:
             self.newop(op)
             return True
