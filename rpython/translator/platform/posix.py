@@ -89,12 +89,17 @@ class BasePosix(Platform):
                 raise ValueError(msg)
         return result
 
+    def get_rpath_flags(self, rel_libdirs):
+        # needed for cross-compilation i.e. ARM
+        return self.rpath_flags + ['-Wl,-rpath-link=\'%s\'' % ldir
+                                    for ldir in rel_libdirs]
+
     def get_shared_only_compile_flags(self):
         return tuple(self.shared_only) + ('-fvisibility=hidden',)
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], icon=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -167,7 +172,7 @@ class BasePosix(Platform):
             ('CC', self.cc),
             ('CC_LINK', eci.use_cpp_linker and 'g++' or '$(CC)'),
             ('LINKFILES', eci.link_files),
-            ('RPATH_FLAGS', self.rpath_flags),
+            ('RPATH_FLAGS', self.get_rpath_flags(rel_libdirs)),
             ]
         for args in definitions:
             m.definition(*args)

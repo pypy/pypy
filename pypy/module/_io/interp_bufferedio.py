@@ -196,9 +196,11 @@ class BufferedMixin:
         return space.getattr(self.w_raw, space.wrap("closed"))
 
     def name_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("name"))
 
     def mode_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("mode"))
 
     def readable_w(self, space):
@@ -214,6 +216,7 @@ class BufferedMixin:
         return space.call_method(self.w_raw, "seekable")
 
     def isatty_w(self, space):
+        self._check_init(space)
         return space.call_method(self.w_raw, "isatty")
 
     def repr_w(self, space):
@@ -221,7 +224,7 @@ class BufferedMixin:
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
-            if not e.match(space, space.w_AttributeError):
+            if not e.match(space, space.w_Exception):
                 raise
             return space.wrap("<%s>" % (typename,))
         else:
@@ -969,9 +972,26 @@ class W_BufferedRWPair(W_BufferedIOBase):
             method, writer=True)
 
     # forward to both
-    for method in ['close']:
-        locals()[method + '_w'] = make_forwarding_method(
-            method, writer=True, reader=True)
+    def close_w(self, space, __args__):
+        if self.w_writer is None:
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
+        w_meth = space.getattr(self.w_writer, space.wrap("close"))
+        try:
+            space.call_args(w_meth, __args__)
+        except OperationError as e:
+            pass
+        else:
+            e = None
+
+        if self.w_reader is None:
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
+        w_meth = space.getattr(self.w_reader, space.wrap("close"))
+        space.call_args(w_meth, __args__)
+
+        if e:
+            raise e
 
     def isatty_w(self, space):
         if space.is_true(space.call_method(self.w_writer, "isatty")):

@@ -61,7 +61,7 @@ def pack(space, format, args_w):
 @unwrap_spec(format=str, offset=int)
 def pack_into(space, format, w_buffer, offset, args_w):
     res = _pack(space, format, args_w)
-    buf = space.writebuf_w(w_buffer)
+    buf = space.getarg_w('w*', w_buffer)
     if offset < 0:
         offset += buf.getlength()
     size = len(res)

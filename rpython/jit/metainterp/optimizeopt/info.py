@@ -305,6 +305,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 if optforce.optheap is not None:
                     optforce.optheap.register_dirty_array_field(
                         arraydescr, i, self)
+        optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, index, op, cf=None, optheap=None):
         if self._items is None:

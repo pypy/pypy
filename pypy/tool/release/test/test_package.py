@@ -1,7 +1,7 @@
 
 import py
 from pypy.conftest import pypydir
-from pypy.tool.release import package, package
+from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
 import tarfile, zipfile, sys
 
@@ -16,24 +16,10 @@ def test_dir_structure(test='test'):
         rename_pypy_c = 'pypy'
         exe_name_in_archive = 'bin/pypy'
     pypy_c = py.path.local(pypydir).join('goal', basename)
-    if not pypy_c.check():
-        if sys.platform == 'win32':
-            import os, shutil
-            for d in os.environ['PATH'].split(';'):
-                if os.path.exists(os.path.join(d, 'cmd.exe')):
-                    shutil.copy(os.path.join(d, 'cmd.exe'), str(pypy_c))
-                    break
-            else:
-                assert False, 'could not find cmd.exe'
-        else:
-            pypy_c.write("#!/bin/sh")
-            pypy_c.chmod(0755)
-        fake_pypy_c = True
-    else:
-        fake_pypy_c = False
     try:
-        retval, builddir = package.package(py.path.local(pypydir).dirpath(), test,
-                                   rename_pypy_c)
+        retval, builddir = package.package(
+            '--without-cffi', str(py.path.local(pypydir).dirpath()),
+            test, rename_pypy_c, _fake=True)
         assert retval == 0
         prefix = builddir.join(test)
         cpyver = '%d.%d' % CPYTHON_VERSION[:2]
@@ -78,8 +64,7 @@ def test_dir_structure(test='test'):
         check_include('pypy_decl.h')
         check_include('numpy/arrayobject.h')
     finally:
-        if fake_pypy_c:
-            pypy_c.remove()
+        pass    # to keep the indentation
 
 def test_with_zipfile_module():
     prev = package.USE_ZIPFILE_MODULE

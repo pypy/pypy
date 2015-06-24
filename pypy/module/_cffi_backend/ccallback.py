@@ -1,18 +1,20 @@
 """
 Callbacks.
 """
-import os
+import sys, os
 
-from rpython.rlib import clibffi, rweakref, jit
+from rpython.rlib import clibffi, rweakref, jit, jit_libffi
 from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
-from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
+from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+
+BIG_ENDIAN = sys.byteorder == 'big'
 
 # ____________________________________________________________
 
@@ -48,9 +50,12 @@ class W_CDataCallback(W_CData):
             raise oefmt(space.w_NotImplementedError,
                         "%s: callback with unsupported argument or "
                         "return type or with '...'", self.getfunctype().name)
-        res = clibffi.c_ffi_prep_closure(self.get_closure(), cif_descr.cif,
-                                         invoke_callback,
-                                         rffi.cast(rffi.VOIDP, self.unique_id))
+        with self as ptr:
+            closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
+            unique_id = rffi.cast(rffi.VOIDP, self.unique_id)
+            res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
+                                             invoke_callback,
+                                             unique_id)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
@@ -62,12 +67,9 @@ class W_CDataCallback(W_CData):
             from pypy.module.thread.os_thread import setup_threads
             setup_threads(space)
 
-    def get_closure(self):
-        return rffi.cast(clibffi.FFI_CLOSUREP, self._cdata)
-
     #@rgc.must_be_light_finalizer
     def __del__(self):
-        clibffi.closureHeap.free(self.get_closure())
+        clibffi.closureHeap.free(rffi.cast(clibffi.FFI_CLOSUREP, self._ptr))
         if self.ll_error:
             lltype.free(self.ll_error, flavor='raw')
 
@@ -106,7 +108,7 @@ class W_CDataCallback(W_CData):
         fresult = self.getfunctype().ctitem
         if fresult.size > 0:
             misc._raw_memcopy(self.ll_error, ll_res, fresult.size)
-            keepalive_until_here(self)
+            keepalive_until_here(self)     # to keep self.ll_error alive
 
 
 global_callback_mapping = rweakref.RWeakValueDictionary(int, W_CDataCallback)

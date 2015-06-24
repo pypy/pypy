@@ -13,7 +13,7 @@ class curses_error(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-from rpython.annotator.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
+from rpython.annotator.description import FORCE_ATTRIBUTES_INTO_CLASSES
 from rpython.annotator.model import SomeString
 
 # this is necessary due to annmixlevel

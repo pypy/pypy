@@ -752,6 +752,8 @@ _oplist = [
     'COND_CALL_GC_WB/1d/n',       # [objptr] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/2d/n', # [objptr, arrayindex] (write barr. for array)
     'DEBUG_MERGE_POINT/*/n',      # debugging only
+    'ENTER_PORTAL_FRAME/2/n',     # debugging only
+    'LEAVE_PORTAL_FRAME/1/n',     # debugging only
     'JIT_DEBUG/*/n',              # debugging only
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length

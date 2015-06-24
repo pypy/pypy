@@ -14,17 +14,20 @@ def get(space):
 
 # ____________________________________________________________
 
+def _newp_handle(space, w_ctype, w_x):
+    index = get(space).reserve_next_handle_index()
+    _cdata = rffi.cast(rffi.CCHARP, index + 1)
+    new_cdataobj = cdataobj.W_CDataHandle(space, _cdata, w_ctype, w_x)
+    get(space).store_handle(index, new_cdataobj)
+    return new_cdataobj
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def newp_handle(space, w_ctype, w_x):
     if (not isinstance(w_ctype, ctypeptr.W_CTypePointer) or
         not w_ctype.is_void_ptr):
         raise oefmt(space.w_TypeError,
                     "needs 'void *', got '%s'", w_ctype.name)
-    index = get(space).reserve_next_handle_index()
-    _cdata = rffi.cast(rffi.CCHARP, index + 1)
-    new_cdataobj = cdataobj.W_CDataHandle(space, _cdata, w_ctype, w_x)
-    get(space).store_handle(index, new_cdataobj)
-    return new_cdataobj
+    return _newp_handle(space, w_ctype, w_x)
 
 @unwrap_spec(w_cdata=cdataobj.W_CData)
 def from_handle(space, w_cdata):
@@ -34,8 +37,9 @@ def from_handle(space, w_cdata):
         raise oefmt(space.w_TypeError,
                     "expected a 'cdata' object with a 'void *' out of "
                     "new_handle(), got '%s'", ctype.name)
-    index = rffi.cast(lltype.Signed, w_cdata._cdata)
-    original_cdataobj = get(space).fetch_handle(index - 1)
+    with w_cdata as ptr:
+        index = rffi.cast(lltype.Signed, ptr)
+        original_cdataobj = get(space).fetch_handle(index - 1)
     #
     if isinstance(original_cdataobj, cdataobj.W_CDataHandle):
         return original_cdataobj.w_keepalive

@@ -1,3 +1,4 @@
+import os
 import sys
 
 import py
@@ -37,6 +38,9 @@ working_modules.update([
     "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
     "_csv", "cppyy", "_pypyjson"
 ])
+
+if sys.platform.startswith('linux') and os.uname()[4] == 'x86_64':
+    working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()
 translation_modules.update([
@@ -99,6 +103,7 @@ module_import_dependencies = {
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
     "_continuation": ["rpython.rlib.rstacklet"],
+    "_vmprof" : ["pypy.module._vmprof.interp_vmprof"],
     }
 
 def get_module_validator(modname):
@@ -317,7 +322,7 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    modules = working_modules
+    modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
     # ignore names from 'essential_modules', notably 'exceptions', which

@@ -709,6 +709,7 @@ class OptString(optimizer.Optimization):
         self.make_vstring_concat(op, mode,
                                  self.get_box_replacement(op.getarg(1)),
                                  self.get_box_replacement(op.getarg(2)))
+        self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_SLICE(self, op, mode):
@@ -734,6 +735,7 @@ class OptString(optimizer.Optimization):
             startbox = _int_add(self.optimizer, vstr.start, startbox)
         #
         self.make_vstring_slice(op, strbox, startbox, mode, lengthbox)
+        self.last_emitted_operation = REMOVED
         return True
 
     @specialize.arg(2)
@@ -786,17 +788,19 @@ class OptString(optimizer.Optimization):
             l2box = i2.getstrlen(arg2, self, mode, create_ops=False)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
-                # XXXX fix after merge to default, but this is not proven
-                #      just yet
-                self.make_nonnull_str(arg1, mode)
-                i1 = self.getptrinfo(arg1)
-                lengthbox = i1.getstrlen(arg1, self, mode)
-                seo = self.optimizer.send_extra_operation
-                op = self.replace_op_with(resultop, rop.INT_EQ,
-                                          [lengthbox, CONST_0],
-                                          descr=DONT_CHANGE)
-                seo(op)
-                return True
+                if i1 and i1.is_nonnull():
+                    self.make_nonnull_str(arg1, mode)
+                    i1 = self.getptrinfo(arg1)
+                    lengthbox = i1.getstrlen(arg1, self, mode)
+                else:
+                    lengthbox = None
+                if lengthbox is not None:
+                    seo = self.optimizer.send_extra_operation
+                    op = self.replace_op_with(resultop, rop.INT_EQ,
+                                              [lengthbox, CONST_0],
+                                              descr=DONT_CHANGE)
+                    seo(op)
+                    return True
             if l2box.value == 1:
                 if i1:
                     l1box = i1.getstrlen(arg1, self, mode, False)

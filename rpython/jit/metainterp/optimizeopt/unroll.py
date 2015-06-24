@@ -154,6 +154,22 @@ class UnrollOptimizer(Optimization):
 
         loop.operations = self.optimizer.get_newoperations()
         if export_state:
+            jd_sd = self.optimizer.jitdriver_sd
+            try:
+                threshold = jd_sd.warmstate.disable_unrolling_threshold
+            except AttributeError:    # tests only
+                threshold = sys.maxint
+            if len(loop.operations) > threshold:
+                if loop.operations[0].getopnum() == rop.LABEL:
+                    # abandoning unrolling, too long
+                    new_descr = stop_label.getdescr()
+                    if loop.operations[0].getopnum() == rop.LABEL:
+                        new_descr = loop.operations[0].getdescr()
+                    stop_label = stop_label.copy_and_change(rop.JUMP,
+                                        descr=new_descr)
+                    self.optimizer.send_extra_operation(stop_label)
+                    loop.operations = self.optimizer.get_newoperations()
+                    return None
             final_state = self.export_state(stop_label)
         else:
             final_state = None
@@ -455,6 +471,21 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [])
             optimizer.send_extra_operation(guard)
+        if self.is_call_pure_with_exception(op):    # only for MemoryError
+            guard = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
+            optimizer.send_extra_operation(guard)
+
+    def is_call_pure_with_exception(self, op):
+        if op.getopnum() == rop.CALL_PURE:
+            effectinfo = op.getdescr().get_extra_info()
+            # Assert that only EF_ELIDABLE_CANNOT_RAISE or
+            # EF_ELIDABLE_OR_MEMORYERROR end up here, not
+            # for example EF_ELIDABLE_CAN_RAISE.
+            assert effectinfo.extraeffect in (
+                effectinfo.EF_ELIDABLE_CANNOT_RAISE,
+                effectinfo.EF_ELIDABLE_OR_MEMORYERROR)
+            return effectinfo.extraeffect != effectinfo.EF_ELIDABLE_CANNOT_RAISE
+        return False
 
     def add_op_to_short(self, op, emit=True, guards_needed=False):
         if op is None:
@@ -487,6 +518,9 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            self.add_op_to_short(guard, emit, guards_needed)
+        if self.is_call_pure_with_exception(op):    # only for MemoryError
+            guard = ResOperation(rop.GUARD_NO_EXCEPTION, [], None)
             self.add_op_to_short(guard, emit, guards_needed)
         for guard in value_guards:
             self.add_op_to_short(guard, emit, guards_needed)

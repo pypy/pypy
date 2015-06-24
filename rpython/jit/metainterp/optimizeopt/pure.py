@@ -144,8 +144,18 @@ class OptPure(Optimization):
         if self.optimizer.emitting_dissabled:
             self.extra_call_pure.append(op) # XXX
         else:
-            self.call_pure_positions.append(len(self.optimizer._newoperations)
-                                            - 1)
+            # don't move call_pure_with_exception in the short preamble...
+            # issue #2015
+
+            # XXX default has this code:
+            # this does not work with how pure calls are done on this branch
+            # fix together with unroll
+            #effectinfo = op.getdescr().get_extra_info()
+            #if not effectinfo.check_can_raise(ignore_memoryerror=True):
+            if 1:
+                self.call_pure_positions.append(
+                    len(self.optimizer._newoperations) - 1)
+
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
     optimize_CALL_PURE_N = optimize_CALL_PURE_I

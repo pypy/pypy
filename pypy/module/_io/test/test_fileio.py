@@ -197,18 +197,30 @@ class AppTestFileIO:
     def test_mode_strings(self):
         import _io
         import os
-        try:
-            for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
-                          ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
-                          ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
-                          ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
-                # read modes are last so that TESTFN will exist first
-                with _io.FileIO(self.tmpfile, modes[0]) as f:
-                    assert f.mode == modes[1]
-        finally:
-            if os.path.exists(self.tmpfile):
-                os.unlink(self.tmpfile)
+        for modes in [('w', 'wb'), ('wb', 'wb'), ('wb+', 'rb+'),
+                      ('w+b', 'rb+'), ('a', 'ab'), ('ab', 'ab'),
+                      ('ab+', 'ab+'), ('a+b', 'ab+'), ('r', 'rb'),
+                      ('rb', 'rb'), ('rb+', 'rb+'), ('r+b', 'rb+')]:
+            # read modes are last so that TESTFN will exist first
+            with _io.FileIO(self.tmpfile, modes[0]) as f:
+                assert f.mode == modes[1]
 
+    def test_flush_error_on_close(self):
+        # Test that the file is closed despite failed flush
+        # and that flush() is called before file closed.
+        import _io, os
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        f = _io.FileIO(fd, 'r', closefd=False)
+        closed = []
+        def bad_flush():
+            closed[:] = [f.closed]
+            raise IOError()
+        f.flush = bad_flush
+        raises(IOError, f.close) # exception not swallowed
+        assert f.closed
+        assert closed         # flush() called
+        assert not closed[0]  # flush() called before file closed
+        os.close(fd)
 
 def test_flush_at_exit():
     from pypy import conftest

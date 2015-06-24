@@ -5,7 +5,7 @@ class AppTestHashlib:
 
     def test_method_names(self):
         import _hashlib
-        assert isinstance(_hashlib.openssl_md_meth_names, set)
+        assert isinstance(_hashlib.openssl_md_meth_names, frozenset)
         assert "md5" in _hashlib.openssl_md_meth_names
 
     def test_simple(self):

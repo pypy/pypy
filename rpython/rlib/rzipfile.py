@@ -8,7 +8,7 @@ import os
 
 try:
     from rpython.rlib import rzlib
-except (ImportError, CompilationError):
+except CompilationError:
     rzlib = None
 
 crc_32_tab = [

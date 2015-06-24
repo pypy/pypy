@@ -308,6 +308,14 @@ class AppTestBytesObject:
         assert 'abc'.startswith('bc', 1, 2) is False
         assert 'abc'.startswith('c', -1, 4) is True
 
+    def test_startswith_too_large(self):
+        assert 'ab'.startswith('b', 1) is True
+        assert 'ab'.startswith('', 2) is True
+        assert 'ab'.startswith('', 3) is False
+        assert 'ab'.endswith('b', 1) is True
+        assert 'ab'.endswith('', 2) is True
+        assert 'ab'.endswith('', 3) is False
+
     def test_startswith_tuples(self):
         assert 'hello'.startswith(('he', 'ha'))
         assert not 'hello'.startswith(('lo', 'llo'))

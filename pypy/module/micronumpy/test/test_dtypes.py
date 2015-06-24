@@ -58,6 +58,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert exc.value[0] == "there are no fields defined"
 
         assert dtype('int8').num == 1
+        assert dtype(u'int8').num == 1
         assert dtype('int8').name == 'int8'
         assert dtype('void').name == 'void'
         assert dtype(int).fields is None
@@ -111,6 +112,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
 
+    def test_dtype_cmp(self):
+        from numpy import dtype
+        assert dtype('int8') <= dtype('int8')
+        assert not (dtype('int8') < dtype('int8'))
+
     def test_dtype_aliases(self):
         from numpy import dtype
         assert dtype('bool8') is dtype('bool')
@@ -140,16 +146,18 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert dtype('uint32').num == 8
             assert dtype('int64').num == 9
             assert dtype('uint64').num == 10
+            assert dtype('intp').num == 5
+            assert dtype('uintp').num == 6
         else:
             assert dtype('int32').num == 5
             assert dtype('uint32').num == 6
             assert dtype('int64').num == 7
             assert dtype('uint64').num == 8
+            assert dtype('intp').num == 7
+            assert dtype('uintp').num == 8
         assert dtype(int).num == 7
         assert dtype('int').num == 7
         assert dtype('uint').num == 8
-        assert dtype('intp').num == 7
-        assert dtype('uintp').num == 8
         assert dtype(long).num == 9
         assert dtype(float).num == 12
         assert dtype('float').num == 12
@@ -282,7 +290,7 @@ class AppTestDtypes(BaseAppTestDtypes):
             types += ['g', 'G']
         a = array([True], '?')
         for t in types:
-            assert (a + array([0], t)).dtype is dtype(t)
+            assert (a + array([0], t)).dtype == dtype(t)
 
     def test_binop_types(self):
         from numpy import array, dtype
@@ -306,7 +314,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         for d1, d2, dout in tests:
             # make a failed test print helpful info
             d3 = (array([1], d1) + array([1], d2)).dtype
-            assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
+            assert (d1, d2) == (d1, d2) and d3 == dtype(dout)
 
     def test_add(self):
         import numpy as np
@@ -472,11 +480,13 @@ class AppTestDtypes(BaseAppTestDtypes):
         class O(object):
             pass
         for o in [object, O]:
-            if '__pypy__' not in sys.builtin_module_names:
+            print np.dtype(o).byteorder
+            if self.ptr_size == 4:
+                assert np.dtype(o).str == '|O4'
+            elif self.ptr_size == 8:
                 assert np.dtype(o).str == '|O8'
             else:
-                exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
+                assert False,'self._ptr_size unknown'
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -842,36 +852,6 @@ class AppTestTypes(BaseAppTestDtypes):
             assert issubclass(int64, int)
             assert int_ is int64
 
-    def test_various_types(self):
-        import numpy
-
-        assert numpy.int16 is numpy.short
-        assert numpy.int8 is numpy.byte
-        assert numpy.bool_ is numpy.bool8
-        assert numpy.intp().dtype.num == 7
-        assert numpy.intp().dtype.char == 'l'
-        if self.ptr_size == 4:
-            assert numpy.intp().dtype.name == 'int32'
-            assert numpy.intp is numpy.int32
-            assert numpy.uintp is numpy.uint32
-        elif self.ptr_size == 8:
-            assert numpy.intp().dtype.name == 'int64'
-            assert numpy.intp is numpy.int64
-            assert numpy.uintp is numpy.uint64
-
-        assert issubclass(numpy.float64, numpy.floating)
-        assert issubclass(numpy.longfloat, numpy.floating)
-        assert not issubclass(numpy.float64, numpy.longfloat)
-        assert not issubclass(numpy.longfloat, numpy.float64)
-
-    def test_mro(self):
-        import numpy
-
-        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
-                                       numpy.integer, numpy.number,
-                                       numpy.generic, object)
-        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
-
     def test_operators(self):
         from operator import truediv
         from numpy import float64, int_, True_, False_
@@ -951,20 +931,22 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_intp(self):
         from numpy import dtype
-        for s in ['p', 'int']:
-            assert dtype(s) is dtype('intp')
-        for s in ['P', 'uint']:
-            assert dtype(s) is dtype('uintp')
-        assert dtype('p').num == 7
-        assert dtype('P').num == 8
-        assert dtype('p').char == 'l'
-        assert dtype('P').char == 'L'
+        assert dtype('p') is dtype('intp')
+        assert dtype('P') is dtype('uintp')
         assert dtype('p').kind == 'i'
         assert dtype('P').kind == 'u'
         if self.ptr_size == 4:
+            assert dtype('p').num == 5
+            assert dtype('P').num == 6
+            assert dtype('p').char == 'i'
+            assert dtype('P').char == 'I'
             assert dtype('p').name == 'int32'
             assert dtype('P').name == 'uint32'
         else:
+            assert dtype('p').num == 7
+            assert dtype('P').num == 8
+            assert dtype('p').char == 'l'
+            assert dtype('P').char == 'L'
             assert dtype('p').name == 'int64'
             assert dtype('P').name == 'uint64'
 
@@ -1101,6 +1083,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
         from numpy import dtype, void
 
+        d = dtype([('x', 'i4'), ('y', 'i1')], align=True)
+        assert d.itemsize == 8
         raises(ValueError, "dtype([('x', int), ('x', float)])")
         d = dtype([("x", "<i4"), ("y", "<f4"), ("z", "<u2"), ("v", "<f8")])
         assert d.fields['x'] == (dtype('<i4'), 0)
@@ -1146,6 +1130,20 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.descr == [('a', '<i8'), ('f1', '<f8')]
         exc = raises(ValueError, "dtype([('a', '<i8'), ('a', '<f8')])")
         assert exc.value[0] == 'two fields with the same name'
+
+    def test_array_from_record(self):
+        import numpy as np
+        a = np.array(('???', -999, -12345678.9), 
+                     dtype=[('c', '|S3'), ('a', '<i8'), ('b', '<f8')])
+        # Change the order of the keys
+        b = np.array(a, dtype=[('a', '<i8'), ('b', '<f8'), ('c', '|S3')])
+        assert b.base is None
+        assert b.dtype.fields['a'][1] == 0
+        assert b['a'] == -999
+        a = np.array(('N/A', 1e+20, 1e+20, 999999),
+                     dtype=[('name', '|S4'), ('x', '<f8'), 
+                            ('y', '<f8'), ('block', '<i8', (2, 3))])
+        assert (a['block'] == 999999).all()
 
     def test_create_from_dict(self):
         import numpy as np
@@ -1284,7 +1282,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, 
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None,
                      ('x', 'y', 'z', 'value'),
                      {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0),
                       'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12),
@@ -1348,15 +1346,4 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
 
-class AppTestObjectDtypes(BaseNumpyAppTest):
-    def test_scalar_from_object(self):
-        from numpy import array
-        import sys
-        class Polynomial(object):
-            pass
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(NotImplementedError, array, Polynomial())
-            assert exc.value.message.find('unable to create dtype from objects') >= 0
-        else:
-            a = array(Polynomial())
-            assert a.shape == ()
+

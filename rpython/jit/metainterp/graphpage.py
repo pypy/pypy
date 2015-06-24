@@ -1,7 +1,6 @@
 
 from rpython.translator.tool.graphpage import GraphPage
 from rpython.translator.tool.make_dot import DotGen
-from rpython.jit.metainterp.history import Box
 from rpython.jit.metainterp.resoperation import rop
 
 class SubGraph:
@@ -102,13 +101,8 @@ class ResOpGen(object):
         self.dotgen = DotGen('resop')
         self.dotgen.emit('clusterrank="local"')
         self.generrmsg()
-        _prev = Box._extended_display
-        try:
-            Box._extended_display = False
-            for i, graph in enumerate(self.graphs):
-                self.gengraph(graph, i)
-        finally:
-            Box._extended_display = _prev
+        for i, graph in enumerate(self.graphs):
+            self.gengraph(graph, i)
         # we generate the edges at the end of the file; otherwise, and edge
         # could mention a node before it's declared, and this can cause the
         # node declaration to occur too early -- in the wrong subgraph.
