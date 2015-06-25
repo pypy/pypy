@@ -370,67 +370,6 @@ else:
     def _prefer_unicode(path):
         return False
 
-<<<<<<< local
-
-@specialize.argtype(0)
-def unlink(path):
-    return os.unlink(_as_bytes(path))
-
-@specialize.argtype(0, 1)
-def rename(path1, path2):
-    return os.rename(_as_bytes(path1), _as_bytes(path2))
-
-@specialize.argtype(0, 1)
-def replace(path1, path2):
-    if os.name == 'nt':
-        raise NotImplementedError(
-            'On windows, os.replace() should overwrite the destination')
-    return os.rename(_as_bytes(path1), _as_bytes(path2))
-
-@specialize.argtype(0)
-def listdir(dirname):
-    return os.listdir(_as_bytes(dirname))
-
-@specialize.argtype(0)
-def access(path, mode):
-    return os.access(_as_bytes(path), mode)
-
-@specialize.argtype(0)
-def chmod(path, mode):
-    return os.chmod(_as_bytes(path), mode)
-
-@specialize.argtype(0, 1)
-def utime(path, times):
-    return os.utime(_as_bytes(path), times)
-
-@specialize.argtype(0)
-def chdir(path):
-    return os.chdir(_as_bytes(path))
-
-@specialize.argtype(0)
-def mkdir(path, mode=0777):
-    return os.mkdir(_as_bytes(path), mode)
-
-@specialize.argtype(0)
-def rmdir(path):
-    return os.rmdir(_as_bytes(path))
-
-@specialize.argtype(0)
-def mkfifo(path, mode):
-    os.mkfifo(_as_bytes(path), mode)
-
-@specialize.argtype(0)
-def mknod(path, mode, device):
-    os.mknod(_as_bytes(path), mode, device)
-
-@specialize.argtype(0, 1)
-def symlink(src, dest):
-    os.symlink(_as_bytes(src), _as_bytes(dest))
-
-if os.name == 'nt':
-    import nt
-=======
->>>>>>> other
     @specialize.argtype(0)
     def _preferred_traits(path):
         return string_traits
@@ -1115,6 +1054,13 @@ def rename(path1, path2):
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFile(path1, path2):
             raise rwin32.lastSavedWindowsError()
+
+@specialize.argtype(0, 1)
+def replace(path1, path2):
+    if os.name == 'nt':
+        raise NotImplementedError(
+            'On windows, os.replace() should overwrite the destination')
+    return rename(path1, path2)
 
 #___________________________________________________________________
 
