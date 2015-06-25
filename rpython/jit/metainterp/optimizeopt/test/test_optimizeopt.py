@@ -187,7 +187,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        short = """
+        [i2]
+        p3 = cast_int_to_ptr(i2)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
 
     def test_reverse_of_cast_2(self):
         ops = """
