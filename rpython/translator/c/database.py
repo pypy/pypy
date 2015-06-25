@@ -384,6 +384,9 @@ class LowLevelDatabase(object):
             return False
         if hasattr(fnobj, '_safe_not_sandboxed'):
             return not fnobj._safe_not_sandboxed
+        elif getattr(getattr(fnobj, '_callable', None),
+                     '_sandbox_external_name', None):
+            return True
         else:
             return "if_external"
 

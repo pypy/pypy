@@ -284,7 +284,7 @@ class TestRbuiltin(BaseRtypingTest):
         count = 0
         for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
             cfptr = dir_call.args[0]
-            assert self.get_callable(cfptr.value).__name__.startswith('os_open')
+            assert self.get_callable(cfptr.value).__name__ == 'open'
             count += 1
         assert count == 1
 

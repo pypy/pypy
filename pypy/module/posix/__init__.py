@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rtyper.module.ll_os import RegisterOs
+from rpython.rlib import rposix
 from rpython.rlib import rdynload
 
 import os
@@ -176,7 +176,7 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
 
-    for name in RegisterOs.w_star:
+    for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 

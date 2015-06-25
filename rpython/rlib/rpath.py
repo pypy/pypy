@@ -146,7 +146,7 @@ def _nt_rabspath(path):
     try:
         if path == '':
             path = os.getcwd()
-        return rposix._getfullpathname(path)
+        return rposix.getfullpathname(path)
     except OSError:
         return path
 

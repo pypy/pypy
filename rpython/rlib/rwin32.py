@@ -5,7 +5,7 @@ Common types, functions from core win32 libraries, such as kernel32
 import os
 import errno
 
-from rpython.rtyper.module.ll_os_environ import make_env_impls
+from rpython.rlib.rposix_environ import make_env_impls
 from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -289,7 +289,7 @@ if WIN32:
                 buflen -= 1
 
             if buflen <= 0:
-                result = fake_FormatError(code)
+                result = 'Windows Error %d' % (code,)
             else:
                 result = rffi.charpsize2str(s_buf, buflen)
         finally:
@@ -297,9 +297,6 @@ if WIN32:
             lltype.free(buf, flavor='raw')
 
         return result
-
-    def fake_FormatError(code):
-        return 'Windows Error %d' % (code,)
 
     def lastSavedWindowsError(context="Windows Error"):
         code = GetLastError_saved()
@@ -444,20 +441,5 @@ if WIN32:
         return rffi.cast(lltype.Signed, _GetConsoleCP())
     def GetConsoleOutputCP():
         return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
-
-    def os_kill(pid, sig):
-        if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
-            if GenerateConsoleCtrlEvent(sig, pid) == 0:
-                raise lastSavedWindowsError('os_kill failed generating event')
-            return
-        handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
-        if handle == NULL_HANDLE:
-            raise lastSavedWindowsError('os_kill failed opening process')
-        try:
-            if TerminateProcess(handle, sig) == 0:
-                raise lastSavedWindowsError(
-                    'os_kill failed to terminate process')
-        finally:
-            CloseHandle(handle)
 
     _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)

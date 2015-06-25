@@ -51,7 +51,7 @@ class EmptyProfiler(BaseProfiler):
 
 class Profiler(BaseProfiler):
     initialized = False
-    timer = time.time
+    timer = staticmethod(time.time)
     starttime = 0
     t1 = 0
     times = None

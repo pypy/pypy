@@ -210,8 +210,8 @@ class TestPosix(BaseRtypingTest):
             assert self.interpret(f, []) == 1
 
     def test_os_wstar(self):
-        from rpython.rtyper.module.ll_os import RegisterOs
-        for name in RegisterOs.w_star:
+        from rpython.rlib import rposix
+        for name in rposix.WAIT_MACROS:
             if not hasattr(os, name):
                 continue
             def fun(s):
