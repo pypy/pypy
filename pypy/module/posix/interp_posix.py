@@ -1444,6 +1444,12 @@ if _WIN32:
         return space.wrap(result)
 
 have_functions = []
-for name in """FSTAT FCHDIR OPENAT""".split():
+for name in """FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE FDOPENDIR
+               FPATHCONF FSTATAT FSTATVFS FTRUNCATE FUTIMENS FUTIMES
+               FUTIMESAT LINKAT LCHFLAGS LCHMOD LCHOWN LSTAT LUTIMES
+               MKDIRAT MKFIFOAT MKNODAT OPENAT READLINKAT RENAMEAT 
+               SYMLINKAT UNLINKAT UTIMENSAT""".split():
     if getattr(rposix, "HAVE_%s" % name):
         have_functions.append("HAVE_%s" % name)
+if _WIN32:
+    have_functions.append("HAVE_MS_WINDOWS")

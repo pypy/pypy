@@ -30,9 +30,12 @@ class CConfig:
                   'unistd.h',
                   'fcntl.h'],
     )
-    HAVE_FSTAT = rffi_platform.Has('fstat')
-    HAVE_FCHDIR = rffi_platform.Has('fchdir')
-    HAVE_OPENAT = rffi_platform.Has('openat')
+    for _name in """fchdir fchmod fchmodat fchown fchownat fexecve fdopendir
+                    fpathconf fstat fstatat fstatvfs ftruncate futimens futimes
+                    futimesat linkat lchflags lchmod lchown lstat lutimes
+                    mkdirat mkfifoat mknodat openat readlinkat renameat 
+                    symlinkat unlinkat utimensat""".split():
+        locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
 globals().update(cConfig)
 
