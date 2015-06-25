@@ -20,9 +20,10 @@ class RecentPureOps(object):
 
     def force_preamble_op(self, opt, op, i):
         if not isinstance(op, PreambleOp):
-            return
+            return op
         op = opt.force_op_from_preamble(op)
         self.lst[i] = op
+        return op
 
     def lookup1(self, opt, box0, descr):
         for i in range(self.REMEMBER_LIMIT):
@@ -30,7 +31,7 @@ class RecentPureOps(object):
             if op is None:
                 break
             if opt.get_box_replacement(op.getarg(0)).same_box(box0) and op.getdescr() is descr:
-                self.force_preamble_op(opt, op, i)
+                op = self.force_preamble_op(opt, op, i)
                 return opt.get_box_replacement(op)
         return None
 
@@ -41,7 +42,7 @@ class RecentPureOps(object):
                 break
             if (opt.get_box_replacement(op.getarg(0)).same_box(box0) and opt.get_box_replacement(op.getarg(1)).same_box(box1)
                 and op.getdescr() is descr):
-                self.force_preamble_op(opt, op, i)
+                op = self.force_preamble_op(opt, op, i)
                 return opt.get_box_replacement(op)
         return None
 
