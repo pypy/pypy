@@ -61,7 +61,7 @@ class SchedulerBaseTest(DependencyBaseTest):
     def pack(self, loop, l, r):
         return Pack([Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])], None, None)
 
-    def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False, getvboxfunc=None):
+    def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False, overwrite_funcs=None):
         loop = get_model(False).ExtendedTreeLoop("loop")
         loop.original_jitcell_token = loop_orig.original_jitcell_token
         loop.inputargs = loop_orig.inputargs
@@ -69,8 +69,8 @@ class SchedulerBaseTest(DependencyBaseTest):
         ops = []
         cm = X86_CostModel(0, vec_reg_size)
         vsd = VecScheduleData(vec_reg_size, cm)
-        if getvboxfunc is not None:
-            vsd.getvector_of_box = getvboxfunc
+        for name, overwrite in (overwrite_funcs or {}).items():
+            setattr(vsd, name, overwrite)
         renamer = Renamer()
         for pack in packs:
             if pack.opcount() == 1:
@@ -191,7 +191,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         var = self.find_input_arg('v10', loop1)
         def i1inv103204(v):
             return 0, var
-        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True, getvboxfunc=i1inv103204)
+        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True,
+                              overwrite_funcs = {
+                                'getvector_of_box': i1inv103204,
+                              })
         loop3 = self.parse("""
         v11[i32|2] = vec_int_signext(v10[i64|2], 4)
         """, False, additional_args=['v10[i64|2]'])
@@ -239,7 +242,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 8, 16)
         pack3 = self.pack(loop1, 16, 24)
         pack4 = self.pack(loop1, 24, 32)
-        loop2 = self.schedule(loop1, [pack1,pack2,pack3,pack4])
+        def void(b,c):
+            pass
+        loop2 = self.schedule(loop1, [pack1,pack2,pack3,pack4],
+                              overwrite_funcs={
+                                  '_prevent_signext': void
+                              })
         loop3 = self.parse("""
         v10[f64|2] = vec_raw_load(p0, i1, 2, descr=double)
         v11[f64|2] = vec_raw_load(p0, i3, 2, descr=double)

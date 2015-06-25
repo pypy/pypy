@@ -76,10 +76,11 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                        ns))
         debug_stop("xxx-clock")
     except NotAVectorizeableLoop:
+        debug_stop("vec-opt-loop")
         # vectorization is not possible
         loop.operations = orig_ops
-        debug_stop("vec-opt-loop")
     except NotAProfitableLoop:
+        debug_stop("vec-opt-loop")
         # cost model says to skip this loop
         loop.operations = orig_ops
     except Exception as e:

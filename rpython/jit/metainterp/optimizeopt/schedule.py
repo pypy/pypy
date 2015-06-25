@@ -250,15 +250,11 @@ class OpToVectorOp(object):
             # prohibit the packing of signext calls that
             # cast to int16/int8.
             _, outsize = op0.cast_to()
-            self._prevent_signext(outsize, insize)
+            self.sched_data._prevent_signext(outsize, insize)
         if op0.getopnum() == rop.INT_MUL:
             if insize == 8 or insize == 1:
                 # see assembler for comment why
                 raise NotAProfitableLoop
-
-    def _prevent_signext(self, outsize, insize):
-        if outsize < 4 and insize != outsize:
-            raise NotAProfitableLoop
 
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
@@ -394,7 +390,7 @@ class OpToVectorOp(object):
 
     def extend_int(self, vbox, newtype):
         vbox_cloned = newtype.new_vector_box(vbox.item_count)
-        self._prevent_signext(newtype.getsize(), vbox.getsize())
+        self.sched_data._prevent_signext(newtype.getsize(), vbox.getsize())
         op = ResOperation(rop.VEC_INT_SIGNEXT, 
                           [vbox, ConstInt(newtype.getsize())],
                           vbox_cloned)
@@ -675,6 +671,10 @@ class VecScheduleData(SchedulerData):
         self.invariant_vector_vars = []
         self.expanded_map = {}
         self.costmodel = costmodel
+
+    def _prevent_signext(self, outsize, insize):
+        if outsize < 4 and insize != outsize:
+            raise NotAProfitableLoop
 
     def as_vector_operation(self, pack, preproc_renamer):
         assert pack.opcount() > 1

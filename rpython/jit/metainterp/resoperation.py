@@ -814,8 +814,8 @@ _opvector = {
     rop.CAST_FLOAT_TO_INT: rop.VEC_CAST_FLOAT_TO_INT,
 
     # guard
-    #rop.GUARD_TRUE: rop.GUARD_TRUE,
-    #rop.GUARD_FALSE: rop.GUARD_FALSE,
+    rop.GUARD_TRUE: rop.GUARD_TRUE,
+    rop.GUARD_FALSE: rop.GUARD_FALSE,
 }
 
 
