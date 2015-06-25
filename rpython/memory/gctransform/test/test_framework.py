@@ -1,6 +1,6 @@
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator.model import SomeInteger
-from rpython.flowspace.model import Constant, SpaceOperation
+from rpython.flowspace.model import Constant, SpaceOperation, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gc.semispace import SemiSpaceGC
@@ -231,6 +231,33 @@ def test_write_barrier_support_setinteriorfield():
          Constant('b', lltype.Void), varoftype(PTR_TYPE2)],
         varoftype(lltype.Void)))
 
+def test_remove_duplicate_write_barrier():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+
+    class A(object):
+        pass
+    glob_a_1 = A()
+    glob_a_2 = A()
+
+    def f(a, cond):
+        a.x = a
+        a.z = a
+        if cond:
+            a.y = a
+    def g():
+        f(glob_a_1, 5)
+        f(glob_a_2, 0)
+    t = rtype(g, [])
+    t.config.translation.gc = "minimark"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=FrameworkGcPolicy2)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['direct_call'] == 1    # only one remember_young_pointer
+
 def test_find_initializing_stores():
 
     class A(object):
@@ -246,7 +273,8 @@ def test_find_initializing_stores():
     etrafo = ExceptionTransformer(t)
     graphs = etrafo.transform_completely()
     collect_analyzer = CollectAnalyzer(t)
-    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0])
+    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0],
+                                           mkentrymap(t.graphs[0]))
     assert len(init_stores) == 1
 
 def test_find_initializing_stores_across_blocks():
@@ -271,7 +299,8 @@ def test_find_initializing_stores_across_blocks():
     etrafo = ExceptionTransformer(t)
     graphs = etrafo.transform_completely()
     collect_analyzer = CollectAnalyzer(t)
-    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0])
+    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0],
+                                           mkentrymap(t.graphs[0]))
     assert len(init_stores) == 5
 
 def test_find_clean_setarrayitems():
