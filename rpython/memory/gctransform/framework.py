@@ -53,7 +53,8 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                     LL_OPERATIONS[op.opname].canmallocgc)
 
 def propagate_no_write_barrier_needed(result, block, mallocvars,
-                                      collect_analyzer, entrymap):
+                                      collect_analyzer, entrymap,
+                                      startindex=0):
     # We definitely know that no write barrier is needed in the 'block'
     # for any of the variables in 'mallocvars'.  Propagate this information
     # forward.  Note that "definitely know" implies that we just did either
@@ -61,6 +62,8 @@ def propagate_no_write_barrier_needed(result, block, mallocvars,
     # that we just did a full write barrier (not just for card marking).
     if 1:       # keep indentation
         for i, op in enumerate(block.operations):
+            if i < startindex:
+                continue
             if op.opname in ("cast_pointer", "same_as"):
                 if op.args[0] in mallocvars:
                     mallocvars[op.result] = True
@@ -1283,11 +1286,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 # this helper to propagate this knowledge forward and
                 # avoid to repeat the write barrier.
                 if self.curr_block is not None:   # for tests
+                    assert self.curr_block.operations[hop.index] is hop.spaceop
                     propagate_no_write_barrier_needed(self.clean_sets,
                                                       self.curr_block,
                                                       {v_struct: True},
                                                       self.collect_analyzer,
-                                                      self._entrymap)
+                                                      self._entrymap,
+                                                      hop.index + 1)
         hop.rename('bare_' + opname)
 
     def transform_getfield_typeptr(self, hop):
