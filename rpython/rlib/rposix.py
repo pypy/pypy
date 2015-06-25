@@ -1349,6 +1349,7 @@ def killpg(pgrp, sig):
     return handle_posix_error('killpg', c_killpg(pgrp, sig))
 
 @replace_os_function('_exit')
+@jit.dont_look_inside
 def exit(status):
     debug.debug_flush()
     c_exit(status)
