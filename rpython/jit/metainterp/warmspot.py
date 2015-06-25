@@ -53,11 +53,9 @@ class XXXBench(object):
 
     def xxx_clock_stop(self, fail=False):
         end = time.clock()
-        if len(self.t) == 0:
-            return
+        assert len(self.t) > 0
         start = self.t[-1]
-        if not fail:
-            del self.t[-1]
+        del self.t[-1]
         ns = (end - start) * 10**9
         debug_start("xxx-clock")
         debug_print("stop name: %s id: %s clock: %f exe time: %dns fail? %d vec? %d" % \
@@ -869,10 +867,6 @@ class WarmRunnerDesc(object):
                     else:
                         value = cast_base_ptr_to_instance(Exception, value)
                         raise Exception, value
-                finally:
-                    # XXX debug purpose only
-                    jd.xxxbench.xxx_clock_stop(fail=False)
-                    # XXX debug purpose only end
 
 
         def handle_jitexception(e):
