@@ -3,7 +3,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llgroup
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gctransform.support import get_rtti
 from rpython.memory.gctransform.framework import (TYPE_ID,
-     BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
+     BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr,
+     propagate_no_write_barrier_needed)
 from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.memory.gc.stmgc import StmGC
 from rpython.rlib.debug import ll_assert
@@ -168,6 +169,15 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             else:
                 self.write_barrier_calls += 1
                 hop.genop("stm_write", [v_struct])
+                # we just did a full write barrier here, so we can use
+                # this helper to propagate this knowledge forward and
+                # avoid to repeat the write barrier.
+                if self.curr_block is not None:   # for tests
+                    propagate_no_write_barrier_needed(self.clean_sets,
+                                                      self.curr_block,
+                                                      {v_struct: True},
+                                                      self.collect_analyzer,
+                                                      self._entrymap)
         hop.rename('bare_' + opname)
 
     def gct_gc_writebarrier(self, hop):
