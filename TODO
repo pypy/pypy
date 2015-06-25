@@ -7,13 +7,25 @@ requires two instructions too)
 
 ------------------------------------------------------------
 
-better heuristic of when to break transactions? e.g., we should
-rarely break if there are not threads running in parallel.
-But we need to break sometimes in order to run finalizers...
+check what occurs with finalizers: in single-threaded programs
+they are fine, but in this example they seem not called often
+enough:
 
-IMPROVED, but we should check if we break often enough to run
-finaliers from time to time, or if we really make infinite
-transactions
+    import gc, thread, time
+    class Foo(object):
+        count = 0
+        def __init__(self):
+            Foo.count += 1
+        def __del__(self):
+            Foo.count -= 1
+    def f():
+        while True:
+            [Foo() for j in range(100000)]
+            gc.collect()
+            print Foo.count
+    thread.start_new_thread(f, ())
+    thread.start_new_thread(f, ())
+    time.sleep(99)
 
 ------------------------------------------------------------
 
