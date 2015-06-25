@@ -5,11 +5,12 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
 from rpython.jit.metainterp.logger import LogOperations
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
-from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
+     Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         ShortBoxes, BadVirtualState, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     OpHelpers, AbstractInputArg, GuardResOp
+     OpHelpers, AbstractInputArg, GuardResOp, AbstractResOp
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -23,6 +24,17 @@ def optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
     opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, loop, optimizations)
     opt.inline_short_preamble = inline_short_preamble
     return opt.propagate_all_forward(start_state, export_state)
+
+
+class PreambleOp(AbstractResOp):
+    def __init__(self, op):
+        self.op = op
+
+    def getarg(self, i):
+        return self.op.getarg(i)
+
+    def __repr__(self):
+        return "Preamble(%r)" % (self.op,)
 
 
 class UnrollableOptimizer(Optimizer):
@@ -44,6 +56,11 @@ class UnrollableOptimizer(Optimizer):
             self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
         self._emit_operation(op)
 
+    def force_op_from_preamble(self, op):
+        op = op.op
+        self.optunroll.short.append(op)
+        return op
+
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -55,6 +72,7 @@ class UnrollOptimizer(Optimization):
     def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
                                              loop, optimizations)
+        self.optimizer.optunroll = self
         self.boxes_created_this_iteration = None
 
     def get_virtual_state(self, args):
@@ -121,11 +139,12 @@ class UnrollOptimizer(Optimization):
                 # Initial label matches, jump to it
                 jumpop = ResOperation(rop.JUMP, stop_label.getarglist(),
                                       descr=start_label.getdescr())
-                if self.short:
-                    # Construct our short preamble
-                    self.close_loop(start_label, jumpop, patchguardop)
-                else:
-                    self.optimizer.send_extra_operation(jumpop)
+                #if self.short:
+                #    # Construct our short preamble
+                #    self.close_loop(start_label, jumpop, patchguardop)
+                #else:
+                start_label.getdescr().short_preamble = self.short
+                self.optimizer.send_extra_operation(jumpop)
                 return
 
             if cell_token.target_tokens:
@@ -275,10 +294,19 @@ class UnrollOptimizer(Optimization):
 
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result
-        self.optimizer.emitting_dissabled = True
-        for source, target in exported_state.inputarg_setup_ops:
-            source.set_forwarded(target)
+        #self.optimizer.emitting_dissabled = True
+        # think about it, it seems to be just for consts
+        #for source, target in exported_state.inputarg_setup_ops:
+        #    source.set_forwarded(target)
 
+        for op in self.short_boxes.operations():
+            if not op:
+                continue
+            if op.is_always_pure():
+                self.pure(op.getopnum(), PreambleOp(op))
+            else:
+                yyy
+        return
         seen = {}
         for op in self.short_boxes.operations():
             self.ensure_short_op_emitted(op, self.optimizer, seen)

@@ -233,6 +233,7 @@ class Optimizer(Optimization):
         self.optpure = None
         self.optheap = None
         self.optearlyforce = None
+        self.optunroll = None
         # the following two fields is the data kept for unrolling,
         # those are the operations that can go to the short_preamble
         if loop is not None:
@@ -306,9 +307,6 @@ class Optimizer(Optimization):
         if info is not None:
             return info.force_box(op, self)
         return op
-
-    def ensure_imported(self, value):
-        pass
 
     def is_inputarg(self, op):
         return op in self.inparg_dict
@@ -409,7 +407,7 @@ class Optimizer(Optimization):
                                op.getdescr().get_index())
         elif op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC:
             opinfo = info.ArrayPtrInfo(op.getdescr())
-        elif op.getopnum() == rop.GUARD_CLASS:
+        elif op.getopnum() in (rop.GUARD_CLASS, rop.GUARD_NONNULL_CLASS):
             opinfo = info.InstancePtrInfo()
         elif op.getopnum() in (rop.STRLEN,):
             opinfo = vstring.StrPtrInfo(vstring.mode_string)            
