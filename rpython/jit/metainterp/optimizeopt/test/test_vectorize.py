@@ -1397,21 +1397,18 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0, p1, p5, p6, p7, p17, p19, i68, i39, i44, i49, i51)
         """
         trace="""
-        [p3, i4, p1, i5, i6, i7]
-        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7f3afe4fb830>) [p1, i5, i4, p3]
-        i8 = raw_load(i6, i5, descr=intarraydescr)
-        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7f3afe4fb888>) [p1, i8, i5, i4, p3]
-        i10 = int_and(i8, 255)
-        guard_false(i10, descr=<ResumeGuardFalseDescr object at 0x7f3afe4fb8e0>) [p1, i5, i4, p3]
-        i13 = getarrayitem_raw(139891327308826, 2, descr=chararraydescr)
-        guard_value(i13, 1, descr=<ResumeGuardValueDescr object at 0x7f3afe4fb938>) [i13, p1, i5, i4, p3]
-        i17 = getarrayitem_raw(139891327308824, 1, descr=chararraydescr)
-        i19 = int_add(i4, 1)
-        i21 = int_add(i5, 8)
-        i22 = int_ge(i19, i7)
-        guard_false(i22, descr=<ResumeGuardFalseDescr object at 0x7f3afe4fb990>) [i17, p1, i21, i19, None, None, p3]
-        guard_value(i17, 2, descr=<ResumeGuardValueDescr object at 0x7f3afe4fb9e8>) [i17, p1, i21, i19, None, None, p3]
-        jump(p3, i19, p1, i21, i6, i7)
+        [p0, p3, i4, i5, i6, i7]
+        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f492da84250>) [p0, p3, i4, i5]
+        f8 = raw_load(i6, i5, descr=floatarraydescr)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f492da846d0>) [p0, f8, p3, i4, i5]
+        i9 = cast_float_to_int(f8)
+        i11 = int_and(i9, 255)
+        guard_true(i11, descr=<rpython.jit.metainterp.compile.ResumeGuardTrueDescr object at 0x7f492da8b790>) [p0, p3, i4, i5]
+        i13 = int_add(i4, 1)
+        i15 = int_add(i5, 8)
+        i16 = int_ge(i13, i7)
+        guard_false(i16, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f492da93610>) [p0, i13, i15, p3, None, None]
+        jump(p0, p3, i13, i15, i6, i7)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)

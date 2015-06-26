@@ -339,6 +339,11 @@ class VectorizingOptimizer(Optimizer):
             for rdep in pack.right.depends():
                 lnode = ldep.to
                 rnode = rdep.to
+                # only valid if the result of the left is in args of pack left
+                result = lnode.getoperation().result
+                args = pack.left.getoperation().getarglist()
+                if result is None or result not in args:
+                    continue
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
                     pair = self.packset.can_be_packed(lnode, rnode, pack, False)
@@ -351,6 +356,10 @@ class VectorizingOptimizer(Optimizer):
             for rdep in pack.right.provides():
                 lnode = ldep.to
                 rnode = rdep.to
+                result = pack.left.getoperation().result
+                args = lnode.getoperation().getarglist()
+                if result is None or result not in args:
+                    continue
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
                     pair = self.packset.can_be_packed(lnode, rnode, pack, True)

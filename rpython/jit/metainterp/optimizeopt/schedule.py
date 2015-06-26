@@ -269,8 +269,10 @@ class OpToVectorOp(object):
         left = len(pack.operations)
         assert stride > 0
         while off < len(pack.operations):
-            if left < stride:
-                self.preamble_ops.append(pack.operations[off].getoperation())
+            print left, "<", stride
+            if stride == 1:
+                op = pack.operations[off].getoperation()
+                self.preamble_ops.append(op)
                 off += 1
                 continue
             ops = pack.operations[off:off+stride]
@@ -294,9 +296,6 @@ class OpToVectorOp(object):
         if bytes > vec_reg_size:
             # too many bytes. does not fit into the vector register
             return vec_reg_size // self.getscalarsize()
-        if bytes < vec_reg_size:
-            # not enough to fill the vector register
-            return 1
         return pack.opcount()
 
     def getscalarsize(self):
@@ -316,12 +315,16 @@ class OpToVectorOp(object):
             if isinstance(arg, BoxVector):
                 continue
             if self.is_vector_arg(i):
-                args[i] = self.transform_argument(args[i], i, off)
+                args[i] = self.transform_argument(args[i], i, off, stride)
         #
         result = op.result
         result = self.transform_result(result, off)
         #
         vop = ResOperation(op.vector, args, result, op.getdescr())
+        if op.is_guard():
+            assert isinstance(op, GuardResOp)
+            vop.setfailargs(op.getfailargs())
+            vop.rd_snapshot = op.rd_snapshot
         self.preamble_ops.append(vop)
 
     def transform_result(self, result, off):
@@ -342,7 +345,7 @@ class OpToVectorOp(object):
         signed = self.output_type.signed
         return BoxVector(type, count, size, signed)
 
-    def transform_argument(self, arg, argidx, off):
+    def transform_argument(self, arg, argidx, off, stride):
         ops = self.pack.operations
         box_pos, vbox = self.sched_data.getvector_of_box(arg)
         if not vbox:
@@ -359,7 +362,8 @@ class OpToVectorOp(object):
         packed = vbox.item_count
         assert packed >= 0
         assert packable >= 0
-        if packed < packable:
+        vboxes = self.vector_boxes_for_args(argidx)
+        if len(vboxes) > 1: # packed < packable and packed < stride:
             # the argument is scattered along different vector boxes
             args = [op.getoperation().getarg(argidx) for op in ops]
             vbox = self._pack(vbox, packed, args, packable)
@@ -379,7 +383,19 @@ class OpToVectorOp(object):
             vbox = self.unpack(vbox, args, off, len(ops), self.input_type)
             self.update_input_output(self.pack)
         #
+        assert vbox is not None
         return vbox
+
+    def vector_boxes_for_args(self, index):
+        args = [op.getoperation().getarg(index) for op in self.pack.operations]
+        vboxes = []
+        last_vbox = None
+        for arg in args:
+            pos, vbox = self.sched_data.getvector_of_box(arg)
+            if vbox != last_vbox and vbox is not None:
+                vboxes.append(vbox)
+        return vboxes
+
 
     def extend(self, vbox, newtype):
         assert vbox.gettype() == newtype.gettype()
@@ -443,6 +459,7 @@ class OpToVectorOp(object):
                 self.sched_data.setvector_of_box(arg, j, new_box)
             tgt_box = new_box
         _, vbox = self.sched_data.getvector_of_box(args[0])
+        assert vbox is not None
         return vbox
 
     def _check_vec_pack(self, op):
@@ -589,6 +606,11 @@ class LoadToVectorLoad(OpToVectorOp):
         return BoxVector(type, count, size, signed)
 
 class StoreToVectorStore(OpToVectorOp):
+    """
+    Storing operations are special because they are not allowed
+    to store to memory if the vector is not fully filled.
+    Thus a modified split_pack function
+    """
     def __init__(self):
         OpToVectorOp.__init__(self, (None, None, PT_GENERIC), None)
         self.has_descr = True
@@ -598,6 +620,20 @@ class StoreToVectorStore(OpToVectorOp):
 
     def determine_output_type(self, op):
         return None
+
+    def split_pack(self, pack, vec_reg_size):
+        """ Returns how many items of the pack should be
+            emitted as vector operation. """
+        bytes = pack.opcount() * self.getscalarsize()
+        if bytes > vec_reg_size:
+            # too many bytes. does not fit into the vector register
+            return vec_reg_size // self.getscalarsize()
+        if bytes < vec_reg_size:
+            # special case for store, even though load is allowed
+            # to load more, store is not!
+            # not enough to fill the vector register
+            return 1
+        return pack.opcount()
 
 class PassThroughOp(OpToVectorOp):
     """ This pass through is only applicable if the target

@@ -79,6 +79,16 @@ class SchedulerBaseTest(DependencyBaseTest):
                 for op in vsd.as_vector_operation(pack, renamer):
                     ops.append(op)
         loop.operations = ops
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        jitdriver_sd = FakeJitDriverStaticData()
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
+        opt.clear_newoperations()
+        for op in ops:
+            opt.unpack_from_vector(op, vsd, renamer)
+            opt.emit_operation(op)
+        ops = opt._newoperations
+        loop.operations = ops
+
         if prepend_invariant:
             loop.operations = vsd.invariant_oplist + ops
         return loop
@@ -100,8 +110,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse("""
         v10[i32|4] = vec_raw_load(p0, i0, 4, descr=float)
-        i14 = raw_load(p0, i4, descr=float)
-        i15 = raw_load(p0, i5, descr=float)
+        v11[i32|2] = vec_raw_load(p0, i4, 2, descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -109,12 +118,15 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop1 = self.parse("""
         i10 = raw_load(p0, i0, descr=long)
         i11 = raw_load(p0, i1, descr=long)
-        f10 = cast_int_to_float(i10)
-        f11 = cast_int_to_float(i11)
+        i12 = int_signext(i10, 4)
+        i13 = int_signext(i11, 4)
+        f10 = cast_int_to_float(i12)
+        f11 = cast_int_to_float(i13)
         """)
         pack1 = self.pack(loop1, 0, 2)
         pack2 = self.pack(loop1, 2, 4)
-        loop2 = self.schedule(loop1, [pack1, pack2])
+        pack3 = self.pack(loop1, 4, 6)
+        loop2 = self.schedule(loop1, [pack1, pack2, pack3])
         loop3 = self.parse("""
         v10[i64|2] = vec_raw_load(p0, i0, 2, descr=long)
         v20[i32|2] = vec_int_signext(v10[i64|2], 4)
@@ -321,3 +333,54 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         guard_true(v11[i64|2]) []
         """, False)
         self.assert_equal(loop2, loop3)
+
+
+    def test_split_load_store(self):
+        loop1 = self.parse("""
+        i10 = raw_load(p0, i1, descr=float)
+        i11 = raw_load(p0, i2, descr=float)
+        raw_store(p0, i3, i10, descr=float)
+        raw_store(p0, i4, i11, descr=float)
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        pack2 = self.pack(loop1, 2, 4)
+        loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
+        loop3 = self.parse("""
+        v1[ui32|2] = vec_raw_load(p0, i1, 2, descr=float)
+        i10 = vec_int_unpack(v1[ui32|2], 0, 1)
+        raw_store(p0, i3, i10, descr=float)
+        i11 = vec_int_unpack(v1[ui32|2], 1, 1)
+        raw_store(p0, i4, i11, descr=float)
+        """, False)
+        # unfortunate ui32 is the type for float32... the unsigned u is for
+        # the tests
+        self.assert_equal(loop2, loop3)
+
+    def test_split_arith(self):
+        loop1 = self.parse("""
+        i10 = int_and(255, i1)
+        i11 = int_and(255, i1)
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
+        loop3 = self.parse("""
+        v1[i64|2] = vec_int_expand(255)
+        v2[i64|2] = vec_int_expand(i1)
+        v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
+        """, False)
+        self.assert_equal(loop2, loop3)
+
+    def test_split_arith(self):
+        loop1 = self.parse("""
+        i10 = int_and(255, i1)
+        i11 = int_and(255, i1)
+        """)
+        pack1 = self.pack(loop1, 0, 2)
+        loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
+        loop3 = self.parse("""
+        v1[i64|2] = vec_int_expand(255)
+        v2[i64|2] = vec_int_expand(i1)
+        v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
+        """, False)
+        self.assert_equal(loop2, loop3)
+
