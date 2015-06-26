@@ -229,6 +229,7 @@ class OpToVectorOp(object):
         self.output_type = None
         self.costmodel = None
 
+
     def determine_input_type(self, op):
         arg = op.getarg(0)
         _, vbox = self.sched_data.getvector_of_box(arg)
@@ -267,15 +268,22 @@ class OpToVectorOp(object):
         #
         self.check_if_pack_supported(pack)
         #
-        self.pack = pack
-        self.transform_pack()
-
+        if self.must_be_full_but_is_not(pack):
+            for op in pack.operations:
+                self.preamble_ops.append(op.getoperation())
+        else:
+            self.pack = pack
+            self.transform_pack()
+        #
         self.pack = None
         self.costmodel = None
         self.preamble_ops = None
         self.sched_data = None
         self.input_type = None
         self.output_type = None
+
+    def must_be_full_but_is_not(self, pack):
+        return False
 
     def split_pack(self, pack, vec_reg_size):
         """ Returns how many items of the pack should be
@@ -294,11 +302,9 @@ class OpToVectorOp(object):
         pass
 
     def transform_pack(self):
-        op = self.pack.operations[0].getoperation()
+        op = self.pack.leftmost()
         args = op.getarglist()
-        #
         self.before_argument_transform(args)
-        #
         self.transform_arguments(args)
         #
         result = op.result
@@ -614,6 +620,7 @@ class SignExtToVectorOp(OpToVectorOp):
         assert isinstance(sizearg, ConstInt)
         self.size = sizearg.value
 
+
     def new_result_vector_box(self):
         type = self.output_type.gettype()
         count = self.input_type.getcount()
@@ -655,6 +662,11 @@ class StoreToVectorStore(OpToVectorOp):
 
     def determine_input_type(self, op):
         return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+
+    def must_be_full_but_is_not(self, pack):
+        vrs = self.sched_data.vec_reg_size
+        it = pack.input_type
+        return it.getsize() * it.getcount() < vrs
 
     def determine_output_type(self, op):
         return None
@@ -833,7 +845,6 @@ class Pack(object):
         ptype = self.input_type
         if self.input_type is None:
             # load does not have an input type, but only an output type
-            assert self.leftmost().is_raw_load()
             ptype = self.output_type
 
         op = self.leftmost()

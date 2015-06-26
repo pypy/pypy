@@ -3,7 +3,8 @@ import py
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists, Renamer
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
-        Pack, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel)
+        Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
+        PackSet)
 from rpython.jit.metainterp.optimizeopt.dependency import Node
 from rpython.jit.metainterp.optimizeopt.schedule import PackType
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
@@ -13,6 +14,14 @@ from rpython.jit.metainterp.optimizeopt.test.test_vectorize import (FakeMetaInte
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
+
+F64 = PackType('f',8,True,2)
+F32 = PackType('f',4,True,4)
+F32_2 =  PackType('f',4,True,2)
+I64 = PackType('i',8,True,2)
+I32 = PackType('i',4,True,4)
+I32_2 =  PackType('i',4,True,2)
+I16 = PackType('i',2,True,8)
 
 class SchedulerBaseTest(DependencyBaseTest):
 
@@ -58,8 +67,8 @@ class SchedulerBaseTest(DependencyBaseTest):
         del loop.operations[-1]
         return loop
 
-    def pack(self, loop, l, r):
-        return Pack([Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])], None, None)
+    def pack(self, loop, l, r, input_type, output_type):
+        return Pack([Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])], input_type, output_type)
 
     def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False, overwrite_funcs=None):
         loop = get_model(False).ExtendedTreeLoop("loop")
@@ -72,16 +81,32 @@ class SchedulerBaseTest(DependencyBaseTest):
         for name, overwrite in (overwrite_funcs or {}).items():
             setattr(vsd, name, overwrite)
         renamer = Renamer()
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        jitdriver_sd = FakeJitDriverStaticData()
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
+        pairs = []
         for pack in packs:
+            for i in range(len(pack.operations)-1):
+                o1 = pack.operations[i]
+                o2 = pack.operations[i+1]
+                pairs.append(Pair(o1,o2,pack.input_type,pack.output_type))
+
+        class FakePackSet(PackSet):
+            def __init__(self):
+                self.packs = None
+
+        opt.packset = FakePackSet()
+        opt.packset.packs = pairs
+
+        opt.combine_packset()
+
+        for pack in opt.packset.packs:
             if pack.opcount() == 1:
                 ops.append(pack.operations[0].getoperation())
             else:
                 for op in vsd.as_vector_operation(pack, renamer):
                     ops.append(op)
         loop.operations = ops
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
         opt.clear_newoperations()
         for op in ops:
             opt.unpack_from_vector(op, vsd, renamer)
@@ -106,7 +131,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i14 = raw_load(p0, i4, descr=float)
         i15 = raw_load(p0, i5, descr=float)
         """)
-        pack1 = self.pack(loop1, 0, 6)
+        pack1 = self.pack(loop1, 0, 6, None, F32)
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse("""
         v10[i32|4] = vec_raw_load(p0, i0, 4, descr=float)
@@ -123,9 +148,9 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         f10 = cast_int_to_float(i12)
         f11 = cast_int_to_float(i13)
         """)
-        pack1 = self.pack(loop1, 0, 2)
-        pack2 = self.pack(loop1, 2, 4)
-        pack3 = self.pack(loop1, 4, 6)
+        pack1 = self.pack(loop1, 0, 2, None, I64)
+        pack2 = self.pack(loop1, 2, 4, I64, I32_2)
+        pack3 = self.pack(loop1, 4, 6, I32_2, F32_2)
         loop2 = self.schedule(loop1, [pack1, pack2, pack3])
         loop3 = self.parse("""
         v10[i64|2] = vec_raw_load(p0, i0, 2, descr=long)
@@ -139,7 +164,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i10 = int_add(i0, 73)
         i11 = int_add(i1, 73)
         """)
-        pack1 = self.pack(loop1, 0, 2)
+        pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v10[i64|2] = vec_box(2)
@@ -155,7 +180,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         f10 = float_add(f0, 73.0)
         f11 = float_add(f1, 73.0)
         """)
-        pack1 = self.pack(loop1, 0, 2)
+        pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v10[f64|2] = vec_box(2)
@@ -174,8 +199,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         f12 = float_add(f10, f5)
         f13 = float_add(f11, f5)
         """)
-        pack1 = self.pack(loop1, 0, 2)
-        pack2 = self.pack(loop1, 2, 4)
+        pack1 = self.pack(loop1, 0, 2, F64, F64)
+        pack2 = self.pack(loop1, 2, 4, F64, F64)
         loop2 = self.schedule(loop1, [pack1, pack2], prepend_invariant=True)
         loop3 = self.parse("""
         v10[f64|2] = vec_box(2)
@@ -199,7 +224,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i10 = int_signext(i1, 4)
         i11 = int_signext(i1, 4)
         """, additional_args=['v10[i64|2]'])
-        pack1 = self.pack(loop1, 0, 2)
+        pack1 = self.pack(loop1, 0, 2, I64, I32_2)
         var = self.find_input_arg('v10', loop1)
         def i1inv103204(v):
             return 0, var
@@ -250,10 +275,11 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         raw_store(p1, i7, i24, descr=short)
         raw_store(p1, i8, i25, descr=short)
         """)
-        pack1 = self.pack(loop1, 0, 8)
-        pack2 = self.pack(loop1, 8, 16)
-        pack3 = self.pack(loop1, 16, 24)
-        pack4 = self.pack(loop1, 24, 32)
+        pack1 = self.pack(loop1, 0, 8, None, I64)
+        pack2 = self.pack(loop1, 8, 16, I64, I32_2)
+        I16_2 = PackType('i',2,True,2)
+        pack3 = self.pack(loop1, 16, 24, I32, I16_2)
+        pack4 = self.pack(loop1, 24, 32, I16, None)
         def void(b,c):
             pass
         loop2 = self.schedule(loop1, [pack1,pack2,pack3,pack4],
@@ -297,9 +323,9 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         raw_store(p1, i3, i12, descr=float)
         raw_store(p1, i4, i13, descr=float)
         """)
-        pack1 = self.pack(loop1, 0, 4)
-        pack2 = self.pack(loop1, 4, 8)
-        pack3 = self.pack(loop1, 8, 12)
+        pack1 = self.pack(loop1, 0, 4, None, I64)
+        pack2 = self.pack(loop1, 4, 8, I64, I32_2)
+        pack3 = self.pack(loop1, 8, 12, I32, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3])
         loop3 = self.parse("""
         v44[f64|2] = vec_raw_load(p0, i1, 2, descr=double) 
@@ -322,9 +348,9 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         guard_true(i12) []
         guard_true(i13) []
         """)
-        pack1 = self.pack(loop1, 0, 2)
-        pack2 = self.pack(loop1, 2, 4)
-        pack3 = self.pack(loop1, 4, 6)
+        pack1 = self.pack(loop1, 0, 2, None, I64)
+        pack2 = self.pack(loop1, 2, 4, I64, I64)
+        pack3 = self.pack(loop1, 4, 6, None, I64)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse("""
         v9[i64|2] = vec_int_expand(255)
@@ -342,8 +368,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         raw_store(p0, i3, i10, descr=float)
         raw_store(p0, i4, i11, descr=float)
         """)
-        pack1 = self.pack(loop1, 0, 2)
-        pack2 = self.pack(loop1, 2, 4)
+        pack1 = self.pack(loop1, 0, 2, None, I32_2)
+        pack2 = self.pack(loop1, 2, 4, I32_2, None)
         loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
         loop3 = self.parse("""
         v1[ui32|2] = vec_raw_load(p0, i1, 2, descr=float)
@@ -361,7 +387,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i10 = int_and(255, i1)
         i11 = int_and(255, i1)
         """)
-        pack1 = self.pack(loop1, 0, 2)
+        pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v1[i64|2] = vec_int_expand(255)
@@ -375,7 +401,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i10 = int_and(255, i1)
         i11 = int_and(255, i1)
         """)
-        pack1 = self.pack(loop1, 0, 2)
+        pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v1[i64|2] = vec_int_expand(255)

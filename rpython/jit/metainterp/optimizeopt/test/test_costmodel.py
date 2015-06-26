@@ -136,7 +136,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         savings = self.savings(loop1)
         assert savings == 2
 
-    @py.test.mark.parametrize("bytes,s", [(1,-1),(2,-1),(4,0),(8,-1)])
+    @py.test.mark.parametrize("bytes,s", [(1,None),(2,None),(4,0),(8,-1)])
     def test_sum_float_to_int(self, bytes, s):
         loop1 = self.parse("""
         f10 = raw_load(p0, i0, descr=double)
@@ -150,13 +150,19 @@ class CostModelBaseTest(SchedulerBaseTest):
         i15 = int_add(i16, i13)
         i17 = int_signext(i15, {c})
         """.format(c=bytes))
-        savings = self.savings(loop1)
-        # it does not benefit because signext has
-        # a very inefficient implementation (x86
-        # does not provide nice instr to convert
-        # integer sizes)
-        # signext -> no benefit, + 2x unpack
-        assert savings <= s
+        try:
+            savings = self.savings(loop1)
+            if s is None:
+                py.test.fail("must fail")
+            # it does not benefit because signext has
+            # a very inefficient implementation (x86
+            # does not provide nice instr to convert
+            # integer sizes)
+            # signext -> no benefit, + 2x unpack
+            assert savings <= s
+        except NotAProfitableLoop:
+            if s is not None:
+                py.test.fail("must not fail")
 
     def test_cast(self):
         loop1 = self.parse("""

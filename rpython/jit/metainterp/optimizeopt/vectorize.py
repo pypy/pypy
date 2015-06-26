@@ -408,6 +408,7 @@ class VectorizingOptimizer(Optimizer):
                     left = pack1.operations[0]
                     if left in remove_left:
                         remove_left[left] = pack1
+                        pack1.clear()
                         del self.packset.packs[i]
                         end_ij -= 1
                         continue
