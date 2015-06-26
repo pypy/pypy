@@ -24,6 +24,7 @@ from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         getunpackopnum, PackType, determine_output_type, determine_trans)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
+from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
@@ -94,6 +95,9 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         else:
             raise
 
+def cmp_pack_lt(a,b):
+    return a.left.getindex() < b.left.getindex()
+packsort = listsort.make_timsort_class(lt=cmp_pack_lt)
 
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
@@ -327,10 +331,13 @@ class VectorizingOptimizer(Optimizer):
         pack_count = self.packset.pack_count()
         while True:
             for pack in self.packset.packs:
-                self.follow_use_defs(pack)
                 self.follow_def_uses(pack)
             if pack_count == self.packset.pack_count():
-                break
+                pack_count = self.packset.pack_count()
+                for pack in self.packset.packs:
+                    self.follow_use_defs(pack)
+                if pack_count == self.packset.pack_count():
+                    break
             pack_count = self.packset.pack_count()
 
     def follow_use_defs(self, pack):
@@ -371,6 +378,7 @@ class VectorizingOptimizer(Optimizer):
             raise NotAVectorizeableLoop()
         i = 0
         j = 0
+        packsort(self.packset.packs)
         end_ij = len(self.packset.packs)
         while True:
             len_before = len(self.packset.packs)
@@ -381,6 +389,8 @@ class VectorizingOptimizer(Optimizer):
                         j += 1
                         continue
                     pack1 = self.packset.packs[i]
+                    if pack1.is_full(self.cpu.vector_register_size):
+                        break
                     pack2 = self.packset.packs[j]
                     if pack1.rightmost_match_leftmost(pack2):
                         end_ij = self.packset.combine(i,j)

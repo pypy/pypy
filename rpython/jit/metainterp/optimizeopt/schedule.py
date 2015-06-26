@@ -188,6 +188,9 @@ class PackType(object):
     def new_vector_box(self, count = -1):
         if count == -1:
             count = self.count
+        assert count > 1
+        assert self.type in ('i','f')
+        assert self.size > 0
         return BoxVector(self.type, count, self.size, self.signed)
 
     def __repr__(self):
@@ -291,29 +294,29 @@ class OpToVectorOp(object):
         pass
 
     def transform_pack(self):
-        self.off = 0
-        while self.off < self.pack.opcount():
-            op = self.pack.operations[self.off].getoperation()
-            args = op.getarglist()
-            #
-            self.before_argument_transform(args)
-            #
-            argument_infos = []
-            self.transform_arguments(args, argument_infos)
-            #
-            result = op.result
-            result = self.transform_result(result)
-            #
-            vop = ResOperation(op.vector, args, result, op.getdescr())
-            if op.is_guard():
-                assert isinstance(op, GuardResOp)
-                vop.setfailargs(op.getfailargs())
-                vop.rd_snapshot = op.rd_snapshot
-            self.preamble_ops.append(vop)
-            stride = self.consumed_operations(argument_infos, result)
-            self.costmodel.record_pack_savings(self.pack, stride)
-            assert stride != 0
-            self.off += stride
+        #self.off = 0
+        #while self.off < self.pack.opcount():
+        op = self.pack.operations[0].getoperation()
+        args = op.getarglist()
+        #
+        self.before_argument_transform(args)
+        #
+        argument_infos = []
+        self.transform_arguments(args, argument_infos)
+        #
+        result = op.result
+        result = self.transform_result(result)
+        #
+        vop = ResOperation(op.vector, args, result, op.getdescr())
+        if op.is_guard():
+            assert isinstance(op, GuardResOp)
+            vop.setfailargs(op.getfailargs())
+            vop.rd_snapshot = op.rd_snapshot
+        self.preamble_ops.append(vop)
+        #stride = self.consumed_operations(argument_infos, result)
+        self.costmodel.record_pack_savings(self.pack, self.pack.opcount())
+        #assert stride != 0
+        #self.off += stride
 
     def consumed_operations(self, argument_infos, result):
         ops = self.getoperations()
@@ -348,7 +351,7 @@ class OpToVectorOp(object):
         return BoxVector(type, count, size, signed)
 
     def getoperations(self):
-        return self.pack.operations[self.off:]
+        return self.pack.operations
 
     def transform_arguments(self, args, argument_info):
         for i,arg in enumerate(args):
@@ -406,16 +409,14 @@ class OpToVectorOp(object):
             argument_info.append(args[i].item_count)
 
     def gather(self, vboxes, target_count): # packed < packable and packed < stride:
-        i = 0
         (_, box) = vboxes[0]
+        i = 1
         while i < len(vboxes):
-            if i+1 >= len(vboxes):
-                break
-            (box2_pos, box2) = vboxes[i+1]
+            (box2_pos, box2) = vboxes[i]
             if box.getcount() + box2.getcount() <= target_count:
                 box = self.package(box, box.getcount(),
                                    box2, box2_pos, box2.getcount())
-            i += 2
+            i += 1
         return box
         pass
                 # OLD
@@ -453,8 +454,10 @@ class OpToVectorOp(object):
     def extend_int(self, vbox, newtype):
         vbox_cloned = newtype.new_vector_box(vbox.item_count)
         self.sched_data._prevent_signext(newtype.getsize(), vbox.getsize())
+        newsize = newtype.getsize()
+        assert newsize > 0
         op = ResOperation(rop.VEC_INT_SIGNEXT, 
-                          [vbox, ConstInt(newtype.getsize())],
+                          [vbox, ConstInt(newsize)],
                           vbox_cloned)
         self.costmodel.record_cast_int(vbox.getsize(), newtype.getsize(), vbox.getcount())
         self.preamble_ops.append(op)
@@ -618,6 +621,9 @@ class OpToVectorOpConv(OpToVectorOp):
         if count * size > vec_reg_size:
             count = vec_reg_size // size
         signed = self.output_type.signed
+        assert type in ('i','f')
+        assert size > 0
+        assert count > 1
         return BoxVector(type, count, size, signed)
 
 class SignExtToVectorOp(OpToVectorOp):
@@ -625,15 +631,10 @@ class SignExtToVectorOp(OpToVectorOp):
         OpToVectorOp.__init__(self, intype, outtype)
         self.size = -1
 
-    def split_pack(self, pack, vec_reg_size):
-        op0 = pack.operations[0].getoperation()
-        sizearg = op0.getarg(1)
+    def before_argument_transform(self, args):
+        sizearg = args[1]
         assert isinstance(sizearg, ConstInt)
         self.size = sizearg.value
-        _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
-        if vbox.getcount() * self.size > vec_reg_size:
-            return vec_reg_size // self.size
-        return vbox.getcount()
 
     def new_result_vector_box(self):
         type = self.output_type.gettype()
@@ -642,6 +643,9 @@ class SignExtToVectorOp(OpToVectorOp):
         if count * self.size > vec_reg_size:
             count = vec_reg_size // self.size
         signed = self.input_type.signed
+        assert type in ('i','f')
+        assert self.size > 0
+        assert count > 1
         return BoxVector(type, count, self.size, signed)
 
 class LoadToVectorLoad(OpToVectorOp):
@@ -655,17 +659,11 @@ class LoadToVectorLoad(OpToVectorOp):
         return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
     def before_argument_transform(self, args):
-        args.append(ConstInt(len(self.pack.operations)))
+        count = min(self.output_type.getcount(), len(self.getoperations()))
+        args.append(ConstInt(count))
 
     def getscalarsize(self):
         return self.output_type.getsize()
-
-    def new_result_vector_box(self):
-        type = self.output_type.gettype()
-        size = self.output_type.getsize()
-        count = len(self.pack.operations)
-        signed = self.output_type.signed
-        return BoxVector(type, count, size, signed)
 
 class StoreToVectorStore(OpToVectorOp):
     """
@@ -845,6 +843,28 @@ class Pack(object):
 
     def opcount(self):
         return len(self.operations)
+
+    def process_count(self):
+        return len(self.operations)
+
+    def is_full(self, vec_reg_size):
+        """ if one input element times the opcount is equal
+        to the vector register size, we are full!
+        """
+        ptype = self.input_type
+        if self.input_type is None:
+            # load does not have an input type, but only an output type
+            assert self.operations[0].getoperation().is_raw_load()
+            ptype = self.output_type
+        bytes = ptype.getsize() * self.process_count()
+        assert bytes <= vec_reg_size
+        if bytes == vec_reg_size:
+            return True
+        if ptype.getcount() != -1:
+            size = ptype.getcount() * ptype.getsize()
+            assert bytes <= size
+            return bytes == size
+        return False
 
     def opnum(self):
         assert len(self.operations) > 0

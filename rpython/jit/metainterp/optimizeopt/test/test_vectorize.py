@@ -747,8 +747,8 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_packset_empty(vopt.packset, len(loop.operations),
                                   [(6,12), (5,11), (7,13)])
 
-    @pytest.mark.parametrize("descr", ['char','float','int','singlefloat'])
-    def test_packset_combine_simple(self,descr):
+    @pytest.mark.parametrize("descr,size", [('char',16),('float',2),('int',2),('singlefloat',4)])
+    def test_packset_combine_simple(self,descr,size):
         ops = """
         [p0,i0]
         i3 = getarrayitem_raw(p0, i0, descr={descr}arraydescr)
@@ -758,18 +758,7 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.dependency_graph.memory_refs) == 4
-        assert len(vopt.packset.packs) == 1
-        self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
-        ops = """
-        [p0,i0]
-        i3 = getarrayitem_raw(p0, i0, descr={descr}arraydescr)
-        i1 = int_add(i0,1)
-        jump(p0,i1)
-        """.format(descr=descr)
-        loop = self.parse_loop(ops)
-        vopt = self.combine_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 4
-        assert len(vopt.packset.packs) == 1
+        assert len(vopt.packset.packs) == 16 // size
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
 
     @pytest.mark.parametrize("descr,stride",
@@ -786,7 +775,7 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.dependency_graph.memory_refs) == 8
-        assert len(vopt.packset.packs) == 1
+        assert len(vopt.packset.packs) == (16//stride) * 2
         self.assert_pack(vopt.packset.packs[0], (1,3,5,7,9,11,13,15))
 
     def test_packset_combine_2_loads_one_redundant(self):
