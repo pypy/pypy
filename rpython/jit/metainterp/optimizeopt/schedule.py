@@ -294,15 +294,12 @@ class OpToVectorOp(object):
         pass
 
     def transform_pack(self):
-        #self.off = 0
-        #while self.off < self.pack.opcount():
         op = self.pack.operations[0].getoperation()
         args = op.getarglist()
         #
         self.before_argument_transform(args)
         #
-        argument_infos = []
-        self.transform_arguments(args, argument_infos)
+        self.transform_arguments(args)
         #
         result = op.result
         result = self.transform_result(result)
@@ -313,22 +310,7 @@ class OpToVectorOp(object):
             vop.setfailargs(op.getfailargs())
             vop.rd_snapshot = op.rd_snapshot
         self.preamble_ops.append(vop)
-        #stride = self.consumed_operations(argument_infos, result)
         self.costmodel.record_pack_savings(self.pack, self.pack.opcount())
-        #assert stride != 0
-        #self.off += stride
-
-    def consumed_operations(self, argument_infos, result):
-        ops = self.getoperations()
-        if len(argument_infos) == 0:
-            return result.getcount()
-        if len(argument_infos) == 1:
-            return argument_infos[0]
-        if not we_are_translated():
-            first = argument_infos[0]
-            for ai in argument_infos:
-                assert first == ai
-        return argument_infos[0]
 
     def transform_result(self, result):
         if result is None:
@@ -353,7 +335,7 @@ class OpToVectorOp(object):
     def getoperations(self):
         return self.pack.operations
 
-    def transform_arguments(self, args, argument_info):
+    def transform_arguments(self, args):
         for i,arg in enumerate(args):
             if isinstance(arg, BoxVector):
                 continue
@@ -361,7 +343,6 @@ class OpToVectorOp(object):
                 continue
             box_pos, vbox = self.sched_data.getvector_of_box(arg)
             if not vbox:
-                import pdb; pdb.set_trace()
                 # constant/variable expand this box
                 vbox = self.expand(arg, i)
                 self.sched_data.setvector_of_box(arg, 0, vbox)
@@ -379,9 +360,8 @@ class OpToVectorOp(object):
             if packed > packable:
                 # the argument has more items than the operation is able to process!
                 # box_pos == 0 then it is already at the right place
-                argument_info.append(packable)
                 if box_pos != 0:
-                    args[i] = self.unpack(vbox, self.off, packable, self.input_type)
+                    args[i] = self.unpack(vbox, box_pos, packable, self.input_type)
                     self.update_arg_in_vector_pos(i, args[i])
                     #self.update_input_output(self.pack)
                     continue
@@ -394,20 +374,17 @@ class OpToVectorOp(object):
                 # the argument is scattered along different vector boxes
                 args[i] = self.gather(vboxes, packable)
                 self.update_arg_in_vector_pos(i, args[i])
-                argument_info.append(args[i].item_count)
                 continue
             if box_pos != 0:
                 # The vector box is at a position != 0 but it
                 # is required to be at position 0. Unpack it!
-                args[i] = self.unpack(vbox, self.off, packable, self.input_type)
+                args[i] = self.unpack(vbox, box_pos, packable, self.input_type)
                 self.update_arg_in_vector_pos(i, args[i])
-                argument_info.append(args[i].item_count)
                 continue
                 #self.update_input_output(self.pack)
             #
             assert vbox is not None
             args[i] = vbox
-            argument_info.append(args[i].item_count)
 
     def gather(self, vboxes, target_count): # packed < packable and packed < stride:
         (_, box) = vboxes[0]
@@ -798,6 +775,7 @@ class VecScheduleData(SchedulerData):
 
     def setvector_of_box(self, box, off, vector):
         assert off < vector.item_count
+        print "set" , box, "[",off,"] =", vector
         self.box_to_vbox[box] = (off, vector)
 
     def prepend_invariant_operations(self, oplist):
@@ -845,8 +823,8 @@ class Pack(object):
     def opcount(self):
         return len(self.operations)
 
-    def process_count(self):
-        return len(self.operations)
+    def leftmost(self):
+        return self.operations[0].getoperation()
 
     def is_full(self, vec_reg_size):
         """ if one input element times the opcount is equal
@@ -855,9 +833,15 @@ class Pack(object):
         ptype = self.input_type
         if self.input_type is None:
             # load does not have an input type, but only an output type
-            assert self.operations[0].getoperation().is_raw_load()
+            assert self.leftmost().is_raw_load()
             ptype = self.output_type
-        bytes = ptype.getsize() * self.process_count()
+
+        op = self.leftmost()
+        if op.casts_box():
+            assert self.output_type.getcount() <= ptype.getcount()
+            return self.output_type.getcount() <= ptype.getcount()
+
+        bytes = ptype.getsize() * len(self.operations)
         assert bytes <= vec_reg_size
         if bytes == vec_reg_size:
             return True

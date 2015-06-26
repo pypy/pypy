@@ -413,7 +413,7 @@ class VectorizingOptimizer(Optimizer):
                         continue
                     # check if the pack is already full
                     if pack1.is_full(self.cpu.vector_register_size):
-                        pack1.update_pack_of_nodes()
+                        #pack1.update_pack_of_nodes()
                         right = pack1.operations[-1]
                         remove_left[right] = None
                         break
@@ -424,8 +424,8 @@ class VectorizingOptimizer(Optimizer):
                         # this could miss some pack
                         j += 1
                 # set for each node to which pack it belongs
-                self.packset.packs[i].update_pack_of_nodes()
-
+                pack = self.packset.packs[i]
+                pack.update_pack_of_nodes()
                 j = 0
                 i += 1
             if len_before == len(self.packset.packs):
