@@ -276,6 +276,15 @@ class AppTestRecompiler:
         """)
         lib.aa = 5
         assert dir(lib) == ['aa', 'ff', 'my_constant']
+        #
+        aaobj = lib.__dict__['aa']
+        assert not isinstance(aaobj, int)    # some internal object instead
+        assert lib.__dict__ == {
+            'ff': lib.ff,
+            'aa': aaobj,
+            'my_constant': -45}
+        lib.__dict__['ff'] = "??"
+        assert lib.ff(10) == 15
 
     def test_verify_opaque_struct(self):
         ffi, lib = self.prepare(
@@ -819,6 +828,22 @@ class AppTestRecompiler:
         assert isinstance(addr, ffi.CData)
         assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
 
+    def test_address_of_function_with_struct(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int x; }; long myfunc(struct foo_s);",
+            "test_addressof_function_with_struct", """
+                struct foo_s { int x; };
+                char myfunc(struct foo_s input) { return (char)(input.x + 42); }
+            """)
+        s = ffi.new("struct foo_s *", [5])[0]
+        assert lib.myfunc(s) == 47
+        assert not isinstance(lib.myfunc, ffi.CData)
+        assert ffi.typeof(lib.myfunc) == ffi.typeof("long(*)(struct foo_s)")
+        addr = ffi.addressof(lib, 'myfunc')
+        assert addr(s) == 47
+        assert isinstance(addr, ffi.CData)
+        assert ffi.typeof(addr) == ffi.typeof("long(*)(struct foo_s)")
+
     def test_issue198(self):
         ffi, lib = self.prepare("""
             typedef struct{...;} opaque_t;
@@ -984,5 +1009,5 @@ class AppTestRecompiler:
         assert sys.modules['_CFFI_test_import_from_lib.lib'] is lib
         from _CFFI_test_import_from_lib.lib import MYFOO
         assert MYFOO == 42
-        assert not hasattr(lib, '__dict__')
+        assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'

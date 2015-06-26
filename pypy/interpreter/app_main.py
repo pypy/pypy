@@ -766,6 +766,7 @@ def setup_bootstrap_path(executable):
     # This is important for py3k
     sys.executable = executable
 
+@hidden_applevel
 def entry_point(executable, argv):
     # note that before calling setup_bootstrap_path, we are limited because we
     # cannot import stdlib modules. In particular, we cannot use unicode

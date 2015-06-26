@@ -625,6 +625,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def read_w(self, space, w_size=None):
         self._check_attached(space)
+        self._check_closed(space)
         if not self.w_decoder:
             self._unsupportedoperation(space, "not readable")
 
@@ -666,6 +667,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def readline_w(self, space, w_limit=None):
         self._check_attached(space)
+        self._check_closed(space)
         self._writeflush(space)
 
         limit = convert_size(space, w_limit)
@@ -761,7 +763,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
     def write_w(self, space, w_text):
         self._check_attached(space)
-        # self._check_closed(space)
+        self._check_closed(space)
 
         if not self.w_encoder:
             self._unsupportedoperation(space, "not writable")
