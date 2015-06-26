@@ -374,12 +374,26 @@ class VectorizingOptimizer(Optimizer):
                         self.packset.add_pack(pair)
 
     def combine_packset(self):
+        """ Combination is done iterating the packs that have
+        a sorted op index of the first operation (= left).
+        If a pack is marked as 'full', the next pack that is
+        encountered having the full_pack.right == pack.left,
+        the pack is removed. This is because the packs have
+        intersecting edges.
+        """
         if len(self.packset.packs) == 0:
             raise NotAVectorizeableLoop()
+        packsort(self.packset.packs).sort()
+        if not we_are_translated():
+            # ensure we are really sorted!
+            x = 0
+            for i,pack in enumerate(self.packset.packs):
+                assert x <= pack.left.getindex()
+                x = pack.left.getindex()
         i = 0
         j = 0
-        packsort(self.packset.packs)
         end_ij = len(self.packset.packs)
+        remove_left = {}
         while True:
             len_before = len(self.packset.packs)
             i = 0
@@ -389,14 +403,29 @@ class VectorizingOptimizer(Optimizer):
                         j += 1
                         continue
                     pack1 = self.packset.packs[i]
-                    if pack1.is_full(self.cpu.vector_register_size):
-                        break
                     pack2 = self.packset.packs[j]
+                    # remove intermediate
+                    left = pack1.operations[0]
+                    if left in remove_left:
+                        remove_left[left] = pack1
+                        del self.packset.packs[i]
+                        end_ij -= 1
+                        continue
+                    # check if the pack is already full
+                    if pack1.is_full(self.cpu.vector_register_size):
+                        pack1.update_pack_of_nodes()
+                        right = pack1.operations[-1]
+                        remove_left[right] = None
+                        break
                     if pack1.rightmost_match_leftmost(pack2):
                         end_ij = self.packset.combine(i,j)
-                    elif pack2.rightmost_match_leftmost(pack1):
-                        end_ij = self.packset.combine(j,i)
-                    j += 1
+                    else:
+                        # do not inc in rightmost_match_leftmost
+                        # this could miss some pack
+                        j += 1
+                # set for each node to which pack it belongs
+                self.packset.packs[i].update_pack_of_nodes()
+
                 j = 0
                 i += 1
             if len_before == len(self.packset.packs):
@@ -406,7 +435,15 @@ class VectorizingOptimizer(Optimizer):
             # some test cases check the accumulation variables
             self.packset.accum_vars = {}
             print "packs:"
+            check = {}
+            fail = False
             for pack in self.packset.packs:
+                left = pack.operations[0]
+                right = pack.operations[-1]
+                if left in check or right in check:
+                    fail = True
+                check[left] = None
+                check[right] = None
                 accum = pack.accum
                 if accum:
                     self.packset.accum_vars[accum.var] = accum.pos
@@ -414,6 +451,8 @@ class VectorizingOptimizer(Optimizer):
                 print " %dx %s (accum? %d) " % (len(pack.operations),
                                                 pack.operations[0].op.getopname(),
                                                 accum is not None)
+            if fail:
+                assert False
 
     def schedule(self, vector=False):
         self.guard_early_exit = -1
@@ -463,6 +502,8 @@ class VectorizingOptimizer(Optimizer):
     def _unpack_from_vector(self, i, arg, sched_data, renamer):
         (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
         if vbox:
+            if vbox in sched_data.invariant_vector_vars:
+                return arg
             arg_cloned = arg.clonebox()
             renamer.start_renaming(arg, arg_cloned)
             cj = ConstInt(j)
@@ -684,8 +725,6 @@ class PackSet(object):
         is not iterated when calling this method. """
         pack_i = self.packs[i]
         pack_j = self.packs[j]
-        pack_i.clear()
-        pack_j.clear()
         operations = pack_i.operations
         for op in pack_j.operations[1:]:
             operations.append(op)
@@ -697,16 +736,19 @@ class PackSet(object):
         pack.accum = pack_i.accum
         pack_i.accum = pack_j.accum = None
 
+        del self.packs[j]
+        return len(self.packs)
+        # OLD
         # instead of deleting an item in the center of pack array,
         # the last element is assigned to position j and
         # the last slot is freed. Order of packs doesn't matter
-        last_pos = len(self.packs) - 1
-        if j == last_pos:
-            del self.packs[j]
-        else:
-            self.packs[j] = self.packs[last_pos]
-            del self.packs[last_pos]
-        return last_pos
+        #last_pos = len(self.packs) - 1
+        #if j == last_pos:
+        #    del self.packs[j]
+        #else:
+        #    self.packs[j] = self.packs[last_pos]
+        #    del self.packs[last_pos]
+        #return last_pos
 
     def accumulates_pair(self, lnode, rnode, origin_pack):
         # lnode and rnode are isomorphic and dependent

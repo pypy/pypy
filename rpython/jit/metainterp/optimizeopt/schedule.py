@@ -361,6 +361,7 @@ class OpToVectorOp(object):
                 continue
             box_pos, vbox = self.sched_data.getvector_of_box(arg)
             if not vbox:
+                import pdb; pdb.set_trace()
                 # constant/variable expand this box
                 vbox = self.expand(arg, i)
                 self.sched_data.setvector_of_box(arg, 0, vbox)
@@ -875,6 +876,11 @@ class Pack(object):
             node.pack = None
             node.pack_position = -1
 
+    def update_pack_of_nodes(self):
+        for i,node in enumerate(self.operations):
+            node.pack = self
+            node.pack_position = i
+
     def rightmost_match_leftmost(self, other):
         assert isinstance(other, Pack)
         rightmost = self.operations[-1]
@@ -889,7 +895,8 @@ class Pack(object):
         return rightmost is leftmost and accum
 
     def __repr__(self):
-        return "Pack(%r)" % self.operations
+        opname = self.operations[0].getoperation().getopname()
+        return "Pack(%s,%r)" % (opname, self.operations)
 
     def is_accumulating(self):
         return self.accum is not None

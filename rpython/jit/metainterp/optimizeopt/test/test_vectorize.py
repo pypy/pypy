@@ -747,8 +747,12 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_packset_empty(vopt.packset, len(loop.operations),
                                   [(6,12), (5,11), (7,13)])
 
-    @pytest.mark.parametrize("descr,size", [('char',16),('float',2),('int',2),('singlefloat',4)])
-    def test_packset_combine_simple(self,descr,size):
+    @pytest.mark.parametrize("descr,packs,packidx", 
+                             [('char',1,  [(0,(1,3,5,7))]),
+                              ('float',2, [(0,(1,3)),(1,(5,7))]),
+                              ('int',2,   [(0,(1,3)),(1,(5,7))]),
+                              ('singlefloat',1,[(0,(1,3,5,7))])])
+    def test_packset_combine_simple(self,descr,packs,packidx):
         ops = """
         [p0,i0]
         i3 = getarrayitem_raw(p0, i0, descr={descr}arraydescr)
@@ -758,12 +762,13 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.dependency_graph.memory_refs) == 4
-        assert len(vopt.packset.packs) == 16 // size
-        self.assert_pack(vopt.packset.packs[0], (1,3,5,7))
+        assert len(vopt.packset.packs) == packs
+        for i,t in packidx:
+            self.assert_pack(vopt.packset.packs[i], t)
 
-    @pytest.mark.parametrize("descr,stride",
-            [('char',1),('float',8),('int',8),('singlefloat',4)])
-    def test_packset_combine_2_loads_in_trace(self, descr, stride):
+    @pytest.mark.parametrize("descr,stride,packs",
+            [('char',1,1),('float',8,4),('int',8,4),('singlefloat',4,2)])
+    def test_packset_combine_2_loads_in_trace(self, descr, stride,packs):
         ops = """
         [p0,i0]
         i3 = raw_load(p0, i0, descr={type}arraydescr)
@@ -775,24 +780,7 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.dependency_graph.memory_refs) == 8
-        assert len(vopt.packset.packs) == (16//stride) * 2
-        self.assert_pack(vopt.packset.packs[0], (1,3,5,7,9,11,13,15))
-
-    def test_packset_combine_2_loads_one_redundant(self):
-        py.test.skip("apply redundant load elimination?")
-        ops = """
-        [p0,i0]
-        i3 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
-        i1 = int_add(i0,1)
-        i4 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
-        jump(p0,i1)
-        """
-        loop = self.parse_loop(ops)
-        vopt = self.combine_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 8
-        assert len(vopt.packset.packs) == 2
-        self.assert_pack(vopt.packset.packs[0], (1,5,9))
-        self.assert_pack(vopt.packset.packs[1], (3,7,11))
+        assert len(vopt.packset.packs) == packs
 
     def test_packset_combine_no_candidates_packset_empty(self):
         ops = """
@@ -847,7 +835,10 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.dependency_graph.memory_refs) == 12
-        assert len(vopt.packset.packs) == 4
+        if stride == 8:
+            assert len(vopt.packset.packs) == 8
+        else:
+            assert len(vopt.packset.packs) == 4
 
         for opindices in [(5,12,19,26),(6,13,20,27),
                           (7,14,21,28),(8,15,22,29)]:
@@ -859,7 +850,6 @@ class BaseTestVectorize(VecTestHelper):
              ('float_mul','float',8),
              ('int_add','int',8),
              ('int_sub','int',8),
-             ('int_mul','int',8),
             ])
     def test_schedule_vector_operation(self, op, descr, stride):
         ops = """
@@ -981,7 +971,7 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         guard_early_exit() [p0,i0]
         i1 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
-        i4 = int_mul(i1, 42)
+        i4 = int_sub(i1, 42)
         i3 = int_add(i0,1)
         i5 = int_lt(i3, 10)
         guard_true(i5) [p0, i0]
@@ -1000,7 +990,7 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v2 = vec_int_mul(v1, v3)
+        v2 = vec_int_sub(v1, v3)
         jump(p0,i2,v3)
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
@@ -1011,7 +1001,7 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0,f3]
         guard_early_exit() [p0,i0]
         f1 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
-        f4 = int_mul(f1, f3)
+        f4 = int_add(f1, f3)
         i3 = int_add(i0,1)
         i5 = int_lt(i3, 10)
         guard_true(i5) [p0, i0]
@@ -1030,7 +1020,7 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v2 = vec_int_mul(v1, v3)
+        v2 = vec_int_add(v1, v3)
         jump(p0,i2,f3,v3)
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
@@ -1157,8 +1147,8 @@ class BaseTestVectorize(VecTestHelper):
         i7 = int_add(i1, 4)
         i14 = int_ge(i50, 36)
         v17 = vec_getarrayitem_raw(p0, i1, 2, descr=floatarraydescr)
-        v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
         v19 = vec_cast_float_to_singlefloat(v17)
+        v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
         v20 = vec_cast_float_to_singlefloat(v18)
         v21 = vec_float_pack(v19, v20, 2, 2)
         vec_setarrayitem_raw(p1, i1, v21, descr=singlefloatarraydescr)
