@@ -264,23 +264,8 @@ class OpToVectorOp(object):
         #
         self.check_if_pack_supported(pack)
         #
-        off = 0
-        stride = self.split_pack(pack, self.sched_data.vec_reg_size)
-        left = len(pack.operations)
-        assert stride > 0
-        while off < len(pack.operations):
-            print left, "<", stride
-            if stride == 1:
-                op = pack.operations[off].getoperation()
-                self.preamble_ops.append(op)
-                off += 1
-                continue
-            ops = pack.operations[off:off+stride]
-            self.pack = Pack(ops, pack.input_type, pack.output_type)
-            self.costmodel.record_pack_savings(self.pack)
-            self.transform_pack(ops, off, stride)
-            off += stride
-            left -= stride
+        self.pack = pack
+        self.transform_pack()
 
         self.pack = None
         self.costmodel = None
@@ -305,35 +290,52 @@ class OpToVectorOp(object):
     def before_argument_transform(self, args):
         pass
 
-    def transform_pack(self, ops, off, stride):
-        op = self.pack.operations[0].getoperation()
-        args = op.getarglist()
-        #
-        self.before_argument_transform(args)
-        #
-        for i,arg in enumerate(args):
-            if isinstance(arg, BoxVector):
-                continue
-            if self.is_vector_arg(i):
-                args[i] = self.transform_argument(args[i], i, off, stride)
-        #
-        result = op.result
-        result = self.transform_result(result, off)
-        #
-        vop = ResOperation(op.vector, args, result, op.getdescr())
-        if op.is_guard():
-            assert isinstance(op, GuardResOp)
-            vop.setfailargs(op.getfailargs())
-            vop.rd_snapshot = op.rd_snapshot
-        self.preamble_ops.append(vop)
+    def transform_pack(self):
+        self.off = 0
+        while self.off < self.pack.opcount():
+            op = self.pack.operations[self.off].getoperation()
+            args = op.getarglist()
+            #
+            self.before_argument_transform(args)
+            #
+            argument_infos = []
+            self.transform_arguments(args, argument_infos)
+            #
+            result = op.result
+            result = self.transform_result(result)
+            #
+            vop = ResOperation(op.vector, args, result, op.getdescr())
+            if op.is_guard():
+                assert isinstance(op, GuardResOp)
+                vop.setfailargs(op.getfailargs())
+                vop.rd_snapshot = op.rd_snapshot
+            self.preamble_ops.append(vop)
+            stride = self.consumed_operations(argument_infos, result)
+            self.costmodel.record_pack_savings(self.pack, stride)
+            assert stride != 0
+            self.off += stride
 
-    def transform_result(self, result, off):
+    def consumed_operations(self, argument_infos, result):
+        ops = self.getoperations()
+        if len(argument_infos) == 0:
+            return result.getcount()
+        if len(argument_infos) == 1:
+            return argument_infos[0]
+        if not we_are_translated():
+            first = argument_infos[0]
+            for ai in argument_infos:
+                assert first == ai
+        return argument_infos[0]
+
+    def transform_result(self, result):
         if result is None:
             return None
         vbox = self.new_result_vector_box()
         #
         # mark the position and the vbox in the hash
-        for i, node in enumerate(self.pack.operations):
+        for i, node in enumerate(self.getoperations()):
+            if i >= vbox.item_count:
+                break
             op = node.getoperation()
             self.sched_data.setvector_of_box(op.result, i, vbox)
         return vbox
@@ -345,56 +347,99 @@ class OpToVectorOp(object):
         signed = self.output_type.signed
         return BoxVector(type, count, size, signed)
 
-    def transform_argument(self, arg, argidx, off, stride):
-        ops = self.pack.operations
-        box_pos, vbox = self.sched_data.getvector_of_box(arg)
-        if not vbox:
-            # constant/variable expand this box
-            vbox = self.expand(ops, arg, argidx)
-            box_pos = 0
-        # convert size i64 -> i32, i32 -> i64, ...
-        if self.input_type.getsize() > 0 and \
-           self.input_type.getsize() != vbox.getsize():
-            vbox = self.extend(vbox, self.input_type)
+    def getoperations(self):
+        return self.pack.operations[self.off:]
 
-        # use the input as an indicator for the pack type
-        packable = self.input_type.getcount()
-        packed = vbox.item_count
-        assert packed >= 0
-        assert packable >= 0
-        vboxes = self.vector_boxes_for_args(argidx)
-        if len(vboxes) > 1: # packed < packable and packed < stride:
-            # the argument is scattered along different vector boxes
-            args = [op.getoperation().getarg(argidx) for op in ops]
-            vbox = self._pack(vbox, packed, args, packable)
-            self.update_input_output(self.pack)
-            box_pos = 0
-        elif packed > packable:
-            # box_pos == 0 then it is already at the right place
-            # the argument has more items than the operation is able to process!
-            args = [op.getoperation().getarg(argidx) for op in ops]
-            vbox = self.unpack(vbox, args, off, packable, self.input_type)
-            self.update_input_output(self.pack)
-            box_pos = 0
-        elif off != 0 and box_pos != 0:
-            import py; py.test.set_trace()
-            # The original box is at a position != 0 but it
-            # is required to be at position 0. Unpack it!
-            args = [op.getoperation().getarg(argidx) for op in ops]
-            vbox = self.unpack(vbox, args, off, len(ops), self.input_type)
-            self.update_input_output(self.pack)
-        #
-        assert vbox is not None
-        return vbox
+    def transform_arguments(self, args, argument_info):
+        for i,arg in enumerate(args):
+            if isinstance(arg, BoxVector):
+                continue
+            if not self.is_vector_arg(i):
+                continue
+            box_pos, vbox = self.sched_data.getvector_of_box(arg)
+            if not vbox:
+                # constant/variable expand this box
+                vbox = self.expand(arg, i)
+                self.sched_data.setvector_of_box(arg, 0, vbox)
+                box_pos = 0
+            # convert size i64 -> i32, i32 -> i64, ...
+            if self.input_type.getsize() > 0 and \
+               self.input_type.getsize() != vbox.getsize():
+                vbox = self.extend(vbox, self.input_type)
+
+            # use the input as an indicator for the pack type
+            packable = self.input_type.getcount()
+            packed = vbox.item_count
+            assert packed >= 0
+            assert packable >= 0
+            if packed > packable:
+                # the argument has more items than the operation is able to process!
+                # box_pos == 0 then it is already at the right place
+                argument_info.append(packable)
+                if box_pos != 0:
+                    args[i] = self.unpack(vbox, self.off, packable, self.input_type)
+                    self.update_arg_in_vector_pos(i, args[i])
+                    #self.update_input_output(self.pack)
+                    continue
+                else:
+                    assert vbox is not None
+                    args[i] = vbox
+                    continue
+            vboxes = self.vector_boxes_for_args(i)
+            if packed < packable and len(vboxes) > 1:
+                # the argument is scattered along different vector boxes
+                args[i] = self.gather(vboxes, packable)
+                self.update_arg_in_vector_pos(i, args[i])
+                argument_info.append(args[i].item_count)
+                continue
+            if box_pos != 0:
+                # The vector box is at a position != 0 but it
+                # is required to be at position 0. Unpack it!
+                args[i] = self.unpack(vbox, self.off, packable, self.input_type)
+                self.update_arg_in_vector_pos(i, args[i])
+                argument_info.append(args[i].item_count)
+                continue
+                #self.update_input_output(self.pack)
+            #
+            assert vbox is not None
+            args[i] = vbox
+            argument_info.append(args[i].item_count)
+
+    def gather(self, vboxes, target_count): # packed < packable and packed < stride:
+        i = 0
+        (_, box) = vboxes[0]
+        while i < len(vboxes):
+            if i+1 >= len(vboxes):
+                break
+            (box2_pos, box2) = vboxes[i+1]
+            if box.getcount() + box2.getcount() <= target_count:
+                box = self.package(box, box.getcount(),
+                                   box2, box2_pos, box2.getcount())
+            i += 2
+        return box
+        pass
+                # OLD
+                #args = [op.getoperation().getarg(argidx) for op in ops]
+                #vbox = self._pack(vbox, packed, args, packable)
+                #self.update_input_output(self.pack)
+                #box_pos = 0
+
+    def update_arg_in_vector_pos(self, argidx, box):
+        arguments = [op.getoperation().getarg(argidx) for op in self.getoperations()]
+        for i,arg in enumerate(arguments):
+            if i >= box.item_count:
+                break
+            self.sched_data.setvector_of_box(arg, i, box)
 
     def vector_boxes_for_args(self, index):
-        args = [op.getoperation().getarg(index) for op in self.pack.operations]
+        args = [op.getoperation().getarg(index) for op in self.getoperations()]
         vboxes = []
         last_vbox = None
         for arg in args:
             pos, vbox = self.sched_data.getvector_of_box(arg)
-            if vbox != last_vbox and vbox is not None:
-                vboxes.append(vbox)
+            if vbox is not last_vbox and vbox is not None:
+                vboxes.append((pos, vbox))
+                last_vbox = vbox
         return vboxes
 
 
@@ -415,22 +460,37 @@ class OpToVectorOp(object):
         self.preamble_ops.append(op)
         return vbox_cloned
 
-    def unpack(self, vbox, args, index, count, arg_ptype):
+    def unpack(self, vbox, index, count, arg_ptype):
+        assert index < vbox.item_count
+        assert index + count <= vbox.item_count
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
         opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
         self.costmodel.record_vector_unpack(vbox, index, count)
         self.preamble_ops.append(op)
         #
-        for i,arg in enumerate(args):
-            self.sched_data.setvector_of_box(arg, i, vbox_cloned)
-        #
         return vbox_cloned
 
-    def _pack(self, tgt_box, index, args, packable):
+    def package(self, tgt, tidx, src, sidx, scount):
+        """ tgt = [1,2,3,4,_,_,_,_]
+            src = [5,6,_,_]
+            new_box = [1,2,3,4,5,6,_,_] after the operation, tidx=4, scount=2
+        """
+        assert sidx == 0 # restriction
+        count = tgt.item_count + src.item_count
+        new_box = vectorbox_clone_set(tgt, count=count)
+        opnum = getpackopnum(tgt.item_type)
+        op = ResOperation(opnum, [tgt, src, ConstInt(tidx), ConstInt(scount)], new_box)
+        self.preamble_ops.append(op)
+        self.costmodel.record_vector_pack(src, sidx, scount)
+        if not we_are_translated():
+            self._check_vec_pack(op)
+        return new_box
+
+    def package2(self, tgt_box, index, args, packable):
         """ If there are two vector boxes:
-          v1 = [<empty>,<emtpy>,X,Y]
-          v2 = [A,B,<empty>,<empty>]
+          v1 = [_,_,X,Y]
+          v2 = [A,B,_,_]
           this function creates a box pack instruction to merge them to:
           v1/2 = [A,B,X,Y]
         """
@@ -482,8 +542,9 @@ class OpToVectorOp(object):
         assert index.value + count.value <= result.item_count
         assert result.item_count > arg0.item_count
 
-    def expand(self, nodes, arg, argidx):
-        vbox = self.input_type.new_vector_box(len(nodes))
+    def expand(self, arg, argidx):
+        elem_count = self.input_type.getcount()
+        vbox = self.input_type.new_vector_box(elem_count)
         box_type = arg.type
         expanded_map = self.sched_data.expanded_map
         invariant_ops = self.sched_data.invariant_oplist
@@ -496,7 +557,7 @@ class OpToVectorOp(object):
         if already_expanded:
             return already_expanded
 
-        for i, node in enumerate(nodes):
+        for i, node in enumerate(self.getoperations()):
             op = node.getoperation()
             if not arg.same_box(op.getarg(argidx)):
                 break
@@ -509,10 +570,10 @@ class OpToVectorOp(object):
             expanded_map[arg] = vbox
             return vbox
 
-        op = ResOperation(rop.VEC_BOX, [ConstInt(len(nodes))], vbox)
+        op = ResOperation(rop.VEC_BOX, [ConstInt(elem_count)], vbox)
         invariant_ops.append(op)
         opnum = getpackopnum(arg.type)
-        for i,node in enumerate(nodes):
+        for i,node in enumerate(self.getoperations()):
             op = node.getoperation()
             arg = op.getarg(argidx)
             new_box = vbox.clonebox()
@@ -737,6 +798,7 @@ class VecScheduleData(SchedulerData):
         return self.box_to_vbox.get(arg, (-1, None))
 
     def setvector_of_box(self, box, off, vector):
+        assert off < vector.item_count
         self.box_to_vbox[box] = (off, vector)
 
     def prepend_invariant_operations(self, oplist):

@@ -530,7 +530,7 @@ class CostModel(object):
     def record_cast_int(self, op):
         raise NotImplementedError
 
-    def record_pack_savings(self, pack):
+    def record_pack_savings(self, pack, times):
         raise NotImplementedError
 
     def record_vector_pack(self, box, index, count):
@@ -550,8 +550,7 @@ class CostModel(object):
 
 class X86_CostModel(CostModel):
 
-    def record_pack_savings(self, pack):
-        times = pack.opcount()
+    def record_pack_savings(self, pack, times):
         cost, benefit_factor = (1,1)
         node = pack.operations[0]
         op = node.getoperation()
