@@ -369,7 +369,7 @@ class OpToVectorOp(object):
             vbox = self._pack(vbox, packed, args, packable)
             self.update_input_output(self.pack)
             box_pos = 0
-        elif packed > packable and box_pos != 0:
+        elif packed > packable:
             # box_pos == 0 then it is already at the right place
             # the argument has more items than the operation is able to process!
             args = [op.getoperation().getarg(argidx) for op in ops]
@@ -377,6 +377,7 @@ class OpToVectorOp(object):
             self.update_input_output(self.pack)
             box_pos = 0
         elif off != 0 and box_pos != 0:
+            import py; py.test.set_trace()
             # The original box is at a position != 0 but it
             # is required to be at position 0. Unpack it!
             args = [op.getoperation().getarg(argidx) for op in ops]
@@ -542,11 +543,11 @@ class OpToVectorOpConv(OpToVectorOp):
         return self.result_ptype
 
     def split_pack(self, pack, vec_reg_size):
-        op0 = pack.operations[0].getoperation()
-        _, vbox = self.sched_data.getvector_of_box(op0.getarg(0))
-        if vbox.getcount() * self.to_size > vec_reg_size:
-            return vec_reg_size // self.to_size
-        return vbox.getcount()
+        count = self.arg_ptypes[0].getcount()
+        bytes = pack.opcount() * self.getscalarsize()
+        if bytes > count * self.from_size:
+            return bytes // (count * self.from_size)
+        return pack.opcount()
 
     def new_result_vector_box(self):
         type = self.output_type.gettype()

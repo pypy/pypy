@@ -1397,18 +1397,21 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0, p1, p5, p6, p7, p17, p19, i68, i39, i44, i49, i51)
         """
         trace="""
-        [p0, p3, i4, i5, i6, i7]
-        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f492da84250>) [p0, p3, i4, i5]
-        f8 = raw_load(i6, i5, descr=floatarraydescr)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f492da846d0>) [p0, f8, p3, i4, i5]
-        i9 = cast_float_to_int(f8)
-        i11 = int_and(i9, 255)
-        guard_true(i11, descr=<rpython.jit.metainterp.compile.ResumeGuardTrueDescr object at 0x7f492da8b790>) [p0, p3, i4, i5]
-        i13 = int_add(i4, 1)
-        i15 = int_add(i5, 8)
-        i16 = int_ge(i13, i7)
-        guard_false(i16, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f492da93610>) [p0, i13, i15, p3, None, None]
-        jump(p0, p3, i13, i15, i6, i7)
+        [p0, p1, p9, i10, p4, i11, p3, p6, p12, i13, i14, i15, f16, i17, i18]
+        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f2327d4b390>) [p6, p4, p3, p1, p0, i14, i10, i13, i11, p9, p12]
+        i19 = raw_load(i15, i11, descr=singlefloatarraydescr)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f23284786d0>) [p6, p4, p3, p1, p0, i19, i14, i10, i13, i11, p9, p12]
+        i21 = int_add(i11, 4)
+        f22 = cast_singlefloat_to_float(i19)
+        f23 = float_add(f22, f16)
+        i24 = cast_float_to_singlefloat(f23)
+        raw_store(i17, i14, i24, descr=singlefloatarraydescr)
+        i26 = int_add(i13, 1)
+        i28 = int_add(i14, 4)
+        i29 = int_ge(i26, i18)
+        guard_false(i29, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f2327d53910>) [p6, p4, p3, p1, p0, i28, i21, i26, None, i10, None, None, p9, p12]
+        debug_merge_point(0, 0, '(numpy_call2: no get_printable_location)')
+        jump(p0, p1, p9, i10, p4, i21, p3, p6, p12, i26, i28, i15, f16, i17, i18)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
