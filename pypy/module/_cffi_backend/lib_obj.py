@@ -175,6 +175,8 @@ class W_LibObject(W_Root):
                     return self.dir1(ignore_type=cffi_opcode.OP_GLOBAL_VAR)
                 if is_getattr and attr == '__dict__':
                     return self.full_dict_copy()
+                if is_getattr and attr == '__name__':
+                    return self.descr_repr()
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
