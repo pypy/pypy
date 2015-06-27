@@ -420,6 +420,8 @@ class AppTestIoAferClose:
                 {"mode": "w+b", "buffering": 0},
             ]:
             print kwargs
+            if "b" not in kwargs["mode"]:
+                kwargs["encoding"] = "ascii"
             f = _io.open(self.tmpfile, **kwargs)
             f.close()
             raises(ValueError, f.flush)
