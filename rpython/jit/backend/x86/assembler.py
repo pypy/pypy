@@ -1644,10 +1644,38 @@ class Assembler386(BaseAssembler):
             self.mc.MOVD32_xr(resloc.value, eax.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
+    def genop_guard_vector_arg(self, guard_op, loc):
+        arg = guard_op.getarg(0)
+        assert isinstance(arg, BoxVector)
+        size = arg.item_size
+        temp = X86_64_XMM_SCRATCH_REG
+        #
+        self.mc.PXOR(temp, temp)
+        # if the vector is not fully packed blend 1s
+        if not arg.fully_packed(self.cpu.vector_register_size):
+            self.mc.PCMPEQQ(temp, temp) # fill with ones
+            select = 0
+            bits_used = (arg.item_count * arg.item_size * 8)
+            index = bits_used // 16
+            while index < 8:
+                select |= (1 << index)
+                index += 1
+            self.mc.PBLENDW_xxi(loc, temp, select)
+            # reset to zeros
+            self.mc.PXOR(temp, temp)
+
+        self.mc.PCMPEQ(size, loc, temp)
+        self.mc.PCMPEQQ(temp, temp)
+        self.mc.PTEST(loc, temp)
+
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
-        self.mc.TEST(loc, loc)
-        self.implement_guard(guard_token, 'Z')
+        if loc.is_xmm:
+            self.genop_guard_vector_arg(guard_op, loc)
+            self.implement_guard(guard_token, 'Z')
+        else:
+            self.mc.TEST(loc, loc)
+            self.implement_guard(guard_token, 'Z')
     genop_guard_guard_nonnull = genop_guard_guard_true
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
@@ -1724,8 +1752,12 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_guard_false(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
-        self.mc.TEST(loc, loc)
-        self.implement_guard(guard_token, 'NZ')
+        if loc.is_xmm:
+            self.genop_guard_vector_arg(guard_op, loc)
+            self.implement_guard(guard_token, 'Z')
+        else:
+            self.mc.TEST(loc, loc)
+            self.implement_guard(guard_token, 'NZ')
     genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_value(self, ign_1, guard_op, guard_token, locs, ign_2):
@@ -2723,7 +2755,7 @@ class Assembler386(BaseAssembler):
     def genop_vec_int_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
         if not isinstance(srcloc, RegLoc):
-            self.mov(X86_64_SCRATCH_REG, srcloc)
+            self.mov(srcloc, X86_64_SCRATCH_REG)
             srcloc = X86_64_SCRATCH_REG
         assert not srcloc.is_xmm
         size = sizeloc.value

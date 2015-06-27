@@ -276,7 +276,11 @@ class TestNumpyJit(Jit386Mixin):
     def test_int8_expand(self):
         result = self.run("int8_expand")
         assert int(result) == 17*8 + sum(range(0,17))
-        self.check_vectorized(3, 1) # TODO sum at the end
+        # does not pay off to cast float64 -> int8
+        # neither does sum
+        # a + c should work, but it is given as a parameter
+        # thus the accum must handle this!
+        self.check_vectorized(3, 0) # TODO
 
     def define_int32_add_const():
         return """
@@ -535,25 +539,109 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_any():
         return """
+        a = astype([0,0,0,0,0,0,0,1,0,0,0],int8)
+        any(a)
+        """
+
+    def define_any_int():
+        return """
+        a = astype([0,0,0,0,256,65537,0,0,0,0,0],int16)
+        any(a)
+        """
+
+    def define_any_ret_0():
+        return """
+        a = astype([0,0,0,0,0,0,0,0,0,0,0],int64)
+        any(a)
+        """
+
+    def define_float_any():
+        return """
         a = [0,0,0,0,0,0,0,1,0,0,0]
         any(a)
         """
 
+    def define_float32_any():
+        return """
+        a = astype([0,0,0,0,0,0,0,1,0,0,0], float32)
+        any(a)
+        """
+
+    def test_float_any(self):
+        result = self.run("float_any")
+        assert int(result) == 1
+        self.check_vectorized(2, 2)
+
+    def test_float32_any(self):
+        result = self.run("float32_any")
+        assert int(result) == 1
+        self.check_vectorized(1, 1)
+
     def test_any(self):
-        result = self.run("any")
-        assert result == 1
-        self.check_vectorized(1, 0)
+        result = self.run("float_any")
+        assert int(result) == 1
+        self.check_vectorized(1, 1)
+
+    def test_any_int(self):
+        result = self.run("any_int")
+        assert int(result) == 1
+        self.check_vectorized(2, 1)
+
+    def test_any_ret_0(self):
+        result = self.run("any_ret_0")
+        assert int(result) == 0
+        self.check_vectorized(2, 2)
 
     def define_all():
+        return """
+        a = astype([1,1,1,1,1,1,1,1],int32)
+        all(a)
+        """
+    def define_all_int():
+        return """
+        a = astype([1,100,255,1,3,1,1,1],int32)
+        all(a)
+        """
+    def define_all_ret_0():
+        return """
+        a = astype([1,1,1,1,1,0,1,1],int32)
+        all(a)
+        """
+    def define_float_all():
         return """
         a = [1,1,1,1,1,1,1,1]
         all(a)
         """
+    def define_float32_all():
+        return """
+        a = astype([1,1,1,1,1,1,1,1],float32)
+        all(a)
+        """
+
+    def test_float_all(self):
+        result = self.run("float_all")
+        assert int(result) == 1
+        self.check_vectorized(2, 2)
+
+    def test_float_all(self):
+        result = self.run("float32_all")
+        assert int(result) == 1
+        self.check_vectorized(2, 2)
 
     def test_all(self):
         result = self.run("all")
-        assert result == 1
-        self.check_vectorized(1, 1)
+        assert int(result) == 1
+        self.check_vectorized(2, 2)
+
+    def test_all_int(self):
+        result = self.run("all_int")
+        assert int(result) == 1
+        self.check_vectorized(2, 2)
+
+    def test_all_ret_0(self):
+        result = self.run("all_ret_0")
+        assert int(result) == 0
+        self.check_vectorized(2, 2)
 
     def define_logical_xor_reduce():
         return """

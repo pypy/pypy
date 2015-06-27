@@ -367,7 +367,7 @@ class OpToVectorOp(object):
                 # the argument has more items than the operation is able to process!
                 # box_pos == 0 then it is already at the right place
                 if box_pos != 0:
-                    args[i] = self.unpack(vbox, box_pos, packable, self.input_type)
+                    args[i] = self.unpack(vbox, box_pos, packed - box_pos, self.input_type)
                     self.update_arg_in_vector_pos(i, args[i])
                     #self.update_input_output(self.pack)
                     continue
@@ -384,7 +384,7 @@ class OpToVectorOp(object):
             if box_pos != 0:
                 # The vector box is at a position != 0 but it
                 # is required to be at position 0. Unpack it!
-                args[i] = self.unpack(vbox, box_pos, packable, self.input_type)
+                args[i] = self.unpack(vbox, box_pos, packed - box_pos, self.input_type)
                 self.update_arg_in_vector_pos(i, args[i])
                 continue
                 #self.update_input_output(self.pack)
@@ -450,6 +450,7 @@ class OpToVectorOp(object):
     def unpack(self, vbox, index, count, arg_ptype):
         assert index < vbox.item_count
         assert index + count <= vbox.item_count
+        assert count > 0
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
         opnum = getunpackopnum(vbox.item_type)
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
@@ -787,7 +788,6 @@ class VecScheduleData(SchedulerData):
 
     def setvector_of_box(self, box, off, vector):
         assert off < vector.item_count
-        print "set" , box, "[",off,"] =", vector
         self.box_to_vbox[box] = (off, vector)
 
     def prepend_invariant_operations(self, oplist):

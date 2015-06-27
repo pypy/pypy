@@ -1357,40 +1357,23 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_abc(self):
         trace="""
-        label(p0, p1, p5, p6, p7, p17, p19, i53, i39, i44, i49, i51, descr=TargetToken(140531585719072))
-        guard_not_invalidated(descr=<Guard0x7fd00f3ebdb0>) [p1, p0, p5, p6, p7, p17, p19]
-        i63 = int_ge(i53, 2024)
-        guard_false(i63, descr=<Guard0x7fd00f3ebe08>) [p1, p0, p5, p6, p7, p17, p19, i53]
-        i64 = int_lt(i53, i39)
-        guard_true(i64, descr=<Guard0x7fd00f3ebe60>) [p1, p0, i53, p5, p6, p7, p17, p19, None]
-        f65 = getarrayitem_raw(i44, i53, descr=floatarraydescr)
-        f66 = float_add(f65, 1.000000)
-        i67 = int_lt(i53, i49)
-        guard_true(i67, descr=<Guard0x7fd00f3ebeb8>) [p1, p0, i53, p5, p6, p7, p17, p19, f66, None]
-        setarrayitem_raw(i51, i53, f66, descr=floatarraydescr)
-        i68 = int_add(i53, 1)
-        i69 = getfield_raw(140531584083072, descr=<FieldS pypysig_long_struct.c_value 0>)
-        setfield_gc(59, i68, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
-        i70 = int_lt(i69, 0)
-        guard_false(i70, descr=<Guard0x7fd00f3ebf10>) [p1, p0, p5, p6, p7, p17, p19, None, None]
-        jump(p0, p1, p5, p6, p7, p17, p19, i68, i39, i44, i49, i51)
-        """
-        trace="""
-        [p0, p1, p9, i10, p4, i11, p3, p6, p12, i13, i14, i15, f16, i17, i18]
-        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f2327d4b390>) [p6, p4, p3, p1, p0, i14, i10, i13, i11, p9, p12]
-        i19 = raw_load(i15, i11, descr=singlefloatarraydescr)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f23284786d0>) [p6, p4, p3, p1, p0, i19, i14, i10, i13, i11, p9, p12]
-        i21 = int_add(i11, 4)
-        f22 = cast_singlefloat_to_float(i19)
-        f23 = float_add(f22, f16)
-        i24 = cast_float_to_singlefloat(f23)
-        raw_store(i17, i14, i24, descr=singlefloatarraydescr)
-        i26 = int_add(i13, 1)
-        i28 = int_add(i14, 4)
-        i29 = int_ge(i26, i18)
-        guard_false(i29, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f2327d53910>) [p6, p4, p3, p1, p0, i28, i21, i26, None, i10, None, None, p9, p12]
-        debug_merge_point(0, 0, '(numpy_call2: no get_printable_location)')
-        jump(p0, p1, p9, i10, p4, i21, p3, p6, p12, i26, i28, i15, f16, i17, i18)
+        [p0, p9, i10, p3, i11, p12, i13, p6, i14, p7, p15, i16, i17, i18, i19, i20, i21]
+        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f09b34aad50>) [p7, p6, p3, p0, i14, i17, i16, p9, p15, i11, i10, p12, i13]
+        i22 = raw_load(i18, i11, descr=singlefloatarraydescr)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f09b34fd390>) [p7, p6, p3, p0, i22, i14, i17, i16, p9, p15, i11, i10, p12, i13]
+        i24 = int_add(i11, 4)
+        i25 = raw_load(i19, i17, descr=singlefloatarraydescr)
+        i27 = int_add(i17, 4)
+        f28 = cast_singlefloat_to_float(i22)
+        f29 = cast_singlefloat_to_float(i25)
+        f30 = float_add(f28, f29)
+        i31 = cast_float_to_singlefloat(f30)
+        raw_store(i20, i14, i31, descr=singlefloatarraydescr)
+        i33 = int_add(i13, 1)
+        i35 = int_add(i14, 4)
+        i36 = int_ge(i33, i21)
+        guard_false(i36, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f09b34b7c10>) [p7, p6, p3, p0, i35, i24, i33, i27, None, None, i16, p9, p15, None, i10, p12, None]
+        jump(p0, p9, i10, p3, i24, p12, i33, p6, i35, p7, p15, i16, i27, i18, i19, i20, i21)
         """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)

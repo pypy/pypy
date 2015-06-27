@@ -766,6 +766,8 @@ class AbstractX86CodeBuilder(object):
     PINSRB_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x20', register(1,8), register(2), '\xC0', immediate(3, 'b'))
     INSERTPS_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x21', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
+    PTEST_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x17', register(1,8), register(2), '\xC0')
+    PBLENDW_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x0E', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
     # ------------------------------------------------------------
 
@@ -1003,7 +1005,10 @@ define_pxmm_insn('PUNPCKLDQ_x*', '\x62')
 define_pxmm_insn('PUNPCKHDQ_x*', '\x6A')
 define_pxmm_insn('PUNPCKLQDQ_x*', '\x6C')
 define_pxmm_insn('PUNPCKHQDQ_x*', '\x6D')
+define_pxmm_insn('PCMPEQQ_x*',   '\x38\x29')
 define_pxmm_insn('PCMPEQD_x*',   '\x76')
+define_pxmm_insn('PCMPEQW_x*',   '\x75')
+define_pxmm_insn('PCMPEQB_x*',   '\x74')
 
 # ____________________________________________________________
 

@@ -390,12 +390,22 @@ class RegAlloc(BaseRegalloc):
             return self.xrm.loc(v)
         return self.rm.loc(v)
 
+    def _consider_guard_tf(self, op):
+        arg = op.getarg(0)
+        if arg.type == VECTOR:
+            assert arg.item_type == INT
+            loc = self.xrm.make_sure_var_in_reg(arg)
+        else:
+            loc = self.rm.make_sure_var_in_reg(arg)
+        self.perform_guard(op, [loc], None)
+
+    consider_guard_true = _consider_guard_tf
+    consider_guard_false = _consider_guard_tf
+
     def _consider_guard(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
         self.perform_guard(op, [loc], None)
 
-    consider_guard_true = _consider_guard
-    consider_guard_false = _consider_guard
     consider_guard_nonnull = _consider_guard
     consider_guard_isnull = _consider_guard
 

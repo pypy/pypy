@@ -54,5 +54,8 @@ Future Work and Limitations
   The opcode needed spans over multiple instructions. In terms of performance
   there might only be little to non advantage to use SIMD instructions for this
   conversions.
+* For a guard that checks true/false on a vector integer regsiter, it would be handy
+  to have 2 xmm registers (one filled with zero bits and the other with one every bit).
+  This cuts down 2 instructions for guard checking, trading for higher register pressure.
 
 .. _PMUL: http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025

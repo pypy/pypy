@@ -601,6 +601,28 @@ class LocationCodeBuilder(object):
         self._reuse_scratch_register = False
         self._scratch_register_known = False
 
+    def _vector_size_choose(name):
+        def invoke(self, suffix, val1, val2):
+            methname = name + suffix
+            _rx86_getattr(self, methname)(val1, val2)
+        invoke._annspecialcase_ = 'specialize:arg(1)'
+
+        def INSN(self, size, loc1, loc2):
+            code1 = loc1.location_code()
+            code2 = loc2.location_code()
+            val1 = getattr(loc1, "value_" + code1)()
+            val2 = getattr(loc2, "value_" + code2)()
+            suffix = 'B'
+            if size == 2:
+                suffix = 'W'
+            elif size == 4:
+                suffix = 'D'
+            else:
+                suffix = 'Q'
+            invoke(self, suffix + "_"+ code1+code2, val1, val2)
+
+        return INSN
+
     AND = _binaryop('AND')
     OR  = _binaryop('OR')
     OR8 = _binaryop('OR8')
@@ -610,6 +632,7 @@ class LocationCodeBuilder(object):
     SHR = _binaryop('SHR')
     SAR = _binaryop('SAR')
     TEST = _binaryop('TEST')
+    PTEST = _binaryop('PTEST')
     TEST8 = _binaryop('TEST8')
     BTS = _binaryop('BTS')
 
@@ -621,6 +644,11 @@ class LocationCodeBuilder(object):
 
     CMP = _binaryop('CMP')
     CMP16 = _binaryop('CMP16')
+    PCMPEQQ = _binaryop('PCMPEQQ')
+    PCMPEQD = _binaryop('PCMPEQD')
+    PCMPEQW = _binaryop('PCMPEQW')
+    PCMPEQB = _binaryop('PCMPEQB')
+    PCMPEQ = _vector_size_choose('PCMPEQ')
     MOV = _binaryop('MOV')
     MOV8 = _binaryop('MOV8')
     MOV16 = _binaryop('MOV16')
@@ -698,7 +726,6 @@ class LocationCodeBuilder(object):
     PAND  = _binaryop('PAND')
     POR   = _binaryop('POR')
     PXOR  = _binaryop('PXOR')
-    PCMPEQD = _binaryop('PCMPEQD')
     PSRLDQ = _binaryop('PSRLDQ')
 
     MOVDQ = _binaryop('MOVDQ')

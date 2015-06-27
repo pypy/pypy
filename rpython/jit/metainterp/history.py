@@ -540,6 +540,9 @@ class BoxVector(Box):
     def getcount(self):
         return self.item_count
 
+    def fully_packed(self, vec_reg_size):
+        return self.item_size * self.item_count == vec_reg_size
+
     def forget_value(self):
         raise NotImplementedError("cannot forget value of vector")
 
