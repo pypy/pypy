@@ -570,12 +570,12 @@ class TestNumpyJit(Jit386Mixin):
     def test_any_float(self):
         result = self.run("float_any")
         assert int(result) == 1
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
     def test_any_float32(self):
         result = self.run("float32_any")
         assert int(result) == 1
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 2)
 
     def test_any(self):
         result = self.run("any")

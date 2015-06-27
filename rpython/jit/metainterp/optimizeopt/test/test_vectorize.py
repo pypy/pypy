@@ -1375,6 +1375,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i36, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f09b34b7c10>) [p7, p6, p3, p0, i35, i24, i33, i27, None, None, i16, p9, p15, None, i10, p12, None]
         jump(p0, p9, i10, p3, i24, p12, i33, p6, i35, p7, p15, i16, i27, i18, i19, i20, i21)
         """
+        # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
 

@@ -1644,7 +1644,7 @@ class Assembler386(BaseAssembler):
             self.mc.MOVD32_xr(resloc.value, eax.value)
             self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
-    def _guard_vector_arg(self, guard_op, loc, zero=False):
+    def _guard_vector_true(self, guard_op, loc, zero=False):
         arg = guard_op.getarg(0)
         assert isinstance(arg, BoxVector)
         size = arg.item_size
@@ -1653,8 +1653,7 @@ class Assembler386(BaseAssembler):
         self.mc.PXOR(temp, temp)
         # if the vector is not fully packed blend 1s
         if not arg.fully_packed(self.cpu.vector_register_size):
-            if not zero:
-                self.mc.PCMPEQQ(temp, temp) # fill with ones
+            self.mc.PCMPEQQ(temp, temp) # fill with ones
             select = 0
             bits_used = (arg.item_count * arg.item_size * 8)
             index = bits_used // 16
@@ -1663,8 +1662,7 @@ class Assembler386(BaseAssembler):
                 index += 1
             self.mc.PBLENDW_xxi(loc.value, temp.value, select)
             # reset to zeros
-            if not zero:
-                self.mc.PXOR(temp, temp)
+            self.mc.PXOR(temp, temp)
 
         self.mc.PCMPEQ(size, loc, temp)
         self.mc.PCMPEQQ(temp, temp)
@@ -1673,7 +1671,7 @@ class Assembler386(BaseAssembler):
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
         if loc.is_xmm:
-            self._guard_vector_arg(guard_op, loc, zero=False)
+            self._guard_vector_true(guard_op, loc)
             self.implement_guard(guard_token, 'NZ')
         else:
             self.mc.TEST(loc, loc)
@@ -1752,11 +1750,29 @@ class Assembler386(BaseAssembler):
         self.mc.IMUL(arglocs[0], arglocs[1])
         return self._gen_guard_overflow(guard_op, guard_token)
 
+    def _guard_vector_false(self, guard_op, loc):
+        arg = guard_op.getarg(0)
+        assert isinstance(arg, BoxVector)
+        #
+        # if the vector is not fully packed blend 1s
+        if not arg.fully_packed(self.cpu.vector_register_size):
+            temp = X86_64_XMM_SCRATCH_REG
+            self.mc.PXOR(temp, temp)
+            select = 0
+            bits_used = (arg.item_count * arg.item_size * 8)
+            index = bits_used // 16
+            while index < 8:
+                select |= (1 << index)
+                index += 1
+            self.mc.PBLENDW_xxi(loc.value, temp.value, select)
+
+        self.mc.PTEST(loc, loc)
+
     def genop_guard_guard_false(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
         if loc.is_xmm:
-            self._guard_vector_arg(guard_op, loc, zero=True)
-            self.implement_guard(guard_token, 'Z')
+            self._guard_vector_false(guard_op, loc)
+            self.implement_guard(guard_token, 'NZ')
         else:
             self.mc.TEST(loc, loc)
             self.implement_guard(guard_token, 'NZ')
