@@ -545,7 +545,7 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_any_int():
         return """
-        a = astype([0,0,0,0,256,65537,0,0,0,0,0],int16)
+        a = astype([0,0,0,0,256,0,0,0,0,0,0],int16)
         any(a)
         """
 
@@ -567,20 +567,20 @@ class TestNumpyJit(Jit386Mixin):
         any(a)
         """
 
-    def test_float_any(self):
+    def test_any_float(self):
         result = self.run("float_any")
         assert int(result) == 1
         self.check_vectorized(2, 2)
 
-    def test_float32_any(self):
+    def test_any_float32(self):
         result = self.run("float32_any")
         assert int(result) == 1
         self.check_vectorized(1, 1)
 
     def test_any(self):
-        result = self.run("float_any")
+        result = self.run("any")
         assert int(result) == 1
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 1)
 
     def test_any_int(self):
         result = self.run("any_int")
@@ -618,12 +618,12 @@ class TestNumpyJit(Jit386Mixin):
         all(a)
         """
 
-    def test_float_all(self):
+    def test_all_float(self):
         result = self.run("float_all")
         assert int(result) == 1
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
-    def test_float_all(self):
+    def test_all_float32(self):
         result = self.run("float32_all")
         assert int(result) == 1
         self.check_vectorized(2, 2)
