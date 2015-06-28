@@ -611,8 +611,9 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeUnicodeCodePoint),
                  pairtype(SomeUnicodeString, SomeUnicodeString)):
     def union((str1, str2)):
-        return SomeUnicodeString(can_be_None=str1.can_be_none() or
-                                 str2.can_be_none())
+        can_be_None = str1.can_be_None or str2.can_be_None
+        no_nul = str1.no_nul and str2.no_nul
+        return SomeUnicodeString(can_be_None=can_be_None, no_nul=no_nul)
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
