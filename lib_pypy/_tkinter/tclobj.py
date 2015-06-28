@@ -25,7 +25,7 @@ class TypeCache(object):
 
         result = app.call('expr', '2**63')
         typePtr = AsObj(result).typePtr
-        if tkffi.string(typePtr.name) == v"bignum":
+        if tkffi.string(typePtr.name) == b"bignum":
             self.BigNumType = typePtr
 
 
