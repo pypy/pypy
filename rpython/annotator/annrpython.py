@@ -242,7 +242,7 @@ class RPythonAnnotator(object):
     def setbinding(self, arg, s_value):
         s_old = arg.annotation
         if s_old is not None:
-            assert s_value.contains(s_old)
+            assert s_value.contains(s_old), "%s does not contain %s" % (s_value, s_old)
         arg.annotation = s_value
 
     def warning(self, msg, pos=None):
