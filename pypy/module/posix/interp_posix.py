@@ -62,8 +62,15 @@ class FileDecoder(object):
         return self.space.fsdecode_w(self.w_obj)
 
 @specialize.memo()
-def dispatch_filename(func, tag=0):
+def make_dispatch_function(func, tag, allow_fd_fn=None):
     def dispatch(space, w_fname, *args):
+        if allow_fd_fn is not None:
+            try:
+                fd = space.c_int_w(w_fname)
+            except OperationError:
+                pass
+            else:
+                return allow_fd_fn(fd, *args)
         if space.isinstance_w(w_fname, space.w_unicode):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
@@ -71,6 +78,10 @@ def dispatch_filename(func, tag=0):
             fname = space.bytes0_w(w_fname)
             return func(fname, *args)
     return dispatch
+
+@specialize.arg(0, 1)
+def dispatch_filename(func, tag=0, allow_fd_fn=None):
+    return make_dispatch_function(func, tag, allow_fd_fn)
 
 @specialize.memo()
 def dispatch_filename_2(func):
@@ -302,7 +313,8 @@ with (at least) the following attributes:
 """
 
     try:
-        st = dispatch_filename(rposix_stat.stat)(space, w_path)
+        st = dispatch_filename(rposix_stat.stat, 0,
+                               allow_fd_fn=rposix_stat.fstat)(space, w_path)
     except OSError, e:
         raise wrap_oserror2(space, e, w_path)
     else:

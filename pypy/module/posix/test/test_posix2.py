@@ -109,6 +109,7 @@ class AppTestPosix:
         s = posix.read(fd, 1)
         assert s == b'i'
         st = posix.fstat(fd)
+        assert st == posix.stat(fd)
         posix.close(fd2)
         posix.close(fd)
 
