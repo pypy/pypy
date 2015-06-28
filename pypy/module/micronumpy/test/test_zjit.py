@@ -280,7 +280,7 @@ class TestNumpyJit(Jit386Mixin):
         # neither does sum
         # a + c should work, but it is given as a parameter
         # thus the accum must handle this!
-        self.check_vectorized(3, 0) # TODO
+        self.check_vectorized(3, 1)
 
     def define_int32_add_const():
         return """

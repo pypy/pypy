@@ -147,31 +147,17 @@ def getexpandopnum(type):
     raise AssertionError("getexpandopnum type %s not supported" % (type,))
 
 class PackType(object):
-    # TODO merge with vector box? the save the same fields
-    # difference: this is more of a type specification
+    """ Represents the type of an operation (either it's input or
+    output).
+    """
     UNKNOWN_TYPE = '-'
 
-    def __init__(self, type, size, signed, count=-1):
-        assert type in (FLOAT, INT, PackType.UNKNOWN_TYPE)
-        self.type = type
-        self.size = size
-        self.signed = signed
-        self.count = count
-
-    def gettype(self):
-        return self.type
-
-    def getsize(self):
-        return self.size
-
-    def getsigned(self):
-        return self.signed
-
-    def get_byte_size(self):
-        return self.size
-
-    def getcount(self):
-        return self.count
+    @staticmethod
+    def of(box, count=-1):
+        assert isinstance(box, BoxVector)
+        if count == -1:
+            count = box.item_count
+        return PackType(box.item_type, box.item_size, box.item_signed, count)
 
     @staticmethod
     def by_descr(descr, vec_reg_size):
@@ -182,8 +168,15 @@ class PackType(object):
         pt = PackType(_t, size, descr.is_item_signed(), vec_reg_size // size)
         return pt
 
-    def is_valid(self):
-        return self.type != PackType.UNKNOWN_TYPE and self.size > 0
+    def __init__(self, type, size, signed, count=-1):
+        assert type in (FLOAT, INT, PackType.UNKNOWN_TYPE)
+        self.type = type
+        self.size = size
+        self.signed = signed
+        self.count = count
+
+    def clone(self):
+        return PackType(self.type, self.size, self.signed, self.count)
 
     def new_vector_box(self, count = -1):
         if count == -1:
@@ -193,18 +186,32 @@ class PackType(object):
         assert self.size > 0
         return BoxVector(self.type, count, self.size, self.signed)
 
+    def combine(self, other):
+        """ nothing to be done here """
+        if not we_are_translated():
+            assert self.type == other.type
+            assert self.signed == other.signed
+
     def __repr__(self):
         return 'PackType(%s, %d, %d, #%d)' % (self.type, self.size, self.signed, self.count)
 
-    @staticmethod
-    def of(box, count=-1):
-        assert isinstance(box, BoxVector)
-        if count == -1:
-            count = box.item_count
-        return PackType(box.item_type, box.item_size, box.item_signed, count)
+    def byte_size(self):
+        return self.count * self.size
 
-    def clone(self):
-        return PackType(self.type, self.size, self.signed, self.count)
+    def setsize(self, size):
+        self.size = size
+
+    def setcount(self, count):
+        self.count = count
+
+    def gettype(self):
+        return self.type
+
+    def getsize(self):
+        return self.size
+
+    def getcount(self):
+        return self.count
 
 
 PT_FLOAT_2 = PackType(FLOAT, 4, False, 2)
@@ -229,20 +236,6 @@ class OpToVectorOp(object):
         self.output_type = None
         self.costmodel = None
 
-
-    def determine_input_type(self, op):
-        arg = op.getarg(0)
-        _, vbox = self.sched_data.getvector_of_box(arg)
-        return packtype_outof_box(vbox or arg)
-
-    def determine_output_type(self, op):
-        return self.determine_input_type(op)
-
-    def update_input_output(self, pack):
-        op0 = pack.operations[0].getoperation()
-        self.input_type = self.determine_input_type(op0)
-        self.output_type = self.determine_output_type(op0)
-
     def check_if_pack_supported(self, pack):
         op0 = pack.operations[0].getoperation()
         if self.input_type is None:
@@ -264,7 +257,9 @@ class OpToVectorOp(object):
         self.sched_data = sched_data
         self.preamble_ops = oplist
         self.costmodel = sched_data.costmodel
-        self.update_input_output(pack)
+        #self.update_input_output(pack)
+        self.input_type = pack.input_type
+        self.output_type = pack.output_type
         #
         self.check_if_pack_supported(pack)
         #
@@ -284,19 +279,6 @@ class OpToVectorOp(object):
 
     def must_be_full_but_is_not(self, pack):
         return False
-
-    def split_pack(self, pack, vec_reg_size):
-        """ Returns how many items of the pack should be
-            emitted as vector operation. """
-        bytes = pack.opcount() * self.getscalarsize()
-        if bytes > vec_reg_size:
-            # too many bytes. does not fit into the vector register
-            return vec_reg_size // self.getscalarsize()
-        return pack.opcount()
-
-    def getscalarsize(self):
-        """ return how many bytes a scalar operation processes """
-        return self.input_type.getsize()
 
     def before_argument_transform(self, args):
         pass
@@ -475,42 +457,6 @@ class OpToVectorOp(object):
             self._check_vec_pack(op)
         return new_box
 
-    def package2(self, tgt_box, index, args, packable):
-        """ If there are two vector boxes:
-          v1 = [_,_,X,Y]
-          v2 = [A,B,_,_]
-          this function creates a box pack instruction to merge them to:
-          v1/2 = [A,B,X,Y]
-        """
-        opnum = getpackopnum(tgt_box.item_type)
-        arg_count = len(args)
-        i = index
-        while i < arg_count and tgt_box.item_count < packable:
-            arg = args[i]
-            pos, src_box = self.sched_data.getvector_of_box(arg)
-            if pos == -1:
-                i += 1
-                continue
-            count = tgt_box.item_count + src_box.item_count
-            new_box = vectorbox_clone_set(tgt_box, count=count)
-            op = ResOperation(opnum, [tgt_box, src_box, ConstInt(i),
-                                      ConstInt(src_box.item_count)], new_box)
-            self.preamble_ops.append(op)
-            self.costmodel.record_vector_pack(src_box, i, src_box.item_count)
-            if not we_are_translated():
-                self._check_vec_pack(op)
-            i += src_box.item_count
-
-            # overwrite the new positions, arguments now live in new_box
-            # at a new position
-            for j in range(i):
-                arg = args[j]
-                self.sched_data.setvector_of_box(arg, j, new_box)
-            tgt_box = new_box
-        _, vbox = self.sched_data.getvector_of_box(args[0])
-        assert vbox is not None
-        return vbox
-
     def _check_vec_pack(self, op):
         result = op.result
         arg0 = op.getarg(0)
@@ -579,24 +525,50 @@ class OpToVectorOp(object):
             return False
         return self.arg_ptypes[i] is not None
 
+    def get_output_type_given(self, input_type, op):
+        return input_type
+
+    def get_input_type_given(self, output_type, op):
+        return output_type
+
+    def force_input(self, ptype):
+        """ Some operations require a specific count/size,
+            they can force the input type here!
+        """
+        return ptype
+
+    # OLD
+    def determine_input_type(self, op):
+        arg = op.getarg(0)
+        _, vbox = self.sched_data.getvector_of_box(arg)
+        return packtype_outof_box(vbox or arg)
+
+    def determine_output_type(self, op):
+        return self.determine_input_type(op)
+
+    def update_input_output(self, pack):
+        op0 = pack.operations[0].getoperation()
+        self.input_type = self.determine_input_type(op0)
+        self.output_type = self.determine_output_type(op0)
+
+    def split_pack(self, pack, vec_reg_size):
+        """ Returns how many items of the pack should be
+            emitted as vector operation. """
+        bytes = pack.opcount() * self.getscalarsize()
+        if bytes > vec_reg_size:
+            # too many bytes. does not fit into the vector register
+            return vec_reg_size // self.getscalarsize()
+        return pack.opcount()
+
+    def getscalarsize(self):
+        """ return how many bytes a scalar operation processes """
+        return self.input_type.getsize()
+
 class OpToVectorOpConv(OpToVectorOp):
     def __init__(self, intype, outtype):
         self.from_size = intype.getsize()
         self.to_size = outtype.getsize()
         OpToVectorOp.__init__(self, (intype, ), outtype)
-
-    def determine_input_type(self, op):
-        return self.arg_ptypes[0]
-
-    def determine_output_type(self, op):
-        return self.result_ptype
-
-    def split_pack(self, pack, vec_reg_size):
-        count = self.arg_ptypes[0].getcount()
-        bytes = pack.opcount() * self.getscalarsize()
-        if bytes > count * self.from_size:
-            return bytes // (count * self.from_size)
-        return pack.opcount()
 
     def new_result_vector_box(self):
         type = self.output_type.gettype()
@@ -611,6 +583,29 @@ class OpToVectorOpConv(OpToVectorOp):
         assert count > 1
         return BoxVector(type, count, size, signed)
 
+    def get_output_type_given(self, input_type, op):
+        return self.result_ptype
+
+    def get_input_type_given(self, output_type, op):
+        return self.arg_ptypes[0]
+
+    def force_input(self, ptype):
+        return self.arg_ptypes[0]
+
+    # OLD
+    def determine_input_type(self, op):
+        return self.arg_ptypes[0]
+
+    def determine_output_type(self, op):
+        return self.result_ptype
+
+    def split_pack(self, pack, vec_reg_size):
+        count = self.arg_ptypes[0].getcount()
+        bytes = pack.opcount() * self.getscalarsize()
+        if bytes > count * self.from_size:
+            return bytes // (count * self.from_size)
+        return pack.opcount()
+
 class SignExtToVectorOp(OpToVectorOp):
     def __init__(self, intype, outtype):
         OpToVectorOp.__init__(self, intype, outtype)
@@ -620,7 +615,6 @@ class SignExtToVectorOp(OpToVectorOp):
         sizearg = args[1]
         assert isinstance(sizearg, ConstInt)
         self.size = sizearg.value
-
 
     def new_result_vector_box(self):
         type = self.output_type.gettype()
@@ -634,22 +628,39 @@ class SignExtToVectorOp(OpToVectorOp):
         assert count > 1
         return BoxVector(type, count, self.size, signed)
 
+    def get_output_type_given(self, input_type, op):
+        sizearg = op.getarg(1)
+        assert isinstance(sizearg, ConstInt)
+        output_type = input_type.clone()
+        output_type.setsize(sizearg.value)
+        return output_type
+
+    def get_input_type_given(self, output_type, op):
+        raise AssertionError("can never infer input type!")
+
 class LoadToVectorLoad(OpToVectorOp):
     def __init__(self):
         OpToVectorOp.__init__(self, (), PT_GENERIC)
+
+    def before_argument_transform(self, args):
+        count = min(self.output_type.getcount(), len(self.getoperations()))
+        args.append(ConstInt(count))
+
+    def get_output_type_given(self, input_type, op):
+        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+
+    def get_input_type_given(self, output_type, op):
+        return None
+
+    # OLD
+    def getscalarsize(self):
+        return self.output_type.getsize()
 
     def determine_input_type(self, op):
         return None
 
     def determine_output_type(self, op):
         return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
-    def before_argument_transform(self, args):
-        count = min(self.output_type.getcount(), len(self.getoperations()))
-        args.append(ConstInt(count))
-
-    def getscalarsize(self):
-        return self.output_type.getsize()
 
 class StoreToVectorStore(OpToVectorOp):
     """
@@ -661,13 +672,20 @@ class StoreToVectorStore(OpToVectorOp):
         OpToVectorOp.__init__(self, (None, None, PT_GENERIC), None)
         self.has_descr = True
 
-    def determine_input_type(self, op):
-        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
     def must_be_full_but_is_not(self, pack):
         vrs = self.sched_data.vec_reg_size
         it = pack.input_type
         return it.getsize() * it.getcount() < vrs
+
+    def get_output_type_given(self, input_type, op):
+        return None
+
+    def get_input_type_given(self, output_type, op):
+        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+
+    # OLD
+    def determine_input_type(self, op):
+        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
     def determine_output_type(self, op):
         return None
@@ -694,6 +712,13 @@ class PassThroughOp(OpToVectorOp):
     def __init__(self, args):
         OpToVectorOp.__init__(self, args, None)
 
+    def get_output_type_given(self, input_type, op):
+        return None
+
+    def get_input_type_given(self, output_type, op):
+        raise AssertionError("cannot infer input type from output type")
+
+    # OLD
     def determine_output_type(self, op):
         return None
 
@@ -737,12 +762,30 @@ ROP_ARG_RES_VECTOR = {
     rop.GUARD_FALSE: GUARD_TF,
 }
 
-def determine_output_type(node, input_type):
+def determine_input_output_types(pack, node, forward):
+    """ This function is two fold. If moving forward, it
+    gets an input type from the packs output type and returns
+    the transformed packtype.
+
+    Moving backward, the origins pack input type is the output
+    type and the transformation of the packtype (in reverse direction)
+    is the input
+    """
     op = node.getoperation()
     op2vecop = determine_trans(op)
-    if isinstance(op2vecop, OpToVectorOpConv):
-        return op2vecop.determine_output_type(op)
-    return input_type
+    if forward:
+        input_type = op2vecop.force_input(pack.output_type)
+        output_type = op2vecop.get_output_type_given(input_type, op)
+        if output_type:
+            output_type = output_type.clone()
+    else:
+        # going backwards, things are not that easy anymore
+        output_type = pack.input_type
+        input_type = op2vecop.get_input_type_given(output_type, op)
+        if input_type:
+            input_type = input_type.clone()
+
+    return input_type, output_type
 
 def determine_trans(op):
     op2vecop = ROP_ARG_RES_VECTOR.get(op.vector, None)
@@ -831,6 +874,7 @@ class Pack(object):
         self.accum = None
         self.input_type = input_type
         self.output_type = output_type
+        assert self.input_type is not None or self.output_type is not None
 
     def opcount(self):
         return len(self.operations)
@@ -849,8 +893,10 @@ class Pack(object):
 
         op = self.leftmost()
         if op.casts_box():
-            assert self.output_type.getcount() <= ptype.getcount()
-            return self.output_type.getcount() <= ptype.getcount()
+            cur_bytes = ptype.getsize() * self.opcount()
+            max_bytes = self.input_type.byte_size()
+            assert cur_bytes <= max_bytes
+            return cur_bytes == max_bytes
 
         bytes = ptype.getsize() * len(self.operations)
         assert bytes <= vec_reg_size
@@ -903,6 +949,10 @@ class Pair(Pack):
         assert isinstance(right, Node)
         self.left = left
         self.right = right
+        if input_type:
+            input_type = input_type.clone()
+        if output_type:
+            output_type = output_type.clone()
         Pack.__init__(self, [left, right], input_type, output_type)
 
     def __eq__(self, other):

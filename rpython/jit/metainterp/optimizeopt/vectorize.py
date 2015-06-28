@@ -21,7 +21,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         Scheduler, Pack, Pair, AccumPair, Accum, vectorbox_outof_box, getpackopnum,
-        getunpackopnum, PackType, determine_output_type, determine_trans)
+        getunpackopnum, PackType, determine_input_output_types)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib import listsort
@@ -680,8 +680,8 @@ class PackSet(object):
                         # store only has an input
                         return Pair(lnode, rnode, ptype, None)
                 if self.profitable_pack(lnode, rnode, origin_pack, forward):
-                    input_type = origin_pack.output_type
-                    output_type = determine_output_type(lnode, input_type)
+                    input_type, output_type = \
+                        determine_input_output_types(origin_pack, lnode, forward)
                     return Pair(lnode, rnode, input_type, output_type)
             else:
                 if self.contains_pair(lnode, rnode):
@@ -719,6 +719,10 @@ class PackSet(object):
         if packed.is_raw_array_access():
             if packed.getarg(1) == inquestion.result:
                 return True
+        if not forward and inquestion.getopnum() == rop.INT_SIGNEXT:
+            # prohibit the packing of signext in backwards direction
+            # the type cannot be determined!
+            return True
         return False
 
     def combine(self, i, j):
@@ -729,7 +733,13 @@ class PackSet(object):
         operations = pack_i.operations
         for op in pack_j.operations[1:]:
             operations.append(op)
-        pack = Pack(operations, pack_i.input_type, pack_i.output_type)
+        input_type = pack_i.input_type
+        output_type = pack_i.output_type
+        if input_type:
+            input_type.combine(pack_j.input_type)
+        if output_type:
+            output_type.combine(pack_j.output_type)
+        pack = Pack(operations, input_type, output_type)
         self.packs[i] = pack
         # preserve the accum variable (if present) of the
         # left most pack, that is the pack with the earliest

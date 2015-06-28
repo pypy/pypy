@@ -1357,23 +1357,18 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_abc(self):
         trace="""
-        [p0, p9, i10, p3, i11, p12, i13, p6, i14, p7, p15, i16, i17, i18, i19, i20, i21]
-        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f09b34aad50>) [p7, p6, p3, p0, i14, i17, i16, p9, p15, i11, i10, p12, i13]
-        i22 = raw_load(i18, i11, descr=singlefloatarraydescr)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f09b34fd390>) [p7, p6, p3, p0, i22, i14, i17, i16, p9, p15, i11, i10, p12, i13]
-        i24 = int_add(i11, 4)
-        i25 = raw_load(i19, i17, descr=singlefloatarraydescr)
-        i27 = int_add(i17, 4)
-        f28 = cast_singlefloat_to_float(i22)
-        f29 = cast_singlefloat_to_float(i25)
-        f30 = float_add(f28, f29)
-        i31 = cast_float_to_singlefloat(f30)
-        raw_store(i20, i14, i31, descr=singlefloatarraydescr)
-        i33 = int_add(i13, 1)
-        i35 = int_add(i14, 4)
-        i36 = int_ge(i33, i21)
-        guard_false(i36, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f09b34b7c10>) [p7, p6, p3, p0, i35, i24, i33, i27, None, None, i16, p9, p15, None, i10, p12, None]
-        jump(p0, p9, i10, p3, i24, p12, i33, p6, i35, p7, p15, i16, i27, i18, i19, i20, i21)
+        [p0, p9, i10, p7, i11, p2, p4, p5, p12, i13, i14, i15, i16, i17, i18]
+        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f8a20c32090>) [p7, p5, p4, p2, p0, i10, i13, p9, p12, i11, i14]
+        i19 = raw_load(i15, i14, descr=int16arraydescr)
+        i21 = int_add(i14, 2)
+        i22 = int_add(i19, i16)
+        i24 = int_signext(i22, 2)
+        raw_store(i17, i11, i24, descr=int16arraydescr)
+        i26 = int_add(i10, 1)
+        i28 = int_add(i11, 2)
+        i29 = int_ge(i26, i18)
+        guard_false(i29, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f8a20c32990>) [p7, p5, p4, p2, p0, i21, i28, i26, None, i13, p9, p12, None, None]
+        jump(p0, p9, i26, p7, i28, p2, p4, p5, p12, i13, i21, i15, i16, i17, i18)
         """
         # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))
