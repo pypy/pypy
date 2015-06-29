@@ -607,19 +607,18 @@ class LocationCodeBuilder(object):
             _rx86_getattr(self, methname)(val1, val2)
         invoke._annspecialcase_ = 'specialize:arg(1)'
 
+        possible_instr_unrolled = unrolling_iterable([(1,'B_xx'),(2,'W_xx'),(4,'D_xx'),(8,'Q_xx')])
+
         def INSN(self, size, loc1, loc2):
             code1 = loc1.location_code()
             code2 = loc2.location_code()
-            val1 = getattr(loc1, "value_" + code1)()
-            val2 = getattr(loc2, "value_" + code2)()
-            suffix = 'B'
-            if size == 2:
-                suffix = 'W'
-            elif size == 4:
-                suffix = 'D'
-            else:
-                suffix = 'Q'
-            invoke(self, suffix + "_"+ code1+code2, val1, val2)
+            assert code1 == code2 == 'x'
+            val1 = loc1.value_x()
+            val2 = loc2.value_x()
+            for s,suffix in possible_instr_unrolled:
+                if s == size:
+                    invoke(self, suffix, val1, val2)
+                    break
 
         return INSN
 

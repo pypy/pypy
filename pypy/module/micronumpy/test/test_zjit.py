@@ -118,6 +118,17 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         return retval
 
+    def define_matrix_dot():
+        return """
+        mat = |16|
+        m = reshape(mat, [4,4])
+        """
+
+    def test_matrix_dot(self):
+        result = self.run("matrix_dot")
+        assert int(result) == 45
+        self.check_vectorized(1, 1)
+
     def define_float32_copy():
         return """
         a = astype(|30|, float32)
@@ -387,7 +398,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_sum_int(self):
         result = self.run("sum_int")
         assert result == sum(range(65))
-        self.check_vectorized(2, 2) # 1 vecopt try+success for type conversion
+        self.check_vectorized(2, 2) # 1 sum, 1 for type conversion
 
     def define_sum_multi():
         return """

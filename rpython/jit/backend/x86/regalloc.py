@@ -393,7 +393,6 @@ class RegAlloc(BaseRegalloc):
     def _consider_guard_tf(self, op):
         arg = op.getarg(0)
         if arg.type == VECTOR:
-            assert arg.item_type == INT
             loc = self.xrm.make_sure_var_in_reg(arg)
         else:
             loc = self.rm.make_sure_var_in_reg(arg)

@@ -37,12 +37,20 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
+class FakeArguments(W_Root):
+    def __init__(self, args_w, kw_w):
+        self.args_w = args_w
+        self.kw_w = kw_w
+
+    def unpack(self):
+        return self.args_w, self.kw_w
+
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring", "count_nonzero",
                         "argsort", "cumsum", "logical_xor_reduce"]
-TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted']
-TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
+TWO_ARG_FUNCTIONS = ["dot", 'multiply', 'take', 'searchsorted']
+TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype', 'reshape']
 THREE_ARG_FUNCTIONS = ['where']
 
 class W_TypeObject(W_Root):
@@ -779,6 +787,8 @@ class FunctionCall(Node):
                 raise ArgumentNotAnArray
             if self.name == "dot":
                 w_res = arr.descr_dot(interp.space, arg)
+            if self.name == "multiply":
+                w_res = arr.descr_mul(interp.space, arg)
             elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
             elif self.name == "searchsorted":
@@ -807,8 +817,12 @@ class FunctionCall(Node):
                 w_res = arr.descr_view(interp.space, arg)
             elif self.name == 'astype':
                 w_res = arr.descr_astype(interp.space, arg)
+            elif self.name == 'reshape':
+                w_arg = self.args[1]
+                assert isinstance(w_arg, ArrayConstant)
+                w_res = arr.reshape(interp.space, w_arg.wrap(interp.space))
             else:
-                assert False
+                assert False, "missing two arg impl for: %s" % (self.name,)
         else:
             raise WrongFunctionName
         if isinstance(w_res, W_NDimArray):

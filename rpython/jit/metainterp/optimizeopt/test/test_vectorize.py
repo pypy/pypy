@@ -1357,18 +1357,18 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_abc(self):
         trace="""
-        [p0, p9, i10, p7, i11, p2, p4, p5, p12, i13, i14, i15, i16, i17, i18]
-        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f8a20c32090>) [p7, p5, p4, p2, p0, i10, i13, p9, p12, i11, i14]
-        i19 = raw_load(i15, i14, descr=int16arraydescr)
-        i21 = int_add(i14, 2)
-        i22 = int_add(i19, i16)
-        i24 = int_signext(i22, 2)
-        raw_store(i17, i11, i24, descr=int16arraydescr)
-        i26 = int_add(i10, 1)
-        i28 = int_add(i11, 2)
-        i29 = int_ge(i26, i18)
-        guard_false(i29, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7f8a20c32990>) [p7, p5, p4, p2, p0, i21, i28, i26, None, i13, p9, p12, None, None]
-        jump(p0, p9, i26, p7, i28, p2, p4, p5, p12, i13, i21, i15, i16, i17, i18)
+        # int32 sum
+        label(p0, p19, i18, i24, i14, i8, i25, descr=TargetToken(140320937897104))
+        guard_early_exit(descr=<Guard0x7f9f03ab6310>) [p0, p19, i18, i14, i24]
+        i27 = raw_load(i8, i24, descr=<ArrayS 4>)
+        guard_not_invalidated(descr=<Guard0x7f9f03af5050>) [p0, i27, p19, i18, i14, i24]
+        i28 = int_add(i14, i27)
+        i29 = int_signext(i28, 4)
+        i30 = int_add(i18, 1)
+        i31 = int_add(i24, 4)
+        i32 = int_ge(i30, i25)
+        guard_false(i32, descr=<Guard0x7f9f03ab17d0>) [p0, i29, i30, i31, p19, None, None, None]
+        jump(p0, p19, i30, i31, i29, i8, i25, descr=TargetToken(140320937897104))
         """
         # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))

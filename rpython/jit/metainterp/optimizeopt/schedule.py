@@ -113,13 +113,13 @@ def packtype_outof_box(box):
 
 def vectorbox_clone_set(box, count=-1, size=-1, type='-', clone_signed=True, signed=False):
     if count == -1:
-        count = box.item_count
+        count = box.getcount()
     if size == -1:
-        size = box.item_size
+        size = box.getsize()
     if type == '-':
-        type = box.item_type
+        type = box.gettype()
     if clone_signed:
-        signed = box.item_signed
+        signed = box.getsigned()
     return BoxVector(type, count, size, signed)
 
 def getpackopnum(type):
@@ -156,8 +156,8 @@ class PackType(object):
     def of(box, count=-1):
         assert isinstance(box, BoxVector)
         if count == -1:
-            count = box.item_count
-        return PackType(box.item_type, box.item_size, box.item_signed, count)
+            count = box.getcount()
+        return PackType(box.gettype(), box.getsize(), box.getsigned(), count)
 
     @staticmethod
     def by_descr(descr, vec_reg_size):
@@ -295,6 +295,7 @@ class OpToVectorOp(object):
         vop = ResOperation(op.vector, args, result, op.getdescr())
         if op.is_guard():
             assert isinstance(op, GuardResOp)
+            assert isinstance(vop, GuardResOp)
             vop.setfailargs(op.getfailargs())
             vop.rd_snapshot = op.rd_snapshot
         self.preamble_ops.append(vop)
@@ -307,7 +308,7 @@ class OpToVectorOp(object):
         #
         # mark the position and the vbox in the hash
         for i, node in enumerate(self.getoperations()):
-            if i >= vbox.item_count:
+            if i >= vbox.getcount():
                 break
             op = node.getoperation()
             self.sched_data.setvector_of_box(op.result, i, vbox)
@@ -342,7 +343,7 @@ class OpToVectorOp(object):
 
             # use the input as an indicator for the pack type
             packable = self.input_type.getcount()
-            packed = vbox.item_count
+            packed = vbox.getcount()
             assert packed >= 0
             assert packable >= 0
             if packed > packable:
@@ -394,7 +395,7 @@ class OpToVectorOp(object):
     def update_arg_in_vector_pos(self, argidx, box):
         arguments = [op.getoperation().getarg(argidx) for op in self.getoperations()]
         for i,arg in enumerate(arguments):
-            if i >= box.item_count:
+            if i >= box.getcount():
                 break
             self.sched_data.setvector_of_box(arg, i, box)
 
@@ -418,7 +419,7 @@ class OpToVectorOp(object):
             raise NotImplementedError("cannot yet extend float")
 
     def extend_int(self, vbox, newtype):
-        vbox_cloned = newtype.new_vector_box(vbox.item_count)
+        vbox_cloned = newtype.new_vector_box(vbox.getcount())
         self.sched_data._prevent_signext(newtype.getsize(), vbox.getsize())
         newsize = newtype.getsize()
         assert newsize > 0
@@ -430,11 +431,11 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, index, count, arg_ptype):
-        assert index < vbox.item_count
-        assert index + count <= vbox.item_count
+        assert index < vbox.getcount()
+        assert index + count <= vbox.getcount()
         assert count > 0
         vbox_cloned = vectorbox_clone_set(vbox, count=count)
-        opnum = getunpackopnum(vbox.item_type)
+        opnum = getunpackopnum(vbox.gettype())
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
         self.costmodel.record_vector_unpack(vbox, index, count)
         self.preamble_ops.append(op)
@@ -447,9 +448,9 @@ class OpToVectorOp(object):
             new_box = [1,2,3,4,5,6,_,_] after the operation, tidx=4, scount=2
         """
         assert sidx == 0 # restriction
-        count = tgt.item_count + src.item_count
+        count = tgt.getcount() + src.getcount()
         new_box = vectorbox_clone_set(tgt, count=count)
-        opnum = getpackopnum(tgt.item_type)
+        opnum = getpackopnum(tgt.gettype())
         op = ResOperation(opnum, [tgt, src, ConstInt(tidx), ConstInt(scount)], new_box)
         self.preamble_ops.append(op)
         self.costmodel.record_vector_pack(src, sidx, scount)
@@ -467,14 +468,14 @@ class OpToVectorOp(object):
         assert isinstance(arg0, BoxVector)
         assert isinstance(index, ConstInt)
         assert isinstance(count, ConstInt)
-        assert arg0.item_size == result.item_size
+        assert arg0.getsize() == result.getsize()
         if isinstance(arg1, BoxVector):
-            assert arg1.item_size == result.item_size
+            assert arg1.getsize() == result.getsize()
         else:
             assert count.value == 1
-        assert index.value < result.item_count
-        assert index.value + count.value <= result.item_count
-        assert result.item_count > arg0.item_count
+        assert index.value < result.getcount()
+        assert index.value + count.value <= result.getcount()
+        assert result.getcount() > arg0.getcount()
 
     def expand(self, arg, argidx):
         elem_count = self.input_type.getcount()
@@ -484,7 +485,7 @@ class OpToVectorOp(object):
         invariant_ops = self.sched_data.invariant_oplist
         invariant_vars = self.sched_data.invariant_vector_vars
         if isinstance(arg, BoxVector):
-            box_type = arg.item_type
+            box_type = arg.gettype()
 
         # note that heterogenous nodes are not yet tracked
         already_expanded = expanded_map.get(arg, None)
@@ -830,7 +831,7 @@ class VecScheduleData(SchedulerData):
         return self.box_to_vbox.get(arg, (-1, None))
 
     def setvector_of_box(self, box, off, vector):
-        assert off < vector.item_count
+        assert off < vector.getcount()
         self.box_to_vbox[box] = (off, vector)
 
     def prepend_invariant_operations(self, oplist):

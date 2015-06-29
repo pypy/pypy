@@ -1670,12 +1670,13 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
-        if loc.is_xmm:
-            self._guard_vector_true(guard_op, loc)
-            self.implement_guard(guard_token, 'NZ')
-        else:
-            self.mc.TEST(loc, loc)
-            self.implement_guard(guard_token, 'Z')
+        if isinstance(loc, RegLoc):
+            if loc.is_xmm:
+                self._guard_vector_true(guard_op, loc)
+                self.implement_guard(guard_token, 'NZ')
+                return
+        self.mc.TEST(loc, loc)
+        self.implement_guard(guard_token, 'Z')
     genop_guard_guard_nonnull = genop_guard_guard_true
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
@@ -1770,12 +1771,13 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_guard_false(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
-        if loc.is_xmm:
-            self._guard_vector_false(guard_op, loc)
-            self.implement_guard(guard_token, 'NZ')
-        else:
-            self.mc.TEST(loc, loc)
-            self.implement_guard(guard_token, 'NZ')
+        if isinstance(loc, RegLoc):
+            if loc.is_xmm:
+                self._guard_vector_false(guard_op, loc)
+                self.implement_guard(guard_token, 'NZ')
+                return
+        self.mc.TEST(loc, loc)
+        self.implement_guard(guard_token, 'NZ')
     genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_value(self, ign_1, guard_op, guard_token, locs, ign_2):

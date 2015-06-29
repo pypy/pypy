@@ -509,7 +509,7 @@ class VectorizingOptimizer(Optimizer):
             renamer.start_renaming(arg, arg_cloned)
             cj = ConstInt(j)
             ci = ConstInt(1)
-            opnum = getunpackopnum(vbox.item_type)
+            opnum = getunpackopnum(vbox.gettype())
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.costmodel.record_vector_unpack(vbox, j, 1)
             self.emit_operation(unpack_op)
@@ -833,7 +833,7 @@ class PackSet(object):
             box = result
             result = BoxVectorAccum(box, accum.var, '+')
             # pack the scalar value
-            op = ResOperation(getpackopnum(box.item_type),
+            op = ResOperation(getpackopnum(box.gettype()),
                               [box, accum.var, ConstInt(0), ConstInt(1)], result)
             sched_data.invariant_oplist.append(op)
             # rename the variable with the box
