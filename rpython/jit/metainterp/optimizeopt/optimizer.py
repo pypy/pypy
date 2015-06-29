@@ -297,9 +297,15 @@ class Optimizer(Optimization):
                 self.make_constant_class(op, known_class, False)
 
     def get_box_replacement(self, op):
+        from rpython.jit.metainterp.optimizeopt.unroll import PreambleOp
+
+        orig_op = op
         if op is None:
             return op
-        return op.get_box_replacement()
+        res = op.get_box_replacement()
+        if isinstance(res, PreambleOp):
+            xxx
+        return res
 
     def force_box(self, op):
         op = self.get_box_replacement(op)

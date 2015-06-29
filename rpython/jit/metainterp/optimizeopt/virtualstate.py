@@ -282,7 +282,14 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     lenbound = None
     intbound = None
     
-    def __init__(self, cpu, ptrinfo, is_opaque=False):
+    def __init__(self, optimizer, box):
+        info = optimizer.getinfo(box)
+        if info and info.is_constant():
+            self.level = LEVEL_CONSTANT
+        else:
+            self.level = LEVEL_UNKNOWN
+        return
+        yyy
         self.level = LEVEL_UNKNOWN
         if ptrinfo is not None:
             self.known_class = ptrinfo.get_known_class(cpu)
@@ -461,15 +468,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
-class IntNotVirtualStateInfo(NotVirtualStateInfo):
-    def __init__(self, intbound):
-        # XXX do we care about non null?
-        self.intbound = intbound
-        if intbound.is_constant():
-            self.level = LEVEL_CONSTANT
-        else:
-            self.level = LEVEL_UNKNOWN
-
 
 class VirtualState(object):
     def __init__(self, state):
@@ -502,8 +500,11 @@ class VirtualState(object):
         if optimizer.optearlyforce:
             optimizer = optimizer.optearlyforce
         assert len(inputargs) == len(self.state)
-        return [x for x in inputargs if not isinstance(x, Const)]
-        return inputargs
+        inpargs = []
+        for i, state in enumerate(self.state):
+            if state.level != LEVEL_CONSTANT:
+                inpargs.append(inputargs[i])
+        return inpargs
         inputargs = [None] * self.numnotvirtuals
 
         # We try twice. The first time around we allow boxes to be forced
@@ -597,16 +598,9 @@ class VirtualStateConstructor(VirtualVisitor):
 
         return VirtualState(state)
 
-    def visit_not_ptr(self, box, intbound):
-        return IntNotVirtualStateInfo(intbound=intbound)
-    
     def visit_not_virtual(self, box):
         is_opaque = box in self.optimizer.opaque_pointers
-        if box.type == 'r':
-            ptrinfo = self.optimizer.getptrinfo(box)
-        else:
-            return self.visit_not_ptr(box, self.optimizer.getintbound(box))
-        return NotVirtualStateInfo(self.optimizer.cpu, ptrinfo, is_opaque)
+        return NotVirtualStateInfo(self.optimizer, box)
 
     def visit_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)

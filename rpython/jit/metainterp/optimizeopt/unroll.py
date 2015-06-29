@@ -137,7 +137,13 @@ class UnrollOptimizer(Optimization):
 
             if start_label and self.jump_to_start_label(start_label, stop_label):
                 # Initial label matches, jump to it
-                jumpop = ResOperation(rop.JUMP, stop_label.getarglist(),
+                vs = start_label.getdescr().virtual_state
+                if vs is not None:
+                    args = vs.make_inputargs(stop_label.getarglist(),
+                                             self.optimizer)
+                else:
+                    args = stop_label.getarglist()
+                jumpop = ResOperation(rop.JUMP, args,
                                       descr=start_label.getdescr())
                 #if self.short:
                 #    # Construct our short preamble
@@ -222,7 +228,7 @@ class UnrollOptimizer(Optimization):
 
         short_boxes = ShortBoxes(self.optimizer, inputargs)
 
-        inputarg_setup_ops = []
+        proven_constants = []
         for i in range(len(original_jump_args)):
             srcbox = jump_args[i]
             if srcbox is not original_jump_args[i]:
@@ -231,7 +237,7 @@ class UnrollOptimizer(Optimization):
                     if info and info.is_virtual():
                         xxx
             if original_jump_args[i] is not srcbox and srcbox.is_constant():
-                inputarg_setup_ops.append((original_jump_args[i], srcbox))
+                proven_constants.append((original_jump_args[i], srcbox))
                 #opnum = OpHelpers.same_as_for_type(original_jump_args[i].type)
                 #op = ResOperation(opnum, [srcbox])
                 #self.optimizer.emit_operation(op)
@@ -264,7 +270,7 @@ class UnrollOptimizer(Optimization):
             if op and op.type != 'v':
                 exported_values[op] = self.optimizer.getinfo(op)
 
-        return ExportedState(short_boxes, inputarg_setup_ops, exported_values)
+        return ExportedState(short_boxes, proven_constants, exported_values)
 
     def import_state(self, targetop, exported_state):
         if not targetop: # Trace did not start with a label
@@ -291,6 +297,8 @@ class UnrollOptimizer(Optimization):
         for box in self.inputargs:
             preamble_info = exported_state.exported_values[box]
             self.optimizer.setinfo_from_preamble(box, preamble_info)
+        for box, const in exported_state.proven_constants:
+            box.set_forwarded(const)
 
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result
@@ -309,6 +317,7 @@ class UnrollOptimizer(Optimization):
         return
         seen = {}
         for op in self.short_boxes.operations():
+            yyy
             self.ensure_short_op_emitted(op, self.optimizer, seen)
             if op and op.type != 'v':
                 preamble_value = exported_state.exported_values[op]
@@ -709,9 +718,9 @@ class ValueImporter(object):
 
 
 class ExportedState(object):
-    def __init__(self, short_boxes, inputarg_setup_ops, exported_values):
+    def __init__(self, short_boxes, proven_constants, exported_values):
         self.short_boxes = short_boxes
-        self.inputarg_setup_ops = inputarg_setup_ops
+        self.proven_constants = proven_constants
         self.exported_values = exported_values
 
     def dump(self, metainterp_sd):

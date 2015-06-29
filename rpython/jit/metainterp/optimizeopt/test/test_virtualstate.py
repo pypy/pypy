@@ -1,21 +1,25 @@
 from __future__ import with_statement
 import py
-from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
-     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, GenerateGuardState, \
-     VirtualStatesCantMatch, VArrayStructStateInfo
-from rpython.jit.metainterp.optimizeopt.optimizer import OptValue, PtrOptValue,\
-      IntOptValue
-from rpython.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
+from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo,\
+     VStructStateInfo, LEVEL_CONSTANT,\
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes,\
+     GenerateGuardState, VirtualStatesCantMatch, VArrayStructStateInfo
+from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
+     InputArgFloat
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
-from rpython.jit.metainterp.optimizeopt.virtualize import (VirtualValue,
-        VArrayValue, VStructValue, VArrayStructValue)
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
+from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp import resume
+
+class FakeOptimizer(Optimizer):
+    def __init__(self):
+        self.optearlyforce = None
 
 class BaseTestGenerateGuards(BaseTest):
 
@@ -74,6 +78,14 @@ class BaseTestGenerateGuards(BaseTest):
         with py.test.raises(VirtualStatesCantMatch):
             info1.generate_guards(info2, value, state)
 
+    def test_make_inputargs(self):
+        optimizer = FakeOptimizer()
+        args = [InputArgInt()]
+        info0 = NotVirtualStateInfo(optimizer, args[0])
+        vs = VirtualState([info0])
+        assert vs.make_inputargs(args, optimizer) == args
+        info0.level = LEVEL_CONSTANT
+        assert vs.make_inputargs(args, optimizer) == []
 
     def test_position_generalization(self):
         def postest(info1, info2):
@@ -95,7 +107,7 @@ class BaseTestGenerateGuards(BaseTest):
             self.check_invalid(info1, info2, state=state)
             assert info1 in state.bad and info2 in state.bad
 
-        for BoxType in (BoxInt, BoxFloat, BoxPtr):
+        for BoxType in (InputArgInt, InputArgFloat, InputArgPtr):
             info1 = NotVirtualStateInfo(OptValue(BoxType()))
             info2 = NotVirtualStateInfo(OptValue(BoxType()))
             postest(info1, info2)
@@ -1386,16 +1398,6 @@ class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
 class TestLLtypeBridges(BaseTestBridges, LLtypeMixin):
     pass
 
-class FakeOptimizer:
-    def __init__(self):
-        self.opaque_pointers = {}
-        self.values = {}
-    def make_equal_to(*args):
-        pass
-    def getvalue(*args):
-        pass
-    def emit_operation(*args):
-        pass
 
 
 class TestShortBoxes:
