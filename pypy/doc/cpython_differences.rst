@@ -395,3 +395,10 @@ Miscellaneous
   interactive mode. In a released version, this behaviour is suppressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.
+
+* PyPy's readline module was rewritten from scratch: it is not GNU's
+  readline.  It should be mostly compatible, and it adds multiline
+  support (see ``multiline_input()``).  On the other hand,
+  ``parse_and_bind()`` calls are ignored (issue `#2072`__).
+
+.. __: https://bitbucket.org/pypy/pypy/issue/2072/
