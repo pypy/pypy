@@ -321,7 +321,8 @@ cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
 Miscellaneous
 -------------
 
-* Hash randomization (``-R``) `is ignored in PyPy`_.
+* Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
+  before 3.4 it has `little point`_.
 
 * You can't store non-string keys in type objects.  For example::
 
@@ -401,4 +402,5 @@ Miscellaneous
   ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
+.. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
