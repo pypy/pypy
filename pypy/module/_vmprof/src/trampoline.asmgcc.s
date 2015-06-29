@@ -1,7 +1,6 @@
 // NOTE: you need to use TABs, not spaces!
         
 	.text
-	.p2align 4,,-1
 	.globl	pypy_execute_frame_trampoline
 	.type	pypy_execute_frame_trampoline, @function
 pypy_execute_frame_trampoline:
