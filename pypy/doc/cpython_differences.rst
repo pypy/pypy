@@ -338,7 +338,8 @@ Miscellaneous
   for about 1400 calls.
 
 * since the implementation of dictionary is different, the exact number
-  which ``__hash__`` and ``__eq__`` are called is different. Since CPython
+  of times that ``__hash__`` and ``__eq__`` are called is different. 
+  Since CPython
   does not give any specific guarantees either, don't rely on it.
 
 * assignment to ``__class__`` is limited to the cases where it
