@@ -321,9 +321,7 @@ cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
 Miscellaneous
 -------------
 
-* Hash randomization (``-R``) is ignored in PyPy.  As documented in
-  http://bugs.python.org/issue14621, some of us believe it has no
-  purpose in CPython either.
+* Hash randomization (``-R``) `is ignored in PyPy`_.
 
 * You can't store non-string keys in type objects.  For example::
 
@@ -400,6 +398,7 @@ Miscellaneous
 * PyPy's readline module was rewritten from scratch: it is not GNU's
   readline.  It should be mostly compatible, and it adds multiline
   support (see ``multiline_input()``).  On the other hand,
-  ``parse_and_bind()`` calls are ignored (issue `#2072`__).
+  ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
-.. __: https://bitbucket.org/pypy/pypy/issue/2072/
+.. _`is ignored in PyPy`: http://bugs.python.org/issue14621
+.. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
