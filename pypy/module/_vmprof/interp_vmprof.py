@@ -20,7 +20,7 @@ SRC = ROOT.join('src')
 # DYNAMIC_VMPROF to True, it will be dynamically linked to the libvmprof.so
 # which is expected to be inside pypy/module/_vmprof/src: this is very useful
 # during development. Note that you have to manually build libvmprof by
-# running make inside the src dir
+# running make inside the src dir (XXX or you could at some point in the past)
 DYNAMIC_VMPROF = False
 
 eci_kwds = dict(
