@@ -27,8 +27,9 @@ def optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
 
 
 class PreambleOp(AbstractResOp):
-    def __init__(self, op):
+    def __init__(self, op, info):
         self.op = op
+        self.info = info
 
     def getarg(self, i):
         return self.op.getarg(i)
@@ -56,9 +57,11 @@ class UnrollableOptimizer(Optimizer):
             self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
         self._emit_operation(op)
 
-    def force_op_from_preamble(self, op):
-        op = op.op
+    def force_op_from_preamble(self, preamble_op):
+        op = preamble_op.op
         self.optunroll.short.append(op)
+        if preamble_op.info:
+            preamble_op.info.make_guards(op, self.optunroll.short)
         return op
 
 
@@ -117,7 +120,12 @@ class UnrollOptimizer(Optimization):
             jumpop = None
 
         self.import_state(start_label, starting_state)
-        self.optimizer.propagate_all_forward(clear=False)
+        self.optimizer.inparg_dict = {}
+        for box in start_label.getarglist():
+            self.optimizer.inparg_dict[box] = None
+        import pdb
+        pdb.set_trace()
+        self.optimizer.propagate_all_forward(clear=False, create_inp_args=False)
 
         if not jumpop:
             return
@@ -311,7 +319,8 @@ class UnrollOptimizer(Optimization):
             if not op:
                 continue
             if op.is_always_pure():
-                self.pure(op.getopnum(), PreambleOp(op))
+                self.pure(op.getopnum(),
+                          PreambleOp(op, self.optimizer.getinfo(op)))
             else:
                 yyy
         return

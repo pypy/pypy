@@ -442,12 +442,13 @@ class Optimizer(Optimization):
         else:
             return CONST_0
 
-    def propagate_all_forward(self, clear=True):
+    def propagate_all_forward(self, clear=True, create_inp_args=True):
         if clear:
             self.clear_newoperations()
-        self.inparg_dict = {}
-        for op in self.loop.inputargs:
-            self.inparg_dict[op] = None
+        if create_inp_args:
+            self.inparg_dict = {}
+            for op in self.loop.inputargs:
+                self.inparg_dict[op] = None
         for op in self.loop.operations:
             self._really_emitted_operation = None
             self.first_optimization.propagate_forward(op)

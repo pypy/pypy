@@ -589,7 +589,7 @@ class VirtualStateConstructor(VirtualVisitor):
                     state.append(self.visit_not_virtual(box))
             elif box.type == 'i':
                 intbound = opt.getintbound(box)
-                state.append(self.visit_not_ptr(box, intbound))
+                state.append(self.visit_not_virtual(box))
             else:
                 xxx
         #values = [self.getvalue(box).force_at_end_of_preamble(already_forced,

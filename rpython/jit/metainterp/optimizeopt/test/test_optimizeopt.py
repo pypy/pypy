@@ -450,7 +450,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         i1 = int_is_true(i0)
         guard_value(i1, 1) []
-        jump(i0)
+        #jump(i0) <- xxx
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 

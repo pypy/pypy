@@ -245,6 +245,10 @@ class IntBound(AbstractInfo):
         return res
 
     def make_guards(self, box, guards):
+        if self.is_constant():
+            guards.append(ResOperation(rop.GUARD_VALUE,
+                                       [box, ConstInt(self.upper)]))
+            return
         if self.has_lower and self.lower > MININT:
             bound = self.lower
             op = ResOperation(rop.INT_GE, [box, ConstInt(bound)])
