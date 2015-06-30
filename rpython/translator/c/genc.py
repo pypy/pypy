@@ -465,9 +465,9 @@ class CStandaloneBuilder(CBuilder):
             mk.rule('%.o %.gcmap', '%.vmprof.s', [
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.vmprof.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
+                '$(CC) -o $*.o -c $*.vmprof.lbl.s',
                 'mv $*.gctmp $*.gcmap',
-                'rm $*.asmgcc.lbl.s'])
+                'rm $*.vmprof.lbl.s'])
             
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
