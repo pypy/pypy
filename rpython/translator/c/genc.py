@@ -439,8 +439,8 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            mk.definition('GCMAPFILES', '$(subst .asmgcc.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
-            mk.definition('OBJECTS1', '$(subst .asmgcc.s,.o,$(subst .c,.o,$(SOURCES)))')
+            mk.definition('GCMAPFILES', '$(subst .vmprof.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
+            mk.definition('OBJECTS1', '$(subst .vmprof.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
 
             # the CFLAGS passed to gcc when invoked to assembler the .s file
@@ -462,9 +462,9 @@ class CStandaloneBuilder(CBuilder):
                 'rm $*.s $*.lbl.s'])
 
             # this is for manually written assembly files which needs to be parsed by asmgcc
-            mk.rule('%.o %.gcmap', '%.asmgcc.s', [
+            mk.rule('%.o %.gcmap', '%.vmprof.s', [
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                    '-t $*.asmgcc.s > $*.gctmp',
+                    '-t $*.vmprof.s > $*.gctmp',
                 '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.asmgcc.lbl.s'])
