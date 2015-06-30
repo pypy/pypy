@@ -135,13 +135,31 @@ of Python.
 Here are some more technical details.  This issue affects the precise
 time at which ``__del__`` methods are called, which
 is not reliable in PyPy (nor Jython nor IronPython).  It also means that
-weak references may stay alive for a bit longer than expected.  This
+**weak references** may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
 suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
 ``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
 ``weakref.proxy()`` at all; use ``weakref.ref()``.)
+
+Note a detail in the `documentation for weakref callbacks`__:
+
+    If callback is provided and not None, *and the returned weakref
+    object is still alive,* the callback will be called when the object
+    is about to be finalized.
+
+There are cases where, due to CPython's refcount semantics, a weakref
+dies immediately before or after the objects it points to (typically
+with some circular reference).  If it happens to die just after, then
+the callback will be invoked.  In a similar case in PyPy, both the
+object and the weakref will be considered as dead at the same time,
+and the callback will not be invoked.  (Issue `#2030`__)
+
+.. __: https://docs.python.org/2/library/weakref.html
+.. __: https://bitbucket.org/pypy/pypy/issue/2030/
+
+---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
