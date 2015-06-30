@@ -316,11 +316,15 @@ static int remove_sigprof_timer(void) {
 }
 
 static void atfork_disable_timer(void) {
-    remove_sigprof_timer();
+    if (last_period_usec) {
+        remove_sigprof_timer();
+    }
 }
 
 static void atfork_enable_timer(void) {
-    install_sigprof_timer(last_period_usec);
+    if (last_period_usec) {
+        install_sigprof_timer(last_period_usec);
+    }
 }
 
 static int install_pthread_atfork_hooks(void) {
@@ -411,6 +415,7 @@ int vmprof_disable(void) {
     if (remove_sigprof_timer() == -1) {
 		return -1;
 	}
+    last_period_usec = 0;
     if (remove_sigprof_handler() == -1) {
 		return -1;
 	}
