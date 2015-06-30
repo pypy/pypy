@@ -123,8 +123,6 @@ class UnrollOptimizer(Optimization):
         self.optimizer.inparg_dict = {}
         for box in start_label.getarglist():
             self.optimizer.inparg_dict[box] = None
-        import pdb
-        pdb.set_trace()
         self.optimizer.propagate_all_forward(clear=False, create_inp_args=False)
 
         if not jumpop:
