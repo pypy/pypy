@@ -17,6 +17,8 @@ long buffer[];
 """)
 
 lib = ffi.verify("""
+#define PYPY_JIT_CODEMAP
+
 volatile int pypy_codemap_currently_invalid = 0;
 
 long buffer[] = {0, 0, 0, 0, 0};
