@@ -464,6 +464,7 @@ class BaseTest(object):
         assert loop.operations[0].getopnum() == rop.LABEL
         loop.inputargs = loop.operations[0].getarglist()
 
+        start_state.orig_inputargs = inputargs
         self._do_optimize_loop(loop, call_pure_results, start_state,
                                export_state=False)
         extra_same_as = []

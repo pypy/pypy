@@ -300,6 +300,8 @@ class UnrollOptimizer(Optimization):
         self.short_boxes = exported_state.short_boxes
         self.initial_virtual_state = target_token.virtual_state
 
+        for i, arg in enumerate(exported_state.orig_inputargs):
+            arg.set_forwarded(self.inputargs[i])
         for box in self.inputargs:
             preamble_info = exported_state.exported_values[box]
             self.optimizer.setinfo_from_preamble(box, preamble_info)

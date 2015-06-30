@@ -117,8 +117,8 @@ class OptIntBounds(Optimization):
             self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
-        arg1 = op.getarg(0)
-        arg2 = op.getarg(1)
+        arg1 = self.get_box_replacement(op.getarg(0))
+        arg2 = self.get_box_replacement(op.getarg(1))
         v1 = self.getintbound(arg1)
         v2 = self.getintbound(arg2)
 
