@@ -21,11 +21,7 @@ Reduction
 
 Reduction is implemented:
 
-* sum
-
-Planned reductions:
-
-* all, any, prod, min, max
+* sum, prod, any, all
 
 Constant & Variable Expansion
 -----------------------------
@@ -35,7 +31,7 @@ Packed arithmetic operations expand scalar variables or contants into vector reg
 Guard Strengthening
 -------------------
 
-Unrolled guards are strengthend on a arithmetical level (See GuardStrengthenOpt).
+Unrolled guards are strengthend on an arithmetical level (See GuardStrengthenOpt).
 The resulting vector trace will only have one guard that checks the index.
 
 Calculations on the index variable that are redundant (because of the merged
@@ -57,5 +53,6 @@ Future Work and Limitations
 * For a guard that checks true/false on a vector integer regsiter, it would be handy
   to have 2 xmm registers (one filled with zero bits and the other with one every bit).
   This cuts down 2 instructions for guard checking, trading for higher register pressure.
+* prod, sum are only supported by 64 bit data types
 
 .. _PMUL: http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
