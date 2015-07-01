@@ -1979,6 +1979,13 @@ class FloatSort(FloatBaseTimSort):
 
 class IntOrFloatSort(IntOrFloatBaseTimSort):
     def lt(self, a, b):
+        # This relies on the fact that casting from a decoded int to a
+        # float is an exact operation.  If we had full 64-bit
+        # integers, this cast would loose precision.  But this works
+        # because the integers are only 32-bit.  This would also work
+        # even if we encoded larger integers: as long as they are
+        # encoded inside a subset of the mantissa of a float, then the
+        # cast-to-float will be exact.
         if longlong2float.is_int32_from_longlong_nan(a):
             fa = float(longlong2float.decode_int32_from_longlong_nan(a))
         else:
