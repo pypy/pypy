@@ -856,6 +856,44 @@ class TestW_ListStrategies(TestW_ListObject):
         assert space.int_w(w_l.getitem(1)) == 42
         assert space.len_w(w_l) == 2
 
+    def test_int_or_float_extend(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [0, 1.2, 3, 4.5]
+
+    def test_int_or_float_extend_mixed(self):
+        py.test.skip("XXX not implemented")
+        # lst = [0]; lst += [1.2]
+        # lst = [0]; lst += [1.2, 3]
+        # lst = [1.2]; lst += [0]
+        # lst = [1.2]; lst += [0, 3.4]
+        # lst = [0, 1.2]; lst += [3]
+        # lst = [0, 1.2]; lst += [3.4]
+
+    def test_int_or_float_setslice(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3, 4.5, 1.2]
+
+    def test_int_or_float_setslice_mixed(self):
+        py.test.skip("XXX not implemented")
+        # lst = [0]; lst[:] = [1.2]
+        # lst = [0]; lst[:] = [1.2, 3]
+        # lst = [1.2]; lst[:] = [0]
+        # lst = [1.2]; lst[:] = [0, 3.4]
+        # lst = [0, 1.2]; lst[:] = [3]
+        # lst = [0, 1.2]; lst[:] = [3.4]
+
 
 class TestW_ListStrategiesDisabled:
     spaceconfig = {"objspace.std.withliststrategies": False}

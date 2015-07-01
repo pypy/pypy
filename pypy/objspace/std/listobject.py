@@ -1448,7 +1448,7 @@ class AbstractUnwrappedStrategy(object):
             except IndexError:
                 raise
         else:
-            w_list.switch_to_object_strategy()
+            self.switch_to_next_strategy(w_list, w_item)
             w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, w_other):
@@ -1741,8 +1741,8 @@ class FloatListStrategy(ListStrategy):
 
     def switch_to_next_strategy(self, w_list, w_sample_item):
         if type(w_sample_item) is W_IntObject:
-            intval = self.space.int_w(w_sample_item)
-            if longlong2float.can_encode_int32(intval):
+            sample_intval = self.space.int_w(w_sample_item)
+            if longlong2float.can_encode_int32(sample_intval):
                 # xxx we should be able to use the same lstorage, but
                 # there is a typing issue (float vs longlong)...
                 l = self.unerase(w_list.lstorage)
@@ -1796,6 +1796,9 @@ class IntOrFloatListStrategy(ListStrategy):
             return longlong2float.can_encode_float(floatval)
         else:
             return False
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(IntOrFloatListStrategy)
 
 
 class BytesListStrategy(ListStrategy):
