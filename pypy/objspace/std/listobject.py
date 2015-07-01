@@ -1675,18 +1675,17 @@ class IntegerListStrategy(ListStrategy):
                 if not longlong2float.can_encode_int32(intval):
                     break
             else:
-                floatval = self.space.float_w(w_sample_item)
-                if longlong2float.can_encode_float(floatval):
-                    # yes, we can switch to IntOrFloatListStrategy
-                    generalized_list = [
-                        longlong2float.encode_int32_into_longlong_nan(intval)
-                        for intval in l]
-                    generalized_list.append(
-                        longlong2float.float2longlong(floatval))
-                    strategy = self.space.fromcache(IntOrFloatListStrategy)
-                    w_list.strategy = strategy
-                    w_list.lstorage = strategy.erase(generalized_list)
-                    return
+                # yes, we can switch to IntOrFloatListStrategy
+                # (ignore here the extremely unlikely case where
+                # w_sample_item is just the wrong nonstandard NaN float;
+                # it will caught later and yet another switch will occur)
+                generalized_list = [
+                    longlong2float.encode_int32_into_longlong_nan(intval)
+                    for intval in l]
+                strategy = self.space.fromcache(IntOrFloatListStrategy)
+                w_list.strategy = strategy
+                w_list.lstorage = strategy.erase(generalized_list)
+                return
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
 
@@ -1739,6 +1738,29 @@ class FloatListStrategy(ListStrategy):
                 if longlong2float.float2longlong(val) == search:
                     return i
         raise ValueError
+
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        if type(w_sample_item) is W_IntObject:
+            intval = self.space.int_w(w_sample_item)
+            if longlong2float.can_encode_int32(intval):
+                # xxx we should be able to use the same lstorage, but
+                # there is a typing issue (float vs longlong)...
+                l = self.unerase(w_list.lstorage)
+                generalized_list = []
+                for floatval in l:
+                    if not longlong2float.can_encode_float(floatval):
+                        break
+                    generalized_list.append(
+                        longlong2float.float2longlong(floatval))
+                else:
+                    # yes, we can switch to IntOrFloatListStrategy
+                    strategy = self.space.fromcache(IntOrFloatListStrategy)
+                    w_list.strategy = strategy
+                    w_list.lstorage = strategy.erase(generalized_list)
+                    return
+        # no, fall back to ObjectListStrategy
+        w_list.switch_to_object_strategy()
+
 
 class IntOrFloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)

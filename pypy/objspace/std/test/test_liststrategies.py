@@ -789,6 +789,72 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
         assert space.int_w(w_l.getitem(0)) == -2**31
         assert space.float_w(w_l.getitem(1)) == -5.1
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_integer_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        w = space.wrap
+        ovf1 = -2**31 - 1
+        w_l = W_ListObject(space, [space.wrap(ovf1)])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l.append(w(-5.1))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.int_w(w_l.getitem(0)) == ovf1
+        assert space.float_w(w_l.getitem(1)) == -5.1
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_integer_special_nan(self):
+        from rpython.rlib import longlong2float, rarithmetic
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(int(-2**31))])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        ll = rarithmetic.r_longlong(0xfffffffe12345678 - 2**64)
+        specialnan = longlong2float.longlong2float(ll)
+        w_l.append(w(specialnan))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.int_w(w_l.getitem(0)) == -2**31
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_float(self):
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(-42.5)])
+        assert isinstance(w_l.strategy, FloatListStrategy)
+        w_l.append(w(-15))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert space.float_w(w_l.getitem(0)) == -42.5
+        assert space.int_w(w_l.getitem(1)) == -15
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_float_int_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        w = space.wrap
+        ovf1 = 2 ** 31
+        w_l = W_ListObject(space, [space.wrap(1.2)])
+        assert isinstance(w_l.strategy, FloatListStrategy)
+        w_l.append(w(ovf1))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.float_w(w_l.getitem(0)) == 1.2
+        assert space.int_w(w_l.getitem(1)) == ovf1
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_float_special_nan(self):
+        from rpython.rlib import longlong2float, rarithmetic
+        space = self.space
+        w = space.wrap
+        ll = rarithmetic.r_longlong(0xfffffffe12345678 - 2**64)
+        specialnan = longlong2float.longlong2float(ll)
+        w_l = W_ListObject(space, [space.wrap(specialnan)])
+        assert isinstance(w_l.strategy, FloatListStrategy)
+        w_l.append(w(42))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.int_w(w_l.getitem(1)) == 42
+        assert space.len_w(w_l) == 2
 
 
 class TestW_ListStrategiesDisabled:
