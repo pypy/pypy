@@ -1716,6 +1716,41 @@ class FloatListStrategy(ListStrategy):
                     return i
         raise ValueError
 
+class IntOrFloatListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
+    _none_value = longlong2float.float2longlong(0.0)
+
+    def wrap(self, llval):
+        if longlong2float.is_int32_from_longlong_nan(llval):
+            intval = longlong2float.decode_int32_from_longlong_nan(llval)
+            return self.space.wrap(intval)
+        else:
+            floatval = longlong2float.longlong2float(llval)
+            return self.space.wrap(floatval)
+
+    def unwrap(self, w_int_or_float):
+        if type(w_int_or_float) is W_IntObject:
+            intval = self.space.int_w(w_int_or_float)
+            return longlong2float.encode_int32_into_longlong_nan(intval)
+        else:
+            floatval = self.space.float_w(w_int_or_float)
+            return longlong2float.float2longlong(floatval)
+
+    erase, unerase = rerased.new_erasing_pair("longlong")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        if type(w_obj) is W_IntObject:
+            intval = self.space.int_w(w_obj)
+            return longlong2float.can_encode_int32(intval)
+        elif type(w_obj) is W_FloatObject:
+            floatval = self.space.float_w(w_obj)
+            return longlong2float.can_encode_float(floatval)
+        else:
+            return False
+
 
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)

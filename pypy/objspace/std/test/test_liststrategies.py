@@ -3,7 +3,8 @@ import py
 from pypy.objspace.std.listobject import (
     W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy,
     FloatListStrategy, BytesListStrategy, RangeListStrategy,
-    SimpleRangeListStrategy, make_range_list, UnicodeListStrategy)
+    SimpleRangeListStrategy, make_range_list, UnicodeListStrategy,
+    IntOrFloatListStrategy)
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
@@ -759,9 +760,23 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
 
     def test_int_or_float(self):
+        from rpython.rlib.rfloat import INFINITY, NAN
         space = self.space
+        w = space.wrap
         w_l = W_ListObject(space, [space.wrap(1), space.wrap(2.3)])
-        xxxxx
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(int(2**31-1)))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(-5.1))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(INFINITY))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(NAN))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(-NAN))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(space.newlist([]))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
 
 
 class TestW_ListStrategiesDisabled:

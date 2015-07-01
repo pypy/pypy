@@ -1,7 +1,7 @@
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.longlong2float import longlong2float, float2longlong
 from rpython.rlib.longlong2float import uint2singlefloat, singlefloat2uint
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, r_longlong
 from rpython.rtyper.test.test_llinterp import interpret
 
 
@@ -20,6 +20,9 @@ def enum_floats():
     yield inf
     yield -inf
     yield inf / inf     # nan
+
+def test_float2longlong():
+    assert float2longlong(0.0) == r_longlong(0)
 
 def test_longlong_as_float():
     for x in enum_floats():
