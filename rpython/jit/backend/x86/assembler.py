@@ -559,6 +559,8 @@ class Assembler386(BaseAssembler):
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
+        #import pdb; pdb.set_trace()
+        self._accum_update_at_exit(arglocs, inputargs, faildescr, regalloc)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries(regalloc)
@@ -1865,7 +1867,7 @@ class Assembler386(BaseAssembler):
         startpos = self.mc.get_relative_pos()
         #
         self._accum_update_at_exit(guardtok.fail_locs, guardtok.failargs,
-                                   regalloc)
+                                   guardtok.faildescr, regalloc)
         #
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
@@ -2529,67 +2531,60 @@ class Assembler386(BaseAssembler):
     # vector operations
     # ________________________________________
 
-    def _accum_update_at_exit(self, fail_locs, fail_args, regalloc):
+    def _accum_update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
         assert regalloc is not None
-        for i,arg in enumerate(fail_args):
-            if arg is None:
-                continue
+        accum_info = faildescr.rd_accum_list
+        while accum_info:
+            pos = accum_info.position
+            loc = fail_locs[pos]
+            assert isinstance(loc, RegLoc)
+            arg = fail_args[pos]
             if isinstance(arg, BoxVectorAccum):
-                assert arg.scalar_var is not None
-                loc = fail_locs[i]
-                assert isinstance(loc, RegLoc)
-                assert loc.is_xmm
-                tgtloc = regalloc.force_allocate_reg(arg.scalar_var, fail_args)
-                assert tgtloc is not None
-                if arg.operator == '+':
-                    # reduction using plus
-                    self._accum_reduce_sum(arg, loc, tgtloc)
-                    fail_locs[i] = tgtloc
-                    regalloc.possibly_free_var(arg)
-                    fail_args[i] = arg.scalar_var
-                else:
-                    raise NotImplementedError("accum operator %s not implemented" %
-                                                (arg.operator)) 
+                arg = arg.scalar_var
+            assert arg is not None
+            tgtloc = regalloc.force_allocate_reg(arg, fail_args)
+            if accum_info.operation == '+':
+                # reduction using plus
+                self._accum_reduce_sum(arg, loc, tgtloc)
+            elif accum_info.operation == '*':
+                self._accum_reduce_mul(arg, loc, tgtloc)
+            else:
+                import pdb; pdb.set_trace()
+                not_implemented("accum operator %s not implemented" %
+                                            (accum_info.operation)) 
+            fail_locs[pos] = tgtloc
+            regalloc.possibly_free_var(arg)
+            accum_info = accum_info.prev
 
-    def _accum_reduce_sum(self, vector_var, accumloc, targetloc):
-        assert isinstance(vector_var, BoxVectorAccum)
-        #
-        type = vector_var.gettype()
-        size = vector_var.getsize()
-        if type == FLOAT:
-            if size == 8:
-                # r = (r[0]+r[1],r[0]+r[1])
-                self.mc.HADDPD(accumloc, accumloc)
-                # upper bits (> 64) are dirty (but does not matter)
-                if accumloc is not targetloc:
-                    self.mov(targetloc, accumloc)
-                return
-            if size == 4:
-                # r = (r[0]+r[1],r[2]+r[3],r[0]+r[1],r[2]+r[3])
-                self.mc.HADDPS(accumloc, accumloc)
-                self.mc.HADDPS(accumloc, accumloc)
-                # invoking it a second time will gather the whole sum
-                # at the first element position
-                # the upper bits (>32) are dirty (but does not matter)
-                if accumloc is not targetloc:
-                    self.mov(targetloc, accumloc)
-                return
-        elif type == INT:
+    def _accum_reduce_mul(self, arg, accumloc, targetloc):
+        scratchloc = X86_64_SCRATCH_REG
+        self.mc.mov(scratchloc, accumloc)
+        # swap the two elements
+        self.mc.SHUFPS_xxi(scratchloc.value, scratchloc.value, 0x01)
+        self.mc.MULPD(accumloc, scratchloc)
+        if accumloc is not targetloc:
+            self.mc.mov(targetloc, accumloc)
+
+    def _accum_reduce_sum(self, arg, accumloc, targetloc):
+        # Currently the accumulator can ONLY be the biggest
+        # size for X86 -> 64 bit float/int
+        if arg.type == FLOAT:
+            # r = (r[0]+r[1],r[0]+r[1])
+            self.mc.HADDPD(accumloc, accumloc)
+            # upper bits (> 64) are dirty (but does not matter)
+            if accumloc is not targetloc:
+                self.mov(targetloc, accumloc)
+            return
+        elif arg.type == INT:
             scratchloc = X86_64_SCRATCH_REG
-            if size == 8:
-                self.mc.PEXTRQ_rxi(targetloc.value, accumloc.value, 0)
-                self.mc.PEXTRQ_rxi(scratchloc.value, accumloc.value, 1)
-                self.mc.ADD(targetloc, scratchloc)
-                return
-            if size == 4:
-                self.mc.PHADDD(accumloc, accumloc)
-                self.mc.PHADDD(accumloc, accumloc)
-                self.mc.PEXTRD_rxi(targetloc.value, accumloc.value, 0)
-                return
+            self.mc.PEXTRQ_rxi(targetloc.value, accumloc.value, 0)
+            self.mc.PEXTRQ_rxi(scratchloc.value, accumloc.value, 1)
+            self.mc.ADD(targetloc, scratchloc)
+            return
 
-        raise NotImplementedError("reduce sum for %s not impl." % vector_var)
+        not_implemented("reduce sum for %s not impl." % arg)
 
     def genop_vec_getarrayitem_raw(self, op, arglocs, resloc):
         # considers item scale (raw_load does not)
@@ -2655,7 +2650,7 @@ class Assembler386(BaseAssembler):
             # There is no 64x64 bit packed mul and I did not find one
             # for 8 bit either. It is questionable if it gives any benefit
             # for 8 bit.
-            raise NotImplementedError("")
+            not_implemented("int8/64 mul")
 
     def genop_vec_int_add(self, op, arglocs, resloc):
         loc0, loc1, size_loc = arglocs
@@ -2757,7 +2752,7 @@ class Assembler386(BaseAssembler):
             # the speedup might only be modest...
             # the optimization does not emit such code!
             msg = "vec int signext (%d->%d)" % (size, tosize)
-            raise NotImplementedError(msg)
+            not_implemented(msg)
 
     def genop_vec_float_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs

@@ -767,7 +767,7 @@ class PackSet(object):
         lop = lnode.getoperation()
         opnum = lop.getopnum()
 
-        if opnum in (rop.FLOAT_ADD, rop.INT_ADD):
+        if opnum in (rop.FLOAT_ADD, rop.INT_ADD, rop.FLOAT_MUL):
             roper = rnode.getoperation()
             assert lop.numargs() == 2 and lop.result is not None
             accum_var, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
@@ -802,7 +802,10 @@ class PackSet(object):
                 # of leading/preceding signext/floatcast instructions needs to be
                 # considered. => tree pattern matching problem.
                 return None
-            accum = Accum(accum_var, accum_pos, Accum.PLUS)
+            operator = Accum.PLUS
+            if opnum == rop.FLOAT_ADD:
+                operator = Accum.MULTIPLY
+            accum = Accum(accum_var, accum_pos, operator)
             return AccumPair(lnode, rnode, ptype, ptype, accum)
 
         return None
@@ -824,14 +827,22 @@ class PackSet(object):
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()
             size = vec_reg_size // pack.input_type.getsize()
-            op = ResOperation(rop.VEC_BOX, [ConstInt(size)], box)
-            sched_data.invariant_oplist.append(op)
-            result = box.clonebox()
-            # clear the box to zero TODO might not be zero for every reduction?
-            op = ResOperation(rop.VEC_INT_XOR, [box, box], result)
-            sched_data.invariant_oplist.append(op)
-            box = result
-            result = BoxVectorAccum(box, accum.var, '+')
+            # reset the box to zeros or ones
+            if accum.operator == Accum.PLUS:
+                op = ResOperation(rop.VEC_BOX, [ConstInt(size)], box)
+                sched_data.invariant_oplist.append(op)
+                result = box.clonebox()
+                op = ResOperation(rop.VEC_INT_XOR, [box, box], result)
+                sched_data.invariant_oplist.append(op)
+                box = result
+            elif accum.operator == Accum.MULTIPLY:
+                # multiply is only supported by floats
+                op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstInt(1)], box)
+                sched_data.invariant_oplist.append(op)
+            else:
+                import pdb; pdb.set_trace()
+                raise NotImplementedError
+            result = BoxVectorAccum(box, accum.var, accum.operator)
             # pack the scalar value
             op = ResOperation(getpackopnum(box.gettype()),
                               [box, accum.var, ConstInt(0), ConstInt(1)], result)

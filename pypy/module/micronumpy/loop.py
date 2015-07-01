@@ -421,8 +421,8 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                 lval = left_impl.getitem(i1).convert_to(space, dtype)
                 rval = right_impl.getitem(i2).convert_to(space, dtype)
                 oval = dtype.itemtype.add(oval, dtype.itemtype.mul(lval, rval))
-                i1 += s1
-                i2 += s2
+                i1 += jit.promote(s1)
+                i2 += jit.promote(s2)
             outi.setitem(outs, oval)
             outs = outi.next(outs)
             rights = righti.next(rights)

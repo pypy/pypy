@@ -880,9 +880,6 @@ class LLFrame(object):
             if isinstance(box, BoxVectorAccum):
                 if box.operator == '+':
                     value = sum(value)
-                elif box.operator == '-':
-                    def sub(acc, x): return acc - x
-                    value = reduce(sub, value, 0)
                 elif box.operator == '*':
                     def prod(acc, x): return acc * x
                     value = reduce(prod, value, 1)

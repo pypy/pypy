@@ -118,15 +118,18 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         return retval
 
-    def define_matrix_dot():
+    def define_dot_matrix():
         return """
         mat = |16|
         m = reshape(mat, [4,4])
+        vec = [0,1,2,3]
+        a = dot(m, vec)
+        a -> 3
         """
 
-    def test_matrix_dot(self):
-        result = self.run("matrix_dot")
-        assert int(result) == 45
+    def test_dot_matrix(self):
+        result = self.run("dot_matrix")
+        assert int(result) == 86
         self.check_vectorized(1, 1)
 
     def define_float32_copy():
@@ -523,6 +526,7 @@ class TestNumpyJit(Jit386Mixin):
             expected *= i * 2
         assert result == expected
         self.check_trace_count(1)
+        self.check_vectorized(1, 1)
 
     def define_max():
         return """
@@ -534,7 +538,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_max(self):
         result = self.run("max")
         assert result == 128
-        self.check_vectorized(1, 0) # TODO reduce
+        self.check_vectorized(1, 0)
 
     def define_min():
         return """
@@ -546,7 +550,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_min(self):
         result = self.run("min")
         assert result == -128
-        self.check_vectorized(1, 0) # TODO reduce
+        self.check_vectorized(1, 0)
 
     def define_any():
         return """
@@ -820,8 +824,8 @@ class TestNumpyJit(Jit386Mixin):
     def test_dot(self):
         result = self.run("dot")
         assert result == 184
-        self.check_trace_count(3)
-        self.check_vectorized(3,0)
+        self.check_trace_count(5)
+        self.check_vectorized(3,1)
 
     def define_argsort():
         return """

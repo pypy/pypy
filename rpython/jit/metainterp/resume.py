@@ -34,6 +34,13 @@ class FrameInfo(object):
         self.jitcode = jitcode
         self.pc = pc
 
+class AccumInfo(object):
+    __slots__ = ('prev', 'position', 'operation')
+    def __init__(self, prev, position, operation):
+        self.prev = prev
+        self.operation = operation
+        self.position = position
+
 def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]
     if n == 0:

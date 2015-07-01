@@ -8,7 +8,7 @@ from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp import resoperation
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.resume import Snapshot
+from rpython.jit.metainterp.resume import Snapshot, AccumInfo
 
 # ____________________________________________________________
 # Misc. utilities
@@ -213,6 +213,8 @@ class Renamer(object):
         return True
 
     def rename_failargs(self, guard, clone=False):
+        from rpython.jit.metainterp.history import BoxVectorAccum
+        from rpython.jit.metainterp.compile import ResumeGuardDescr
         if guard.getfailargs() is not None:
             if clone:
                 args = guard.getfailargs()[:]
@@ -220,6 +222,11 @@ class Renamer(object):
                 args = guard.getfailargs()
             for i,arg in enumerate(args):
                 value = self.rename_map.get(arg,arg)
+                if value is not arg and isinstance(value, BoxVectorAccum):
+                    descr = guard.getdescr()
+                    assert isinstance(descr,ResumeGuardDescr)
+                    ai = AccumInfo(descr.rd_accum_list, i, value.operator)
+                    descr.rd_accum_list = ai
                 args[i] = value
             return args
         return None

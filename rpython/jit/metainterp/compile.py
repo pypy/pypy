@@ -488,7 +488,8 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'status')
+               'rd_frame_info_list', 'rd_pendingfields', 'rd_accum_list',
+               'status')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
@@ -496,6 +497,7 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_frame_info_list = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
+    rd_accum_list = None
 
     status = r_uint(0)
 
@@ -507,6 +509,7 @@ class ResumeGuardDescr(ResumeDescr):
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
         self.rd_numb = other.rd_numb
+        self.rd_accum_list = other.rd_accum_list
         # we don't copy status
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard

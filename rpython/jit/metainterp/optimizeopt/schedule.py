@@ -416,6 +416,7 @@ class OpToVectorOp(object):
         if vbox.gettype() == INT:
             return self.extend_int(vbox, newtype)
         else:
+            import pdb; pdb.set_trace()
             raise NotImplementedError("cannot yet extend float")
 
     def extend_int(self, vbox, newtype):
@@ -856,8 +857,9 @@ class VecScheduleData(SchedulerData):
 
 class Accum(object):
     PLUS = '+'
+    MULTIPLY = '*'
 
-    def __init__(self, var=None, pos=-1, operator=PLUS):
+    def __init__(self, var, pos, operator):
         self.var = var
         self.pos = pos
         self.operator = operator
