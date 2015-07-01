@@ -1011,3 +1011,4 @@ class AppTestRecompiler:
         assert MYFOO == 42
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
+        assert lib.__name__ == repr(lib)
