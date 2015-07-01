@@ -457,7 +457,6 @@ class AppTestIoAferClose:
                 {"mode": "w+", "buffering": 2},
                 {"mode": "w+b", "buffering": 0},
             ]:
-            print kwargs
             f = _io.open(self.tmpfile, **kwargs)
             f.close()
             raises(ValueError, f.flush)
