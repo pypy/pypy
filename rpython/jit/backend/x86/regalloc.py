@@ -81,13 +81,11 @@ class X86XMMRegisterManager(RegisterManager):
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
         return ConstFloatLoc(adr)
 
-    def expand_float(self, var, const):
-        assert isinstance(var, BoxVector)
-        if var.getsize() == 4:
+    def expand_float(self, size, const):
+        if size == 4:
             loc = self.expand_single_float(const)
         else:
             loc = self.expand_double_float(const)
-        self.reg_bindings[var] = loc
         return loc
 
     def expand_double_float(self, f):
@@ -1632,16 +1630,19 @@ class RegAlloc(BaseRegalloc):
     consider_vec_float_unpack = consider_vec_int_unpack
 
     def consider_vec_float_expand(self, op):
+        result = op.result
+        assert isinstance(result, BoxVector)
         arg = op.getarg(0)
-        if isinstance(arg, Const):
-            resloc = self.xrm.expand_float(op.result, arg)
-            # TODO consider this
-            return
         args = op.getarglist()
-        resloc = self.xrm.force_result_in_reg(op.result, arg, args)
-        assert isinstance(op.result, BoxVector)
+        if isinstance(arg, Const):
+            resloc = self.xrm.force_allocate_reg(result)
+            srcloc = self.xrm.expand_float(result.getsize(), arg)
+        else:
+            resloc = self.xrm.force_result_in_reg(op.result, arg, args)
+            srcloc = resloc
+
         size = op.result.getsize()
-        self.perform(op, [resloc, imm(size)], resloc)
+        self.perform(op, [srcloc, imm(size)], resloc)
 
     def consider_vec_int_expand(self, op):
         arg = op.getarg(0)

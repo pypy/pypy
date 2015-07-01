@@ -559,7 +559,6 @@ class Assembler386(BaseAssembler):
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
-        #import pdb; pdb.set_trace()
         self._accum_update_at_exit(arglocs, inputargs, faildescr, regalloc)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
@@ -2551,7 +2550,6 @@ class Assembler386(BaseAssembler):
             elif accum_info.operation == '*':
                 self._accum_reduce_mul(arg, loc, tgtloc)
             else:
-                import pdb; pdb.set_trace()
                 not_implemented("accum operator %s not implemented" %
                                             (accum_info.operation)) 
             fail_locs[pos] = tgtloc
@@ -2559,13 +2557,13 @@ class Assembler386(BaseAssembler):
             accum_info = accum_info.prev
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):
-        scratchloc = X86_64_SCRATCH_REG
-        self.mc.mov(scratchloc, accumloc)
+        scratchloc = X86_64_XMM_SCRATCH_REG
+        self.mov(accumloc, scratchloc)
         # swap the two elements
         self.mc.SHUFPS_xxi(scratchloc.value, scratchloc.value, 0x01)
         self.mc.MULPD(accumloc, scratchloc)
         if accumloc is not targetloc:
-            self.mc.mov(targetloc, accumloc)
+            self.mov(accumloc, targetloc)
 
     def _accum_reduce_sum(self, arg, accumloc, targetloc):
         # Currently the accumulator can ONLY be the biggest
@@ -2575,7 +2573,7 @@ class Assembler386(BaseAssembler):
             self.mc.HADDPD(accumloc, accumloc)
             # upper bits (> 64) are dirty (but does not matter)
             if accumloc is not targetloc:
-                self.mov(targetloc, accumloc)
+                self.mov(accumloc, targetloc)
             return
         elif arg.type == INT:
             scratchloc = X86_64_SCRATCH_REG
@@ -2757,7 +2755,9 @@ class Assembler386(BaseAssembler):
     def genop_vec_float_expand(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
         size = sizeloc.value
-        if size == 4:
+        if isinstance(srcloc, ConstFloatLoc):
+            self.mov(srcloc, resloc)
+        elif size == 4:
             # the register allocator forces src to be the same as resloc
             # r = (s[0], s[0], r[0], r[0])
             # since resloc == srcloc: r = (r[0], r[0], r[0], r[0])
@@ -2864,7 +2864,7 @@ class Assembler386(BaseAssembler):
                         # if source is a normal register (unpack)
                         assert count == 1
                         assert si == 0
-                        self.mov(X86_64_XMM_SCRATCH_REG, srcloc)
+                        self.mov(srcloc, X86_64_XMM_SCRATCH_REG)
                         src = X86_64_XMM_SCRATCH_REG.value
                     select = ((si & 0x3) << 6)|((ri & 0x3) << 4)
                     self.mc.INSERTPS_xxi(resloc.value, src, select)

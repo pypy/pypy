@@ -416,7 +416,6 @@ class OpToVectorOp(object):
         if vbox.gettype() == INT:
             return self.extend_int(vbox, newtype)
         else:
-            import pdb; pdb.set_trace()
             raise NotImplementedError("cannot yet extend float")
 
     def extend_int(self, vbox, newtype):

@@ -488,8 +488,7 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'rd_accum_list',
-               'status')
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0

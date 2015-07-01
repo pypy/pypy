@@ -803,7 +803,7 @@ class PackSet(object):
                 # considered. => tree pattern matching problem.
                 return None
             operator = Accum.PLUS
-            if opnum == rop.FLOAT_ADD:
+            if opnum == rop.FLOAT_MUL:
                 operator = Accum.MULTIPLY
             accum = Accum(accum_var, accum_pos, operator)
             return AccumPair(lnode, rnode, ptype, ptype, accum)
@@ -837,11 +837,10 @@ class PackSet(object):
                 box = result
             elif accum.operator == Accum.MULTIPLY:
                 # multiply is only supported by floats
-                op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstInt(1)], box)
+                op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstFloat(1.0)], box)
                 sched_data.invariant_oplist.append(op)
             else:
-                import pdb; pdb.set_trace()
-                raise NotImplementedError
+                raise NotImplementedError("can only handle + and *")
             result = BoxVectorAccum(box, accum.var, accum.operator)
             # pack the scalar value
             op = ResOperation(getpackopnum(box.gettype()),
