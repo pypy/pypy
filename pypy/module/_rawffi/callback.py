@@ -27,8 +27,10 @@ def callback(ll_args, ll_res, ll_userdata):
     callback_ptr = global_counter.get(userdata.addarg)
     w_callable = callback_ptr.w_callable
     argtypes = callback_ptr.argtypes
+    must_leave = False
     space = callback_ptr.space
     try:
+        must_leave = space.threadlocals.try_enter_thread(space)
         args_w = [None] * len(argtypes)
         for i in range(len(argtypes)):
             argtype = argtypes[i]
@@ -50,6 +52,8 @@ def callback(ll_args, ll_res, ll_userdata):
             resshape = letter2tp(space, callback_ptr.result)
             for i in range(resshape.size):
                 ll_res[i] = '\x00'
+    if must_leave:
+        space.threadlocals.leave_thread(space)
 
 class W_CallbackPtr(W_DataInstance):
 
