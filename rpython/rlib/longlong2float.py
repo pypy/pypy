@@ -7,6 +7,7 @@ in which it does not work.
 """
 
 from __future__ import with_statement
+import sys
 from rpython.annotator import model as annmodel
 from rpython.rlib.rarithmetic import r_int64
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -99,3 +100,29 @@ class LongLong2FloatEntry(ExtRegistryEntry):
         [v_longlong] = hop.inputargs(lltype.SignedLongLong)
         hop.exception_cannot_occur()
         return hop.genop("convert_longlong_bytes_to_float", [v_longlong], resulttype=lltype.Float)
+
+# ____________________________________________________________
+
+
+# For encoding integers inside nonstandard NaN bit patterns.
+#   ff ff ff fe xx xx xx xx    (signed 32-bit int)
+nan_high_word_int32 = -2       # -2 == (int)0xfffffffe
+nan_encoded_zero = rffi.cast(rffi.LONGLONG, nan_high_word_int32 << 32)
+
+def encode_int32_into_longlong_nan(value):
+    return (nan_encoded_zero +
+            rffi.cast(rffi.LONGLONG, rffi.cast(rffi.UINT, value)))
+
+def decode_int32_from_longlong_nan(value):
+    return rffi.cast(lltype.Signed, rffi.cast(rffi.INT, value))
+
+def is_int32_from_longlong_nan(value):
+    return (value >> 32) == nan_high_word_int32
+
+def can_encode_int32(value):
+    if sys.maxint == 2147483647:
+        return True
+    return value == rffi.cast(lltype.Signed, rffi.cast(rffi.INT, value))
+
+def can_encode_float(value):
+    return (float2longlong(value) >> 32) != nan_high_word_int32

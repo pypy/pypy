@@ -733,6 +733,11 @@ class TestW_ListStrategies(TestW_ListObject):
         list_copy[0] = 42
         assert list_orig == [1, 2, 3]
 
+    def test_int_or_float(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2.3)])
+        xxxxx
+
 
 class TestW_ListStrategiesDisabled:
     spaceconfig = {"objspace.std.withliststrategies": False}

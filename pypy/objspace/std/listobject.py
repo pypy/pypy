@@ -14,6 +14,7 @@ from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
+from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -73,33 +74,56 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
             return SizeListStrategy(space, sizehint)
         return space.fromcache(EmptyListStrategy)
 
-    # check for ints
-    for w_obj in list_w:
-        if not type(w_obj) is W_IntObject:
-            break
-    else:
-        return space.fromcache(IntegerListStrategy)
+    w_firstobj = list_w[0]
+    check_int_or_float = False
 
-    # check for strings
-    for w_obj in list_w:
-        if not type(w_obj) is W_BytesObject:
-            break
-    else:
-        return space.fromcache(BytesListStrategy)
+    if type(w_firstobj) is W_IntObject:
+        # check for all-ints
+        for i in range(1, len(list_w)):
+            w_obj = list_w[i]
+            if type(w_obj) is not W_IntObject:
+                check_int_or_float = (type(w_obj) is W_FloatObject)
+                break
+        else:
+            return space.fromcache(IntegerListStrategy)
 
-    # check for unicode
-    for w_obj in list_w:
-        if not type(w_obj) is W_UnicodeObject:
-            break
-    else:
-        return space.fromcache(UnicodeListStrategy)
+    elif type(w_firstobj) is W_BytesObject:
+        # check for all-strings
+        for i in range(1, len(list_w)):
+            if type(list_w[i]) is not W_BytesObject:
+                break
+        else:
+            return space.fromcache(BytesListStrategy)
 
-    # check for floats
-    for w_obj in list_w:
-        if not type(w_obj) is W_FloatObject:
+    elif type(w_firstobj) is W_UnicodeObject:
+        # check for all-unicodes
+        for i in range(1, len(list_w)):
+            if type(list_w[i]) is not W_UnicodeObject:
+                break
+        else:
+            return space.fromcache(UnicodeListStrategy)
+
+    elif type(w_firstobj) is W_FloatObject:
+        # check for all-floats
+        for i in range(1, len(list_w)):
+            w_obj = list_w[i]
+            if type(w_obj) is not W_FloatObject:
+                check_int_or_float = (type(w_obj) is W_IntObject)
+                break
+        else:
+            return space.fromcache(FloatListStrategy)
+
+    if check_int_or_float:
+        for w_obj in list_w:
+            if type(w_obj) is W_IntObject:
+                if longlong2float.can_encode_int32(space.int_w(w_obj)):
+                    continue    # ok
+            elif type(w_obj) is W_FloatObject:
+                if longlong2float.can_encode_float(space.float_w(w_obj)):
+                    continue    # ok
             break
-    else:
-        return space.fromcache(FloatListStrategy)
+        else:
+            return space.fromcache(IntOrFloatListStrategy)
 
     return space.fromcache(ObjectListStrategy)
 
@@ -1382,12 +1406,15 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
 
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        w_list.switch_to_object_strategy()
+
     def append(self, w_list, w_item):
         if self.is_correct_type(w_item):
             self.unerase(w_list.lstorage).append(self.unwrap(w_item))
             return
 
-        w_list.switch_to_object_strategy()
+        self.switch_to_next_strategy(w_list, w_item)
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
@@ -1397,7 +1424,7 @@ class AbstractUnwrappedStrategy(object):
             l.insert(index, self.unwrap(w_item))
             return
 
-        w_list.switch_to_object_strategy()
+        self.switch_to_next_strategy(w_list, w_item)
         w_list.insert(index, w_item)
 
     def _extend_from_list(self, w_list, w_other):
@@ -1673,7 +1700,6 @@ class FloatListStrategy(ListStrategy):
 
     def _safe_find(self, w_list, obj, start, stop):
         from rpython.rlib.rfloat import isnan
-        from rpython.rlib.longlong2float import float2longlong
         #
         l = self.unerase(w_list.lstorage)
         stop = min(stop, len(l))
@@ -1683,10 +1709,10 @@ class FloatListStrategy(ListStrategy):
                 if val == obj:
                     return i
         else:
-            search = float2longlong(obj)
+            search = longlong2float.float2longlong(obj)
             for i in range(start, stop):
                 val = l[i]
-                if float2longlong(val) == search:
+                if longlong2float.float2longlong(val) == search:
                     return i
         raise ValueError
 
