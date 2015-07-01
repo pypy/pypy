@@ -1217,6 +1217,43 @@ class AppTestImportHooks(object):
         finally:
             sys.path_hooks.pop()
 
+    def test_meta_path_import_star_1(self):
+        class ImportHook(object):
+            def find_module(self, fullname, path=None):
+                assert not fullname.endswith('*')
+                if fullname == 'meta_path_pseudo_module':
+                    return self
+            def load_module(self, fullname):
+                assert fullname == 'meta_path_pseudo_module'
+                return new.module('meta_path_pseudo_module')
+
+        import sys, new
+        sys.meta_path.append(ImportHook())
+        try:
+            exec "from meta_path_pseudo_module import *" in {}
+        finally:
+            sys.meta_path.pop()
+
+    def test_meta_path_import_star_2(self):
+        class ImportHook(object):
+            def find_module(self, fullname, path=None):
+                if fullname.startswith('meta_path_2_pseudo_module'):
+                    return self
+            def load_module(self, fullname):
+                assert fullname == 'meta_path_2_pseudo_module'
+                m = new.module('meta_path_2_pseudo_module')
+                m.__path__ = ['/some/random/dir']
+                sys.modules['meta_path_2_pseudo_module'] = m
+                return m
+
+        import sys, new
+        sys.meta_path.append(ImportHook())
+        try:
+            exec "from meta_path_2_pseudo_module import *" in {}
+        finally:
+            sys.meta_path.pop()
+
+
 class AppTestPyPyExtension(object):
     spaceconfig = dict(usemodules=['imp', 'zipimport', '__pypy__'])
 
