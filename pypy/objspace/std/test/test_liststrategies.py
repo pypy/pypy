@@ -1,4 +1,5 @@
 import sys
+import py
 from pypy.objspace.std.listobject import (
     W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy,
     FloatListStrategy, BytesListStrategy, RangeListStrategy,
@@ -166,7 +167,6 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_list_empty_after_delete(self):
-        import py
         py.test.skip("return to emptyliststrategy is not supported anymore")
         l = W_ListObject(self.space, [self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
@@ -732,6 +732,31 @@ class TestW_ListStrategies(TestW_ListObject):
         assert list_orig == list_copy == [1, 2, 3]
         list_copy[0] = 42
         assert list_orig == [1, 2, 3]
+
+    def test_int_or_float_special_nan(self):
+        from rpython.rlib import longlong2float, rarithmetic
+        space = self.space
+        ll = rarithmetic.r_longlong(0xfffffffe12345678 - 2**64)
+        specialnan = longlong2float.longlong2float(ll)
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(specialnan)])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+
+    def test_int_or_float_int_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        ok1 = 2**31 - 1
+        ok2 = -2**31
+        ovf1 = ok1 + 1
+        ovf2 = ok2 - 1
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ovf1)])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ovf2)])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ok1)])
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ok2)])
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
 
     def test_int_or_float(self):
         space = self.space
