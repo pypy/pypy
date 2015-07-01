@@ -1667,6 +1667,30 @@ class IntegerListStrategy(ListStrategy):
                     self.space, storage, self)
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
+
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        if type(w_sample_item) is W_FloatObject:
+            l = self.unerase(w_list.lstorage)
+            for intval in l:
+                if not longlong2float.can_encode_int32(intval):
+                    break
+            else:
+                floatval = self.space.float_w(w_sample_item)
+                if longlong2float.can_encode_float(floatval):
+                    # yes, we can switch to IntOrFloatListStrategy
+                    generalized_list = [
+                        longlong2float.encode_int32_into_longlong_nan(intval)
+                        for intval in l]
+                    generalized_list.append(
+                        longlong2float.float2longlong(floatval))
+                    strategy = self.space.fromcache(IntOrFloatListStrategy)
+                    w_list.strategy = strategy
+                    w_list.lstorage = strategy.erase(generalized_list)
+                    return
+        # no, fall back to ObjectListStrategy
+        w_list.switch_to_object_strategy()
+
+
 class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 

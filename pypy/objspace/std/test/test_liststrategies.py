@@ -759,7 +759,7 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ok2)])
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
 
-    def test_int_or_float(self):
+    def test_int_or_float_base(self):
         from rpython.rlib.rfloat import INFINITY, NAN
         space = self.space
         w = space.wrap
@@ -769,6 +769,8 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
         w_l.append(w(-5.1))
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert space.int_w(w_l.getitem(2)) == 2**31-1
+        assert space.float_w(w_l.getitem(3)) == -5.1
         w_l.append(w(INFINITY))
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
         w_l.append(w(NAN))
@@ -777,6 +779,16 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(w_l.strategy, IntOrFloatListStrategy)
         w_l.append(space.newlist([]))
         assert isinstance(w_l.strategy, ObjectListStrategy)
+
+    def test_int_or_float_from_integer(self):
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(int(-2**31))])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l.append(w(-5.1))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert space.int_w(w_l.getitem(0)) == -2**31
+        assert space.float_w(w_l.getitem(1)) == -5.1
 
 
 class TestW_ListStrategiesDisabled:
