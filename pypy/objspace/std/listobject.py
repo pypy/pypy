@@ -1671,20 +1671,26 @@ class IntegerListStrategy(ListStrategy):
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
 
-    def switch_to_next_strategy(self, w_list, w_sample_item):
-        if type(w_sample_item) is W_FloatObject:
-            l = self.unerase(w_list.lstorage)
+    def int_2_float_or_int(self, w_list):
+        l = self.unerase(w_list.lstorage)
+        if not longlong2float.CAN_ALWAYS_ENCODE_INT32:
             for intval in l:
                 if not longlong2float.can_encode_int32(intval):
-                    break
+                    raise ValueError
+        return [longlong2float.encode_int32_into_longlong_nan(intval)
+                for intval in l]
+
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        if type(w_sample_item) is W_FloatObject:
+            try:
+                generalized_list = self.int_2_float_or_int(w_list)
+            except ValueError:
+                pass
             else:
                 # yes, we can switch to IntOrFloatListStrategy
                 # (ignore here the extremely unlikely case where
                 # w_sample_item is just the wrong nonstandard NaN float;
                 # it will caught later and yet another switch will occur)
-                generalized_list = [
-                    longlong2float.encode_int32_into_longlong_nan(intval)
-                    for intval in l]
                 strategy = self.space.fromcache(IntOrFloatListStrategy)
                 w_list.strategy = strategy
                 w_list.lstorage = strategy.erase(generalized_list)
@@ -1742,19 +1748,26 @@ class FloatListStrategy(ListStrategy):
                     return i
         raise ValueError
 
+    def float_2_float_or_int(self, w_list):
+        l = self.unerase(w_list.lstorage)
+        generalized_list = []
+        for floatval in l:
+            if not longlong2float.can_encode_float(floatval):
+                raise ValueError
+            generalized_list.append(
+                longlong2float.float2longlong(floatval))
+        return generalized_list
+
     def switch_to_next_strategy(self, w_list, w_sample_item):
         if type(w_sample_item) is W_IntObject:
             sample_intval = self.space.int_w(w_sample_item)
             if longlong2float.can_encode_int32(sample_intval):
                 # xxx we should be able to use the same lstorage, but
                 # there is a typing issue (float vs longlong)...
-                l = self.unerase(w_list.lstorage)
-                generalized_list = []
-                for floatval in l:
-                    if not longlong2float.can_encode_float(floatval):
-                        break
-                    generalized_list.append(
-                        longlong2float.float2longlong(floatval))
+                try:
+                    generalized_list = self.float_2_float_or_int(w_list)
+                except ValueError:
+                    pass
                 else:
                     # yes, we can switch to IntOrFloatListStrategy
                     strategy = self.space.fromcache(IntOrFloatListStrategy)
@@ -1813,6 +1826,29 @@ class IntOrFloatListStrategy(ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    _base_extend_from_list = _extend_from_list
+
+    def _extend_longlong(self, w_list, longlong_list):
+        l = self.unerase(w_list.lstorage)
+        l += longlong_list
+
+    def _extend_from_list(self, w_list, w_other):
+        if w_other.strategy is self.space.fromcache(IntegerListStrategy):
+            try:
+                longlong_list = w_other.strategy.int_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                return self._extend_longlong(w_list, longlong_list)
+        if w_other.strategy is self.space.fromcache(FloatListStrategy):
+            try:
+                longlong_list = w_other.strategy.float_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                return self._extend_longlong(w_list, longlong_list)
+        return self._base_extend_from_list(w_list, w_other)
 
 
 class BytesListStrategy(ListStrategy):

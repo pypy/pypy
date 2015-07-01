@@ -866,7 +866,28 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
         assert space.unwrap(w_l1) == [0, 1.2, 3, 4.5]
 
-    def test_int_or_float_extend_mixed(self):
+    def test_int_or_float_extend_mixed_1(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert [(type(x), x) for x in space.unwrap(w_l1)] == [
+            (int, 0), (float, 1.2), (int, 3)]
+
+    def test_int_or_float_extend_mixed_2(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3.4)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [0, 1.2, 3.4]
+
+    def test_int_or_float_extend_mixed_3(self):
         py.test.skip("XXX not implemented")
         # lst = [0]; lst += [1.2]
         # lst = [0]; lst += [1.2, 3]
