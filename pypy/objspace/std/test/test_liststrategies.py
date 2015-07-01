@@ -894,6 +894,17 @@ class TestW_ListStrategies(TestW_ListObject):
         # lst = [0, 1.2]; lst[:] = [3]
         # lst = [0, 1.2]; lst[:] = [3.4]
 
+    def test_int_or_float_sort(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(1),
+                                   space.wrap(1.0), space.wrap(5)])
+        w_l.sort(False)
+        assert [(type(x), x) for x in space.unwrap(w_l)] == [
+            (int, 1), (float, 1.0), (float, 1.2), (int, 5)]
+        w_l.sort(True)
+        assert [(type(x), x) for x in space.unwrap(w_l)] == [
+            (int, 5), (float, 1.2), (int, 1), (float, 1.0)]
+
 
 class TestW_ListStrategiesDisabled:
     spaceconfig = {"objspace.std.withliststrategies": False}

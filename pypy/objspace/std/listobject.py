@@ -1613,6 +1613,9 @@ class ObjectListStrategy(ListStrategy):
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
 
+    # no sort() method here: W_ListObject.descr_sort() handles this
+    # case explicitly
+
 
 class IntegerListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1800,6 +1803,17 @@ class IntOrFloatListStrategy(ListStrategy):
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(IntOrFloatListStrategy)
 
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = IntOrFloatSort(l, len(l))
+        # Reverse sort stability achieved by initially reversing the list,
+        # applying a stable forward sort, then reversing the final result.
+        if reverse:
+            l.reverse()
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
 
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1896,6 +1910,7 @@ listrepr = app.interphook("listrepr")
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
+IntOrFloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 UnicodeBaseTimSort = make_timsort_class()
 
@@ -1924,6 +1939,19 @@ class IntSort(IntBaseTimSort):
 class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
+
+
+class IntOrFloatSort(IntOrFloatBaseTimSort):
+    def lt(self, a, b):
+        if longlong2float.is_int32_from_longlong_nan(a):
+            fa = float(longlong2float.decode_int32_from_longlong_nan(a))
+        else:
+            fa = longlong2float.longlong2float(a)
+        if longlong2float.is_int32_from_longlong_nan(b):
+            fb = float(longlong2float.decode_int32_from_longlong_nan(b))
+        else:
+            fb = longlong2float.longlong2float(b)
+        return fa < fb
 
 
 class StringSort(StringBaseTimSort):
