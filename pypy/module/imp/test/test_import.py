@@ -1217,7 +1217,16 @@ class AppTestImportHooks(object):
         finally:
             sys.path_hooks.pop()
 
-    def test_meta_path_import_star_1(self):
+    def test_meta_path_import_error_1(self):
+        # as far as I can tell, the problem is that in CPython, if you
+        # use an import hook that doesn't update sys.modules, then the
+        # import succeeds; but at the same time, you can have the same
+        # result without an import hook (see test_del_from_sys_modules)
+        # and then the import fails.  This looks like even more mess
+        # to replicate, so we ignore it until someone really hits this
+        # case...
+        skip("looks like an inconsistency in CPython")
+
         class ImportHook(object):
             def find_module(self, fullname, path=None):
                 assert not fullname.endswith('*')
@@ -1225,12 +1234,13 @@ class AppTestImportHooks(object):
                     return self
             def load_module(self, fullname):
                 assert fullname == 'meta_path_pseudo_module'
+                # we "forget" to update sys.modules
                 return new.module('meta_path_pseudo_module')
 
         import sys, new
         sys.meta_path.append(ImportHook())
         try:
-            exec "from meta_path_pseudo_module import *" in {}
+            import meta_path_pseudo_module
         finally:
             sys.meta_path.pop()
 
