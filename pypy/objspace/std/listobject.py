@@ -194,9 +194,9 @@ class W_ListObject(W_Root):
 
     def switch_to_object_strategy(self):
         list_w = self.getitems()
-        self.strategy = self.space.fromcache(ObjectListStrategy)
-        # XXX this is quite indirect
-        self.init_from_list_w(list_w)
+        object_strategy = self.space.fromcache(ObjectListStrategy)
+        self.strategy = object_strategy
+        object_strategy.init_from_list_w(self, list_w)
 
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
