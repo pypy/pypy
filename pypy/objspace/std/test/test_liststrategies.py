@@ -893,8 +893,6 @@ class TestW_ListStrategies(TestW_ListObject):
         # lst = [0]; lst += [1.2, 3]
         # lst = [1.2]; lst += [0]
         # lst = [1.2]; lst += [0, 3.4]
-        # lst = [0, 1.2]; lst += [3]
-        # lst = [0, 1.2]; lst += [3.4]
 
     def test_int_or_float_setslice(self):
         space = self.space
