@@ -220,6 +220,7 @@ def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
             return rval
         cur_value = func(calc_dtype, cur_value, rval)
         obj_state = obj_iter.next(obj_state)
+        rval = None
     return cur_value
 
 reduce_cum_driver = jit.JitDriver(
@@ -346,6 +347,7 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
             temp_state = temp_iter.next(temp_state)
         else:
             temp_state = out_state
+        w_val = None
     return out
 
 

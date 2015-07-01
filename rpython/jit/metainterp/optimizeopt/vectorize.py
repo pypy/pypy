@@ -50,6 +50,11 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
+    if len(orig_ops) >= 75:
+        # if more than 75 operations are present in this loop,
+        # it won't be possible to vectorize. There are too many
+        # guards that prevent parallel execution of instructions
+        return
     start = -1
     end = -1
     try:
