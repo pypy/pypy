@@ -515,18 +515,28 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_prod():
         return """
-        a = |30|
+        a = [1,2,3,4,1,2,3,4]
+        prod(a)
+        """
+
+    def define_prod_zero():
+        return """
+        a = [1,2,3,4,1,2,3,0]
         prod(a)
         """
 
     def test_prod(self):
         result = self.run("prod")
-        expected = 1
-        for i in range(30):
-            expected *= i * 2
-        assert result == expected
+        assert int(result) == 576
         self.check_trace_count(1)
         self.check_vectorized(1, 1)
+
+    def test_prod_zero(self):
+        result = self.run("prod_zero")
+        assert int(result) == 0
+        self.check_trace_count(1)
+        self.check_vectorized(1, 1)
+
 
     def define_max():
         return """

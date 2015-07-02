@@ -42,7 +42,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             import _numpypy.multiarray as np
             a = np.array([{a}]*{count}, dtype='{adtype}')
             b = np.array([{b}]*{count}, dtype='{bdtype}')
-            c = a {op} b
+            for i in range(20):
+                c = a {op} b
             return c.sum()
         """.format(op=op, adtype=adtype, bdtype=bdtype, count=count, a=a, b=b)
         exec py.code.Source(source).compile()

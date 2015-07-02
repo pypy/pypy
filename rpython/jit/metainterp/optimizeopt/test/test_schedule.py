@@ -15,9 +15,9 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
 
-F64 = PackType('f',8,True,2)
-F32 = PackType('f',4,True,4)
-F32_2 =  PackType('f',4,True,2)
+F64 = PackType('f',8,False,2)
+F32 = PackType('f',4,False,4)
+F32_2 =  PackType('f',4,False,2)
 I64 = PackType('i',8,True,2)
 I32 = PackType('i',4,True,4)
 I32_2 =  PackType('i',4,True,2)
@@ -180,7 +180,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         f10 = float_add(f0, 73.0)
         f11 = float_add(f1, 73.0)
         """)
-        pack1 = self.pack(loop1, 0, 2, I64, I64)
+        pack1 = self.pack(loop1, 0, 2, F64, F64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
         v10[f64|2] = vec_box(2)
@@ -275,10 +275,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         raw_store(p1, i7, i24, descr=short)
         raw_store(p1, i8, i25, descr=short)
         """)
-        pack1 = self.pack(loop1, 0, 8, None, I64)
-        pack2 = self.pack(loop1, 8, 16, I64, I32_2)
+        pack1 = self.pack(loop1, 0, 8, None, F64)
+        pack2 = self.pack(loop1, 8, 16, F64, I32_2)
         I16_2 = PackType('i',2,True,2)
-        pack3 = self.pack(loop1, 16, 24, I32, I16_2)
+        pack3 = self.pack(loop1, 16, 24, I32_2, I16_2)
         pack4 = self.pack(loop1, 24, 32, I16, None)
         def void(b,c):
             pass
@@ -323,17 +323,17 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         raw_store(p1, i3, i12, descr=float)
         raw_store(p1, i4, i13, descr=float)
         """)
-        pack1 = self.pack(loop1, 0, 4, None, I64)
-        pack2 = self.pack(loop1, 4, 8, I64, I32_2)
+        pack1 = self.pack(loop1, 0, 4, None, F64)
+        pack2 = self.pack(loop1, 4, 8, F64, I32_2)
         pack3 = self.pack(loop1, 8, 12, I32, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3])
         loop3 = self.parse("""
         v44[f64|2] = vec_raw_load(p0, i1, 2, descr=double) 
         v45[f64|2] = vec_raw_load(p0, i3, 2, descr=double) 
-        v46[f32|2] = vec_cast_float_to_singlefloat(v44[f64|2]) 
-        v47[f32|2] = vec_cast_float_to_singlefloat(v45[f64|2]) 
-        v41[f32|4] = vec_float_pack(v46[f32|2], v47[f32|2], 2, 2) 
-        vec_raw_store(p1, i1, v41[f32|4], descr=float)
+        v46[i32|2] = vec_cast_float_to_singlefloat(v44[f64|2]) 
+        v47[i32|2] = vec_cast_float_to_singlefloat(v45[f64|2]) 
+        v41[i32|4] = vec_int_pack(v46[i32|2], v47[i32|2], 2, 2) 
+        vec_raw_store(p1, i1, v41[i32|4], descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -350,7 +350,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """)
         pack1 = self.pack(loop1, 0, 2, None, I64)
         pack2 = self.pack(loop1, 2, 4, I64, I64)
-        pack3 = self.pack(loop1, 4, 6, None, I64)
+        pack3 = self.pack(loop1, 4, 6, I64, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse("""
         v9[i64|2] = vec_int_expand(255)
@@ -372,10 +372,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 2, 4, I32_2, None)
         loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[ui32|2] = vec_raw_load(p0, i1, 2, descr=float)
-        i10 = vec_int_unpack(v1[ui32|2], 0, 1)
+        v1[i32|2] = vec_raw_load(p0, i1, 2, descr=float)
+        i10 = vec_int_unpack(v1[i32|2], 0, 1)
         raw_store(p0, i3, i10, descr=float)
-        i11 = vec_int_unpack(v1[ui32|2], 1, 1)
+        i11 = vec_int_unpack(v1[i32|2], 1, 1)
         raw_store(p0, i4, i11, descr=float)
         """, False)
         # unfortunate ui32 is the type for float32... the unsigned u is for

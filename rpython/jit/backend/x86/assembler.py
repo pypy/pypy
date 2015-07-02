@@ -2560,8 +2560,8 @@ class Assembler386(BaseAssembler):
         scratchloc = X86_64_XMM_SCRATCH_REG
         self.mov(accumloc, scratchloc)
         # swap the two elements
-        self.mc.SHUFPS_xxi(scratchloc.value, scratchloc.value, 0x01)
-        self.mc.MULPD(accumloc, scratchloc)
+        self.mc.SHUFPD_xxi(scratchloc.value, scratchloc.value, 0x01)
+        self.mc.MULSD(accumloc, scratchloc)
         if accumloc is not targetloc:
             self.mov(accumloc, targetloc)
 
@@ -2756,7 +2756,8 @@ class Assembler386(BaseAssembler):
         srcloc, sizeloc = arglocs
         size = sizeloc.value
         if isinstance(srcloc, ConstFloatLoc):
-            self.mov(srcloc, resloc)
+            # they are aligned!
+            self.mc.MOVAPD(resloc, srcloc)
         elif size == 4:
             # the register allocator forces src to be the same as resloc
             # r = (s[0], s[0], r[0], r[0])

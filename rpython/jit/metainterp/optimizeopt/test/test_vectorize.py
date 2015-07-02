@@ -44,6 +44,9 @@ class VecTestHelper(DependencyBaseTest):
         loop.operations = pre + loop.operations
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
+        for op in loop.operations:
+            if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:
+                op.setdescr(compile.ResumeAtLoopHeaderDescr())
         return loop
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
@@ -1356,6 +1359,7 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
+        py.test.skip()
         trace="""
         # int32 sum
         label(p0, p19, i18, i24, i14, i8, i25, descr=TargetToken(140320937897104))
@@ -1369,22 +1373,6 @@ class BaseTestVectorize(VecTestHelper):
         i32 = int_ge(i30, i25)
         guard_false(i32, descr=<Guard0x7f9f03ab17d0>) [p0, i29, i30, i31, p19, None, None, None]
         jump(p0, p19, i30, i31, i29, i8, i25, descr=TargetToken(140320937897104))
-
-        """
-        trace ="""
-        [i0, i1, i16, i17, i18, i5, p6, p7, p8, f19, p10, p11, p12, p13, p14, p15, i20, i21]
-        guard_early_exit(descr=<rpython.jit.metainterp.compile.ResumeAtLoopHeaderDescr object at 0x7f249eb2e510>) [i5, i18, i17, i16, i1, i0, p15, p14, p13, p12, p11, p10, p8, p7, p6, f19]
-        f22 = raw_load(i20, i18, descr=floatarraydescr)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7f249eb2ec90>) [i5, i18, i17, i16, i1, i0, p15, p14, p13, p12, p11, p10, p8, p7, p6, f22, f19]
-        f23 = raw_load(i21, i17, descr=floatarraydescr)
-        f24 = float_mul(f22, f23)
-        f25 = float_add(f19, f24)
-        i26 = int_add(i18, 8)
-        i27 = int_add(i17, 8)
-        i28 = int_lt(i16, i5)
-        guard_true(i28, descr=<rpython.jit.metainterp.compile.ResumeGuardTrueDescr object at 0x7f249eb99290>) [i5, i26, i27, i16, i1, i0, p15, p14, p13, p12, p11, p10, p8, p7, p6, f25, None]
-        i31 = int_add(i16, 1)
-        jump(i0, i1, i31, i27, i26, i5, p6, p7, p8, f25, p10, p11, p12, p13, p14, p15, i20, i21)
         """
         # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))

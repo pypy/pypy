@@ -162,10 +162,12 @@ class PackType(object):
     @staticmethod
     def by_descr(descr, vec_reg_size):
         _t = INT
+        signed = descr.is_item_signed()
         if descr.is_array_of_floats() or descr.concrete_type == FLOAT:
             _t = FLOAT
+            signed = False
         size = descr.get_item_size_in_bytes()
-        pt = PackType(_t, size, descr.is_item_signed(), vec_reg_size // size)
+        pt = PackType(_t, size, signed, vec_reg_size // size)
         return pt
 
     def __init__(self, type, size, signed, count=-1):
@@ -214,13 +216,13 @@ class PackType(object):
         return self.count
 
 
+PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 PT_FLOAT_2 = PackType(FLOAT, 4, False, 2)
 PT_DOUBLE_2 = PackType(FLOAT, 8, False, 2)
-PT_FLOAT_GENERIC = PackType(INT, -1, True)
+PT_FLOAT_GENERIC = PackType(INT, -1, False)
 PT_INT64 = PackType(INT, 8, True)
 PT_INT32_2 = PackType(INT, 4, True, 2)
 PT_INT_GENERIC = PackType(INT, -1, True)
-PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 
 INT_RES = PT_INT_GENERIC
 FLOAT_RES = PT_FLOAT_GENERIC
@@ -239,8 +241,7 @@ class OpToVectorOp(object):
     def check_if_pack_supported(self, pack):
         op0 = pack.operations[0].getoperation()
         if self.input_type is None:
-            # must be a load operation
-            assert op0.is_raw_load()
+            # must be a load/guard op
             return
         insize = self.input_type.getsize()
         if op0.casts_box():

@@ -136,7 +136,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         savings = self.savings(loop1)
         assert savings == 2
 
-    @py.test.mark.parametrize("bytes,s", [(1,None),(2,None),(4,0),(8,-1)])
+    @py.test.mark.parametrize("bytes,s", [(1,None),(2,None),(4,0),(8,0)])
     def test_sum_float_to_int(self, bytes, s):
         loop1 = self.parse("""
         f10 = raw_load(p0, i0, descr=double)
@@ -189,8 +189,11 @@ class CostModelBaseTest(SchedulerBaseTest):
         f106 = cast_int_to_float(i110)
         f107 = cast_int_to_float(i111)
         """)
-        savings = self.savings(loop1)
-        assert savings <= -2
+        try:
+            self.savings(loop1)
+            py.test.fail("must not profitable!")
+        except NotAProfitableLoop:
+            pass
 
 class Test(CostModelBaseTest, LLtypeMixin):
     pass
