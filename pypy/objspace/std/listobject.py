@@ -1673,11 +1673,17 @@ class IntegerListStrategy(ListStrategy):
             storage = self.erase(w_other.getitems_int())
             w_other = W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
+        if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.setslice(start, step, slicelength, w_other)
+                return
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
 
-    def int_2_float_or_int(self, w_list):
-        l = self.unerase(w_list.lstorage)
+    @staticmethod
+    def int_2_float_or_int(w_list):
+        l = IntegerListStrategy.unerase(w_list.lstorage)
         if not longlong2float.CAN_ALWAYS_ENCODE_INT32:
             for intval in l:
                 if not longlong2float.can_encode_int32(intval):
@@ -1753,6 +1759,17 @@ class FloatListStrategy(ListStrategy):
         return self._base_extend_from_list(w_list, w_other)
 
 
+    _base_setslice = setslice
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        if (w_other.strategy is self.space.fromcache(IntegerListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.setslice(start, step, slicelength, w_other)
+                return
+        return self._base_setslice(w_list, start, step, slicelength, w_other)
+
+
     def _safe_find(self, w_list, obj, start, stop):
         from rpython.rlib.rfloat import isnan
         #
@@ -1771,8 +1788,9 @@ class FloatListStrategy(ListStrategy):
                     return i
         raise ValueError
 
-    def float_2_float_or_int(self, w_list):
-        l = self.unerase(w_list.lstorage)
+    @staticmethod
+    def float_2_float_or_int(w_list):
+        l = FloatListStrategy.unerase(w_list.lstorage)
         generalized_list = []
         for floatval in l:
             if not longlong2float.can_encode_float(floatval):
@@ -1862,19 +1880,42 @@ class IntOrFloatListStrategy(ListStrategy):
     def _extend_from_list(self, w_list, w_other):
         if w_other.strategy is self.space.fromcache(IntegerListStrategy):
             try:
-                longlong_list = w_other.strategy.int_2_float_or_int(w_other)
+                longlong_list = IntegerListStrategy.int_2_float_or_int(w_other)
             except ValueError:
                 pass
             else:
                 return self._extend_longlong(w_list, longlong_list)
         if w_other.strategy is self.space.fromcache(FloatListStrategy):
             try:
-                longlong_list = w_other.strategy.float_2_float_or_int(w_other)
+                longlong_list = FloatListStrategy.float_2_float_or_int(w_other)
             except ValueError:
                 pass
             else:
                 return self._extend_longlong(w_list, longlong_list)
         return self._base_extend_from_list(w_list, w_other)
+
+    _base_setslice = setslice
+
+    def _temporary_longlong_list(self, longlong_list):
+        storage = self.erase(longlong_list)
+        return W_ListObject.from_storage_and_strategy(self.space, storage, self)
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        if w_other.strategy is self.space.fromcache(IntegerListStrategy):
+            try:
+                longlong_list = IntegerListStrategy.int_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                w_other = self._temporary_longlong_list(longlong_list)
+        elif w_other.strategy is self.space.fromcache(FloatListStrategy):
+            try:
+                longlong_list = FloatListStrategy.float_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                w_other = self._temporary_longlong_list(longlong_list)
+        return self._base_setslice(w_list, start, step, slicelength, w_other)
 
 
 class BytesListStrategy(ListStrategy):

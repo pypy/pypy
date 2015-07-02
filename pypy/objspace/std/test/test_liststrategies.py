@@ -318,7 +318,7 @@ class TestW_ListStrategies(TestW_ListObject):
 
         l = W_ListObject(space, [w(1.1), w(2.2), w(3.3)])
         assert isinstance(l.strategy, FloatListStrategy)
-        l.extend(W_ListObject(space, [w(4), w(5), w(6)]))
+        l.extend(W_ListObject(space, [w("abc"), w("def"), w("ghi")]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
     def test_empty_extend_with_any(self):
@@ -950,14 +950,78 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
         assert space.unwrap(w_l1) == [3, 4.5, 1.2]
 
-    def test_int_or_float_setslice_mixed(self):
-        py.test.skip("XXX not implemented")
-        # lst = [0]; lst[:] = [1.2]
-        # lst = [0]; lst[:] = [1.2, 3]
-        # lst = [1.2]; lst[:] = [0]
-        # lst = [1.2]; lst[:] = [0, 3.4]
-        # lst = [0, 1.2]; lst[:] = [3]
-        # lst = [0, 1.2]; lst[:] = [3.4]
+    def test_int_or_float_setslice_mixed_1(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(12)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntegerListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 4.5, 12]
+
+    def test_int_or_float_setslice_mixed_2(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(12)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(45)])
+        assert isinstance(w_l1.strategy, IntegerListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 45, 12]
+
+    def test_int_or_float_setslice_mixed_3(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0.1), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(32), space.wrap(45)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [32, 45, 1.2]
+
+    def test_int_or_float_setslice_mixed_4(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0.1), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(45)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 45, 1.2]
+
+    def test_int_or_float_setslice_mixed_5(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(32), space.wrap(45)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [32, 45, 1.2]
+
+    def test_int_or_float_setslice_mixed_5_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        ovf1 = 2 ** 35
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(32), space.wrap(ovf1)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, ObjectListStrategy)
+        assert space.unwrap(w_l1) == [32, ovf1, 1.2]
+
+    def test_int_or_float_setslice_mixed_6(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 4.5, 1.2]
 
     def test_int_or_float_sort(self):
         space = self.space
