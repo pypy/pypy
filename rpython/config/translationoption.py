@@ -6,6 +6,7 @@ from rpython.config.config import ConfigError
 from rpython.config.support import detect_number_of_processors
 from rpython.translator.platform import platform as compiler
 
+
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
 
@@ -392,3 +393,16 @@ def get_platform(config):
     opt = config.translation.platform
     cc = config.translation.cc
     return pick_platform(opt, cc)
+
+
+
+# when running a translation, this is patched
+# XXX evil global variable
+_GLOBAL_TRANSLATIONCONFIG = None
+
+
+def get_translation_config():
+    """ Return the translation config when translating. When running
+    un-translated returns None """
+    return _GLOBAL_TRANSLATIONCONFIG
+
