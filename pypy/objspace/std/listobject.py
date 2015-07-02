@@ -1738,6 +1738,21 @@ class FloatListStrategy(ListStrategy):
     def getitems_float(self, w_list):
         return self.unerase(w_list.lstorage)
 
+
+    _base_extend_from_list = _extend_from_list
+
+    def _extend_from_list(self, w_list, w_other):
+        if (w_other.strategy is self.space.fromcache(IntegerListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            # xxx a case that we don't optimize: [3.4].extend([9999999999999])
+            # will cause a switch to int-or-float, followed by another
+            # switch to object
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.extend(w_other)
+                return
+        return self._base_extend_from_list(w_list, w_other)
+
+
     def _safe_find(self, w_list, obj, start, stop):
         from rpython.rlib.rfloat import isnan
         #
@@ -1766,21 +1781,24 @@ class FloatListStrategy(ListStrategy):
                 longlong2float.float2longlong(floatval))
         return generalized_list
 
+    def switch_to_int_or_float_strategy(self, w_list):
+        # xxx we should be able to use the same lstorage, but
+        # there is a typing issue (float vs longlong)...
+        try:
+            generalized_list = self.float_2_float_or_int(w_list)
+        except ValueError:
+            return False
+        strategy = self.space.fromcache(IntOrFloatListStrategy)
+        w_list.strategy = strategy
+        w_list.lstorage = strategy.erase(generalized_list)
+        return True
+
     def switch_to_next_strategy(self, w_list, w_sample_item):
         if type(w_sample_item) is W_IntObject:
             sample_intval = self.space.int_w(w_sample_item)
             if longlong2float.can_encode_int32(sample_intval):
-                # xxx we should be able to use the same lstorage, but
-                # there is a typing issue (float vs longlong)...
-                try:
-                    generalized_list = self.float_2_float_or_int(w_list)
-                except ValueError:
-                    pass
-                else:
+                if self.switch_to_int_or_float_strategy(w_list):
                     # yes, we can switch to IntOrFloatListStrategy
-                    strategy = self.space.fromcache(IntOrFloatListStrategy)
-                    w_list.strategy = strategy
-                    w_list.lstorage = strategy.erase(generalized_list)
                     return
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
