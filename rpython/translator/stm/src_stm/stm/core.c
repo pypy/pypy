@@ -238,6 +238,7 @@ static void _signal_handler(int sig, siginfo_t *siginfo, void *context)
         addr >= stm_object_pages+TOTAL_MEMORY) {
         /* actual segfault, unrelated to stmgc */
         fprintf(stderr, "Segmentation fault: accessing %p\n", addr);
+        detect_shadowstack_overflow(addr);
         abort();
     }
 

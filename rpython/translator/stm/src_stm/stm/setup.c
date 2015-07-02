@@ -186,12 +186,12 @@ void stm_teardown(void)
     teardown_modification_locks();
 }
 
-static void _shadowstack_trap_page(char *start, int prot)
+static char *_shadowstack_trap_page(struct stm_shadowentry_s *base)
 {
     size_t bsize = STM_SHADOW_STACK_DEPTH * sizeof(struct stm_shadowentry_s);
-    char *end = start + bsize + 4095;
+    char *end = ((char *)base) + bsize + 4095;
     end -= (((uintptr_t)end) & 4095);
-    mprotect(end, 4096, prot);
+    return end;
 }
 
 static void _init_shadow_stack(stm_thread_local_t *tl)
@@ -203,9 +203,9 @@ static void _init_shadow_stack(stm_thread_local_t *tl)
 
     /* set up a trap page: if the shadowstack overflows, it will
        crash in a clean segfault */
-    _shadowstack_trap_page(start, PROT_NONE);
-
     struct stm_shadowentry_s *s = (struct stm_shadowentry_s *)start;
+    mprotect(_shadowstack_trap_page(s), 4096, PROT_NONE);
+
     tl->shadowstack = s;
     tl->shadowstack_base = s;
     STM_PUSH_ROOT(*tl, -1);
@@ -216,8 +216,8 @@ static void _done_shadow_stack(stm_thread_local_t *tl)
     assert(tl->shadowstack > tl->shadowstack_base);
     assert(tl->shadowstack_base->ss == (object_t *)-1);
 
-    char *start = (char *)tl->shadowstack_base;
-    _shadowstack_trap_page(start, PROT_READ | PROT_WRITE);
+    char *trap = _shadowstack_trap_page(tl->shadowstack_base);
+    mprotect(trap, 4096, PROT_READ | PROT_WRITE);
 
     free(tl->shadowstack_base);
     tl->shadowstack = NULL;
@@ -297,4 +297,20 @@ __attribute__((unused))
 static bool _is_tl_registered(stm_thread_local_t *tl)
 {
     return tl->next != NULL;
+}
+
+static void detect_shadowstack_overflow(char *addr)
+{
+    if (addr == NULL)
+        return;
+    stm_thread_local_t *tl = stm_all_thread_locals;
+    while (tl != NULL) {
+        char *trap = _shadowstack_trap_page(tl->shadowstack_base);
+        if (trap <= addr && addr <= trap + 4095) {
+            fprintf(stderr, "This is caused by a stack overflow.\n"
+                "Sorry, proper RuntimeError support is not implemented yet.\n");
+            return;
+        }
+        tl = tl->next;
+    }
 }
