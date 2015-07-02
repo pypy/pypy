@@ -66,3 +66,32 @@ def test_compiled_single():
     for x in enum_floats():
         res = fn2(x)
         assert repr(res) == repr(float(r_singlefloat(x)))
+
+# ____________________________________________________________
+
+def fn_encode_nan(f1, i2):
+    from rpython.rlib.longlong2float import can_encode_float, can_encode_int32
+    from rpython.rlib.longlong2float import encode_int32_into_longlong_nan
+    from rpython.rlib.longlong2float import decode_int32_from_longlong_nan
+    from rpython.rlib.longlong2float import is_int32_from_longlong_nan
+    from rpython.rlib.rfloat import isnan
+    assert can_encode_float(f1)
+    assert can_encode_int32(i2)
+    l1 = float2longlong(f1)
+    l2 = encode_int32_into_longlong_nan(i2)
+    assert not is_int32_from_longlong_nan(l1)
+    assert is_int32_from_longlong_nan(l2)
+    f1b = longlong2float(l1)
+    assert f1b == f1 or (isnan(f1b) and isnan(f1))
+    assert decode_int32_from_longlong_nan(l2) == i2
+    return 42
+
+def test_compiled_encode_nan():
+    fn2 = compile(fn_encode_nan, [float, int])
+    ints = [-2**31, 2**31-1, 42]
+    for x in enum_floats():
+        y = ints.pop()
+        ints.insert(0, y)
+        fn_encode_nan(x, y)
+        res = fn2(x, y)
+        assert res == 42
