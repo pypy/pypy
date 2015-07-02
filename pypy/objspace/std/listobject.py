@@ -1658,6 +1658,11 @@ class IntegerListStrategy(ListStrategy):
             assert other is not None
             l += other
             return
+        if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.extend(w_other)
+                return
         return self._base_extend_from_list(w_list, w_other)
 
 
@@ -1680,20 +1685,23 @@ class IntegerListStrategy(ListStrategy):
         return [longlong2float.encode_int32_into_longlong_nan(intval)
                 for intval in l]
 
+    def switch_to_int_or_float_strategy(self, w_list):
+        try:
+            generalized_list = self.int_2_float_or_int(w_list)
+        except ValueError:
+            return False
+        strategy = self.space.fromcache(IntOrFloatListStrategy)
+        w_list.strategy = strategy
+        w_list.lstorage = strategy.erase(generalized_list)
+        return True
+
     def switch_to_next_strategy(self, w_list, w_sample_item):
         if type(w_sample_item) is W_FloatObject:
-            try:
-                generalized_list = self.int_2_float_or_int(w_list)
-            except ValueError:
-                pass
-            else:
+            if self.switch_to_int_or_float_strategy(w_list):
                 # yes, we can switch to IntOrFloatListStrategy
                 # (ignore here the extremely unlikely case where
                 # w_sample_item is just the wrong nonstandard NaN float;
                 # it will caught later and yet another switch will occur)
-                strategy = self.space.fromcache(IntOrFloatListStrategy)
-                w_list.strategy = strategy
-                w_list.lstorage = strategy.erase(generalized_list)
                 return
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
