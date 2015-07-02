@@ -1407,15 +1407,15 @@ class AppTestImportHooks(object):
                     return self
             def load_module(self, fullname):
                 assert fullname == 'meta_path_2_pseudo_module'
-                m = new.module('meta_path_2_pseudo_module')
+                m = types.ModuleType('meta_path_2_pseudo_module')
                 m.__path__ = ['/some/random/dir']
                 sys.modules['meta_path_2_pseudo_module'] = m
                 return m
 
-        import sys, new
+        import sys, types
         sys.meta_path.append(ImportHook())
         try:
-            exec "from meta_path_2_pseudo_module import *" in {}
+            exec("from meta_path_2_pseudo_module import *", {})
         finally:
             sys.meta_path.pop()
 
