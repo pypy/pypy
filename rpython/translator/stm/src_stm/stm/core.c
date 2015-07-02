@@ -868,7 +868,6 @@ static void make_bk_slices(object_t *obj,
     _cards_cleared_in_object(get_priv_segment(STM_SEGMENT->segment_num), obj, false);
 }
 
-__attribute__((always_inline))
 static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
 {
     assert(obj->stm_flags & GCFLAG_WRITE_BARRIER);
@@ -927,7 +926,6 @@ static void touch_all_pages_of_obj(object_t *obj, size_t obj_size)
     release_privatization_lock(STM_SEGMENT->segment_num);
 }
 
-__attribute__((always_inline))
 static void write_slowpath_common(object_t *obj, bool mark_card)
 {
     assert(_seems_to_be_running_transaction());
@@ -1070,6 +1068,7 @@ void _stm_write_slowpath_card(object_t *obj, uintptr_t index)
              obj, index, get_index_to_card_index(index), CARD_MARKED));
 }
 
+__attribute__((flatten))
 void _stm_write_slowpath(object_t *obj) {
     write_slowpath_common(obj,  /* mark_card */ false);
 }

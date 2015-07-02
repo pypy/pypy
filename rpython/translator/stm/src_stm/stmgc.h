@@ -21,7 +21,15 @@
 #endif
 
 
-#define TLPREFIX __attribute__((address_space(256)))
+#ifdef __SEG_GS     /* on a custom patched gcc */
+#  define TLPREFIX __seg_gs
+#  define _STM_RM_SUFFIX  :8
+#elif defined(__clang__)   /* on a clang, hopefully made bug-free */
+#  define TLPREFIX __attribute__((address_space(256)))
+#  define _STM_RM_SUFFIX  /* nothing */
+#else
+#  error "needs either a GCC with __seg_gs support, or a bug-freed clang"
+#endif
 
 typedef TLPREFIX struct object_s object_t;
 typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
@@ -35,18 +43,18 @@ struct stm_read_marker_s {
        'STM_SEGMENT->transaction_read_version' if and only if the
        object was read in the current transaction.  The nurseries
        also have corresponding read markers, but they are never used. */
-    uint8_t rm;
+    unsigned char rm _STM_RM_SUFFIX;
 };
 
 struct stm_segment_info_s {
-    uint8_t transaction_read_version;
-    uint8_t no_safe_point_here;    /* set from outside, triggers an assert */
+    unsigned int transaction_read_version;
     int segment_num;
     char *segment_base;
     stm_char *nursery_current;
     stm_char *nursery_mark;
     uintptr_t nursery_end;
     struct stm_thread_local_s *running_thread;
+    uint8_t no_safe_point_here;    /* set from outside, triggers an assert */
 };
 #define STM_SEGMENT           ((stm_segment_info_t *)4352)
 
@@ -357,6 +365,7 @@ void stm_teardown(void);
 #define STM_PUSH_ROOT(tl, p)   ((tl).shadowstack++->ss = (object_t *)(p))
 #define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))((--(tl).shadowstack)->ss))
 #define STM_POP_ROOT_RET(tl)   ((--(tl).shadowstack)->ss)
+#define STM_POP_ROOT_DROP(tl)  ((void)(--(tl).shadowstack))
 
 /* Every thread needs to have a corresponding stm_thread_local_t
    structure.  It may be a "__thread" global variable or something else.
@@ -370,7 +379,12 @@ void stm_unregister_thread_local(stm_thread_local_t *tl);
 
 /* At some key places, like the entry point of the thread and in the
    function with the interpreter's dispatch loop, you need to declare
-   a local variable of type 'rewind_jmp_buf' and call these macros. */
+   a local variable of type 'rewind_jmp_buf' and call these macros.
+   IMPORTANT: a function in which you call stm_rewind_jmp_enterframe()
+   must never change the value of its own arguments!  If they are
+   passed on the stack, gcc can change the value directly there, but
+   we're missing the logic to save/restore this part!
+*/
 #define stm_rewind_jmp_enterprepframe(tl, rjbuf)                        \
     rewind_jmp_enterprepframe(&(tl)->rjthread, rjbuf, (tl)->shadowstack)
 #define stm_rewind_jmp_enterframe(tl, rjbuf)       \
@@ -657,7 +671,7 @@ int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
 
 #define STM_POP_MARKER(tl)   ({                 \
     object_t *_popped = STM_POP_ROOT_RET(tl);   \
-    STM_POP_ROOT_RET(tl);                       \
+    STM_POP_ROOT_DROP(tl);                      \
     _popped;                                    \
 })
 
@@ -760,11 +774,11 @@ void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **));
 
 /* ==================== END ==================== */
 
-static void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
+extern void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
                             object_t *following_object,
                             char *outputbuf, size_t outputbufsize);
 
-static void (*stmcb_debug_print)(const char *cause, double time,
+extern void (*stmcb_debug_print)(const char *cause, double time,
                           const char *marker);
 
 #endif

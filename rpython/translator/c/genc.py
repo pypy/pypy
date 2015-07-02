@@ -440,7 +440,7 @@ class CStandaloneBuilder(CBuilder):
             exe_name = targetdir.join(exe_name)
         kwds = {}
         if self.config.translation.stm:
-            kwds['cc'] = 'clang'     # force the use of clang
+            kwds['cc'] = 'gcc-seg-gs'   # use the custom patched version of gcc
         mk = self.translator.platform.gen_makefile(
             cfiles, self.eci,
             path=targetdir, exe_name=exe_name,

@@ -52,7 +52,7 @@ struct stm_queue_s {
 
 stm_queue_t *stm_queue_create(void)
 {
-    void *mem;
+    void *mem = NULL;
     int result = posix_memalign(&mem, 64, sizeof(stm_queue_t));
     assert(result == 0);
     (void)result;

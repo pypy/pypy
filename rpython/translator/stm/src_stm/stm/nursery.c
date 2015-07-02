@@ -477,6 +477,7 @@ static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     /* reset the nursery by zeroing it */
     char *realnursery;
     realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
+    (void)realnursery;
 #if _STM_NURSERY_ZEROED
     memset(realnursery, 0, nursery_used);
 
