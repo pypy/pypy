@@ -128,3 +128,18 @@ def can_encode_int32(value):
 
 def can_encode_float(value):
     return intmask(float2longlong(value) >> 32) != nan_high_word_int32
+
+def maybe_decode_longlong_as_float(value):
+    # Decode a longlong value.  If a float, just return it as a float.
+    # If an encoded integer, return a float that has the (exact) same
+    # value.  This relies on the fact that casting from a decoded int
+    # to a float is an exact operation.  If we had full 64-bit
+    # integers, this cast would loose precision.  But this works
+    # because the integers are only 32-bit.  This would also work even
+    # if we encoded larger integers: as long as they are encoded
+    # inside a subset of the mantissa of a float, then the
+    # cast-to-float will be exact.
+    if is_int32_from_longlong_nan(value):
+        return float(decode_int32_from_longlong_nan(value))
+    else:
+        return longlong2float(value)

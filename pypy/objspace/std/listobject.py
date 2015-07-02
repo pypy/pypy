@@ -1917,6 +1917,20 @@ class IntOrFloatListStrategy(ListStrategy):
                 w_other = self._temporary_longlong_list(longlong_list)
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
+    def _safe_find(self, w_list, obj, start, stop):
+        l = self.unerase(w_list.lstorage)
+        # careful: we must consider that 0.0 == -0.0 == 0, but also
+        # NaN == NaN if they have the same bit pattern.
+        fobj = longlong2float.maybe_decode_longlong_as_float(obj)
+        for i in range(start, min(stop, len(l))):
+            llval = l[i]
+            if llval == obj:     # equal as longlongs: includes NaN == NaN
+                return i
+            fval = longlong2float.maybe_decode_longlong_as_float(llval)
+            if fval == fobj:     # cases like 0.0 == -0.0 or 42 == 42.0
+                return i
+        raise ValueError
+
 
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -2046,21 +2060,8 @@ class FloatSort(FloatBaseTimSort):
 
 class IntOrFloatSort(IntOrFloatBaseTimSort):
     def lt(self, a, b):
-        # This relies on the fact that casting from a decoded int to a
-        # float is an exact operation.  If we had full 64-bit
-        # integers, this cast would loose precision.  But this works
-        # because the integers are only 32-bit.  This would also work
-        # even if we encoded larger integers: as long as they are
-        # encoded inside a subset of the mantissa of a float, then the
-        # cast-to-float will be exact.
-        if longlong2float.is_int32_from_longlong_nan(a):
-            fa = float(longlong2float.decode_int32_from_longlong_nan(a))
-        else:
-            fa = longlong2float.longlong2float(a)
-        if longlong2float.is_int32_from_longlong_nan(b):
-            fb = float(longlong2float.decode_int32_from_longlong_nan(b))
-        else:
-            fb = longlong2float.longlong2float(b)
+        fa = longlong2float.maybe_decode_longlong_as_float(a)
+        fb = longlong2float.maybe_decode_longlong_as_float(b)
         return fa < fb
 
 
