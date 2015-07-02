@@ -349,11 +349,9 @@ def absolute_import_try(space, modulename, baselevel, fromlist_w):
                 w_all = try_getattr(space, w_mod, space.wrap('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
-            else:
-                # this only runs if fromlist_w != ['*']
-                for w_name in fromlist_w:
-                    if try_getattr(space, w_mod, w_name) is None:
-                        return None
+            for w_name in fromlist_w:
+                if try_getattr(space, w_mod, w_name) is None:
+                    return None
         return w_mod
     return first
 
@@ -391,12 +389,10 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                 w_all = try_getattr(space, w_mod, w('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
-            else:
-                # this only runs if fromlist_w != ['*']
-                for w_name in fromlist_w:
-                    if try_getattr(space, w_mod, w_name) is None:
-                        load_part(space, w_path, prefix, space.str0_w(w_name),
-                                  w_mod, tentative=1)
+            for w_name in fromlist_w:
+                if try_getattr(space, w_mod, w_name) is None:
+                    load_part(space, w_path, prefix, space.str0_w(w_name),
+                              w_mod, tentative=1)
         return w_mod
     else:
         return first
