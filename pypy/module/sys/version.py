@@ -2,7 +2,7 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
-from rpython.translator.platform import platform
+from rpython.rlib import compilerinfo
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
@@ -11,15 +11,6 @@ CPYTHON_VERSION            = (2, 7, 9, "final", 42)
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
 PYPY_VERSION               = (2, 6, 0, "final", 0)    #XXX # sync patchlevel.h
-
-if platform.name == 'msvc':
-    COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)
-elif platform.cc is not None and \
-        os.path.basename(platform.cc).startswith(('gcc', 'clang')):
-    from rpython.rtyper.tool import rffi_platform
-    COMPILER_INFO = 'GCC ' + rffi_platform.getdefinedstring('__VERSION__', '')
-else:
-    COMPILER_INFO = ""
 
 
 import pypy
@@ -57,23 +48,28 @@ def get_version_info(space):
     w_version_info = app.wget(space, "version_info")
     return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
 
-def get_version(space):
+def _make_version_template(PYPY_VERSION=PYPY_VERSION):
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
     if PYPY_VERSION[3] != "final":
         ver = ver + "-%s%d" %(PYPY_VERSION[3], PYPY_VERSION[4])
-    extra = ''
-    if space.config.translation.stm:
-        extra = '-STM'
-    return space.wrap("%d.%d.%d (%s, %s, %s)\n[PyPy%s %s%s]" % (
+    template = "%d.%d.%d (%s, %s, %s)\n[PyPy%%s %s with %%s]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
         get_repo_version_info(root=pypyroot)[1],
         date,
         time,
-        extra,
-        ver,
-        compiler_version()))
+        ver)
+    assert template.count('%') == 2     # two "%s" should remain
+    return template
+_VERSION_TEMPLATE = _make_version_template()
+
+def get_version(space):
+    extra = ''
+    if space.config.translation.stm:
+        extra = '-STM'
+    return space.wrap(_VERSION_TEMPLATE % (
+        extra, compilerinfo.get_compiler_info()))
 
 def get_winver(space):
     return space.wrap("%d.%d" % (
@@ -115,8 +111,3 @@ def tuple2hex(ver):
             ver[2] << 8    |
             d[ver[3]] << 4 |
             subver)
-
-def compiler_version():
-    if not COMPILER_INFO:
-        return ""
-    return " with %s" % (COMPILER_INFO,)
