@@ -804,8 +804,9 @@ class VecScheduleData(SchedulerData):
         self.costmodel = costmodel
 
     def _prevent_signext(self, outsize, insize):
-        if outsize < 4 and insize != outsize:
-            raise NotAProfitableLoop
+        if insize != outsize:
+            if outsize < 4 or insize < 4:
+                raise NotAProfitableLoop
 
     def as_vector_operation(self, pack, preproc_renamer):
         assert pack.opcount() > 1

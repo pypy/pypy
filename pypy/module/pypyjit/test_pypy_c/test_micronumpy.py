@@ -7,7 +7,7 @@ from rpython.rlib.rawstorage import misaligned_is_fine
 class TestMicroNumPy(BaseTestPyPyC):
 
     arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
-             ('+','float','int',   9*7834,   7843, 4.0,5.0),
+             ('+','float','int',   9*7844,   7843, 4.0,5.0),
              ('+','int','float',   8*2571,   2571, 9.0,-1.0),
              ('+','float','int',   -18*2653,   2653, 4.0,-22.0),
              ('+','int','int',     -1*1499,   1499, 24.0,-25.0),
@@ -21,7 +21,7 @@ class TestMicroNumPy(BaseTestPyPyC):
              ('|','int','int',     0,        1500, 0,0),
             ]
     type_permuated = []
-    types = { 'int': ['int32','int64'],
+    types = { 'int': ['int32','int64','int8','int16'],
               'float': ['float32', 'float64']
             }
     for arith in arith_comb:
@@ -63,8 +63,8 @@ class TestMicroNumPy(BaseTestPyPyC):
         ('all','int', 1, 6757, 1),
     ]
     type_permuated = []
-    types = { 'int': ['int64'],
-              'float': ['float64']
+    types = { 'int': ['int8','int16','int32','int64'],
+              'float': ['float32','float64']
             }
     for arith in arith_comb:
         t1 = arith[1]
