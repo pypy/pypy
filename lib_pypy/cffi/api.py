@@ -428,6 +428,8 @@ class FFI(object):
             raise TypeError("ffi.include() expects an argument that is also of"
                             " type cffi.FFI, not %r" % (
                                 type(ffi_to_include).__name__,))
+        if ffi_to_include is self:
+            raise ValueError("self.include(self)")
         with ffi_to_include._lock:
             with self._lock:
                 self._parser.include(ffi_to_include._parser)

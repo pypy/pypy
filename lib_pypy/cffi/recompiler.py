@@ -981,10 +981,6 @@ class Recompiler:
         if not self.target_is_python and tp.is_integer_type():
             type_op = CffiOp(OP_CONSTANT_INT, -1)
         else:
-            if not tp.sizeof_enabled():
-                raise ffiplatform.VerificationError(
-                    "constant '%s' is of type '%s', whose size is not known"
-                    % (name, tp._get_c_name()))
             if self.target_is_python:
                 const_kind = OP_DLOPEN_CONST
             else:
@@ -1069,18 +1065,36 @@ class Recompiler:
         self._do_collect_type(self._global_type(tp, name))
 
     def _generate_cpy_variable_decl(self, tp, name):
-        pass
+        prnt = self._prnt
+        tp = self._global_type(tp, name)
+        if isinstance(tp, model.ArrayType) and tp.length is None:
+            tp = tp.item
+            ampersand = ''
+        else:
+            ampersand = '&'
+        # This code assumes that casts from "tp *" to "void *" is a
+        # no-op, i.e. a function that returns a "tp *" can be called
+        # as if it returned a "void *".  This should be generally true
+        # on any modern machine.  The only exception to that rule (on
+        # uncommon architectures, and as far as I can tell) might be
+        # if 'tp' were a function type, but that is not possible here.
+        # (If 'tp' is a function _pointer_ type, then casts from "fn_t
+        # **" to "void *" are again no-ops, as far as I can tell.)
+        prnt('static ' + tp.get_c_name('*_cffi_var_%s(void)' % (name,)))
+        prnt('{')
+        prnt('  return %s(%s);' % (ampersand, name))
+        prnt('}')
+        prnt()
 
     def _generate_cpy_variable_ctx(self, tp, name):
         tp = self._global_type(tp, name)
         type_index = self._typesdict[tp]
-        type_op = CffiOp(OP_GLOBAL_VAR, type_index)
-        if tp.sizeof_enabled():
-            size = "sizeof(%s)" % (name,)
+        if self.target_is_python:
+            op = OP_GLOBAL_VAR
         else:
-            size = 0
+            op = OP_GLOBAL_VAR_F
         self._lsts["global"].append(
-            GlobalExpr(name, '&%s' % name, type_op, size))
+            GlobalExpr(name, '_cffi_var_%s' % name, CffiOp(op, type_index)))
 
     # ----------
     # emitting the opcodes for individual types

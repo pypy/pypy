@@ -1771,3 +1771,18 @@ class BackendTests:
         py.test.raises(TypeError, ffi.new, "struct foo_s *")
         ffi.cdef("struct foo_s { int x; };")
         ffi.new("struct foo_s *")
+
+    def test_ffi_self_include(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(ValueError, ffi.include, ffi)
+
+    def test_anonymous_enum_include(self):
+        ffi1 = FFI()
+        ffi1.cdef("enum { EE1 };")
+        ffi = FFI()
+        ffi.include(ffi1)
+        ffi.cdef("enum { EE2, EE3 };")
+        lib = ffi.dlopen(None)
+        assert lib.EE1 == 0
+        assert lib.EE2 == 0
+        assert lib.EE3 == 1

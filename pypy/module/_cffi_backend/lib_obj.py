@@ -102,6 +102,8 @@ class W_LibObject(W_Root):
                 #
             elif op == cffi_opcode.OP_GLOBAL_VAR:
                 # A global variable of the exact type specified here
+                # (nowadays, only used by the ABI mode or backend
+                # compatibility; see OP_GLOBAL_F for the API mode
                 w_ct = realize_c_type.realize_c_type(
                     self.ffi, self.ctx.c_types, getarg(g.c_type_op))
                 g_size = rffi.cast(lltype.Signed, g.c_size_or_direct_fn)
@@ -113,7 +115,13 @@ class W_LibObject(W_Root):
                 ptr = rffi.cast(rffi.CCHARP, g.c_address)
                 if not ptr:   # for dlopen() style
                     ptr = self.cdlopen_fetch(attr)
-                w_result = cglob.W_GlobSupport(space, w_ct, ptr)
+                w_result = cglob.W_GlobSupport(space, w_ct, ptr=ptr)
+                #
+            elif op == cffi_opcode.OP_GLOBAL_VAR_F:
+                w_ct = realize_c_type.realize_c_type(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
+                w_result = cglob.W_GlobSupport(space, w_ct,
+                                               fetch_addr=g.c_address)
                 #
             elif (op == cffi_opcode.OP_CONSTANT_INT or
                   op == cffi_opcode.OP_ENUM):
@@ -131,6 +139,9 @@ class W_LibObject(W_Root):
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
                 if w_ct.size <= 0:
+                    raise oefmt(self.ffi.w_FFIError,
+                                "constant '%s' is of type '%s', "
+                                "whose size is not known", attr, w_ct.name)
                     raise oefmt(space.w_SystemError,
                                 "constant has no known size")
                 if not fetch_funcptr:   # for dlopen() style
@@ -172,7 +183,7 @@ class W_LibObject(W_Root):
             w_value = self._build_attr(attr)
             if w_value is None:
                 if is_getattr and attr == '__all__':
-                    return self.dir1(ignore_type=cffi_opcode.OP_GLOBAL_VAR)
+                    return self.dir1(ignore_global_vars=True)
                 if is_getattr and attr == '__dict__':
                     return self.full_dict_copy()
                 if is_getattr and attr == '__name__':
@@ -206,14 +217,18 @@ class W_LibObject(W_Root):
     def descr_dir(self):
         return self.dir1()
 
-    def dir1(self, ignore_type=-1):
+    def dir1(self, ignore_global_vars=False):
         space = self.space
         total = rffi.getintfield(self.ctx, 'c_num_globals')
         g = self.ctx.c_globals
         names_w = []
         for i in range(total):
-            if getop(g[i].c_type_op) != ignore_type:
-                names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
+            if ignore_global_vars:
+                op = getop(g[i].c_type_op)
+                if (op == cffi_opcode.OP_GLOBAL_VAR or
+                    op == cffi_opcode.OP_GLOBAL_VAR_F):
+                    continue
+            names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
 
     def full_dict_copy(self):
