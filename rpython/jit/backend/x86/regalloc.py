@@ -19,6 +19,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
+from rpython.jit.backend.x86.vector_ext import VectorRegallocMixin
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
@@ -146,7 +147,7 @@ for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
 
 
-class RegAlloc(BaseRegalloc):
+class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
@@ -1503,190 +1504,10 @@ class RegAlloc(BaseRegalloc):
             self.rm.possibly_free_var(length_box)
             self.rm.possibly_free_var(dstaddr_box)
 
-    # vector operations
-    # ________________________________________
-
-    def consider_vec_getarrayitem_raw(self, op):
-        descr = op.getdescr()
-        assert isinstance(descr, ArrayDescr)
-        assert not descr.is_array_of_pointers() and \
-               not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
-        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        result_loc = self.force_allocate_reg(op.result)
-        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          imm(integer), imm(aligned)], result_loc)
-
-    consider_vec_raw_load = consider_vec_getarrayitem_raw
-
-    def consider_vec_setarrayitem_raw(self, op):
-        descr = op.getdescr()
-        assert isinstance(descr, ArrayDescr)
-        assert not descr.is_array_of_pointers() and \
-               not descr.is_array_of_structs()
-        itemsize, ofs, _ = unpack_arraydescr(descr)
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-
-        integer = not (descr.is_array_of_floats() or descr.getconcrete_type() == FLOAT)
-        aligned = False
-        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
-
-    consider_vec_raw_store = consider_vec_setarrayitem_raw
-
-    def consider_vec_arith(self, op):
-        lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
-        args = op.getarglist()
-        loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
-        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [loc0, loc1, imm(size)], loc0)
-
-    consider_vec_int_add = consider_vec_arith
-    consider_vec_int_sub = consider_vec_arith
-    consider_vec_int_mul = consider_vec_arith
-    consider_vec_float_add = consider_vec_arith
-    consider_vec_float_sub = consider_vec_arith
-    consider_vec_float_mul = consider_vec_arith
-    consider_vec_float_truediv = consider_vec_arith
-    del consider_vec_arith
-
-    def consider_vec_arith_unary(self, op):
-        lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
-        args = op.getarglist()
-        res = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [res, imm(size)], res)
-
-    consider_vec_float_neg = consider_vec_arith_unary
-    consider_vec_float_abs = consider_vec_arith_unary
-    del consider_vec_arith_unary
-
-    def consider_vec_logic(self, op):
-        lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
-        args = op.getarglist()
-        source = self.make_sure_var_in_reg(op.getarg(1), args)
-        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [source, imm(size)], result)
-
-    consider_vec_float_eq = consider_vec_logic
-    consider_vec_int_and = consider_vec_logic
-    consider_vec_int_or = consider_vec_logic
-    consider_vec_int_xor = consider_vec_logic
-    del consider_vec_logic
-
-    def consider_vec_int_pack(self, op):
-        # new_res = vec_int_pack(res, src, index, count)
-        arg = op.getarg(1)
-        index = op.getarg(2)
-        count = op.getarg(3)
-        assert isinstance(index, ConstInt)
-        assert isinstance(count, ConstInt)
-        args = op.getarglist()
-        srcloc = self.make_sure_var_in_reg(arg, args)
-        resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        residx = index.value # where to put it in result?
-        srcidx = 0
-        assert isinstance(op.result, BoxVector)
-        size = op.result.getsize()
-        arglocs = [resloc, srcloc, imm(residx), imm(srcidx), imm(count.value), imm(size)]
-        self.perform(op, arglocs, resloc)
-
-    consider_vec_float_pack = consider_vec_int_pack
-
-    def consider_vec_int_unpack(self, op):
-        index = op.getarg(1)
-        count = op.getarg(2)
-        assert isinstance(index, ConstInt)
-        assert isinstance(count, ConstInt)
-        args = op.getarglist()
-        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-        if isinstance(op.result, BoxVector):
-            resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-            assert isinstance(op.result, BoxVector)
-            size = op.result.getsize()
-        else:
-            # unpack into iX box
-            resloc =  self.force_allocate_reg(op.result, args)
-            arg = op.getarg(0)
-            assert isinstance(arg, BoxVector)
-            size = arg.getsize()
-        residx = 0
-        args = op.getarglist()
-        arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
-        self.perform(op, arglocs, resloc)
-
-    consider_vec_float_unpack = consider_vec_int_unpack
-
-    def consider_vec_float_expand(self, op):
-        result = op.result
-        assert isinstance(result, BoxVector)
-        arg = op.getarg(0)
-        args = op.getarglist()
-        if isinstance(arg, Const):
-            resloc = self.xrm.force_allocate_reg(result)
-            srcloc = self.xrm.expand_float(result.getsize(), arg)
-        else:
-            resloc = self.xrm.force_result_in_reg(op.result, arg, args)
-            srcloc = resloc
-
-        size = op.result.getsize()
-        self.perform(op, [srcloc, imm(size)], resloc)
-
-    def consider_vec_int_expand(self, op):
-        arg = op.getarg(0)
-        args = op.getarglist()
-        if isinstance(arg, Const):
-            srcloc = self.rm.convert_to_imm(arg)
-        else:
-            srcloc = self.make_sure_var_in_reg(arg, args)
-        resloc = self.xrm.force_allocate_reg(op.result, args)
-        assert isinstance(op.result, BoxVector)
-        size = op.result.getsize()
-        self.perform(op, [srcloc, imm(size)], resloc)
-
-    def consider_vec_int_signext(self, op):
-        args = op.getarglist()
-        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        sizearg = op.getarg(0)
-        result = op.result
-        assert isinstance(sizearg, BoxVector)
-        assert isinstance(result, BoxVector)
-        size = sizearg.getsize()
-        tosize = result.getsize()
-        self.perform(op, [resloc, imm(size), imm(tosize)], resloc)
-
-    def consider_vec_box(self, op):
-        # pseudo instruction, needed to create a new variable
-        self.xrm.force_allocate_reg(op.result)
-
-    def consider_guard_early_exit(self, op):
-        pass
-
-    def consider_vec_cast_float_to_int(self, op):
-        args = op.getarglist()
-        srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [srcloc], resloc)
-
-    consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
-    consider_vec_cast_float_to_singlefloat = consider_vec_cast_float_to_int
-    consider_vec_cast_singlefloat_to_float = consider_vec_cast_float_to_int
-
     # ________________________________________
 
     def not_implemented_op(self, op):
+        import pdb; pdb.set_trace()
         not_implemented("not implemented operation: %s" % op.getopname())
 
     def not_implemented_op_with_guard(self, op, guard_op):
@@ -1699,7 +1520,10 @@ oplist_with_guard = [RegAlloc.not_implemented_op_with_guard] * rop._LAST
 def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
 
-for name, value in RegAlloc.__dict__.iteritems():
+import itertools
+iterate = itertools.chain(RegAlloc.__dict__.iteritems(),
+                          VectorRegallocMixin.__dict__.iteritems())
+for name, value in iterate:
     if name.startswith('consider_'):
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())

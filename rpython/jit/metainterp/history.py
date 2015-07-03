@@ -695,12 +695,49 @@ class TargetToken(AbstractDescr):
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)
 
+class LoopVersion(object):
+
+    def __init__(self, loop, aligned=False):
+        self.operations = loop.operations
+        self.aligned = aligned
+        self.faildescrs = []
+        #
+        label = self.operations[0]
+        assert label.getopnum() == rop.LABEL
+        self.enter_args = label.getarglist()
+        self.calling_args = None
+        self.inputargs = None
+
+    def adddescr(self, descr):
+        self.faildescrs.append(descr)
+
+    def update_token(self, jitcell_token):
+        label = self.operations[0]
+        jump = self.operations[-1]
+        #
+        assert label.getopnum() == rop.LABEL
+        assert jump.getopnum() == rop.JUMP
+        #
+        token = TargetToken(jitcell_token)
+        token.original_jitcell_token = jitcell_token
+        label.setdescr(token)
+        jump.setdescr(token)
+        return token
+
+    def update_inputargs(self):
+        assert len(self.enter_args) == len(self.inputargs)
+        rename = { a: b for a,b in zip(self.enter_args, self.calling_args) }
+        for i, arg in enumerate(self.inputargs):
+            self.inputargs[i] = rename[arg]
+
+
 class TreeLoop(object):
     inputargs = None
     operations = None
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
+    versions = None
 
     def _token(*args):
         raise Exception("TreeLoop.token is killed")
@@ -816,6 +853,7 @@ class TreeLoop(object):
 
     def __repr__(self):
         return '<%s>' % (self.name,)
+
 
 def _list_all_operations(result, operations, omit_finish=True):
     if omit_finish and operations[-1].getopnum() == rop.FINISH:

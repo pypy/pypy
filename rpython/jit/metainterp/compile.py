@@ -163,9 +163,16 @@ def compile_loop(metainterp, greenkey, start,
             return None
 
         loop.operations = loop.operations[:-1] + part.operations
+        loop.versions = part.versions
         if part.quasi_immutable_deps:
             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     assert part.operations[-1].getopnum() != rop.LABEL
+
+    if loop.versions is not None:
+        # several different loop version have been generated
+        for version in loop.versions:
+            token = version.update_token(jitcell_token)
+            all_target_tokens.append(token)
 
     if not loop.quasi_immutable_deps:
         loop.quasi_immutable_deps = None
@@ -181,7 +188,20 @@ def compile_loop(metainterp, greenkey, start,
     propagate_original_jitcell_token(loop)
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
+
+    generate_pending_loop_versions(loop, jitdriver_sd, metainterp_sd, jitcell_token)
+
     return all_target_tokens[0]
+
+def generate_pending_loop_versions(loop, jitdriver_sd, metainterp_sd, jitcell_token):
+    if loop.versions is not None:
+        token = jitcell_token
+        for version in loop.versions:
+            version.update_inputargs()
+            for faildescr  in version.faildescrs:
+                send_bridge_to_backend(jitdriver_sd, metainterp_sd,
+                                       faildescr, version.inputargs,
+                                       version.operations, jitcell_token)
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
@@ -688,6 +708,16 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 
 class ResumeAtLoopHeaderDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_EARLY_EXIT
+
+class CompileLoopVersionDescr(ResumeGuardDescr):
+    guard_opnum = rop.GUARD_EARLY_EXIT
+
+    operations = None
+    inputargs = None
+    faillocs = None
+
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
+        assert 0, "this guard must never fail"
 
 class AllVirtuals:
     llopaque = True

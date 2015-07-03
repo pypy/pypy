@@ -104,26 +104,6 @@ class Node(object):
     def can_be_relaxed(self):
         return self.op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
 
-    def relax_guard_to(self, guard):
-        """ Relaxes a guard operation to an earlier guard. """
-        # clone this operation object. if the vectorizer is
-        # not able to relax guards, it won't leave behind a modified operation
-        tgt_op = self.getoperation().clone()
-        self.op = tgt_op
-
-        op = guard.getoperation()
-        assert isinstance(tgt_op, GuardResOp)
-        assert isinstance(op, GuardResOp)
-        olddescr = op.getdescr()
-        descr = compile.ResumeAtLoopHeaderDescr()
-        if olddescr:
-            descr.copy_all_attributes_from(olddescr)
-        #
-        tgt_op.setdescr(descr)
-        tgt_op.rd_snapshot = op.rd_snapshot
-        #if not we_are_translated():
-        tgt_op.setfailargs(op.getfailargs())
-
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
             return

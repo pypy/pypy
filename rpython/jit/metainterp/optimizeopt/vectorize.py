@@ -11,10 +11,11 @@ import time
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr, invent_fail_descr_for_op
+from rpython.jit.metainterp.compile import (ResumeAtLoopHeaderDescr,
+        CompileLoopVersionDescr, invent_fail_descr_for_op)
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
         BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box,
-        BoxVectorAccum)
+        BoxVectorAccum, LoopVersion)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method, Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
@@ -50,6 +51,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     orig_ops = loop.operations
+    orig_version = LoopVersion(loop)
     if len(orig_ops) >= 75:
         # if more than 75 operations are present in this loop,
         # it won't be possible to vectorize. There are too many
@@ -62,11 +64,16 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         start = time.clock()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold)
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold, orig_version)
         opt.propagate_all_forward()
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         gso.propagate_all_forward(opt.loop)
         end = time.clock()
+
+        aligned_vector_version = LoopVersion(loop, aligned=True)
+
+        loop.versions = [orig_version] #, aligned_vector_version]
+
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
         debug_stop("vec-opt-loop")
@@ -107,8 +114,9 @@ packsort = listsort.make_timsort_class(lt=cmp_pack_lt)
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
-    def __init__(self, metainterp_sd, jitdriver_sd, loop, cost_threshold=0):
+    def __init__(self, metainterp_sd, jitdriver_sd, loop, cost_threshold, orig_loop_version):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, [])
+        self.orig_loop_version = orig_loop_version
         self.dependency_graph = None
         self.packset = None
         self.unroll_count = 0
@@ -188,6 +196,8 @@ class VectorizingOptimizer(Optimizer):
 
         self.emit_unrolled_operation(label_op)
 
+        self.orig_loop_version.calling_args = label_op.getarglist()
+
         renamer = Renamer()
         oi = 0
         pure = True
@@ -247,7 +257,7 @@ class VectorizingOptimizer(Optimizer):
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
                     # do not overwrite resume at loop header
-                    if not isinstance(target_guard.getdescr(), ResumeAtLoopHeaderDescr):
+                    if target_guard.getdescr().guard_opnum != rop.GUARD_EARLY_EXIT:
                         descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
                         olddescr = copied_op.getdescr()
                         if olddescr:
@@ -573,7 +583,29 @@ class VectorizingOptimizer(Optimizer):
                         label_node.edge_to(last_but_one, label='pullup')
                 # only the last guard needs a connection
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
-                guard_node.relax_guard_to(ee_guard_node)
+                self.relax_guard_to(guard_node, ee_guard_node)
+
+    def relax_guard_to(self, guard_node, other_node):
+        """ Relaxes a guard operation to an earlier guard. """
+        # clone this operation object. if the vectorizer is
+        # not able to relax guards, it won't leave behind a modified operation
+        tgt_op = guard_node.getoperation().clone()
+        guard_node.op = tgt_op
+
+        op = other_node.getoperation()
+        assert isinstance(tgt_op, GuardResOp)
+        assert isinstance(op, GuardResOp)
+        olddescr = op.getdescr()
+        descr = CompileLoopVersionDescr()
+        if olddescr:
+            descr.copy_all_attributes_from(olddescr)
+        self.orig_loop_version.inputargs = op.getfailargs()
+        self.orig_loop_version.adddescr(descr)
+        #
+        tgt_op.setdescr(descr)
+        tgt_op.rd_snapshot = op.rd_snapshot
+        tgt_op.setfailargs(op.getfailargs())
+
 
 class CostModel(object):
     def __init__(self, threshold, vec_reg_size):
@@ -754,17 +786,6 @@ class PackSet(object):
 
         del self.packs[j]
         return len(self.packs)
-        # OLD
-        # instead of deleting an item in the center of pack array,
-        # the last element is assigned to position j and
-        # the last slot is freed. Order of packs doesn't matter
-        #last_pos = len(self.packs) - 1
-        #if j == last_pos:
-        #    del self.packs[j]
-        #else:
-        #    self.packs[j] = self.packs[last_pos]
-        #    del self.packs[last_pos]
-        #return last_pos
 
     def accumulates_pair(self, lnode, rnode, origin_pack):
         # lnode and rnode are isomorphic and dependent
