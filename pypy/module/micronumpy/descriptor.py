@@ -604,8 +604,10 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
         fields[fldname] = offsets[i], subdtype
         if title is not None:
             fields[title] = offsets[i], subdtype
-        maxalign = max(subdtype.elsize, maxalign)
-        delta = subdtype.elsize
+        maxalign = max(subdtype.alignment, maxalign)
+        if not subdtype.is_record():
+            maxalign = max(subdtype.elsize, maxalign)
+        delta = subdtype.alignment
         if  i + 1 < len(offsets) and offsets[i + 1] == 0:
             if alignment >= 0:
                 # Set offset to the next power-of-two above delta
@@ -613,15 +615,12 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
                 if delta > offsets[i]:
                     for j in range(i):
                         offsets[j+1] = delta + offsets[j]
-            offsets[i + 1] = offsets[i] + delta
-        print maxalign, delta, subdtype, subdtype.alignment, alignment
+            offsets[i + 1] = offsets[i] + max(delta, subdtype.elsize)
         names.append((fldname, title))
-        if alignment >= 0:
-            total = len(offsets) * maxalign
-        else:
-            total += subdtype.elsize
+    total = offsets[-1] + max(maxalign, fields[names[-1][0]][1].elsize)
     retval = W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=total)
+    retval.alignment = maxalign
     retval.flags |= NPY.NEEDS_PYAPI
     return retval
 
@@ -722,8 +721,11 @@ def dtype_from_spec(space, w_spec, alignment):
             'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
     else:
         # handle only simple cases for testing
-        spec = [s.strip() for s in space.str_w(w_spec).split(',')]
-        w_lst = space.newlist([space.wrap(s) for s in spec]) 
+        if space.isinstance_w(w_spec, space.w_str):
+            spec = [s.strip() for s in space.str_w(w_spec).split(',')]
+            w_lst = space.newlist([space.wrap(s) for s in spec]) 
+        elif space.isinstance_w(w_spec, space.w_list):
+            w_lst = w_spec
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
         raise oefmt(space.w_RuntimeError,
                     "_commastring is not returning a list with len >= 1")
@@ -835,7 +837,7 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
-        subdtype = make_new_dtype(space, w_subtype, w_dtype0, align, copy)
+        subdtype = make_new_dtype(space, w_subtype, w_dtype0, alignment, copy)
         assert isinstance(subdtype, W_Dtype)
         if subdtype.elsize == 0:
             name = "%s%d" % (subdtype.kind, space.int_w(w_dtype1))
