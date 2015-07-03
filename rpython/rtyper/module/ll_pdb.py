@@ -10,7 +10,7 @@ from rpython.rtyper.extfunc import register_external, ExtFuncEntry
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.annotator.model import s_None
-from rpython.config.translationconfig import get_translation_config
+from rpython.config.translationoption import get_translation_config
 
 import time
 
