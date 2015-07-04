@@ -16,7 +16,7 @@ class GeneratorIterator(W_Root):
 
     def descr__repr__(self, space):
         if self.pycode is None:
-            code_name = 'finished'
+            code_name = '<finished>'
         else:
             code_name = self.pycode.co_name
         addrstring = self.getaddrstring(space)
@@ -165,7 +165,7 @@ return next yielded value or raise StopIteration."""
 
     def descr__name__(self, space):
         if self.pycode is None:
-            code_name = 'finished'
+            code_name = '<finished>'
         else:
             code_name = self.pycode.co_name
         return space.wrap(code_name)
