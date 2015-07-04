@@ -93,14 +93,14 @@ class W_CDataCallback(W_CData):
         return ctype
 
     @jit.unroll_safe
-    def prepare_invoke_args(self, ll_args):
+    def invoke(self, ll_args):
         space = self.space
         ctype = self.getfunctype()
         args_w = []
         for i, farg in enumerate(ctype.fargs):
             ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
             args_w.append(farg.convert_to_object(ll_arg))
-        return space.newtuple(args_w)
+        return space.call(self.w_callable, space.newtuple(args_w))
 
     def convert_result(self, ll_res, w_res):
         fresult = self.getfunctype().ctitem
@@ -168,6 +168,29 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 STDERR = 2
 
 
+@jit.dont_look_inside
+def _handle_applevel_exception(space, callback, e, ll_res, extra_line):
+    callback.write_error_return_value(ll_res)
+    if callback.w_onerror is None:
+        callback.print_error(e, extra_line)
+    else:
+        try:
+            e.normalize_exception(space)
+            w_t = e.w_type
+            w_v = e.get_w_value(space)
+            w_tb = space.wrap(e.get_traceback())
+            w_res = space.call_function(callback.w_onerror,
+                                        w_t, w_v, w_tb)
+            if not space.is_none(w_res):
+                callback.convert_result(ll_res, w_res)
+        except OperationError, e2:
+            # double exception! print a double-traceback...
+            callback.print_error(e, extra_line)    # original traceback
+            e2.write_unraisable(space, '', with_traceback=True,
+                                extra_line="\nDuring the call to 'onerror', "
+                                           "another exception occurred:\n\n")
+
+
 @jit.jit_callback("CFFI")
 def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
@@ -185,7 +208,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         try:
             os.write(STDERR, "SystemError: invoking a callback "
                              "that was already freed\n")
-        except OSError:
+        except:
             pass
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.
@@ -198,24 +221,11 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         must_leave = space.threadlocals.try_enter_thread(space)
         extra_line = ''
         try:
-            w_args = callback.prepare_invoke_args(ll_args)
-            try:
-                w_res = space.call(callback.w_callable, w_args)
-                extra_line = "Trying to convert the result back to C:\n"
-                callback.convert_result(ll_res, w_res)
-            except OperationError, e:
-                # got an app-level exception
-                if callback.w_onerror is None:
-                    raise
-                e.normalize_exception(space)
-                w_t = e.w_type
-                w_v = e.get_w_value(space)
-                w_tb = space.wrap(e.get_traceback())
-                space.call_function(callback.w_onerror, w_t, w_v, w_tb, w_args)
-                callback.write_error_return_value(ll_res)
+            w_res = callback.invoke(ll_args)
+            extra_line = "Trying to convert the result back to C:\n"
+            callback.convert_result(ll_res, w_res)
         except OperationError, e:
-            callback.print_error(e, extra_line)
-            callback.write_error_return_value(ll_res)
+            _handle_applevel_exception(space, callback, e, ll_res, extra_line)
         #
     except Exception, e:
         # oups! last-level attempt to recover.
