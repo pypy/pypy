@@ -1333,7 +1333,7 @@ class Assembler386(BaseAssembler):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD32_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)   # zero-extending
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
