@@ -546,10 +546,10 @@ def make_plain_ffi_object(space, w_ffitype=None):
     # get in 'src_ctx' a NULL which translation doesn't consider to be constant
     src_ctx = rffi.cast(parse_c_type.PCTX, 0)
     r.__init__(space, src_ctx)
-    return space.wrap(r)
+    return r
 
 def W_FFIObject___new__(space, w_subtype, __args__):
-    return make_plain_ffi_object(space, w_subtype)
+    return space.wrap(make_plain_ffi_object(space, w_subtype))
 
 def make_CData(space):
     return space.gettypefor(W_CData)
