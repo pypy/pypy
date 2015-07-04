@@ -134,8 +134,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def convert_to_object(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        s = rffi.wcharpsize2unicode(unichardata, 1)
-        return self.space.wrap(s)
+        return self.space.wrap(unichardata[0])
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:

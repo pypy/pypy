@@ -2099,8 +2099,7 @@ def test_cannot_dereference_void():
     p = cast(BVoidP, 123456)
     py.test.raises(TypeError, "p[0]")
     p = cast(BVoidP, 0)
-    if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises((TypeError, RuntimeError), "p[0]")
 
 def test_iter():
     BInt = new_primitive_type("int")
@@ -3333,6 +3332,15 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
+def test_dereference_null_ptr():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    p = cast(BIntPtr, 0)
+    py.test.raises(RuntimeError, "p[0]")
+    py.test.raises(RuntimeError, "p[0] = 42")
+    py.test.raises(RuntimeError, "p[42]")
+    py.test.raises(RuntimeError, "p[42] = -1")
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "1.1.2"
+    assert __version__ == "1.2.0"

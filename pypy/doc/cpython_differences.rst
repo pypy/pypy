@@ -135,13 +135,31 @@ of Python.
 Here are some more technical details.  This issue affects the precise
 time at which ``__del__`` methods are called, which
 is not reliable in PyPy (nor Jython nor IronPython).  It also means that
-weak references may stay alive for a bit longer than expected.  This
+**weak references** may stay alive for a bit longer than expected.  This
 makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
 suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
 ``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
 ``weakref.proxy()`` at all; use ``weakref.ref()``.)
+
+Note a detail in the `documentation for weakref callbacks`__:
+
+    If callback is provided and not None, *and the returned weakref
+    object is still alive,* the callback will be called when the object
+    is about to be finalized.
+
+There are cases where, due to CPython's refcount semantics, a weakref
+dies immediately before or after the objects it points to (typically
+with some circular reference).  If it happens to die just after, then
+the callback will be invoked.  In a similar case in PyPy, both the
+object and the weakref will be considered as dead at the same time,
+and the callback will not be invoked.  (Issue `#2030`__)
+
+.. __: https://docs.python.org/2/library/weakref.html
+.. __: https://bitbucket.org/pypy/pypy/issue/2030/
+
+---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
@@ -321,9 +339,8 @@ cannot have several of them in a set, unlike in CPython.  (Issue `#1974`__)
 Miscellaneous
 -------------
 
-* Hash randomization (``-R``) is ignored in PyPy.  As documented in
-  http://bugs.python.org/issue14621, some of us believe it has no
-  purpose in CPython either.
+* Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
+  before 3.4 it has `little point`_.
 
 * You can't store non-string keys in type objects.  For example::
 
@@ -338,7 +355,8 @@ Miscellaneous
   for about 1400 calls.
 
 * since the implementation of dictionary is different, the exact number
-  which ``__hash__`` and ``__eq__`` are called is different. Since CPython
+  of times that ``__hash__`` and ``__eq__`` are called is different. 
+  Since CPython
   does not give any specific guarantees either, don't rely on it.
 
 * assignment to ``__class__`` is limited to the cases where it
@@ -395,3 +413,12 @@ Miscellaneous
   interactive mode. In a released version, this behaviour is suppressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.
+
+* PyPy's readline module was rewritten from scratch: it is not GNU's
+  readline.  It should be mostly compatible, and it adds multiline
+  support (see ``multiline_input()``).  On the other hand,
+  ``parse_and_bind()`` calls are ignored (issue `#2072`_).
+
+.. _`is ignored in PyPy`: http://bugs.python.org/issue14621
+.. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
+.. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/

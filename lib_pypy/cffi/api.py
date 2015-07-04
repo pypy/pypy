@@ -328,6 +328,13 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
+        try:
+            gcp = self._backend.gcp
+        except AttributeError:
+            pass
+        else:
+            return gcp(cdata, destructor)
+        #
         with self._lock:
             try:
                 gc_weakrefs = self.gc_weakrefs
@@ -429,6 +436,8 @@ class FFI(object):
             raise TypeError("ffi.include() expects an argument that is also of"
                             " type cffi.FFI, not %r" % (
                                 type(ffi_to_include).__name__,))
+        if ffi_to_include is self:
+            raise ValueError("self.include(self)")
         with ffi_to_include._lock:
             with self._lock:
                 self._parser.include(ffi_to_include._parser)

@@ -27,6 +27,52 @@ class AppTest(object):
         assert A.a is not A.__dict__['a']
         assert A.b is A.__dict__['b']
 
+    def test_hidden_applevel(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def sneak(): (lambda: 1/0)()
+        try:
+            sneak()
+        except ZeroDivisionError as e:
+            tb = sys.exc_info()[2]
+            assert tb.tb_frame == sys._getframe()
+            assert tb.tb_next.tb_frame.f_code.co_name == '<lambda>'
+        else:
+            assert False, 'Expected ZeroDivisionError'
+
+    def test_hidden_applevel_frames(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def test_hidden():
+            assert sys._getframe().f_code.co_name != 'test_hidden'
+            def e(): 1/0
+            try: e()
+            except ZeroDivisionError as e:
+                assert sys.exc_info() == (None, None, None)
+            else: assert False
+            return 2
+        assert test_hidden() == 2
+
+    def test_get_hidden_tb(self):
+        import __pypy__
+        import sys
+
+        @__pypy__.hidden_applevel
+        def test_hidden_with_tb():
+            def not_hidden(): 1/0
+            try: not_hidden()
+            except ZeroDivisionError as e:
+                assert sys.exc_info() == (None, None, None)
+                tb = __pypy__.get_hidden_tb()
+                assert tb.tb_frame.f_code.co_name == 'not_hidden'
+                return True
+            else: return False
+        assert test_hidden_with_tb()
+
     def test_lookup_special(self):
         from __pypy__ import lookup_special
         class X(object):

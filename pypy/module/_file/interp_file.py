@@ -613,7 +613,7 @@ Note:  open() is an alias for file().
 # ____________________________________________________________
 
 def wrap_list_of_str(space, lst):
-    return space.newlist([space.wrap(s) for s in lst])
+    return space.newlist_bytes(lst)
 
 class FileState:
     def __init__(self, space):
