@@ -2,7 +2,7 @@ from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from rpython.rlib.rarithmetic import intmask
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._socket.interp_socket import (
     converted_error, W_Socket, addr_as_object, fill_from_object, get_error,
@@ -147,6 +147,19 @@ def dup(space, fd):
     newfd = rsocket.dup(fd)
     return space.wrap(newfd)
 
+@unwrap_spec(fd=int, family=int, type=int, proto=int)
+def fromfd(space, fd, family, type, proto=0):
+    """fromfd(fd, family, type[, proto]) -> socket object
+
+    Create a socket object from the given file descriptor.
+    The remaining arguments are the same as for socket().
+    """
+    try:
+        sock = rsocket.fromfd(fd, family, type, proto)
+    except SocketError, e:
+        raise converted_error(space, e)
+    return space.wrap(W_Socket(space, sock))
+
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
                       type  =rsocket.SOCK_STREAM,
@@ -163,8 +176,8 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([
-        space.wrap(W_Socket(sock1)),
-        space.wrap(W_Socket(sock2))
+        space.wrap(W_Socket(space, sock1)),
+        space.wrap(W_Socket(space, sock2))
     ])
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.
@@ -250,9 +263,9 @@ def inet_ntop(space, family, packed):
         ip = rsocket.inet_ntop(family, packed)
     except SocketError, e:
         raise converted_error(space, e)
-    except ValueError, e:     # XXX the message is lost in RPython
-        raise OperationError(space.w_ValueError,
-                  space.wrap(str(e)))
+    except ValueError:
+        raise oefmt(space.w_ValueError,
+                    "invalid length of packed IP address string")
     return space.wrap(ip)
 
 @unwrap_spec(family=int, type=int, proto=int, flags=int)

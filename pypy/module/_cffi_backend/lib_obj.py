@@ -60,12 +60,12 @@ class W_LibObject(W_Root):
             self.ffi, self.ctx.c_types, getarg(g.c_type_op))
         assert isinstance(rawfunctype, realize_c_type.W_RawFuncType)
         #
-        w_ct, locs = rawfunctype.unwrap_as_nostruct_fnptr(self.ffi)
+        rawfunctype.prepare_nostruct_fnptr(self.ffi)
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn, w_ct,
-                                 locs, rawfunctype, fnname, self.libname)
+        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+                                 rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -173,6 +173,10 @@ class W_LibObject(W_Root):
             if w_value is None:
                 if is_getattr and attr == '__all__':
                     return self.dir1(ignore_type=cffi_opcode.OP_GLOBAL_VAR)
+                if is_getattr and attr == '__dict__':
+                    return self.full_dict_copy()
+                if is_getattr and attr == '__name__':
+                    return self.descr_repr()
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
@@ -212,6 +216,17 @@ class W_LibObject(W_Root):
                 names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
 
+    def full_dict_copy(self):
+        space = self.space
+        total = rffi.getintfield(self.ctx, 'c_num_globals')
+        g = self.ctx.c_globals
+        w_result = space.newdict()
+        for i in range(total):
+            w_attr = space.wrap(rffi.charp2str(g[i].c_name))
+            w_value = self._get_attr(w_attr)
+            space.setitem(w_result, w_attr, w_value)
+        return w_result
+
     def address_of_func_or_global_var(self, varname):
         # rebuild a string object from 'varname', to do typechecks and
         # to force a unicode back to a plain string
@@ -224,7 +239,8 @@ class W_LibObject(W_Root):
         if isinstance(w_value, W_FunctionWrapper):
             # '&func' returns a regular cdata pointer-to-function
             if w_value.directfnptr:
-                return W_CData(space, w_value.directfnptr, w_value.ctype)
+                ctype = w_value.typeof(self.ffi)
+                return W_CData(space, w_value.directfnptr, ctype)
             else:
                 return w_value    # backward compatibility
         #

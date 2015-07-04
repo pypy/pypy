@@ -26,7 +26,7 @@ DYNAMIC_VMPROF = False
 eci_kwds = dict(
     include_dirs = [SRC],
     includes = ['vmprof.h', 'trampoline.h'],
-    separate_module_files = [SRC.join('trampoline.asmgcc.s')],
+    separate_module_files = [SRC.join('trampoline.vmprof.s')],
     libraries = ['dl'],
     
     post_include_bits=["""

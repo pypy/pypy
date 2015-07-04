@@ -266,6 +266,15 @@ def test_dir():
     """)
     lib.aa = 5
     assert dir(lib) == ['aa', 'ff', 'my_constant']
+    #
+    aaobj = lib.__dict__['aa']
+    assert not isinstance(aaobj, int)    # some internal object instead
+    assert lib.__dict__ == {
+        'ff': lib.ff,
+        'aa': aaobj,
+        'my_constant': -45}
+    lib.__dict__['ff'] = "??"
+    assert lib.ff(10) == 15
 
 def test_verify_opaque_struct():
     ffi = FFI()
@@ -1053,5 +1062,5 @@ def test_import_from_lib():
     assert sys.modules['_CFFI_test_import_from_lib.lib'] is lib
     from _CFFI_test_import_from_lib.lib import MYFOO
     assert MYFOO == 42
-    assert not hasattr(lib, '__dict__')
+    assert hasattr(lib, '__dict__')
     assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'

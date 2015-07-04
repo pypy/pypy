@@ -362,7 +362,7 @@ static int parse_sequel(token_t *tok, int outer)
 
             case TOK_INTEGER:
                 errno = 0;
-#ifndef MS_WIN32
+#ifndef _MSC_VER
                 if (sizeof(length) > sizeof(unsigned long))
                     length = strtoull(tok->p, &endptr, 0);
                 else

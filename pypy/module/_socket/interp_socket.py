@@ -1,4 +1,5 @@
-from rpython.rlib import rsocket
+import sys
+from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
@@ -161,16 +162,14 @@ def ipaddr_from_object(space, w_sockaddr):
 
 
 class W_Socket(W_Root):
-
-    # for _dealloc_warn
-    space = None
-
-    def __init__(self, sock):
+    def __init__(self, space, sock):
+        self.space = space
         self.sock = sock
+        register_socket(space, sock)
 
     def descr_new(space, w_subtype, __args__):
         sock = space.allocate_instance(W_Socket, w_subtype)
-        W_Socket.__init__(sock, RSocket.empty_rsocket())
+        W_Socket.__init__(sock, space, RSocket.empty_rsocket())
         return space.wrap(sock)
 
     @unwrap_spec(family=int, type=int, proto=int,
@@ -183,8 +182,7 @@ class W_Socket(W_Root):
                                fd=space.c_filedescriptor_w(w_fileno))
             else:
                 sock = RSocket(family, type, proto)
-            W_Socket.__init__(self, sock)
-            self.space = space
+            W_Socket.__init__(self, space, sock)
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -618,6 +616,45 @@ class W_Socket(W_Root):
         if self.usecount > 0:
             return
         self.close_w(space)
+
+
+# ____________________________________________________________
+# Automatic shutdown()/close()
+
+# On some systems, the C library does not guarantee that when the program
+# finishes, all data sent so far is really sent even if the socket is not
+# explicitly closed.  This behavior has been observed on Windows but not
+# on Linux, so far.
+NEED_EXPLICIT_CLOSE = (sys.platform == 'win32')
+
+class OpenRSockets(rweaklist.RWeakListMixin):
+    pass
+class OpenRSocketsState:
+    def __init__(self, space):
+        self.openrsockets = OpenRSockets()
+        self.openrsockets.initialize()
+
+def getopenrsockets(space):
+    if NEED_EXPLICIT_CLOSE and space.config.translation.rweakref:
+        return space.fromcache(OpenRSocketsState).openrsockets
+    else:
+        return None
+
+def register_socket(space, socket):
+    openrsockets = getopenrsockets(space)
+    if openrsockets is not None:
+        openrsockets.add_handle(socket)
+
+def close_all_sockets(space):
+    openrsockets = getopenrsockets(space)
+    if openrsockets is not None:
+        for sock_wref in openrsockets.get_all_handles():
+            sock = sock_wref()
+            if sock is not None:
+                try:
+                    sock.close()
+                except SocketError:
+                    pass
 
 
 # ____________________________________________________________

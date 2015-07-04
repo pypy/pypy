@@ -109,6 +109,11 @@ def jit_ffi_prep_cif(cif_description):
 def jit_ffi_call(cif_description, func_addr, exchange_buffer):
     """Wrapper around ffi_call().  Must receive a CIF_DESCRIPTION_P that
     describes the layout of the 'exchange_buffer'.
+
+    Note that this cannot be optimized if 'cif_description' is not
+    a constant for the JIT, so if it is ever possible, consider promoting
+    it.  The promotion of 'cif_description' must be done earlier, before
+    the raw malloc of 'exchange_buffer'.
     """
     reskind = types.getkind(cif_description.rtype)
     if reskind == 'v':

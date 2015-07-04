@@ -97,6 +97,8 @@ class AppTestUserObject:
         #
         raises(TypeError, dictproxy, 3)
         raises(TypeError, dictproxy, [3])
+        #
+        {}.update(proxy)
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

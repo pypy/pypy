@@ -25,7 +25,7 @@ class TypeCache(object):
 
         result = app.call('expr', '2**63')
         typePtr = AsObj(result).typePtr
-        if tkffi.string(typePtr.name) == v"bignum":
+        if tkffi.string(typePtr.name) == b"bignum":
             self.BigNumType = typePtr
 
 
@@ -103,6 +103,8 @@ def FromObj(app, value):
         return value.internalRep.doubleValue
     if value.typePtr == typeCache.IntType:
         return value.internalRep.longValue
+    if value.typePtr == typeCache.WideIntType:
+        return FromWideIntObj(app, value)
     if value.typePtr == typeCache.BigNumType and tklib.HAVE_LIBTOMMATH:
         return FromBignumObj(app, value)
     if value.typePtr == typeCache.ListType:

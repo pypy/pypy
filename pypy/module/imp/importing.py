@@ -91,7 +91,6 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
     return w_mod
 
 
-
 class _WIN32Path(object):
     def __init__(self, path):
         self.path = path

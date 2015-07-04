@@ -1,6 +1,7 @@
 import sys
 from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib import jit
 
 TICK_COUNTER_STEP = 100

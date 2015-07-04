@@ -27,8 +27,10 @@ def callback(ll_args, ll_res, ll_userdata):
     callback_ptr = global_counter.get(userdata.addarg)
     w_callable = callback_ptr.w_callable
     argtypes = callback_ptr.argtypes
+    must_leave = False
     space = callback_ptr.space
     try:
+        must_leave = space.threadlocals.try_enter_thread(space)
         args_w = [None] * len(argtypes)
         for i in range(len(argtypes)):
             argtype = argtypes[i]
@@ -50,6 +52,8 @@ def callback(ll_args, ll_res, ll_userdata):
             resshape = letter2tp(space, callback_ptr.result)
             for i in range(resshape.size):
                 ll_res[i] = '\x00'
+    if must_leave:
+        space.threadlocals.leave_thread(space)
 
 class W_CallbackPtr(W_DataInstance):
 
@@ -75,6 +79,14 @@ class W_CallbackPtr(W_DataInstance):
         if tracker.DO_TRACING:
             addr = rffi.cast(lltype.Signed, self.ll_callback.ll_closure)
             tracker.trace_allocation(addr, self)
+        #
+        # We must setup the GIL here, in case the callback is invoked in
+        # some other non-Pythonic thread.  This is the same as ctypes on
+        # CPython (but only when creating a callback; on CPython it occurs
+        # as soon as we import _ctypes)
+        if space.config.translation.thread:
+            from pypy.module.thread.os_thread import setup_threads
+            setup_threads(space)
 
     def free(self):
         if tracker.DO_TRACING:
