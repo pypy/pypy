@@ -989,7 +989,8 @@ class CTypesBackend(object):
     def cast(self, BType, source):
         return BType._cast_from(source)
 
-    def callback(self, BType, source, error):
+    def callback(self, BType, source, error, onerror):
+        assert onerror is None   # XXX not implemented
         return BType(source, error)
 
     typeof = type

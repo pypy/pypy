@@ -105,6 +105,35 @@ def test_ffi_callback_decorator():
     assert deco(lambda x: x + "")(10) == -66
     assert deco(lambda x: x + 42)(10) == 52
 
+def test_ffi_callback_onerror():
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    def oops(*args):
+        seen.append(args)
+
+    @ffi.callback("int(int)", onerror=oops)
+    def fn1(x):
+        return x + ""
+    assert fn1(10) == 0
+
+    @ffi.callback("int(int)", onerror=oops, error=-66)
+    def fn2(x):
+        return x + ""
+    assert fn2(10) == -66
+
+    assert len(seen) == 2
+    exc, val, tb = seen[0]
+    assert exc is TypeError
+    assert isinstance(val, TypeError)
+    assert tb.tb_frame.f_code.co_name == "fn1"
+    exc, val, tb = seen[1]
+    assert exc is TypeError
+    assert isinstance(val, TypeError)
+    assert tb.tb_frame.f_code.co_name == "fn2"
+    #
+    py.test.raises(TypeError, ffi.callback, "int(int)",
+                   lambda x: x, onerror=42)   # <- not callable
+
 def test_ffi_getctype():
     ffi = _cffi1_backend.FFI()
     assert ffi.getctype("int") == "int"

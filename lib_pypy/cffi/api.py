@@ -298,8 +298,8 @@ class FFI(object):
             if not callable(python_callable):
                 raise TypeError("the 'python_callable' argument "
                                 "is not callable")
-            return self._backend.callback(cdecl, python_callable, error,
-                                          onerror)
+            return self._backend.callback(cdecl, python_callable,
+                                          error, onerror)
         if isinstance(cdecl, basestring):
             cdecl = self._typeof(cdecl, consider_function_as_funcptr=True)
         if python_callable is None:

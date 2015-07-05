@@ -39,6 +39,25 @@ class TestFFI(backend_tests.BackendTests,
         assert ffi.from_handle(ffi.cast("char *", p)) is o
         py.test.raises(RuntimeError, ffi.from_handle, ffi.NULL)
 
+    def test_callback_onerror(self):
+        ffi = FFI(backend=self.Backend())
+        seen = []
+        def oops(*args):
+            seen.append(args)
+        def otherfunc():
+            raise LookupError
+        def cb(n):
+            otherfunc()
+        a = ffi.callback("int(*)(int)", cb, error=42, onerror=oops)
+        res = a(234)
+        assert res == 42
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is LookupError
+        assert isinstance(val, LookupError)
+        assert tb.tb_frame.f_code.co_name == 'cb'
+        assert tb.tb_frame.f_locals['n'] == 234
+
 
 class TestBitfield:
     def check(self, source, expected_ofs_y, expected_align, expected_size):
