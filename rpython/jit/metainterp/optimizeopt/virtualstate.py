@@ -5,12 +5,12 @@ from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractInputArg
-from rpython.jit.metainterp.compile import Memo
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.objectmodel import we_are_translated
 
 LEVEL_UNKNOWN = '\x00'
-LEVEL_CONSTANT = '\x01'
+LEVEL_NONNULL = '\x01'
+LEVEL_CONSTANT = '\x02'
 
 class BadVirtualState(Exception):
     pass
@@ -286,6 +286,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         info = optimizer.getinfo(box)
         if info and info.is_constant():
             self.level = LEVEL_CONSTANT
+        elif box.type == 'r' and info and info.is_nonnull():
+            self.level = LEVEL_NONNULL
         else:
             self.level = LEVEL_UNKNOWN
         return
@@ -617,172 +619,3 @@ class VirtualStateConstructor(VirtualVisitor):
     def visit_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
 
-
-class BoxNotProducable(Exception):
-    pass
-
-
-class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes):
-        self.potential_ops = {}
-        self.alternatives = {}
-        self.synthetic = {}
-        self.optimizer = optimizer
-        self.assumed_classes = {}
-
-        assert surviving_boxes is not None
-        for box in surviving_boxes:
-            self.potential_ops[box] = None
-        optimizer.produce_potential_short_preamble_ops(self)
-
-        self.short_boxes = {}
-        self.short_boxes_in_production = {}
-
-        for op in self.potential_ops.keys():
-            try:
-                self.produce_short_preamble_op(op)
-            except BoxNotProducable:
-                pass
-
-        self.short_boxes_in_production = None # Not needed anymore
-        #else:
-        #    self.short_boxes = {}
-
-    def dump(self, logops):
-        if 0:
-            for op, resop in self.short_boxes.iteritems():
-                if isinstance(op, AbstractInputArg):
-                    assert resop is None
-                    debug_print(logops.repr_of_arg(op))
-                else:
-                    debug_print("%s:%s"% (logops.repr_of_resop(op),
-                                          logops.repr_of_resop(resop)))
-
-    def prioritized_alternatives(self, box):
-        if box not in self.alternatives:
-            return [self.potential_ops[box]]
-        alts = self.alternatives[box]
-        hi, lo = 0, len(alts) - 1
-        while hi < lo:
-            if alts[lo] is None: # Inputarg, lowest priority
-                alts[lo], alts[-1] = alts[-1], alts[lo]
-                lo -= 1
-            elif alts[lo] not in self.synthetic: # Hi priority
-                alts[hi], alts[lo] = alts[lo], alts[hi]
-                hi += 1
-            else: # Low priority
-                lo -= 1
-        return alts
-
-    def add_to_short(self, box, op):
-        if box in self.short_boxes:
-            xxx
-            return # XXX avoid those corner cases
-            #if op is None:
-            #    xxx
-            #    oldop = self.short_boxes[box]
-            #    self.rename[op] = oldop
-            #    self.short_boxes[box] = None
-            #    self.short_boxes[oldop] = oldop
-            #else:
-            #    xxxx
-            #    newop = op.clone()
-            #    newbox = newop.result = op.result.clonebox()
-            #    self.short_boxes[newop.result] = newop
-            #xxx
-            #value = self.optimizer.getvalue(box)
-            #self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
-            #self.optimizer.make_equal_to(newbox, value)
-            #if op is None:
-            #    if self.short_boxes[box] is not box:
-            #        xxx
-            #else:
-            #    if self.short_boxes[box] is not op:
-            #        if self.short_boxes[box] is None:
-            #            self.short_boxes[box] = op
-            #        else:
-            #            xxx
-            if op is None:
-                oldop = self.short_boxes[box].clone()
-                oldres = oldop.result
-                newbox = oldop.result = oldres.clonebox()
-                self.rename[box] = newbox
-                self.short_boxes[box] = None
-                self.short_boxes[newbox] = oldop
-            else:
-                newop = op.clone()
-                newbox = newop.result = op.result.clonebox()
-                self.short_boxes[newop.result] = newop
-            value = self.optimizer.getvalue(box)
-            self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
-            self.optimizer.make_equal_to(newbox, value)
-        else:
-            self.short_boxes[box] = op
-
-    def produce_short_preamble_op(self, op):
-        if op in self.short_boxes:
-            return
-        if isinstance(op, Const):
-            return
-        if op in self.short_boxes_in_production:
-            raise BoxNotProducable
-        self.short_boxes_in_production[op] = None
-
-        if op in self.potential_ops:
-            ops = self.prioritized_alternatives(op)
-            produced_one = False
-            for newop in ops:
-                try:
-                    if newop:
-                        for arg in newop.getarglist():
-                            self.produce_short_preamble_op(arg)
-                except BoxNotProducable:
-                    pass
-                else:
-                    produced_one = True
-                    self.add_to_short(op, newop)
-            if not produced_one:
-                raise BoxNotProducable
-        else:
-            raise BoxNotProducable
-
-    def add_potential(self, key, op, synthetic=False):
-        #try:
-        #    value = self.optimizer.values[key]
-        #    if value in self.optimizer.opaque_pointers:
-        #        classbox = value.get_constant_class(self.optimizer.cpu)
-        #        if classbox:
-        #            self.assumed_classes[key] = classbox
-        #except KeyError:
-        #    pass
-        if key not in self.potential_ops:
-            self.potential_ops[key] = op
-        else:
-            if key not in self.alternatives:
-                self.alternatives[key] = [self.potential_ops[key]]
-            self.alternatives[key].append(op)
-        if synthetic:
-            self.synthetic[op] = True
-
-    def debug_print(self, logops):
-        if 0:
-            debug_start('jit-short-boxes')
-            for box, op in self.short_boxes.items():
-                if op:
-                    debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
-                else:
-                    debug_print(logops.repr_of_arg(box) + ': None')
-            debug_stop('jit-short-boxes')
-
-    def operations(self):
-        if not we_are_translated(): # For tests
-            ops = self.short_boxes.values()
-            ops.sort(key=str, reverse=True)
-            return ops
-        return self.short_boxes.values()
-
-    def producer(self, box):
-        return self.short_boxes[box]
-
-    def has_producer(self, box):
-        return box in self.short_boxes

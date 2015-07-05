@@ -4,11 +4,11 @@
 
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
      LLtypeMixin, FakeMetaInterpStaticData
-from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
+from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr, ConstInt,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
-     NotVirtualStateInfo, LEVEL_CONSTANT
+     NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN
 
 class FakeOptimizer(object):
     optearlyforce = None
@@ -38,7 +38,7 @@ class TestUnroll(BaseTest, LLtypeMixin):
         start_state = self._do_optimize_loop(preamble, None,
                                              export_state=True)
         vs = preamble.operations[-1].getdescr().virtual_state
-        return start_state, vs
+        return start_state, vs, loop
 
     def test_simple(self):
         loop = """
@@ -47,7 +47,22 @@ class TestUnroll(BaseTest, LLtypeMixin):
         guard_value(i1, 1) []
         jump(i1)
         """
-        es, vs = self.optimize(loop)
+        es, vs, loop = self.optimize(loop)
         assert isinstance(vs.state[0], NotVirtualStateInfo)
+        # the virtual state is constant, so we don't need to have it in
+        # inputargs
         assert vs.make_inputargs([1], FakeOptimizer()) == []
         assert vs.state[0].level == LEVEL_CONSTANT
+        # we have exported values for i1, which happens to be an inputarg
+        assert es.inputarg_mapping[0][1].getint() == 1
+        assert isinstance(es.inputarg_mapping[0][1], ConstInt)
+
+    def test_not_constant(self):
+        loop = """
+        [i0]
+        i1 = int_add(i0, 1)
+        jump(i0)
+        """
+        es, vs, loop = self.optimize(loop)
+        assert isinstance(vs.state[0], NotVirtualStateInfo)
+        assert vs.state[0].level == LEVEL_UNKNOWN
