@@ -757,6 +757,14 @@ class AppTestBytesObject:
                 return 3
         raises(TypeError, bytes, WithInt())
 
+    def test_fromobject___bytes__(self):
+        class WithIndex:
+            def __bytes__(self):
+                return b'a'
+            def __index__(self):
+                return 3
+        assert bytes(WithIndex()) == b'a'
+
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 

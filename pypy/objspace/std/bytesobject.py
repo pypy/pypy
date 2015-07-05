@@ -683,6 +683,14 @@ def newbytesdata_w(space, w_source, encoding, errors):
             raise OperationError(space.w_TypeError, space.wrap(
                     "encoding or errors without string argument"))
         return []
+    # Some object with __bytes__ special method
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "__bytes__ returned non-bytes (type '%T')", w_bytes)
+        return [c for c in space.bytes_w(w_bytes)]
     # Is it an integer?
     # Note that we're calling space.getindex_w() instead of space.int_w().
     try:
@@ -707,7 +715,7 @@ def newbytesdata_w(space, w_source, encoding, errors):
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
 
-    return makebytesdata_w(space, w_source)
+    return _convert_from_buffer_or_iterable(space, w_source)
 
 def makebytesdata_w(space, w_source):
     w_bytes_method = space.lookup(w_source, "__bytes__")
@@ -717,7 +725,9 @@ def makebytesdata_w(space, w_source):
             raise oefmt(space.w_TypeError,
                         "__bytes__ returned non-bytes (type '%T')", w_bytes)
         return [c for c in space.bytes_w(w_bytes)]
+    return _convert_from_buffer_or_iterable(space, w_source)
 
+def _convert_from_buffer_or_iterable(space, w_source):
     # String-like argument
     try:
         buf = space.buffer_w(w_source, space.BUF_FULL_RO)
