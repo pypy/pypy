@@ -4,8 +4,7 @@ from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend import newtype
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi
-
-FNPTR = rffi.CCallback([], rffi.VOIDP)
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
 class W_GlobSupport(W_Root):
@@ -16,12 +15,20 @@ class W_GlobSupport(W_Root):
         self.space = space
         self.w_ctype = w_ctype
         self.ptr = ptr
-        self.fetch_addr = rffi.cast(FNPTR, fetch_addr)
+        self.fetch_addr = fetch_addr
 
     def fetch_global_var_addr(self):
         if self.ptr:
             return self.ptr
-        result = self.fetch_addr()
+        if not we_are_translated():
+            FNPTR = rffi.CCallback([], rffi.VOIDP)
+            fetch_addr = rffi.cast(FNPTR, self.fetch_addr)
+            result = fetch_addr()
+        else:
+            # careful in translated versions: we need to call fetch_addr,
+            # but in a GIL-releasing way.  The easiest is to invoke a
+            # llexternal() helper.
+            result = pypy__cffi_fetch_var(self.fetch_addr)
         return rffi.cast(rffi.CCHARP, result)
 
     def read_global_var(self):
@@ -37,3 +44,14 @@ class W_GlobSupport(W_Root):
 
 W_GlobSupport.typedef = TypeDef("FFIGlobSupport")
 W_GlobSupport.typedef.acceptable_as_base_class = False
+
+
+eci = ExternalCompilationInfo(post_include_bits=["""
+static void *pypy__cffi_fetch_var(void *fetch_addr) {
+    return ((void*(*)(void))fetch_addr)();
+}
+"""])
+
+pypy__cffi_fetch_var = rffi.llexternal(
+    "pypy__cffi_fetch_var", [rffi.VOIDP], rffi.VOIDP,
+    compilation_info=eci)
