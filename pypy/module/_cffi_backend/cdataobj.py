@@ -430,6 +430,13 @@ class W_CDataNewNonStdFree(W_CDataNewNonStdNoFree):
     _attrs_ = ['w_free']
 
     def __del__(self):
+        self.clear_all_weakrefs()
+        self.enqueue_for_destruction(self.space,
+                                     W_CDataNewNonStdFree.call_destructor,
+                                     'destructor of ')
+
+    def call_destructor(self):
+        assert isinstance(self, W_CDataNewNonStdFree)
         self.space.call_function(self.w_free, self.w_raw_cdata)
 
 
@@ -519,6 +526,12 @@ class W_CDataGCP(W_CData):
         self.w_destructor = w_destructor
 
     def __del__(self):
+        self.clear_all_weakrefs()
+        self.enqueue_for_destruction(self.space, W_CDataGCP.call_destructor,
+                                     'destructor of ')
+
+    def call_destructor(self):
+        assert isinstance(self, W_CDataGCP)
         self.space.call_function(self.w_destructor, self.w_original_cdata)
 
 
