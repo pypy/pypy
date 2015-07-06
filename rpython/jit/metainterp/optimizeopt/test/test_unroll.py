@@ -13,7 +13,7 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import \
 class FakeOptimizer(object):
     optearlyforce = None
      
-class TestUnroll(BaseTest, LLtypeMixin):
+class BaseTestUnroll(BaseTest, LLtypeMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
     
     def optimize(self, ops):
@@ -38,8 +38,9 @@ class TestUnroll(BaseTest, LLtypeMixin):
         start_state = self._do_optimize_loop(preamble, None,
                                              export_state=True)
         vs = preamble.operations[-1].getdescr().virtual_state
-        return start_state, vs, loop
+        return start_state, vs, loop, preamble
 
+class TestUnroll(BaseTestUnroll):
     def test_simple(self):
         loop = """
         [i0]
@@ -47,7 +48,7 @@ class TestUnroll(BaseTest, LLtypeMixin):
         guard_value(i1, 1) []
         jump(i1)
         """
-        es, vs, loop = self.optimize(loop)
+        es, vs, loop, preamble = self.optimize(loop)
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         # the virtual state is constant, so we don't need to have it in
         # inputargs
@@ -56,6 +57,7 @@ class TestUnroll(BaseTest, LLtypeMixin):
         # we have exported values for i1, which happens to be an inputarg
         assert es.inputarg_mapping[0][1].getint() == 1
         assert isinstance(es.inputarg_mapping[0][1], ConstInt)
+        assert es.short_boxes == {}
 
     def test_not_constant(self):
         loop = """
@@ -63,6 +65,8 @@ class TestUnroll(BaseTest, LLtypeMixin):
         i1 = int_add(i0, 1)
         jump(i0)
         """
-        es, vs, loop = self.optimize(loop)
+        es, vs, loop, preamble = self.optimize(loop)
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         assert vs.state[0].level == LEVEL_UNKNOWN
+        op = preamble.operations[1]
+        assert es.short_boxes == {op: op}

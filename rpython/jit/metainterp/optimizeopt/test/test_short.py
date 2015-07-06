@@ -62,3 +62,4 @@ class TestShortBoxes(object):
         assert op1 in sb.short_boxes.values()
         assert op in sb.short_boxes.values()
         assert op in sb.short_boxes.keys()
+

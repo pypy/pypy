@@ -218,7 +218,7 @@ class OptPure(Optimization):
         return recentops.lookup(self.optimizer, op)
 
     def produce_potential_short_preamble_ops(self, sb):
-        ops = sb.optimizer._newoperations
+        ops = self.optimizer._newoperations
         for i, op in enumerate(ops):
             if op.is_always_pure():
                 sb.add_potential(op)

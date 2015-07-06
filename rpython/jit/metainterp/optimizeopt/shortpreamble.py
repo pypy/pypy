@@ -23,6 +23,7 @@ class ShortBoxes(object):
 
         for op, preamble_op in self.potential_ops:
             self.produce_short_preamble_op(op, preamble_op)
+        return self.short_boxes
 
     def add_to_short(self, op, short_op):
         self.short_boxes[op] = short_op

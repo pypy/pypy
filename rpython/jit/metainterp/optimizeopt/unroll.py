@@ -1,9 +1,8 @@
 import sys
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
-from rpython.jit.metainterp.logger import LogOperations
+from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
@@ -165,8 +164,6 @@ class UnrollOptimizer(Optimization):
             self.close_bridge(start_label)
 
         self.optimizer.flush()
-        if export_state:
-            KillHugeIntBounds(self.optimizer).apply()
 
         loop.operations = self.optimizer.get_newoperations()
         if export_state:
@@ -211,8 +208,11 @@ class UnrollOptimizer(Optimization):
         target_token = targetop.getdescr()
         assert isinstance(target_token, TargetToken)
         target_token.virtual_state = virtual_state
-        return ExportedState([(label_op.getarg(i), jump_args[i]) for i in range(len(jump_args))], [], [], [])
-        xxx
+        sb = ShortBoxes()
+        sb.create_short_boxes(self.optimizer, jump_args)
+        inparg_mapping = [(label_op.getarg(i), jump_args[i])
+                          for i in range(len(jump_args))]
+        return ExportedState(inparg_mapping, [], sb.short_boxes)
 
 
         inputargs = virtual_state.make_inputargs(jump_args, self.optimizer)
@@ -298,14 +298,11 @@ class UnrollOptimizer(Optimization):
         #for source, target in exported_state.inputarg_setup_ops:
         #    source.set_forwarded(target)
 
-        #for op in self.short_boxes.operations():
-        #    if not op:
-        #        continue
-        #    if op.is_always_pure():
-        #        self.pure(op.getopnum(),
-        #                  PreambleOp(op, self.optimizer.getinfo(op)))
-        #    else:
-        #        yyy
+        for op, preamble_op in exported_state.short_boxes.iteritems():
+            if preamble_op.is_always_pure():
+                self.pure(op.getopnum(), PreambleOp(op, None))
+            else:
+                xxx
         return
         seen = {}
         for op in self.short_boxes.operations():
@@ -336,8 +333,8 @@ class UnrollOptimizer(Optimization):
                     #    debug_print('  Falling back to add extra: ' +
                     #                self.optimizer.loop.logops.repr_of_resop(op))
 
-        self.optimizer.flush()
-        self.optimizer.emitting_dissabled = False
+        #self.optimizer.flush()
+        #self.optimizer.emitting_dissabled = False
 
     def close_bridge(self, start_label):
         inputargs = self.inputargs
@@ -709,28 +706,10 @@ class ExportedState(object):
                          as the first element and the second element being
                          what it maps to (potentially const)
     * exported_infos - a mapping from ops to infos, including inputargs
-    * pure operations - a list of pure operations that can produce various
-                        ops
-    * heap cache operations - an additional list of how to produce various
-                              ops
+    * short boxes - a mapping op -> preamble_op
     """
     
-    def __init__(self, inputarg_mapping, exported_infos, pure_ops,
-                 heap_cache_ops):
+    def __init__(self, inputarg_mapping, exported_infos, short_boxes):
         self.inputarg_mapping = inputarg_mapping
         self.exported_infos = exported_infos
-        self.pure_ops = pure_ops
-        self.heap_cache_ops = heap_cache_ops
-
-    def dump(self, metainterp_sd):
-        debug_start("jit-exported-state")
-        logops = LogOperations(metainterp_sd, False)
-        debug_print("   inputarg setup")
-        logops._log_operations([], self.inputarg_setup_ops)
-        debug_print("   short boxes")
-        self.short_boxes.dump(logops)
-        debug_print("   exported values")
-        for k, v in self.exported_values.iteritems():
-            debug_print("%s:%s" % (logops.repr_of_resop(k),
-                                   logops.repr_of_resop(v.box)))
-        debug_stop("jit-exported-state")
+        self.short_boxes = short_boxes
