@@ -15,8 +15,9 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 
 class PreambleOp(AbstractResOp):
-    def __init__(self, op, info):
+    def __init__(self, op, preamble_op, info):
         self.op = op
+        self.preamble_op = preamble_op
         self.info = info
 
     def getarg(self, i):
@@ -29,7 +30,7 @@ class PreambleOp(AbstractResOp):
 class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
         op = preamble_op.op
-        self.optunroll.short.append(op)
+        self.optunroll.short.append(preamble_op.preamble_op)
         if preamble_op.info:
             preamble_op.info.make_guards(op, self.optunroll.short)
         return op
@@ -45,6 +46,7 @@ class UnrollOptimizer(Optimization):
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
                                              optimizations)
+        self.short = []
         self.optimizer.optunroll = self
 
     def get_virtual_state(self, args):
@@ -219,8 +221,17 @@ class UnrollOptimizer(Optimization):
         return ExportedState([], [])
 
     def import_state(self, targetop, exported_state):
+        # the mapping between input args (from old label) and what we need
+        # to actually emit
         for source, target in exported_state.inputarg_mapping:
             xxx
+        # import the optimizer state, starting from boxes that can be produced
+        # by short preamble
+        for op, preamble_op in exported_state.short_boxes.items():
+            if preamble_op.is_always_pure():
+                self.pure(op.getopnum(), PreambleOp(op, preamble_op, None))
+            else:
+                yyy
         return
         self.inputargs = targetop.getarglist()
         target_token = targetop.getdescr()

@@ -358,6 +358,11 @@ class FakeMetaInterpStaticData(object):
         except AttributeError:
             return ""
 
+class Info(object):
+    def __init__(self, preamble, short_preamble=None):
+        self.preamble = preamble
+        self.short_preamble = short_preamble
+
 class Storage(compile.ResumeGuardDescr):
     "for tests."
     def __init__(self, metainterp_sd=None, original_greenkey=None):
@@ -445,7 +450,7 @@ class BaseTest(object):
         preamble.inputargs = start_label.getarglist()
         preamble.operations = [start_label] + preamble_ops
         loop.operations = [end_label] + ops
-        return preamble
+        return Info(preamble)
 
     def foo(self):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)

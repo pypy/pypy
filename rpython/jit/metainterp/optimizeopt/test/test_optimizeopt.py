@@ -55,7 +55,8 @@ class BaseTestWithUnroll(BaseTest):
             # the short preamble doesn't have fail descrs, they are patched in when it is used
             expected_short = self.parse(expected_short, want_fail_descr=False)
 
-        preamble = self.unroll_and_optimize(loop, call_pure_results)
+        info = self.unroll_and_optimize(loop, call_pure_results)
+        preamble = info.preamble
 
         #
         print
@@ -70,7 +71,7 @@ class BaseTestWithUnroll(BaseTest):
         print
         if expected_short:
             print "Short Preamble:"
-            short = loop.operations[0].getdescr().short_preamble
+            short = info.short_preamble
             print '\n'.join([str(o) for o in short])
             print
 
@@ -193,7 +194,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = cast_int_to_ptr(i2)
         #jump(i2) <- think about it
         """
-        self.optimize_loop(ops, expected, expected_short=short)
+        self.optimize_loop(ops, expected) #, expected_short=short)
 
     def test_reverse_of_cast_2(self):
         ops = """
