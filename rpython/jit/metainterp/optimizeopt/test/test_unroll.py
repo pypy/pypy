@@ -3,10 +3,11 @@
 """
 
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
-     LLtypeMixin, FakeMetaInterpStaticData
-from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr, ConstInt,
+     LLtypeMixin
+from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN
 
@@ -18,7 +19,6 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
     
     def optimize(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]
@@ -34,11 +34,10 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
         token = JitCellToken()
         start_label = ResOperation(rop.LABEL, inputargs, descr=TargetToken(token))
         stop_label = ResOperation(rop.LABEL, jump_args, descr=token)
-        preamble.operations = [start_label] + operations + [stop_label]
-        start_state = self._do_optimize_loop(preamble, None,
-                                             export_state=True)
-        vs = preamble.operations[-1].getdescr().virtual_state
-        return start_state, vs, loop, preamble
+        compile_data = LoopCompileData(start_label, stop_label, operations)
+        start_state, newops = self._do_optimize_loop(compile_data)
+        preamble.operations = newops
+        return start_state, loop, preamble
 
 class TestUnroll(BaseTestUnroll):
     def test_simple(self):
@@ -48,7 +47,8 @@ class TestUnroll(BaseTestUnroll):
         guard_value(i1, 1) []
         jump(i1)
         """
-        es, vs, loop, preamble = self.optimize(loop)
+        es, loop, preamble = self.optimize(loop)
+        vs = es.virtual_state
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         # the virtual state is constant, so we don't need to have it in
         # inputargs
@@ -65,8 +65,9 @@ class TestUnroll(BaseTestUnroll):
         i1 = int_add(i0, 1)
         jump(i0)
         """
-        es, vs, loop, preamble = self.optimize(loop)
+        es, loop, preamble = self.optimize(loop)
+        vs = es.virtual_state
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         assert vs.state[0].level == LEVEL_UNKNOWN
-        op = preamble.operations[1]
+        op = preamble.operations[0]
         assert es.short_boxes == {op: op}

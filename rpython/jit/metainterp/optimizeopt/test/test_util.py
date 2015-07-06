@@ -405,15 +405,11 @@ class BaseTest(object):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, loop, call_pure_results, start_state=None,
-                          export_state=False):
+    def _do_optimize_loop(self, compile_data, call_pure_results=None):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         from rpython.jit.metainterp.optimizeopt.util import args_dict
 
-        self.loop = loop
-        operations = loop.operations
-        inputargs = loop.inputargs
-        loop.call_pure_results = args_dict()
+        # XXX
         if call_pure_results is not None:
             for k, v in call_pure_results.items():
                 loop.call_pure_results[list(k)] = v
@@ -423,17 +419,14 @@ class BaseTest(object):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        state = optimize_trace(metainterp_sd, None, loop,
-                              self.enable_opts,
-                              start_state=start_state,
-                              export_state=export_state)
-        compile.forget_optimization_info(operations)
-        compile.forget_optimization_info(inputargs)
+        compile_data.enable_opts = self.enable_opts
+        state = optimize_trace(metainterp_sd, None, compile_data)
+        compile_data.forget_optimization_info()
         return state
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
+        xxx
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        logops = LogOperations(metainterp_sd, False)
         self.add_guard_future_condition(loop)
         operations =  loop.operations
         jumpop = operations[-1]

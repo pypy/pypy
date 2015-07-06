@@ -211,14 +211,10 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
-    exporting_state = False
-    emitting_dissabled = False
-
-    def __init__(self, metainterp_sd, jitdriver_sd, loop, optimizations=None):
+    def __init__(self, metainterp_sd, jitdriver_sd, optimizations=None):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.loop = loop
         self.logops = LogOperations(metainterp_sd, False)
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
@@ -234,13 +230,14 @@ class Optimizer(Optimization):
         self.optheap = None
         self.optearlyforce = None
         self.optunroll = None
-        # the following two fields is the data kept for unrolling,
-        # those are the operations that can go to the short_preamble
-        if loop is not None:
-            self.call_pure_results = loop.call_pure_results
 
         self.set_optimizations(optimizations)
         self.setup()
+
+    def init_inparg_dict_from(self, lst):
+        self.inparg_dict = {}
+        for box in lst:
+            self.inparg_dict[box] = None
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -442,18 +439,13 @@ class Optimizer(Optimization):
         else:
             return CONST_0
 
-    def propagate_all_forward(self, clear=True, create_inp_args=True):
-        if clear:
-            self.clear_newoperations()
-        if create_inp_args:
-            self.inparg_dict = {}
-            for op in self.loop.inputargs:
-                self.inparg_dict[op] = None
-        for op in self.loop.operations:
+    def propagate_all_forward(self, inputargs, ops, create_inp_args=True):
+        self.init_inparg_dict_from(inputargs)
+        for op in ops:
             self._really_emitted_operation = None
             self.first_optimization.propagate_forward(op)
-        self.loop.operations = self.get_newoperations()
-        self.loop.quasi_immutable_deps = self.quasi_immutable_deps
+        #self.loop.operations = self.get_newoperations()
+        #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
 

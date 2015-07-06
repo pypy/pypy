@@ -24,6 +24,37 @@ def giveup():
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
 
 
+class LoopCompileData(object):
+    """ An object that accumulates all of the necessary info for
+    the optimization phase, but does not actually have any other state
+
+    This is the case of label() ops label()
+    """
+    def __init__(self, start_label, end_label, operations):
+        self.start_label = start_label
+        self.end_label = end_label
+        assert start_label.getopnum() == rop.LABEL
+        assert end_label.getopnum() == rop.LABEL
+        self.operations = operations
+
+    def forget_optimization_info(self):
+        for arg in self.start_label.getarglist():
+            arg.set_forwarded(None)
+        for op in self.operations:
+            op.set_forwarded(None)
+
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
+        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
+
+        if unroll:
+            opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
+            return opt.optimize_preamble(self.start_label, self.end_label,
+                                         self.operations)
+            xxx
+        else:
+            xxx
+
+
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
     if option and (option.view or option.viewloops):
@@ -104,10 +135,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 
-def compile_loop(metainterp, greenkey, start,
-                 inputargs, jumpargs,
-                 full_preamble_needed=True,
-                 try_disabling_unroll=False):
+def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
+                 full_preamble_needed=True, try_disabling_unroll=False):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
