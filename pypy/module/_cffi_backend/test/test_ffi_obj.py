@@ -265,9 +265,10 @@ class AppTestFFIObj:
             assert p1[0] == 123
             seen.append(1)
         ffi.gc(p, destructor=destructor)    # instantly forgotten
+        _cffi1_backend.gcp(p, destructor=destructor)
         for i in range(5):
             if seen:
                 break
             import gc
             gc.collect()
-        assert seen == [1]
+        assert seen == [1, 1]

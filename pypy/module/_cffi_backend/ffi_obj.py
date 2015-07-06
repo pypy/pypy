@@ -10,7 +10,7 @@ from pypy.module._cffi_backend import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func, cgc, wrapper
+from pypy.module._cffi_backend import cbuffer, func, wrapper
 from pypy.module._cffi_backend import cffi_opcode
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
@@ -344,10 +344,7 @@ Return a new cdata object that points to the same data.
 Later, when this new cdata object is garbage-collected,
 'destructor(old_cdata_object)' will be called."""
         #
-        return cgc.gc_weakrefs_build(self, w_cdata, w_destructor)
-
-    def descr___gc_wref_remove(self, w_ref):
-        return cgc.gc_wref_remove(self, w_ref)
+        return w_cdata.with_gc(w_destructor)
 
 
     @unwrap_spec(replace_with=str)
@@ -586,7 +583,6 @@ W_FFIObject.typedef = TypeDef(
                                      W_FFIObject.set_errno,
                                      doc=W_FFIObject.doc_errno,
                                      cls=W_FFIObject),
-        __gc_wref_remove = interp2app(W_FFIObject.descr___gc_wref_remove),
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         buffer      = interp2app(W_FFIObject.descr_buffer),
