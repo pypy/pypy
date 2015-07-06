@@ -413,7 +413,7 @@ class W_CDataNewOwningLength(W_CDataNewOwning):
 
 
 class W_CDataPtrToStructOrUnion(W_CData):
-    """This subclass is used for the pointer returned by new('struct foo').
+    """This subclass is used for the pointer returned by new('struct foo *').
     It has a strong reference to a W_CDataNewOwning that really owns the
     struct, which is the object returned by the app-level expression 'p[0]'.
     But it is not itself owning any memory, although its repr says so;
