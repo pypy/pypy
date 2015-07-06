@@ -105,3 +105,9 @@ def from_buffer(space, w_ctype, w_x):
                     "raw address on PyPy", w_x)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
+
+# ____________________________________________________________
+
+@unwrap_spec(w_cdata=cdataobj.W_CData)
+def gcp(space, w_cdata, w_destructor):
+    return w_cdata.with_gc(w_destructor)

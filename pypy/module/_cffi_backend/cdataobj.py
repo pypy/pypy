@@ -363,6 +363,10 @@ class W_CData(W_Root):
     def _sizeof(self):
         return self.ctype.size
 
+    def with_gc(self, w_destructor):
+        with self as ptr:
+            return W_CDataGCP(self.space, ptr, self.ctype, self, w_destructor)
+
 
 class W_CDataMem(W_CData):
     """This is used only by the results of cffi.cast('int', x)
@@ -502,6 +506,20 @@ class W_CDataFromBuffer(W_CData):
         w_repr = self.space.repr(self.w_keepalive)
         return "buffer len %d from '%s' object" % (
             self.length, self.space.type(self.w_keepalive).name)
+
+
+class W_CDataGCP(W_CData):
+    """For ffi.gc()."""
+    _attrs_ = ['w_original_cdata', 'w_destructor']
+    _immutable_fields_ = ['w_original_cdata', 'w_destructor']
+
+    def __init__(self, space, cdata, ctype, w_original_cdata, w_destructor):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.w_original_cdata = w_original_cdata
+        self.w_destructor = w_destructor
+
+    def __del__(self):
+        self.space.call_function(self.w_destructor, self.w_original_cdata)
 
 
 W_CData.typedef = TypeDef(
