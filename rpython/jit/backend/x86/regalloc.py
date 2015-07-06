@@ -1507,7 +1507,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     # ________________________________________
 
     def not_implemented_op(self, op):
-        import pdb; pdb.set_trace()
         not_implemented("not implemented operation: %s" % op.getopname())
 
     def not_implemented_op_with_guard(self, op, guard_op):

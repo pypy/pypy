@@ -10,6 +10,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 # duplicated for easy migration, def in assembler.py as well
 # DUP START
@@ -18,6 +20,12 @@ def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
 
 def heap(addr):
     return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
+
+def not_implemented(msg):
+    msg = '[x86/vector_ext] %s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
+    raise NotImplementedError(msg)
 # DUP END
 
 class VectorAssemblerMixin(object):

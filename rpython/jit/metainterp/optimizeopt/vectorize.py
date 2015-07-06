@@ -598,14 +598,19 @@ class VectorizingOptimizer(Optimizer):
         assert isinstance(tgt_op, GuardResOp)
         assert isinstance(op, GuardResOp)
         olddescr = op.getdescr()
-        descr = CompileLoopVersionDescr()
+        descr = None
+        guard_true_false = tgt_op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
+        if guard_true_false:
+            descr = CompileLoopVersionDescr()
+        else:
+            descr = ResumeAtLoopHeaderDescr()
         if olddescr:
             descr.copy_all_attributes_from(olddescr)
         #
         tgt_op.setdescr(descr)
         tgt_op.rd_snapshot = op.rd_snapshot
         tgt_op.setfailargs(op.getfailargs())
-        if tgt_op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+        if guard_true_false:
             self.orig_loop_version.adddescr(tgt_op, descr)
             tgt_op.setfailargs(label_node.getoperation().getarglist()[:])
             tgt_op.rd_snapshot = None
@@ -853,7 +858,6 @@ class PackSet(object):
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
-            import pdb; pdb.set_trace()
             accum = pack.accum
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()
@@ -878,5 +882,6 @@ class PackSet(object):
                               [box, accum.var, ConstInt(0), ConstInt(1)], result)
             sched_data.invariant_oplist.append(op)
             # rename the variable with the box
+            sched_data.setvector_of_box(accum.var, 0, result) # prevent it from expansion
             renamer.start_renaming(accum.var, result)
 

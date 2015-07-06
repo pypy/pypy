@@ -263,6 +263,7 @@ class OpToVectorOp(object):
         self.output_type = pack.output_type
         #
         self.check_if_pack_supported(pack)
+
         #
         if self.must_be_full_but_is_not(pack):
             for op in pack.operations:

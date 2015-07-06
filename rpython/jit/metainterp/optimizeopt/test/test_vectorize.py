@@ -1359,20 +1359,20 @@ class BaseTestVectorize(VecTestHelper):
 
 
     def test_abc(self):
-        py.test.skip()
         trace="""
-        # int32 sum
-        label(p0, p19, i18, i24, i14, i8, i25, descr=TargetToken(140320937897104))
-        guard_early_exit(descr=<Guard0x7f9f03ab6310>) [p0, p19, i18, i14, i24]
-        i27 = raw_load(i8, i24, descr=<ArrayS 4>)
-        guard_not_invalidated(descr=<Guard0x7f9f03af5050>) [p0, i27, p19, i18, i14, i24]
-        i28 = int_add(i14, i27)
-        i29 = int_signext(i28, 4)
-        i30 = int_add(i18, 1)
-        i31 = int_add(i24, 4)
-        i32 = int_ge(i30, i25)
-        guard_false(i32, descr=<Guard0x7f9f03ab17d0>) [p0, i29, i30, i31, p19, None, None, None]
-        jump(p0, p19, i30, i31, i29, i8, i25, descr=TargetToken(140320937897104))
+        [i16, i17, i18, i5, p6, p7, f19, p9, p10, p11, p12, p13, p14, p15, i20, i21]
+        guard_early_exit() []
+        f22 = raw_load(i20, i18, descr=<ArrayF 8>)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7fc428762410>) [i5, i18, i17, i16, p15, p14, p13, p12, p11, p10, p9, p7, p6, f22, f19]
+        f23 = raw_load(i21, i17, descr=<ArrayF 8>)
+        f24 = float_mul(f22, f23)
+        f25 = float_add(f19, f24)
+        i27 = int_add(i18, 8)
+        i29 = int_add(i17, 8)
+        i30 = int_lt(i16, i5)
+        guard_true(i30, descr=<rpython.jit.metainterp.compile.ResumeGuardTrueDescr object at 0x7fc4287689d0>) [i5, i27, i29, i16, p15, p14, p13, p12, p11, p10, p9, p7, p6, f25, None]
+        i33 = int_add(i16, 1)
+        jump(i33, i29, i27, i5, p6, p7, f25, p9, p10, p11, p12, p13, p14, p15, i20, i21)
         """
         # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))

@@ -735,6 +735,7 @@ class LoopVersion(object):
             arg = self.parent_trace_label_args[i]
             if isinstance(arg, BoxVectorAccum):
                 self.bridge_label_args[i] = arg
+                label.setarg(i, arg)
         self.inputargs = self.bridge_label_args
 
         return token
