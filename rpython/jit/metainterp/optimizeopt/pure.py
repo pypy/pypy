@@ -151,9 +151,9 @@ class OptPure(Optimization):
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
-        if self.optimizer.emitting_dissabled:
-            self.extra_call_pure.append(op) # XXX
-        else:
+        #if self.optimizer.emitting_dissabled:
+        #    self.extra_call_pure.append(op) # XXX
+        #else:
             # don't move call_pure_with_exception in the short preamble...
             # issue #2015
 
@@ -162,9 +162,9 @@ class OptPure(Optimization):
             # fix together with unroll
             #effectinfo = op.getdescr().get_extra_info()
             #if not effectinfo.check_can_raise(ignore_memoryerror=True):
-            if 1:
-                self.call_pure_positions.append(
-                    len(self.optimizer._newoperations) - 1)
+        #    if 1:
+        self.call_pure_positions.append(
+            len(self.optimizer._newoperations) - 1)
 
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I

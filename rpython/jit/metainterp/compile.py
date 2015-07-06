@@ -23,25 +23,27 @@ def giveup():
     from rpython.jit.metainterp.pyjitpl import SwitchToBlackhole
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
 
-
-class LoopCompileData(object):
-    """ An object that accumulates all of the necessary info for
-    the optimization phase, but does not actually have any other state
-
-    This is the case of label() ops label()
-    """
-    def __init__(self, start_label, end_label, operations):
-        self.start_label = start_label
-        self.end_label = end_label
-        assert start_label.getopnum() == rop.LABEL
-        assert end_label.getopnum() == rop.LABEL
-        self.operations = operations
-
+class CompileData(object):
     def forget_optimization_info(self):
         for arg in self.start_label.getarglist():
             arg.set_forwarded(None)
         for op in self.operations:
             op.set_forwarded(None)
+
+class LoopCompileData(CompileData):
+    """ An object that accumulates all of the necessary info for
+    the optimization phase, but does not actually have any other state
+
+    This is the case of label() ops label()
+    """
+    def __init__(self, start_label, end_label, operations,
+                 call_pure_results=None):
+        self.start_label = start_label
+        self.end_label = end_label
+        assert start_label.getopnum() == rop.LABEL
+        assert end_label.getopnum() == rop.LABEL
+        self.operations = operations
+        self.call_pure_results = call_pure_results
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -54,6 +56,22 @@ class LoopCompileData(object):
         else:
             xxx
 
+class SimpleCompileData(CompileData):
+    """ This represents label() ops jump with no extra info associated with
+    the label
+    """
+    def __init__(self, start_label, operations, call_pure_results=None):
+        self.start_label = start_label
+        self.operations = operations
+        self.call_pure_results = call_pure_results
+
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
+        from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
+
+        opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
+        return opt.propagate_all_forward(self.start_label.getarglist(),
+                                         self.operations,
+                                         self.call_pure_results)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging

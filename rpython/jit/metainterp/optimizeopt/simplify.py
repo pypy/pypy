@@ -45,29 +45,29 @@ class OptSimplify(Optimization):
     def optimize_RECORD_KNOWN_CLASS(self, op):
         pass
 
-    def optimize_LABEL(self, op):
-        if not self.unroll:
-            descr = op.getdescr()
-            if isinstance(descr, JitCellToken):
-                return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
-            self.last_label_descr = op.getdescr()
-        self.emit_operation(op)
+    # def optimize_LABEL(self, op):
+    #     if not self.unroll:
+    #         descr = op.getdescr()
+    #         if isinstance(descr, JitCellToken):
+    #             return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
+    #         self.last_label_descr = op.getdescr()
+    #     self.emit_operation(op)
 
-    def optimize_JUMP(self, op):
-        if not self.unroll:
-            op = op.copy_and_change(op.getopnum())
-            descr = op.getdescr()
-            assert isinstance(descr, JitCellToken)
-            if not descr.target_tokens:
-                assert self.last_label_descr is not None
-                target_token = self.last_label_descr
-                assert isinstance(target_token, TargetToken)
-                assert target_token.targeting_jitcell_token is descr
-                op.setdescr(self.last_label_descr)
-            else:
-                assert len(descr.target_tokens) == 1
-                op.setdescr(descr.target_tokens[0])
-        self.emit_operation(op)
+    # def optimize_JUMP(self, op):
+    #     if not self.unroll:
+    #         op = op.copy_and_change(op.getopnum())
+    #         descr = op.getdescr()
+    #         assert isinstance(descr, JitCellToken)
+    #         if not descr.target_tokens:
+    #             assert self.last_label_descr is not None
+    #             target_token = self.last_label_descr
+    #             assert isinstance(target_token, TargetToken)
+    #             assert target_token.targeting_jitcell_token is descr
+    #             op.setdescr(self.last_label_descr)
+    #         else:
+    #             assert len(descr.target_tokens) == 1
+    #             op.setdescr(descr.target_tokens[0])
+    #     self.emit_operation(op)
 
     def optimize_GUARD_FUTURE_CONDITION(self, op):
         pass

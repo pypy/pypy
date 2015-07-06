@@ -439,8 +439,9 @@ class Optimizer(Optimization):
         else:
             return CONST_0
 
-    def propagate_all_forward(self, inputargs, ops, create_inp_args=True):
+    def propagate_all_forward(self, inputargs, ops, call_pure_results=None):
         self.init_inparg_dict_from(inputargs)
+        self.call_pure_results = call_pure_results
         for op in ops:
             self._really_emitted_operation = None
             self.first_optimization.propagate_forward(op)
@@ -448,6 +449,7 @@ class Optimizer(Optimization):
         #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
+        return None, self._newoperations
 
     def send_extra_operation(self, op):
         self.first_optimization.propagate_forward(op)

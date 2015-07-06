@@ -407,12 +407,6 @@ class BaseTest(object):
 
     def _do_optimize_loop(self, compile_data, call_pure_results=None):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
-        from rpython.jit.metainterp.optimizeopt.util import args_dict
-
-        # XXX
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                loop.call_pure_results[list(k)] = v
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
             metainterp_sd.virtualref_info = self.vrefinfo
