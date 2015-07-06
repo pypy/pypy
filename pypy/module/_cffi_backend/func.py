@@ -105,18 +105,3 @@ def from_buffer(space, w_ctype, w_x):
                     "raw address on PyPy", w_x)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
-
-# ____________________________________________________________
-
-class ConstantFFI:
-    ffi1 = None
-    def _cleanup_(self):
-        self.ffi1 = None
-constant_ffi = ConstantFFI()
-
-@unwrap_spec(w_cdata=cdataobj.W_CData)
-def gcp(space, w_cdata, w_destructor):
-    if constant_ffi.ffi1 is None:
-        from pypy.module._cffi_backend import ffi_obj
-        constant_ffi.ffi1 = ffi_obj.make_plain_ffi_object(space)
-    return constant_ffi.ffi1.descr_gc(w_cdata, w_destructor)

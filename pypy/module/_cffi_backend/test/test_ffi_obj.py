@@ -4,8 +4,6 @@ class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
 
     def teardown_method(self, meth):
-        from pypy.module._cffi_backend.func import constant_ffi
-        constant_ffi._cleanup_()
         _clean_cache(self.space)
 
     def test_ffi_new(self):
@@ -267,10 +265,9 @@ class AppTestFFIObj:
             assert p1[0] == 123
             seen.append(1)
         ffi.gc(p, destructor=destructor)    # instantly forgotten
-        _cffi1_backend.gcp(p, destructor=destructor)
         for i in range(5):
             if seen:
                 break
             import gc
             gc.collect()
-        assert seen == [1, 1]
+        assert seen == [1]
