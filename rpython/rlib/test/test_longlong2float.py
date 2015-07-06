@@ -88,7 +88,7 @@ def fn_encode_nan(f1, i2):
 
 def test_compiled_encode_nan():
     fn2 = compile(fn_encode_nan, [float, int])
-    ints = [-2**31, 2**31-1, 42]
+    ints = [int(-2**31), int(2**31-1), 42]
     for x in enum_floats():
         y = ints.pop()
         ints.insert(0, y)
