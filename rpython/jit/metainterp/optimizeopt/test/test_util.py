@@ -446,14 +446,14 @@ class BaseTest(object):
         end_label = ResOperation(rop.LABEL, start_state.end_args)
         loop_data = compile.UnrolledLoopData(end_label, jump_op,
                                              ops, start_state)
-        _, ops = self._do_optimize_loop(loop_data, call_pure_results)
+        loop_info, ops = self._do_optimize_loop(loop_data, call_pure_results)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_label.getarglist()
         preamble.operations = [start_label] + preamble_ops
         emit_end_label = ResOperation(rop.LABEL, start_state.end_args)
         loop.inputargs = start_state.end_args
         loop.operations = [emit_end_label] + ops
-        return Info(preamble)
+        return Info(preamble, loop_info.short_preamble)
 
     def foo(self):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)

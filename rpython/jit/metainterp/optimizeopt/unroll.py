@@ -56,7 +56,6 @@ class UnrollOptimizer(Optimization):
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
                                              optimizations)
-        self.short = []
         self.optimizer.optunroll = self
 
     def get_virtual_state(self, args):
@@ -76,6 +75,7 @@ class UnrollOptimizer(Optimization):
         return exported_state, self.optimizer._newoperations
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
+        self.short = []
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops)
@@ -85,7 +85,13 @@ class UnrollOptimizer(Optimization):
                                                        self.optimizer)
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
-        return None, self.optimizer._newoperations
+        return (UnrollInfo(self.make_short_preamble(start_label.getarglist())),
+                self.optimizer._newoperations)
+
+    def make_short_preamble(self, args):
+        label = ResOperation(rop.LABEL, args)
+        short = [label] + self.short
+        return short
 
     def random_garbage(self):
         # WTF is the rest of this function
@@ -688,18 +694,28 @@ class UnrollOptimizer(Optimization):
                                       'it has at the start of the target loop')
             i += 1
 
-class ShortPreambleBuilder(object):
-    """ A place that builds short preamble and the necessary
-    arguments for the label and the jump
-    """
+class LoopInfo(object):
+    pass
 
-class ExportedState(object):
+class UnrollInfo(LoopInfo):
+    """ A state after optimizing the peeled loop, contains the following:
+
+    * short_preamble - list of operations that go into short preamble
+    """
+    def __init__(self, short_preamble):
+        self.short_preamble = short_preamble
+            
+class ExportedState(LoopInfo):
     """ Exported state consists of a few pieces of information:
 
     * inputarg_mapping - a list of tuples with original inputarg box
                          as the first element and the second element being
                          what it maps to (potentially const)
     * exported_infos - a mapping from ops to infos, including inputargs
+    * end_args - arguments that end up in the label leading to the next
+                 iteration
+    * virtual_state - instance of VirtualState representing current state
+                      of virtuals at this label
     * short boxes - a mapping op -> preamble_op
     """
     
