@@ -33,3 +33,7 @@ have no visible effect!  After ``lst = [42, 42.5]``, the value of
 
 .. branch: cffi-callback-onerror
 .. branch: cffi-new-allocator
+
+.. branch: unicode-dtype
+
+Partial implementation of unicode dtype and unicode scalars.
