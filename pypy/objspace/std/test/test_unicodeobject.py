@@ -409,6 +409,14 @@ class AppTestUnicodeString:
         assert u'abc'.startswith(u'bc', 1, 2) is False
         assert u'abc'.startswith(u'c', -1, 4) is True
 
+    def test_startswith_too_large(self):
+        assert u'ab'.startswith(u'b', 1) is True
+        assert u'ab'.startswith(u'', 2) is True
+        assert u'ab'.startswith(u'', 3) is True   # not False
+        assert u'ab'.endswith(u'b', 1) is True
+        assert u'ab'.endswith(u'', 2) is True
+        assert u'ab'.endswith(u'', 3) is True   # not False
+
     def test_startswith_tuples(self):
         assert u'hello'.startswith((u'he', u'ha'))
         assert not u'hello'.startswith((u'lo', u'llo'))

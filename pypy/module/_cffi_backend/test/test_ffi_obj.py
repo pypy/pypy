@@ -4,6 +4,8 @@ class AppTestFFIObj:
     spaceconfig = dict(usemodules=('_cffi_backend', 'array'))
 
     def teardown_method(self, meth):
+        from pypy.module._cffi_backend.func import constant_ffi
+        constant_ffi._cleanup_()
         _clean_cache(self.space)
 
     def test_ffi_new(self):
@@ -114,6 +116,18 @@ class AppTestFFIObj:
         assert ffi.callback("int(int)", lambda x: x + "", -66)(10) == -66
         assert ffi.callback("int(int)", lambda x: x + "", error=-66)(10) == -66
 
+    def test_ffi_callback_onerror(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myerror(exc, val, tb):
+            seen.append(exc)
+        cb = ffi.callback("int(int)", lambda x: x + "", onerror=myerror)
+        assert cb(10) == 0
+        cb = ffi.callback("int(int)", lambda x:int(1E100), -66, onerror=myerror)
+        assert cb(10) == -66
+        assert seen == [TypeError, OverflowError]
+
     def test_ffi_callback_decorator(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
@@ -121,6 +135,37 @@ class AppTestFFIObj:
         deco = ffi.callback("int(int)", error=-66)
         assert deco(lambda x: x + "")(10) == -66
         assert deco(lambda x: x + 42)(10) == 52
+
+    def test_ffi_callback_onerror(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def oops(*args):
+            seen.append(args)
+
+        @ffi.callback("int(int)", onerror=oops)
+        def fn1(x):
+            return x + ""
+        assert fn1(10) == 0
+
+        @ffi.callback("int(int)", onerror=oops, error=-66)
+        def fn2(x):
+            return x + ""
+        assert fn2(10) == -66
+
+        assert len(seen) == 2
+        exc, val, tb = seen[0]
+        assert exc is TypeError
+        assert isinstance(val, TypeError)
+        assert tb.tb_frame.f_code.co_name == "fn1"
+        exc, val, tb = seen[1]
+        assert exc is TypeError
+        assert isinstance(val, TypeError)
+        assert tb.tb_frame.f_code.co_name == "fn2"
+        del seen[:]
+        #
+        raises(TypeError, ffi.callback, "int(int)",
+               lambda x: x, onerror=42)   # <- not callable
 
     def test_ffi_getctype(self):
         import _cffi_backend as _cffi1_backend
@@ -222,9 +267,10 @@ class AppTestFFIObj:
             assert p1[0] == 123
             seen.append(1)
         ffi.gc(p, destructor=destructor)    # instantly forgotten
+        _cffi1_backend.gcp(p, destructor=destructor)
         for i in range(5):
             if seen:
                 break
             import gc
             gc.collect()
-        assert seen == [1]
+        assert seen == [1, 1]

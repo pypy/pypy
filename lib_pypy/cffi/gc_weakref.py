@@ -5,7 +5,6 @@ class GcWeakrefs(object):
     def __init__(self, ffi):
         self.ffi = ffi
         self.data = {}
-        self.nextindex = 0
 
     def build(self, cdata, destructor):
         # make a new cdata of the same type as the original one
@@ -18,7 +17,6 @@ class GcWeakrefs(object):
             destructor(cdata)
         #
         key = ref(new_cdata, remove)
-        index = self.nextindex
-        self.nextindex = index + 1     # we're protected by the lock here
+        index = object()
         self.data[index] = key
         return new_cdata

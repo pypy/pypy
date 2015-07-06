@@ -3,7 +3,7 @@ import sys
 
 from rpython.rlib import rposix, objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.module import ll_os_stat
 from rpython.rtyper.module.ll_os import RegisterOs
@@ -1319,14 +1319,14 @@ def makedev(space, major, minor):
     result = os.makedev(major, minor)
     return space.wrap(result)
 
-@unwrap_spec(device=c_int)
+@unwrap_spec(device="c_uint")
 def major(space, device):
-    result = os.major(device)
+    result = os.major(intmask(device))
     return space.wrap(result)
 
-@unwrap_spec(device=c_int)
+@unwrap_spec(device="c_uint")
 def minor(space, device):
-    result = os.minor(device)
+    result = os.minor(intmask(device))
     return space.wrap(result)
 
 @unwrap_spec(inc=c_int)

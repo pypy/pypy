@@ -252,7 +252,8 @@ class OperationError(Exception):
                                w_t, w_v, w_tb],
                 """(where, objrepr, extra_line, t, v, tb):
                     import sys, traceback
-                    sys.stderr.write('From %s%s:\\n' % (where, objrepr))
+                    if where or objrepr:
+                        sys.stderr.write('From %s%s:\\n' % (where, objrepr))
                     if extra_line:
                         sys.stderr.write(extra_line)
                     traceback.print_exception(t, v, tb)

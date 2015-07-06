@@ -1170,6 +1170,14 @@ def test_callback_exception():
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
     f = callback(BFunc, Zcb1, -42)
+    #
+    seen = []
+    oops_result = None
+    def oops(*args):
+        seen.append(args)
+        return oops_result
+    ff = callback(BFunc, Zcb1, -42, oops)
+    #
     orig_stderr = sys.stderr
     orig_getline = linecache.getline
     try:
@@ -1194,6 +1202,59 @@ ValueError: 42
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
+""")
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        assert len(seen) == 0
+        assert ff(bigvalue) == -42
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = 81
+        assert ff(bigvalue) == 81
+        oops_result = None
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = "xy"     # not None and not an int!
+        assert ff(bigvalue) == -42
+        oops_result = None
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+TypeError: $integer$
+""")
+        #
+        sys.stderr = cStringIO.StringIO()
+        seen = "not a list"    # this makes the oops() function crash
+        assert ff(bigvalue) == -42
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append'
 """)
     finally:
         sys.stderr = orig_stderr
@@ -2099,8 +2160,7 @@ def test_cannot_dereference_void():
     p = cast(BVoidP, 123456)
     py.test.raises(TypeError, "p[0]")
     p = cast(BVoidP, 0)
-    if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises((TypeError, RuntimeError), "p[0]")
 
 def test_iter():
     BInt = new_primitive_type("int")
@@ -3333,6 +3393,15 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
+def test_dereference_null_ptr():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    p = cast(BIntPtr, 0)
+    py.test.raises(RuntimeError, "p[0]")
+    py.test.raises(RuntimeError, "p[0] = 42")
+    py.test.raises(RuntimeError, "p[42]")
+    py.test.raises(RuntimeError, "p[42] = -1")
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "1.1.2"
+    assert __version__ == "1.2.0"

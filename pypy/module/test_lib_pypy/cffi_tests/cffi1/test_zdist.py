@@ -60,9 +60,16 @@ class TestDist(object):
             if (name.endswith('.so') or name.endswith('.pyd') or
                 name.endswith('.dylib')):
                 found_so = os.path.join(curdir, name)
-                name = name.split('.')[0] + '.SO' # foo.cpython-34m.so => foo.SO
+                # foo.cpython-34m.so => foo
+                name = name.split('.')[0]
+                # foo_d.so => foo (Python 2 debug builds)
+                if name.endswith('_d') and hasattr(sys, 'gettotalrefcount'):
+                    name = name.rsplit('_', 1)[0]
+                name += '.SO'
             if name.startswith('pycparser') and name.endswith('.egg'):
                 continue    # no clue why this shows up sometimes and not others
+            if name == '.eggs':
+                continue    # seems new in 3.5, ignore it
             assert name in content, "found unexpected file %r" % (
                 os.path.join(curdir, name),)
             value = content.pop(name)

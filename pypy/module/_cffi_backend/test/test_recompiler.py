@@ -16,8 +16,8 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
-    if cffi.__version_info__ < (1, 0, 4):
-        py.test.skip("system cffi module needs to be at least 1.0.4")
+    if cffi.__version_info__ < (1, 2, 0):
+        py.test.skip("system cffi module needs to be at least 1.2.0")
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
@@ -276,6 +276,15 @@ class AppTestRecompiler:
         """)
         lib.aa = 5
         assert dir(lib) == ['aa', 'ff', 'my_constant']
+        #
+        aaobj = lib.__dict__['aa']
+        assert not isinstance(aaobj, int)    # some internal object instead
+        assert lib.__dict__ == {
+            'ff': lib.ff,
+            'aa': aaobj,
+            'my_constant': -45}
+        lib.__dict__['ff'] = "??"
+        assert lib.ff(10) == 15
 
     def test_verify_opaque_struct(self):
         ffi, lib = self.prepare(
@@ -491,28 +500,33 @@ class AppTestRecompiler:
             "int foo(int x) { return x + 32; }")
         assert lib.foo(10) == 42
 
-    def test_bad_size_of_global_1(self):
-        ffi, lib = self.prepare(
-            "short glob;",
-            "test_bad_size_of_global_1",
-            "long glob;")
-        raises(ffi.error, getattr, lib, "glob")
-
-    def test_bad_size_of_global_2(self):
-        ffi, lib = self.prepare(
-            "int glob[10];",
-            "test_bad_size_of_global_2",
-            "int glob[9];")
-        e = raises(ffi.error, getattr, lib, "glob")
-        assert str(e.value) == ("global variable 'glob' should be 40 bytes "
-                                "according to the cdef, but is actually 36")
-
-    def test_unspecified_size_of_global(self):
+    def test_unspecified_size_of_global_1(self):
         ffi, lib = self.prepare(
             "int glob[];",
-            "test_unspecified_size_of_global",
+            "test_unspecified_size_of_global_1",
             "int glob[10];")
-        lib.glob    # does not crash
+        assert ffi.typeof(lib.glob) == ffi.typeof("int *")
+
+    def test_unspecified_size_of_global_2(self):
+        ffi, lib = self.prepare(
+            "int glob[][5];",
+            "test_unspecified_size_of_global_2",
+            "int glob[10][5];")
+        assert ffi.typeof(lib.glob) == ffi.typeof("int(*)[5]")
+
+    def test_unspecified_size_of_global_3(self):
+        ffi, lib = self.prepare(
+            "int glob[][...];",
+            "test_unspecified_size_of_global_3",
+            "int glob[10][5];")
+        assert ffi.typeof(lib.glob) == ffi.typeof("int(*)[5]")
+
+    def test_unspecified_size_of_global_4(self):
+        ffi, lib = self.prepare(
+            "int glob[...][...];",
+            "test_unspecified_size_of_global_4",
+            "int glob[10][5];")
+        assert ffi.typeof(lib.glob) == ffi.typeof("int[10][5]")
 
     def test_include_1(self):
         ffi1, lib1 = self.prepare(
@@ -819,6 +833,22 @@ class AppTestRecompiler:
         assert isinstance(addr, ffi.CData)
         assert ffi.typeof(addr) == ffi.typeof("long(*)(long)")
 
+    def test_address_of_function_with_struct(self):
+        ffi, lib = self.prepare(
+            "struct foo_s { int x; }; long myfunc(struct foo_s);",
+            "test_addressof_function_with_struct", """
+                struct foo_s { int x; };
+                char myfunc(struct foo_s input) { return (char)(input.x + 42); }
+            """)
+        s = ffi.new("struct foo_s *", [5])[0]
+        assert lib.myfunc(s) == 47
+        assert not isinstance(lib.myfunc, ffi.CData)
+        assert ffi.typeof(lib.myfunc) == ffi.typeof("long(*)(struct foo_s)")
+        addr = ffi.addressof(lib, 'myfunc')
+        assert addr(s) == 47
+        assert isinstance(addr, ffi.CData)
+        assert ffi.typeof(addr) == ffi.typeof("long(*)(struct foo_s)")
+
     def test_issue198(self):
         ffi, lib = self.prepare("""
             typedef struct{...;} opaque_t;
@@ -844,11 +874,22 @@ class AppTestRecompiler:
             """)
         assert lib.almost_forty_two == 42.25
 
+    def test_constant_of_unknown_size(self):
+        ffi, lib = self.prepare(
+            "typedef ... opaque_t;"
+            "const opaque_t CONSTANT;",
+            'test_constant_of_unknown_size',
+            "typedef int opaque_t;"
+            "const int CONSTANT = 42;")
+        e = raises(ffi.error, getattr, lib, 'CONSTANT')
+        assert str(e.value) == ("constant 'CONSTANT' is of "
+                                "type 'opaque_t', whose size is not known")
+
     def test_variable_of_unknown_size(self):
         ffi, lib = self.prepare("""
             typedef ... opaque_t;
             opaque_t globvar;
-        """, 'test_constant_of_unknown_size', """
+        """, 'test_variable_of_unknown_size', """
             typedef char opaque_t[6];
             opaque_t globvar = "hello";
         """)
@@ -971,3 +1012,48 @@ class AppTestRecompiler:
             "struct foo_s { unsigned long long x; };")
         assert ffi.alignof('unsigned long long') == x1
         assert ffi.alignof('struct foo_s') == x1
+
+    def test_import_from_lib(self):
+        import sys
+        ffi, lib = self.prepare(
+            "int mybar(int); int myvar;\n#define MYFOO ...",
+            'test_import_from_lib',
+             "#define MYFOO 42\n"
+             "static int mybar(int x) { return x + 1; }\n"
+             "static int myvar = -5;")
+        assert sys.modules['_CFFI_test_import_from_lib'].lib is lib
+        assert sys.modules['_CFFI_test_import_from_lib.lib'] is lib
+        from _CFFI_test_import_from_lib.lib import MYFOO
+        assert MYFOO == 42
+        assert hasattr(lib, '__dict__')
+        assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
+        assert lib.__name__ == repr(lib)
+
+    def test_macro_var_callback(self):
+        ffi, lib = self.prepare(
+            "int my_value; int *(*get_my_value)(void);",
+            'test_macro_var_callback',
+            "int *(*get_my_value)(void);\n"
+            "#define my_value (*get_my_value())")
+        #
+        values = ffi.new("int[50]")
+        def it():
+            for i in range(50):
+                yield i
+        it = it()
+        #
+        @ffi.callback("int *(*)(void)")
+        def get_my_value():
+            return values + it.next()
+        lib.get_my_value = get_my_value
+        #
+        values[0] = 41
+        assert lib.my_value == 41            # [0]
+        p = ffi.addressof(lib, 'my_value')   # [1]
+        assert p == values + 1
+        assert p[-1] == 41
+        assert p[+1] == 0
+        lib.my_value = 42                    # [2]
+        assert values[2] == 42
+        assert p[-1] == 41
+        assert p[+1] == 42

@@ -36,6 +36,8 @@ def create_venv(name):
         paths = []
         for module in modules:
             target = __import__(module, None, None, [])
+            if not hasattr(target, '__file__'):   # for _cffi_backend on pypy
+                continue
             src = os.path.abspath(target.__file__)
             for end in ['__init__.pyc', '__init__.pyo', '__init__.py']:
                 if src.lower().endswith(end):

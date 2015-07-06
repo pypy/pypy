@@ -180,6 +180,20 @@ class AppTestBufferedReader:
         assert not raw.closed
         raw.close()
 
+    def test_detached(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def readable(self):
+                return True
+        raw = MockRawIO()
+        buf = _io.BufferedReader(raw)
+        assert buf.detach() is raw
+        raises(ValueError, buf.detach)
+
+        raises(ValueError, getattr, buf, 'mode')
+        raises(ValueError, buf.isatty)
+        repr(buf)  # Should still work
+
     def test_tell(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
@@ -577,6 +591,47 @@ class AppTestBufferedRWPair:
                 return False
 
         raises(IOError, _io.BufferedRWPair, _io.BytesIO(), NotWritable())
+
+    def test_writer_close_error_on_close(self):
+        import _io
+        class MockRawIO(_io._IOBase):
+            def readable(self):
+                return True
+            def writable(self):
+                return True
+        def writer_close():
+            writer_non_existing
+        reader = MockRawIO()
+        writer = MockRawIO()
+        writer.close = writer_close
+        pair = _io.BufferedRWPair(reader, writer)
+        err = raises(NameError, pair.close)
+        assert 'writer_non_existing' in str(err.value)
+        assert not pair.closed
+        assert reader.closed
+        assert not writer.closed
+
+    def test_reader_writer_close_error_on_close(self):
+        import _io
+        class MockRawIO(_io._IOBase):
+            def readable(self):
+                return True
+            def writable(self):
+                return True
+        def reader_close():
+            reader_non_existing
+        def writer_close():
+            writer_non_existing
+        reader = MockRawIO()
+        reader.close = reader_close
+        writer = MockRawIO()
+        writer.close = writer_close
+        pair = _io.BufferedRWPair(reader, writer)
+        err = raises(NameError, pair.close)
+        assert 'reader_non_existing' in str(err.value)
+        assert not pair.closed
+        assert not reader.closed
+        assert not writer.closed
 
 class AppTestBufferedRandom:
     spaceconfig = dict(usemodules=['_io'])

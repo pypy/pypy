@@ -223,9 +223,13 @@ class W_CTypePointer(W_CTypePtrBase):
         if (isinstance(w_cdata, cdataobj.W_CDataNewOwning) or
             isinstance(w_cdata, cdataobj.W_CDataPtrToStructOrUnion)):
             if i != 0:
-                space = self.space
-                raise oefmt(space.w_IndexError,
+                raise oefmt(self.space.w_IndexError,
                             "cdata '%s' can only be indexed by 0", self.name)
+        else:
+            if not w_cdata.unsafe_escaping_ptr():
+                raise oefmt(self.space.w_RuntimeError,
+                            "cannot dereference null pointer from cdata '%s'",
+                            self.name)
         return self
 
     def _check_slice_index(self, w_cdata, start, stop):

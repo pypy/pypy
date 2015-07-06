@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload
 
-VERSION = "1.1.2"
+VERSION = "1.2.0"
 
 
 class Module(MixedModule):
@@ -37,6 +37,7 @@ class Module(MixedModule):
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
         'from_buffer': 'func.from_buffer',
+        'gcp': 'func.gcp',
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',

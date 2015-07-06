@@ -36,7 +36,10 @@ class W_DlOpenLibObject(W_LibObject):
                         self.libname)
         try:
             cdata = dlsym(self.libhandle, name)
+            found = bool(cdata)
         except KeyError:
+            found = False
+        if not found:
             raise oefmt(self.ffi.w_FFIError,
                         "symbol '%s' not found in library '%s'",
                         name, self.libname)

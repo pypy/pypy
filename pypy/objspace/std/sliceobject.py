@@ -211,26 +211,15 @@ def adapt_lower_bound(space, size, w_index):
     assert index >= 0
     return index
 
-def adapt_bound(space, size, w_index):
-    index = adapt_lower_bound(space, size, w_index)
-    if index > size:
-        index = size
-    assert index >= 0
-    return index
-
-@specialize.arg(4)
-def unwrap_start_stop(space, size, w_start, w_end, upper_bound=False):
+def unwrap_start_stop(space, size, w_start, w_end):
     if space.is_none(w_start):
         start = 0
-    elif upper_bound:
-        start = adapt_bound(space, size, w_start)
     else:
         start = adapt_lower_bound(space, size, w_start)
 
     if space.is_none(w_end):
         end = size
-    elif upper_bound:
-        end = adapt_bound(space, size, w_end)
+        assert end >= 0
     else:
         end = adapt_lower_bound(space, size, w_end)
     return start, end

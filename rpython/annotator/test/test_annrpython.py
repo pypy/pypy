@@ -1135,7 +1135,7 @@ class TestAnnotateTestCase:
 
         assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
 
-    def test_isinstance_usigned(self):
+    def test_isinstance_unsigned_1(self):
         def f(x):
             return isinstance(x, r_uint)
         def g():
@@ -1144,6 +1144,18 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(g, [])
         assert s.const == True
+
+    def test_isinstance_unsigned_2(self):
+        class Foo:
+            pass
+        def f(x):
+            return isinstance(x, r_uint)
+        def g():
+            v = Foo()
+            return f(v)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [])
+        assert s.const == False
 
     def test_isinstance_base_int(self):
         def f(x):

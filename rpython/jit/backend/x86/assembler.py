@@ -1333,7 +1333,7 @@ class Assembler386(BaseAssembler):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD32_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)   # zero-extending
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -2434,7 +2434,7 @@ class Assembler386(BaseAssembler):
         while i < nbytes:
             addr = addr_add(base_loc, startindex_loc, baseofs + i, scale)
             current = nbytes - i
-            if current >= 16:
+            if current >= 16 and self.cpu.supports_floats:
                 current = 16
                 if not null_reg_cleared:
                     self.mc.XORPS_xx(null_loc.value, null_loc.value)

@@ -565,7 +565,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'retrace_limit': 5,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
-              'disable_unrolling': 100,
+              'disable_unrolling': 200,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
               }
