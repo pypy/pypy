@@ -25,6 +25,7 @@ class Module(MixedModule):
         'new_function_type': 'newtype.new_function_type',
 
         'newp': 'func.newp',
+        'newp_allocator': 'func.newp_allocator',
         'cast': 'func.cast',
         'callback': 'func.callback',
         'alignof': 'func.alignof',

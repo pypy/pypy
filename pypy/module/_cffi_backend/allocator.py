@@ -10,9 +10,7 @@ class W_Allocator(W_Root):
     _immutable_ = True
 
     def __init__(self, ffi, w_alloc, w_free, should_clear_after_alloc):
-        self.ffi = ffi
-        if w_alloc is not None and ffi.space.is_none(w_alloc): w_alloc = None
-        if w_free  is not None and ffi.space.is_none(w_free):  w_free = None
+        self.ffi = ffi    # may be None
         self.w_alloc = w_alloc
         self.w_free = w_free
         self.should_clear_after_alloc = should_clear_after_alloc
@@ -73,6 +71,17 @@ W_Allocator.typedef = TypeDef(
         __call__ = interp2app(W_Allocator.descr_call),
         )
 W_Allocator.typedef.acceptable_as_base_class = False
+
+
+def new_allocator(space, ffi, w_alloc, w_free, should_clear_after_alloc):
+    if space.is_none(w_alloc):
+        w_alloc = None
+    if space.is_none(w_free):
+        w_free = None
+    if w_alloc is None and w_free is not None:
+        raise oefmt(space.w_TypeError, "cannot pass 'free' without 'alloc'")
+    alloc = W_Allocator(ffi, w_alloc, w_free, bool(should_clear_after_alloc))
+    return space.wrap(alloc)
 
 
 default_allocator = W_Allocator(None, None, None, should_clear_after_alloc=True)

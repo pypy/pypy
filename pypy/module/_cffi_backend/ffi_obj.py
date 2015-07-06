@@ -11,10 +11,9 @@ from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
 from pypy.module._cffi_backend import cbuffer, func, cgc, wrapper
-from pypy.module._cffi_backend import cffi_opcode
+from pypy.module._cffi_backend import cffi_opcode, allocator
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
-from pypy.module._cffi_backend.allocator import W_Allocator, default_allocator
 
 
 ACCEPT_STRING   = 1
@@ -419,7 +418,7 @@ used for a longer time.  Be careful about that when copying the
 pointer to the memory somewhere else, e.g. into another structure."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CTYPE)
-        return w_ctype.newp(w_init, default_allocator)
+        return w_ctype.newp(w_init, allocator.default_allocator)
 
 
     @unwrap_spec(w_alloc=WrappedDefault(None),
@@ -442,11 +441,8 @@ returned by 'alloc' is assumed to be already cleared; otherwise
 CFFI will clear it.
         """
         #
-        if self.space.is_none(w_alloc) and not self.space.is_none(w_free):
-            raise oefmt(self.w_TypeError, "cannot give free without alloc")
-        alloc = W_Allocator(self, w_alloc, w_free,
-                            bool(should_clear_after_alloc))
-        return self.space.wrap(alloc)
+        return allocator.new_allocator(self.space, self, w_alloc, w_free,
+                                       should_clear_after_alloc)
 
 
     def descr_new_handle(self, w_arg):

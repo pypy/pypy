@@ -1,21 +1,20 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._cffi_backend import ctypeobj, cdataobj
-from pypy.module._cffi_backend.allocator import W_Allocator, default_allocator
+from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
 def newp(space, w_ctype, w_init):
-    return w_ctype.newp(w_init, default_allocator)
+    return w_ctype.newp(w_init, allocator.default_allocator)
 
 # ____________________________________________________________
 
 @unwrap_spec(should_clear_after_alloc=int)
-def new_allocator(space, should_clear_after_alloc):
-    alloc = W_Allocator(None, bool(should_clear_after_alloc))
-    return space.wrap(alloc)
+def newp_allocator(space, w_alloc, w_free, should_clear_after_alloc):
+    return allocator.new_allocator(space, None, w_alloc, w_free,
+                                   should_clear_after_alloc)
 
 # ____________________________________________________________
 

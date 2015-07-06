@@ -317,7 +317,7 @@ class AppTestFFIObj:
         assert ffi.typeof(p2) == ffi.typeof("int[]")
         assert ffi.sizeof(p2) == 40
         assert p1[5] == 0
-        assert p2[6] != 0
+        assert p2[6] == ord('X') * 0x01010101
         del p1, p2
         retries = 0
         while len(seen) != 4:
