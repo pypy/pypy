@@ -139,8 +139,6 @@ using the ``--timeout=N`` option.
 Not all operations are supported; e.g. if you type os.readlink('...'),
 the controller crashes with an exception and the subprocess is killed.
 Other operations make the subprocess die directly with a "Fatal RPython
-error".  None of this is a security hole; it just means that if you try
-to run some random program, it risks getting killed depending on the
-Python built-in functions it tries to call.  This is a matter of the
-sandboxing layer being incomplete so far, but it should not really be
-a problem in practice.
+error".  None of this is a security hole.  More importantly, *most other
+built-in modules are not enabled.  Please read all the warnings in this
+page before complaining about this.  Contributions welcome.*
