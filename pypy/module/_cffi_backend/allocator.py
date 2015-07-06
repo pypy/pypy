@@ -16,7 +16,7 @@ class W_Allocator(W_Root):
         self.should_clear_after_alloc = should_clear_after_alloc
 
     def allocate(self, space, datasize, ctype, length=-1):
-        from pypy.module._cffi_backend import cdataobj, ctypeptr, ffi_obj
+        from pypy.module._cffi_backend import cdataobj, ctypeptr
         if self.w_alloc is None:
             if self.should_clear_after_alloc:
                 ptr = lltype.malloc(rffi.CCHARP.TO, datasize,
@@ -29,15 +29,18 @@ class W_Allocator(W_Root):
             w_raw_cdata = space.call_function(self.w_alloc,
                                               space.wrap(datasize))
             if not isinstance(w_raw_cdata, cdataobj.W_CData):
-                raise oefmt(ffi_obj.get_ffi_error(space),
-                            "expected cdata object from the call to %R, "
-                            "got '%T'", self.w_alloc, w_raw_cdata)
+                raise oefmt(space.w_TypeError,
+                            "alloc() must return a cdata object (got %T)",
+                            w_raw_cdata)
             if not isinstance(w_raw_cdata.ctype, ctypeptr.W_CTypePtrOrArray):
-                raise oefmt(ffi_obj.get_ffi_error(space),
-                            "expected cdata pointer from the call to %R, "
-                            "got '%s'", self.w_alloc, w_raw_cdata.ctype.name)
+                raise oefmt(space.w_TypeError,
+                            "alloc() must return a cdata pointer, not '%s'",
+                            w_raw_cdata.ctype.name)
             #
             ptr = w_raw_cdata.unsafe_escaping_ptr()
+            if not ptr:
+                raise oefmt(space.w_MemoryError, "alloc() returned NULL")
+            #
             if self.should_clear_after_alloc:
                 rffi.c_memset(rffi.cast(rffi.VOIDP, ptr), 0,
                               rffi.cast(rffi.SIZE_T, datasize))

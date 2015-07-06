@@ -340,3 +340,30 @@ class AppTestFFIObj:
         assert ffi.typeof(p1) == ffi.typeof("int[10]")
         assert ffi.sizeof(p1) == 40
         assert p1[5] == 0
+
+    def test_ffi_new_allocator_4(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(TypeError, ffi.new_allocator, free=lambda x: None)
+        #
+        def myalloc2(size):
+            raise LookupError
+        alloc2 = ffi.new_allocator(myalloc2)
+        raises(LookupError, alloc2, "int[5]")
+        #
+        def myalloc3(size):
+            return 42
+        alloc3 = ffi.new_allocator(myalloc3)
+        e = raises(TypeError, alloc3, "int[5]")
+        assert str(e.value) == "alloc() must return a cdata object (got int)"
+        #
+        def myalloc4(size):
+            return ffi.cast("int", 42)
+        alloc4 = ffi.new_allocator(myalloc4)
+        e = raises(TypeError, alloc4, "int[5]")
+        assert str(e.value) == "alloc() must return a cdata pointer, not 'int'"
+        #
+        def myalloc5(size):
+            return ffi.NULL
+        alloc5 = ffi.new_allocator(myalloc5)
+        raises(MemoryError, alloc5, "int[5]")
