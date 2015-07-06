@@ -10,6 +10,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN
+from rpython.jit.codewriter import heaptracker
 
 class FakeOptimizer(object):
     optearlyforce = None
@@ -71,3 +72,16 @@ class TestUnroll(BaseTestUnroll):
         assert vs.state[0].level == LEVEL_UNKNOWN
         op = preamble.operations[0]
         assert es.short_boxes == {op: op}
+
+    def test_guard_class(self):
+        loop = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        es, loop, preamble = self.optimize(loop)
+        p0 = loop.inputargs[0]
+        assert (heaptracker.adr2int(self.node_vtable_adr) ==
+                es.exported_infos[p0]._known_class.getint())
+
+

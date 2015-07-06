@@ -285,14 +285,6 @@ class Optimizer(Optimization):
         else:
             zzz
 
-    def setinfo_from_preamble(self, op, old_info):
-        if isinstance(old_info, info.PtrInfo):
-            if op.is_constant():
-                return # nothing we can learn
-            known_class = old_info.get_known_class(self.cpu)
-            if known_class:
-                self.make_constant_class(op, known_class, False)
-
     def get_box_replacement(self, op):
         from rpython.jit.metainterp.optimizeopt.unroll import PreambleOp
 

@@ -3,6 +3,7 @@ import sys
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes
 from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
@@ -34,6 +35,15 @@ class UnrollableOptimizer(Optimizer):
         if preamble_op.info:
             preamble_op.info.make_guards(op, self.optunroll.short)
         return op
+
+    def setinfo_from_preamble(self, op, old_info):
+        op = self.get_box_replacement(op)
+        if isinstance(old_info, info.PtrInfo):
+            if op.is_constant():
+                return # nothing we can learn
+            known_class = old_info.get_known_class(self.cpu)
+            if known_class:
+                self.make_constant_class(op, known_class, False)
 
 
 class UnrollOptimizer(Optimization):
@@ -173,7 +183,11 @@ class UnrollOptimizer(Optimization):
         inparg_mapping = [(start_label.getarg(i), end_args[i])
                           for i in range(len(end_args)) if
                           start_label.getarg(i) is not end_args[i]]
-        return ExportedState(inparg_mapping, virtual_state, [], sb.short_boxes)
+        infos = {}
+        for arg in end_args:
+            infos[arg] = self.optimizer.getinfo(arg)
+        return ExportedState(inparg_mapping, virtual_state, infos,
+                             sb.short_boxes)
 
 
         inputargs = virtual_state.make_inputargs(jump_args, self.optimizer)
@@ -224,7 +238,8 @@ class UnrollOptimizer(Optimization):
         # the mapping between input args (from old label) and what we need
         # to actually emit
         for source, target in exported_state.inputarg_mapping:
-            xxx
+            if source is not target:
+                source.set_forwarded(target)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         for op, preamble_op in exported_state.short_boxes.items():
@@ -232,6 +247,9 @@ class UnrollOptimizer(Optimization):
                 self.pure(op.getopnum(), PreambleOp(op, preamble_op, None))
             else:
                 yyy
+
+        for op, info in exported_state.exported_infos.iteritems():
+            self.optimizer.setinfo_from_preamble(op, info)
         return
         self.inputargs = targetop.getarglist()
         target_token = targetop.getdescr()

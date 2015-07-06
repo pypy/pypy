@@ -513,7 +513,7 @@ def convert_old_style_to_targets(loop, jump):
                       loop.operations
     if not jump:
         assert newloop.operations[-1].getopnum() == rop.JUMP
-        newloop.operations[-1] = ResOperation(rop.LABEL, newloop.operations[-1].getarglist(), descr=FakeDescr())
+        newloop.operations = newloop.operations[:-1]
     return newloop
 
 # ____________________________________________________________

@@ -81,7 +81,6 @@ class BaseTestWithUnroll(BaseTest):
         if expected_preamble:
             self.assert_equal(preamble, convert_old_style_to_targets(expected_preamble, jump=False),
                               text_right='expected preamble')
-            assert preamble.operations[-1].getdescr() == loop.operations[0].getdescr()
         if expected_short:
             short_preamble = TreeLoop('short preamble')
             assert short[0].getopnum() == rop.LABEL
