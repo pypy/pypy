@@ -427,15 +427,15 @@ pointer to the memory somewhere else, e.g. into another structure."""
     def descr_new_allocator(self, w_alloc, w_free,
                             should_clear_after_alloc=1):
         """\
-Return a new allocator.
+Return a new allocator, i.e. a function that behaves like ffi.new()
+but uses the provided low-level 'alloc' and 'free' functions.
 
 'alloc' is called with the size as argument.  If it returns NULL, a
 MemoryError is raised.  'free' is called with the result of 'alloc'
 as argument.  Both can be either Python function or directly C
-functions.  If 'free' is explicitly set to None, then no free function
-is called.
-
+functions.  If 'free' is None, then no free function is called.
 If both 'alloc' and 'free' are None, the default is used.
+
 If 'should_clear_after_alloc' is set to False, then the memory
 returned by 'alloc' is assumed to be already cleared (or you are
 fine with garbage); otherwise CFFI will clear it.
