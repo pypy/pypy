@@ -32,3 +32,4 @@ have no visible effect!  After ``lst = [42, 42.5]``, the value of
 ``lst[0]`` is still *not* the float ``42.0`` but the integer ``42``.)
 
 .. branch: cffi-callback-onerror
+.. branch: cffi-new-allocator
