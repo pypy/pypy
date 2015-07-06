@@ -115,12 +115,12 @@ class W_LibObject(W_Root):
                 ptr = rffi.cast(rffi.CCHARP, g.c_address)
                 if not ptr:   # for dlopen() style
                     ptr = self.cdlopen_fetch(attr)
-                w_result = cglob.W_GlobSupport(space, w_ct, ptr=ptr)
+                w_result = cglob.W_GlobSupport(space, attr, w_ct, ptr=ptr)
                 #
             elif op == cffi_opcode.OP_GLOBAL_VAR_F:
                 w_ct = realize_c_type.realize_c_type(
                     self.ffi, self.ctx.c_types, getarg(g.c_type_op))
-                w_result = cglob.W_GlobSupport(space, w_ct,
+                w_result = cglob.W_GlobSupport(space, attr, w_ct,
                                                fetch_addr=g.c_address)
                 #
             elif (op == cffi_opcode.OP_CONSTANT_INT or

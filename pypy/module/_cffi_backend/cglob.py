@@ -1,3 +1,4 @@
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._cffi_backend.cdataobj import W_CData
@@ -10,26 +11,34 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 class W_GlobSupport(W_Root):
     _immutable_fields_ = ['w_ctype', 'ptr', 'fetch_addr']
 
-    def __init__(self, space, w_ctype, ptr=lltype.nullptr(rffi.CCHARP.TO),
+    def __init__(self, space, name, w_ctype, ptr=lltype.nullptr(rffi.CCHARP.TO),
                  fetch_addr=lltype.nullptr(rffi.VOIDP.TO)):
         self.space = space
+        self.name = name
         self.w_ctype = w_ctype
         self.ptr = ptr
         self.fetch_addr = fetch_addr
 
     def fetch_global_var_addr(self):
         if self.ptr:
-            return self.ptr
-        if not we_are_translated():
-            FNPTR = rffi.CCallback([], rffi.VOIDP)
-            fetch_addr = rffi.cast(FNPTR, self.fetch_addr)
-            result = fetch_addr()
+            result = self.ptr
         else:
-            # careful in translated versions: we need to call fetch_addr,
-            # but in a GIL-releasing way.  The easiest is to invoke a
-            # llexternal() helper.
-            result = pypy__cffi_fetch_var(self.fetch_addr)
-        return rffi.cast(rffi.CCHARP, result)
+            if not we_are_translated():
+                FNPTR = rffi.CCallback([], rffi.VOIDP)
+                fetch_addr = rffi.cast(FNPTR, self.fetch_addr)
+                result = fetch_addr()
+            else:
+                # careful in translated versions: we need to call fetch_addr,
+                # but in a GIL-releasing way.  The easiest is to invoke a
+                # llexternal() helper.
+                result = pypy__cffi_fetch_var(self.fetch_addr)
+            result = rffi.cast(rffi.CCHARP, result)
+        if not result:
+            from pypy.module._cffi_backend import ffi_obj
+            ffierror = ffi_obj.get_ffi_error(self.space)
+            raise oefmt(ffierror, "global variable '%s' is at address NULL",
+                        self.name)
+        return result
 
     def read_global_var(self):
         return self.w_ctype.convert_to_object(self.fetch_global_var_addr())

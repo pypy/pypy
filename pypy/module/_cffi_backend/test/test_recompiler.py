@@ -1057,3 +1057,22 @@ class AppTestRecompiler:
         assert values[2] == 42
         assert p[-1] == 41
         assert p[+1] == 42
+        #
+        # if get_my_value raises or returns nonsense, the exception is printed
+        # to stderr like with any callback, but then the C expression 'my_value'
+        # expand to '*NULL'.  We assume here that '&my_value' will return NULL
+        # without segfaulting, and check for NULL when accessing the variable.
+        @ffi.callback("int *(*)(void)")
+        def get_my_value():
+            raise LookupError
+        lib.get_my_value = get_my_value
+        raises(ffi.error, getattr, lib, 'my_value')
+        raises(ffi.error, setattr, lib, 'my_value', 50)
+        raises(ffi.error, ffi.addressof, lib, 'my_value')
+        @ffi.callback("int *(*)(void)")
+        def get_my_value():
+            return "hello"
+        lib.get_my_value = get_my_value
+        raises(ffi.error, getattr, lib, 'my_value')
+        e = raises(ffi.error, setattr, lib, 'my_value', 50)
+        assert str(e.value) == "global variable 'my_value' is at address NULL"
