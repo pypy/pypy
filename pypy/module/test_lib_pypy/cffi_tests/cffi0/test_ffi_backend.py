@@ -63,7 +63,7 @@ class TestFFI(backend_tests.BackendTests,
         seen = []
         def myalloc(size):
             seen.append(size)
-            return ffi.new("char[]", "X" * size)
+            return ffi.new("char[]", b"X" * size)
         def myfree(raw):
             seen.append(raw)
         alloc1 = ffi.new_allocator(myalloc, myfree)
@@ -95,7 +95,7 @@ class TestFFI(backend_tests.BackendTests,
         seen = []
         def myalloc(size):
             seen.append(size)
-            return ffi.new("char[]", "X" * size)
+            return ffi.new("char[]", b"X" * size)
         alloc1 = ffi.new_allocator(myalloc)    # no 'free'
         p1 = alloc1("int[10]")
         assert seen == [40]
