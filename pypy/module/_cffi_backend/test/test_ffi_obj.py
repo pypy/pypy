@@ -296,3 +296,46 @@ class AppTestFFIObj:
         else:
             raise AssertionError("cannot seem to get an int[10] not "
                                  "completely cleared")
+
+    def test_ffi_new_allocator_2(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", "X" * size)
+        def myfree(raw):
+            seen.append('free')
+        alloc1 = ffi.new_allocator(myalloc, myfree)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree,
+                                   should_clear_after_alloc=False)
+        p1 = alloc1("int[10]")
+        p2 = alloc2("int[]", 10)
+        assert seen == [40, 40]
+        assert ffi.typeof(p1) == ffi.typeof("int[10]")
+        assert ffi.sizeof(p1) == 40
+        assert ffi.typeof(p2) == ffi.typeof("int[]")
+        assert ffi.sizeof(p2) == 40
+        assert p1[5] == 0
+        assert p2[6] != 0
+        del p1, p2
+        retries = 0
+        while len(seen) != 4:
+            retries += 1
+            assert retries <= 5
+            import gc; gc.collect()
+        assert seen == [40, 40, 'free', 'free']
+
+    def test_ffi_new_allocator_3(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", "X" * size)
+        alloc1 = ffi.new_allocator(myalloc)    # no 'free'
+        p1 = alloc1("int[10]")
+        assert seen == [40]
+        assert ffi.typeof(p1) == ffi.typeof("int[10]")
+        assert ffi.sizeof(p1) == 40
+        assert p1[5] == 0

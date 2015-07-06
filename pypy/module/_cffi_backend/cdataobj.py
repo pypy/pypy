@@ -417,11 +417,16 @@ class W_CDataNewStd(W_CDataNewOwning):
         lltype.free(self._ptr, flavor='raw')
 
 
-class W_CDataMemNonStd(W_CDataNewOwning):
-    """Subclass using a non-standard allocator"""
-    _attrs_ = []
+class W_CDataNewNonStdNoFree(W_CDataNewOwning):
+    """Subclass using a non-standard allocator, no free()"""
+    _attrs_ = ['w_raw_cdata']
 
-    # XXXXXXXXX
+class W_CDataNewNonStdFree(W_CDataNewNonStdNoFree):
+    """Subclass using a non-standard allocator, with a free()"""
+    _attrs_ = ['w_free']
+
+    def __del__(self):
+        self.space.call_function(self.w_free, self.w_raw_cdata)
 
 
 class W_CDataPtrToStructOrUnion(W_CData):

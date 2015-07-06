@@ -422,13 +422,30 @@ pointer to the memory somewhere else, e.g. into another structure."""
         return w_ctype.newp(w_init, default_allocator)
 
 
-    @unwrap_spec(should_clear_after_alloc=int)
-    def descr_new_allocator(self, should_clear_after_alloc=1):
+    @unwrap_spec(w_alloc=WrappedDefault(None),
+                 w_free=WrappedDefault(None),
+                 should_clear_after_alloc=int)
+    def descr_new_allocator(self, w_alloc, w_free,
+                            should_clear_after_alloc=1):
         """\
-Return a new allocator. Xxx
+Return a new allocator.
+
+'alloc' is called with the size as argument.  If it returns NULL, a
+MemoryError is raised.  'free' is called with the result of 'alloc'
+as argument.  Both can be either Python function or directly C
+functions.  If 'free' is explicitly set to None, then no free function
+is called.
+
+If both 'alloc' and 'free' are None, the default is used.
+If 'should_clear_after_alloc' is set to False, then the memory
+returned by 'alloc' is assumed to be already cleared; otherwise
+CFFI will clear it.
         """
         #
-        alloc = W_Allocator(self, bool(should_clear_after_alloc))
+        if self.space.is_none(w_alloc) and not self.space.is_none(w_free):
+            raise oefmt(self.w_TypeError, "cannot give free without alloc")
+        alloc = W_Allocator(self, w_alloc, w_free,
+                            bool(should_clear_after_alloc))
         return self.space.wrap(alloc)
 
 
