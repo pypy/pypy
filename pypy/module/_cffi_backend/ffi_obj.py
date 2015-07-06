@@ -14,6 +14,7 @@ from pypy.module._cffi_backend import cbuffer, func, cgc, wrapper
 from pypy.module._cffi_backend import cffi_opcode
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
+from pypy.module._cffi_backend.allocator import W_Allocator, default_allocator
 
 
 ACCEPT_STRING   = 1
@@ -44,6 +45,10 @@ class FreeCtxObj(object):
 
 
 class W_FFIObject(W_Root):
+    ACCEPT_STRING = ACCEPT_STRING
+    ACCEPT_CTYPE  = ACCEPT_CTYPE
+    ACCEPT_CDATA  = ACCEPT_CDATA
+
     w_gc_wref_remove = None
 
     @jit.dont_look_inside
@@ -414,7 +419,17 @@ used for a longer time.  Be careful about that when copying the
 pointer to the memory somewhere else, e.g. into another structure."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CTYPE)
-        return w_ctype.newp(w_init)
+        return w_ctype.newp(w_init, default_allocator)
+
+
+    @unwrap_spec(should_clear_after_alloc=int)
+    def descr_new_allocator(self, should_clear_after_alloc=1):
+        """\
+Return a new allocator. Xxx
+        """
+        #
+        alloc = W_Allocator(self, bool(should_clear_after_alloc))
+        return self.space.wrap(alloc)
 
 
     def descr_new_handle(self, w_arg):
@@ -600,6 +615,7 @@ W_FFIObject.typedef = TypeDef(
         getctype    = interp2app(W_FFIObject.descr_getctype),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
         new         = interp2app(W_FFIObject.descr_new),
+        new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),

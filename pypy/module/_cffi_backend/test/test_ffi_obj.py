@@ -274,3 +274,25 @@ class AppTestFFIObj:
             import gc
             gc.collect()
         assert seen == [1, 1]
+
+    def test_ffi_new_allocator_1(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        alloc1 = ffi.new_allocator()
+        alloc2 = ffi.new_allocator(should_clear_after_alloc=False)
+        for retry in range(100):
+            p1 = alloc1("int[10]")
+            p2 = alloc2("int[10]")
+            combination = 0
+            for i in range(10):
+                assert p1[i] == 0
+                combination |= p2[i]
+                p1[i] = -42
+                p2[i] = -43
+            if combination != 0:
+                break
+            del p1, p2
+            import gc; gc.collect()
+        else:
+            raise AssertionError("cannot seem to get an int[10] not "
+                                 "completely cleared")

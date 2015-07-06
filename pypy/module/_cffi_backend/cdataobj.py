@@ -365,14 +365,13 @@ class W_CData(W_Root):
 
 
 class W_CDataMem(W_CData):
-    """This is the base class used for cdata objects that own and free
-    their memory.  Used directly by the results of cffi.cast('int', x)
-    or other primitive explicitly-casted types.  It is further subclassed
-    by W_CDataNewOwning."""
+    """This is used only by the results of cffi.cast('int', x)
+    or other primitive explicitly-casted types."""
     _attrs_ = []
 
-    def __init__(self, space, size, ctype):
-        cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
+    def __init__(self, space, ctype):
+        cdata = lltype.malloc(rffi.CCHARP.TO, ctype.size, flavor='raw',
+                              zero=False)
         W_CData.__init__(self, space, cdata, ctype)
 
     @rgc.must_be_light_finalizer
@@ -380,32 +379,49 @@ class W_CDataMem(W_CData):
         lltype.free(self._ptr, flavor='raw')
 
 
-class W_CDataNewOwning(W_CDataMem):
-    """This is the class used for the cata objects created by newp()."""
-    _attrs_ = []
+class W_CDataNewOwning(W_CData):
+    """This is the abstract base class used for cdata objects created
+    by newp().  They create and free their own memory according to an
+    allocator."""
+
+    # the 'length' is either >= 0 for arrays, or -1 for pointers.
+    _attrs_ = ['length']
+    _immutable_fields_ = ['length']
+
+    def __init__(self, space, cdata, ctype, length=-1):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.length = length
 
     def _repr_extra(self):
         return self._repr_extra_owning()
 
-
-class W_CDataNewOwningLength(W_CDataNewOwning):
-    """Subclass with an explicit length, for allocated instances of
-    the C type 'foo[]'."""
-    _attrs_ = ['length']
-    _immutable_fields_ = ['length']
-
-    def __init__(self, space, size, ctype, length):
-        W_CDataNewOwning.__init__(self, space, size, ctype)
-        self.length = length
-
     def _sizeof(self):
-        from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
-        assert isinstance(ctype, ctypearray.W_CTypeArray)
-        return self.length * ctype.ctitem.size
+        if self.length >= 0:
+            from pypy.module._cffi_backend import ctypearray
+            assert isinstance(ctype, ctypearray.W_CTypeArray)
+            return self.length * ctype.ctitem.size
+        else:
+            return ctype.size
 
     def get_array_length(self):
         return self.length
+
+
+class W_CDataNewStd(W_CDataNewOwning):
+    """Subclass using the standard allocator, lltype.malloc()/lltype.free()"""
+    _attrs_ = []
+
+    @rgc.must_be_light_finalizer
+    def __del__(self):
+        lltype.free(self._ptr, flavor='raw')
+
+
+class W_CDataMemNonStd(W_CDataNewOwning):
+    """Subclass using a non-standard allocator"""
+    _attrs_ = []
+
+    # XXXXXXXXX
 
 
 class W_CDataPtrToStructOrUnion(W_CData):
