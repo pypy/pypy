@@ -1,13 +1,13 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._cffi_backend import ctypeobj, cdataobj
+from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
 def newp(space, w_ctype, w_init):
-    return w_ctype.newp(w_init)
+    return w_ctype.newp(w_init, allocator.default_allocator)
 
 # ____________________________________________________________
 

@@ -1249,3 +1249,8 @@ c_memcpy = llexternal("memcpy",
             lltype.Void,
             releasegil=False
         )
+c_memset = llexternal("memset",
+            [VOIDP, lltype.Signed, SIZE_T],
+            lltype.Void,
+            releasegil=False
+        )

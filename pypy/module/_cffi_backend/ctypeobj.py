@@ -55,7 +55,7 @@ class W_CType(W_Root):
     def pack_list_of_items(self, cdata, w_ob):
         return False
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         space = self.space
         raise oefmt(space.w_TypeError,
                     "expected a pointer or array ctype, got '%s'", self.name)

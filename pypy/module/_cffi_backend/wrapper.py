@@ -9,6 +9,7 @@ from pypy.module._cffi_backend.cdataobj import W_CDataPtrToStructOrUnion
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
+from pypy.module._cffi_backend import allocator
 
 
 class W_FunctionWrapper(W_Root):
@@ -74,7 +75,8 @@ class W_FunctionWrapper(W_Root):
             # then internally allocate the struct and pass a pointer to it as
             # a first argument.
             if locs[0] == 'R':
-                w_result_cdata = ctype.fargs[0].newp(space.w_None)
+                w_result_cdata = ctype.fargs[0].newp(space.w_None,
+                                                    allocator.nonzero_allocator)
                 args_w = [w_result_cdata] + args_w
                 prepare_args(space, rawfunctype, args_w, 1)
                 #
@@ -116,7 +118,7 @@ def prepare_args(space, rawfunctype, args_w, start_index):
             # the equivalent of ffi.new()
             if space.is_w(w_arg, space.w_None):
                 continue
-            w_arg = farg.newp(w_arg)
+            w_arg = farg.newp(w_arg, allocator.default_allocator)
         args_w[i] = w_arg
 
 

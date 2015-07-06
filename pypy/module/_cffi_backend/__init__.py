@@ -37,7 +37,6 @@ class Module(MixedModule):
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
         'from_buffer': 'func.from_buffer',
-        'gcp': 'func.gcp',
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',
