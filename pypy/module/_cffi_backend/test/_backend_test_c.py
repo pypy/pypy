@@ -3402,37 +3402,6 @@ def test_dereference_null_ptr():
     py.test.raises(RuntimeError, "p[42]")
     py.test.raises(RuntimeError, "p[42] = -1")
 
-def test_newp_allocator():
-    BChar = new_primitive_type("char")
-    BCharPtr = new_pointer_type(BChar)
-    BCharArray = new_array_type(BCharPtr, None)
-    BInt = new_primitive_type("int")
-    BIntPtr = new_pointer_type(BInt)
-    seen = []
-    def myalloc(size):
-        seen.append(size)
-        return newp(BCharArray, "#" * size)
-    def myfree(raw):
-        seen.append(raw)
-    alloc1 = newp_allocator(None, None, True)
-    alloc2 = newp_allocator(myalloc, myfree, False)
-    p1 = alloc1(BIntPtr)
-    p2 = alloc2(BIntPtr)
-    assert typeof(p1) is BIntPtr
-    assert typeof(p2) is BIntPtr
-    assert p1[0] == 0
-    assert p2[0] == ord('#') * 0x01010101
-    assert seen == [sizeof(BInt)]
-    raw2 = cast(BCharPtr, p2)
-    del p1, p2
-    retries = 0
-    while len(seen) != 2:
-        retries += 1
-        assert retries <= 5
-        import gc; gc.collect()
-    assert seen == [sizeof(BInt), raw2]
-    assert repr(seen[1]) == "<cdata 'char[]' owning 5 bytes>"
-
 def test_version():
     # this test is here mostly for PyPy
     assert __version__ == "1.2.0"

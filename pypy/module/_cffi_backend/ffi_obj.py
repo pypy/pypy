@@ -437,11 +437,11 @@ is called.
 
 If both 'alloc' and 'free' are None, the default is used.
 If 'should_clear_after_alloc' is set to False, then the memory
-returned by 'alloc' is assumed to be already cleared; otherwise
-CFFI will clear it.
+returned by 'alloc' is assumed to be already cleared (or you are
+fine with garbage); otherwise CFFI will clear it.
         """
         #
-        return allocator.new_allocator(self.space, self, w_alloc, w_free,
+        return allocator.new_allocator(self, w_alloc, w_free,
                                        should_clear_after_alloc)
 
 

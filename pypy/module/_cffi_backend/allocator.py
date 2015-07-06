@@ -54,15 +54,9 @@ class W_Allocator(W_Root):
 
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_call(self, space, w_arg, w_init):
-        from pypy.module._cffi_backend.ctypeobj import W_CType
-        if isinstance(w_arg, W_CType):
-            w_ctype = w_arg
-        else:
-            ffi = self.ffi
-            if ffi is None:
-                raise oefmt(space.w_TypeError,
-                            "expected a ctype object, got '%T'", w_arg)
-            w_ctype = ffi.ffi_type(w_arg, ffi.ACCEPT_STRING)
+        ffi = self.ffi
+        assert ffi is not None
+        w_ctype = ffi.ffi_type(w_arg, ffi.ACCEPT_STRING | ffi.ACCEPT_CTYPE)
         return w_ctype.newp(w_init, self)
 
 
@@ -73,7 +67,8 @@ W_Allocator.typedef = TypeDef(
 W_Allocator.typedef.acceptable_as_base_class = False
 
 
-def new_allocator(space, ffi, w_alloc, w_free, should_clear_after_alloc):
+def new_allocator(ffi, w_alloc, w_free, should_clear_after_alloc):
+    space = ffi.space
     if space.is_none(w_alloc):
         w_alloc = None
     if space.is_none(w_free):

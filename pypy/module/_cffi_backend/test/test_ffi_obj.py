@@ -302,7 +302,7 @@ class AppTestFFIObj:
             seen.append(size)
             return ffi.new("char[]", "X" * size)
         def myfree(raw):
-            seen.append('free')
+            seen.append(raw)
         alloc1 = ffi.new_allocator(myalloc, myfree)
         alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree,
                                    should_clear_after_alloc=False)
@@ -315,13 +315,17 @@ class AppTestFFIObj:
         assert ffi.sizeof(p2) == 40
         assert p1[5] == 0
         assert p2[6] == ord('X') * 0x01010101
+        raw1 = ffi.cast("char *", p1)
+        raw2 = ffi.cast("char *", p2)
         del p1, p2
         retries = 0
         while len(seen) != 4:
             retries += 1
             assert retries <= 5
             import gc; gc.collect()
-        assert seen == [40, 40, 'free', 'free']
+        assert seen == [40, 40, raw1, raw2]
+        assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
+        assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 
     def test_ffi_new_allocator_3(self):
         import _cffi_backend as _cffi1_backend

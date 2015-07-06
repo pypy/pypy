@@ -11,13 +11,6 @@ def newp(space, w_ctype, w_init):
 
 # ____________________________________________________________
 
-@unwrap_spec(should_clear_after_alloc=int)
-def newp_allocator(space, w_alloc, w_free, should_clear_after_alloc):
-    return allocator.new_allocator(space, None, w_alloc, w_free,
-                                   should_clear_after_alloc)
-
-# ____________________________________________________________
-
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def cast(space, w_ctype, w_ob):
     return w_ctype.cast(w_ob)
