@@ -52,7 +52,6 @@ class LoopCompileData(CompileData):
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.optimize_preamble(self.start_label, self.end_label,
                                          self.operations)
-            xxx
         else:
             xxx
 
@@ -68,10 +67,31 @@ class SimpleCompileData(CompileData):
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 
+        assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.propagate_all_forward(self.start_label.getarglist(),
                                          self.operations,
                                          self.call_pure_results)
+
+class UnrolledLoopData(CompileData):
+    """ This represents label() ops jump with extra info that's from the
+    run of LoopCompileData
+    """
+    def __init__(self, start_label, end_jump, operations, state,
+                 call_pure_results=None):
+        self.start_label = start_label
+        self.end_jump = end_jump
+        self.operations = operations
+        self.state = state
+        self.call_pure_results = call_pure_results
+
+    def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
+        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
+
+        assert unroll # we should not be here if it's disabled
+        opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
+        return opt.optimize_peeled_loop(self.start_label, self.end_jump,
+                                        self.operations, self.state)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging

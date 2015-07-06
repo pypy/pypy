@@ -418,8 +418,36 @@ class BaseTest(object):
         compile_data.forget_optimization_info()
         return state
 
+    def _convert_call_pure_results(self, d):
+        from rpython.jit.metainterp.optimizeopt.util import args_dict
+
+        if d is None:
+            return
+        call_pure_results = args_dict()
+        for k, v in d.items():
+            call_pure_results[list(k)] = v
+        return call_pure_results
+
     def unroll_and_optimize(self, loop, call_pure_results=None):
-        xxx
+        jump_op = loop.operations[-1]
+        assert jump_op.getopnum() == rop.JUMP
+        ops = loop.operations[:-1]
+        start_label = ResOperation(rop.LABEL, loop.inputargs)
+        end_label = jump_op.copy_and_change(opnum=rop.LABEL)
+        preamble_data = compile.LoopCompileData(start_label, end_label, ops)
+        start_state, preamble_ops = self._do_optimize_loop(preamble_data,
+                                                  call_pure_results)
+        preamble_data.forget_optimization_info()
+        loop_data = compile.UnrolledLoopData(end_label, jump_op,
+                                             ops + [jump_op], start_state)
+        _, ops = self._do_optimize_loop(loop_data, call_pure_results)
+        preamble = TreeLoop('preamble')
+        preamble.inputargs = start_label.getarglist()
+        preamble.operations = [start_label] + preamble_ops
+        loop.operations = [end_label] + ops
+        return preamble
+
+    def foo(self):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         self.add_guard_future_condition(loop)
         operations =  loop.operations

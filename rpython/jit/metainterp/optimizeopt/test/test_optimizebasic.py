@@ -73,9 +73,6 @@ class BaseTestBasic(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-        from rpython.jit.metainterp.optimizeopt.util import args_dict
-
-                
         loop = self.parse(ops, postprocess=self.postprocess)
         token = JitCellToken()
         label_op = ResOperation(rop.LABEL, loop.inputargs,
@@ -84,11 +81,7 @@ class BaseTestBasic(BaseTest):
             loop.operations[-1].setdescr(token)
         exp = parse(optops, namespace=self.namespace.copy())
         expected = convert_old_style_to_targets(exp, jump=True)
-        if call_pure_results is not None:
-            d = call_pure_results
-            call_pure_results = args_dict()
-            for k, v in d.items():
-                call_pure_results[list(k)] = v
+        call_pure_results = self._convert_call_pure_results(call_pure_results)
         compile_data = compile.SimpleCompileData(label_op, loop.operations,
                                                  call_pure_results)
         _, ops = self._do_optimize_loop(compile_data)

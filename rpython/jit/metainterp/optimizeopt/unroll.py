@@ -62,6 +62,14 @@ class UnrollOptimizer(Optimization):
         self.optimizer.propagate_all_forward(start_label.getarglist(), ops)
         exported_state = self.export_state(start_label, end_label)
         return exported_state, self.optimizer._newoperations
+
+    def optimize_peeled_loop(self, start_label, end_jump, ops, state):
+        self._check_no_forwarding([[start_label, end_jump], ops])
+        self.import_state(start_label, state)
+        self.optimizer.propagate_all_forward(start_label.getarglist(), ops)
+        return None, self.optimizer._newoperations
+
+    def random_garbage(self):
         # WTF is the rest of this function
         if not jumpop:
             return
@@ -211,12 +219,9 @@ class UnrollOptimizer(Optimization):
         return ExportedState([], [])
 
     def import_state(self, targetop, exported_state):
-        if not targetop: # Trace did not start with a label
-            self.inputargs = self.optimizer.loop.inputargs
-            self.short = None
-            self.initial_virtual_state = None
-            return
-
+        for source, target in exported_state.inputarg_mapping:
+            xxx
+        return
         self.inputargs = targetop.getarglist()
         target_token = targetop.getdescr()
         assert isinstance(target_token, TargetToken)
