@@ -79,6 +79,12 @@ class UnrollOptimizer(Optimization):
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops)
+        jump_args = [self.get_box_replacement(op)
+                     for op in end_jump.getarglist()]
+        jump_args = state.virtual_state.make_inputargs(jump_args,
+                                                       self.optimizer)
+        jump_op = ResOperation(rop.JUMP, jump_args)
+        self.optimizer._newoperations.append(jump_op)
         return None, self.optimizer._newoperations
 
     def random_garbage(self):
@@ -186,7 +192,8 @@ class UnrollOptimizer(Optimization):
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
-        return ExportedState(end_args, inparg_mapping, virtual_state, infos,
+        label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        return ExportedState(label_args, inparg_mapping, virtual_state, infos,
                              sb.short_boxes)
 
 

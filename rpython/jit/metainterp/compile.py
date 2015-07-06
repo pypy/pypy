@@ -75,7 +75,7 @@ class SimpleCompileData(CompileData):
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
-    run of LoopCompileData
+    run of LoopCompileData. Jump goes to the same label
     """
     def __init__(self, start_label, end_jump, operations, state,
                  call_pure_results=None):

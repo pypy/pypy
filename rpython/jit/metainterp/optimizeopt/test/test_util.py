@@ -445,12 +445,14 @@ class BaseTest(object):
         preamble_data.forget_optimization_info()
         end_label = ResOperation(rop.LABEL, start_state.end_args)
         loop_data = compile.UnrolledLoopData(end_label, jump_op,
-                                             ops + [jump_op], start_state)
+                                             ops, start_state)
         _, ops = self._do_optimize_loop(loop_data, call_pure_results)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_label.getarglist()
         preamble.operations = [start_label] + preamble_ops
-        loop.operations = [end_label] + ops
+        emit_end_label = ResOperation(rop.LABEL, start_state.end_args)
+        loop.inputargs = start_state.end_args
+        loop.operations = [emit_end_label] + ops
         return Info(preamble)
 
     def foo(self):
