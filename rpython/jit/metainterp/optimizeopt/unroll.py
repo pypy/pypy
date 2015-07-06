@@ -36,6 +36,8 @@ class UnrollableOptimizer(Optimizer):
             imp.import_value(value)
 
     def emit_operation(self, op):
+        if op.getopnum() == rop.GUARD_EARLY_EXIT:
+            return
         if op.returns_bool_result():
             self.bool_boxes[self.getvalue(op.result)] = None
         if self.emitting_dissabled:

@@ -137,7 +137,9 @@ class Node(object):
 
     def exits_early(self):
         if self.op.is_guard():
-            return isinstance(self.op.getdescr(), compile.ResumeAtLoopHeaderDescr)
+            descr = self.op.getdescr()
+            return isinstance(descr, compile.ResumeAtLoopHeaderDescr) or \
+                   isinstance(descr, compile.CompileLoopVersionDescr)
         return False
 
     def is_guard_early_exit(self):
@@ -292,7 +294,10 @@ class Node(object):
         return None
 
     def __repr__(self):
-        return "Node(opidx: %d)" % self.opidx
+        pack = ''
+        if self.pack:
+            pack = "p: %d" % self.pack.opcount()
+        return "Node(%s,%s i: %d)" % (self.op.getopname(), pack, self.opidx)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -625,7 +630,8 @@ class DependencyGraph(object):
         self.guard_argument_protection(guard_node, tracker)
         #
         descr = guard_op.getdescr()
-        if isinstance(descr, compile.ResumeAtLoopHeaderDescr):
+        if isinstance(descr, compile.ResumeAtLoopHeaderDescr) or \
+           isinstance(descr, compile.CompileLoopVersionDescr):
             return
         # handle fail args
         if guard_op.getfailargs():

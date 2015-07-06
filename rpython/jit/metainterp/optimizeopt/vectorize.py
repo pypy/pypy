@@ -168,6 +168,8 @@ class VectorizingOptimizer(Optimizer):
     def emit_operation(self, op):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             return
+        if op.getopnum() == rop.GUARD_EARLY_EXIT:
+            return
         self._last_emitted_op = op
         self._newoperations.append(op)
 
@@ -196,7 +198,7 @@ class VectorizingOptimizer(Optimizer):
 
         self.emit_unrolled_operation(label_op)
 
-        self.orig_loop_version.calling_args = label_op.getarglist()
+        self.orig_loop_version.parent_trace_label_args = label_op.getarglist()[:]
 
         renamer = Renamer()
         oi = 0
@@ -583,9 +585,9 @@ class VectorizingOptimizer(Optimizer):
                         label_node.edge_to(last_but_one, label='pullup')
                 # only the last guard needs a connection
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
-                self.relax_guard_to(guard_node, ee_guard_node)
+                self.relax_guard_to(guard_node, ee_guard_node, label_node)
 
-    def relax_guard_to(self, guard_node, other_node):
+    def relax_guard_to(self, guard_node, other_node, label_node):
         """ Relaxes a guard operation to an earlier guard. """
         # clone this operation object. if the vectorizer is
         # not able to relax guards, it won't leave behind a modified operation
@@ -599,12 +601,14 @@ class VectorizingOptimizer(Optimizer):
         descr = CompileLoopVersionDescr()
         if olddescr:
             descr.copy_all_attributes_from(olddescr)
-        self.orig_loop_version.inputargs = op.getfailargs()
-        self.orig_loop_version.adddescr(descr)
         #
         tgt_op.setdescr(descr)
         tgt_op.rd_snapshot = op.rd_snapshot
         tgt_op.setfailargs(op.getfailargs())
+        if tgt_op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+            self.orig_loop_version.adddescr(tgt_op, descr)
+            tgt_op.setfailargs(label_node.getoperation().getarglist()[:])
+            tgt_op.rd_snapshot = None
 
 
 class CostModel(object):
@@ -849,6 +853,7 @@ class PackSet(object):
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
+            import pdb; pdb.set_trace()
             accum = pack.accum
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()

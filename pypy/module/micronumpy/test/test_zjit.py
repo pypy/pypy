@@ -130,7 +130,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_dot_matrix(self):
         result = self.run("dot_matrix")
         assert int(result) == 86
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 1)
 
     def define_float32_copy():
         return """
@@ -529,13 +529,13 @@ class TestNumpyJit(Jit386Mixin):
         result = self.run("prod")
         assert int(result) == 576
         self.check_trace_count(1)
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 1)
 
     def test_prod_zero(self):
         result = self.run("prod_zero")
         assert int(result) == 0
         self.check_trace_count(1)
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 1)
 
 
     def define_max():
@@ -768,7 +768,7 @@ class TestNumpyJit(Jit386Mixin):
         result = self.run("setslice")
         assert result == 5.5
         self.check_trace_count(1)
-        self.check_vectorized(1, 1)
+        self.check_vectorized(2, 1)
 
     def define_virtual_slice():
         return """
@@ -834,7 +834,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_dot(self):
         result = self.run("dot")
         assert result == 184
-        self.check_trace_count(5)
+        self.check_trace_count(4)
         self.check_vectorized(3,1)
 
     def define_argsort():
@@ -848,7 +848,7 @@ class TestNumpyJit(Jit386Mixin):
         result = self.run("argsort")
         assert result == 6
         self.check_trace_count(1)
-        self.check_vectorized(1,1) # vec. setslice
+        self.check_vectorized(2,1) # vec. setslice
 
     def define_where():
         return """
@@ -909,7 +909,7 @@ class TestNumpyJit(Jit386Mixin):
         result = self.run("slice")
         assert result == 18
         self.check_trace_count(1)
-        self.check_vectorized(1,1)
+        self.check_vectorized(2,1)
 
     def define_multidim_slice():
         return """

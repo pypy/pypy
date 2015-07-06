@@ -702,17 +702,24 @@ class LoopVersion(object):
         self.aligned = aligned
         self.faildescrs = []
         #
-        label = self.operations[0]
+        i = 0
+        label = self.operations[i]
+        while i < len(self.operations):
+            label = self.operations[i]
+            if label.getopnum() == rop.LABEL:
+                break
+            i += 1
         assert label.getopnum() == rop.LABEL
-        self.enter_args = label.getarglist()
-        self.calling_args = None
+        self.label_pos = i
+        self.parent_trace_label_args = None
+        self.bridge_label_args = label.getarglist()
         self.inputargs = None
 
-    def adddescr(self, descr):
-        self.faildescrs.append(descr)
+    def adddescr(self, op, descr):
+        self.faildescrs.append((op, descr))
 
     def update_token(self, jitcell_token):
-        label = self.operations[0]
+        label = self.operations[self.label_pos]
         jump = self.operations[-1]
         #
         assert label.getopnum() == rop.LABEL
@@ -722,14 +729,15 @@ class LoopVersion(object):
         token.original_jitcell_token = jitcell_token
         label.setdescr(token)
         jump.setdescr(token)
+
+        assert len(self.bridge_label_args) <= len(self.parent_trace_label_args)
+        for i in range(len(self.bridge_label_args)):
+            arg = self.parent_trace_label_args[i]
+            if isinstance(arg, BoxVectorAccum):
+                self.bridge_label_args[i] = arg
+        self.inputargs = self.bridge_label_args
+
         return token
-
-    def update_inputargs(self):
-        assert len(self.enter_args) == len(self.inputargs)
-        rename = { a: b for a,b in zip(self.enter_args, self.calling_args) }
-        for i, arg in enumerate(self.inputargs):
-            self.inputargs[i] = rename[arg]
-
 
 class TreeLoop(object):
     inputargs = None
@@ -791,10 +799,21 @@ class TreeLoop(object):
     def check_consistency_of(inputargs, operations):
         for box in inputargs:
             assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
-        seen = dict.fromkeys(inputargs)
+        seen = TreeLoop.seen_args(inputargs)
         assert len(seen) == len(inputargs), (
                "duplicate Box in the Loop.inputargs")
         TreeLoop.check_consistency_of_branch(operations, seen)
+
+    @staticmethod
+    def seen_args(inputargs):
+        seen = {}
+        for arg in inputargs:
+            if isinstance(arg, BoxVectorAccum):
+                seen[arg.scalar_var] = None
+                seen[arg] = None
+            else:
+                seen[arg] = None
+        return seen
 
     @staticmethod
     def check_consistency_of_branch(operations, seen):

@@ -189,19 +189,25 @@ def compile_loop(metainterp, greenkey, start,
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
 
-    generate_pending_loop_versions(loop, jitdriver_sd, metainterp_sd, jitcell_token)
+    generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token)
 
     return all_target_tokens[0]
 
-def generate_pending_loop_versions(loop, jitdriver_sd, metainterp_sd, jitcell_token):
+def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token):
+    metainterp_sd = metainterp.staticdata
     if loop.versions is not None:
         token = jitcell_token
         for version in loop.versions:
-            version.update_inputargs()
-            for faildescr  in version.faildescrs:
+            versioned_loop = create_empty_loop(metainterp)
+            versioned_loop.inputargs = version.inputargs
+            versioned_loop.operations = version.operations
+            versioned_loop.original_jitcell_token = jitcell_token
+            for _, faildescr  in version.faildescrs:
                 send_bridge_to_backend(jitdriver_sd, metainterp_sd,
                                        faildescr, version.inputargs,
                                        version.operations, jitcell_token)
+                versioned_loop.original_jitcell_token = jitcell_token
+                record_loop_or_bridge(metainterp_sd, versioned_loop)
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
@@ -395,8 +401,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
     if not we_are_translated():
         show_procedures(metainterp_sd)
-        seen = dict.fromkeys(inputargs)
-        TreeLoop.check_consistency_of_branch(operations, seen)
+        TreeLoop.check_consistency_of_branch(operations, TreeLoop.seen_args(inputargs))
     if metainterp_sd.warmrunnerdesc is not None:
         hooks = metainterp_sd.warmrunnerdesc.hooks
         debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,

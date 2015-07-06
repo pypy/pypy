@@ -63,7 +63,7 @@ class VectorizeTests:
     @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,500,501,502,1300])
     def test_vectorize_array_get_set(self,i):
         myjitdriver = JitDriver(greens = [],
-                                reds = ['i','d','va','vb','vc'],
+                                reds = 'auto',
                                 vectorize=True)
         T = lltype.Array(rffi.INT, hints={'nolength': True})
         def f(d):
@@ -75,8 +75,7 @@ class VectorizeTests:
                 va[j] = rffi.r_int(j)
                 vb[j] = rffi.r_int(j)
             while i < d:
-                myjitdriver.can_enter_jit(i=i, d=d, va=va, vb=vb, vc=vc)
-                myjitdriver.jit_merge_point(i=i, d=d, va=va, vb=vb, vc=vc)
+                myjitdriver.jit_merge_point()
 
                 a = va[i]
                 b = vb[i]
