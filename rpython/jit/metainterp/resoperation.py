@@ -92,6 +92,9 @@ class AbstractResOp(AbstractValue):
     def getarglist(self):
         raise NotImplementedError
 
+    def getarglist_copy(self):
+        return self.getarglist()
+
     def getarg(self, i):
         raise NotImplementedError
 
@@ -131,7 +134,7 @@ class AbstractResOp(AbstractValue):
         from rpython.jit.metainterp.history import DONT_CHANGE
         
         if args is None:
-            args = self.getarglist()
+            args = self.getarglist_copy()
         if descr is None:
             descr = self.getdescr()
         if descr is DONT_CHANGE:
@@ -590,6 +593,9 @@ class N_aryOp(object):
 
     def getarglist(self):
         return self._args
+
+    def getarglist_copy(self):
+        return self._args[:]
 
     def numargs(self):
         return len(self._args)

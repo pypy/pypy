@@ -71,14 +71,14 @@ class UnrollOptimizer(Optimization):
     
     def optimize_preamble(self, start_label, end_label, ops):
         self._check_no_forwarding([[start_label, end_label], ops])
-        self.optimizer.propagate_all_forward(start_label.getarglist(), ops)
+        self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops)
         exported_state = self.export_state(start_label, end_label)
         return exported_state, self.optimizer._newoperations
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
-        self.optimizer.propagate_all_forward(start_label.getarglist(), ops)
+        self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops)
         return None, self.optimizer._newoperations
 
     def random_garbage(self):
@@ -186,7 +186,7 @@ class UnrollOptimizer(Optimization):
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
-        return ExportedState(inparg_mapping, virtual_state, infos,
+        return ExportedState(end_args, inparg_mapping, virtual_state, infos,
                              sb.short_boxes)
 
 
@@ -696,8 +696,9 @@ class ExportedState(object):
     * short boxes - a mapping op -> preamble_op
     """
     
-    def __init__(self, inputarg_mapping, virtual_state, exported_infos,
-                 short_boxes):
+    def __init__(self, end_args, inputarg_mapping, virtual_state,
+                 exported_infos, short_boxes):
+        self.end_args = end_args
         self.inputarg_mapping = inputarg_mapping
         self.virtual_state = virtual_state
         self.exported_infos = exported_infos

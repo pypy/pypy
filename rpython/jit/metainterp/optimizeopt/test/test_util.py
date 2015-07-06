@@ -443,6 +443,7 @@ class BaseTest(object):
         start_state, preamble_ops = self._do_optimize_loop(preamble_data,
                                                   call_pure_results)
         preamble_data.forget_optimization_info()
+        end_label = ResOperation(rop.LABEL, start_state.end_args)
         loop_data = compile.UnrolledLoopData(end_label, jump_op,
                                              ops + [jump_op], start_state)
         _, ops = self._do_optimize_loop(loop_data, call_pure_results)

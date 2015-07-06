@@ -466,11 +466,8 @@ class Optimizer(Optimization):
         assert not op.is_call_pure()
         orig_op = op
         op = self.replace_op_with(op, op.getopnum())
-        # XXX look in C and maybe specialize on number of args
         for i in range(op.numargs()):
             arg = self.force_box(op.getarg(i))
-            #self.ensure_imported(value)
-            #    newbox = value.force_box(self)
             op.setarg(i, arg)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():

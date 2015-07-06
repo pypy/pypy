@@ -177,6 +177,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
             """ % expected_value
             self.optimize_loop(ops, expected)
 
+    #def test_cast_1(self):
+    #    xxx
+
     def test_reverse_of_cast_1(self):
         ops = """
         [i0]
@@ -3332,6 +3335,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_int_and_or_with_zero(self):
+        xxx
         ops = """
         [i0, i1]
         i2 = int_and(i0, 0)
@@ -5341,6 +5345,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_lshift_rshift(self):
+        xxx
         ops = """
         [i1, i2, i2b, i1b]
         i3 = int_lshift(i1, i2)
@@ -6214,6 +6219,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_newstr_2(self):
+        xxx
         ops = """
         [i0, i1]
         p1 = newstr(2)
