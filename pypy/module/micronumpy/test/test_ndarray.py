@@ -2781,6 +2781,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.transpose() == b).all()
         assert (a.transpose(None) == b).all()
 
+    def test_transpose_error(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        raises(ValueError, a.transpose, 2, 1)
+        raises(ValueError, a.transpose, 1, 0, 3)
+        raises(ValueError, a.transpose, 1, 0, 1)
+        raises(TypeError, a.transpose, 1, 0, '2')
+
     def test_flatiter(self):
         from numpy import array, flatiter, arange, zeros
         a = array([[10, 30], [40, 60]])

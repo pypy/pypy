@@ -403,12 +403,21 @@ class __extend__(W_NDimArray):
                 len(args_w) == 1 and space.is_none(args_w[0])):
             return self.descr_get_transpose(space)
         else:
+            if len(args_w) != self.ndims():
+                raise oefmt(space.w_ValueError, "axes don't match array")
             axes = []
+            axes_seen = [False] * self.ndims()
             for w_arg in args_w:
                 try:
-                    axes.append(support.index_w(space, w_arg))
+                    axis = support.index_w(space, w_arg)
                 except OperationError:
                     raise oefmt(space.w_TypeError, "an integer is required")
+                if axis < 0 or axis >= self.ndims():
+                    raise oefmt(space.w_ValueError, "invalid axis for this array")
+                if axes_seen[axis] is True:
+                    raise oefmt(space.w_ValueError, "repeated axis in transpose")
+                axes.append(axis)
+                axes_seen[axis] = True
             return self.descr_get_transpose(space, axes)
 
 
