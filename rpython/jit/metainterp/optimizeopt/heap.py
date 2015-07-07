@@ -203,6 +203,7 @@ class OptHeap(Optimization):
             self.next_optimization.propagate_forward(postponed_op)
 
     def produce_potential_short_preamble_ops(self, sb):
+        return
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():
             # XXX Pure operation of boxes that are cached in several places will

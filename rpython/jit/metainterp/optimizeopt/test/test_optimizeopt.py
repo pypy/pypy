@@ -530,7 +530,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_ooisnull_oononnull_via_virtual(self):
         ops = """
         [p0]
-        pv = new_with_vtable(ConstClass(node_vtable))
+        pv = new_with_vtable(descr=nodesize)
         setfield_gc(pv, p0, descr=valuedescr)
         guard_nonnull(p0) []
         p1 = getfield_gc_r(pv, descr=valuedescr)
@@ -775,7 +775,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p2, p3]
         i3 = getfield_gc_i(p3, descr=valuedescr)
         escape_n(i3)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """
@@ -789,7 +789,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p2]
         i3 = getfield_gc_i(p2, descr=valuedescr)
         escape_n(i3)
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p3, i1, descr=valuedescr)
         jump(i1, p3)
         """
@@ -801,7 +801,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p2, p3]
         i3 = getfield_gc_i(p3, descr=valuedescr)
         escape_n(i3)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         p1sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p1sub, i1, descr=valuedescr)
@@ -820,7 +820,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p2]
         i3 = getfield_gc_i(p2, descr=valuedescr)
         escape_n(i3)
-        p4 = new_with_vtable(ConstClass(node_vtable))
+        p4 = new_with_vtable(descr=nodesize)
         p1sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p4, i1, descr=valuedescr)
@@ -835,7 +835,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3sub = getfield_gc_r(p3, descr=nextdescr)
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
         escape_n(i3)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
@@ -857,7 +857,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p2, p2sub]
         i3 = getfield_gc_i(p2sub, descr=valuedescr)
         escape_n(i3)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         p3sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
@@ -873,7 +873,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2b = int_is_true(i2)
         guard_true(i2b) []
         setfield_gc(p2, i2, descr=nextdescr)
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         jump(p2, p3)
         """
         preamble = """
@@ -890,7 +890,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_sub(i1, 1)
         i2b = int_is_true(i2)
         guard_true(i2b) []
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p3, i2, descr=nextdescr)
         jump(p3, i2)
         """
@@ -981,7 +981,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i, p0]
         i0 = getfield_gc_i(p0, descr=valuedescr)
         i1 = int_add(i0, i)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i, p1)
         """
@@ -1003,7 +1003,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [f, p0]
         f0 = getfield_gc_f(p0, descr=floatdescr)
         f1 = float_add(f0, f)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, f1, descr=floatdescr)
         jump(f, p1)
         """
@@ -1073,7 +1073,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         i0 = getfield_gc_i(p0, descr=valuedescr)
         guard_value(i0, 0) []
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         # the field 'value' has its default value of 0
         jump(p1)
         """
@@ -1092,7 +1092,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_3(self):
         ops = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         i0 = getfield_gc_i(p1, descr=valuedescr)
         i1 = int_add(i0, 1)
@@ -1112,7 +1112,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i2, descr=valuedescr)
         jump(i3, p1)
         """
@@ -1141,7 +1141,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i0, i1)
         p2 = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2, i1, descr=valuedescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i2, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         jump(i3, p1)
@@ -1235,7 +1235,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_constant_isnull(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(descr=nodesize)
         setfield_gc(p0, NULL, descr=nextdescr)
         p2 = getfield_gc_r(p0, descr=nextdescr)
         i1 = ptr_eq(p2, NULL)
@@ -1254,7 +1254,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_constant_isnonnull(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(node_vtable))
+        p0 = new_with_vtable(descr=nodesize)
         setfield_gc(p0, ConstPtr(myptr), descr=nextdescr)
         p2 = getfield_gc_r(p0, descr=nextdescr)
         i1 = ptr_eq(p2, NULL)
@@ -1270,7 +1270,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        p30 = new_with_vtable(ConstClass(node_vtable))
+        p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
         p45 = getfield_gc_r(p3, descr=valuedescr)
@@ -1281,7 +1281,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, p1, p3]
         i28 = int_add(i0, 1)
         i29 = int_add(i0, 2)
-        p30 = new_with_vtable(ConstClass(node_vtable))
+        p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
         p46 = same_as(p30) # This same_as should be killed by backend
@@ -1291,7 +1291,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, p1, p3]
         i28 = int_add(i0, 1)
         i29 = int_add(i0, 2)
-        p30 = new_with_vtable(ConstClass(node_vtable))
+        p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
         jump(i29, p30, p3)
@@ -1301,7 +1301,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_nonvirtual_1(self):
         ops = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         i0 = getfield_gc_i(p1, descr=valuedescr)
         i1 = int_add(i0, 1)
@@ -1312,7 +1312,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i]
         i1 = int_add(i, 1)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         escape_n(p1)
         escape_n(p1)
@@ -1326,7 +1326,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i0 = getfield_gc_i(p0, descr=valuedescr)
         escape_n(p0)
         i1 = int_add(i0, i)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(i, p1)
         """
@@ -1339,7 +1339,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i, i1]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         escape_n(p1)
         i2 = int_add(i1, i)
@@ -1350,7 +1350,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_nonvirtual_later(self):
         ops = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         i1 = getfield_gc_i(p1, descr=valuedescr)
         escape_n(p1)
@@ -1360,7 +1360,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         escape_n(p1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
@@ -1372,7 +1372,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_nonvirtual_write_null_fields_on_force(self):
         ops = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         i1 = getfield_gc_i(p1, descr=valuedescr)
         setfield_gc(p1, 0, descr=valuedescr)
@@ -1382,7 +1382,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, 0, descr=valuedescr)
         escape_n(p1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
@@ -1393,7 +1393,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_getfield_gc_pure_1(self):
         ops = """
         [i]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
         i1 = getfield_gc_pure_i(p1, descr=valuedescr)
         jump(i1)
@@ -1471,7 +1471,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p31, 0, descr=adescr)
         p33 = new_array(0, descr=arraydescr)
         setfield_gc(p31, p33, descr=bdescr)
-        p35 = new_with_vtable(ConstClass(node_vtable))
+        p35 = new_with_vtable(descr=nodesize)
         setfield_gc(p35, p31, descr=valuedescr)
         jump(p0, p35)
         """
@@ -1487,7 +1487,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p18 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         guard_isnull(p18) [p0, p8]
         p31 = new(descr=ssize)
-        p35 = new_with_vtable(ConstClass(node_vtable))
+        p35 = new_with_vtable(descr=nodesize)
         setfield_gc(p35, p31, descr=valuedescr)
         jump(p0, p35)
         """
@@ -1502,7 +1502,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, p8, p18, p19]
         guard_isnull(p18) [p0, p8]
         p31 = new(descr=ssize)
-        p35 = new_with_vtable(ConstClass(node_vtable))
+        p35 = new_with_vtable(descr=nodesize)
         setfield_gc(p35, p31, descr=valuedescr)
         jump(p0, p35, p19, p18)
         """
@@ -1677,7 +1677,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_varray_forced_1(self):
         ops = """
         []
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, 3, descr=valuedescr)
         i1 = getfield_gc_i(p2, descr=valuedescr)    # i1 = const 3
         p1 = new_array(i1, descr=arraydescr)
@@ -2336,7 +2336,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_duplicate_setfield_5(self):
         ops = """
         [p0, i1]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p0, p1, descr=nextdescr)
         setfield_raw(i1, i1, descr=valuedescr)    # random op with side-effects
@@ -2398,7 +2398,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # a virtual, which we try hard to keep virtual
         ops = """
         [p1, i2, i3]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, p2, descr=nextdescr)
         guard_true(i3) []
         i4 = int_neg(i2)
@@ -2428,7 +2428,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_duplicate_setfield_residual_guard_3(self):
         ops = """
         [p1, i2, i3]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, i2, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
         guard_true(i3) []
@@ -2688,7 +2688,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_duplicate_setfield_virtual(self):
         ops = """
         [p1, i2, i3, p4]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         guard_true(i3) []
@@ -2699,7 +2699,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i2, i3, p4]
         guard_true(i3) [p1, p4]
         i4 = int_neg(i2)
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         i101 = same_as(i4)
@@ -2708,7 +2708,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1, i2, i4, p4, i5]
         guard_true(i4) [p1, p4]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         jump(p1, i2, i5, p4, i5)
@@ -2722,7 +2722,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull(p4) []
         escape_n(p4)
         #
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         p3 = escape_r()
         setfield_gc(p2, p3, descr=nextdescr)
         jump(i0, p2)
@@ -2772,8 +2772,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_class(p3, ConstClass(node_vtable)) []
         setfield_gc(p3, p2, descr=otherdescr)
         p1a = new_with_vtable(ConstClass(node_vtable2))
-        p2a = new_with_vtable(ConstClass(node_vtable))
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p2a = new_with_vtable(descr=nodesize)
+        p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
@@ -2786,7 +2786,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_class(p2, ConstClass(node_vtable)) []
         p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2, descr=otherdescr)
         escape_n(p3a)
         jump(p3a)
@@ -2798,9 +2798,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # p3 = getfield_gc(p1, descr=otherdescr)# p3a
         # setfield_gc(p3, p2, descr=otherdescr) # p3a.other = p2a
         # p1a = new_with_vtable(ConstClass(node_vtable2))
-        # p2a = new_with_vtable(ConstClass(node_vtable))
-        p3anew = new_with_vtable(ConstClass(node_vtable))
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        # p2a = new_with_vtable(descr=nodesize)
+        p3anew = new_with_vtable(descr=nodesize)
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p3a, p2, descr=otherdescr) # p3a.other = p2a
         escape_n(p3anew)
         jump(p3anew)
@@ -2820,9 +2820,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull(12) []
         guard_class(p3, ConstClass(node_vtable)) []
         p1a = new_with_vtable(ConstClass(node_vtable2))
-        p2a = new_with_vtable(ConstClass(node_vtable))
+        p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
         setfield_gc(p1a, p2a, descr=nextdescr)
         setfield_gc(p1a, p3a, descr=otherdescr)
@@ -2836,8 +2836,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
         # p1a = new_with_vtable(ConstClass(node_vtable2))
-        p3a = new_with_vtable(ConstClass(node_vtable))
-        p2a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
+        p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
         escape_n(p3a)
         # setfield_gc(p1a, p2a, descr=nextdescr)
@@ -2846,8 +2846,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p2, p3]
-        p3a = new_with_vtable(ConstClass(node_vtable))
-        p2a = new_with_vtable(ConstClass(node_vtable))
+        p3a = new_with_vtable(descr=nodesize)
+        p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
         escape_n(p3a)
         jump(p2a, p3a)
@@ -2857,7 +2857,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_bug_4(self):
         ops = """
         [p9]
-        p30 = new_with_vtable(ConstClass(node_vtable))
+        p30 = new_with_vtable(descr=nodesize)
         setfield_gc(ConstPtr(myptr), p9, descr=nextdescr)
         jump(p30)
         """
@@ -2868,7 +2868,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         []
-        p30 = new_with_vtable(ConstClass(node_vtable))
+        p30 = new_with_vtable(descr=nodesize)
         setfield_gc(ConstPtr(myptr), p30, descr=nextdescr)
         jump()
         """
@@ -2906,7 +2906,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         guard_isnull(p1) []
         #
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         jump(p2)
         """
         self.raises(InvalidLoop, self.optimize_loop, ops, "crash!")
@@ -2916,7 +2916,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
         #
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         escape_n(p2)      # prevent it from staying Virtual
         jump(p2)
         """
@@ -2928,8 +2928,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_isnull(p2) []
         #
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        p4 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
+        p4 = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p4, descr=nextdescr)
         jump(p3)
         """
@@ -2938,7 +2938,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_invalid_loop_guard_value_of_virtual(self):
         ops = """
         [p1]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         guard_value(p2, ConstPtr(myptr)) []
         jump(p2)
         """
@@ -3277,7 +3277,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_ovf_guard_in_short_preamble1(self):
         ops = """
         [p8, p11, i24]
-        p26 = new_with_vtable(ConstClass(node_vtable))
+        p26 = new_with_vtable(descr=nodesize)
         setfield_gc(p26, i24, descr=adescr)
         i34 = getfield_gc_pure_i(p11, descr=valuedescr)
         i35 = getfield_gc_pure_i(p26, descr=adescr)
@@ -3303,7 +3303,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i22 = getfield_gc_i(p16, descr=nextdescr)
         i23 = int_mul(i17, i22)
         i24 = int_add(i21, i23)
-        p26 = new_with_vtable(ConstClass(node_vtable))
+        p26 = new_with_vtable(descr=nodesize)
         setfield_gc(p26, i24, descr=adescr)
         i28 = int_add(i17, 1)
         setfield_gc(p8, i28, descr=nextdescr)
@@ -3312,7 +3312,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull(p12) []
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
-        p38 = new_with_vtable(ConstClass(node_vtable))
+        p38 = new_with_vtable(descr=nodesize)
         setfield_gc(p38, i36, descr=adescr)
         jump(p8, p11, p26)
         """
@@ -3937,8 +3937,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i1]
         #
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         #
@@ -3963,8 +3963,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_not_forced() [i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3977,8 +3977,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i1]
         #
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         #
@@ -4003,8 +4003,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_not_forced() [p2, i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -4023,8 +4023,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i1]
         #
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        p1b = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
+        p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         #
@@ -4071,7 +4071,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_vref_virtual_after_finish(self):
         ops = """
         [i1]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         p2 = virtual_ref(p1, 7)
         escape_n(p2)
         virtual_ref_finish(p2, p1)
@@ -4086,7 +4086,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape_n(p2)
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         call_may_force_n(i1, descr=mayforcevirtdescr)
@@ -4820,7 +4820,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_no_overflow() []
         i4360p = int_sub_ovf(i4362, 1)
         guard_no_overflow() []
-        p4364 = new_with_vtable(ConstClass(node_vtable))
+        p4364 = new_with_vtable(descr=nodesize)
         setfield_gc(p4364, i4362, descr=valuedescr)
         jump(p4364)
         """
@@ -5341,7 +5341,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_lshift_rshift(self):
-        xxx
         ops = """
         [i1, i2, i2b, i1b]
         i3 = int_lshift(i1, i2)
@@ -5945,7 +5944,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_class(p14, 17273920) []
         guard_class(p14, 17273920) []
 
-        p75 = new_with_vtable(ConstClass(node_vtable))
+        p75 = new_with_vtable(descr=nodesize)
         setfield_gc(p75, p14, descr=inst_w_seq)
         setfield_gc(p75, 0, descr=inst_index)
         guard_class(p75, ConstClass(node_vtable)) []
@@ -6026,7 +6025,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, p1, pinv]
         i1 = getfield_gc_i(pinv, descr=valuedescr)
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, i1, descr=nextdescr)
         """
         py.test.skip("no test here")
@@ -6215,7 +6214,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_strunicode_loop(ops, expected, expected)
 
     def test_newstr_2(self):
-        xxx
         ops = """
         [i0, i1]
         p1 = newstr(2)
@@ -7314,7 +7312,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p19, p20, p21]
         p1 = getfield_gc_r(p20, descr=valuedescr)
         p2 = getfield_gc_r(p1, descr=otherdescr)
-        pv = new_with_vtable(ConstClass(node_vtable))
+        pv = new_with_vtable(descr=nodesize)
         setfield_gc(pv, p19, descr=valuedescr)
         p22 = getfield_gc_r(p19, descr=otherdescr)
         guard_value(p19, ConstPtr(myptr)) []
@@ -7435,7 +7433,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
         ops = """
         [p0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, p0, descr=valuedescr)
         escape_n(p1)
         p2 = getfield_gc_pure_r(p1, descr=valuedescr)
@@ -7444,7 +7442,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, p0, descr=valuedescr)
         escape_n(p1)
         escape_n(p0)
@@ -7457,7 +7455,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1]
         p0 = escape_r()
         i2 = escape_i()
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         setarrayitem_gc(p0, 2, p1, descr=arraydescr)
         guard_true(i2) []
         setarrayitem_gc(p0, 2, p0, descr=arraydescr)
@@ -7476,7 +7474,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_force_virtualizable_virtual(self):
         ops = """
         [i0]
-        p1 = new_with_vtable(ConstClass(node_vtable))
+        p1 = new_with_vtable(descr=nodesize)
         cond_call(1, 123, p1, descr=clear_vable)
         jump(i0)
         """
@@ -7630,7 +7628,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_duplicated_virtual(self):
         ops = """
         [p1, p2]
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         jump(p3, p3)
         """
         expected = """
@@ -7642,7 +7640,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_duplicated_aliased_virtual(self):
         ops = """
         [p1, p2]
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p3, descr=nextdescr)
         p4 = getfield_gc_r(p3, descr=nextdescr)
         jump(p3, p4)
@@ -7658,7 +7656,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, p2, i0]
         i2 = int_lt(i0, 10)
         guard_true(i2) [p1, p2]
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p3, descr=nextdescr)
         p4 = getfield_gc_r(p3, descr=nextdescr)
         i1 = int_add(i0, 1)
@@ -7676,8 +7674,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_chained_virtuals(self):
         ops = """
         [p0, p1]
-        p2 = new_with_vtable(ConstClass(node_vtable))
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p3, descr=nextdescr)
         jump(p2, p3)
         """
@@ -8000,7 +7998,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i11 = getfield_gc_pure_i(p8, descr=valuedescr)
         i13 = int_add_ovf(i11, 1)
         guard_no_overflow() []
-        p22 = new_with_vtable(ConstClass(node_vtable))
+        p22 = new_with_vtable(descr=nodesize)
         setfield_gc(p22, i13, descr=valuedescr)
         setfield_gc(ConstPtr(myptr), p22, descr=adescr)
         jump(p22, p22)
@@ -8010,7 +8008,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call_n(i9, descr=nonwritedescr)
         i13 = int_add_ovf(i9, 1)
         guard_no_overflow() []
-        p22 = new_with_vtable(ConstClass(node_vtable))
+        p22 = new_with_vtable(descr=nodesize)
         setfield_gc(p22, i13, descr=valuedescr)
         setfield_gc(ConstPtr(myptr), p22, descr=adescr)
         jump(p22, i13)
@@ -8293,14 +8291,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = getfield_gc_r(p1, descr=valuedescr)
         guard_nonnull_class(p2, ConstClass(node_vtable)) []
         call_n(p2, descr=nonwritedescr)
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, p3, descr=valuedescr)
         jump(p1)
         """
         expected = """
         [p1, p2]
         call_n(p2, descr=nonwritedescr)
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, p3, descr=valuedescr)
         jump(p1, p3)
         """
@@ -8312,14 +8310,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = getarrayitem_gc_r(p1, 3, descr=arraydescr)
         guard_nonnull_class(p2, ConstClass(node_vtable)) []
         call_n(p2, descr=nonwritedescr)
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setarrayitem_gc(p1, 3, p3, descr=arraydescr)
         jump(p1)
         """
         expected = """
         [p1, p2]
         call_n(p2, descr=nonwritedescr)
-        p3 = new_with_vtable(ConstClass(node_vtable))
+        p3 = new_with_vtable(descr=nodesize)
         setarrayitem_gc(p1, 3, p3, descr=arraydescr)
         jump(p1, p3)
         """
@@ -8455,9 +8453,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p71 = getfield_gc_pure_r(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
 
-        p106 = new_with_vtable(ConstClass(node_vtable))
+        p106 = new_with_vtable(descr=nodesize)
         p108 = new_array(3, descr=arraydescr)
-        p110 = new_with_vtable(ConstClass(node_vtable))
+        p110 = new_with_vtable(descr=nodesize)
         setfield_gc(p110, ConstPtr(myptr2), descr=otherdescr) # inst_w_function
         setarrayitem_gc(p108, 0, p110, descr=arraydescr)
         setfield_gc(p106, p108, descr=nextdescr) # inst_storage

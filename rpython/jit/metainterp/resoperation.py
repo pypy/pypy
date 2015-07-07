@@ -82,6 +82,7 @@ class AbstractResOp(AbstractValue):
         return self._forwarded
 
     def set_forwarded(self, forwarded_to):
+        assert forwarded_to is not self
         self._forwarded = forwarded_to
 
     # methods implemented by the arity mixins

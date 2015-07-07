@@ -325,6 +325,8 @@ class Optimizer(Optimization):
         self._newoperations = []
 
     def make_equal_to(self, op, newop):
+        if op is newop:
+            return
         opinfo = op.get_forwarded()
         if opinfo is not None:
             assert isinstance(opinfo, info.AbstractInfo)
