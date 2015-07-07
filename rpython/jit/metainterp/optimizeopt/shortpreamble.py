@@ -1,5 +1,5 @@
 
-from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers
+from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers
 from rpython.jit.metainterp.history import Const
 
 
