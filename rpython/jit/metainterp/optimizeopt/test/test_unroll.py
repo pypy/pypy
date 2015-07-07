@@ -30,7 +30,6 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
         operations = operations[:-1]
 
         preamble = TreeLoop('preamble')
-        preamble.inputargs = inputargs
 
         token = JitCellToken()
         start_label = ResOperation(rop.LABEL, inputargs, descr=TargetToken(token))
@@ -38,6 +37,7 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
         compile_data = LoopCompileData(start_label, stop_label, operations)
         start_state, newops = self._do_optimize_loop(compile_data)
         preamble.operations = newops
+        preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble
 
 class TestUnroll(BaseTestUnroll):
@@ -80,7 +80,7 @@ class TestUnroll(BaseTestUnroll):
         jump(p0)
         """
         es, loop, preamble = self.optimize(loop)
-        p0 = loop.inputargs[0]
+        p0 = preamble.inputargs[0]
         assert (heaptracker.adr2int(self.node_vtable_adr) ==
                 es.exported_infos[p0]._known_class.getint())
 

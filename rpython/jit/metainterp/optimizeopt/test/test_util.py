@@ -447,7 +447,8 @@ class BaseTest(object):
                                              ops, start_state)
         loop_info, ops = self._do_optimize_loop(loop_data, call_pure_results)
         preamble = TreeLoop('preamble')
-        preamble.inputargs = start_label.getarglist()
+        preamble.inputargs = start_state.renamed_inputargs
+        start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)
         preamble.operations = [start_label] + preamble_ops
         emit_end_label = ResOperation(rop.LABEL, start_state.end_args)
         loop.inputargs = start_state.end_args

@@ -70,15 +70,18 @@ class UnrollOptimizer(Optimization):
     
     def optimize_preamble(self, start_label, end_label, ops):
         self._check_no_forwarding([[start_label, end_label], ops])
-        self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops)
-        exported_state = self.export_state(start_label, end_label)
+        info, newops = self.optimizer.propagate_all_forward(
+            start_label.getarglist()[:], ops)
+        exported_state = self.export_state(start_label, end_label,
+                                           info.inputargs)
         return exported_state, self.optimizer._newoperations
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
         self.short = []
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
-        self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops)
+        self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
+                                             rename_inputargs=False)
         jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
         jump_args = state.virtual_state.make_inputargs(jump_args,
@@ -186,7 +189,7 @@ class UnrollOptimizer(Optimization):
         return stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
 
 
-    def export_state(self, start_label, end_label):
+    def export_state(self, start_label, end_label, renamed_inputargs):
         original_label_args = end_label.getarglist()
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
@@ -200,7 +203,7 @@ class UnrollOptimizer(Optimization):
             infos[arg] = self.optimizer.getinfo(arg)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
         return ExportedState(label_args, inparg_mapping, virtual_state, infos,
-                             sb.short_boxes)
+                             sb.short_boxes, renamed_inputargs)
 
 
         inputargs = virtual_state.make_inputargs(jump_args, self.optimizer)
@@ -716,12 +719,14 @@ class ExportedState(LoopInfo):
     * virtual_state - instance of VirtualState representing current state
                       of virtuals at this label
     * short boxes - a mapping op -> preamble_op
+    * renamed_inputargs - the start label arguments in optimized version
     """
     
     def __init__(self, end_args, inputarg_mapping, virtual_state,
-                 exported_infos, short_boxes):
+                 exported_infos, short_boxes, renamed_inputargs):
         self.end_args = end_args
         self.inputarg_mapping = inputarg_mapping
         self.virtual_state = virtual_state
         self.exported_infos = exported_infos
         self.short_boxes = short_boxes
+        self.renamed_inputargs = renamed_inputargs

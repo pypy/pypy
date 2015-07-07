@@ -433,12 +433,16 @@ class Optimizer(Optimization):
         else:
             return CONST_0
 
-    def propagate_all_forward(self, inputargs, ops, call_pure_results=None):
-        newargs = []
-        for inparg in inputargs:
-            new_arg = OpHelpers.inputarg_from_tp(inparg.type)
-            inparg.set_forwarded(new_arg)
-            newargs.append(new_arg)
+    def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
+                              rename_inputargs=True):
+        if rename_inputargs:
+            newargs = []
+            for inparg in inputargs:
+                new_arg = OpHelpers.inputarg_from_tp(inparg.type)
+                inparg.set_forwarded(new_arg)
+                newargs.append(new_arg)
+        else:
+            newargs = inputargs
         self.init_inparg_dict_from(newargs)
         self.call_pure_results = call_pure_results
         for op in ops:
