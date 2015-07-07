@@ -10,7 +10,8 @@ from rpython.rlib.objectmodel import we_are_translated
 
 LEVEL_UNKNOWN = '\x00'
 LEVEL_NONNULL = '\x01'
-LEVEL_CONSTANT = '\x02'
+LEVEL_KNOWNCLASS = '\x02'
+LEVEL_CONSTANT = '\x03'
 
 class BadVirtualState(Exception):
     pass
@@ -282,11 +283,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     lenbound = None
     intbound = None
     
-    def __init__(self, optimizer, box):
-        info = optimizer.getinfo(box)
+    def __init__(self, type, info):
         if info and info.is_constant():
             self.level = LEVEL_CONSTANT
-        elif box.type == 'r' and info and info.is_nonnull():
+        elif type == 'r' and info and info.is_nonnull():
             self.level = LEVEL_NONNULL
         else:
             self.level = LEVEL_UNKNOWN
@@ -602,7 +602,7 @@ class VirtualStateConstructor(VirtualVisitor):
 
     def visit_not_virtual(self, box):
         is_opaque = box in self.optimizer.opaque_pointers
-        return NotVirtualStateInfo(self.optimizer, box)
+        return NotVirtualStateInfo(box, self.optimizer.getinfo(box))
 
     def visit_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)

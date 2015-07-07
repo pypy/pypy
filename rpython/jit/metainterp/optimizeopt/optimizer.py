@@ -290,8 +290,9 @@ class Optimizer(Optimization):
             return self.getptrinfo(op)
         elif op.type == 'i':
             return self.getintbound(op)
-        else:
-            zzz
+        elif op.type == 'f':
+            if self.get_box_replacement(op).is_constant():
+                return info.FloatConstInfo(self.get_box_replacement(op))
 
     def get_box_replacement(self, op):
         if op is None:

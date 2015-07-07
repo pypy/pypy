@@ -2,7 +2,7 @@ from __future__ import with_statement
 import py
 from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo,\
      VStructStateInfo, LEVEL_CONSTANT,\
-     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes,\
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState,\
      GenerateGuardState, VirtualStatesCantMatch, VArrayStructStateInfo
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
@@ -10,12 +10,13 @@ from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound, ConstIntBound
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp import resume
+from rpython.jit.metainterp.optimizeopt import info
 
 class FakeOptimizer(Optimizer):
     def __init__(self):
@@ -81,7 +82,7 @@ class BaseTestGenerateGuards(BaseTest):
     def test_make_inputargs(self):
         optimizer = FakeOptimizer()
         args = [InputArgInt()]
-        info0 = NotVirtualStateInfo(optimizer, args[0])
+        info0 = NotVirtualStateInfo(args[0], None)
         vs = VirtualState([info0])
         assert vs.make_inputargs(args, optimizer) == args
         info0.level = LEVEL_CONSTANT
@@ -107,9 +108,9 @@ class BaseTestGenerateGuards(BaseTest):
             self.check_invalid(info1, info2, state=state)
             assert info1 in state.bad and info2 in state.bad
 
-        for BoxType in (InputArgInt, InputArgFloat, InputArgPtr):
-            info1 = NotVirtualStateInfo(OptValue(BoxType()))
-            info2 = NotVirtualStateInfo(OptValue(BoxType()))
+        for BoxType in (InputArgInt, InputArgFloat, InputArgRef):
+            info1 = NotVirtualStateInfo(BoxType(), None)
+            info2 = NotVirtualStateInfo(BoxType(), None)
             postest(info1, info2)
 
         info1, info2 = VArrayStateInfo(42), VArrayStateInfo(42)
@@ -125,31 +126,27 @@ class BaseTestGenerateGuards(BaseTest):
         postest(info1, info2)
 
     def test_NotVirtualStateInfo_generalization(self):
-        def isgeneral(value1, value2):
-            info1 = NotVirtualStateInfo(value1)
+        def isgeneral(tp1, info1, tp2, info2):
+            info1 = NotVirtualStateInfo(tp1, info1)
             info1.position = 0
-            info2 = NotVirtualStateInfo(value2)
+            info2 = NotVirtualStateInfo(tp2, info2)
             info2.position = 0
             return VirtualState([info1]).generalization_of(VirtualState([info2]), cpu=self.cpu)
 
-        assert isgeneral(OptValue(BoxInt()), OptValue(ConstInt(7)))
-        assert not isgeneral(OptValue(ConstInt(7)), OptValue(BoxInt()))
+        assert isgeneral('i', None, 'i', ConstIntBound(7))
+        assert not isgeneral('i', ConstIntBound(7), 'i', None)
 
-        ptr = PtrOptValue(BoxPtr())
-        nonnull = PtrOptValue(BoxPtr())
-        nonnull.make_nonnull(None)
-        knownclass = PtrOptValue(BoxPtr())
-        clsbox = self.cpu.ts.cls_of_box(BoxPtr(self.myptr))
-        knownclass.make_constant_class(None, clsbox)
-        const = PtrOptValue(BoxPtr)
-        const.make_constant_class(None, clsbox)
-        const.make_constant(ConstPtr(self.myptr))
+        ptr = info.PtrInfo()
+        nonnull = info.NonNullPtrInfo()
+        clsbox = self.cpu.ts.cls_of_box(InputArgRef(self.myptr))
+        knownclass = info.InstancePtrInfo(known_class=clsbox)
+        const = info.ConstPtrInfo(ConstPtr(self.myptr))
         inorder = [ptr, nonnull, knownclass, const]
         for i in range(len(inorder)):
             for j in range(i, len(inorder)):
-                assert isgeneral(inorder[i], inorder[j])
+                assert isgeneral('r', inorder[i], 'r', inorder[j])
                 if i != j:
-                    assert not isgeneral(inorder[j], inorder[i])
+                    assert not isgeneral('r', inorder[j], 'r', inorder[i])
 
         value1 = IntOptValue(BoxInt())
         value2 = IntOptValue(BoxInt())
