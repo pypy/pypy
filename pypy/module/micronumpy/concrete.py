@@ -268,13 +268,15 @@ class BaseConcreteArray(object):
             view = chunks.apply(space, orig_arr)
             view.implementation.setslice(space, w_value)
 
-    def transpose(self, orig_array):
+    def transpose(self, orig_array, axes=None):
         if len(self.get_shape()) < 2:
             return self
         strides = []
         backstrides = []
         shape = []
-        for i in range(len(self.get_shape()) - 1, -1, -1):
+        if axes is None:
+            axes = range(len(self.get_shape()) - 1, -1, -1)
+        for i in axes:
             strides.append(self.get_strides()[i])
             backstrides.append(self.get_backstrides()[i])
             shape.append(self.get_shape()[i])

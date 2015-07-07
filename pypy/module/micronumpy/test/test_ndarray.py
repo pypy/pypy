@@ -2765,6 +2765,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T
         assert b.shape == (3, 2, 4)
         assert(b[0, :, 0] == [0, 3]).all()
+
+        c = a.transpose((1, 0, 2))
+        assert c.shape == (2, 4, 3)
+        assert (c.transpose(1, 0, 2) == a).all()
+
         b[:, 0, 0] = 1000
         assert(a[0, 0, :] == [1000, 1000, 1000]).all()
         a = array(range(5))
@@ -2775,9 +2780,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert(b[:, 0] == a[0, :]).all()
         assert (a.transpose() == b).all()
         assert (a.transpose(None) == b).all()
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.transpose, (1, 0, 2))
 
     def test_flatiter(self):
         from numpy import array, flatiter, arange, zeros
