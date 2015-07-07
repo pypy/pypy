@@ -20,7 +20,7 @@ static void forksupport_prepare(void)
     s_mutex_lock();
 
     dprintf(("forksupport_prepare\n"));
-    fprintf(stderr, "[forking: for now, this operation can take some time]\n");
+    //fprintf(stderr, "[forking: for now, this operation can take some time]\n");
 
     stm_thread_local_t *this_tl = NULL;
     stm_thread_local_t *tl = stm_all_thread_locals;
