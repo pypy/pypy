@@ -5,7 +5,8 @@ from rpython.jit.metainterp.history import Const, ConstInt, REF, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp
+from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
+     OpHelpers
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -18,6 +19,13 @@ CONST_1      = ConstInt(1)
 CONST_ZERO_FLOAT = Const._new(0.0)
 llhelper.CONST_NULLREF = llhelper.CONST_NULL
 REMOVED = AbstractResOp()
+
+class LoopInfo(object):
+    pass
+
+class BasicLoopInfo(LoopInfo):
+    def __init__(self, inputargs):
+        self.inputargs = inputargs
 
 
 class Optimization(object):
@@ -286,15 +294,9 @@ class Optimizer(Optimization):
             zzz
 
     def get_box_replacement(self, op):
-        from rpython.jit.metainterp.optimizeopt.unroll import PreambleOp
-
-        orig_op = op
         if op is None:
             return op
-        res = op.get_box_replacement()
-        if isinstance(res, PreambleOp):
-            xxx
-        return res
+        return op.get_box_replacement()
 
     def force_box(self, op):
         op = self.get_box_replacement(op)
@@ -432,7 +434,12 @@ class Optimizer(Optimization):
             return CONST_0
 
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None):
-        self.init_inparg_dict_from(inputargs)
+        newargs = []
+        for inparg in inputargs:
+            new_arg = OpHelpers.inputarg_from_tp(inparg.type)
+            inparg.set_forwarded(new_arg)
+            newargs.append(new_arg)
+        self.init_inparg_dict_from(newargs)
         self.call_pure_results = call_pure_results
         for op in ops:
             self._really_emitted_operation = None
@@ -441,7 +448,7 @@ class Optimizer(Optimization):
         #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-        return None, self._newoperations
+        return BasicLoopInfo(newargs), self._newoperations
 
     def send_extra_operation(self, op):
         self.first_optimization.propagate_forward(op)

@@ -3332,7 +3332,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_int_and_or_with_zero(self):
-        xxx
         ops = """
         [i0, i1]
         i2 = int_and(i0, 0)

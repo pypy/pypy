@@ -34,10 +34,12 @@ class AbstractValue(object):
 
     def get_box_replacement(op):
         orig_op = op
+        c = 0
         while (op.get_forwarded() is not None and
                not op.get_forwarded().is_info_class):
+            c += 1
             op = op.get_forwarded()
-        if op is not orig_op:
+        if op is not orig_op and c > 1:
             orig_op.set_forwarded(op)
         return op
 
@@ -1136,3 +1138,13 @@ class OpHelpers(object):
                 opnum == rop.CALL_RELEASE_GIL_R or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def inputarg_from_tp(tp):
+        if tp == 'i':
+            return InputArgInt()
+        elif tp == 'r':
+            return InputArgRef()
+        else:
+            assert tp == 'f'
+            return InputArgFloat()

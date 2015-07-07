@@ -84,7 +84,9 @@ class BaseTestBasic(BaseTest):
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         compile_data = compile.SimpleCompileData(label_op, loop.operations,
                                                  call_pure_results)
-        _, ops = self._do_optimize_loop(compile_data)
+        info, ops = self._do_optimize_loop(compile_data)
+        label_op = ResOperation(rop.LABEL, info.inputargs)
+        loop.inputargs = info.inputargs
         loop.operations = [label_op] + ops
         #print '\n'.join([str(o) for o in loop.operations])
         self.loop = loop

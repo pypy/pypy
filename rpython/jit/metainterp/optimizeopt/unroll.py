@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
-     Optimization
+     Optimization, LoopInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         BadVirtualState, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
@@ -257,7 +257,8 @@ class UnrollOptimizer(Optimization):
         # by short preamble
         for op, preamble_op in exported_state.short_boxes.items():
             if preamble_op.is_always_pure():
-                self.pure(op.getopnum(), PreambleOp(op, preamble_op, None))
+                self.pure(op.getopnum(), PreambleOp(op, preamble_op,
+                                                self.optimizer.getinfo(op)))
             else:
                 yyy
 
@@ -694,8 +695,6 @@ class UnrollOptimizer(Optimization):
                                       'it has at the start of the target loop')
             i += 1
 
-class LoopInfo(object):
-    pass
 
 class UnrollInfo(LoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
