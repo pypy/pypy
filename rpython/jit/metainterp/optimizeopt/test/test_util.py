@@ -455,53 +455,6 @@ class BaseTest(object):
         loop.operations = [emit_end_label] + ops
         return Info(preamble, loop_info.short_preamble)
 
-    def foo(self):
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        self.add_guard_future_condition(loop)
-        operations =  loop.operations
-        jumpop = operations[-1]
-        assert jumpop.getopnum() == rop.JUMP
-        inputargs = loop.inputargs
-
-        jump_args = jumpop.getarglist()[:]
-        operations = operations[:-1]
-
-        preamble = TreeLoop('preamble')
-        preamble.inputargs = inputargs
-
-        token = JitCellToken()
-        preamble.operations = [ResOperation(rop.LABEL, inputargs, descr=TargetToken(token))] + \
-                              operations +  \
-                              [ResOperation(rop.LABEL, jump_args, descr=token)]
-        start_state = self._do_optimize_loop(preamble, call_pure_results,
-                                             export_state=True)
-
-        assert preamble.operations[-1].getopnum() == rop.LABEL
-
-        loop.operations = [preamble.operations[-1]] + \
-                          operations + \
-                          [ResOperation(rop.JUMP, jump_args[:],
-                                        descr=token)]
-        
-        assert loop.operations[-1].getopnum() == rop.JUMP
-        assert loop.operations[0].getopnum() == rop.LABEL
-        loop.inputargs = loop.operations[0].getarglist()
-
-        self._do_optimize_loop(loop, call_pure_results, start_state,
-                               export_state=False)
-        extra_same_as = []
-        while loop.operations[0].getopnum() != rop.LABEL:
-            extra_same_as.append(loop.operations[0])
-            del loop.operations[0]
-
-        # Hack to prevent random order of same_as ops
-        extra_same_as.sort(key=lambda op: str(preamble.operations).find(str(op.getarg(0))))
-
-        for op in extra_same_as:
-            preamble.operations.insert(-1, op)
-
-        return preamble
-
 
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):
