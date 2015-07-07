@@ -5722,5 +5722,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_float_guard_value(self):
+        ops = """
+        [f0]
+        guard_value(f0, 3.5) []
+        guard_value(f0, 3.5) []
+        finish(f0)
+        """
+        expected = """
+        [f0]
+        guard_value(f0, 3.5) []
+        finish(3.5)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

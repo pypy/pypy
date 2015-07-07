@@ -313,6 +313,10 @@ class OptRewrite(Optimization):
                 if old_guard_op is not None:
                     op = self.replace_guard_class_with_guard_value(op, info,
                                                               old_guard_op)
+        elif arg0.type == 'f':
+            arg0 = self.get_box_replacement(arg0)
+            if arg0.is_constant():
+                return
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
