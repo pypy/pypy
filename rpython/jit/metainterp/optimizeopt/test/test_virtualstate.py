@@ -82,7 +82,7 @@ class BaseTestGenerateGuards(BaseTest):
     def test_make_inputargs(self):
         optimizer = FakeOptimizer()
         args = [InputArgInt()]
-        info0 = NotVirtualStateInfo(args[0], None)
+        info0 = NotVirtualStateInfo(self.cpu, args[0].type, None)
         vs = VirtualState([info0])
         assert vs.make_inputargs(args, optimizer) == args
         info0.level = LEVEL_CONSTANT
@@ -109,8 +109,8 @@ class BaseTestGenerateGuards(BaseTest):
             assert info1 in state.bad and info2 in state.bad
 
         for BoxType in (InputArgInt, InputArgFloat, InputArgRef):
-            info1 = NotVirtualStateInfo(BoxType(), None)
-            info2 = NotVirtualStateInfo(BoxType(), None)
+            info1 = NotVirtualStateInfo(self.cpu, BoxType.type, None)
+            info2 = NotVirtualStateInfo(self.cpu, BoxType.type, None)
             postest(info1, info2)
 
         info1, info2 = VArrayStateInfo(42), VArrayStateInfo(42)
@@ -127,9 +127,9 @@ class BaseTestGenerateGuards(BaseTest):
 
     def test_NotVirtualStateInfo_generalization(self):
         def isgeneral(tp1, info1, tp2, info2):
-            info1 = NotVirtualStateInfo(tp1, info1)
+            info1 = NotVirtualStateInfo(self.cpu, tp1, info1)
             info1.position = 0
-            info2 = NotVirtualStateInfo(tp2, info2)
+            info2 = NotVirtualStateInfo(self.cpu, tp2, info2)
             info2.position = 0
             return VirtualState([info1]).generalization_of(VirtualState([info2]), cpu=self.cpu)
 

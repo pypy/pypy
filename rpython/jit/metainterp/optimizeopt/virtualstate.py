@@ -282,14 +282,20 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     lenbound = None
     intbound = None
+    level = LEVEL_UNKNOWN
+    constbox = None
+    known_class = None
     
-    def __init__(self, type, info):
+    def __init__(self, cpu, type, info):
         if info and info.is_constant():
+            self.constbox = info.getconst()
             self.level = LEVEL_CONSTANT
-        elif type == 'r' and info and info.is_nonnull():
-            self.level = LEVEL_NONNULL
-        else:
-            self.level = LEVEL_UNKNOWN
+        elif type == 'r' and info:
+            if info.get_known_class(cpu):
+                self.known_class = info.get_known_class(cpu)
+                self.level = LEVEL_KNOWNCLASS
+            elif info.is_nonnull():
+                self.level = LEVEL_NONNULL
         return
         yyy
         self.level = LEVEL_UNKNOWN
@@ -602,7 +608,8 @@ class VirtualStateConstructor(VirtualVisitor):
 
     def visit_not_virtual(self, box):
         is_opaque = box in self.optimizer.opaque_pointers
-        return NotVirtualStateInfo(box, self.optimizer.getinfo(box))
+        return NotVirtualStateInfo(self.optimizer.cpu, box.type,
+                                   self.optimizer.getinfo(box))
 
     def visit_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)

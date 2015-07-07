@@ -269,6 +269,11 @@ class IntBound(AbstractInfo):
     def make_bool(self):
         self.intersect(IntBound(0, 1))
 
+    def getconst(self):
+        if not self.is_constant():
+            raise Exception("not a constant")
+        return ConstInt(self.getint())
+
     def getnullness(self):
         if self.known_gt(IntBound(0, 0)) or \
            self.known_lt(IntBound(0, 0)):

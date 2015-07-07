@@ -19,6 +19,9 @@ class AbstractInfo(AbstractValue):
     def force_box(self, op, optforce):
         return op
 
+    def getconst(self):
+        raise Exception("not a constant")
+
     
 class PtrInfo(AbstractInfo):
     _attrs_ = ()
@@ -31,6 +34,9 @@ class PtrInfo(AbstractInfo):
 
     def is_virtual(self):
         return False
+
+    def get_known_class(self, cpu):
+        return None
 
     def getnullness(self):
         if self.is_null():
@@ -407,6 +413,9 @@ class ConstPtrInfo(PtrInfo):
     
     def __init__(self, const):
         self._const = const
+
+    def getconst(self):
+        return self._const
 
     def _get_info(self, descr, optheap):
         ref = self._const.getref_base()

@@ -9,7 +9,8 @@ from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
-     NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN
+     NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
+     LEVEL_NONNULL
 from rpython.jit.codewriter import heaptracker
 
 class FakeOptimizer(object):
@@ -81,7 +82,8 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         p0 = preamble.inputargs[0]
-        assert (heaptracker.adr2int(self.node_vtable_adr) ==
-                es.exported_infos[p0]._known_class.getint())
-
-
+        expected_class = heaptracker.adr2int(self.node_vtable_adr)
+        assert expected_class ==es.exported_infos[p0]._known_class.getint()
+        vs = es.virtual_state
+        assert vs.state[0].level == LEVEL_KNOWNCLASS
+        assert vs.state[0].known_class.getint() == expected_class
