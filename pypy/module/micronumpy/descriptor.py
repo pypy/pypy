@@ -198,17 +198,61 @@ class W_Dtype(W_Root):
             size >>= 2
         return space.wrap("%s%s%s" % (endian, basic, size))
 
-    def descr_get_descr(self, space):
+    def descr_get_descr(self, space, style='descr'):
         if not self.is_record():
             return space.newlist([space.newtuple([space.wrap(""),
                                                   self.descr_get_str(space)])])
+        elif self.alignment >= 0 and style != 'descr':
+            # we need to force a sorting order for the keys,
+            # so return a string instead of a dict
+            names = "'names':["
+            formats = "'formats':["
+            offsets = "'offsets':["
+            titles = "'titles':["
+            use_titles = False
+            for name, title in self.names:
+                offset, subdtype = self.fields[name]
+                if subdtype.is_record():
+                    substr = space.str_w(subdtype.descr_get_descr(space, style))
+                elif subdtype.subdtype is not None:
+                    substr = space.str_w(
+                        subdtype.subdtype.descr_get_str(space)).replace('|', '')
+                else:
+                    substr = space.str_w(
+                        subdtype.descr_get_str(space)).replace('|', '')
+                offsets += str(offset)
+                names += "'" + name + "'"
+                titles += "'" + str(title) + "'"
+                if title is not None:
+                    use_titles = True
+                formats += "'" + substr + "',"
+                offsets += ','
+                names += ','
+                titles += ','
+            formats = formats[:-1] + ']'
+            offsets = offsets[:-1] + ']'
+            names = names[:-1] + ']'
+            titles = titles[:-1] + ']'
+            if style == 'str':
+                suffix = ", 'aligned':True}"
+            else:
+                suffix = "}, align=True"
+            if use_titles: 
+                return space.wrap('{' + names + ', ' + formats + ', ' +
+                            offsets + ', ' + "'itemsize':" + str(self.elsize) +
+                            titles + ', ' + suffix)
+            else:
+                return space.wrap('{' + names + ', ' + formats + ', ' +
+                            offsets + ', ' + "'itemsize':" + str(self.elsize) +
+                            suffix)
+            
         else:
             descr = []
             for name, title in self.names:
                 subdtype = self.fields[name][1]
                 subdescr = [space.wrap(name)]
                 if subdtype.is_record():
-                    subdescr.append(subdtype.descr_get_descr(space))
+                    subdescr.append(subdtype.descr_get_descr(space, style))
                 elif subdtype.subdtype is not None:
                     subdescr.append(subdtype.subdtype.descr_get_str(space))
                 else:
@@ -382,7 +426,7 @@ class W_Dtype(W_Root):
 
     def descr_str(self, space):
         if self.fields:
-            return space.str(self.descr_get_descr(space))
+            return space.str(self.descr_get_descr(space, style='str'))
         elif self.subdtype is not None:
             return space.str(space.newtuple([
                 self.subdtype.descr_get_str(space),
@@ -395,7 +439,7 @@ class W_Dtype(W_Root):
 
     def descr_repr(self, space):
         if self.fields:
-            r = self.descr_get_descr(space)
+            r = self.descr_get_descr(space, style='repr')
         elif self.subdtype is not None:
             r = space.newtuple([self.subdtype.descr_get_str(space),
                                 self.descr_get_shape(space)])
