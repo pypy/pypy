@@ -258,7 +258,7 @@ class OpToVectorOp(object):
         self.sched_data = sched_data
         self.preamble_ops = oplist
         self.costmodel = sched_data.costmodel
-        #self.update_input_output(pack)
+        #
         self.input_type = pack.input_type
         self.output_type = pack.output_type
         #
