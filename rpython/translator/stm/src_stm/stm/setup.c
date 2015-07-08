@@ -116,9 +116,6 @@ void stm_setup(void)
         pr->overflow_number = GCFLAG_OVERFLOW_NUMBER_bit0 * i;
         highest_overflow_number = pr->overflow_number;
         pr->pub.transaction_read_version = 0xff;
-
-        pr->sq_fragments = pr->_sq_fragments;
-        pr->sq_fragsizes = pr->_sq_fragsizes;
     }
 
     /* The pages are shared lazily, as remap_file_pages() takes a relatively

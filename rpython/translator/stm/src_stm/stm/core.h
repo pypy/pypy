@@ -151,10 +151,8 @@ struct stm_priv_segment_info_s {
 
     /* The sync queue used to synchronize newly allocated objs to
        other segments */
-    stm_char *_sq_fragments[SYNC_QUEUE_SIZE];
-    int _sq_fragsizes[SYNC_QUEUE_SIZE];
-    stm_char **sq_fragments;   /* indirection to work around a gcc issue */
-    int *sq_fragsizes;
+    stm_char *sq_fragments[SYNC_QUEUE_SIZE];
+    int sq_fragsizes[SYNC_QUEUE_SIZE];
     int sq_len;
 
     /* For nursery_mark */
