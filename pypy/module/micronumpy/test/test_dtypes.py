@@ -1325,7 +1325,6 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert dt.itemsize == 8
         assert dt.alignment == 4
         # Nesting should preserve that alignment
-        print '......'
         dt1 = np.dtype([('f0', 'i4'),
                        ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
                        ('f2', 'i1')], align=True)
@@ -1343,6 +1342,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                        'f2': ('i1', 16)}, align=True)
         assert dt3.itemsize == 20
         assert dt1 == dt2
+        print '+++++++++++++++++'
         assert dt2 == dt3
         # Nesting should preserve packing
         dt1 = np.dtype([('f0', 'i4'),

@@ -733,8 +733,12 @@ def dtype_from_spec(space, w_spec, alignment):
         return descr__new__(space, space.gettypefor(W_Dtype),
                             space.getitem(w_lst, space.wrap(0)), align=alignment>0)
     else:
-        return dtype_from_list(space, w_lst, True, alignment)
-
+        try:
+            return dtype_from_list(space, w_lst, True, alignment)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                return dtype_from_list(space, w_lst, False, alignment)
+            raise
 
 def _check_for_commastring(s):
     if s[0] in string.digits or s[0] in '<>=|' and s[1] in string.digits:
