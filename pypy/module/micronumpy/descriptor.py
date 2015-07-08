@@ -817,7 +817,8 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
         alignment = 0
     else:
         alignment = -1
-    return make_new_dtype(space, w_subtype, w_dtype, alignment, copy=copy, w_shape=w_shape, w_metadata=None)
+    return make_new_dtype(space, w_subtype, w_dtype, alignment, copy=copy,
+                          w_shape=w_shape, w_metadata=w_metadata)
 
 def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=None, w_metadata=None):
     cache = get_dtype_cache(space)
