@@ -8,7 +8,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, Box, VOID,
-    BoxVector, ConstInt, BoxVectorAccum)
+    BoxVector, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import CompileLoopVersionDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory

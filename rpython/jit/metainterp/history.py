@@ -711,9 +711,9 @@ class LoopVersion(object):
             i += 1
         assert label.getopnum() == rop.LABEL
         self.label_pos = i
-        self.parent_trace_label_args = None
-        self.bridge_label_args = label.getarglist()
-        self.inputargs = None
+        #self.parent_trace_label_args = None
+        #self.bridge_label_args = label.getarglist()
+        self.inputargs = label.getarglist()
 
     def adddescr(self, op, descr):
         self.faildescrs.append((op, descr))
@@ -729,14 +729,6 @@ class LoopVersion(object):
         token.original_jitcell_token = jitcell_token
         label.setdescr(token)
         jump.setdescr(token)
-
-        assert len(self.bridge_label_args) <= len(self.parent_trace_label_args)
-        for i in range(len(self.bridge_label_args)):
-            arg = self.parent_trace_label_args[i]
-            if isinstance(arg, BoxVectorAccum):
-                self.bridge_label_args[i] = arg
-                label.setarg(i, arg)
-        self.inputargs = self.bridge_label_args
 
         return token
 
@@ -809,12 +801,22 @@ class TreeLoop(object):
     def seen_args(inputargs):
         seen = {}
         for arg in inputargs:
+            if arg is None:
+                continue
             if isinstance(arg, BoxVectorAccum):
                 seen[arg.scalar_var] = None
-                seen[arg] = None
             else:
                 seen[arg] = None
         return seen
+
+    @staticmethod
+    def check_if_box_was_seen(box, seen):
+        if box is not None:
+            assert isinstance(box, Box)
+            if isinstance(box, BoxVectorAccum):
+                assert box in seen or box.scalar_var in seen
+            else:
+                assert box in seen
 
     @staticmethod
     def check_consistency_of_branch(operations, seen):
@@ -823,16 +825,14 @@ class TreeLoop(object):
             for i in range(op.numargs()):
                 box = op.getarg(i)
                 if isinstance(box, Box):
-                    assert box in seen
+                    TreeLoop.check_if_box_was_seen(box, seen)
             if op.is_guard():
                 assert op.getdescr() is not None
                 if hasattr(op.getdescr(), '_debug_suboperations'):
                     ops = op.getdescr()._debug_suboperations
                     TreeLoop.check_consistency_of_branch(ops, seen.copy())
                 for box in op.getfailargs() or []:
-                    if box is not None:
-                        assert isinstance(box, Box)
-                        assert box in seen
+                    TreeLoop.check_if_box_was_seen(box, seen)
             else:
                 assert op.getfailargs() is None
             box = op.result
@@ -844,8 +844,12 @@ class TreeLoop(object):
                 inputargs = op.getarglist()
                 for box in inputargs:
                     assert isinstance(box, Box), "LABEL contains %r" % (box,)
-                seen = dict.fromkeys(inputargs)
-                assert len(seen) == len(inputargs), (
+                seen = TreeLoop.seen_args(inputargs)
+                seen_count = len(seen)
+                for arg in seen:
+                    if isinstance(arg, BoxVectorAccum):
+                        seen_count -= 1
+                assert seen_count == len(inputargs), (
                     "duplicate Box in the LABEL arguments")
 
         assert operations[-1].is_final()

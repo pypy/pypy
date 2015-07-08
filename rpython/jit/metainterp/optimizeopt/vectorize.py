@@ -8,11 +8,11 @@ See the rpython doc for more high level details.
 import py
 import time
 
-from rpython.jit.metainterp.resume import Snapshot
+from rpython.jit.metainterp.resume import Snapshot, AccumInfo
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import (ResumeAtLoopHeaderDescr,
-        CompileLoopVersionDescr, invent_fail_descr_for_op)
+        CompileLoopVersionDescr, invent_fail_descr_for_op, ResumeGuardDescr)
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
         BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box,
         BoxVectorAccum, LoopVersion)
@@ -30,21 +30,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
-
-def debug_print_operations(loop):
-    """ NOT_RPYTHON """
-    if not we_are_translated():
-        print('--- loop instr numbered ---')
-        def ps(snap):
-            if snap.prev is None:
-                return []
-            return ps(snap.prev) + snap.boxes[:]
-        for i,op in enumerate(loop.operations):
-            print "[",str(i).center(2," "),"]",op,
-            if op.is_guard():
-                print op.getfailargs()
-            else:
-                print ""
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, cost_threshold):
@@ -72,7 +57,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
 
         aligned_vector_version = LoopVersion(loop, aligned=True)
 
-        loop.versions = [orig_version] #, aligned_vector_version]
+        loop.versions = [orig_version]
 
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
@@ -197,8 +182,6 @@ class VectorizingOptimizer(Optimizer):
         assert jump_op.is_final()
 
         self.emit_unrolled_operation(label_op)
-
-        self.orig_loop_version.parent_trace_label_args = label_op.getarglist()[:]
 
         renamer = Renamer()
         oi = 0
@@ -495,6 +478,17 @@ class VectorizingOptimizer(Optimizer):
                 assert node.emitted
         if vector and not self.costmodel.profitable():
             return
+        if vector:
+            # add accumulation info to the descriptor
+            for guard_node in self.dependency_graph.guards:
+                op = guard_node.getoperation()
+                failargs = op.getfailargs()
+                for i,arg in enumerate(failargs):
+                    if isinstance(arg, BoxVectorAccum):
+                        descr = op.getdescr()
+                        assert isinstance(descr,ResumeGuardDescr)
+                        ai = AccumInfo(descr.rd_accum_list, i, arg.operator, arg.scalar_var)
+                        descr.rd_accum_list = ai
         self.loop.operations = \
             sched_data.prepend_invariant_operations(self._newoperations)
         self.clear_newoperations()
@@ -837,10 +831,7 @@ class PackSet(object):
                 # of leading/preceding signext/floatcast instructions needs to be
                 # considered. => tree pattern matching problem.
                 return None
-            operator = Accum.PLUS
-            if opnum == rop.FLOAT_MUL:
-                operator = Accum.MULTIPLY
-            accum = Accum(accum_var, accum_pos, operator)
+            accum = Accum(opnum, accum_var, accum_pos)
             return AccumPair(lnode, rnode, ptype, ptype, accum)
 
         return None

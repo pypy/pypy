@@ -12,6 +12,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem import lltype
 
 # duplicated for easy migration, def in assembler.py as well
 # DUP START
@@ -65,23 +66,21 @@ class VectorAssemblerMixin(object):
         accum_info = faildescr.rd_accum_list
         while accum_info:
             pos = accum_info.position
-            loc = fail_locs[pos]
+            loc = accum_info.loc
+            tgtloc = fail_locs[pos]
+            # the upper elements will be lost if saved to the stack!
             assert isinstance(loc, RegLoc)
-            arg = fail_args[pos]
-            if isinstance(arg, BoxVectorAccum):
-                arg = arg.scalar_var
+            if not isinstance(tgtloc, RegLoc):
+                tgtloc = regalloc.force_allocate_reg(accum_info.box)
+            arg = accum_info.box
             assert arg is not None
-            tgtloc = regalloc.force_allocate_reg(arg, fail_args)
             if accum_info.operation == '+':
-                # reduction using plus
                 self._accum_reduce_sum(arg, loc, tgtloc)
             elif accum_info.operation == '*':
                 self._accum_reduce_mul(arg, loc, tgtloc)
             else:
                 not_implemented("accum operator %s not implemented" %
                                             (accum_info.operation)) 
-            fail_locs[pos] = tgtloc
-            regalloc.possibly_free_var(arg)
             accum_info = accum_info.prev
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):

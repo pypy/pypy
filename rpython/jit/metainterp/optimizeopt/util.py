@@ -222,11 +222,6 @@ class Renamer(object):
                 args = guard.getfailargs()
             for i,arg in enumerate(args):
                 value = self.rename_map.get(arg,arg)
-                if value is not arg and isinstance(value, BoxVectorAccum):
-                    descr = guard.getdescr()
-                    assert isinstance(descr,ResumeGuardDescr)
-                    ai = AccumInfo(descr.rd_accum_list, i, value.operator)
-                    descr.rd_accum_list = ai
                 args[i] = value
             return args
         return None

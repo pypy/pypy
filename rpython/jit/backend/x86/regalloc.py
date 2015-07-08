@@ -26,6 +26,7 @@ from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
     ConstFloat, BoxInt, BoxFloat, BoxVector, BoxVectorAccum, INT, REF,
     FLOAT, VECTOR, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
@@ -304,7 +305,32 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
-        return [self.loc(v) for v in guard_op.getfailargs()]
+        faillocs = []
+        descr = guard_op.getdescr()
+        for v in guard_op.getfailargs():
+            if v is not None and isinstance(v, BoxVectorAccum):
+                loc = self.loc(v.scalar_var)
+                self.update_accumulation_loc(v, descr)
+                faillocs.append(loc)
+            else:
+                faillocs.append(self.loc(v))
+
+        return faillocs
+
+    def update_accumulation_loc(self, accumbox, descr):
+        """ Saves the location to the AccumInfo object.
+        Necessary to reconstruct the values at a guard exit.
+        """
+        box = accumbox.scalar_var
+        assert isinstance(descr, ResumeGuardDescr)
+        accum_info = descr.rd_accum_list
+        while accum_info:
+            if accum_info.box is box:
+                accum_info.loc = self.loc(accumbox)
+                break
+            accum_info = accum_info.prev
+        else:
+            raise AssertionError("accum box has no accum_info entry")
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)

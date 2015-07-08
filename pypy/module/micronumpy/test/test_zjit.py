@@ -528,14 +528,12 @@ class TestNumpyJit(Jit386Mixin):
     def test_prod(self):
         result = self.run("prod")
         assert int(result) == 576
-        self.check_trace_count(1)
-        self.check_vectorized(2, 1)
+        self.check_vectorized(1, 1)
 
     def test_prod_zero(self):
         result = self.run("prod_zero")
         assert int(result) == 0
-        self.check_trace_count(1)
-        self.check_vectorized(2, 1)
+        self.check_vectorized(1, 1)
 
 
     def define_max():
@@ -767,8 +765,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_setslice(self):
         result = self.run("setslice")
         assert result == 5.5
-        self.check_trace_count(1)
-        self.check_vectorized(2, 1)
+        self.check_vectorized(1, 1)
 
     def define_virtual_slice():
         return """
@@ -806,7 +803,6 @@ class TestNumpyJit(Jit386Mixin):
     def test_flat_getitem(self):
         result = self.run("flat_getitem")
         assert result == 10.0
-        self.check_trace_count(1)
         self.check_vectorized(0,0)
 
     def define_flat_setitem():
@@ -820,7 +816,6 @@ class TestNumpyJit(Jit386Mixin):
     def test_flat_setitem(self):
         result = self.run("flat_setitem")
         assert result == 1.0
-        self.check_trace_count(1)
         self.check_vectorized(1,0) # TODO this can be improved
 
     def define_dot():
@@ -847,8 +842,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_argsort(self):
         result = self.run("argsort")
         assert result == 6
-        self.check_trace_count(1)
-        self.check_vectorized(2,1) # vec. setslice
+        self.check_vectorized(1,1) # vec. setslice
 
     def define_where():
         return """
@@ -862,7 +856,6 @@ class TestNumpyJit(Jit386Mixin):
     def test_where(self):
         result = self.run("where")
         assert result == -40
-        self.check_trace_count(1)
         self.check_vectorized(1, 0) # TODO might be possible to vectorize
 
     def define_searchsorted():
@@ -877,7 +870,6 @@ class TestNumpyJit(Jit386Mixin):
         result = self.run("searchsorted")
         assert result == 0
         self.check_trace_count(6)
-        # TODO?
 
     def define_int_mul_array():
         return """
@@ -908,8 +900,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_slice(self):
         result = self.run("slice")
         assert result == 18
-        self.check_trace_count(1)
-        self.check_vectorized(2,1)
+        self.check_vectorized(1,1)
 
     def define_multidim_slice():
         return """
