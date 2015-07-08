@@ -189,14 +189,19 @@ class W_Dtype(W_Root):
         return space.wrap(name)
 
     def descr_get_str(self, space):
+        return space.wrap(self.get_str())
+
+    def get_str(self, ignore='|'):
         basic = self.kind
         endian = self.byteorder
         size = self.elsize
         if endian == NPY.NATIVE:
             endian = NPY.NATBYTE
+        elif endian == NPY.IGNORE:
+            endian = ignore
         if self.num == NPY.UNICODE:
             size >>= 2
-        return space.wrap("%s%s%s" % (endian, basic, size))
+        return "%s%s%s" % (endian, basic, size)
 
     def descr_get_descr(self, space, style='descr'):
         if not self.is_record():
@@ -215,20 +220,15 @@ class W_Dtype(W_Root):
                 if subdtype.is_record():
                     substr = space.str_w(subdtype.descr_get_descr(space, style))
                 elif subdtype.subdtype is not None:
-                    substr = space.str_w(
-                        subdtype.subdtype.descr_get_str(space)).replace('|', '')
+                    substr = subdtype.subdtype.get_str(ignore='')
                 else:
-                    substr = space.str_w(
-                        subdtype.descr_get_str(space)).replace('|', '')
-                offsets += str(offset)
-                names += "'" + name + "'"
-                titles += "'" + str(title) + "'"
+                    substr = subdtype.get_str(ignore='')
+                formats += "'" + substr + "',"
+                offsets += str(offset) + ','
+                names += "'" + name + "',"
+                titles += "'" + str(title) + "',"
                 if title is not None:
                     use_titles = True
-                formats += "'" + substr + "',"
-                offsets += ','
-                names += ','
-                titles += ','
             formats = formats[:-1] + ']'
             offsets = offsets[:-1] + ']'
             names = names[:-1] + ']'
