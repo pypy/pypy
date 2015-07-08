@@ -23,11 +23,16 @@ SRC = ROOT.join('src')
 # running make inside the src dir
 DYNAMIC_VMPROF = False
 
+if sys.platform.startswith('linux'):
+    libs = ['dl']
+else:
+    libs = []
+
 eci_kwds = dict(
     include_dirs = [SRC],
     includes = ['vmprof.h', 'trampoline.h'],
     separate_module_files = [SRC.join('trampoline.vmprof.s')],
-    libraries = ['dl'],
+    libraries = libs,
     
     post_include_bits=["""
         int pypy_vmprof_init(void);
