@@ -759,7 +759,21 @@ class Float(Primitive):
 
     @simple_binary_op
     def mod(self, v1, v2):
-        return math.fmod(v1, v2)
+        # partial copy of pypy.objspace.std.floatobject.W_FloatObject.descr_mod
+        if v2 == 0.0:
+            return rfloat.NAN
+        mod = math.fmod(v1, v2)
+        if mod:
+            # ensure the remainder has the same sign as the denominator
+            if (v2 < 0.0) != (mod < 0.0):
+                mod += v2
+        else:
+            # the remainder is zero, and in the presence of signed zeroes
+            # fmod returns different results across platforms; ensure
+            # it has the same sign as the denominator; we'd like to do
+            # "mod = v2 * 0.0", but that may get optimized away
+            mod = rfloat.copysign(0.0, v2)
+        return mod
 
     @simple_binary_op
     def pow(self, v1, v2):
