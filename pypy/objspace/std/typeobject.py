@@ -2,7 +2,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.function import (
-    Function, StaticMethod, FunctionWithFixedCode)
+    Function, StaticMethod, ClassMethod, FunctionWithFixedCode)
 from pypy.interpreter.typedef import weakref_descr, GetSetProperty,\
      descr_get_dict, dict_descr, Member, TypeDef
 from pypy.interpreter.astcompiler.misc import mangle
@@ -1313,10 +1313,12 @@ class TypeCache(SpaceCache):
             # Set the __qualname__ of member functions
             for name in rawdict:
                 w_obj = dict_w[name]
+                if isinstance(w_obj, ClassMethod):
+                    w_obj = w_obj.w_function
                 if isinstance(w_obj, FunctionWithFixedCode):
                     qualname = w_type.getqualname(space) + '.' + name
                     w_obj.fset_func_qualname(space, space.wrap(qualname))
-                
+
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
         w_type.lazyloaders = lazyloaders
