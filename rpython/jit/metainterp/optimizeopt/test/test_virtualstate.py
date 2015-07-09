@@ -10,7 +10,8 @@ from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, ConstIntBound
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
+     ConstIntBound, IntLowerBound, IntUpperBound, IntUnbounded
 from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
@@ -86,6 +87,7 @@ class BaseTestGenerateGuards(BaseTest):
         vs = VirtualState([info0])
         assert vs.make_inputargs(args, optimizer) == args
         info0.level = LEVEL_CONSTANT
+        vs = VirtualState([info0])
         assert vs.make_inputargs(args, optimizer) == []
 
     def test_position_generalization(self):
@@ -148,11 +150,10 @@ class BaseTestGenerateGuards(BaseTest):
                 if i != j:
                     assert not isgeneral('r', inorder[j], 'r', inorder[i])
 
-        value1 = IntOptValue(BoxInt())
-        value2 = IntOptValue(BoxInt())
-        value2.intbound.make_lt(IntBound(10, 10))
-        assert isgeneral(value1, value2)
-        assert not isgeneral(value2, value1)
+        i1 = IntLowerBound(10)
+        i2 = IntUnbounded()
+        assert isgeneral('i', i1, 'i', i2)
+        assert not isgeneral('i', i2, 'i', i1)
 
         assert isgeneral(OptValue(ConstInt(7)), OptValue(ConstInt(7)))
         S = lltype.GcStruct('S')

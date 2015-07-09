@@ -204,7 +204,7 @@ class VStringPlainInfo(StrPtrInfo):
             offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         visitor.register_virtual_fields(instbox, self._chars)
 
     @specialize.argtype(1)
@@ -248,7 +248,7 @@ class VStringSliceInfo(StrPtrInfo):
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return self.lgtop
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         boxes = [self.s, self.start, self.lgtop]
         visitor.register_virtual_fields(instbox, boxes)
         opinfo = optimizer.getptrinfo(self.s)
@@ -309,7 +309,7 @@ class VStringConcatInfo(StrPtrInfo):
                                              targetbox, offsetbox, mode)
         return offsetbox
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         # we don't store the lengthvalue in guards, because the
         # guard-failed code starts with a regular STR_CONCAT again
         leftbox = self.vleft

@@ -77,6 +77,11 @@ class NonNullPtrInfo(PtrInfo):
         self.last_guard_pos = len(optimizer._newoperations) - 1
         assert self.get_last_guard(optimizer).is_guard()
 
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        if visitor.already_seen_virtual(instbox):
+            return
+        return self._visitor_walk_recursive(instbox, visitor, optimizer)
+
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
     _attrs_ = ('_cached_vinfo', 'vdescr')
     # XXX merge _cached_vinfo with vdescr
@@ -141,9 +146,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 if optforce.optheap is not None:
                     optforce.optheap.register_dirty_field(flddescr, self)
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
-        if visitor.already_seen_virtual(instbox):
-            return
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         lst = self.vdescr.get_all_fielddescrs()
         assert self.is_virtual()
         visitor.register_virtual_fields(instbox,
@@ -174,6 +177,7 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         assert self.is_virtual()
         return visitor.visit_virtual(self.vdescr, fielddescrs)
 
+
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, vdescr=None):
         self.vdescr = vdescr
@@ -185,7 +189,7 @@ class StructPtrInfo(AbstractStructPtrInfo):
         return visitor.visit_vstruct(self.vdescr, fielddescrs)
 
 class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
-    def visitor_walk_recursive(self, op, visitor, optimizer):
+    def _visitor_walk_recursive(self, op, visitor, optimizer):
         raise NotImplementedError("abstract")
 
     @specialize.argtype(1)
@@ -228,7 +232,7 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
                               [op, ConstInt(offset), itembox], descr=descr)
             optforce.emit_operation(op)
 
-    def visitor_walk_recursive(self, op, visitor, optimizer):
+    def _visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = self.buffer.values
         visitor.register_virtual_fields(op, itemboxes)
         # there can be no virtuals stored in raw buffer
@@ -263,7 +267,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
     def _force_elements(self, op, optforce, descr):
         raise Exception("implement me")
 
-    def visitor_walk_recursive(self, op, visitor, optimizer):
+    def _visitor_walk_recursive(self, op, visitor, optimizer):
         source_op = optimizer.get_box_replacement(op.getarg(0))
         visitor.register_virtual_fields(op, [source_op])
         self.parent.visitor_walk_recursive(source_op, visitor, optimizer)
@@ -331,7 +335,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def getlength(self):
         return self.length
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         itemops = [optimizer.get_box_replacement(item)
                    for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
@@ -385,7 +389,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     # if it does, we would need a fix here
                 i += 1
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+    def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         itemops = [optimizer.get_box_replacement(item)
                    for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)

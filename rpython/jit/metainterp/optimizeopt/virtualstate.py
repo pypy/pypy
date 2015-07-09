@@ -1,7 +1,6 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import (ConstInt, Const,
         ConstPtr, ConstFloat)
-from rpython.jit.metainterp.optimizeopt import virtualize
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractInputArg
@@ -133,23 +132,23 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of_structpart(self, other):
         raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
-        if not isinstance(value, virtualize.AbstractVirtualStructValue):
-            raise BadVirtualState
-        if not value.is_virtual():
-            raise BadVirtualState
+    def enum_forced_boxes(self, boxes, box, optimizer):
+        info = optimizer.getptrinfo(box)
+        box = optimizer.get_box_replacement(box)
+        if info is None or not info.is_virtual():
+            raise BadVirtualState()
         for i in range(len(self.fielddescrs)):
-            try:
-                v = value._fields[self.fielddescrs[i]]
-            except KeyError:
-                raise BadVirtualState
-            s = self.fieldstate[i]
-            if s.position > self.position:
-                s.enum_forced_boxes(boxes, v, optimizer)
+            state = self.fieldstate[i]
+            if not state:
+                continue
+            if state.position > self.position:
+                fieldbox = info._fields[i]
+                state.enum_forced_boxes(boxes, fieldbox, optimizer)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
-            s.enum(virtual_state)
+            if s:
+                s.enum(virtual_state)
 
 
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
@@ -200,6 +199,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                                                v, state)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
+        xxx
         if not isinstance(value, virtualize.VArrayValue):
             raise BadVirtualState
         if not value.is_virtual():
@@ -258,6 +258,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             s.enum(virtual_state)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
+        xxx
         if not isinstance(value, virtualize.VArrayStructValue):
             raise BadVirtualState
         if not value.is_virtual():
@@ -422,16 +423,18 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return
         raise VirtualStatesCantMatch("intbounds don't match")
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, box, optimizer):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals
-        if optimizer:
-            box = value.force_box(optimizer)
-        else:
-            if value.is_virtual():
+        #if optimizer:
+        #    box = value.force_box(optimizer)
+        #else:
+        box = optimizer.get_box_replacement(box)
+        if box.type == 'r':
+            info = optimizer.getptrinfo(box)
+            if info and info.is_virtual():
                 raise BadVirtualState
-            box = value.get_key_box()
         boxes[self.position_in_notvirtuals] = box
 
     def _enum(self, virtual_state):
@@ -505,34 +508,35 @@ class VirtualState(object):
         return state
 
     def make_inputargs(self, inputargs, optimizer, keyboxes=False):
-        if optimizer.optearlyforce:
-            optimizer = optimizer.optearlyforce
         assert len(inputargs) == len(self.state)
-        inpargs = []
-        for i, state in enumerate(self.state):
-            if state.level != LEVEL_CONSTANT:
-                inpargs.append(inputargs[i])
-        return inpargs
-        inputargs = [None] * self.numnotvirtuals
+        #inpargs = []
+        #for i, state in enumerate(self.state):
+        #    if not isinstance(state, NotVirtualStateInfo) or state.level != LEVEL_CONSTANT:
+        #        inpargs.append(inputargs[i])
+        #return inpargs
+        boxes = [None] * self.numnotvirtuals
 
+        # XXX no longer correct as far as I can tell, maybe we should
+        #     make the forcing more explicit somewhere else
         # We try twice. The first time around we allow boxes to be forced
         # which might change the virtual state if the box appear in more
         # than one place among the inputargs.
-        for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, values[i], optimizer)
-        for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, values[i], None)
+        for i in range(len(inputargs)):
+            self.state[i].enum_forced_boxes(boxes, inputargs[i], optimizer)
+        #for i in range(len(values)):
+        #    self.state[i].enum_forced_boxes(inputargs, values[i], None)
 
-        if keyboxes:
-            for i in range(len(values)):
-                if not isinstance(self.state[i], NotVirtualStateInfo):
-                    box = values[i].get_key_box()
-                    assert not isinstance(box, Const)
-                    inputargs.append(box)
+        # not sure what are these guys doing
+        #if keyboxes:
+        #    for i in range(len(values)):
+        #        if not isinstance(self.state[i], NotVirtualStateInfo):
+        #            box = values[i].get_key_box()
+        #            assert not isinstance(box, Const)
+        #            inputargs.append(box)
 
-        assert None not in inputargs
+        assert None not in boxes
 
-        return inputargs
+        return boxes
 
     def debug_print(self, hdr='', bad=None, metainterp_sd=None):
         if bad is None:
@@ -556,54 +560,63 @@ class VirtualStateConstructor(VirtualVisitor):
     def already_seen_virtual(self, keybox):
         return keybox in self.fieldboxes
 
-    def getvalue(self, box):
-        return self.optimizer.getvalue(box)
+    #def state(self, box):
+    #    xxx
+    #    value = self.getvalue(box)
+    #    box = value.get_key_box()
+    #    try:
+    #        info = self.info[box]
+    #    except KeyError:
+    #        self.info[box] = info = value.visitor_dispatch_virtual_type(self)
+    #        if value.is_virtual():
+    #            flds = self.fieldboxes[box]
+    #            info.fieldstate = [self.state_or_none(b, value) for b in flds]
+    #    return info
 
-    def state(self, box):
-        if box.type == 'r':
-            xxxx
-        return None
-        value = self.getvalue(box)
-        box = value.get_key_box()
-        try:
-            info = self.info[box]
-        except KeyError:
-            self.info[box] = info = value.visitor_dispatch_virtual_type(self)
-            if value.is_virtual():
-                flds = self.fieldboxes[box]
-                info.fieldstate = [self.state_or_none(b, value) for b in flds]
-        return info
+    #def state_or_none(self, box, value):
+    #    if box is None:
+    #        box = value.get_missing_null_value().box
+    #    return self.state(box)
 
-    def state_or_none(self, box, value):
+    def create_state_or_none(self, box, opt):
         if box is None:
-            box = value.get_missing_null_value().box
-        return self.state(box)
+            return None
+        return self.create_state(box, opt)
+
+    def create_state(self, box, opt):
+        box = opt.get_box_replacement(box)
+        try:
+            return self.info[box]
+        except KeyError:
+            pass
+        if box.type == 'r':
+            info = opt.getptrinfo(box)
+            if info is not None and info.is_virtual():
+                result = info.visitor_dispatch_virtual_type(self)
+                self.info[box] = result
+                info.visitor_walk_recursive(box, self, opt)
+                result.fieldstate = [self.create_state_or_none(b, opt)
+                                     for b in self.fieldboxes[box]]
+            else:
+                result = self.visit_not_virtual(box)
+                self.info[box] = result
+        elif box.type == 'i' or box.type == 'f':
+            result = self.visit_not_virtual(box)
+            self.info[box] = result
+        else:
+            assert False
+        return result
 
     def get_virtual_state(self, jump_args):
         self.optimizer.force_at_end_of_preamble()
-        already_forced = {}
         if self.optimizer.optearlyforce:
             opt = self.optimizer.optearlyforce
         else:
             opt = self.optimizer
         state = []
+        self.info = {}
         for box in jump_args:
-            box = opt.get_box_replacement(box)
-            if box.type == 'r':
-                info = opt.getptrinfo(box)
-                if info is not None and info.is_virtual():
-                    xxx
-                else:
-                    state.append(self.visit_not_virtual(box))
-            elif box.type == 'i':
-                intbound = opt.getintbound(box)
-                state.append(self.visit_not_virtual(box))
-            else:
-                xxx
-        #values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
-        #                                                      opt)
-        #          for box in jump_args]
-
+            state.append(self.create_state(box, opt))
         return VirtualState(state)
 
     def visit_not_virtual(self, box):

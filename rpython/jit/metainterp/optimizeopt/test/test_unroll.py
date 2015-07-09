@@ -2,19 +2,29 @@
 """ More direct tests for unrolling
 """
 
+import py
+
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
      LLtypeMixin
 from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation,\
+     InputArgRef
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
-     LEVEL_NONNULL
+     VirtualStateInfo, BadVirtualState
+from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.codewriter import heaptracker
 
 class FakeOptimizer(object):
     optearlyforce = None
+
+    def getptrinfo(self, box):
+        return box.get_forwarded()
+
+    def get_box_replacement(self, box):
+        return box
      
 class BaseTestUnroll(BaseTest, LLtypeMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
@@ -83,7 +93,33 @@ class TestUnroll(BaseTestUnroll):
         es, loop, preamble = self.optimize(loop)
         p0 = preamble.inputargs[0]
         expected_class = heaptracker.adr2int(self.node_vtable_adr)
-        assert expected_class ==es.exported_infos[p0]._known_class.getint()
+        assert expected_class == es.exported_infos[p0]._known_class.getint()
         vs = es.virtual_state
         assert vs.state[0].level == LEVEL_KNOWNCLASS
         assert vs.state[0].known_class.getint() == expected_class
+
+    def test_virtual(self):
+        loop = """
+        [p1, p2]
+        p0 = new_with_vtable(descr=nodesize)
+        setfield_gc(p0, 1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        jump(p0, p0)
+        """
+        es, loop, preamble = self.optimize(loop)
+        vs = es.virtual_state
+        assert vs.state[0] is vs.state[1]
+        assert isinstance(vs.state[0], VirtualStateInfo)
+        assert isinstance(vs.state[0].fieldstate[0], NotVirtualStateInfo)
+        assert vs.state[0].fieldstate[0].level == LEVEL_CONSTANT
+        assert isinstance(vs.state[0].fieldstate[3], NotVirtualStateInfo)
+        assert vs.state[0].fieldstate[3].level == LEVEL_UNKNOWN
+        assert vs.numnotvirtuals == 1
+        p = InputArgRef()
+        py.test.raises(BadVirtualState, vs.make_inputargs, [p, p],
+                       FakeOptimizer())
+        ptrinfo = info.StructPtrInfo(self.nodesize)
+        p2 = InputArgRef()
+        ptrinfo._fields = [None, None, None, p2]
+        p.set_forwarded(ptrinfo)
+        vs.make_inputargs([p, p], FakeOptimizer())
