@@ -198,16 +198,16 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
     if loop.versions is not None:
         token = jitcell_token
         for version in loop.versions:
-            versioned_loop = create_empty_loop(metainterp)
-            versioned_loop.inputargs = version.inputargs
-            versioned_loop.operations = version.operations
-            versioned_loop.original_jitcell_token = jitcell_token
-            for _, faildescr  in version.faildescrs:
+            for faildescr  in version.faildescrs:
+                vl = create_empty_loop(metainterp)
+                vl.inputargs = version.inputargs
+                vl.operations = version.operations
+                vl.original_jitcell_token = jitcell_token
                 send_bridge_to_backend(jitdriver_sd, metainterp_sd,
                                        faildescr, version.inputargs,
                                        version.operations, jitcell_token)
-                versioned_loop.original_jitcell_token = jitcell_token
-                record_loop_or_bridge(metainterp_sd, versioned_loop)
+                vl.original_jitcell_token = jitcell_token
+                record_loop_or_bridge(metainterp_sd, vl)
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,
@@ -514,7 +514,8 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'status')
+               'rd_frame_info_list', 'rd_pendingfields', 'rd_accum_list',
+               'status')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
@@ -715,6 +716,9 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
 class ResumeAtLoopHeaderDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_EARLY_EXIT
 
+    def exits_early(self):
+        return True
+
 class CompileLoopVersionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_EARLY_EXIT
 
@@ -724,6 +728,12 @@ class CompileLoopVersionDescr(ResumeGuardDescr):
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert 0, "this guard must never fail"
+
+    def exits_early(self):
+        return True
+
+    def loop_version(self):
+        return True
 
 class AllVirtuals:
     llopaque = True

@@ -857,17 +857,6 @@ class VecScheduleData(SchedulerData):
 
         return oplist
 
-class Accum(object):
-    PLUS = '+'
-    MULTIPLY = '*'
-
-    def __init__(self, opnum, var, pos):
-        self.var = var
-        self.pos = pos
-        self.operator = Accum.PLUS
-        if opnum == rop.FLOAT_MUL:
-            self.operator = Accum.MULTIPLY
-
 class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic

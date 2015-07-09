@@ -23,7 +23,7 @@ from rpython.jit.backend.x86.vector_ext import VectorRegallocMixin
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, BoxVector, BoxVectorAccum, INT, REF,
+    ConstFloat, BoxInt, BoxFloat, BoxVector, INT, REF,
     FLOAT, VECTOR, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.compile import ResumeGuardDescr
@@ -308,8 +308,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         faillocs = []
         descr = guard_op.getdescr()
         for v in guard_op.getfailargs():
-            if v is not None and isinstance(v, BoxVectorAccum):
-                loc = self.loc(v.scalar_var)
+            if v is None:
+                continue
+            accum = v.getaccum()
+            if accum:
+                loc = self.loc(accum.getvar())
                 self.update_accumulation_loc(v, descr)
                 faillocs.append(loc)
             else:
@@ -317,7 +320,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
         return faillocs
 
-    def update_accumulation_loc(self, accumbox, descr):
+    def update_accumulation_loc(self, box, accum, descr):
         """ Saves the location to the AccumInfo object.
         Necessary to reconstruct the values at a guard exit.
         """

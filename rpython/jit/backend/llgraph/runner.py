@@ -3,7 +3,7 @@ from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.jit.metainterp.history import Const, getkind, BoxVectorAccum
+from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, VECTOR
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
@@ -31,11 +31,7 @@ class LLTrace(object):
             try:
                 newbox = _cache[box]
             except KeyError:
-                if isinstance(box, BoxVectorAccum):
-                    newbox = _cache[box] = \
-                        box.__class__(box, box.scalar_var, box.operator)
-                else:
-                    newbox = _cache[box] = box.__class__()
+                newbox = _cache[box] = box.__class__()
             return newbox
         #
         self.inputargs = map(mapping, inputargs)
@@ -877,10 +873,10 @@ class LLFrame(object):
                 value = self.env[box]
             else:
                 value = None
-            if isinstance(box, BoxVectorAccum):
-                if box.operator == '+':
+            if box.getaccum():
+                if box.getaccum().operator == '+':
                     value = sum(value)
-                elif box.operator == '*':
+                elif box.getaccum().operator == '*':
                     def prod(acc, x): return acc * x
                     value = reduce(prod, value, 1)
                 else:

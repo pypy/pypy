@@ -1,6 +1,6 @@
 import py
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, BoxVector, BoxVectorAccum, INT, REF,
+    ConstFloat, BoxInt, BoxFloat, BoxVector, INT, REF,
     FLOAT, VECTOR, TargetToken)
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)

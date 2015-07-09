@@ -213,7 +213,6 @@ class Renamer(object):
         return True
 
     def rename_failargs(self, guard, clone=False):
-        from rpython.jit.metainterp.history import BoxVectorAccum
         from rpython.jit.metainterp.compile import ResumeGuardDescr
         if guard.getfailargs() is not None:
             if clone:

@@ -131,6 +131,8 @@ class AbstractValue(object):
         # only structured containers can compare their shape (vector box)
         return True
 
+    def getaccum(self):
+        return None
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -162,6 +164,15 @@ class AbstractFailDescr(AbstractDescr):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
         raise NotImplementedError
+
+    def exits_early(self):
+        # is this guard either a guard_early_exit resop,
+        # or it has been moved before an guard_early_exit
+        return False
+
+    def loop_version(self):
+        # compile a loop version out of this guard?
+        return False
 
 class BasicFinalDescr(AbstractFailDescr):
     final_descr = True
@@ -519,24 +530,53 @@ NULLBOX = BoxPtr()
 
 # ____________________________________________________________
 
+class Accum(object):
+    PLUS = '+'
+    MULTIPLY = '*'
+
+    def __init__(self, opnum, var, pos):
+        self.var = var
+        self.pos = pos
+        self.operator = Accum.PLUS
+        if opnum == rop.FLOAT_MUL:
+            self.operator = Accum.MULTIPLY
+
+    def getoriginalbox(self):
+        return self.var
+
+    def getop(self):
+        return self.operator
+
+    def accumulates_value(self):
+        return True
+
+    def save_to_descr(self, descr, position):
+        assert isinstance(descr,ResumeGuardDescr)
+        ai = AccumInfo(descr.rd_accum_list, position, self.operator, self.var)
+        descr.rd_accum_list = ai
+
 class BoxVector(Box):
     type = VECTOR
-    _attrs_ = ('item_type','item_count','item_size','item_signed')
+    _attrs_ = ('item_type','item_count','item_size','item_signed','accum')
     _extended_display = False
 
-    def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False):
+    def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False, accum=None):
         assert item_type in (FLOAT, INT)
         self.item_type = item_type
         self.item_count = item_count
         self.item_size = item_size
         self.item_signed = item_signed
+        self.accum = None
 
     def gettype(self):
         return self.item_type
+
     def getsize(self):
         return self.item_size
+
     def getsigned(self):
         return self.item_signed
+
     def getcount(self):
         return self.item_count
 
@@ -576,11 +616,8 @@ class BoxVector(Box):
             return False
         return True
 
-class BoxVectorAccum(BoxVector):
-    def __init__(self, box, var, operator):
-        BoxVector.__init__(self, box.item_type, box.item_count, box.item_size, box.item_signed)
-        self.scalar_var = var
-        self.operator = operator
+    def getaccum(self):
+        return self.accum
 
 # ____________________________________________________________
 
@@ -697,8 +734,8 @@ class TargetToken(AbstractDescr):
 
 class LoopVersion(object):
 
-    def __init__(self, loop, aligned=False):
-        self.operations = loop.operations
+    def __init__(self, operations, opt_ops, aligned=False):
+        self.operations = operations
         self.aligned = aligned
         self.faildescrs = []
         #
@@ -711,9 +748,18 @@ class LoopVersion(object):
             i += 1
         assert label.getopnum() == rop.LABEL
         self.label_pos = i
-        #self.parent_trace_label_args = None
-        #self.bridge_label_args = label.getarglist()
         self.inputargs = label.getarglist()
+        for op in opt_ops:
+            if op.is_guard():
+                descr = op.getdescr()
+                if descr.loop_version():
+                    # currently there is only ONE versioning,
+                    # that is the original loop after unrolling.
+                    # if there are more possibilites, let the descr
+                    # know which loop version he preferes
+                    self.faildescrs.append(descr)
+                    op.setfailargs(self.inputargs)
+                    op.rd_snapshot = None
 
     def adddescr(self, op, descr):
         self.faildescrs.append((op, descr))
@@ -772,6 +818,13 @@ class TreeLoop(object):
     def get_operations(self):
         return self.operations
 
+    def find_first_index(self, opnum):
+        """ return the first operation having the same opnum or -1 """
+        for i,op in enumerate(self.operations):
+            if op.getopnum() == opnum:
+                return i
+        return -1
+
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)
 
@@ -803,20 +856,14 @@ class TreeLoop(object):
         for arg in inputargs:
             if arg is None:
                 continue
-            if isinstance(arg, BoxVectorAccum):
-                seen[arg.scalar_var] = None
-            else:
-                seen[arg] = None
+            seen[arg] = None
         return seen
 
     @staticmethod
     def check_if_box_was_seen(box, seen):
         if box is not None:
             assert isinstance(box, Box)
-            if isinstance(box, BoxVectorAccum):
-                assert box in seen or box.scalar_var in seen
-            else:
-                assert box in seen
+            assert box in seen
 
     @staticmethod
     def check_consistency_of_branch(operations, seen):
@@ -846,9 +893,6 @@ class TreeLoop(object):
                     assert isinstance(box, Box), "LABEL contains %r" % (box,)
                 seen = TreeLoop.seen_args(inputargs)
                 seen_count = len(seen)
-                for arg in seen:
-                    if isinstance(arg, BoxVectorAccum):
-                        seen_count -= 1
                 assert seen_count == len(inputargs), (
                     "duplicate Box in the LABEL arguments")
 
