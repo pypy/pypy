@@ -307,7 +307,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def locs_for_fail(self, guard_op):
         faillocs = []
         descr = guard_op.getdescr()
-        for arg in guard_op.getfailargs():
+        for i,arg in enumerate(guard_op.getfailargs()):
             if arg is None:
                 faillocs.append(None)
                 continue
@@ -315,13 +315,13 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if accum:
                 loc = self.loc(accum.getoriginalbox())
                 faillocs.append(loc)
-                self.update_accumulation_loc(arg, accum, descr)
+                self.update_accumulation_loc(arg, accum, descr, i)
             else:
                 faillocs.append(self.loc(arg))
 
         return faillocs
 
-    def update_accumulation_loc(self, arg, accum, descr):
+    def update_accumulation_loc(self, arg, accum, descr, pos):
         """
         Faillocs saved on the guard can only represent one value.
         Accumulation has the accumulation box which need to updated uppon
@@ -333,6 +333,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         while accum_info:
             if accum_info.box is accum.getoriginalbox():
                 accum_info.loc = self.loc(arg)
+                accum_info.position = pos
                 break
             accum_info = accum_info.prev
         else:

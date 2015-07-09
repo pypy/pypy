@@ -746,7 +746,7 @@ def index_of_first(opnum, operations):
 
 class LoopVersion(object):
 
-    def __init__(self, operations, opt_ops, aligned=False):
+    def __init__(self, operations, opt_ops, invariant_arg_count=0, aligned=False):
         self.operations = operations
         self.aligned = aligned
         self.faildescrs = []
@@ -759,6 +759,14 @@ class LoopVersion(object):
         idx = index_of_first(rop.LABEL, opt_ops)
         assert idx >= 0
         version_failargs = opt_ops[idx].getarglist()
+        if invariant_arg_count > 0:
+            # constant/variable expansion append arguments to the label
+            # if they are not removed, the register allocator cannot
+            # reconstruct the binding if len(inputargs) != len(faillocs)
+            to = len(version_failargs) - invariant_arg_count
+            assert to >= 0
+            version_failargs = version_failargs[:to]
+
         for op in opt_ops:
             if op.is_guard():
                 descr = op.getdescr()

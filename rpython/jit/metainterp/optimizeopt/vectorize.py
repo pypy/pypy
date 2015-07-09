@@ -54,7 +54,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         gso.propagate_all_forward(opt.loop)
         # loop versioning
-        loop.versions = [LoopVersion(orig_ops, loop.operations)]
+        loop.versions = [LoopVersion(orig_ops, loop.operations, opt.appended_arg_count)]
         #
         #
         end = time.clock()
@@ -116,6 +116,7 @@ class VectorizingOptimizer(Optimizer):
         self.sched_data = None
         self.cpu = metainterp_sd.cpu
         self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
+        self.appended_arg_count = 0
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
@@ -470,6 +471,7 @@ class VectorizingOptimizer(Optimizer):
             return
         if vector:
             # add accumulation info to the descriptor
+            self.appended_arg_count = len(sched_data.invariant_vector_vars)
             for guard_node in self.dependency_graph.guards:
                 op = guard_node.getoperation()
                 failargs = op.getfailargs()
