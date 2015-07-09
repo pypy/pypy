@@ -8,14 +8,14 @@ See the rpython doc for more high level details.
 import py
 import time
 
-from rpython.jit.metainterp.resume import Snapshot, AccumInfo
+from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import (ResumeAtLoopHeaderDescr,
         CompileLoopVersionDescr, invent_fail_descr_for_op, ResumeGuardDescr)
 from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
         BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box,
-        LoopVersion, Accum)
+        LoopVersion, Accum, AbstractFailDescr)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method, Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
@@ -246,15 +246,13 @@ class VectorizingOptimizer(Optimizer):
                     target_guard = copied_op
                     copied_op.setdescr(copy_fail_descr(copied_op, self))
                     descr = target_guard.getdescr()
-                    exits_early = descr.guard_opnum == rop.GUARD_EARLY_EXIT
-                    if not exits_early:
-                        # copy failargs/snapshot
-                        copied_op.rd_snapshot = \
-                          renamer.rename_rd_snapshot(copied_op.rd_snapshot,
-                                                     clone=True)
-                        renamed_failargs = \
-                            renamer.rename_failargs(copied_op, clone=True)
-                        copied_op.setfailargs(renamed_failargs)
+                    # copy failargs/snapshot
+                    copied_op.rd_snapshot = \
+                      renamer.rename_rd_snapshot(copied_op.rd_snapshot,
+                                                 clone=True)
+                    renamed_failargs = \
+                        renamer.rename_failargs(copied_op, clone=True)
+                    copied_op.setfailargs(renamed_failargs)
                 #
                 self.emit_unrolled_operation(copied_op)
 
@@ -449,7 +447,6 @@ class VectorizingOptimizer(Optimizer):
                 assert False
 
     def schedule(self, vector=False):
-        self.guard_early_exit = -1
         self.clear_newoperations()
         sched_data = VecScheduleData(self.cpu.vector_register_size, self.costmodel)
         scheduler = Scheduler(self.dependency_graph, sched_data)
@@ -838,7 +835,6 @@ class PackSet(object):
             if not pack.is_accumulating():
                 continue
             accum = pack.accum
-            pack.accum = None
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()
             size = vec_reg_size // pack.input_type.getsize()
@@ -866,4 +862,6 @@ class PackSet(object):
             # rename the variable with the box
             sched_data.setvector_of_box(accum.getoriginalbox(), 0, result) # prevent it from expansion
             renamer.start_renaming(accum.getoriginalbox(), result)
+            if not we_are_translated():
+                print "renaming accum", accum.getoriginalbox(), "->", result
 

@@ -213,15 +213,13 @@ class Renamer(object):
         return True
 
     def rename_failargs(self, guard, clone=False):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr
         if guard.getfailargs() is not None:
             if clone:
                 args = guard.getfailargs()[:]
             else:
                 args = guard.getfailargs()
             for i,arg in enumerate(args):
-                value = self.rename_map.get(arg,arg)
-                args[i] = value
+                args[i] = self.rename_map.get(arg,arg)
             return args
         return None
 

@@ -307,29 +307,32 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def locs_for_fail(self, guard_op):
         faillocs = []
         descr = guard_op.getdescr()
-        for v in guard_op.getfailargs():
-            if v is None:
+        for arg in guard_op.getfailargs():
+            if arg is None:
+                faillocs.append(None)
                 continue
-            accum = v.getaccum()
+            accum = arg.getaccum()
             if accum:
-                loc = self.loc(accum.getvar())
-                self.update_accumulation_loc(v, descr)
+                loc = self.loc(accum.getoriginalbox())
                 faillocs.append(loc)
+                self.update_accumulation_loc(arg, accum, descr)
             else:
-                faillocs.append(self.loc(v))
+                faillocs.append(self.loc(arg))
 
         return faillocs
 
-    def update_accumulation_loc(self, box, accum, descr):
-        """ Saves the location to the AccumInfo object.
-        Necessary to reconstruct the values at a guard exit.
+    def update_accumulation_loc(self, arg, accum, descr):
         """
-        box = accumbox.scalar_var
+        Faillocs saved on the guard can only represent one value.
+        Accumulation has the accumulation box which need to updated uppon
+        guard exit. The fail descr saves where (regloc) the accumulator
+        is located.
+        """
         assert isinstance(descr, ResumeGuardDescr)
         accum_info = descr.rd_accum_list
         while accum_info:
-            if accum_info.box is box:
-                accum_info.loc = self.loc(accumbox)
+            if accum_info.box is accum.getoriginalbox():
+                accum_info.loc = self.loc(arg)
                 break
             accum_info = accum_info.prev
         else:

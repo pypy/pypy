@@ -551,6 +551,8 @@ class Accum(object):
         return True
 
     def save_to_descr(self, descr, position):
+        from rpython.jit.metainterp.compile import ResumeGuardDescr
+        from rpython.jit.metainterp.resume import AccumInfo
         assert isinstance(descr,ResumeGuardDescr)
         ai = AccumInfo(descr.rd_accum_list, position, self.operator, self.var)
         descr.rd_accum_list = ai
@@ -732,6 +734,16 @@ class TargetToken(AbstractDescr):
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)
 
+def index_of_first(opnum, operations):
+    """ returns the position of the first operation matching the opnum.
+    Or -1 if non is found
+    """
+    for i,op in enumerate(operations):
+        if op.getopnum() == opnum:
+            return i
+    return -1
+
+
 class LoopVersion(object):
 
     def __init__(self, operations, opt_ops, aligned=False):
@@ -739,16 +751,14 @@ class LoopVersion(object):
         self.aligned = aligned
         self.faildescrs = []
         #
-        i = 0
-        label = self.operations[i]
-        while i < len(self.operations):
-            label = self.operations[i]
-            if label.getopnum() == rop.LABEL:
-                break
-            i += 1
-        assert label.getopnum() == rop.LABEL
-        self.label_pos = i
+        idx = index_of_first(rop.LABEL, operations)
+        assert idx >= 0
+        label = operations[idx]
+        self.label_pos = idx
         self.inputargs = label.getarglist()
+        idx = index_of_first(rop.LABEL, opt_ops)
+        assert idx >= 0
+        version_failargs = opt_ops[idx].getarglist()
         for op in opt_ops:
             if op.is_guard():
                 descr = op.getdescr()
@@ -758,11 +768,8 @@ class LoopVersion(object):
                     # if there are more possibilites, let the descr
                     # know which loop version he preferes
                     self.faildescrs.append(descr)
-                    op.setfailargs(self.inputargs)
+                    op.setfailargs(version_failargs)
                     op.rd_snapshot = None
-
-    def adddescr(self, op, descr):
-        self.faildescrs.append((op, descr))
 
     def update_token(self, jitcell_token):
         label = self.operations[self.label_pos]
@@ -820,10 +827,7 @@ class TreeLoop(object):
 
     def find_first_index(self, opnum):
         """ return the first operation having the same opnum or -1 """
-        for i,op in enumerate(self.operations):
-            if op.getopnum() == opnum:
-                return i
-        return -1
+        return index_of_first(opnum, self.operations)
 
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)
