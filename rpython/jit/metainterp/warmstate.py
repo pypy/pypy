@@ -370,7 +370,7 @@ class WarmEnterState(object):
                 vinfo.clear_vable_token(virtualizable)
 
             # XXX debug purpose only
-            jitdriver_sd.xxxbench.xxx_clock_start()
+            #jitdriver_sd.xxxbench.xxx_clock_start()
             # XXX debug purpose only end
 
             deadframe = func_execute_token(loop_token, *args)
@@ -379,7 +379,7 @@ class WarmEnterState(object):
             # so that it will keep it alive for a longer time
             warmrunnerdesc.memory_manager.keep_loop_alive(loop_token)
             # XXX debug purpose only
-            jitdriver_sd.xxxbench.xxx_clock_stop(fail=True)
+            #jitdriver_sd.xxxbench.xxx_clock_stop(fail=True)
             # XXX debug purpose only end
             #
             # Handle the failure

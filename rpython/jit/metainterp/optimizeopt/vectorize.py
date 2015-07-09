@@ -6,7 +6,7 @@ See the rpython doc for more high level details.
 """
 
 import py
-import time
+#XXXimport time
 
 from rpython.jit.metainterp.resume import Snapshot, AccumInfo
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
@@ -42,21 +42,18 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         # it won't be possible to vectorize. There are too many
         # guards that prevent parallel execution of instructions
         return
-    start = -1
-    end = -1
     try:
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
-        start = time.clock()
+        #
+        #XXXstart = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold, orig_version)
         opt.propagate_all_forward()
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         gso.propagate_all_forward(opt.loop)
-        end = time.clock()
-
-        aligned_vector_version = LoopVersion(loop, aligned=True)
-
+        #XXXend = time.clock()
+        #
         loop.versions = [orig_version]
 
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
@@ -64,15 +61,15 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         debug_stop("vec-opt-loop")
         #
         # XXX
-        ns = int((end-start)*10.0**9)
-        debug_start("xxx-clock")
-        debug_print("vecopt unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
-                      (opt.unroll_count+1,
-                       gso.strength_reduced,
-                       len(orig_ops),
-                       len(loop.operations),
-                       ns))
-        debug_stop("xxx-clock")
+        #XXXns = int((end-start)*10.0**9)
+        #XXXdebug_start("xxx-clock")
+        #XXXdebug_print("vecopt unroll: %d gso count: %d opcount: (%d -> %d) took %dns" % \
+        #XXX              (opt.unroll_count+1,
+        #XXX               gso.strength_reduced,
+        #XXX               len(orig_ops),
+        #XXX               len(loop.operations),
+        #XXX               ns))
+        #XXXdebug_stop("xxx-clock")
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible

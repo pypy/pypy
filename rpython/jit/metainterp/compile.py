@@ -208,6 +208,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                                        version.operations, jitcell_token)
                 versioned_loop.original_jitcell_token = jitcell_token
                 record_loop_or_bridge(metainterp_sd, versioned_loop)
+    loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,

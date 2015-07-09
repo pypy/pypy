@@ -32,35 +32,35 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 import time
 
 # XXX XXX XXX
-class XXXBench(object):
-    def __init__(self, name, uid, vec):
-        self.t = []
-        if name is None:
-            name = "<unkown>"
-        if uid is None:
-            uid = 0
-        self.name = str(name)
-        self.unique_id = hex(uid)
-        self.vec = vec
-
-    def xxx_clock_start(self):
-        now = time.clock()
-        self.t.append(now)
-        debug_start("xxx-clock")
-        debug_print("start name: %s id: %s clock: %f" % \
-                (self.name, self.unique_id, now) )
-        debug_stop("xxx-clock")
-
-    def xxx_clock_stop(self, fail=False):
-        end = time.clock()
-        assert len(self.t) > 0
-        start = self.t[-1]
-        del self.t[-1]
-        ns = (end - start) * 10**9
-        debug_start("xxx-clock")
-        debug_print("stop name: %s id: %s clock: %f exe time: %dns fail? %d vec? %d" % \
-                    (self.name, self.unique_id, end, int(ns), int(fail), int(self.vec)))
-        debug_stop("xxx-clock")
+#class XXXBench(object):
+#    def __init__(self, name, uid, vec):
+#        self.t = []
+#        if name is None:
+#            name = "<unkown>"
+#        if uid is None:
+#            uid = 0
+#        self.name = str(name)
+#        self.unique_id = hex(uid)
+#        self.vec = vec
+#
+#    def xxx_clock_start(self):
+#        now = time.clock()
+#        self.t.append(now)
+#        debug_start("xxx-clock")
+#        debug_print("start name: %s id: %s clock: %f" % \
+#                (self.name, self.unique_id, now) )
+#        debug_stop("xxx-clock")
+#
+#    def xxx_clock_stop(self, fail=False):
+#        end = time.clock()
+#        assert len(self.t) > 0
+#        start = self.t[-1]
+#        del self.t[-1]
+#        ns = (end - start) * 10**9
+#        debug_start("xxx-clock")
+#        debug_print("stop name: %s id: %s clock: %f exe time: %dns fail? %d vec? %d" % \
+#                    (self.name, self.unique_id, end, int(ns), int(fail), int(self.vec)))
+#        debug_stop("xxx-clock")
 
 
 
@@ -439,7 +439,7 @@ class WarmRunnerDesc(object):
         jd.result_type = history.getkind(jd.portal_graph.getreturnvar()
                                          .concretetype)[0]
         # XXX XXX XXX
-        jd.xxxbench = XXXBench(jd.jitdriver.name, id(jd), jd.vectorize)
+        #jd.xxxbench = XXXBench(jd.jitdriver.name, id(jd), jd.vectorize)
         # XXX XXX XXX
         self.jitdrivers_sd.append(jd)
 
