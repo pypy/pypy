@@ -103,7 +103,6 @@ class VectorizingOptimizer(Optimizer):
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
-        self.early_exit_idx = -1
         self.sched_data = None
         self.cpu = metainterp_sd.cpu
         self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
@@ -166,8 +165,8 @@ class VectorizingOptimizer(Optimizer):
         label_op = loop.operations[0].clone()
         assert label_op.getopnum() == rop.LABEL
         jump_op = loop.operations[op_count-1]
-        # use the target token of the label
         assert jump_op.getopnum() in (rop.LABEL, rop.JUMP)
+        # use the target token of the label
         target_token = label_op.getdescr()
         if not we_are_translated():
             target_token.assumed_classes = {}
@@ -181,17 +180,14 @@ class VectorizingOptimizer(Optimizer):
         self.emit_unrolled_operation(label_op)
 
         renamer = Renamer()
-        oi = 0
         pure = True
         operations = []
         ee_pos = -1
-        ee_guard = None
         for i in range(1,op_count-1):
             op = loop.operations[i].clone()
             opnum = op.getopnum()
             if opnum == rop.GUARD_EARLY_EXIT:
                 ee_pos = i
-                ee_guard = op
 
             if op.is_guard():
                 assert isinstance(op, GuardResOp)
@@ -208,7 +204,7 @@ class VectorizingOptimizer(Optimizer):
         orig_jump_args = jump_op.getarglist()[:]
         # it is assumed that #label_args == #jump_args
         label_arg_count = len(orig_jump_args)
-        for i in range(0, unroll_count):
+        for u in range(unroll_count):
             # fill the map with the renaming boxes. keys are boxes from the label
             for i in range(label_arg_count):
                 la = label_op.getarg(i)
@@ -217,7 +213,7 @@ class VectorizingOptimizer(Optimizer):
                 if la != ja:
                     renamer.start_renaming(la, ja)
             #
-            for oi, op in enumerate(operations):
+            for i, op in enumerate(operations):
                 if op.getopnum() in prohibit_opnums:
                     continue # do not unroll this operation twice
                 copied_op = op.clone()
@@ -229,33 +225,30 @@ class VectorizingOptimizer(Optimizer):
                     copied_op.result = new_assigned_box
                 #
                 args = copied_op.getarglist()
-                for i, arg in enumerate(args):
+                for a, arg in enumerate(args):
                     value = renamer.rename_box(arg)
-                    copied_op.setarg(i, value)
+                    copied_op.setarg(a, value)
                 # not only the arguments, but also the fail args need
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
-                    # do not overwrite resume at loop header
-                    if target_guard.getdescr().guard_opnum != rop.GUARD_EARLY_EXIT:
+                    descr = target_guard.getdescr()
+                    exits_early = descr.guard_opnum == rop.GUARD_EARLY_EXIT
+                    # early exits already have the right failargs set
+                    if not exits_early:
                         descr = invent_fail_descr_for_op(copied_op.getopnum(), self)
                         olddescr = copied_op.getdescr()
                         if olddescr:
                             descr.copy_all_attributes_from(olddescr)
                         copied_op.setdescr(descr)
-
-                    if oi < ee_pos:
-                        # do not clone the arguments, it is already an early exit
-                        pass
-                    else:
+                        # copy failargs/snapshot
                         copied_op.rd_snapshot = \
                           renamer.rename_rd_snapshot(copied_op.rd_snapshot,
                                                      clone=True)
                         renamed_failargs = \
-                            renamer.rename_failargs(copied_op,
-                                                    clone=True)
+                            renamer.rename_failargs(copied_op, clone=True)
                         copied_op.setfailargs(renamed_failargs)
                 #
                 self.emit_unrolled_operation(copied_op)
@@ -267,14 +260,12 @@ class VectorizingOptimizer(Optimizer):
         for i, arg in enumerate(args):
             value = renamer.rename_box(arg)
             jump_op.setarg(i, value)
-
+        #
         self.emit_unrolled_operation(jump_op)
 
     def linear_find_smallest_type(self, loop):
         # O(#operations)
         for i,op in enumerate(loop.operations):
-            if op.getopnum() == rop.GUARD_EARLY_EXIT:
-                self.early_exit_idx = i
             if op.is_raw_array_access():
                 descr = op.getdescr()
                 if not descr.is_array_of_pointers():
@@ -525,11 +516,13 @@ class VectorizingOptimizer(Optimizer):
         return arg
 
     def analyse_index_calculations(self):
-        if len(self.loop.operations) <= 1 or self.early_exit_idx == -1:
+        ee_pos = 1
+        ops = self.loop.operations
+        if len(ops) <= 2 or ops[ee_pos].getopnum() != rop.GUARD_EARLY_EXIT:
             return
         self.dependency_graph = graph = DependencyGraph(self.loop)
         label_node = graph.getnode(0)
-        ee_guard_node = graph.getnode(self.early_exit_idx)
+        ee_guard_node = graph.getnode(ee_pos)
         guards = graph.guards
         for guard_node in guards:
             if guard_node is ee_guard_node:
