@@ -132,7 +132,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of_structpart(self, other):
         raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, box, optimizer):
+    def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         info = optimizer.getptrinfo(box)
         box = optimizer.get_box_replacement(box)
         if info is None or not info.is_virtual():
@@ -143,7 +143,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 continue
             if state.position > self.position:
                 fieldbox = info._fields[i]
-                state.enum_forced_boxes(boxes, fieldbox, optimizer)
+                state.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -423,18 +423,18 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return
         raise VirtualStatesCantMatch("intbounds don't match")
 
-    def enum_forced_boxes(self, boxes, box, optimizer):
+    def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals
-        #if optimizer:
-        #    box = value.force_box(optimizer)
-        #else:
         box = optimizer.get_box_replacement(box)
         if box.type == 'r':
             info = optimizer.getptrinfo(box)
             if info and info.is_virtual():
-                raise BadVirtualState
+                if force_boxes:
+                    info.force_box(box, optimizer)
+                else:
+                    raise BadVirtualState
         boxes[self.position_in_notvirtuals] = box
 
     def _enum(self, virtual_state):
@@ -507,7 +507,8 @@ class VirtualState(object):
                                           state)
         return state
 
-    def make_inputargs(self, inputargs, optimizer, keyboxes=False):
+    def make_inputargs(self, inputargs, optimizer, keyboxes=False,
+                       force_boxes=False):
         assert len(inputargs) == len(self.state)
         #inpargs = []
         #for i, state in enumerate(self.state):
@@ -516,11 +517,13 @@ class VirtualState(object):
         #return inpargs
         boxes = [None] * self.numnotvirtuals
 
-        # XXX no longer correct as far as I can tell, maybe we should
-        #     make the forcing more explicit somewhere else
         # We try twice. The first time around we allow boxes to be forced
         # which might change the virtual state if the box appear in more
         # than one place among the inputargs.
+        if force_boxes:
+            for i in range(len(inputargs)):
+                self.state[i].enum_forced_boxes(boxes, inputargs[i], optimizer,
+                                                True)
         for i in range(len(inputargs)):
             self.state[i].enum_forced_boxes(boxes, inputargs[i], optimizer)
         #for i in range(len(values)):

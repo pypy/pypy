@@ -803,7 +803,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
-        p1sub = new_with_vtable(ConstClass(node_vtable2))
+        p1sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p1, p1sub, descr=nextdescr)
         jump(i1, p1, p2)
@@ -821,9 +821,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc_i(p2, descr=valuedescr)
         escape_n(i3)
         p4 = new_with_vtable(descr=nodesize)
-        p1sub = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p4, i1, descr=valuedescr)
+        p1sub = new_with_vtable(descr=nodesize2)
+        setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p4, p1sub, descr=nextdescr)
         jump(i1, p4)
         """
@@ -836,7 +836,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
         escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
-        p2sub = new_with_vtable(ConstClass(node_vtable2))
+        p2sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
         jump(i1, p1, p2)
@@ -848,7 +848,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3sub = getfield_gc_r(p3, descr=nextdescr)
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
         escape_n(i3)
-        p2sub = new_with_vtable(ConstClass(node_vtable2))
+        p2sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
         jump(i1, p2, p2sub)
@@ -858,7 +858,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc_i(p2sub, descr=valuedescr)
         escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
-        p3sub = new_with_vtable(ConstClass(node_vtable2))
+        p3sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
         jump(i1, p1, p3sub)
@@ -8093,7 +8093,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_exploding_duplicatipon(self):
+    def test_exploding_duplication(self):
         ops = """
         [i1, i2]
         i3 = int_add(i1, i1)
@@ -8342,13 +8342,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0, i1]
         p0 = escape_r()
-        setfield_gc(p0, p0, descr=arraydescr)
+        setfield_gc(p0, p0, descr=nextdescr)
         jump(i0, i1)
         """
         expected = """
         [i0, i1]
         p0 = escape_r()
-        setfield_gc(p0, p0, descr=arraydescr)
+        setfield_gc(p0, p0, descr=nextdescr)
         jump(i0, i1)
         """
         self.optimize_loop(ops, expected)

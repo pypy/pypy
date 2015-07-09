@@ -258,15 +258,14 @@ class OptIntBounds(Optimization):
                 self.pure_from_args(rop.INT_SUB, [args[0], result], args[1])
             #elif opnum == rop.INT_MUL_OVF:
             #    self.pure(rop.INT_MUL, args[:], result)
-        self.emit_operation(op)
+            self.emit_operation(op)
 
     def optimize_GUARD_OVERFLOW(self, op):
         # If INT_xxx_OVF was replaced by INT_xxx, *but* we still see
         # GUARD_OVERFLOW, then the loop is invalid.
         lastop = self.last_emitted_operation
         if lastop is None:
-            raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +
-                              'guarded with GUARD_OVERFLOW')
+            return # e.g. beginning of the loop
         opnum = lastop.getopnum()
         if opnum not in (rop.INT_ADD_OVF, rop.INT_SUB_OVF, rop.INT_MUL_OVF):
             raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +

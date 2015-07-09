@@ -85,7 +85,8 @@ class UnrollOptimizer(Optimization):
         jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
         jump_args = state.virtual_state.make_inputargs(jump_args,
-                                                       self.optimizer)
+                                                       self.optimizer,
+                                                       force_boxes=True)
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.make_short_preamble(start_label.getarglist())),
@@ -187,7 +188,6 @@ class UnrollOptimizer(Optimization):
         assert isinstance(stop_target, TargetToken)
         assert isinstance(start_target, TargetToken)
         return stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
-
 
     def export_state(self, start_label, end_label, renamed_inputargs):
         original_label_args = end_label.getarglist()

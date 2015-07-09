@@ -18,7 +18,8 @@ class OptVirtualize(optimizer.Optimization):
     def make_virtual(self, known_class, source_op, descr):
         opinfo = info.InstancePtrInfo(known_class, vdescr=descr)
         opinfo.init_fields(descr, 0)
-        source_op.set_forwarded(opinfo)
+        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop.set_forwarded(opinfo)
         return opinfo
 
     def make_varray(self, arraydescr, size, source_op, clear=False):
@@ -28,23 +29,27 @@ class OptVirtualize(optimizer.Optimization):
         else:
             const = self.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(const, size, clear, vdescr=arraydescr)
-        source_op.set_forwarded(opinfo)
+        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop.set_forwarded(opinfo)
         return opinfo
 
     def make_vstruct(self, structdescr, source_op):
         opinfo = info.StructPtrInfo(vdescr=structdescr)
         opinfo.init_fields(structdescr, 0)
-        source_op.set_forwarded(opinfo)
+        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop.set_forwarded(opinfo)
         return opinfo
 
     def make_virtual_raw_memory(self, size, source_op):
         opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, size)
-        source_op.set_forwarded(opinfo)
+        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop.set_forwarded(opinfo)
         return opinfo
 
     def make_virtual_raw_slice(self, offset, parent, source_op):
         opinfo = info.RawSlicePtrInfo(offset, parent)
-        source_op.set_forwarded(opinfo)
+        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop.set_forwarded(opinfo)
         return opinfo
 
     def optimize_GUARD_NO_EXCEPTION(self, op):
