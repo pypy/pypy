@@ -209,7 +209,9 @@ class W_Dtype(W_Root):
                                                   self.descr_get_str(space)])])
         elif self.alignment >= 0 and style != 'descr':
             # we need to force a sorting order for the keys,
-            # so return a string instead of a dict
+            # so return a string instead of a dict. Also, numpy formats
+            # the lists without spaces between elements, so we cannot simply
+            # do str(names)
             names = "'names':["
             formats = "'formats':["
             offsets = "'offsets':["
@@ -513,7 +515,10 @@ class W_Dtype(W_Root):
         values = self.descr_get_fields(space)
         if self.is_flexible():
             w_size = space.wrap(self.elsize)
-            w_alignment = space.wrap(self.alignment)
+            if self.alignment > 2:
+                w_alignment = space.wrap(self.alignment)
+            else:
+                w_alignment = space.wrap(1)
         else:
             w_size = space.wrap(-1)
             w_alignment = space.wrap(-1)
@@ -542,6 +547,8 @@ class W_Dtype(W_Root):
         w_fields = space.getitem(w_data, space.wrap(4))
         size = space.int_w(space.getitem(w_data, space.wrap(5)))
         alignment = space.int_w(space.getitem(w_data, space.wrap(6)))
+        if alignment < 2:
+            alignment = -1
         flags = space.int_w(space.getitem(w_data, space.wrap(7)))
 
         if (w_names == space.w_None) != (w_fields == space.w_None):
@@ -610,16 +617,16 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
     fields = {}
     if offsets is None:
         offsets = [0] * len(lst_w)
-    names = []
     maxalign = 0
-    total = 0
+    fldnames = [''] * len(lst_w)
+    subdtypes = [None] * len(lst_w)
+    titles = [None] * len(lst_w)
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
-        title = None
         if simple:
             subdtype = make_new_dtype(space, space.gettypefor(W_Dtype), w_elem,
                                     alignment)
-            fldname = 'f%d' % i
+            fldnames[i] = 'f%d' % i
         else:
             w_shape = space.newtuple([])
             if space.len_w(w_elem) == 3:
@@ -632,39 +639,52 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
                                     w_flddesc, alignment, w_shape=w_shape)
             if space.isinstance_w(w_fldname, space.w_tuple):
                 fldlist = space.listview(w_fldname)
-                fldname = space.str_w(fldlist[0])
-                title = space.str_w(fldlist[1])
+                fldnames[i] = space.str_w(fldlist[0])
+                titles[i] = space.str_w(fldlist[1])
                 if len(fldlist) != 2:
                     raise oefmt(space.w_TypeError, "data type not understood")
             elif space.isinstance_w(w_fldname, space.w_str): 
-                fldname = space.str_w(w_fldname)
+                fldnames[i] = space.str_w(w_fldname)
             else:
                 raise oefmt(space.w_TypeError, "data type not understood")
-            if fldname == '':
-                fldname = 'f%d' % i
-            if fldname in fields:
-                raise oefmt(space.w_ValueError, "two fields with the same name")
+            if fldnames[i] == '':
+                fldnames[i] = 'f%d' % i
         assert isinstance(subdtype, W_Dtype)
-        fields[fldname] = offsets[i], subdtype
-        if title is not None:
-            fields[title] = offsets[i], subdtype
-        maxalign = max(subdtype.alignment, maxalign)
-        if not subdtype.is_record():
-            maxalign = max(subdtype.elsize, maxalign)
-        delta = subdtype.alignment
+        if alignment >= 0:
+            maxalign = max(subdtype.alignment, maxalign)
+            if not subdtype.is_record():
+                maxalign = max(subdtype.elsize, maxalign)
         if  i + 1 < len(offsets) and offsets[i + 1] == 0:
             if alignment >= 0:
+                delta = subdtype.alignment
                 # Set offset to the next power-of-two above delta
                 delta = (delta + maxalign -1) & (-maxalign)
                 if delta > offsets[i]:
                     for j in range(i):
                         offsets[j+1] = delta + offsets[j]
-            offsets[i + 1] = offsets[i] + max(delta, subdtype.elsize)
-        names.append((fldname, title))
+                offsets[i + 1] = offsets[i] + max(delta, subdtype.elsize)
+            else:
+                offsets[i+1] = offsets[i] + subdtype.elsize
+        subdtypes[i] = subdtype
+    names = []
+    for i in range(len(subdtypes)):
+        subdtype = subdtypes[i]
+        assert isinstance(subdtype, W_Dtype)
+        if fldnames[i] in fields:
+            raise oefmt(space.w_ValueError, "two fields with the same name")
+        fields[fldnames[i]] = offsets[i], subdtype
+        if titles[i] is not None:
+            if titles[i] in fields:
+                raise oefmt(space.w_ValueError, "two fields with the same name")
+            fields[titles[i]] = offsets[i], subdtype
+        names.append((fldnames[i], titles[i]))
     total = offsets[-1] + max(maxalign, fields[names[-1][0]][1].elsize)
     retval = W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=total)
-    retval.alignment = maxalign
+    if alignment >=0:
+        retval.alignment = maxalign
+    else:
+        retval.alignment = -1
     retval.flags |= NPY.NEEDS_PYAPI
     return retval
 
@@ -746,9 +766,10 @@ def dtype_from_dict(space, w_dict, alignment):
     else:
         offsets = [space.int_w(i) for i in offsets_w]
     if titles_w is not None:
-        names_w = []
+        _names_w = []
         for i in range(min(len(names_w), len(titles_w))):
-            names_w.append(space.newtuple([names_w[i], titles_w[i]]))
+            _names_w.append(space.newtuple([names_w[i], titles_w[i]]))
+        names_w = _names_w
     aslist = []
     for i in range(min(len(names_w), len(formats_w))):
         aslist.append(space.newtuple([names_w[i], formats_w[i]]))
