@@ -297,7 +297,12 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        if config.objspace.usemodules._cffi_backend:
+            self.hack_for_cffi_modules(driver)
 
+        return self.get_entry_point(config)
+    
+    def hack_for_cffi_modules(self, driver):
         # HACKHACKHACK
         # ugly hack to modify target goal from compile_c to build_cffi_imports
         # this should probably get cleaned up and merged with driver.create_exe
@@ -335,8 +340,6 @@ class PyPyTarget(object):
         driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
         driver.default_goal = 'build_cffi_imports'
         # HACKHACKHACK end
-
-        return self.get_entry_point(config)
 
     def jitpolicy(self, driver):
         from pypy.module.pypyjit.policy import PyPyJitPolicy
