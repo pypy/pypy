@@ -15,7 +15,7 @@ from pypy.interpreter.argument import Arguments
 
 call2_driver = jit.JitDriver(
     name='numpy_call2',
-    greens=['shapelen', 'func', 'calc_dtype', 'res_dtype', 'left', 'right'],
+    greens=['shapelen', 'func', 'left', 'right', 'calc_dtype', 'res_dtype'],
     reds='auto', vectorize=True)
 
 def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
@@ -40,9 +40,9 @@ def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     res_dtype = out.get_dtype()
     while not out_iter.done(out_state):
         call2_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                     calc_dtype=calc_dtype, res_dtype=res_dtype,
                                      left=left_iter is None,
-                                     right=right_iter is None)
+                                     right=right_iter is None,
+                                     calc_dtype=calc_dtype, res_dtype=res_dtype)
         if left_iter:
             w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
             left_state = left_iter.next(left_state)
