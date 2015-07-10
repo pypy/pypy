@@ -1321,7 +1321,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                        'formats':['i4', 'u1'],
                        'offsets':[0, 4]}, align=True)
         assert dt.itemsize == 8
-        dt = np.dtype({'f0': ('i4', 0), 'f1':('u1', 4)}, align=True)
+        dt = np.dtype([('f0', 'i4'), ('f1', 'u1')], align=True)
         assert dt.itemsize == 8
         assert dt.alignment == 4
         assert str(dt) == "{'names':['f0','f1'], 'formats':['<i4','u1'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}"
@@ -1345,13 +1345,13 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                        'f2': ('i1', 16)}, align=True)
         assert dt3.itemsize == 20
         assert dt1 == dt2
-        assert str(dt3) == "{'names':['f0','f1','f2'], " + \
-                            "'formats':['<i4',{'names':['f1','f2','f3'], " + \
-                                              "'formats':['i1','<i4','i1'], " + \
-                                              "'offsets':[0,4,8], 'itemsize':12}," + \
-                                         "'i1'], " + \
-                            "'offsets':[0,4,16], 'itemsize':20, 'aligned':True}"
-        print '+++++++++++++++++'
+        answer = "{'names':['f0','f1','f2'], " + \
+                    "'formats':['<i4',{'names':['f1','f2','f3'], " + \
+                                      "'formats':['i1','<i4','i1'], " + \
+                                      "'offsets':[0,4,8], 'itemsize':12}," + \
+                                 "'i1'], " + \
+                    "'offsets':[0,4,16], 'itemsize':20, 'aligned':True}"
+        assert str(dt3) == answer
         assert dt2 == dt3
         # Nesting should preserve packing
         dt1 = np.dtype([('f0', 'i4'),
