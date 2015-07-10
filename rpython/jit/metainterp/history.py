@@ -6,7 +6,7 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 
 from rpython.conftest import option
 
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.resoperation import ResOperation, GuardResOp, rop
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.rlib.objectmodel import compute_identity_hash
 import weakref
@@ -769,6 +769,7 @@ class LoopVersion(object):
 
         for op in opt_ops:
             if op.is_guard():
+                assert isinstance(op, GuardResOp)
                 descr = op.getdescr()
                 if descr.loop_version():
                     # currently there is only ONE versioning,
