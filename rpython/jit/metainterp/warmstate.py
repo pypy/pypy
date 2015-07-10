@@ -368,19 +368,12 @@ class WarmEnterState(object):
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
                 vinfo.clear_vable_token(virtualizable)
-
-            # XXX debug purpose only
-            #jitdriver_sd.xxxbench.xxx_clock_start()
-            # XXX debug purpose only end
-
+            #
             deadframe = func_execute_token(loop_token, *args)
             #
             # Record in the memmgr that we just ran this loop,
             # so that it will keep it alive for a longer time
             warmrunnerdesc.memory_manager.keep_loop_alive(loop_token)
-            # XXX debug purpose only
-            #jitdriver_sd.xxxbench.xxx_clock_stop(fail=True)
-            # XXX debug purpose only end
             #
             # Handle the failure
             fail_descr = cpu.get_latest_descr(deadframe)
