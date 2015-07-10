@@ -643,7 +643,10 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
             if space.isinstance_w(w_fldname, space.w_tuple):
                 fldlist = space.listview(w_fldname)
                 fldnames[i] = space.str_w(fldlist[0])
-                titles[i] = space.str_w(fldlist[1])
+                if space.is_w(fldlist[1], space.w_None):
+                    titles[i] = None
+                else:
+                    titles[i] = space.str_w(fldlist[1])
                 if len(fldlist) != 2:
                     raise oefmt(space.w_TypeError, "data type not understood")
             elif space.isinstance_w(w_fldname, space.w_str): 
@@ -722,15 +725,14 @@ def _usefields(space, w_dict, align):
             alignment = -1
         format = dtype_from_spec(space, obj[0], alignment=alignment)
         if len(obj) > 2:
-            title = obj[2]
+            title = space.wrap(obj[2])
         else:
-            title = None
-        allfields.append((fname, format, num, title))
+            title = space.w_None
+        allfields.append((space.wrap(fname), format, num, title))
     allfields.sort(key=lambda x: x[2])
-    names   = [x[0] for x in allfields]
+    names   = [space.newtuple([x[0], x[3]]) for x in allfields]
     formats = [x[1] for x in allfields]
     offsets = [x[2] for x in allfields]
-    titles  = [x[3] for x in allfields]
     aslist = []
     if align:
         alignment = 0

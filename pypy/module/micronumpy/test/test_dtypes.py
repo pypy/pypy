@@ -1307,7 +1307,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                        'formats':['i4', 'u1'],
                        'offsets':[0, 4]}, align=True)
         assert dt.itemsize == 8
-        dt = np.dtype([('f0', 'i4'), ('f1', 'u1')], align=True)
+        dt = np.dtype({'f0': ('i4', 0), 'f1':('u1', 4)}, align=True)
         assert dt.itemsize == 8
         assert dt.alignment == 4
         assert str(dt) == "{'names':['f0','f1'], 'formats':['<i4','u1'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}"
@@ -1356,6 +1356,27 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert dt3.itemsize == 11
         assert dt1 == dt2
         assert dt2 == dt3
+
+    def test_bad_param(self):
+        import numpy as np
+        # Can't give a size that's too small
+        raises(ValueError, np.dtype,
+                        {'names':['f0', 'f1'],
+                         'formats':['i4', 'i1'],
+                         'offsets':[0, 4],
+                         'itemsize':4})
+        # If alignment is enabled, the alignment (4) must divide the itemsize
+        raises(ValueError, np.dtype,
+                        {'names':['f0', 'f1'],
+                         'formats':['i4', 'i1'],
+                         'offsets':[0, 4],
+                         'itemsize':9}, align=True)
+        # If alignment is enabled, the individual fields must be aligned
+        raises(ValueError, np.dtype,
+                        {'names':['f0', 'f1'],
+                         'formats':['i1', 'f4'],
+                         'offsets':[0, 2]}, align=True)
+
 
 
 class AppTestNotDirect(BaseNumpyAppTest):
