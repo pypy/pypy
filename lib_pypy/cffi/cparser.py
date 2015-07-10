@@ -633,6 +633,8 @@ class Parser(object):
 
     def include(self, other):
         for name, tp in other._declarations.items():
+            if name.startswith('anonymous $enum_$'):
+                continue   # fix for test_anonymous_enum_include
             kind = name.split(' ', 1)[0]
             if kind in ('struct', 'union', 'enum', 'anonymous'):
                 self._declare(name, tp, included=True)

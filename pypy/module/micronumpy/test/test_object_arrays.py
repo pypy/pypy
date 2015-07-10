@@ -171,4 +171,8 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         assert 'a' * 100 in str(a)
         b = a.astype('S')
         assert 'a' * 100 in str(b)
-
+        a = np.array([123], dtype='U')
+        assert a[0] == u'123'
+        b = a.astype('O')
+        assert b[0] == u'123'
+        assert type(b[0]) is unicode

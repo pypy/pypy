@@ -73,8 +73,6 @@ class GcRewriterAssembler(object):
                 self.emit_pending_zeros()
             elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
-            elif op.getopnum() == rop.DEBUG_MERGE_POINT:
-                continue # ignore debug_merge_points
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
                 self.known_lengths.clear()

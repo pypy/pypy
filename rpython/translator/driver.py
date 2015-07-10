@@ -67,14 +67,16 @@ class TranslationDriver(SimpleTaskEngine):
                  disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
+        from rpython.config import translationoption
         self.timer = Timer()
         SimpleTaskEngine.__init__(self)
 
         self.log = log
 
         if config is None:
-            from rpython.config.translationoption import get_combined_translation_config
-            config = get_combined_translation_config(translating=True)
+            config = translationoption.get_combined_translation_config(translating=True)
+        # XXX patch global variable with translation config
+        translationoption._GLOBAL_TRANSLATIONCONFIG = config
         self.config = config
         if overrides is not None:
             self.config.override(overrides)

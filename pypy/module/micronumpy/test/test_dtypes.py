@@ -1045,20 +1045,6 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.name == "unicode256"
         assert d.num == 19
 
-    def test_string_boxes(self):
-        from numpy import str_
-        assert isinstance(str_(3), str_)
-
-    def test_unicode_boxes(self):
-        from numpy import unicode_
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(NotImplementedError, unicode_, 3)
-            assert exc.value.message.find('not supported yet') >= 0
-        else:
-            u = unicode_(3)
-            assert isinstance(u, unicode)
-
     def test_character_dtype(self):
         import numpy as np
         from numpy import array, character
@@ -1126,7 +1112,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
     def test_array_from_record(self):
         import numpy as np
-        a = np.array(('???', -999, -12345678.9), 
+        a = np.array(('???', -999, -12345678.9),
                      dtype=[('c', '|S3'), ('a', '<i8'), ('b', '<f8')])
         # Change the order of the keys
         b = np.array(a, dtype=[('a', '<i8'), ('b', '<f8'), ('c', '|S3')])
@@ -1134,7 +1120,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert b.dtype.fields['a'][1] == 0
         assert b['a'] == -999
         a = np.array(('N/A', 1e+20, 1e+20, 999999),
-                     dtype=[('name', '|S4'), ('x', '<f8'), 
+                     dtype=[('name', '|S4'), ('x', '<f8'),
                             ('y', '<f8'), ('block', '<i8', (2, 3))])
         assert (a['block'] == 999999).all()
 

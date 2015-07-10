@@ -142,7 +142,7 @@ def fromfd(space, fd, family, type, proto=0):
         sock = rsocket.fromfd(fd, family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
-    return space.wrap(W_Socket(sock))
+    return space.wrap(W_Socket(space, sock))
 
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
@@ -160,8 +160,8 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([
-        space.wrap(W_Socket(sock1)),
-        space.wrap(W_Socket(sock2))
+        space.wrap(W_Socket(space, sock1)),
+        space.wrap(W_Socket(space, sock2))
     ])
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.

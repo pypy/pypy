@@ -1,6 +1,6 @@
 import py
 
-import os, sys
+import os, sys, subprocess
 
 import pypy
 from pypy.interpreter import gateway
@@ -297,8 +297,49 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        if config.objspace.usemodules._cffi_backend:
+            self.hack_for_cffi_modules(driver)
 
         return self.get_entry_point(config)
+    
+    def hack_for_cffi_modules(self, driver):
+        # HACKHACKHACK
+        # ugly hack to modify target goal from compile_c to build_cffi_imports
+        # this should probably get cleaned up and merged with driver.create_exe
+        from rpython.translator.driver import taskdef
+        import types
+
+        class Options(object):
+            pass
+
+
+        def mkexename(name):
+            if sys.platform == 'win32':
+                name = name.new(ext='exe')
+            return name
+
+        @taskdef(['compile_c'], "Create cffi bindings for modules")
+        def task_build_cffi_imports(self):
+            from pypy.tool.build_cffi_imports import create_cffi_import_libraries
+            ''' Use cffi to compile cffi interfaces to modules'''
+            exename = mkexename(driver.compute_exe_name())
+            basedir = exename
+            while not basedir.join('include').exists():
+                _basedir = basedir.dirpath()
+                if _basedir == basedir:
+                    raise ValueError('interpreter %s not inside pypy repo', 
+                                     str(exename))
+                basedir = _basedir
+            modules = self.config.objspace.usemodules.getpaths()
+            options = Options()
+            # XXX possibly adapt options using modules
+            failures = create_cffi_import_libraries(exename, options, basedir)
+            # if failures, they were already printed
+            print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
+        driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
+        driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
+        driver.default_goal = 'build_cffi_imports'
+        # HACKHACKHACK end
 
     def jitpolicy(self, driver):
         from pypy.module.pypyjit.policy import PyPyJitPolicy

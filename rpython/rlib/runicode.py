@@ -1009,6 +1009,16 @@ def str_decode_ascii(s, size, errors, final=False,
             result.append(r)
     return result.build(), pos
 
+# An elidable version, for a subset of the cases
+@jit.elidable
+def fast_str_decode_ascii(s):
+    result = UnicodeBuilder(len(s))
+    for c in s:
+        if ord(c) >= 128:
+            raise ValueError
+        result.append(unichr(ord(c)))
+    return result.build()
+
 
 # Specialize on the errorhandler when it's a constant
 @specialize.arg_or_var(3)

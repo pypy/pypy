@@ -393,15 +393,33 @@ class __extend__(W_NDimArray):
             w_shape = space.newtuple(args_w)
         return self.reshape(space, w_shape)
 
-    def descr_get_transpose(self, space):
-        return W_NDimArray(self.implementation.transpose(self))
+    def descr_get_transpose(self, space, axes=None):
+        return W_NDimArray(self.implementation.transpose(self, axes))
 
     def descr_transpose(self, space, args_w):
-        if not (len(args_w) == 0 or
+        if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
+            args_w = space.fixedview(args_w[0])
+        if (len(args_w) == 0 or
                 len(args_w) == 1 and space.is_none(args_w[0])):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "axes unsupported for transpose"))
-        return self.descr_get_transpose(space)
+            return self.descr_get_transpose(space)
+        else:
+            if len(args_w) != self.ndims():
+                raise oefmt(space.w_ValueError, "axes don't match array")
+            axes = []
+            axes_seen = [False] * self.ndims()
+            for w_arg in args_w:
+                try:
+                    axis = support.index_w(space, w_arg)
+                except OperationError:
+                    raise oefmt(space.w_TypeError, "an integer is required")
+                if axis < 0 or axis >= self.ndims():
+                    raise oefmt(space.w_ValueError, "invalid axis for this array")
+                if axes_seen[axis] is True:
+                    raise oefmt(space.w_ValueError, "repeated axis in transpose")
+                axes.append(axis)
+                axes_seen[axis] = True
+            return self.descr_get_transpose(space, axes)
+
 
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
