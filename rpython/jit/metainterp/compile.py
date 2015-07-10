@@ -195,18 +195,18 @@ def compile_loop(metainterp, greenkey, start,
 
 def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token):
     metainterp_sd = metainterp.staticdata
+    cpu = metainterp_sd.cpu
     if loop.versions is not None:
         token = jitcell_token
         for version in loop.versions:
-            for faildescr  in version.faildescrs:
+            for faildescr in version.faildescrs:
                 vl = create_empty_loop(metainterp)
                 vl.inputargs = version.inputargs
-                vl.operations = version.operations
+                vl.operations = version.copy_operations()
                 vl.original_jitcell_token = jitcell_token
                 send_bridge_to_backend(jitdriver_sd, metainterp_sd,
                                        faildescr, version.inputargs,
                                        version.operations, jitcell_token)
-                vl.original_jitcell_token = jitcell_token
                 record_loop_or_bridge(metainterp_sd, vl)
     loop.versions = None
 

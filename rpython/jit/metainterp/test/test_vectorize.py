@@ -171,6 +171,46 @@ class VectorizeTests:
         res = self.meta_interp(f, [60])
         assert res == f(60) == sum(range(60))
 
+    @py.test.mark.parametrize('i',[15])
+    def test_array_bounds_check_elimination(self,i):
+        myjitdriver = JitDriver(greens = [],
+                                reds = 'auto',
+                                vectorize=True)
+        T = lltype.Array(rffi.INT, hints={'nolength': True})
+        def f(d):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            vb = lltype.malloc(T, d, flavor='raw', zero=True)
+            for j in range(d):
+                va[j] = rffi.r_int(j)
+                vb[j] = rffi.r_int(j)
+            i = 0
+            while i < d:
+                myjitdriver.jit_merge_point()
+
+                if i < 0:
+                    raise IndexError
+                if i >= d:
+                    raise IndexError
+                a = va[i]
+                if i < 0:
+                    raise IndexError
+                if i >= d:
+                    raise IndexError
+                b = vb[i]
+                ec = intmask(a)+intmask(b)
+                if i < 0:
+                    raise IndexError
+                if i >= d:
+                    raise IndexError
+                va[i] = rffi.r_int(ec)
+
+                i += 1
+            lltype.free(va, flavor='raw')
+            lltype.free(vb, flavor='raw')
+            return 0
+        res = self.meta_interp(f, [i])
+        assert res == f(i)
+
 class VectorizeLLtypeTests(VectorizeTests):
     pass
 

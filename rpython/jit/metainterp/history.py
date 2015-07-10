@@ -780,6 +780,9 @@ class LoopVersion(object):
                     op.setfailargs(version_failargs)
                     op.rd_snapshot = None
 
+    def copy_operations(self):
+        return [op.clone() for op in self.operations]
+
     def update_token(self, jitcell_token):
         label = self.operations[self.label_pos]
         jump = self.operations[-1]
