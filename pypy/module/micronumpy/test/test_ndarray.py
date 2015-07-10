@@ -2484,6 +2484,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
 
+        a = np.arange(6).reshape(2, 3)
+        if '__pypy__' in sys.builtin_module_names:
+            raises(ValueError, "a[..., ...]")
+
     def test_empty_indexing(self):
         import numpy as np
         r = np.ones(3)

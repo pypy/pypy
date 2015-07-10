@@ -9,7 +9,8 @@ from pypy.module.micronumpy import support, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
-from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
+from pypy.module.micronumpy.strides import (
+    Chunk, Chunks, NewAxisChunk, EllipsisChunk,
     RecordChunk, calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
@@ -204,6 +205,8 @@ class BaseConcreteArray(object):
                 if (isinstance(w_item, W_NDimArray) or
                     space.isinstance_w(w_item, space.w_list)):
                     raise ArrayArgumentException
+                elif space.is_w(w_item, space.w_Ellipsis):
+                    raise IndexError
             return self._lookup_by_index(space, view_w)
         if shape_len == 0:
             raise oefmt(space.w_IndexError, "too many indices for array")
@@ -240,8 +243,17 @@ class BaseConcreteArray(object):
             return Chunks([NewAxisChunk()])
         result = []
         i = 0
+        has_ellipsis = False
         for w_item in space.fixedview(w_idx):
-            if space.is_w(w_item, space.w_None):
+            if space.is_w(w_item, space.w_Ellipsis):
+                if has_ellipsis:
+                    # in CNumPy, this is only a deprecation warning
+                    raise oefmt(space.w_ValueError,
+                        "an index can only have a single Ellipsis (`...`); "
+                        "replace all but one with slices (`:`).")
+                result.append(EllipsisChunk())
+                has_ellipsis = True
+            elif space.is_w(w_item, space.w_None):
                 result.append(NewAxisChunk())
             else:
                 result.append(Chunk(*space.decode_index4(w_item,

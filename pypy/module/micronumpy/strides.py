@@ -82,6 +82,10 @@ class NewAxisChunk(Chunk):
     def __init__(self):
         pass
 
+class EllipsisChunk(BaseChunk):
+    def __init__(self):
+        pass
+
 
 class BaseTransform(object):
     pass
