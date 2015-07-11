@@ -36,14 +36,19 @@ class UnrollableOptimizer(Optimizer):
             preamble_op.info.make_guards(op, self.optunroll.short)
         return op
 
-    def setinfo_from_preamble(self, op, old_info):
+    def setinfo_from_preamble(self, op, preamble_info):
         op = self.get_box_replacement(op)
-        if isinstance(old_info, info.PtrInfo):
+        if isinstance(preamble_info, info.PtrInfo):
+            if preamble_info.is_virtual():
+                op.set_forwarded(preamble_info)
+                return
             if op.is_constant():
                 return # nothing we can learn
-            known_class = old_info.get_known_class(self.cpu)
+            known_class = preamble_info.get_known_class(self.cpu)
             if known_class:
                 self.make_constant_class(op, known_class, False)
+            if preamble_info.is_nonnull():
+                self.make_nonnull(op)
 
 
 class UnrollOptimizer(Optimization):
@@ -72,6 +77,7 @@ class UnrollOptimizer(Optimization):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], ops)
+        self.flush()
         exported_state = self.export_state(start_label, end_label,
                                            info.inputargs)
         return exported_state, self.optimizer._newoperations
@@ -87,6 +93,7 @@ class UnrollOptimizer(Optimization):
         jump_args = state.virtual_state.make_inputargs(jump_args,
                                                        self.optimizer,
                                                        force_boxes=True)
+        self.flush()
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.make_short_preamble(start_label.getarglist())),
@@ -202,6 +209,10 @@ class UnrollOptimizer(Optimization):
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        for arg in end_args:
+            if arg.get_forwarded() is not None:
+                arg.set_forwarded(None) # forget the optimization info
+                                        # (it's by infos exported)
         return ExportedState(label_args, inparg_mapping, virtual_state, infos,
                              sb.short_boxes, renamed_inputargs)
 

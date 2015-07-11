@@ -123,3 +123,12 @@ class TestUnroll(BaseTestUnroll):
         ptrinfo._fields = [None, None, None, p2]
         p.set_forwarded(ptrinfo)
         vs.make_inputargs([p, p], FakeOptimizer())
+
+    def test_short_boxes_heapcache(self):
+        loop = """
+        [p0, i1]
+        i0 = getfield_gc_i(p0, descr=valuedescr)
+        jump(p0, i0)
+        """
+        es, loop, preamble = self.optimize(loop)
+        assert es.short_boxes[preamble.operations[0]]

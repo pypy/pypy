@@ -555,7 +555,9 @@ class OptRewrite(Optimization):
                 if val is None:
                     continue
                 if dest_info and dest_info.is_virtual():
-                    dest_info.setitem(index + dest_start, val)
+                    dest_info.setitem(index + dest_start,
+                                      self.get_box_replacement(op.getarg(2)),
+                                      val)
                 else:
                     newop = ResOperation(rop.SETARRAYITEM_GC,
                                          [op.getarg(2),

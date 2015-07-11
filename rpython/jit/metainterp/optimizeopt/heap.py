@@ -34,10 +34,12 @@ class CachedField(object):
         #      'cached_infos'.
         #
         self.cached_infos = []
+        self.cached_structs = []
         self._lazy_setfield = None
         self._lazy_setfield_registered = False
 
-    def register_dirty_field(self, info):
+    def register_dirty_field(self, structop, info):
+        self.cached_structs.append(structop)
         self.cached_infos.append(info)
 
     def invalidate(self, descr):
@@ -45,7 +47,50 @@ class CachedField(object):
             assert isinstance(opinfo, info.AbstractStructPtrInfo)
             opinfo._fields[descr.get_index()] = None
         self.cached_infos = []
+        self.cached_structs = []
 
+    def produce_potential_short_preamble_ops(self, optimizer, shortboxes,
+                                             descr):
+        assert self._lazy_setfield is None
+        for i, info in enumerate(self.cached_infos):
+            structbox = self.cached_structs[i]
+            op = info._fields[descr.get_index()]
+            op = optimizer.get_box_replacement(op)
+            opnum = OpHelpers.getfield_for_descr(descr)
+            getfield_op = ResOperation(opnum, [structbox], descr=descr)
+            shortboxes.add_potential(op, getfield_op)
+        return
+        for structvalue in self._cached_fields_getfield_op.keys():
+            op = self._cached_fields_getfield_op[structvalue]
+            if not op:
+                continue
+            value = optimizer.getvalue(op.getarg(0))
+            if value in optimizer.opaque_pointers:
+                if value.getlevel() < LEVEL_KNOWNCLASS:
+                    continue
+                if op.getopnum() != rop.SETFIELD_GC and op.getopnum() != rop.GETFIELD_GC:
+                    continue
+            if structvalue in self._cached_fields:
+                if op.getopnum() == rop.SETFIELD_GC:
+                    result = op.getarg(1)
+                    if isinstance(result, Const):
+                        newresult = result.clonebox()
+                        optimizer.make_constant(newresult, result)
+                        result = newresult
+                    getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
+                                         result, op.getdescr())
+                    shortboxes.add_potential(getop, synthetic=True)
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    result = op.getarg(2)
+                    if isinstance(result, Const):
+                        newresult = result.clonebox()
+                        optimizer.make_constant(newresult, result)
+                        result = newresult
+                    getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
+                                         result, op.getdescr())
+                    shortboxes.add_potential(getop, synthetic=True)
+                elif op.result is not None:
+                    shortboxes.add_potential(op)
 
     def possible_aliasing(self, optheap, opinfo):
         # If lazy_setfield is set and contains a setfield on a different
@@ -135,7 +180,7 @@ class CachedField(object):
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(1))
-        opinfo.setfield(op.getdescr(), arg, optheap, self)
+        opinfo.setfield(op.getdescr(), op, arg, optheap, self)
 
 class ArrayCachedField(CachedField):
     def __init__(self, index):
@@ -150,13 +195,15 @@ class ArrayCachedField(CachedField):
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(2))
-        opinfo.setitem(self.index, arg, self, optheap)
+        struct = optheap.get_box_replacement(op.getarg(0))
+        opinfo.setitem(self.index, struct, arg, self, optheap)
 
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.ArrayPtrInfo)
             opinfo._items = None
         self.cached_infos = []
+        self.cached_structs = []
 
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
@@ -203,7 +250,6 @@ class OptHeap(Optimization):
             self.next_optimization.propagate_forward(postponed_op)
 
     def produce_potential_short_preamble_ops(self, sb):
-        return
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():
             # XXX Pure operation of boxes that are cached in several places will
@@ -221,11 +267,11 @@ class OptHeap(Optimization):
             for index, d in submap.items():
                 d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
-    def register_dirty_field(self, descr, info):
-        self.field_cache(descr).register_dirty_field(info)
+    def register_dirty_field(self, descr, op, info):
+        self.field_cache(descr).register_dirty_field(op, info)
 
-    def register_dirty_array_field(self, arraydescr, index, info):
-        self.arrayitem_cache(arraydescr, index).register_dirty_field(info)
+    def register_dirty_array_field(self, arraydescr, op, index, info):
+        self.arrayitem_cache(arraydescr, index).register_dirty_field(op, info)
 
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
@@ -467,7 +513,7 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # then remember the result of reading the field
-        structinfo.setfield(op.getdescr(), op, self, cf)
+        structinfo.setfield(op.getdescr(), op.getarg(0), op, self, cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
@@ -518,7 +564,9 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # the remember the result of reading the array item
         if cf is not None:
-            arrayinfo.setitem(indexb.getint(), self.get_box_replacement(op), cf,
+            arrayinfo.setitem(indexb.getint(),
+                              self.get_box_replacement(op.getarg(0)),
+                              self.get_box_replacement(op), cf,
                               self)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I

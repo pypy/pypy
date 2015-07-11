@@ -122,12 +122,13 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         assert not self.is_virtual()
         self._fields = [None] * len(self._fields)
 
-    def setfield(self, descr, op, optheap=None, cf=None):
+    def setfield(self, descr, struct, op, optheap=None, cf=None):
         self.init_fields(descr.get_parent_descr(), descr.get_index())
+        assert isinstance(op, AbstractValue)
         self._fields[descr.get_index()] = op
         if cf is not None:
             assert not self.is_virtual()
-            cf.register_dirty_field(self)
+            cf.register_dirty_field(struct, self)
 
     def getfield(self, descr, optheap=None):
         self.init_fields(descr.get_parent_descr(), descr.get_index())
@@ -144,7 +145,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                                           descr=flddescr)
                 optforce._emit_operation(setfieldop)
                 if optforce.optheap is not None:
-                    optforce.optheap.register_dirty_field(flddescr, self)
+                    optforce.optheap.register_dirty_field(flddescr, op, self)
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         lst = self.vdescr.get_all_fielddescrs()
@@ -313,11 +314,11 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                       descr=arraydescr)
                 optforce._emit_operation(setop)
                 if optforce.optheap is not None:
-                    optforce.optheap.register_dirty_array_field(
+                    optforce.optheap.register_dirty_array_field(op,
                         arraydescr, i, self)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, index, op, cf=None, optheap=None):
+    def setitem(self, index, struct_op, op, cf=None, optheap=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
@@ -325,7 +326,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         self._items[index] = op
         if cf is not None:
             assert not self.is_virtual()
-            cf.register_dirty_field(self)
+            cf.register_dirty_field(struct_op, self)
 
     def getitem(self, index, optheap=None):
         if self._items is None or index >= len(self._items):
@@ -450,9 +451,9 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_array_info(optheap)
         info.setitem(index, op, cf)
 
-    def setfield(self, descr, op, optheap=None, cf=None):
+    def setfield(self, descr, struct, op, optheap=None, cf=None):
         info = self._get_info(descr, optheap)
-        info.setfield(descr, op, optheap, cf)
+        info.setfield(descr, struct, op, optheap, cf)
 
     def is_null(self):
         return not bool(self._const.getref_base())

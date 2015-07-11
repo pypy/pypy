@@ -113,8 +113,9 @@ class OptVirtualize(optimizer.Optimization):
         newop.set_forwarded(vrefvalue)
         token = ResOperation(rop.FORCE_TOKEN, [])
         self.emit_operation(token)
-        vrefvalue.setfield(descr_virtual_token, token)
-        vrefvalue.setfield(descr_forced, self.optimizer.cpu.ts.CONST_NULLREF)
+        vrefvalue.setfield(descr_virtual_token, newop, token)
+        vrefvalue.setfield(descr_forced, newop,
+                           self.optimizer.cpu.ts.CONST_NULLREF)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # This operation is used in two cases.  In normal cases, it
@@ -198,12 +199,13 @@ class OptVirtualize(optimizer.Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_I
 
     def optimize_SETFIELD_GC(self, op):
-        opinfo = self.getptrinfo(op.getarg(0))
+        struct = op.getarg(0)
+        opinfo = self.getptrinfo(struct)
         if opinfo is not None and opinfo.is_virtual():
-            opinfo.setfield(op.getdescr(),
+            opinfo.setfield(op.getdescr(), struct,
                             self.get_box_replacement(op.getarg(1)))
         else:
-            self.make_nonnull(op.getarg(0))
+            self.make_nonnull(struct)
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
@@ -309,6 +311,7 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 opinfo.setitem(indexbox.getint(),
+                               self.get_box_replacement(op.getarg(0)),
                                self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
