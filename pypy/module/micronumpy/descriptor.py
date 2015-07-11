@@ -865,6 +865,33 @@ def _set_metadata_and_copy(space, w_metadata, dtype, copy=False):
         dtype.descr_set_metadata(space, w_metadata)
     return dtype
 
+def _get_shape(space, w_shape):
+    if w_shape is None:
+        return None
+    if space.isinstance_w(w_shape, space.w_int):
+        dim = space.int_w(w_shape)
+        return [dim]
+    shape_w = space.fixedview(w_shape)
+    if len(shape_w) == 1:
+        if not space.isinstance_w(shape_w[0], space.w_int):
+            return None
+    shape = []
+    for w_dim in shape_w:
+        try:
+            dim = space.int_w(w_dim)
+        except OperationError as e:
+            if e.match(space, space.w_OverflowError):
+                raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple.")
+            else:
+                raise
+        if dim > 2 ** 32 -1:
+            raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
+                  "dimension does not fit into a C int.")
+        elif dim < 0:
+            raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
+                  "dimension smaller than zero.")
+        shape.append(dim)
+    return shape
 
 @unwrap_spec(align=bool, copy=bool)
 def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
@@ -878,33 +905,15 @@ def descr__new__(space, w_subtype, w_dtype, align=False, copy=False,
 
 def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=None, w_metadata=None):
     cache = get_dtype_cache(space)
-    if w_shape is not None and (space.isinstance_w(w_shape, space.w_int) or
-                                space.len_w(w_shape) > 0):
+    shape = _get_shape(space, w_shape)
+    if shape is not None:
         subdtype = make_new_dtype(space, w_subtype, w_dtype, alignment, copy, w_metadata=w_metadata)
+        if len(shape) == 1 and shape[0] == 1:
+            print '_get_shape returned', shape
+            return subdtype
+        print 'uhh, _get_shape returned', shape
         assert isinstance(subdtype, W_Dtype)
-        size = 1
-        if space.isinstance_w(w_shape, space.w_int):
-            dim = space.int_w(w_shape)
-            if dim == 1:
-                return subdtype
-            w_shape = space.newtuple([w_shape])
-        shape = []
-        for w_dim in space.fixedview(w_shape):
-            try:
-                dim = space.int_w(w_dim)
-            except OperationError as e:
-                if e.match(space, space.w_OverflowError):
-                    raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple.")
-                else:
-                    raise
-            if dim > 2 ** 32 -1:
-                raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
-                      "dimension does not fit into a C int.")
-            elif dim < 0:
-                raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
-                      "dimension smaller than zero.")
-            shape.append(dim)
-            size *= dim
+        size = support.product(shape)
         size *= subdtype.elsize
         if size >= 2 ** 31:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
@@ -993,8 +1002,9 @@ W_Dtype.typedef = TypeDef("numpy.dtype",
                            W_Dtype.descr_set_names,
                            W_Dtype.descr_del_names),
     metadata = GetSetProperty(W_Dtype.descr_get_metadata,
-                           W_Dtype.descr_set_metadata,
-                           W_Dtype.descr_del_metadata),
+                           #W_Dtype.descr_set_metadata,
+                           #W_Dtype.descr_del_metadata,
+                            ),
     flags = GetSetProperty(W_Dtype.descr_get_flags),
 
     __eq__ = interp2app(W_Dtype.descr_eq),
