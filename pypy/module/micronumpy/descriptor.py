@@ -615,10 +615,12 @@ class W_Dtype(W_Root):
 
 
 @specialize.arg(2)
-def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
+def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
     lst_w = space.listview(w_lst)
     fields = {}
+    use_supplied_offsets = True
     if offsets is None:
+        use_supplied_offsets = False
         offsets = [0] * len(lst_w)
     maxalign = alignment 
     fldnames = [''] * len(lst_w)
@@ -663,12 +665,13 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
             delta = subdtype.alignment
             # Set offset to the next power-of-two above delta
             delta = (delta + maxalign -1) & (-maxalign)
-            if delta > offsets[i]:
-                for j in range(i):
-                    offsets[j+1] = delta + offsets[j]
-            if  i + 1 < len(offsets) and offsets[i + 1] == 0:
-                offsets[i + 1] = offsets[i] + max(delta, subdtype.elsize)
-        else:
+            if not use_supplied_offsets:
+                if delta > offsets[i]:
+                    for j in range(i):
+                        offsets[j+1] = delta + offsets[j]
+                if  i + 1 < len(offsets) and offsets[i + 1] == 0:
+                    offsets[i + 1] = offsets[i] + max(delta, subdtype.elsize)
+        elif not use_supplied_offsets:
             if  i + 1 < len(offsets) and offsets[i + 1] == 0:
                 offsets[i+1] = offsets[i] + subdtype.elsize
         subdtypes[i] = subdtype
@@ -680,6 +683,10 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
             subdtype.alignment = maxalign
         if fldnames[i] in fields:
             raise oefmt(space.w_ValueError, "two fields with the same name")
+        if maxalign > 1 and offsets[i] % maxalign:
+            raise oefmt(space.w_ValueError, "offset %d for NumPy dtype with "
+                    "fields is not divisible by the field alignment %d "
+                    "with align=True", offsets[i], maxalign)
         fields[fldnames[i]] = offsets[i], subdtype
         if titles[i] is not None:
             if titles[i] in fields:
@@ -687,6 +694,17 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None):
             fields[titles[i]] = offsets[i], subdtype
         names.append((fldnames[i], titles[i]))
     total = offsets[-1] + max(maxalign, fields[names[-1][0]][1].elsize)
+    if itemsize > 1:
+        if total > itemsize:
+            raise oefmt(space.w_ValueError,
+                     "NumPy dtype descriptor requires %d bytes, cannot"
+                     " override to smaller itemsize of %d", total, itemsize)
+        if alignment >= 0 and itemsize % maxalign:
+            raise oefmt(space.w_ValueError,
+                    "NumPy dtype descriptor requires alignment of %d bytes, "
+                    "which is not divisible into the specified itemsize %d",
+                    maxalign, itemsize) 
+        total = itemsize
     retval = W_Dtype(types.RecordType(space), space.gettypefor(boxes.W_VoidBox),
                    names=names, fields=fields, elsize=total)
     if alignment >=0:
@@ -751,6 +769,7 @@ def dtype_from_dict(space, w_dict, alignment):
     titles_w = _get_list_or_none(space, w_dict, 'titles')
     metadata_w = _get_val_or_none(space, w_dict, 'metadata')
     aligned_w = _get_val_or_none(space, w_dict, 'align')
+    itemsize_w = _get_val_or_none(space, w_dict, 'itemsize')
     if names_w is None or formats_w is None:
         if we_are_translated():
             return get_appbridge_cache(space).call_method(space,
@@ -782,9 +801,14 @@ def dtype_from_dict(space, w_dict, alignment):
             _names_w.append(space.newtuple([names_w[i], titles_w[i]]))
         names_w = _names_w
     aslist = []
+    if itemsize_w is None:
+        itemsize = 0
+    else:
+        itemsize = space.int_w(itemsize_w)
     for i in range(min(len(names_w), len(formats_w))):
         aslist.append(space.newtuple([names_w[i], formats_w[i]]))
-    retval = dtype_from_list(space, space.newlist(aslist), False, alignment, offsets=offsets)
+    retval = dtype_from_list(space, space.newlist(aslist), False, alignment,
+                             offsets=offsets, itemsize=itemsize)
     if metadata_w is not None:
         retval.descr_set_metadata(space, metadata_w)
     retval.flags |= NPY.NEEDS_PYAPI
