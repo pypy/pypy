@@ -488,6 +488,11 @@ class AppTestDtypes(BaseAppTestDtypes):
                 assert np.dtype(o).str == '|O8'
             else:
                 assert False,'self._ptr_size unknown'
+        # Issue gh-2798
+        a = np.array(['a'], dtype="O").astype(("O", [("name", "O")]))
+        assert a[0] == 'a'
+        assert a == 'a'
+        assert a['name'].dtype == a.dtype
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
@@ -1376,7 +1381,66 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                         {'names':['f0', 'f1'],
                          'formats':['i1', 'f4'],
                          'offsets':[0, 2]}, align=True)
+        dt = np.dtype(np.double)
+        attr = ["subdtype", "descr", "str", "name", "base", "shape",
+                "isbuiltin", "isnative", "isalignedstruct", "fields",
+                "metadata", "hasobject"]
+        for s in attr:
+            raises(AttributeError, delattr, dt, s)
 
+        raises(TypeError, np.dtype,
+            dict(names=set(['A', 'B']), formats=['f8', 'i4']))
+        raises(TypeError, np.dtype,
+            dict(names=['A', 'B'], formats=set(['f8', 'i4'])))
+
+    def test_complex_dtype_repr(self):
+        import numpy as np
+        dt = np.dtype([('top', [('tiles', ('>f4', (64, 64)), (1,)),
+                                ('rtile', '>f4', (64, 36))], (3,)),
+                       ('bottom', [('bleft', ('>f4', (8, 64)), (1,)),
+                                   ('bright', '>f4', (8, 36))])])
+        assert repr(dt) == (
+                     "dtype([('top', [('tiles', ('>f4', (64, 64)), (1,)), "
+                     "('rtile', '>f4', (64, 36))], (3,)), "
+                     "('bottom', [('bleft', ('>f4', (8, 64)), (1,)), "
+                     "('bright', '>f4', (8, 36))])])")
+
+        dt = np.dtype({'names': ['r', 'g', 'b'], 'formats': ['u1', 'u1', 'u1'],
+                        'offsets': [0, 1, 2],
+                        'titles': ['Red pixel', 'Green pixel', 'Blue pixel']},
+                        align=True)
+        assert repr(dt) == (
+                    "dtype([(('Red pixel', 'r'), 'u1'), "
+                    "(('Green pixel', 'g'), 'u1'), "
+                    "(('Blue pixel', 'b'), 'u1')], align=True)")
+
+        dt = np.dtype({'names': ['rgba', 'r', 'g', 'b'],
+                       'formats': ['<u4', 'u1', 'u1', 'u1'],
+                       'offsets': [0, 0, 1, 2],
+                       'titles': ['Color', 'Red pixel',
+                                  'Green pixel', 'Blue pixel']}, align=True)
+        assert repr(dt) == (
+                    "dtype({'names':['rgba','r','g','b'],"
+                    " 'formats':['<u4','u1','u1','u1'],"
+                    " 'offsets':[0,0,1,2],"
+                    " 'titles':['Color','Red pixel',"
+                              "'Green pixel','Blue pixel'],"
+                    " 'itemsize':4}, align=True)")
+
+        dt = np.dtype({'names': ['r', 'b'], 'formats': ['u1', 'u1'],
+                        'offsets': [0, 2],
+                        'titles': ['Red pixel', 'Blue pixel'],
+                        'itemsize': 4})
+        assert repr(dt) == (
+                    "dtype({'names':['r','b'], "
+                    "'formats':['u1','u1'], "
+                    "'offsets':[0,2], "
+                    "'titles':['Red pixel','Blue pixel'], "
+                    "'itemsize':4})")
+
+        dt = np.dtype([('a', '<M8[D]'), ('b', '<m8[us]')])
+        assert repr(dt) == (
+                    "dtype([('a', '<M8[D]'), ('b', '<m8[us]')])")
 
 
 class AppTestNotDirect(BaseNumpyAppTest):
