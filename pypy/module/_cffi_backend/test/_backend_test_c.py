@@ -3402,6 +3402,29 @@ def test_dereference_null_ptr():
     py.test.raises(RuntimeError, "p[42]")
     py.test.raises(RuntimeError, "p[42] = -1")
 
+def test_mixup():
+    BStruct1 = new_struct_type("foo")
+    BStruct2 = new_struct_type("foo")   # <= same name as BStruct1
+    BStruct3 = new_struct_type("bar")
+    BStruct1Ptr = new_pointer_type(BStruct1)
+    BStruct2Ptr = new_pointer_type(BStruct2)
+    BStruct3Ptr = new_pointer_type(BStruct3)
+    BStruct1PtrPtr = new_pointer_type(BStruct1Ptr)
+    BStruct2PtrPtr = new_pointer_type(BStruct2Ptr)
+    BStruct3PtrPtr = new_pointer_type(BStruct3Ptr)
+    pp1 = newp(BStruct1PtrPtr)
+    pp2 = newp(BStruct2PtrPtr)
+    pp3 = newp(BStruct3PtrPtr)
+    pp1[0] = pp1[0]
+    e = py.test.raises(TypeError, "pp3[0] = pp1[0]")
+    assert str(e.value).startswith("initializer for ctype 'bar *' must be a ")
+    assert str(e.value).endswith(", not cdata 'foo *'")
+    e = py.test.raises(TypeError, "pp2[0] = pp1[0]")
+    assert str(e.value) == ("initializer for ctype 'foo *' appears indeed to "
+                            "be 'foo *', but the types are different (check "
+                            "that you are not e.g. mixing up different ffi "
+                            "instances)")
+
 def test_version():
     # this test is here mostly for PyPy
     assert __version__ == "1.2.0"

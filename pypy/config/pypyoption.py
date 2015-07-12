@@ -23,14 +23,14 @@ default_modules = essential_modules.copy()
 default_modules.update([
     "_codecs", "gc", "_weakref", "marshal", "errno", "imp", "math", "cmath",
     "_sre", "_pickle_support", "operator", "parser", "symbol", "token", "_ast",
-    "_io", "_random", "__pypy__", "_testing"
+    "_io", "_random", "__pypy__", "_testing", "time"
 ])
 
 
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update([
-    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd", "time" ,
+    "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
     "select", "zipimport", "_lsprof", "crypt", "signal", "_rawffi", "termios",
     "zlib", "bz2", "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
     "cStringIO", "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",

@@ -33,6 +33,9 @@
 //#include <libunwind.h>
 
 #include "vmprof.h"
+#if defined(__FreeBSD__) || defined(__APPLE__)
+#define sighandler_t sig_t
+#endif
 
 #define _unused(x) ((void)x)
 

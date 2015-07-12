@@ -540,6 +540,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for v in [float('inf'), float('-inf'), float('nan'), float('-nan')]:
             assert math.isnan(fmod(v, 2))
 
+    def test_mod(self):
+        from numpy import mod
+        assert mod(5, 3) == 2
+        assert mod(5, -3) == -1
+        assert mod(-5, 3) == 1
+        assert mod(-5, -3) == -2
+        assert mod(2.5, 1) == 0.5
+        assert mod(-1.5, 2) == 0.5
+
     def test_minimum(self):
         from numpy import array, minimum, nan, isnan
 
