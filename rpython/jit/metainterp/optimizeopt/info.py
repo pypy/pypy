@@ -51,6 +51,9 @@ class PtrInfo(AbstractInfo):
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return None
 
+    def make_guards(self, op, short):
+        pass # XXX
+
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)

@@ -16,6 +16,16 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 
 class PreambleOp(AbstractResOp):
+    """ An operations that's only found in preamble and not
+    in the list of constructed operations. When encountered (can be found
+    either in pure ops or heap ops), it must be put in inputargs as well
+    as short preamble (together with corresponding guards). Extra_ops is
+    for extra things to be found in the label, for now only inputargs
+    of the preamble that have to be propagated further.
+
+    See force_op_from_preamble for details how the extra things are put.
+    """
+    
     def __init__(self, op, preamble_op, info):
         self.op = op
         self.preamble_op = preamble_op
@@ -57,6 +67,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     inline_short_preamble = True
+    ops_to_import = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
@@ -84,19 +95,23 @@ class UnrollOptimizer(Optimization):
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
         self.short = []
+        self.extra_label_args = []
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
                                              rename_inputargs=False)
         jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
+        args_from_extras = [self.get_box_replacement(op) for op in
+                            self.extra_label_args]
         jump_args = state.virtual_state.make_inputargs(jump_args,
-                                                       self.optimizer,
-                                                       force_boxes=True)
+                    self.optimizer, force_boxes=True) + args_from_extras
+        
         self.flush()
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
-        return (UnrollInfo(self.make_short_preamble(start_label.getarglist())),
+        return (UnrollInfo(self.make_short_preamble(start_label.getarglist()),
+                           self.extra_label_args),
                 self.optimizer._newoperations)
 
     def make_short_preamble(self, args):
@@ -264,17 +279,24 @@ class UnrollOptimizer(Optimization):
     def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit
+        self.ops_to_import = {}
         for source, target in exported_state.inputarg_mapping:
             if source is not target:
                 source.set_forwarded(target)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         for op, preamble_op in exported_state.short_boxes.items():
+            self.ops_to_import[op] = preamble_op
             if preamble_op.is_always_pure():
-                self.pure(op.getopnum(), PreambleOp(op, preamble_op,
-                                                self.optimizer.getinfo(op)))
+                self.pure(op.getopnum(), op)
             else:
-                yyy
+                assert preamble_op.is_getfield()
+                optheap = self.optimizer.optheap
+                if optheap is None:
+                    continue
+                opinfo = self.optimizer.ensure_ptr_info_arg0(preamble_op)
+                assert not opinfo.is_virtual()
+                opinfo._fields[preamble_op.getdescr().get_index()] = op
 
         for op, info in exported_state.exported_infos.iteritems():
             self.optimizer.setinfo_from_preamble(op, info)
@@ -714,9 +736,11 @@ class UnrollInfo(LoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
 
     * short_preamble - list of operations that go into short preamble
+    * extra_label_args - list of extra operations that go into the label
     """
-    def __init__(self, short_preamble):
+    def __init__(self, short_preamble, extra_label_args):
         self.short_preamble = short_preamble
+        self.extra_label_args = extra_label_args
             
 class ExportedState(LoopInfo):
     """ Exported state consists of a few pieces of information:

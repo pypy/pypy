@@ -302,6 +302,17 @@ class Optimizer(Optimization):
     def force_box(self, op):
         op = self.get_box_replacement(op)
         info = op.get_forwarded()
+        if self.optunroll and self.optunroll.ops_to_import:
+            # XXX hack, use stuff on info somehow, a bit on the hard side
+            #     but doable :-)
+            try:
+                preamble_op = self.optunroll.ops_to_import[op]
+            except KeyError:
+                pass
+            else:
+                self.optunroll.short.append(preamble_op)
+                self.optunroll.extra_label_args.append(op)
+                del self.optunroll.ops_to_import[op]
         if info is not None:
             return info.force_box(op, self)
         return op

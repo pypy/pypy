@@ -58,7 +58,9 @@ class CachedField(object):
             op = optimizer.get_box_replacement(op)
             opnum = OpHelpers.getfield_for_descr(descr)
             getfield_op = ResOperation(opnum, [structbox], descr=descr)
-            shortboxes.add_potential(op, getfield_op)
+            if not op.is_constant():
+                # XXXX why?
+                shortboxes.add_potential(op, getfield_op)
         return
         for structvalue in self._cached_fields_getfield_op.keys():
             op = self._cached_fields_getfield_op[structvalue]
@@ -151,7 +153,13 @@ class CachedField(object):
         return op.getarg(1)
 
     def _getfield(self, opinfo, descr, optheap):
-        return opinfo.getfield(descr, optheap)
+        from rpython.jit.metainterp.optimizeopt.unroll import PreambleOp
+        
+        res = opinfo.getfield(descr, optheap)
+        if isinstance(res, PreambleOp):
+            res = optheap.optimizer.force_op_from_preamble(res)
+            opinfo._fields[descr.get_index()] == res
+        return res
 
     def force_lazy_setfield(self, optheap, descr, can_cache=True):
         op = self._lazy_setfield
@@ -180,7 +188,8 @@ class CachedField(object):
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(1))
-        opinfo.setfield(op.getdescr(), op, arg, optheap, self)
+        struct = optheap.get_box_replacement(op.getarg(0))
+        opinfo.setfield(op.getdescr(), struct, arg, optheap, self)
 
 class ArrayCachedField(CachedField):
     def __init__(self, index):
@@ -531,6 +540,7 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
+        self.setfield(op)
         #opnum = OpHelpers.getfield_pure_for_descr(op.getdescr())
         #if self.has_pure_result(opnum, [op.getarg(0)],
         #                        op.getdescr()):
@@ -538,6 +548,8 @@ class OptHeap(Optimization):
         #             (op.getdescr().repr_of_descr()))
         #    raise BogusImmutableField
         #
+
+    def setfield(self, op):
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
 

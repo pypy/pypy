@@ -450,8 +450,9 @@ class BaseTest(object):
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)
         preamble.operations = [start_label] + preamble_ops
-        emit_end_label = ResOperation(rop.LABEL, start_state.end_args)
-        loop.inputargs = start_state.end_args
+        inputargs = start_state.end_args + loop_info.extra_label_args
+        emit_end_label = ResOperation(rop.LABEL, inputargs)
+        loop.inputargs = inputargs
         loop.operations = [emit_end_label] + ops
         return Info(preamble, loop_info.short_preamble)
 

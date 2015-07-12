@@ -1,5 +1,6 @@
 
-from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers
+from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
+     AbstractInputArg
 from rpython.jit.metainterp.history import Const
 
 
@@ -29,13 +30,17 @@ class ShortBoxes(object):
         self.short_boxes[op] = short_op
 
     def produce_short_preamble_op(self, op, preamble_op):
-        for arg in op.getarglist():
-            if isinstance(arg, Const):
-                pass
-            elif arg in self.ops_used:
-                pass
-            else:
-                return # can't produce
+        if isinstance(op, AbstractInputArg):
+            if op not in self.ops_used:
+                return
+        else:
+            for arg in op.getarglist():
+                if isinstance(arg, Const):
+                    pass
+                elif arg in self.ops_used:
+                    pass
+                else:
+                    return # can't produce
         if op in self.short_boxes:
             opnum = OpHelpers.same_as_for_type(op.type)
             same_as_op = ResOperation(opnum, [op])
