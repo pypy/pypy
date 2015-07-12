@@ -2347,6 +2347,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0xff
         assert len(a.data) == 16
         assert type(a.data) is buffer
+        assert a[1:].data._pypy_raw_address() - a.data._pypy_raw_address() == a.strides[0]
 
     def test_explicit_dtype_conversion(self):
         from numpy import array
