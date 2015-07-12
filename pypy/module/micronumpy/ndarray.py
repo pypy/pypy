@@ -18,8 +18,9 @@ from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import multi_axis_converter, \
     order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.strides import get_shape_from_iterable, \
-    shape_agreement, shape_agreement_multiple, is_c_contiguous, is_f_contiguous
+from pypy.module.micronumpy.strides import (
+    get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
+    is_c_contiguous, is_f_contiguous, RecordChunk)
 from pypy.module.micronumpy.casting import can_cast_array
 
 
@@ -203,6 +204,10 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
+        if self.get_dtype().is_record():
+            if space.isinstance_w(w_idx, space.w_str):
+                idx = space.str_w(w_idx)
+                return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
@@ -229,6 +234,13 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
+        if self.get_dtype().is_record():
+            if space.isinstance_w(w_idx, space.w_str):
+                idx = space.str_w(w_idx)
+                view = self.getfield(space, idx)
+                w_value = convert_to_array(space, w_value)
+                view.implementation.setslice(space, w_value)
+                return
         if space.is_w(w_idx, space.w_Ellipsis):
             self.implementation.setslice(space, convert_to_array(space, w_value))
             return
@@ -240,6 +252,13 @@ class __extend__(W_NDimArray):
             self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:
             self.setitem_array_int(space, w_idx, w_value)
+
+    def getfield(self, space, field):
+        dtype = self.get_dtype()
+        if field not in dtype.fields:
+            raise oefmt(space.w_ValueError, "field named %s not found", field)
+        chunks = RecordChunk(field)
+        return chunks.apply(space, self)
 
     def descr_delitem(self, space, w_idx):
         raise OperationError(space.w_ValueError, space.wrap(

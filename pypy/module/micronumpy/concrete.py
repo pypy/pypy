@@ -218,16 +218,10 @@ class BaseConcreteArray(object):
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         if space.isinstance_w(w_idx, space.w_str):
-            idx = space.str_w(w_idx)
-            dtype = self.dtype
-            if not dtype.is_record():
-                raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
-                    "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
-                    "boolean arrays are valid indices")
-            elif idx not in dtype.fields:
-                raise oefmt(space.w_ValueError, "field named %s not found", idx)
-            return RecordChunk(idx)
-        elif (space.isinstance_w(w_idx, space.w_int) or
+            raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                "boolean arrays are valid indices")
+        if (space.isinstance_w(w_idx, space.w_int) or
                 space.isinstance_w(w_idx, space.w_slice)):
             if len(self.get_shape()) == 0:
                 raise oefmt(space.w_ValueError, "cannot slice a 0-d array")

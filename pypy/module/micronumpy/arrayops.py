@@ -162,8 +162,10 @@ def repeat(space, w_arr, repeats, w_axis):
         shape = [arr.get_shape()[0] * repeats]
         w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
-            Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                 orig_size)]).apply(space, w_res).implementation.setslice(space, arr)
+            chunks = Chunks([Chunk(i, shape[0] - repeats + i, repeats,
+                 orig_size)])
+            view = chunks.apply(space, w_res)
+            view.implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
@@ -174,7 +176,8 @@ def repeat(space, w_arr, repeats, w_axis):
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
+            view = Chunks(chunks).apply(space, w_res)
+            view.implementation.setslice(space, arr)
     return w_res
 
 
