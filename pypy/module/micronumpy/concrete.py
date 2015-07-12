@@ -617,15 +617,17 @@ class ArrayBuffer(Buffer):
         self.impl = impl
         self.readonly = readonly
 
-    def getitem(self, item):
-        return raw_storage_getitem(lltype.Char, self.impl.storage, item)
+    def getitem(self, index):
+        return raw_storage_getitem(lltype.Char, self.impl.storage,
+                 index + self.impl.start)
 
-    def setitem(self, item, v):
-        raw_storage_setitem(self.impl.storage, item,
+    def setitem(self, index, v):
+        raw_storage_setitem(self.impl.storage, index + self.impl.start,
                             rffi.cast(lltype.Char, v))
 
     def getlength(self):
-        return self.impl.size
+        return self.impl.size - self.impl.start
 
     def get_raw_address(self):
-        return self.impl.storage
+        from rpython.rtyper.lltypesystem import rffi
+        return rffi.ptradd(self.impl.storage, self.impl.start)
