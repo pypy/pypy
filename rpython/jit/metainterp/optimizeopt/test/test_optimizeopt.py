@@ -8637,5 +8637,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_getfield_proven_constant(self):
+        py.test.skip("not working")
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        escape(i1)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        escape(13)
+        jump(p0)
+        """
+        expected_short = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_short=expected_short)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
