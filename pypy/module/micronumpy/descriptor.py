@@ -870,10 +870,15 @@ def _get_shape(space, w_shape):
         return None
     if space.isinstance_w(w_shape, space.w_int):
         dim = space.int_w(w_shape)
+        if dim == 1:
+            return None
         return [dim]
     shape_w = space.fixedview(w_shape)
+    if len(shape_w) < 1:
+        return None
     if len(shape_w) == 1:
-        if not space.isinstance_w(shape_w[0], space.w_int):
+        if (not space.isinstance_w(shape_w[0], space.w_int) and
+            not space.isinstance_w(shape_w[0], space.w_long)):
             return None
     shape = []
     for w_dim in shape_w:
@@ -908,10 +913,6 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     shape = _get_shape(space, w_shape)
     if shape is not None:
         subdtype = make_new_dtype(space, w_subtype, w_dtype, alignment, copy, w_metadata=w_metadata)
-        if len(shape) == 1 and shape[0] == 1:
-            print '_get_shape returned', shape
-            return subdtype
-        print 'uhh, _get_shape returned', shape
         assert isinstance(subdtype, W_Dtype)
         size = support.product(shape)
         size *= subdtype.elsize
@@ -921,7 +922,6 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         return _set_metadata_and_copy(space, w_metadata,
                W_Dtype(types.VoidType(space), space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size))
-
     if space.is_none(w_dtype):
         return cache.w_float64dtype
     if space.isinstance_w(w_dtype, w_subtype):
