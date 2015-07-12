@@ -489,6 +489,8 @@ class AppTestDtypes(BaseAppTestDtypes):
             else:
                 assert False,'self._ptr_size unknown'
         # Issue gh-2798
+        if '__pypy__' in sys.builtin_module_names:
+            skip("(base_dtype, new_dtype) dtype specification discouraged")
         a = np.array(['a'], dtype="O").astype(("O", [("name", "O")]))
         assert a[0] == 'a'
         assert a == 'a'

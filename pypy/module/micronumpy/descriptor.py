@@ -729,6 +729,8 @@ def _get_list_or_none(space, w_dict, key):
     w_val = _get_val_or_none(space, w_dict, key)
     if w_val is None:
         return None
+    if space.isinstance_w(w_val, space.w_set):
+        raise oefmt(space.w_TypeError, "'set' object does not support indexing")
     return space.listview(w_val)
 
 def _usefields(space, w_dict, align):
@@ -922,6 +924,17 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         return _set_metadata_and_copy(space, w_metadata,
                W_Dtype(types.VoidType(space), space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size))
+    elif w_shape is not None and not space.isinstance_w(w_shape, space.w_int):
+        spec = space.listview(w_shape)
+        if len(spec) > 0:
+            # this is (base_dtype, new_dtype) so just make it a union by setting both
+            # parts' offset to 0
+            try:
+                dtype1 = make_new_dtype(space, w_subtype, w_shape, alignment)
+            except:
+                raise
+            raise oefmt(space.w_NotImplementedError, 
+                "(base_dtype, new_dtype) dtype spectification discouraged, not implemented")
     if space.is_none(w_dtype):
         return cache.w_float64dtype
     if space.isinstance_w(w_dtype, w_subtype):
