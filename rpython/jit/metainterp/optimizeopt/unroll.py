@@ -223,6 +223,8 @@ class UnrollOptimizer(Optimization):
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
+        for box in sb.short_boxes:
+            infos[box] = self.optimizer.getinfo(box)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
         for arg in end_args:
             if arg.get_forwarded() is not None:
@@ -278,28 +280,32 @@ class UnrollOptimizer(Optimization):
 
     def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
-        # to actually emit
+        # to actually emit. Update the info
         self.ops_to_import = {}
         for source, target in exported_state.inputarg_mapping:
             if source is not target:
                 source.set_forwarded(target)
+            info = exported_state.exported_infos.get(target, None)
+            if info is not None:
+                self.optimizer.setinfo_from_preamble(source, info)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         for op, preamble_op in exported_state.short_boxes.items():
             self.ops_to_import[op] = preamble_op
             if preamble_op.is_always_pure():
-                self.pure(op.getopnum(), op)
+                self.pure(op.getopnum(), PreambleOp(op, preamble_op,
+                                exported_state.exported_infos.get(op, None)))
             else:
                 assert preamble_op.is_getfield()
                 optheap = self.optimizer.optheap
                 if optheap is None:
                     continue
                 opinfo = self.optimizer.ensure_ptr_info_arg0(preamble_op)
+                pre_info = exported_state.exported_infos[op]
+                pop = PreambleOp(op, preamble_op, pre_info)
                 assert not opinfo.is_virtual()
-                opinfo._fields[preamble_op.getdescr().get_index()] = op
+                opinfo._fields[preamble_op.getdescr().get_index()] = pop
 
-        for op, info in exported_state.exported_infos.iteritems():
-            self.optimizer.setinfo_from_preamble(op, info)
         return
         self.inputargs = targetop.getarglist()
         target_token = targetop.getdescr()

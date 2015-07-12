@@ -854,14 +854,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p2, p2sub)
         """
         expected = """
-        [i1, p2, p2sub]
-        i3 = getfield_gc_i(p2sub, descr=valuedescr)
+        [i1, p2, i3]
         escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
         p3sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        jump(i1, p1, p3sub)
+        jump(i1, p1, i1)
         """
         self.optimize_loop(ops, expected, preamble)
 
