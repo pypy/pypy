@@ -867,21 +867,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_dont_delay_setfields(self):
         ops = """
         [p1, p2]
-        i1 = getfield_gc_i(p1, descr=nextdescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i2b = int_is_true(i2)
         guard_true(i2b) []
-        setfield_gc(p2, i2, descr=nextdescr)
+        setfield_gc(p2, i2, descr=valuedescr)
         p3 = new_with_vtable(descr=nodesize)
         jump(p2, p3)
         """
         preamble = """
         [p1, p2]
-        i1 = getfield_gc_i(p1, descr=nextdescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i2b = int_is_true(i2)
         guard_true(i2b) []
-        setfield_gc(p2, i2, descr=nextdescr)
+        setfield_gc(p2, i2, descr=valuedescr)
         jump(p2, i2)
         """
         expected = """
@@ -890,7 +890,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2b = int_is_true(i2)
         guard_true(i2b) []
         p3 = new_with_vtable(descr=nodesize)
-        setfield_gc(p3, i2, descr=nextdescr)
+        setfield_gc(p3, i2, descr=valuedescr)
         jump(p3, i2)
         """
         self.optimize_loop(ops, expected, preamble)

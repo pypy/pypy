@@ -9,12 +9,12 @@ class ShortBoxes(object):
     def __init__(self):
         self.potential_ops = []
         self.produced_short_boxes = {}
-        self.ops_used = {}
         self.extra_same_as = []
 
     def create_short_boxes(self, optimizer, inputargs):
         for box in inputargs:
-            self.ops_used[box] = None
+            self.produced_short_boxes[box] = None
+
         optimizer.produce_potential_short_preamble_ops(self)
 
         self.short_boxes = []
@@ -33,19 +33,13 @@ class ShortBoxes(object):
         self.produced_short_boxes[op] = None
 
     def produce_short_preamble_op(self, op, preamble_op):
-        if isinstance(op, Const):
-            pass
-        elif isinstance(op, AbstractInputArg):
-            if op not in self.ops_used:
-                return
-        else:
-            for arg in op.getarglist():
-                if isinstance(arg, Const):
-                    pass
-                elif arg in self.ops_used:
-                    pass
-                else:
-                    return # can't produce
+        for arg in preamble_op.getarglist():
+            if isinstance(arg, Const):
+                pass
+            elif arg in self.produced_short_boxes:
+                pass
+            else:
+                return # can't produce
         if op in self.produced_short_boxes:
             opnum = OpHelpers.same_as_for_type(op.type)
             same_as_op = ResOperation(opnum, [op])
@@ -59,4 +53,3 @@ class ShortBoxes(object):
             self.potential_ops.append((op, op))
         else:
             self.potential_ops.append((op, short_preamble_op))
-        self.ops_used[op] = None

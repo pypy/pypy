@@ -228,7 +228,8 @@ class UnrollOptimizer(Optimization):
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
         sb = ShortBoxes()
-        sb.create_short_boxes(self.optimizer, end_args)
+        sb.create_short_boxes(self.optimizer, [self.get_box_replacement(a)
+                                            for a in start_label.getarglist()])
         inparg_mapping = [(start_label.getarg(i), end_args[i])
                           for i in range(len(end_args)) if
                           start_label.getarg(i) is not end_args[i]]
