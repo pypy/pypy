@@ -235,8 +235,9 @@ class UnrollOptimizer(Optimization):
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
-        for box in sb.short_boxes:
-            infos[box] = self.optimizer.getinfo(box)
+        for box, _ in sb.short_boxes:
+            if not isinstance(box, Const):
+                infos[box] = self.optimizer.getinfo(box)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
         self.optimizer._clean_optimization_info(end_args)
         self.optimizer._clean_optimization_info(start_label.getarglist())
@@ -300,8 +301,9 @@ class UnrollOptimizer(Optimization):
                 self.optimizer.setinfo_from_preamble(source, info)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
-        for op, preamble_op in exported_state.short_boxes.items():
-            self.ops_to_import[op] = preamble_op
+        for op, preamble_op in exported_state.short_boxes:
+            if not isinstance(op, Const):
+                self.ops_to_import[op] = preamble_op
             if preamble_op.is_always_pure():
                 self.pure(op.getopnum(), PreambleOp(op, preamble_op,
                                 exported_state.exported_infos.get(op, None)))
@@ -311,7 +313,7 @@ class UnrollOptimizer(Optimization):
                 if optheap is None:
                     continue
                 opinfo = self.optimizer.ensure_ptr_info_arg0(preamble_op)
-                pre_info = exported_state.exported_infos[op]
+                pre_info = exported_state.exported_infos.get(op, None)
                 pop = PreambleOp(op, preamble_op, pre_info)
                 assert not opinfo.is_virtual()
                 opinfo._fields[preamble_op.getdescr().get_index()] = pop

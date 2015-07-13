@@ -58,9 +58,7 @@ class CachedField(object):
             op = optimizer.get_box_replacement(op)
             opnum = OpHelpers.getfield_for_descr(descr)
             getfield_op = ResOperation(opnum, [structbox], descr=descr)
-            if not op.is_constant():
-                # XXXX why?
-                shortboxes.add_potential(op, getfield_op)
+            shortboxes.add_potential(op, getfield_op)
         return
         for structvalue in self._cached_fields_getfield_op.keys():
             op = self._cached_fields_getfield_op[structvalue]

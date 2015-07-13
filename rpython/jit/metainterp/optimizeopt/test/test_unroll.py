@@ -69,7 +69,7 @@ class TestUnroll(BaseTestUnroll):
         # we have exported values for i1, which happens to be an inputarg
         assert es.inputarg_mapping[0][1].getint() == 1
         assert isinstance(es.inputarg_mapping[0][1], ConstInt)
-        assert es.short_boxes == {}
+        assert es.short_boxes == []
 
     def test_not_constant(self):
         loop = """
@@ -82,7 +82,7 @@ class TestUnroll(BaseTestUnroll):
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         assert vs.state[0].level == LEVEL_UNKNOWN
         op = preamble.operations[0]
-        assert es.short_boxes == {op: op}
+        assert es.short_boxes == [(op, op)]
 
     def test_guard_class(self):
         loop = """
@@ -131,7 +131,7 @@ class TestUnroll(BaseTestUnroll):
         jump(p0, i0)
         """
         es, loop, preamble = self.optimize(loop)
-        assert es.short_boxes[preamble.operations[0]]
+        assert es.short_boxes[0][0] == preamble.operations[0]
 
     def test_int_is_true(self):
         loop = """
@@ -142,5 +142,14 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         op = preamble.operations[0]
-        assert es.short_boxes == {op:op}
+        assert es.short_boxes == [(op,op)]
         assert es.exported_infos[op].is_constant()
+
+    def test_only_setfield(self):
+        loop = """
+        [p0]
+        setfield_gc(p0, 5, descr=valuedescr)
+        jump(p0)
+        """
+        es, loop, preamble = self.optimize(loop)
+        assert es.short_boxes[0][0] == preamble.operations[0].getarg(1)
