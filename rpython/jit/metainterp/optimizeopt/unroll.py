@@ -3,9 +3,9 @@ import sys
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt import info
+from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
-     Optimization, LoopInfo
+     Optimization, LoopInfo, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
         BadVirtualState, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
@@ -50,6 +50,7 @@ class UnrollableOptimizer(Optimizer):
         op = self.get_box_replacement(op)
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
+                # XXX do we want to sanitize this?
                 op.set_forwarded(preamble_info)
                 return
             if op.is_constant():
@@ -59,6 +60,15 @@ class UnrollableOptimizer(Optimizer):
                 self.make_constant_class(op, known_class, False)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
+        elif isinstance(preamble_info, intutils.IntBound):
+            if preamble_info.lower > MININT/2 or preamble_info.upper < MAXINT/2:
+                intbound = self.getintbound(op)
+                if preamble_info.lower > MININT/2:
+                    intbound.has_lower = True
+                    intbound.lower = preamble_info.lower
+                if preamble_info.upper < MAXINT/2:
+                    intbound.has_upper = True
+                    intbound.upper = preamble_info.upper
 
 
 class UnrollOptimizer(Optimization):
@@ -88,9 +98,12 @@ class UnrollOptimizer(Optimization):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], ops)
-        self.flush()
+        self.optimizer.flush()
         exported_state = self.export_state(start_label, end_label,
                                            info.inputargs)
+        # we need to absolutely make sure that we've cleaned up all
+        # the optimization info
+        self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
@@ -107,7 +120,7 @@ class UnrollOptimizer(Optimization):
         jump_args = state.virtual_state.make_inputargs(jump_args,
                     self.optimizer, force_boxes=True) + args_from_extras
         
-        self.flush()
+        self.optimizer.flush()
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.make_short_preamble(start_label.getarglist()),
@@ -226,10 +239,8 @@ class UnrollOptimizer(Optimization):
         for box in sb.short_boxes:
             infos[box] = self.optimizer.getinfo(box)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
-        for arg in end_args:
-            if arg.get_forwarded() is not None:
-                arg.set_forwarded(None) # forget the optimization info
-                                        # (it's by infos exported)
+        self.optimizer._clean_optimization_info(end_args)
+        self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, inparg_mapping, virtual_state, infos,
                              sb.short_boxes, renamed_inputargs)
 

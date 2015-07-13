@@ -8103,9 +8103,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, i3)
         """
         expected = """
-        [i1, i2, i6, i3]
-        call_n(i6, descr=nonwritedescr)
-        jump(i1, i3, i6, i3)
+        [i1, i2, i3]
+        call_n(i3, descr=nonwritedescr)
+        jump(i1, i2, i3)
         """
         short = """
         [i1, i2]
@@ -8113,7 +8113,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i4 = int_add(i3, i3)
         i5 = int_add(i4, i4)
         i6 = int_add(i5, i5)
-        jump(i1, i2, i6, i3)
+        #jump(i1, i2, i6, i3)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 

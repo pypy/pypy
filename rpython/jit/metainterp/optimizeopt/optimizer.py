@@ -306,11 +306,10 @@ class Optimizer(Optimization):
             # XXX hack, use stuff on info somehow, a bit on the hard side
             #     but doable :-)
             try:
-                preamble_op = self.optunroll.ops_to_import[op]
+                self.optunroll.ops_to_import[op]
             except KeyError:
                 pass
             else:
-                self.optunroll.short.append(preamble_op)
                 self.optunroll.extra_label_args.append(op)
                 del self.optunroll.ops_to_import[op]
         if info is not None:
@@ -467,6 +466,11 @@ class Optimizer(Optimization):
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         return BasicLoopInfo(newargs), self._newoperations
+
+    def _clean_optimization_info(self, lst):
+        for op in lst:
+            if op.get_forwarded() is not None:
+                op.set_forwarded(None)
 
     def send_extra_operation(self, op):
         self.first_optimization.propagate_forward(op)
