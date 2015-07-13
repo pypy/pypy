@@ -132,3 +132,15 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         assert es.short_boxes[preamble.operations[0]]
+
+    def test_int_is_true(self):
+        loop = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        jump(i0)
+        """
+        es, loop, preamble = self.optimize(loop)
+        op = preamble.operations[0]
+        assert es.short_boxes == {op:op}
+        assert es.exported_infos[op].is_constant()

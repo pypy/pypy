@@ -43,6 +43,7 @@ class UnrollableOptimizer(Optimizer):
         op = preamble_op.op
         self.optunroll.short.append(preamble_op.preamble_op)
         if preamble_op.info:
+            self.setinfo_from_preamble(op, preamble_op.info)
             preamble_op.info.make_guards(op, self.optunroll.short)
         return op
 
