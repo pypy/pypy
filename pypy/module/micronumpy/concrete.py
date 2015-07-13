@@ -11,7 +11,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (
     Chunk, Chunks, NewAxisChunk, EllipsisChunk,
-    RecordChunk, calc_strides, calc_new_strides, shape_agreement,
+    calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here

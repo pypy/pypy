@@ -20,7 +20,7 @@ from pypy.module.micronumpy.converters import multi_axis_converter, \
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import (
     get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
-    is_c_contiguous, is_f_contiguous, RecordChunk)
+    is_c_contiguous, is_f_contiguous, calc_strides)
 from pypy.module.micronumpy.casting import can_cast_array
 
 
@@ -257,8 +257,23 @@ class __extend__(W_NDimArray):
         dtype = self.get_dtype()
         if field not in dtype.fields:
             raise oefmt(space.w_ValueError, "field named %s not found", field)
-        chunks = RecordChunk(field)
-        return chunks.apply(space, self)
+        arr = self.implementation
+        ofs, subdtype = arr.dtype.fields[field]
+        # ofs only changes start
+        # create a view of the original array by extending
+        # the shape, strides, backstrides of the array
+        strides, backstrides = calc_strides(subdtype.shape,
+                                            subdtype.subdtype, arr.order)
+        final_shape = arr.shape + subdtype.shape
+        final_strides = arr.get_strides() + strides
+        final_backstrides = arr.get_backstrides() + backstrides
+        final_dtype = subdtype
+        if subdtype.subdtype:
+            final_dtype = subdtype.subdtype
+        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
+                                     final_backstrides,
+                                     final_shape, arr, self, final_dtype)
+
 
     def descr_delitem(self, space, w_idx):
         raise OperationError(space.w_ValueError, space.wrap(
@@ -1317,7 +1332,6 @@ class __extend__(W_NDimArray):
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.concrete import ConcreteArray
-    from pypy.module.micronumpy.strides import calc_strides
     dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
         space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)

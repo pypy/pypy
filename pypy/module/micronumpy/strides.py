@@ -10,29 +10,6 @@ class BaseChunk(object):
     pass
 
 
-class RecordChunk(BaseChunk):
-    def __init__(self, name):
-        self.name = name
-
-    def apply(self, space, orig_arr):
-        arr = orig_arr.implementation
-        ofs, subdtype = arr.dtype.fields[self.name]
-        # ofs only changes start
-        # create a view of the original array by extending
-        # the shape, strides, backstrides of the array
-        strides, backstrides = calc_strides(subdtype.shape,
-                                            subdtype.subdtype, arr.order)
-        final_shape = arr.shape + subdtype.shape
-        final_strides = arr.get_strides() + strides
-        final_backstrides = arr.get_backstrides() + backstrides
-        final_dtype = subdtype
-        if subdtype.subdtype:
-            final_dtype = subdtype.subdtype
-        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
-                                     final_backstrides,
-                                     final_shape, arr, orig_arr, final_dtype)
-
-
 class Chunks(BaseChunk):
     def __init__(self, l):
         self.l = l
