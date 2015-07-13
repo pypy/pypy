@@ -464,6 +464,7 @@ class Optimizer(Optimization):
         #self.loop.operations = self.get_newoperations()
         #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
+        self.flush()
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         return BasicLoopInfo(newargs), self._newoperations
 

@@ -98,7 +98,6 @@ class UnrollOptimizer(Optimization):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], ops)
-        self.optimizer.flush()
         exported_state = self.export_state(start_label, end_label,
                                            info.inputargs)
         # we need to absolutely make sure that we've cleaned up all
@@ -120,7 +119,6 @@ class UnrollOptimizer(Optimization):
         jump_args = state.virtual_state.make_inputargs(jump_args,
                     self.optimizer, force_boxes=True) + args_from_extras
         
-        self.optimizer.flush()
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.make_short_preamble(start_label.getarglist()),
