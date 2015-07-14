@@ -1122,7 +1122,7 @@ class MIFrame(object):
 
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
-                if jitdriver_sd.vectorize:
+                if jitdriver_sd.vectorize or jitdriver_sd.warmstate.vectorize_user:
                     self.metainterp.generate_guard(rop.GUARD_EARLY_EXIT)
                 return
             if self.metainterp.portal_call_depth or not self.metainterp.get_procedure_token(greenboxes, True):
