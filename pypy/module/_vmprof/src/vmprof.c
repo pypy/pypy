@@ -262,13 +262,31 @@ static int close_profile(void) {
 	int marker = MARKER_TRAILER;
 	write(profile_file, &marker, 1);
 
+#ifdef __linux__
     // copy /proc/PID/maps to the end of the profile file
     sprintf(buf, "/proc/%d/maps", getpid());
-    src = fopen(buf, "r");    
+    src = fopen(buf, "r");
+    if (!src) {
+        vmprof_error = "error opening proc maps";
+        return -1;
+    }
     while ((size = fread(buf, 1, BUFSIZ, src))) {
         write(profile_file, buf, size);
     }
     fclose(src);
+#else
+    // freebsd and mac
+    sprintf(buf, "procstat -v %d", getpid());
+    src = popen(buf, "r");
+    if (!src) {
+        vmprof_error = "error calling procstat";
+        return -1;
+    }
+    while ((size = fread(buf, 1, BUFSIZE, src))) {
+        write(profile_file, buf, size);
+    }
+    pclose(src);
+#endif
     close(profile_file);
 	return 0;
 }
