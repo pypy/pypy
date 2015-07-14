@@ -1022,7 +1022,7 @@ def copy_flags_from_bases(w_self, w_bestbase):
     w_self.nslots = w_bestbase.nslots
     return hasoldstylebase
 
-def create_all_slots(w_self, hasoldstylebase):
+def create_all_slots(w_self, hasoldstylebase, w_bestbase):
     space = w_self.space
     dict_w = w_self.dict_w
     if '__slots__' not in dict_w:
@@ -1040,12 +1040,12 @@ def create_all_slots(w_self, hasoldstylebase):
         for w_slot_name in slot_names_w:
             slot_name = space.str_w(w_slot_name)
             if slot_name == '__dict__':
-                if wantdict or w_self.hasdict:
+                if wantdict or w_bestbase.hasdict:
                     raise oefmt(space.w_TypeError,
                                 "__dict__ slot disallowed: we already got one")
                 wantdict = True
             elif slot_name == '__weakref__':
-                if wantweakref or w_self.weakrefable:
+                if wantweakref or w_bestbase.weakrefable:
                     raise oefmt(space.w_TypeError,
                                 "__weakref__ slot disallowed: we already got one")
                 wantweakref = True
@@ -1106,7 +1106,7 @@ def setup_user_defined_type(w_self):
         w_self.flag_abstract |= w_base.flag_abstract
 
     hasoldstylebase = copy_flags_from_bases(w_self, w_bestbase)
-    create_all_slots(w_self, hasoldstylebase)
+    create_all_slots(w_self, hasoldstylebase, w_bestbase)
 
     ensure_common_attributes(w_self)
 
