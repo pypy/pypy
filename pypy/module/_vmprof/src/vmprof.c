@@ -282,7 +282,7 @@ static int close_profile(void) {
         vmprof_error = "error calling procstat";
         return -1;
     }
-    while ((size = fread(buf, 1, BUFSIZE, src))) {
+    while ((size = fread(buf, 1, BUFSIZ, src))) {
         write(profile_file, buf, size);
     }
     pclose(src);
