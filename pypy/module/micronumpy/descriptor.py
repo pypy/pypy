@@ -182,14 +182,27 @@ class W_Dtype(W_Root):
             name = name[:-1]
         return name
 
-    def descr_get_name(self, space):
-        name = self.get_name()
+    def descr_get_name(self, space, quote=False):
+        if quote:
+            name = "'" + self.get_name() + "'"
+        else:
+            name = self.get_name()
         if self.is_flexible() and self.elsize != 0:
             return space.wrap(name + str(self.elsize * 8))
         return space.wrap(name)
 
-    def descr_get_str(self, space):
-        return space.wrap(self.get_str())
+    def descr_get_str(self, space, ignore='|', simple=True):
+        if not simple and self.fields and len(self.fields) > 0:
+            return self.descr_get_descr(space)
+        total = 0
+        for s in self.shape:
+            total += s
+        if not simple and total > 0:
+            return space.newtuple(
+                [space.wrap(self.subdtype.get_str(ignore='')), 
+                 space.newtuple([space.wrap(s) for s in self.shape]),
+                ])
+        return space.wrap(self.get_str(ignore=ignore))
 
     def get_str(self, ignore='|'):
         basic = self.kind
@@ -203,11 +216,14 @@ class W_Dtype(W_Root):
             size >>= 2
         return "%s%s%s" % (endian, basic, size)
 
-    def descr_get_descr(self, space, style='descr'):
+    def descr_get_descr(self, space, style='descr', force_dict=False):
+        simple = False
+        if style == 'descr':
+            simple = True
         if not self.is_record():
             return space.newlist([space.newtuple([space.wrap(""),
-                                                  self.descr_get_str(space)])])
-        elif self.alignment >= 0 and style != 'descr':
+                                                  self.descr_get_str(space, simple=simple)])])
+        elif (self.alignment > 1 and style != 'descr') or force_dict:
             # we need to force a sorting order for the keys,
             # so return a string instead of a dict. Also, numpy formats
             # the lists without spaces between elements, so we cannot simply
@@ -217,6 +233,9 @@ class W_Dtype(W_Root):
             offsets = "'offsets':["
             titles = "'titles':["
             use_titles = False
+            show_offsets = False
+            offsets_n = []
+            total = 0
             for name, title in self.names:
                 offset, subdtype = self.fields[name]
                 if subdtype.is_record():
@@ -232,20 +251,37 @@ class W_Dtype(W_Root):
                 titles += "'" + str(title) + "',"
                 if title is not None:
                     use_titles = True
+                if total != offset:
+                    show_offsets = True
+                total += subdtype.elsize
+                # make sure offsets_n is sorted
+                i = 0
+                for i in range(len(offsets_n)):
+                    if offset < offsets_n[i]:
+                        break
+                offsets_n.insert(i, offset)
+            total = 0
+            for i in range(len(offsets_n)):
+                if offsets_n[i] != self.alignment * i:
+                    show_offsets = True
             formats = formats[:-1] + ']'
             offsets = offsets[:-1] + ']'
             names = names[:-1] + ']'
             titles = titles[:-1] + ']'
-            if style == 'str':
+            if self.alignment < 2:
+                suffix = "}"
+            elif style == 'str':
                 suffix = ", 'aligned':True}"
             elif style == 'substr':
                 suffix = '}'
             else:
                 suffix = "}, align=True"
-            if use_titles: 
+            if use_titles and not show_offsets: 
+                return self.descr_get_descr(space, style='descr')
+            elif use_titles:
                 return space.wrap('{' + names + ', ' + formats + ', ' +
-                            offsets + ', ' + "'itemsize':" + str(self.elsize) +
-                            titles + ', ' + suffix)
+                            offsets + ', ' + titles + ", 'itemsize':" + 
+                            str(self.elsize) + suffix)
             else:
                 return space.wrap('{' + names + ', ' + formats + ', ' +
                             offsets + ', ' + "'itemsize':" + str(self.elsize) +
@@ -253,18 +289,31 @@ class W_Dtype(W_Root):
             
         else:
             descr = []
+            total = 0
             for name, title in self.names:
-                subdtype = self.fields[name][1]
-                subdescr = [space.wrap(name)]
+                offset, subdtype = self.fields[name]
+                show_offsets = False
+                if total != offset:
+                    # whoops, need to use other format
+                    return self.descr_get_descr(space, style=style, force_dict=True)
+                total += subdtype.elsize
+                ignore = '|'
+                if title:
+                    subdescr = [space.newtuple([space.wrap(title), space.wrap(name)])]
+                    ignore = ''
+                else:
+                    subdescr = [space.wrap(name)]
                 if subdtype.is_record():
                     subdescr.append(subdtype.descr_get_descr(space, style))
                 elif subdtype.subdtype is not None:
-                    subdescr.append(subdtype.subdtype.descr_get_str(space))
+                    subdescr.append(subdtype.subdtype.descr_get_str(space, simple=False))
                 else:
-                    subdescr.append(subdtype.descr_get_str(space))
+                    subdescr.append(subdtype.descr_get_str(space, ignore=ignore, simple=False))
                 if subdtype.shape != []:
                     subdescr.append(subdtype.descr_get_shape(space))
                 descr.append(space.newtuple(subdescr[:]))
+            if self.alignment >= 0:
+                return space.wrap(space.str_w(space.repr(space.newlist(descr))) + ', align=True')                 
             return space.newlist(descr)
 
     def descr_get_hasobject(self, space):
@@ -457,9 +506,11 @@ class W_Dtype(W_Root):
                 size = self.elsize
                 if self.num == NPY.UNICODE:
                     size >>= 2
-                r = space.wrap(byteorder + self.char + str(size))
+                r = space.wrap("'" + byteorder + self.char + str(size) + "'")
             else:
-                r = self.descr_get_name(space)
+                r = self.descr_get_name(space, quote=True)
+        if space.isinstance_w(r, space.w_str):
+            return space.wrap("dtype(%s)" % space.str_w(r))
         return space.wrap("dtype(%s)" % space.str_w(space.repr(r)))
 
     def descr_getitem(self, space, w_item):
@@ -626,6 +677,7 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
     fldnames = [''] * len(lst_w)
     subdtypes = [None] * len(lst_w)
     titles = [None] * len(lst_w)
+    total = 0
     for i in range(len(lst_w)):
         w_elem = lst_w[i]
         if simple:
@@ -675,6 +727,15 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
             if  i + 1 < len(offsets) and offsets[i + 1] == 0:
                 offsets[i+1] = offsets[i] + subdtype.elsize
         subdtypes[i] = subdtype
+        if use_supplied_offsets:
+            sz = subdtype.elsize
+        else:
+            sz = max(maxalign, subdtype.elsize)
+        if offsets[i] + sz > total:
+            total = offsets[i] + sz
+    # padding?
+    if alignment >= 0 and total % maxalign:
+        total = total // maxalign * maxalign + maxalign
     names = []
     for i in range(len(subdtypes)):
         subdtype = subdtypes[i]
@@ -683,7 +744,7 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
             subdtype.alignment = maxalign
         if fldnames[i] in fields:
             raise oefmt(space.w_ValueError, "two fields with the same name")
-        if maxalign > 1 and offsets[i] % maxalign:
+        if maxalign > 1 and offsets[i] % subdtype.alignment:
             raise oefmt(space.w_ValueError, "offset %d for NumPy dtype with "
                     "fields is not divisible by the field alignment %d "
                     "with align=True", offsets[i], maxalign)
@@ -693,7 +754,6 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
                 raise oefmt(space.w_ValueError, "two fields with the same name")
             fields[titles[i]] = offsets[i], subdtype
         names.append((fldnames[i], titles[i]))
-    total = offsets[-1] + max(maxalign, fields[names[-1][0]][1].elsize)
     if itemsize > 1:
         if total > itemsize:
             raise oefmt(space.w_ValueError,
@@ -878,10 +938,6 @@ def _get_shape(space, w_shape):
     shape_w = space.fixedview(w_shape)
     if len(shape_w) < 1:
         return None
-    if len(shape_w) == 1:
-        if (not space.isinstance_w(shape_w[0], space.w_int) and
-            not space.isinstance_w(shape_w[0], space.w_long)):
-            return None
     shape = []
     for w_dim in shape_w:
         try:

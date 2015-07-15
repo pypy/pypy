@@ -1439,7 +1439,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                     "'offsets':[0,2], "
                     "'titles':['Red pixel','Blue pixel'], "
                     "'itemsize':4})")
-
+        if 'datetime64' not in dir(np):
+            skip('datetime dtype not available')
         dt = np.dtype([('a', '<M8[D]'), ('b', '<m8[us]')])
         assert repr(dt) == (
                     "dtype([('a', '<M8[D]'), ('b', '<m8[us]')])")
