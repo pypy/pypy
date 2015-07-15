@@ -25,13 +25,8 @@ I16 = PackType('i',2,True,8)
 
 class SchedulerBaseTest(DependencyBaseTest):
 
-    def parse(self, source, inc_label_jump=True,
-              pargs=2,
-              iargs=10,
-              fargs=6,
-              additional_args=None,
-              replace_args=None):
-        ns = {
+    def namespace(self):
+        return {
             'double': self.floatarraydescr,
             'float': self.singlefloatarraydescr,
             'long': self.intarraydescr,
@@ -39,6 +34,13 @@ class SchedulerBaseTest(DependencyBaseTest):
             'short': self.int16arraydescr,
             'char': self.chararraydescr,
         }
+
+    def parse(self, source, inc_label_jump=True,
+              pargs=2,
+              iargs=10,
+              fargs=6,
+              additional_args=None,
+              replace_args=None):
         args = []
         for prefix, rang in [('p',range(pargs)), ('i',range(iargs)), ('f',range(fargs))]:
             for i in rang:
@@ -56,7 +58,7 @@ class SchedulerBaseTest(DependencyBaseTest):
         joinedargs = ','.join(args)
         fmt = (indent, joinedargs, source, indent, joinedargs)
         src = "%s[%s]\n%s\n%sjump(%s)" % fmt
-        loop = opparse(src, cpu=self.cpu, namespace=ns)
+        loop = opparse(src, cpu=self.cpu, namespace=self.namespace())
         if inc_label_jump:
             token = JitCellToken()
             loop.operations = \

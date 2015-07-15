@@ -9,34 +9,34 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.history import (ConstInt, BoxVector, 
-        BoxFloat, BoxInt, ConstFloat, Box)
+        BoxFloat, BoxInt, ConstFloat, Box, Const)
+from rpython.rlib.objectmodel import we_are_translated
 
 class Guard(object):
     """ An object wrapper around a guard. Helps to determine
         if one guard implies another
     """
-    def __init__(self, index, op, cmp_op, lhs, lhs_arg, rhs, rhs_arg):
+    def __init__(self, index, op, cmp_op, lhs_arg, rhs_arg):
         self.index = index
         self.op = op
         self.cmp_op = cmp_op
-        self.lhs = lhs
-        self.rhs = rhs
         self.lhs_arg = lhs_arg
         self.rhs_arg = rhs_arg
-        self.implied = False
-        self.stronger = False
+        self.lhs_key = None
+        self.rhs_key = None
 
     def implies(self, guard, opt):
         if self.op.getopnum() != guard.op.getopnum():
             return False
 
-        my_key = opt._get_key(self.cmp_op)
-        ot_key = opt._get_key(guard.cmp_op)
-
-        if my_key[1] == ot_key[1]:
+        if self.lhs_key == guard.lhs_key:
             # same operation
-            lc = self.compare(self.lhs, guard.lhs)
-            rc = self.compare(self.rhs, guard.rhs)
+            valid, lc = self.compare(self.lhs, guard.lhs)
+            if not valid:
+                return False
+            valid, rc = self.compare(self.rhs, guard.rhs)
+            if not valid:
+                return False
             opnum = self.get_compare_opnum()
             if opnum == -1:
                 return False
@@ -65,40 +65,43 @@ class Guard(object):
         otherop = other.op
         assert isinstance(otherop, GuardResOp)
         assert isinstance(myop, GuardResOp)
-        self.stronger = True
         self.index = other.index
 
         descr = myop.getdescr()
-        descr.copy_all_attributes_from(other.op.getdescr())
-        myop.rd_frame_info_list = otherop.rd_frame_info_list
-        myop.rd_snapshot = otherop.rd_snapshot
-        myop.setfailargs(otherop.getfailargs())
+        if we_are_translated():
+            descr.copy_all_attributes_from(other.op.getdescr())
+            myop.rd_frame_info_list = otherop.rd_frame_info_list
+            myop.rd_snapshot = otherop.rd_snapshot
+            myop.setfailargs(otherop.getfailargs())
 
     def compare(self, key1, key2):
         if isinstance(key1, Box):
-            assert isinstance(key2, Box)
-            assert key1 is key2 # key of hash enforces this
-            return 0
+            if isinstance(key2, Box) and key1 is key2:
+                return True, 0
+            return False, 0
         #
         if isinstance(key1, ConstInt):
-            assert isinstance(key2, ConstInt)
+            if not isinstance(key2, ConstInt):
+                return False, 0
             v1 = key1.value
             v2 = key2.value
             if v1 == v2:
-                return 0
+                return True, 0
             elif v1 < v2:
-                return -1
+                return True, -1
             else:
-                return 1
+                return True, 1
         #
         if isinstance(key1, IndexVar):
             assert isinstance(key2, IndexVar)
-            return key1.compare(key2)
+            return True, key1.compare(key2)
         #
         raise AssertionError("cannot compare: " + str(key1) + " <=> " + str(key2))
 
     def emit_varops(self, opt, var, old_arg):
         if isinstance(var, IndexVar):
+            if var.is_identity():
+                return var.var
             box = var.emit_operations(opt)
             opt.renamer.start_renaming(old_arg, box)
             return box
@@ -117,105 +120,122 @@ class Guard(object):
         guard.setarg(0, box_result)
         opt.emit_operation(guard)
 
-class GuardStrengthenOpt(object):
-    def __init__(self, index_vars):
-        self.index_vars = index_vars
-        self._newoperations = []
-        self._same_as = {}
-        self.strength_reduced = 0 # how many guards could be removed?
+    def update_keys(self, index_vars):
+        self.lhs = index_vars.get(self.lhs_arg, self.lhs_arg)
+        if isinstance(self.lhs, IndexVar):
+            self.lhs = self.lhs.var
+        self.lhs_key = self.lhs
+        #
+        self.rhs = index_vars.get(self.rhs_arg, self.rhs_arg)
+        if isinstance(self.rhs, IndexVar):
+            self.rhs = self.rhs.var
+        self.rhs_key = self.rhs
 
-    def find_compare_guard_bool(self, boolarg, operations, index):
+    @staticmethod
+    def of(boolarg, operations, index):
+        guard_op = operations[index]
         i = index - 1
         # most likely hit in the first iteration
         while i > 0:
             op = operations[i]
             if op.result and op.result == boolarg:
-                return op
+                if rop.INT_LT <= op.getopnum() <= rop.INT_GE:
+                    cmp_op = op
+                    break
+                return None
             i -= 1
+        else:
+            raise AssertionError("guard_true/false first arg not defined")
+        #
+        lhs_arg = cmp_op.getarg(0)
+        rhs_arg = cmp_op.getarg(1)
+        return Guard(i, guard_op, cmp_op, lhs_arg, rhs_arg)
 
-        raise AssertionError("guard_true/false first arg not defined")
+class GuardStrengthenOpt(object):
+    def __init__(self, index_vars):
+        self.index_vars = index_vars
+        self._newoperations = []
+        self.strength_reduced = 0 # how many guards could be removed?
+        self.strongest_guards = {}
+        self.guards = {}
 
-    def _get_key(self, cmp_op):
-        if cmp_op and rop.INT_LT <= cmp_op.getopnum() <= rop.INT_GE:
-            lhs_arg = cmp_op.getarg(0)
-            rhs_arg = cmp_op.getarg(1)
-            lhs_index_var = self.index_vars.get(lhs_arg, None)
-            rhs_index_var = self.index_vars.get(rhs_arg, None)
+    #def _get_key(self, cmp_op):
+    #    assert cmp_op
+    #    lhs_arg = cmp_op.getarg(0)
+    #    rhs_arg = cmp_op.getarg(1)
+    #    lhs_index_var = self.index_vars.get(lhs_arg, None)
+    #    rhs_index_var = self.index_vars.get(rhs_arg, None)
 
-            cmp_opnum = cmp_op.getopnum()
-            # get the key, this identifies the guarded operation
-            if lhs_index_var and rhs_index_var:
-                key = (lhs_index_var.getvariable(), cmp_opnum, rhs_index_var.getvariable())
-            elif lhs_index_var:
-                key = (lhs_index_var.getvariable(), cmp_opnum, rhs_arg)
-            elif rhs_index_var:
-                key = (lhs_arg, cmp_opnum, rhs_index_var)
-            else:
-                key = (lhs_arg, cmp_opnum, rhs_arg)
-            return key
-        return (None, 0, None)
+    #    cmp_opnum = cmp_op.getopnum()
+    #    # get the key, this identifies the guarded operation
+    #    if lhs_index_var and rhs_index_var:
+    #        return (lhs_index_var.getvariable(), cmp_opnum, rhs_index_var.getvariable())
+    #    elif lhs_index_var:
+    #        return (lhs_index_var.getvariable(), cmp_opnum, None)
+    #    elif rhs_index_var:
+    #        return (None, cmp_opnum, rhs_index_var)
+    #    else:
+    #        return (None, cmp_opnum, None)
+    #    return key
 
-    def get_key(self, guard_bool, operations, i):
-        cmp_op = self.find_compare_guard_bool(guard_bool.getarg(0), operations, i)
-        return self._get_key(cmp_op)
-
-    def propagate_all_forward(self, loop):
-        """ strengthens the guards that protect an integral value """
-        strongest_guards = {}
-        guards = {}
-        # the guards are ordered. guards[i] is before guards[j] iff i < j
+    def collect_guard_information(self, loop):
         operations = loop.operations
         last_guard = None
         for i,op in enumerate(operations):
             op = operations[i]
-            if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
-                cmp_op = self.find_compare_guard_bool(op.getarg(0), operations, i)
-                key = self._get_key(cmp_op)
-                if key[0] is not None:
-                    lhs_arg = cmp_op.getarg(0)
-                    lhs = self.index_vars.get(lhs_arg, lhs_arg)
-                    rhs_arg = cmp_op.getarg(1)
-                    rhs = self.index_vars.get(rhs_arg, rhs_arg)
-                    other = strongest_guards.get(key, None)
-                    if not other:
-                        guard = Guard(i, op, cmp_op,
-                                      lhs, lhs_arg,
-                                      rhs, rhs_arg)
-                        strongest_guards[key] = guard
-                        # nothing known, at this position emit the guard
-                        guards[i] = guard
-                    else: # implicit index(strongest) < index(current)
-                        guard = Guard(i, op, cmp_op,
-                                      lhs, lhs_arg, rhs, rhs_arg)
-                        if guard.implies(other, self):
-                            guard.inhert_attributes(other)
+            if not op.is_guard():
+                continue
+            if op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
+                guard = Guard.of(op.getarg(0), operations, i)
+                if guard is None:
+                    continue
+                guard.update_keys(self.index_vars)
+                self.record_guard(guard.lhs_key, guard)
+                self.record_guard(guard.rhs_key, guard)
 
-                            strongest_guards[key] = guard
-                            guards[other.index] = guard
-                            # do not mark as emit
-                            continue
-                        elif other.implies(guard, self):
-                            guard.implied = True
-                        # mark as emit
-                        guards[i] = guard
-                else:
-                    # emit non guard_true/false guards
-                    guards[i] = Guard(i, op, None, None, None, None, None)
+    def record_guard(self, key, guard):
+        if key is None:
+            return
+        # the operations are processed from 1..n (forward),
+        # thus if the key is not present (1), the guard is saved
+        # (2) guard(s) with this key is/are already present,
+        # thus each of is seen as possible candidate to strengthen
+        # or imply the current. in both cases the current guard is
+        # not emitted and the original is replaced with the current
+        others = self.strongest_guards.setdefault(key, [])
+        if len(others) > 0: # (2)
+            for i,other in enumerate(others):
+                if guard.implies(other, self):
+                    # strengthend
+                    guard.inhert_attributes(other)
+                    others[i] = guard
+                    self.guards[other.index] = guard
+                    self.guards[guard.index] = None # mark as 'do not emit'
+                    continue
+                elif other.implies(guard, self):
+                    # implied
+                    self.guards[guard.index] = None # mark as 'do not emit'
+                    continue
+        else: # (2)
+            others.append(guard)
 
-        strongest_guards = None
-        #
+    def eliminate_guards(self, loop):
         self.renamer = Renamer()
-        last_op_idx = len(operations)-1
-        for i,op in enumerate(operations):
-            op = operations[i]
-            if op.is_guard() and op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
-                guard = guards.get(i, None)
-                if not guard or guard.implied:
+        for i,op in enumerate(loop.operations):
+            op = loop.operations[i]
+            if op.is_guard():
+                if i in self.guards:
+                    # either a stronger guard has been saved
+                    # or it should not be emitted
+                    guard = self.guards[i]
                     # this guard is implied or marked as not emitted (= None)
                     self.strength_reduced += 1
-                    continue
-                if guard.stronger:
+                    if guard is None:
+                        continue
                     guard.emit_operations(self)
+                    continue
+                else:
+                    self.emit_operation(op)
                     continue
             if op.result:
                 index_var = self.index_vars.get(op.result, None)
@@ -224,8 +244,15 @@ class GuardStrengthenOpt(object):
                         index_var.emit_operations(self, op.result)
                         continue
             self.emit_operation(op)
-
+        #
         loop.operations = self._newoperations[:]
+
+    def propagate_all_forward(self, loop):
+        """ strengthens the guards that protect an integral value """
+        # the guards are ordered. guards[i] is before guards[j] iff i < j
+        self.collect_guard_information(loop)
+        #
+        self.eliminate_guards(loop)
 
     def emit_operation(self, op):
         self.renamer.rename(op)

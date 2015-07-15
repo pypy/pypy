@@ -1360,19 +1360,47 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_abc(self):
         trace="""
-        [i16, i17, i18, i5, p6, p7, f19, p9, p10, p11, p12, p13, p14, p15, i20, i21]
+        [p0, p1, p5, p6, p7, p12, p13, i14, i15, i16, i17, i18, i19, i20]
         guard_early_exit() []
-        f22 = raw_load(i20, i18, descr=<ArrayF 8>)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardNotInvalidated object at 0x7fc428762410>) [i5, i18, i17, i16, p15, p14, p13, p12, p11, p10, p9, p7, p6, f22, f19]
-        f23 = raw_load(i21, i17, descr=<ArrayF 8>)
-        f24 = float_mul(f22, f23)
-        f25 = float_add(f19, f24)
-        i27 = int_add(i18, 8)
-        i29 = int_add(i17, 8)
-        i30 = int_lt(i16, i5)
-        guard_true(i30, descr=<rpython.jit.metainterp.compile.ResumeGuardTrueDescr object at 0x7fc4287689d0>) [i5, i27, i29, i16, p15, p14, p13, p12, p11, p10, p9, p7, p6, f25, None]
-        i33 = int_add(i16, 1)
-        jump(i33, i29, i27, i5, p6, p7, f25, p9, p10, p11, p12, p13, p14, p15, i20, i21)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #117 LOAD_NAME')
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7fc657d7be20>) [p1, p0, p5, p6, p7, p12, p13]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #120 LOAD_CONST')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #123 COMPARE_OP')
+        i22 = int_lt(i14, 2024)
+        guard_true(i22, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bdc0>) [p1, p0, p5, p6, p7, p12, p13, i14]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #126 POP_JUMP_IF_FALSE')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #129 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #132 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #135 BINARY_SUBSCR')
+        i23 = int_lt(i14, i15)
+        guard_true(i23, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bd60>) [p1, p0, i14, p5, p6, p7, p12, p13, None]
+        f25 = getarrayitem_raw(i16, i14, descr=floatarraydescr)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #136 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #139 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #142 BINARY_SUBSCR')
+        i26 = int_lt(i14, i17)
+        guard_true(i26, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bca0>) [p1, p0, i14, p5, p6, p7, p12, p13, f25, None]
+        f27 = getarrayitem_raw(i18, i14, descr=floatarraydescr)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #143 BINARY_ADD')
+        f28 = float_add(f25, f27)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #144 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #147 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #150 STORE_SUBSCR')
+        i29 = int_lt(i14, i19)
+        guard_true(i29, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bc40>) [p1, p0, i14, p5, p6, p7, p12, p13, f28, None, None]
+        setarrayitem_raw(i20, i14, f28, descr=floatarraydescr)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #151 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #154 LOAD_CONST')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #157 INPLACE_ADD')
+        i31 = int_add(i14, 1)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #158 STORE_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #161 JUMP_ABSOLUTE')
+        i33 = getfield_raw(140489852409120, descr=<FieldS pypysig_long_struct.c_value 0>)
+        setfield_gc(1234, i31, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
+        i36 = int_lt(i33, 0)
+        guard_false(i36, descr=<ResumeGuardFalseDescr object at 0x7fc657d7be80>) [p1, p0, p5, p6, p7, p12, p13, None, None, None]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #117 LOAD_NAME')
+        jump(p0, p1, p5, p6, p7, p12, p13, i31, i15, i16, i17, i18, i19, i20)
         """
         # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))
