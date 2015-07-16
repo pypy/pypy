@@ -16,7 +16,7 @@ class RecordChunk(BaseChunk):
 
     def apply(self, space, orig_arr):
         arr = orig_arr.implementation
-        ofs, subdtype = arr.dtype.fields[self.name]
+        ofs, subdtype = arr.dtype.fields[self.name][:2]
         # ofs only changes start
         # create a view of the original array by extending
         # the shape, strides, backstrides of the array
