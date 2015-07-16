@@ -10,31 +10,6 @@ class BaseChunk(object):
     pass
 
 
-class Chunks(BaseChunk):
-    def __init__(self, l):
-        self.l = l
-
-    @jit.unroll_safe
-    def extend_shape(self, old_shape):
-        shape = []
-        i = -1
-        for i, c in enumerate_chunks(self.l):
-            if c.step != 0:
-                shape.append(c.lgt)
-        s = i + 1
-        assert s >= 0
-        return shape[:] + old_shape[s:]
-
-    def apply(self, space, orig_arr):
-        arr = orig_arr.implementation
-        shape = self.extend_shape(arr.shape)
-        r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
-                                    arr.get_backstrides(), self.l)
-        _, start, strides, backstrides = r
-        return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
-                                     shape[:], arr, orig_arr)
-
-
 class Chunk(BaseChunk):
     axis_step = 1
 
@@ -62,6 +37,27 @@ class NewAxisChunk(Chunk):
 class EllipsisChunk(BaseChunk):
     def __init__(self):
         pass
+
+
+def new_view(space, w_arr, chunks):
+    arr = w_arr.implementation
+    shape = _extend_shape(arr.shape, chunks)
+    r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
+                                arr.get_backstrides(), chunks)
+    _, start, strides, backstrides = r
+    return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
+                                 shape[:], arr, w_arr)
+
+@jit.unroll_safe
+def _extend_shape(old_shape, chunks):
+    shape = []
+    i = -1
+    for i, c in enumerate_chunks(chunks):
+        if c.step != 0:
+            shape.append(c.lgt)
+    s = i + 1
+    assert s >= 0
+    return shape[:] + old_shape[s:]
 
 
 class BaseTransform(object):

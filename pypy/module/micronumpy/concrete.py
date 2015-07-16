@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.debug import make_sure_not_resized, debug_print
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -10,13 +10,11 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (
-    Chunk, Chunks, NewAxisChunk, EllipsisChunk,
+    Chunk, new_view, NewAxisChunk, EllipsisChunk,
     calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from pypy.interpreter.baseobjspace import W_Root
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
@@ -225,16 +223,16 @@ class BaseConcreteArray(object):
                 space.isinstance_w(w_idx, space.w_slice)):
             if len(self.get_shape()) == 0:
                 raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
-            return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
+            return [Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))]
         elif isinstance(w_idx, W_NDimArray) and w_idx.is_scalar():
             w_idx = w_idx.get_scalar_value().item(space)
             if not space.isinstance_w(w_idx, space.w_int) and \
                     not space.isinstance_w(w_idx, space.w_bool):
                 raise OperationError(space.w_IndexError, space.wrap(
                     "arrays used as indices must be of integer (or boolean) type"))
-            return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
+            return [Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))]
         elif space.is_w(w_idx, space.w_None):
-            return Chunks([NewAxisChunk()])
+            return [NewAxisChunk()]
         result = []
         i = 0
         has_ellipsis = False
@@ -253,7 +251,7 @@ class BaseConcreteArray(object):
                 result.append(Chunk(*space.decode_index4(w_item,
                                                          self.get_shape()[i])))
                 i += 1
-        return Chunks(result)
+        return result
 
     def descr_getitem(self, space, orig_arr, w_index):
         try:
@@ -262,7 +260,7 @@ class BaseConcreteArray(object):
         except IndexError:
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
-            return chunks.apply(space, orig_arr)
+            return new_view(space, orig_arr, chunks)
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
         try:
@@ -271,7 +269,7 @@ class BaseConcreteArray(object):
         except IndexError:
             w_value = convert_to_array(space, w_value)
             chunks = self._prepare_slice_args(space, w_index)
-            view = chunks.apply(space, orig_arr)
+            view = new_view(space, orig_arr, chunks)
             view.implementation.setslice(space, w_value)
 
     def transpose(self, orig_array, axes=None):

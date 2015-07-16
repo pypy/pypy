@@ -4,7 +4,7 @@ import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.strides import Chunk, Chunks
+from pypy.module.micronumpy.strides import Chunk, new_view
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
@@ -22,7 +22,7 @@ class MockDtype(object):
 
 
 def create_slice(space, a, chunks):
-    return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
+    return new_view(space, W_NDimArray(a), chunks).implementation
 
 
 def create_array(*args, **kwargs):
