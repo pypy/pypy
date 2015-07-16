@@ -2,6 +2,7 @@
 """ Short preamble tests
 """
 
+import py
 from rpython.jit.metainterp.resoperation import InputArgInt, ResOperation, rop
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes
 from rpython.jit.metainterp.history import AbstractDescr
@@ -16,10 +17,9 @@ class Opt(object):
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.oplist:
             if isinstance(op, tuple):
-                op, r = op
+                sb.add_heap_op(*op)
             else:
-                op, r = op, op
-            sb.add_potential(op, r)
+                sb.add_pure_op(op)
 
 class TestShortBoxes(object):
     def test_pure_ops(self):
@@ -27,16 +27,16 @@ class TestShortBoxes(object):
         i1 = InputArgInt()
         op = ResOperation(rop.INT_ADD, [i0, i1])
         sb = ShortBoxes()
-        sb.create_short_boxes(Opt([op]), [i0, i1])
-        assert sb.short_boxes == [(op, op)]
+        short_boxes = sb.create_short_boxes(Opt([op]), [i0, i1])
+        assert short_boxes == [(op, None)]
 
     def test_pure_ops_does_not_work(self):
         i0 = InputArgInt()
         i1 = InputArgInt()
         op = ResOperation(rop.INT_ADD, [i0, i1])
         sb = ShortBoxes()
-        sb.create_short_boxes(Opt([op]), [i0])
-        assert sb.short_boxes == []
+        short_boxes = sb.create_short_boxes(Opt([op]), [i0])
+        assert short_boxes == []
 
     def test_multiple_similar_ops(self):
         """ This can happen e.g. if heap cache and pure ops produce
@@ -49,6 +49,7 @@ class TestShortBoxes(object):
         we store both in short preamble (in case someone else who inlines
         the short preamble does not share them)
         """
+        py.test.skip("l8r")
         i0 = InputArgInt()
         i1 = InputArgInt()
         op = ResOperation(rop.INT_ADD, [i0, i1])

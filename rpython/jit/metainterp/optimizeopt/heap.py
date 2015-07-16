@@ -9,7 +9,8 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers
+from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
+     AbstractResOp
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
 
@@ -53,12 +54,11 @@ class CachedField(object):
                                              descr):
         assert self._lazy_setfield is None
         for i, info in enumerate(self.cached_infos):
-            structbox = self.cached_structs[i]
-            op = info._fields[descr.get_index()]
-            op = optimizer.get_box_replacement(op)
+            structbox = optimizer.get_box_replacement(self.cached_structs[i])
+            op = optimizer.get_box_replacement(info._fields[descr.get_index()])
             opnum = OpHelpers.getfield_for_descr(descr)
             getfield_op = ResOperation(opnum, [structbox], descr=descr)
-            shortboxes.add_potential(op, getfield_op)
+            shortboxes.add_heap_op(op, getfield_op)
         return
         for structvalue in self._cached_fields_getfield_op.keys():
             op = self._cached_fields_getfield_op[structvalue]

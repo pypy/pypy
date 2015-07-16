@@ -221,9 +221,9 @@ class OptPure(Optimization):
         ops = self.optimizer._newoperations
         for i, op in enumerate(ops):
             if op.is_always_pure():
-                sb.add_potential(op)
+                sb.add_pure_op(op)
             if op.is_ovf() and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
-                sb.add_potential(op)
+                sb.add_pure_op(op)
         for i in self.call_pure_positions:
             yyy
             op = ops[i]

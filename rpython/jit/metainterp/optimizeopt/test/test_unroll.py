@@ -6,10 +6,12 @@ import py
 
 from rpython.jit.metainterp.optimizeopt.test.test_util import BaseTest,\
      LLtypeMixin
+from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      InputArgRef
+from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortPreambleBuilder
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
@@ -51,6 +53,16 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
         preamble.inputargs = start_state.renamed_inputargs
         return start_state, loop, preamble
 
+    def compare_short(self, short, expected_short):
+        expected_short = self.parse(expected_short,
+                                    postprocess=self.postprocess)
+        remap = {}
+        exp = ([ResOperation(rop.LABEL, expected_short.inputargs)] +
+               expected_short.operations)
+        for k, v in zip(short[0].getarglist(), expected_short.inputargs):
+            remap[v] = k
+        equaloplists(short, exp, remap=remap)
+
 class TestUnroll(BaseTestUnroll):
     def test_simple(self):
         loop = """
@@ -69,7 +81,25 @@ class TestUnroll(BaseTestUnroll):
         # we have exported values for i1, which happens to be an inputarg
         assert es.inputarg_mapping[0][1].getint() == 1
         assert isinstance(es.inputarg_mapping[0][1], ConstInt)
-        assert es.short_boxes == []
+        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
+                                  es.exported_infos)
+        sp = sb.build_short_preamble()
+        exp = """
+        [i0]
+        jump()
+        """
+        self.compare_short(sp, exp)
+        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
+                                  es.exported_infos)
+        sb.use_box(es.short_boxes[0][0])
+        assert len(es.short_boxes) == 1
+        exp = """
+        [i0]
+        i1 = int_add(i0, 1)
+        guard_value(i1, 1) []
+        jump()
+        """
+        self.compare_short(sb.build_short_preamble(), exp)
 
     def test_not_constant(self):
         loop = """
@@ -82,7 +112,7 @@ class TestUnroll(BaseTestUnroll):
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         assert vs.state[0].level == LEVEL_UNKNOWN
         op = preamble.operations[0]
-        assert es.short_boxes == [(op, op)]
+        assert es.short_boxes[0][0] == op
 
     def test_guard_class(self):
         loop = """
@@ -131,7 +161,18 @@ class TestUnroll(BaseTestUnroll):
         jump(p0, i0)
         """
         es, loop, preamble = self.optimize(loop)
-        assert es.short_boxes[0][0] == preamble.operations[0]
+        op = preamble.operations[0]
+        assert len(es.short_boxes) == 1
+        assert es.short_boxes[0][0] is op
+        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
+                                  es.exported_infos)
+        sb.use_box(preamble.operations[0])
+        exp_short = """
+        [p0, i1]
+        i0 = getfield_gc_i(p0, descr=valuedescr)
+        jump(i0)
+        """
+        self.compare_short(sb.build_short_preamble(), exp_short)
 
     def test_int_is_true(self):
         loop = """
@@ -142,14 +183,34 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         op = preamble.operations[0]
-        assert es.short_boxes == [(op,op)]
+        assert es.short_boxes[0][0] is op
         assert es.exported_infos[op].is_constant()
 
     def test_only_setfield(self):
         loop = """
-        [p0]
+        [p0, p1]
         setfield_gc(p0, 5, descr=valuedescr)
+        setfield_gc(p1, 5, descr=nextdescr)
+        jump(p0, p1)
+        """
+        es, loop, preamble = self.optimize(loop)
+        p0, p1 = preamble.inputargs
+        assert es.short_boxes[0][0].getint() == 5
+        assert es.short_boxes[1][0].getint() == 5
+        assert es.short_boxes[0][1].getarg(0) is p0
+        assert es.short_boxes[1][1].getarg(0) is p1
+
+    def test_double_getfield_plus_pure(self):
+        loop = """
+        [p0]
+        pc = getfield_gc_pure_r(p0, descr=nextdescr)
+        escape_n(p0) # that should flush the caches
+        p1 = getfield_gc_r(pc, descr=nextdescr)
+        i0 = getfield_gc_i(p1, descr=valuedescr)
         jump(p0)
         """
         es, loop, preamble = self.optimize(loop)
-        assert es.short_boxes[0][0] == preamble.operations[0].getarg(1)
+        assert len(es.short_boxes) == 3
+        # both getfields are available as
+        # well as getfield_gc_pure
+        

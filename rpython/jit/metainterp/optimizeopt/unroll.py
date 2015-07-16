@@ -1,7 +1,8 @@
 import sys
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
-from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes
+from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
+     ShortPreambleBuilder
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
@@ -228,22 +229,23 @@ class UnrollOptimizer(Optimization):
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
         sb = ShortBoxes()
-        sb.create_short_boxes(self.optimizer, [self.get_box_replacement(a)
-                                            for a in start_label.getarglist()])
+        short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs)
         inparg_mapping = [(start_label.getarg(i), end_args[i])
                           for i in range(len(end_args)) if
                           start_label.getarg(i) is not end_args[i]]
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
-        for box, _ in sb.short_boxes:
+        for box, _ in short_boxes:
             if not isinstance(box, Const):
                 infos[box] = self.optimizer.getinfo(box)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        short_inputargs = sb.produce_short_inputargs()
         self.optimizer._clean_optimization_info(end_args)
         self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, inparg_mapping, virtual_state, infos,
-                             sb.short_boxes, renamed_inputargs)
+                             short_boxes, renamed_inputargs,
+                             short_inputargs)
 
 
         inputargs = virtual_state.make_inputargs(jump_args, self.optimizer)
@@ -302,22 +304,41 @@ class UnrollOptimizer(Optimization):
                 self.optimizer.setinfo_from_preamble(source, info)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
-        for op, preamble_op in exported_state.short_boxes:
-            if not isinstance(op, Const):
-                self.ops_to_import[op] = preamble_op
-            if preamble_op.is_always_pure():
-                self.pure(op.getopnum(), PreambleOp(op, preamble_op,
+        self.short_preamble_producer = ShortPreambleProducer()
+        for op, getfield_op in exported_state.short_boxes:
+            if getfield_op is None:
+                optpure = self.optimizer.optpure
+                if optpure is None:
+                    continue
+                self.pure(op.getopnum(), PreambleOp(op, None,
                                 exported_state.exported_infos.get(op, None)))
             else:
-                assert preamble_op.is_getfield()
                 optheap = self.optimizer.optheap
                 if optheap is None:
                     continue
-                opinfo = self.optimizer.ensure_ptr_info_arg0(preamble_op)
+                opinfo = self.optimizer.ensure_ptr_info_arg0(getfield_op)
                 pre_info = exported_state.exported_infos.get(op, None)
-                pop = PreambleOp(op, preamble_op, pre_info)
+                pop = PreambleOp(op, None, pre_info)
                 assert not opinfo.is_virtual()
-                opinfo._fields[preamble_op.getdescr().get_index()] = pop
+                opinfo._fields[getfield_op.getdescr().get_index()] = pop
+            #if not isinstance(op, Const):
+            #    self.ops_to_import[op] = None
+            # XXX think later about the short preamble
+            #if not isinstance(op, Const):
+            #    self.ops_to_import[op] = preamble_op
+            #if preamble_op.is_always_pure():
+            #    self.pure(op.getopnum(), PreambleOp(op, preamble_op,
+            #                    exported_state.exported_infos.get(op, None)))
+            #else:
+            #    assert preamble_op.is_getfield()
+            #    optheap = self.optimizer.optheap
+            #    if optheap is None:
+            #        continue
+            #    opinfo = self.optimizer.ensure_ptr_info_arg0(preamble_op)
+            #    pre_info = exported_state.exported_infos.get(op, None)
+            #    pop = PreambleOp(op, preamble_op, pre_info)
+            #    assert not opinfo.is_virtual()
+            #    opinfo._fields[preamble_op.getdescr().get_index()] = pop
 
         return
         self.inputargs = targetop.getarglist()
@@ -774,13 +795,16 @@ class ExportedState(LoopInfo):
                       of virtuals at this label
     * short boxes - a mapping op -> preamble_op
     * renamed_inputargs - the start label arguments in optimized version
+    * short_inputargs - the renamed inputargs for short preamble
     """
     
     def __init__(self, end_args, inputarg_mapping, virtual_state,
-                 exported_infos, short_boxes, renamed_inputargs):
+                 exported_infos, short_boxes, renamed_inputargs,
+                 short_inputargs):
         self.end_args = end_args
         self.inputarg_mapping = inputarg_mapping
         self.virtual_state = virtual_state
         self.exported_infos = exported_infos
         self.short_boxes = short_boxes
         self.renamed_inputargs = renamed_inputargs
+        self.short_inputargs = short_inputargs

@@ -12,6 +12,7 @@ class AbstractValue(object):
     _repr_memo = weakref.WeakKeyDictionary()
     is_info_class = False
     _attrs_ = ()
+    namespace = None
 
     def _get_hash_(self):
         return compute_identity_hash(self)
@@ -185,7 +186,10 @@ class AbstractResOp(AbstractValue):
             return name
 
     def __repr__(self):
-        return self.repr(self._repr_memo)
+        r = self.repr(self._repr_memo)
+        if self.namespace is not None:
+            return "<" + self.namespace + ">" + r
+        return r
 
     def getopname(self):
         try:
