@@ -612,7 +612,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             addr = rawstart + tok.pos_jump_offset
             tok.faildescr.adr_jump_offset = addr
             descr = tok.faildescr
-            if isinstance(descr, CompileLoopVersionDescr):
+            if descr.loop_version():
                 continue # patch them later
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)

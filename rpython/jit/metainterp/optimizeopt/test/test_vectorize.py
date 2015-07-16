@@ -1366,8 +1366,6 @@ class BaseTestVectorize(VecTestHelper):
         guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7fc657d7be20>) [p1, p0, p5, p6, p7, p12, p13]
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #120 LOAD_CONST')
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #123 COMPARE_OP')
-        i22 = int_lt(i14, 2024)
-        guard_true(i22, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bdc0>) [p1, p0, p5, p6, p7, p12, p13, i14]
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #126 POP_JUMP_IF_FALSE')
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #129 LOAD_NAME')
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #132 LOAD_NAME')
@@ -1400,6 +1398,8 @@ class BaseTestVectorize(VecTestHelper):
         i36 = int_lt(i33, 0)
         guard_false(i36, descr=<ResumeGuardFalseDescr object at 0x7fc657d7be80>) [p1, p0, p5, p6, p7, p12, p13, None, None, None]
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #117 LOAD_NAME')
+        i22 = int_lt(i14, 2024)
+        guard_true(i22, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bdc0>) [p1, p0, p5, p6, p7, p12, p13, i14]
         jump(p0, p1, p5, p6, p7, p12, p13, i31, i15, i16, i17, i18, i19, i20)
         """
         # schedule 885 -> ptype is non for raw_load?

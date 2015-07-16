@@ -49,14 +49,13 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         start = time.clock()
         #
         #
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold)
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
         opt.propagate_all_forward()
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
         user_code = not jitdriver_sd.vectorize and warmstate.vectorize_user
         gso.propagate_all_forward(opt.loop, user_code)
-        # loop versioning
+        # connect all compile loop version fail descriptors to this version
         version.register_all_guards(loop.operations, opt.appended_arg_count)
-        loop.versions.append(version)
         #
         #
         end = time.clock()
@@ -66,20 +65,23 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         #
         nano = int((end-start)*10.0**9)
         debug_print("# vecopt factor: %d opcount: (%d -> %d) took %dns" % \
-                      (opt.unroll_count+1, len(orig_ops), len(loop.operations), nano))
+                      (opt.unroll_count+1, len(version.operations), len(loop.operations), nano))
         debug_stop("vec-opt-loop")
         #
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible
-        loop.operations = orig_ops
+        loop.operations = version.operations
+        loop.versions = None
     except NotAProfitableLoop:
         debug_stop("vec-opt-loop")
         # cost model says to skip this loop
-        loop.operations = orig_ops
+        loop.operations = version.operations
+        loop.versions = None
     except Exception as e:
         debug_stop("vec-opt-loop")
-        loop.operations = orig_ops
+        loop.operations = version.operations
+        loop.versions = None
         debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
         if we_are_translated():
             from rpython.rtyper.lltypesystem import lltype

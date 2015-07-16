@@ -725,6 +725,7 @@ class CompileLoopVersionDescr(ResumeGuardDescr):
     operations = None
     inputargs = None
     faillocs = None
+    version = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert 0, "this guard must never fail"

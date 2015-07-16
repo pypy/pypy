@@ -16,12 +16,12 @@ class Guard(object):
     """ An object wrapper around a guard. Helps to determine
         if one guard implies another
     """
+    _attrs_ = ('index', 'op', 'cmp_op', 'rhs', 'lhs')
+
     def __init__(self, index, op, cmp_op, index_vars):
         self.index = index
         self.op = op
         self.cmp_op = cmp_op
-        self.lhs_key = None
-        self.rhs_key = None
         lhs = cmp_op.getarg(0)
         self.lhs = index_vars.get(lhs, None)
         if self.lhs is None:
@@ -31,6 +31,15 @@ class Guard(object):
         self.rhs = index_vars.get(rhs, None)
         if self.rhs is None:
             self.rhs = IndexVar(rhs)
+
+    def setindex(self, index):
+        self.index = index
+
+    def setoperation(self, op):
+        self.op = op
+
+    def setcmp(self, c):
+        self.cmp_op = c
 
     def getleftkey(self):
         return self.lhs.getvariable()
@@ -108,11 +117,10 @@ class Guard(object):
         self.index = other.index
 
         descr = myop.getdescr()
-        if we_are_translated():
-            descr.copy_all_attributes_from(other.op.getdescr())
-            myop.rd_frame_info_list = otherop.rd_frame_info_list
-            myop.rd_snapshot = otherop.rd_snapshot
-            myop.setfailargs(otherop.getfailargs())
+        descr.copy_all_attributes_from(other.op.getdescr())
+        myop.rd_frame_info_list = otherop.rd_frame_info_list
+        myop.rd_snapshot = otherop.rd_snapshot
+        myop.setfailargs(otherop.getfailargs())
 
     def emit_varops(self, opt, var, old_arg):
         assert isinstance(var, IndexVar)
@@ -134,9 +142,9 @@ class Guard(object):
         guard = self.op.clone()
         guard.setarg(0, box_result)
         opt.emit_operation(guard)
-        guard.index = opt.operation_position()-1
-        guard.op = guard
-        guard.cmp_op = cmp_op
+        self.setindex(opt.operation_position()-1)
+        self.setoperation(guard)
+        self.setcmp(cmp_op)
 
     def set_to_none(self, operations):
         assert operations[self.index] is self.op
@@ -249,7 +257,7 @@ class GuardStrengthenOpt(object):
         self.collect_guard_information(loop)
         self.eliminate_guards(loop)
 
-        if user_code:
+        if user_code or True:
             version = loop.snapshot()
             self.eliminate_array_bound_checks(loop, version)
 
@@ -277,24 +285,4 @@ class GuardStrengthenOpt(object):
 
         loop.operations = self._newoperations + \
                 [op for op in loop.operations if op]
-
-    # OLD
-    #def _get_key(self, cmp_op):
-    #    assert cmp_op
-    #    lhs_arg = cmp_op.getarg(0)
-    #    rhs_arg = cmp_op.getarg(1)
-    #    lhs_index_var = self.index_vars.get(lhs_arg, None)
-    #    rhs_index_var = self.index_vars.get(rhs_arg, None)
-
-    #    cmp_opnum = cmp_op.getopnum()
-    #    # get the key, this identifies the guarded operation
-    #    if lhs_index_var and rhs_index_var:
-    #        return (lhs_index_var.getvariable(), cmp_opnum, rhs_index_var.getvariable())
-    #    elif lhs_index_var:
-    #        return (lhs_index_var.getvariable(), cmp_opnum, None)
-    #    elif rhs_index_var:
-    #        return (None, cmp_opnum, rhs_index_var)
-    #    else:
-    #        return (None, cmp_opnum, None)
-    #    return key
 

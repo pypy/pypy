@@ -553,7 +553,7 @@ class Accum(object):
     def save_to_descr(self, descr, position):
         from rpython.jit.metainterp.compile import ResumeGuardDescr
         from rpython.jit.metainterp.resume import AccumInfo
-        assert isinstance(descr,ResumeGuardDescr)
+        assert isinstance(descr, ResumeGuardDescr)
         ai = AccumInfo(descr.rd_accum_list, position, self.operator, self.var)
         descr.rd_accum_list = ai
 
@@ -758,6 +758,7 @@ class LoopVersion(object):
         self.inputargs = label.getarglist()
 
     def register_all_guards(self, opt_ops, invariant_arg_count=0):
+        from rpython.jit.metainterp.compile import CompileLoopVersionDescr
         idx = index_of_first(rop.LABEL, opt_ops)
         assert idx >= 0
         version_failargs = opt_ops[idx].getarglist()
@@ -771,21 +772,26 @@ class LoopVersion(object):
 
         for op in opt_ops:
             if op.is_guard():
-                import pdb; pdb.set_trace()
                 assert isinstance(op, GuardResOp)
                 descr = op.getdescr()
                 if descr.loop_version():
-                    # currently there is only ONE versioning,
-                    # that is the original loop after unrolling.
-                    # if there are more possibilites, let the descr
-                    # know which loop version he preferes
-                    self.faildescrs.append(descr)
-                    op.setfailargs(version_failargs)
-                    op.rd_snapshot = None
+                    assert isinstance(descr, CompileLoopVersionDescr)
+                    if descr.version is None:
+                        # currently there is only ONE versioning,
+                        # that is the original loop after unrolling.
+                        # if there are more possibilites, let the descr
+                        # know which loop version he preferes
+                        descr.version = self
+                        self.faildescrs.append(descr)
+                        op.setfailargs(version_failargs)
+                        op.rd_snapshot = None
 
     def register_guard(self, op):
+        from rpython.jit.metainterp.compile import CompileLoopVersionDescr
         assert isinstance(op, GuardResOp)
         descr = op.getdescr()
+        assert isinstance(descr, CompileLoopVersionDescr)
+        descr.version = self
         self.faildescrs.append(descr)
         op.setfailargs(self.inputargs)
         op.rd_snapshot = None
