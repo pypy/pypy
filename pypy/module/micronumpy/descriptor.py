@@ -224,7 +224,7 @@ class W_Dtype(W_Root):
         if not self.is_record():
             return space.newlist([space.newtuple([space.wrap(""),
                                                   self.descr_get_str(space, simple=simple)])])
-        elif (self.alignment > 1 and style != 'descr') or force_dict:
+        elif (self.alignment > 1 and not style.startswith('descr')) or force_dict:
             # we need to force a sorting order for the keys,
             # so return a string instead of a dict. Also, numpy formats
             # the lists without spaces between elements, so we cannot simply
@@ -241,9 +241,13 @@ class W_Dtype(W_Root):
                 offset, subdtype = self.fields[name]
                 if subdtype.is_record():
                     substr = [space.str_w(space.str(subdtype.descr_get_descr(
-                                                space, style='substr'))), ","]
+                                                space, style='descr_subdtype'))), ","]
                 elif subdtype.subdtype is not None:
-                    substr = ["'", subdtype.subdtype.get_str(ignore=''), "',"]
+                    substr = ["(", space.str_w(space.str(
+                        subdtype.subdtype.descr_get_descr(space, style='descr_subdtype'))),
+                        ', ',
+                        space.str_w(space.repr(space.newtuple([space.wrap(s) for s in subdtype.shape]))),
+                        "),"]
                 else:
                     substr = ["'", subdtype.get_str(ignore=''), "',"]
                 formats += substr
@@ -272,7 +276,7 @@ class W_Dtype(W_Root):
             offsets[-1] = offsets[-1][:-1] + ']'
             names[-1] = names[-1][:-1] + ']'
             titles[-1] = titles[-1][:-1] + ']'
-            if self.alignment < 2:
+            if self.alignment < 2 or style.endswith('subdtype'):
                 suffix = "}"
             elif style == 'str':
                 suffix = ", 'aligned':True}"
@@ -292,9 +296,9 @@ class W_Dtype(W_Root):
             for name, title in self.names:
                 offset, subdtype = self.fields[name]
                 show_offsets = False
-                if total != offset:
+                if total != offset and len(subdtype.shape) < 1:
                     # whoops, need to use other format
-                    return self.descr_get_descr(space, style=style, force_dict=True)
+                    return self.descr_get_descr(space, style=style + '_subdtype', force_dict=True)
                 total += subdtype.elsize
                 ignore = '|'
                 if title:
@@ -311,7 +315,7 @@ class W_Dtype(W_Root):
                 if subdtype.shape != []:
                     subdescr.append(subdtype.descr_get_shape(space))
                 descr.append(space.newtuple(subdescr[:]))
-            if self.alignment >= 0:
+            if self.alignment >= 0 and not style.endswith('subdtype'):
                 return space.wrap(space.str_w(space.repr(space.newlist(descr))) + ', align=True')                 
             return space.newlist(descr)
 
@@ -711,8 +715,6 @@ def dtype_from_list(space, w_lst, simple, alignment, offsets=None, itemsize=0):
         assert isinstance(subdtype, W_Dtype)
         if alignment >= 0:
             maxalign = max(subdtype.alignment, maxalign)
-            if not subdtype.is_record():
-                maxalign = max(subdtype.elsize, maxalign)
             delta = subdtype.alignment
             # Set offset to the next power-of-two above delta
             delta = (delta + maxalign -1) & (-maxalign)
@@ -936,6 +938,9 @@ def _get_shape(space, w_shape):
         return [dim]
     shape_w = space.fixedview(w_shape)
     if len(shape_w) < 1:
+        return None
+    elif len(shape_w) == 1 and space.isinstance_w(shape_w[0], space.w_tuple):
+        # (base_dtype, new_dtype) dtype spectification
         return None
     shape = []
     for w_dim in shape_w:

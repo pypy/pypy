@@ -1417,7 +1417,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                        ('bottom', [('bleft', ('>f4', (8, 64)), (1,)),
                                    ('bright', '>f4', (8, 36))])],
                        align=True)
-        assert_equal(str(dt),
+        assert str(dt) == (
                     "{'names':['top','bottom'], "
                      "'formats':[([('tiles', ('>f4', (64, 64)), (1,)), "
                                   "('rtile', '>f4', (64, 36))], (3,)),"
