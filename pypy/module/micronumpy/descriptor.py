@@ -10,6 +10,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
         specialize, compute_hash, we_are_translated, enforceargs)
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
+from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -228,10 +229,10 @@ class W_Dtype(W_Root):
             # so return a string instead of a dict. Also, numpy formats
             # the lists without spaces between elements, so we cannot simply
             # do str(names)
-            names = "'names':["
-            formats = "'formats':["
-            offsets = "'offsets':["
-            titles = "'titles':["
+            names = ["'names':["]
+            formats = ["'formats':["]
+            offsets = ["'offsets':["]
+            titles = ["'titles':["]
             use_titles = False
             show_offsets = False
             offsets_n = []
@@ -239,16 +240,16 @@ class W_Dtype(W_Root):
             for name, title in self.names:
                 offset, subdtype = self.fields[name]
                 if subdtype.is_record():
-                    substr = space.str_w(space.str(subdtype.descr_get_descr(
-                                                space, style='substr'))) + ","
+                    substr = [space.str_w(space.str(subdtype.descr_get_descr(
+                                                space, style='substr'))), ","]
                 elif subdtype.subdtype is not None:
-                    substr = "'" + subdtype.subdtype.get_str(ignore='') + "',"
+                    substr = ["'", subdtype.subdtype.get_str(ignore=''), "',"]
                 else:
-                    substr = "'" + subdtype.get_str(ignore='') + "',"
+                    substr = ["'", subdtype.get_str(ignore=''), "',"]
                 formats += substr
-                offsets += str(offset) + ','
-                names += "'" + name + "',"
-                titles += "'" + str(title) + "',"
+                offsets += [str(offset),  ',']
+                names += ["'", name, "',"]
+                titles += ["'", str(title), "',"]
                 if title is not None:
                     use_titles = True
                 if total != offset:
@@ -264,10 +265,13 @@ class W_Dtype(W_Root):
             for i in range(len(offsets_n)):
                 if offsets_n[i] != self.alignment * i:
                     show_offsets = True
-            formats = formats[:-1] + ']'
-            offsets = offsets[:-1] + ']'
-            names = names[:-1] + ']'
-            titles = titles[:-1] + ']'
+            if use_titles and not show_offsets: 
+                return self.descr_get_descr(space, style='descr')
+            # replace the last , with a ]
+            formats[-1] = formats[-1][:-1] + ']'
+            offsets[-1] = offsets[-1][:-1] + ']'
+            names[-1] = names[-1][:-1] + ']'
+            titles[-1] = titles[-1][:-1] + ']'
             if self.alignment < 2:
                 suffix = "}"
             elif style == 'str':
@@ -276,17 +280,12 @@ class W_Dtype(W_Root):
                 suffix = '}'
             else:
                 suffix = "}, align=True"
-            if use_titles and not show_offsets: 
-                return self.descr_get_descr(space, style='descr')
-            elif use_titles:
-                return space.wrap('{' + names + ', ' + formats + ', ' +
-                            offsets + ', ' + titles + ", 'itemsize':" + 
-                            str(self.elsize) + suffix)
-            else:
-                return space.wrap('{' + names + ', ' + formats + ', ' +
-                            offsets + ', ' + "'itemsize':" + str(self.elsize) +
-                            suffix)
-            
+            s_as_list = ['{'] + names + [', '] + formats + [', '] + offsets + [', ']
+            if use_titles:
+                s_as_list += titles + [', ']
+                    
+            s_as_list += ["'itemsize':", str(self.elsize), suffix]
+            return space.wrap(''.join(s_as_list))
         else:
             descr = []
             total = 0
