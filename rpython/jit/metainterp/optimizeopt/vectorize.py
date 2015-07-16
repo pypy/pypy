@@ -32,11 +32,11 @@ from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
-                    inline_short_preamble, start_state, cost_threshold):
+                    inline_short_preamble, start_state, warmstate):
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
-    orig_ops = loop.operations
-    if len(orig_ops) >= 75:
+    version = loop.snapshot()
+    if len(loop.operations) >= 75:
         # if more than 75 operations are present in this loop,
         # it won't be possible to vectorize. There are too many
         # guards that prevent parallel execution of instructions
@@ -52,9 +52,11 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, cost_threshold)
         opt.propagate_all_forward()
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
-        gso.propagate_all_forward(opt.loop)
+        user_code = not jitdriver_sd.vectorize and warmstate.vectorize_user
+        gso.propagate_all_forward(opt.loop, user_code)
         # loop versioning
-        loop.versions = [LoopVersion(orig_ops, loop.operations, opt.appended_arg_count)]
+        version.register_all_guards(loop.operations, opt.appended_arg_count)
+        loop.versions.append(version)
         #
         #
         end = time.clock()

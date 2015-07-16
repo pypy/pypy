@@ -891,8 +891,9 @@ class IndexVar(AbstractValue):
         return mycoeff + self.constant - (othercoeff + other.constant)
 
     def emit_operations(self, opt, result_box=None):
-        assert not self.is_identity()
         box = self.var
+        if self.is_identity():
+            return box
         last_op = None
         if self.coefficient_mul != 1:
             box_result = box.clonebox()
@@ -904,9 +905,14 @@ class IndexVar(AbstractValue):
             last_op = ResOperation(rop.INT_FLOORDIV, [box, ConstInt(self.coefficient_div)], box_result)
             opt.emit_operation(last_op)
             box = box_result
-        if self.constant != 0:
+        if self.constant > 0:
             box_result = box.clonebox()
             last_op = ResOperation(rop.INT_ADD, [box, ConstInt(self.constant)], box_result)
+            opt.emit_operation(last_op)
+            box = box_result
+        if self.constant < 0:
+            box_result = box.clonebox()
+            last_op = ResOperation(rop.INT_SUB, [box, ConstInt(self.constant)], box_result)
             opt.emit_operation(last_op)
             box = box_result
         if result_box is not None:
@@ -914,15 +920,16 @@ class IndexVar(AbstractValue):
         return box
 
     def compare(self, other):
-        assert isinstance(other, IndexVar)
+        """ returns if the two are compareable as a first result
+            and a number (-1,0,1) of the ordering
+        """
         v1 = (self.coefficient_mul // self.coefficient_div) + self.constant
         v2 = (other.coefficient_mul // other.coefficient_div) + other.constant
-        if v1 == v2:
-            return 0
-        elif v1 < v2:
-            return -1
-        else:
-            return 1
+        c = (v1 - v2)
+        if self.var.same_box(other.var):
+            #print "cmp(",self,",",other,") =>", (v1 - v2)
+            return True, (v1 - v2)
+        return False, 0
 
     def __repr__(self):
         if self.is_identity():

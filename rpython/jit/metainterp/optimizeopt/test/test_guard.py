@@ -31,10 +31,10 @@ class FakeMemoryRef(object):
         return abs(val) == 1
 
 class GuardBaseTest(SchedulerBaseTest):
-    def optguards(self, loop):
+    def optguards(self, loop, user_code=False):
         dep = DependencyGraph(loop)
         opt = GuardStrengthenOpt(dep.index_vars)
-        opt.propagate_all_forward(loop)
+        opt.propagate_all_forward(loop, user_code)
         return opt
 
     def assert_guard_count(self, loop, count):
@@ -48,6 +48,8 @@ class GuardBaseTest(SchedulerBaseTest):
 
     def assert_contains_sequence(self, loop, instr):
         class Glob(object):
+            next = None
+            prev = None
             def __repr__(self):
                 return '*'
         from rpython.jit.tool.oparser import OpParser, default_fail_descr
@@ -73,33 +75,36 @@ class GuardBaseTest(SchedulerBaseTest):
             prev_op = op
 
         def check(op, candidate, rename):
+            m = 0
             if isinstance(candidate, Glob):
                 if candidate.next is None:
                     return 0 # consumes the rest
                 if op.getopnum() != candidate.next.getopnum():
                     return 0
+                m = 1
                 candidate = candidate.next
             if op.getopnum() == candidate.getopnum():
                 for i,arg in enumerate(op.getarglist()):
                     oarg = candidate.getarg(i)
                     if arg in rename:
-                        assert rename[arg] is oarg
+                        assert rename[arg].same_box(oarg)
                     else:
                         rename[arg] = oarg
 
                 if op.result:
                     rename[op.result] = candidate.result
-                return 1
+                m += 1
+                return m
             return 0
         j = 0
         rename = {}
         for i, op in enumerate(loop.operations):
             candidate = operations[j]
             j += check(op, candidate, rename)
-        if isinstance(operations[0], Glob):
-            assert j == len(operations)-2
+        if isinstance(operations[-1], Glob):
+            assert j == len(operations)-1, self.debug_print_operations(loop)
         else:
-            assert j == len(operations)-1
+            assert j == len(operations), self.debug_print_operations(loop)
 
     def test_basic(self):
         loop1 = self.parse("""
@@ -141,17 +146,18 @@ class GuardBaseTest(SchedulerBaseTest):
         loop1 = self.parse("""
         i10 = int_gt(i1, 42)
         guard_true(i10) []
-        i11 = int_sub(i1, 1)
-        i12 = int_gt(i11, 42)
+        i11 = int_add(i1, 1)
+        i12 = int_gt(i11, i2)
         guard_true(i12) []
         """)
-        opt = self.optguards(loop1)
-        self.assert_guard_count(loop1, 1)
+        opt = self.optguards(loop1, True)
+        self.assert_guard_count(loop1, 2)
         self.assert_contains_sequence(loop1, """
+        i40 = int_ge(42, i2)
+        guard_true(i40) []
         ...
-        i11 = int_sub(i1, 1)
-        i12 = int_gt(i11, 42)
-        guard_true(i12) []
+        i10 = int_gt(i1, 42)
+        guard_true(i10) []
         ...
         """)
 

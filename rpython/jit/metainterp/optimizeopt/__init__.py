@@ -73,7 +73,7 @@ def optimize_trace(metainterp_sd, jitdriver_sd, loop, warmstate,
                  or warmstate.vectorize_user):
                 optimize_vector(metainterp_sd, jitdriver_sd, loop,
                                 optimizations, inline_short_preamble,
-                                start_state, warmstate.vec_cost)
+                                start_state, warmstate)
             else:
                 return optimize_unroll(metainterp_sd, jitdriver_sd, loop,
                                        optimizations, inline_short_preamble,

@@ -746,7 +746,7 @@ def index_of_first(opnum, operations):
 
 class LoopVersion(object):
 
-    def __init__(self, operations, opt_ops, invariant_arg_count=0, aligned=False):
+    def __init__(self, operations, aligned=False):
         self.operations = operations
         self.aligned = aligned
         self.faildescrs = []
@@ -756,6 +756,8 @@ class LoopVersion(object):
         label = operations[idx]
         self.label_pos = idx
         self.inputargs = label.getarglist()
+
+    def register_all_guards(self, opt_ops, invariant_arg_count=0):
         idx = index_of_first(rop.LABEL, opt_ops)
         assert idx >= 0
         version_failargs = opt_ops[idx].getarglist()
@@ -769,6 +771,7 @@ class LoopVersion(object):
 
         for op in opt_ops:
             if op.is_guard():
+                import pdb; pdb.set_trace()
                 assert isinstance(op, GuardResOp)
                 descr = op.getdescr()
                 if descr.loop_version():
@@ -779,6 +782,13 @@ class LoopVersion(object):
                     self.faildescrs.append(descr)
                     op.setfailargs(version_failargs)
                     op.rd_snapshot = None
+
+    def register_guard(self, op):
+        assert isinstance(op, GuardResOp)
+        descr = op.getdescr()
+        self.faildescrs.append(descr)
+        op.setfailargs(self.inputargs)
+        op.rd_snapshot = None
 
     def copy_operations(self):
         return [op.clone() for op in self.operations]
@@ -803,7 +813,6 @@ class TreeLoop(object):
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
-    versions = None
 
     def _token(*args):
         raise Exception("TreeLoop.token is killed")
@@ -816,6 +825,7 @@ class TreeLoop(object):
 
     def __init__(self, name):
         self.name = name
+        self.versions = []
         # self.operations = list of ResOperations
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
@@ -840,6 +850,14 @@ class TreeLoop(object):
     def find_first_index(self, opnum):
         """ return the first operation having the same opnum or -1 """
         return index_of_first(opnum, self.operations)
+
+    def snapshot(self):
+        version = LoopVersion(self.copy_operations(), [])
+        self.versions.append(version)
+        return version
+
+    def copy_operations(self):
+        return [ op.clone() for op in self.operations ]
 
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)
