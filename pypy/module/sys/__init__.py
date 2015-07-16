@@ -59,7 +59,7 @@ class Module(MixedModule):
 
         'api_version'           : 'version.get_api_version(space)',
         'version_info'          : 'version.get_version_info(space)',
-        'version'               : 'version.get_version(space)',
+        #'version'              : set in startup()
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'subversion'            : 'version.get_subversion_info(space)',
         '_mercurial'            : 'version.get_repo_info(space)',
@@ -101,6 +101,9 @@ class Module(MixedModule):
             assert self.filesystemencoding is None
 
         else:
+            from pypy.module.sys import version
+            space.setitem(self.w_dict, space.wrap("version"),
+                          space.wrap(version.get_version(space)))
             if _WIN:
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)

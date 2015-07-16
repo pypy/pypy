@@ -1017,6 +1017,44 @@ class AppTestTypeObject:
         A.__dict__['x'] = 5
         assert A.x == 5
 
+    def test_we_already_got_one_1(self):
+        # Issue #2079: highly obscure: CPython complains if we say
+        # ``__slots__="__dict__"`` and there is already a __dict__...
+        # but from the "best base" only.  If the __dict__ comes from
+        # another base, it doesn't complain.  Shrug and copy the logic.
+        class A(object):
+            __slots__ = ()
+        class B(object):
+            pass
+        class C(A, B):     # "best base" is A
+            __slots__ = ("__dict__",)
+        class D(A, B):     # "best base" is A
+            __slots__ = ("__weakref__",)
+        try:
+            class E(B, A):   # "best base" is B
+                __slots__ = ("__dict__",)
+        except TypeError as e:
+            assert 'we already got one' in str(e)
+        else:
+            raise AssertionError("TypeError not raised")
+        try:
+            class F(B, A):   # "best base" is B
+                __slots__ = ("__weakref__",)
+        except TypeError as e:
+            assert 'we already got one' in str(e)
+        else:
+            raise AssertionError("TypeError not raised")
+
+    def test_we_already_got_one_2(self):
+        class A(object):
+            __slots__ = ()
+        class B(object):
+            pass
+        class C(A, B):     # "best base" is A
+            __slots__ = ("__dict__",)
+        class D(A, B):     # "best base" is A
+            __slots__ = ("__weakref__",)
+
     def test_metaclass_calc(self):
         """
         # issue1294232: correct metaclass calculation

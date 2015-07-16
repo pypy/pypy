@@ -139,6 +139,12 @@ class TestDecoding(UnicodeTests):
             for encoding in "utf-8 latin-1 ascii".split():
                 self.checkdecode(chr(i), encoding)
 
+    def test_fast_str_decode_ascii(self):
+        u = runicode.fast_str_decode_ascii("abc\x00\x7F")
+        assert type(u) is unicode
+        assert u == u"abc\x00\x7F"
+        py.test.raises(ValueError, runicode.fast_str_decode_ascii, "ab\x80")
+
     def test_all_first_256(self):
         for i in range(256):
             for encoding in ("utf-7 utf-8 latin-1 utf-16 utf-16-be utf-16-le "

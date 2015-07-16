@@ -72,6 +72,14 @@ def setup_directory_structure(cls):
              b          = "insubpackage = 1",
              )
     setuppkg("pkg.pkg2", a='', b='')
+    setuppkg("pkg.withall",
+             __init__  = "__all__ = ['foobar']",
+             foobar    = "found = 123")
+    setuppkg("pkg.withoutall",
+             __init__  = "",
+             foobar    = "found = 123")
+    setuppkg("pkg.bogusall",
+             __init__  = "__all__ = 42")
     setuppkg("pkg_r", inpkg = "import x.y")
     setuppkg("pkg_r.x", y='')
     setuppkg("x")
@@ -758,6 +766,33 @@ class AppTestImport(BaseImportTest):
         import imp
         raises(ValueError, imp.load_module, "", "", "", [1, 2, 3, 4])
 
+    def test_import_star_finds_submodules_with___all__(self):
+        for case in ["not-imported-yet", "already-imported"]:
+            d = {}
+            exec "from pkg.withall import *" in d
+            assert d["foobar"].found == 123
+
+    def test_import_star_does_not_find_submodules_without___all__(self):
+        for case in ["not-imported-yet", "already-imported"]:
+            d = {}
+            exec "from pkg.withoutall import *" in d
+            assert "foobar" not in d
+        import pkg.withoutall.foobar     # <- import it here only
+        for case in ["not-imported-yet", "already-imported"]:
+            d = {}
+            exec "from pkg.withoutall import *" in d
+            assert d["foobar"].found == 123
+
+    def test_import_star_with_bogus___all__(self):
+        for case in ["not-imported-yet", "already-imported"]:
+            try:
+                exec "from pkg.bogusall import *" in {}
+            except TypeError:
+                pass    # 'int' object does not support indexing
+            else:
+                raise AssertionError("should have failed")
+
+<<<<<<< local
     def test_source_encoding(self):
         import imp
         import encoded
