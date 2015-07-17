@@ -10,7 +10,6 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
         specialize, compute_hash, we_are_translated, enforceargs)
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-from rpython.rlib.rstring import StringBuilder
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -951,9 +950,9 @@ def _get_shape(space, w_shape):
                 raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple.")
             else:
                 raise
-        if dim > 2 ** 32 -1:
+        if dim > int(0x7fffffff):
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
-                  "dimension does not fit into a C int.")
+                      "dimension does not fit into a C int.")
         elif dim < 0:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                   "dimension smaller than zero.")
@@ -978,9 +977,10 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         assert isinstance(subdtype, W_Dtype)
         size = support.product(shape)
         size *= subdtype.elsize
-        if size >= 2 ** 31:
+        if size > int(0x7fffffff):
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                   "dtype size in bytes must fit into a C int.")
+        
         return _set_metadata_and_copy(space, w_metadata,
                W_Dtype(types.VoidType(space), space.gettypefor(boxes.W_VoidBox),
                        shape=shape, subdtype=subdtype, elsize=size))
