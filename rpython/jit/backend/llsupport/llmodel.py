@@ -97,6 +97,9 @@ class AbstractLLCPU(AbstractCPU):
                                             inputargs, operations,
                                             looptoken, log=log)
 
+    def attach_bridge(self, faildescr, token):
+        self.assembler.attach_bridge(faildescr, token)
+
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
                                              llmemory.GCREF))

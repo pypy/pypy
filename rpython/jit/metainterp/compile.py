@@ -199,17 +199,19 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
     if loop.versions is not None:
         token = jitcell_token
         for version in loop.versions:
-            for i, faildescr in enumerate(version.faildescrs):
-                vl = create_empty_loop(metainterp)
-                vl.inputargs = version.inputargs
-                vl.operations = version.operations
-                if i > 0:
-                    vl.operations = vl.copy_operations()
-                vl.original_jitcell_token = jitcell_token
-                send_bridge_to_backend(jitdriver_sd, metainterp_sd,
-                                       faildescr, version.inputargs,
-                                       version.operations, jitcell_token)
-                record_loop_or_bridge(metainterp_sd, vl)
+            if len(version.faildescrs) == 0:
+                continue
+            faildescr = version.faildescrs[0]
+            vl = create_empty_loop(metainterp)
+            vl.inputargs = version.inputargs
+            vl.operations = version.operations
+            vl.original_jitcell_token = jitcell_token
+            send_bridge_to_backend(jitdriver_sd, metainterp_sd,
+                                   faildescr, version.inputargs,
+                                   version.operations, jitcell_token)
+            record_loop_or_bridge(metainterp_sd, vl)
+            for faildescr in version.faildescrs[1:]:
+                cpu.attach_bridge(faildescr, jitcell_token)
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,

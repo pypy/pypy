@@ -69,6 +69,9 @@ class BaseAssembler(object):
         self.rtyper = cpu.rtyper
         self._debug = False
 
+    def attach_bridge(self, failargs, token):
+        raise NotImplementedError
+
     def setup_once(self):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr

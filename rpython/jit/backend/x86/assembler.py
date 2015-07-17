@@ -589,6 +589,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
+    def attach_bridge(self, failargs, token):
+        rawstart = self.materialize_loop(token)
+        self.patch_jump_for_descr(faildescr, rawstart)
+
     def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
