@@ -70,6 +70,20 @@ The other commands of ``setup.py`` are available too, like ``build``.
 .. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
 
 
+Module xyz does not work in the sandboxed PyPy?
+-----------------------------------------------
+
+You cannot import *any* extension module in a `sandboxed PyPy`_,
+sorry.  Even the built-in modules available are very limited.
+Sandboxing in PyPy is a good proof of concept, really safe IMHO, but
+it is only a proof of concept.  It seriously requires someone working
+on it.  Before this occurs, it can only be used it for "pure Python"
+examples: programs that import mostly nothing (or only pure Python
+modules, recursively).
+
+.. _`sandboxed PyPy`: sandbox.html
+
+
 .. _`See below.`:
 
 Do CPython Extension modules work with PyPy?

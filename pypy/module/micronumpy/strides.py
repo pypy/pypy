@@ -77,7 +77,7 @@ class NewAxisChunk(Chunk):
     stop = 1
     step = 1
     lgt = 1
-    axis_step = 0
+    axis_step = 0 # both skip this axis in calculate_slice_strides and set stride => 0
 
     def __init__(self):
         pass
@@ -127,7 +127,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
         except IndexError:
             continue
         if chunk.step != 0:
-            rstrides[j] = s_i * chunk.step
+            rstrides[j] = s_i * chunk.step * chunk.axis_step
             rbackstrides[j] = s_i * max(0, chunk.lgt - 1) * chunk.step
             rshape[j] = chunk.lgt
             j += 1

@@ -363,16 +363,19 @@ class W_CData(W_Root):
     def _sizeof(self):
         return self.ctype.size
 
+    def with_gc(self, w_destructor):
+        with self as ptr:
+            return W_CDataGCP(self.space, ptr, self.ctype, self, w_destructor)
+
 
 class W_CDataMem(W_CData):
-    """This is the base class used for cdata objects that own and free
-    their memory.  Used directly by the results of cffi.cast('int', x)
-    or other primitive explicitly-casted types.  It is further subclassed
-    by W_CDataNewOwning."""
+    """This is used only by the results of cffi.cast('int', x)
+    or other primitive explicitly-casted types."""
     _attrs_ = []
 
-    def __init__(self, space, size, ctype):
-        cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
+    def __init__(self, space, ctype):
+        cdata = lltype.malloc(rffi.CCHARP.TO, ctype.size, flavor='raw',
+                              zero=False)
         W_CData.__init__(self, space, cdata, ctype)
 
     @rgc.must_be_light_finalizer
@@ -380,36 +383,65 @@ class W_CDataMem(W_CData):
         lltype.free(self._ptr, flavor='raw')
 
 
-class W_CDataNewOwning(W_CDataMem):
-    """This is the class used for the cata objects created by newp()."""
-    _attrs_ = []
+class W_CDataNewOwning(W_CData):
+    """This is the abstract base class used for cdata objects created
+    by newp().  They create and free their own memory according to an
+    allocator."""
+
+    # the 'length' is either >= 0 for arrays, or -1 for pointers.
+    _attrs_ = ['length']
+    _immutable_fields_ = ['length']
+
+    def __init__(self, space, cdata, ctype, length=-1):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.length = length
 
     def _repr_extra(self):
         return self._repr_extra_owning()
 
-
-class W_CDataNewOwningLength(W_CDataNewOwning):
-    """Subclass with an explicit length, for allocated instances of
-    the C type 'foo[]'."""
-    _attrs_ = ['length']
-    _immutable_fields_ = ['length']
-
-    def __init__(self, space, size, ctype, length):
-        W_CDataNewOwning.__init__(self, space, size, ctype)
-        self.length = length
-
     def _sizeof(self):
-        from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
-        assert isinstance(ctype, ctypearray.W_CTypeArray)
-        return self.length * ctype.ctitem.size
+        if self.length >= 0:
+            from pypy.module._cffi_backend import ctypearray
+            assert isinstance(ctype, ctypearray.W_CTypeArray)
+            return self.length * ctype.ctitem.size
+        else:
+            return ctype.size
 
     def get_array_length(self):
         return self.length
 
 
+class W_CDataNewStd(W_CDataNewOwning):
+    """Subclass using the standard allocator, lltype.malloc()/lltype.free()"""
+    _attrs_ = []
+
+    @rgc.must_be_light_finalizer
+    def __del__(self):
+        lltype.free(self._ptr, flavor='raw')
+
+
+class W_CDataNewNonStdNoFree(W_CDataNewOwning):
+    """Subclass using a non-standard allocator, no free()"""
+    _attrs_ = ['w_raw_cdata']
+
+class W_CDataNewNonStdFree(W_CDataNewNonStdNoFree):
+    """Subclass using a non-standard allocator, with a free()"""
+    _attrs_ = ['w_free']
+
+    def __del__(self):
+        self.clear_all_weakrefs()
+        self.enqueue_for_destruction(self.space,
+                                     W_CDataNewNonStdFree.call_destructor,
+                                     'destructor of ')
+
+    def call_destructor(self):
+        assert isinstance(self, W_CDataNewNonStdFree)
+        self.space.call_function(self.w_free, self.w_raw_cdata)
+
+
 class W_CDataPtrToStructOrUnion(W_CData):
-    """This subclass is used for the pointer returned by new('struct foo').
+    """This subclass is used for the pointer returned by new('struct foo *').
     It has a strong reference to a W_CDataNewOwning that really owns the
     struct, which is the object returned by the app-level expression 'p[0]'.
     But it is not itself owning any memory, although its repr says so;
@@ -481,6 +513,26 @@ class W_CDataFromBuffer(W_CData):
         w_repr = self.space.repr(self.w_keepalive)
         return "buffer len %d from '%s' object" % (
             self.length, self.space.type(self.w_keepalive).name)
+
+
+class W_CDataGCP(W_CData):
+    """For ffi.gc()."""
+    _attrs_ = ['w_original_cdata', 'w_destructor']
+    _immutable_fields_ = ['w_original_cdata', 'w_destructor']
+
+    def __init__(self, space, cdata, ctype, w_original_cdata, w_destructor):
+        W_CData.__init__(self, space, cdata, ctype)
+        self.w_original_cdata = w_original_cdata
+        self.w_destructor = w_destructor
+
+    def __del__(self):
+        self.clear_all_weakrefs()
+        self.enqueue_for_destruction(self.space, W_CDataGCP.call_destructor,
+                                     'destructor of ')
+
+    def call_destructor(self):
+        assert isinstance(self, W_CDataGCP)
+        self.space.call_function(self.w_destructor, self.w_original_cdata)
 
 
 W_CData.typedef = TypeDef(
