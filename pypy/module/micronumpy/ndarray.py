@@ -258,7 +258,7 @@ class __extend__(W_NDimArray):
         if field not in dtype.fields:
             raise oefmt(space.w_ValueError, "field named %s not found", field)
         arr = self.implementation
-        ofs, subdtype = arr.dtype.fields[field]
+        ofs, subdtype = arr.dtype.fields[field][:2]
         # ofs only changes start
         # create a view of the original array by extending
         # the shape, strides, backstrides of the array
