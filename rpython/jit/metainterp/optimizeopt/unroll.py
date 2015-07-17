@@ -27,10 +27,9 @@ class PreambleOp(AbstractResOp):
     See force_op_from_preamble for details how the extra things are put.
     """
     
-    def __init__(self, op, preamble_op, info):
+    def __init__(self, op, preamble_op):
         self.op = op
         self.preamble_op = preamble_op
-        self.info = info
 
     def getarg(self, i):
         return self.op.getarg(i)
@@ -42,10 +41,8 @@ class PreambleOp(AbstractResOp):
 class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
         op = preamble_op.op
-        self.optunroll.short.append(preamble_op.preamble_op)
-        if preamble_op.info:
-            self.setinfo_from_preamble(op, preamble_op.info)
-            preamble_op.info.make_guards(op, self.optunroll.short)
+        self.optunroll.short_preamble_producer.use_box(op, self)
+        self.potential_extra_ops[op] = preamble_op
         return op
 
     def setinfo_from_preamble(self, op, preamble_info):
@@ -108,29 +105,36 @@ class UnrollOptimizer(Optimization):
         return exported_state, self.optimizer._newoperations
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
-        self.short = []
-        self.extra_label_args = []
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
+        self.optimizer.potential_extra_ops = {}
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
                                              rename_inputargs=False)
         jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
-        args_from_extras = [self.get_box_replacement(op) for op in
-                            self.extra_label_args]
         jump_args = state.virtual_state.make_inputargs(jump_args,
-                    self.optimizer, force_boxes=True) + args_from_extras
+                                    self.optimizer, force_boxes=True)
+        jump_args += self.inline_short_preamble(jump_args)
         
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
-        return (UnrollInfo(self.make_short_preamble(start_label.getarglist()),
-                           self.extra_label_args),
+        return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
+                           self.short_preamble_producer.used_boxes),
                 self.optimizer._newoperations)
 
-    def make_short_preamble(self, args):
-        label = ResOperation(rop.LABEL, args)
-        short = [label] + self.short
-        return short
+    def inline_short_preamble(self, jump_args):
+        sb = self.short_preamble_producer
+        assert len(sb.short_inputargs) == len(jump_args)
+        for i in range(len(jump_args)):
+            sb.short_inputargs[i].set_forwarded(None)
+            self.make_equal_to(sb.short_inputargs[i], jump_args[i])
+        for op in sb.short:
+            self.optimizer.send_extra_operation(op)
+        res = [self.optimizer.get_box_replacement(op) for op in
+                sb.short_preamble_jump]
+        for op in sb.short_inputargs:
+            op.set_forwarded(None)
+        return res
 
     def random_garbage(self):
         # WTF is the rest of this function
@@ -236,7 +240,7 @@ class UnrollOptimizer(Optimization):
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
-        for box, _ in short_boxes:
+        for box, _, _ in short_boxes:
             if not isinstance(box, Const):
                 infos[box] = self.optimizer.getinfo(box)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
@@ -295,7 +299,8 @@ class UnrollOptimizer(Optimization):
     def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
-        self.ops_to_import = {}
+        #self.ops_to_import = {}
+        virtual_state = exported_state.virtual_state
         for source, target in exported_state.inputarg_mapping:
             if source is not target:
                 source.set_forwarded(target)
@@ -304,23 +309,27 @@ class UnrollOptimizer(Optimization):
                 self.optimizer.setinfo_from_preamble(source, info)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
-        self.short_preamble_producer = ShortPreambleProducer()
-        for op, getfield_op in exported_state.short_boxes:
-            if getfield_op is None:
+        short_inpargs = virtual_state.make_inputargs(
+            exported_state.short_inputargs, None)
+        self.short_preamble_producer = ShortPreambleBuilder(
+            exported_state.short_boxes, short_inpargs,
+            exported_state.exported_infos, self.optimizer)
+        for op, structop, preamble_op in exported_state.short_boxes:
+            if structop is None:
                 optpure = self.optimizer.optpure
                 if optpure is None:
                     continue
-                self.pure(op.getopnum(), PreambleOp(op, None,
-                                exported_state.exported_infos.get(op, None)))
+                self.pure(op.getopnum(), PreambleOp(op, preamble_op))
             else:
                 optheap = self.optimizer.optheap
                 if optheap is None:
                     continue
-                opinfo = self.optimizer.ensure_ptr_info_arg0(getfield_op)
-                pre_info = exported_state.exported_infos.get(op, None)
-                pop = PreambleOp(op, None, pre_info)
+                g = preamble_op.copy_and_change(preamble_op.getopnum(),
+                                                args=[structop])
+                opinfo = self.optimizer.ensure_ptr_info_arg0(g)
+                pop = PreambleOp(op, preamble_op)
                 assert not opinfo.is_virtual()
-                opinfo._fields[getfield_op.getdescr().get_index()] = pop
+                opinfo._fields[preamble_op.getdescr().get_index()] = pop
             #if not isinstance(op, Const):
             #    self.ops_to_import[op] = None
             # XXX think later about the short preamble
@@ -776,7 +785,7 @@ class UnrollInfo(LoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
 
     * short_preamble - list of operations that go into short preamble
-    * extra_label_args - list of extra operations that go into the label
+    * extra_label_args - additional things to put in the label
     """
     def __init__(self, short_preamble, extra_label_args):
         self.short_preamble = short_preamble

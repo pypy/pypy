@@ -191,7 +191,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         short = """
         [i2]
         p3 = cast_int_to_ptr(i2)
-        #jump(i2) <- think about it
+        jump()
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -450,7 +450,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         i1 = int_is_true(i0)
         guard_value(i1, 1) []
-        #jump(i0) <- xxx
+        jump()
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
@@ -851,7 +851,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        jump(i1, p2, p2sub)
+        i3 = same_as(i1)
+        jump(i1, p2, i3)
         """
         expected = """
         [i1, p2, i3]

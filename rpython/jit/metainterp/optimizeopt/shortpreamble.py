@@ -33,8 +33,17 @@ class ShortBoxes(object):
         #
         for op, (getfield_op, preamble_op) in self.produced_short_boxes.iteritems():
             if getfield_op is not placeholder:
-                short_boxes.append((op, preamble_op))
-        return short_boxes + self.const_short_boxes
+                if getfield_op is None:
+                    short_boxes.append((op, None, preamble_op))
+                else:
+                    short_boxes.append((op, getfield_op.getarg(0), preamble_op))
+        for op, getfield_op in self.const_short_boxes:
+            preamble_arg = self.produce_arg(getfield_op.getarg(0))
+            if preamble_arg is not None:
+                short_boxes.append((op, getfield_op.getarg(0),
+                    getfield_op.copy_and_change(getfield_op.getopnum(),
+                                                [preamble_arg])))
+        return short_boxes
 
     def produce_short_inputargs(self):
         return self.short_inputargs
@@ -53,7 +62,7 @@ class ShortBoxes(object):
         if sop:
             preamble_arg = self.produce_arg(sop.getarg(0))
             if preamble_arg is None:
-                return False
+                return None
             preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
                                        descr=sop.getdescr())
         else:
@@ -61,11 +70,11 @@ class ShortBoxes(object):
             for arg in op.getarglist():
                 newarg = self.produce_arg(arg)
                 if newarg is None:
-                    return False
+                    return None
                 arglist.append(newarg)
             preamble_op = op.copy_and_change(op.getopnum(), args=arglist)
         self.produced_short_boxes[op] = (sop, preamble_op)
-        return True
+        return preamble_op
 
     def add_pure_op(self, op):
         assert not self.potential_ops.get(op, None)
@@ -84,16 +93,24 @@ class EmptyInfo(info.AbstractInfo):
 empty_info = EmptyInfo()
 
 class ShortPreambleBuilder(object):
-    def __init__(self, short_boxes, short_inputargs, exported_infos):
+    def __init__(self, short_boxes, short_inputargs, exported_infos,
+                 optimizer=None):
         self.producable_ops = {}
-        for op, preamble_op in short_boxes:
+        for op, sop, preamble_op in short_boxes:
             self.producable_ops[op] = preamble_op
-            preamble_op.set_forwarded(exported_infos.get(op, empty_info))
+            if isinstance(op, Const):
+                info = optimizer.getinfo(op)
+            else:
+                info = exported_infos[op]
+                if info is None:
+                    info = empty_info
+            preamble_op.set_forwarded(info)
         self.short = []
         self.used_boxes = []
+        self.short_preamble_jump = []
         self.short_inputargs = short_inputargs
 
-    def use_box(self, box):
+    def use_box(self, box, optimizer=None):
         preamble_op = self.producable_ops.get(box, None)
         if preamble_op is None:
             return
@@ -104,16 +121,25 @@ class ShortPreambleBuilder(object):
             elif arg.get_forwarded() is None:
                 pass
             else:
-                xxx
+                self.short.append(arg)
+                info = arg.get_forwarded()
+                if info is not empty_info:
+                    info.make_guards(arg, self.short)
+                arg.set_forwarded(None)
+                self.force_info_from(arg)
         self.short.append(preamble_op)
         info = preamble_op.get_forwarded()
+        preamble_op.set_forwarded(None)
         if info is not empty_info:
             info.make_guards(preamble_op, self.short)
-            if info.is_constant():
-                return
-        self.used_boxes.append(preamble_op)
+        if optimizer is not None:
+            optimizer.setinfo_from_preamble(box, info)
+
+    def add_preamble_op(self, op, preamble_op):
+        self.used_boxes.append(op)
+        self.short_preamble_jump.append(preamble_op)        
 
     def build_short_preamble(self):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
-        jump_op = ResOperation(rop.JUMP, self.used_boxes)
+        jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
         return [label_op] + self.short + [jump_op]

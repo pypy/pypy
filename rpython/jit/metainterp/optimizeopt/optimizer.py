@@ -30,6 +30,7 @@ class BasicLoopInfo(LoopInfo):
 
 class Optimization(object):
     next_optimization = None
+    potential_extra_ops = None
 
     def __init__(self):
         pass # make rpython happy
@@ -302,16 +303,15 @@ class Optimizer(Optimization):
     def force_box(self, op):
         op = self.get_box_replacement(op)
         info = op.get_forwarded()
-        if self.optunroll and self.optunroll.ops_to_import:
-            # XXX hack, use stuff on info somehow, a bit on the hard side
-            #     but doable :-)
+        if self.optunroll and self.optunroll.potential_extra_ops:
+            # XXX hack
             try:
-                self.optunroll.ops_to_import[op]
+                 preamble_op = self.optunroll.potential_extra_ops.popitem(op)
             except KeyError:
                 pass
             else:
-                self.optunroll.extra_label_args.append(op)
-                del self.optunroll.ops_to_import[op]
+                sb = self.optunroll.short_preamble_producer
+                sb.add_preamble_op(op, preamble_op)
         if info is not None:
             return info.force_box(op, self)
         return op
