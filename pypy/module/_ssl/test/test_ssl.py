@@ -409,7 +409,8 @@ class AppTestContext:
 
 
 class AppTestSSLError:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii', 'thread'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii', 'thread',
+                                   'struct'))
 
     def setup_class(cls):
         tmpfile = udir / "tmpfile.pem"
