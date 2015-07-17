@@ -193,8 +193,6 @@ def getinterpevalloader(pkgroot, spec):
                         # clarity
                         raise etype, evalue, etb
             else:
-                if value is None:
-                    return value
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil
                     return space.wrap(gateway.interp2app(value))
