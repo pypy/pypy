@@ -769,30 +769,29 @@ class AppTestImport(BaseImportTest):
     def test_import_star_finds_submodules_with___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
             d = {}
-            exec "from pkg.withall import *" in d
+            exec("from pkg.withall import *", d)
             assert d["foobar"].found == 123
 
     def test_import_star_does_not_find_submodules_without___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
             d = {}
-            exec "from pkg.withoutall import *" in d
+            exec("from pkg.withoutall import *", d)
             assert "foobar" not in d
         import pkg.withoutall.foobar     # <- import it here only
         for case in ["not-imported-yet", "already-imported"]:
             d = {}
-            exec "from pkg.withoutall import *" in d
+            exec("from pkg.withoutall import *", d)
             assert d["foobar"].found == 123
 
     def test_import_star_with_bogus___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
             try:
-                exec "from pkg.bogusall import *" in {}
+                exec("from pkg.bogusall import *", {})
             except TypeError:
                 pass    # 'int' object does not support indexing
             else:
                 raise AssertionError("should have failed")
 
-<<<<<<< local
     def test_source_encoding(self):
         import imp
         import encoded
