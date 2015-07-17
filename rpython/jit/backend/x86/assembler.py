@@ -589,7 +589,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    def attach_bridge(self, failargs, token):
+    def attach_bridge(self, faildescr, token):
         rawstart = self.materialize_loop(token)
         self.patch_jump_for_descr(faildescr, rawstart)
 

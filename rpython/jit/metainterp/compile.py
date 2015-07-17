@@ -211,7 +211,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                                    version.operations, jitcell_token)
             record_loop_or_bridge(metainterp_sd, vl)
             for faildescr in version.faildescrs[1:]:
-                cpu.attach_bridge(faildescr, jitcell_token)
+                cpu.stitch_bridge(faildescr, jitcell_token)
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,
