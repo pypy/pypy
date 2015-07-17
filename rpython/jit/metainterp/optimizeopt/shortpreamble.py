@@ -27,6 +27,7 @@ class ShortBoxes(object):
         optimizer.produce_potential_short_preamble_ops(self)
 
         short_boxes = []
+        self.boxes_in_production = {}
 
         for op, getfield_op in self.potential_ops.items():
             self.add_op_to_short(op, getfield_op)
@@ -51,6 +52,8 @@ class ShortBoxes(object):
     def produce_arg(self, op):
         if op in self.produced_short_boxes:
             return self.produced_short_boxes[op][1]
+        elif op in self.boxes_in_production:
+            return None
         elif isinstance(op, Const):
             return op
         elif op in self.potential_ops:
@@ -59,21 +62,25 @@ class ShortBoxes(object):
             return None
 
     def add_op_to_short(self, op, sop):
-        if sop:
-            preamble_arg = self.produce_arg(sop.getarg(0))
-            if preamble_arg is None:
-                return None
-            preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
-                                       descr=sop.getdescr())
-        else:
-            arglist = []
-            for arg in op.getarglist():
-                newarg = self.produce_arg(arg)
-                if newarg is None:
+        self.boxes_in_production[op] = None
+        try:
+            if sop:
+                preamble_arg = self.produce_arg(sop.getarg(0))
+                if preamble_arg is None:
                     return None
-                arglist.append(newarg)
-            preamble_op = op.copy_and_change(op.getopnum(), args=arglist)
-        self.produced_short_boxes[op] = (sop, preamble_op)
+                preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
+                                           descr=sop.getdescr())
+            else:
+                arglist = []
+                for arg in op.getarglist():
+                    newarg = self.produce_arg(arg)
+                    if newarg is None:
+                        return None
+                    arglist.append(newarg)
+                preamble_op = op.copy_and_change(op.getopnum(), args=arglist)
+            self.produced_short_boxes[op] = (sop, preamble_op)
+        finally:
+            del self.boxes_in_production[op]
         return preamble_op
 
     def add_pure_op(self, op):
