@@ -863,7 +863,14 @@ class TreeLoop(object):
         return version
 
     def copy_operations(self):
-        return [ op.clone() for op in self.operations ]
+        operations = []
+        for op in self.operations:
+            cloned = op.clone()
+            operations.append(cloned)
+            if cloned.getdescr():
+                descr = cloned.getdescr().clone()
+                cloned.setdescr(descr)
+        return operations
 
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)

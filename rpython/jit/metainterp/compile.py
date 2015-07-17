@@ -674,6 +674,11 @@ class ResumeGuardDescr(ResumeDescr):
                 assert 0, box.type
             self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
+    def clone(self):
+        cloned = self.__class__()
+        cloned.copy_all_attributes_from(self)
+        return cloned
+
 class ResumeGuardNonnullDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_NONNULL
 
@@ -814,6 +819,13 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         obj = AllVirtuals(all_virtuals)
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
+
+    def clone(self):
+        cloned = self.__class__()
+        cloned.metainterp_sd = self.metainterp_sd
+        cloned.jitdriver_sd = self.jitdriver_sd
+        cloned.copy_all_attributes_from(self)
+        return cloned
 
 def invent_fail_descr_for_op(opnum, optimizer):
     if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
