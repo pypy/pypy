@@ -222,16 +222,16 @@ class BaseConcreteArray(object):
         if space.isinstance_w(w_idx, space.w_slice):
             if len(self.get_shape()) == 0:
                 raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
-            return [SliceChunk(w_idx, space, self.get_shape()[0])]
+            return [SliceChunk(w_idx)]
         elif space.isinstance_w(w_idx, space.w_int):
-            return [IntegerChunk(w_idx, space, self.get_shape()[0])]
+            return [IntegerChunk(w_idx)]
         elif isinstance(w_idx, W_NDimArray) and w_idx.is_scalar():
             w_idx = w_idx.get_scalar_value().item(space)
             if not space.isinstance_w(w_idx, space.w_int) and \
                     not space.isinstance_w(w_idx, space.w_bool):
                 raise OperationError(space.w_IndexError, space.wrap(
                     "arrays used as indices must be of integer (or boolean) type"))
-            return [IntegerChunk(w_idx, space, self.get_shape()[0])]
+            return [IntegerChunk(w_idx)]
         elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk()]
         result = []
@@ -249,10 +249,10 @@ class BaseConcreteArray(object):
             elif space.is_w(w_item, space.w_None):
                 result.append(NewAxisChunk())
             elif space.isinstance_w(w_item, space.w_slice):
-                result.append(SliceChunk(w_item, space, self.get_shape()[i]))
+                result.append(SliceChunk(w_item))
                 i += 1
             else:
-                result.append(IntegerChunk(w_item, space, self.get_shape()[i]))
+                result.append(IntegerChunk(w_item))
                 i += 1
         return result
 

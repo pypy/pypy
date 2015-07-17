@@ -11,7 +11,7 @@ class BaseChunk(object):
 
 
 class Chunk(BaseChunk):
-    axis_step = 1
+    input_dim = 1
 
     def __init__(self, start, stop, step, lgt):
         self.start = start
@@ -19,22 +19,45 @@ class Chunk(BaseChunk):
         self.step = step
         self.lgt = lgt
 
+    @property
+    def out_dim(self):
+        if self.step == 0:
+            return 0
+        else:
+            return 1
+
+    def compute(self, space, base_length, base_stride):
+        stride = base_stride * self.step
+        backstride = base_stride * max(0, self.lgt - 1) * self.step
+        return self.start, self.lgt, stride, backstride
+
     def __repr__(self):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
                                           self.lgt)
 
-class IntegerChunk(Chunk):
-    def __init__(self, w_idx, space, base_length):
+class IntegerChunk(BaseChunk):
+    input_dim = 1
+    out_dim = 0
+    def __init__(self, w_idx):
         self.w_idx = w_idx
-        args = space.decode_index4(w_idx, base_length)
-        Chunk.__init__(self, *args)
+
+    def compute(self, space, base_length, base_stride):
+        start, _, _, _ = space.decode_index4(self.w_idx, base_length)
+        return start, 0, 0, 0
 
 
-class SliceChunk(Chunk):
-    def __init__(self, w_slice, space, base_length):
+class SliceChunk(BaseChunk):
+    input_dim = 1
+    out_dim = 1
+
+    def __init__(self, w_slice):
         self.w_slice = w_slice
-        args = space.decode_index4(w_slice, base_length)
-        Chunk.__init__(self, *args)
+
+    def compute(self, space, base_length, base_stride):
+        start, stop, step, length = space.decode_index4(self.w_slice, base_length)
+        stride = base_stride * step
+        backstride = base_stride * max(0, length - 1) * step
+        return start, length, stride, backstride
 
 
 class NewAxisChunk(Chunk):
@@ -42,10 +65,14 @@ class NewAxisChunk(Chunk):
     stop = 1
     step = 1
     lgt = 1
-    axis_step = 0
+    input_dim = 0
+    out_dim = 1
 
     def __init__(self):
         pass
+
+    def compute(self, space, base_length, base_stride):
+        return 0, 1, 0, 0
 
 class EllipsisChunk(BaseChunk):
     def __init__(self):
@@ -54,10 +81,9 @@ class EllipsisChunk(BaseChunk):
 
 def new_view(space, w_arr, chunks):
     arr = w_arr.implementation
-    shape = _extend_shape(arr.shape, chunks)
-    r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
+    r = calculate_slice_strides(space, arr.shape, arr.start, arr.get_strides(),
                                 arr.get_backstrides(), chunks)
-    _, start, strides, backstrides = r
+    shape, start, strides, backstrides = r
     return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
                                  shape[:], arr, w_arr)
 
@@ -66,7 +92,7 @@ def _extend_shape(old_shape, chunks):
     shape = []
     i = -1
     for i, c in enumerate_chunks(chunks):
-        if c.step != 0:
+        if c.out_dim > 0:
             shape.append(c.lgt)
     s = i + 1
     assert s >= 0
@@ -93,35 +119,40 @@ def enumerate_chunks(chunks):
     result = []
     i = -1
     for chunk in chunks:
-        i += chunk.axis_step
+        i += chunk.input_dim
         result.append((i, chunk))
     return result
 
 
-@jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
+@jit.look_inside_iff(lambda space, shape, start, strides, backstrides, chunks:
                      jit.isconstant(len(chunks)))
-def calculate_slice_strides(shape, start, strides, backstrides, chunks):
+def calculate_slice_strides(space, shape, start, strides, backstrides, chunks):
     size = 0
     for chunk in chunks:
-        if chunk.step != 0:
-            size += 1
+        size += chunk.out_dim
     rstrides = [0] * size
     rbackstrides = [0] * size
     rstart = start
     rshape = [0] * size
-    i = -1
-    j = 0
-    for i, chunk in enumerate_chunks(chunks):
+    i = -1  # index of the current dimension in the input array
+    j = 0  # index of the current dimension in the result view
+    for chunk in chunks:
+        i += chunk.input_dim
+        if isinstance(chunk, NewAxisChunk):
+            rshape[j] = 1
+            j += 1
+            continue
         try:
             s_i = strides[i]
         except IndexError:
             continue
-        if chunk.step != 0:
-            rstrides[j] = s_i * chunk.step
-            rbackstrides[j] = s_i * max(0, chunk.lgt - 1) * chunk.step
-            rshape[j] = chunk.lgt
-            j += 1
-        rstart += s_i * chunk.start
+        start, length, stride, backstride = chunk.compute(space, shape[i], strides[i])
+        if chunk.out_dim == 1:
+            rstrides[j] = stride
+            rbackstrides[j] = backstride
+            rshape[j] = length
+            j += chunk.out_dim
+        rstart += s_i * start
     # add a reminder
     s = i + 1
     assert s >= 0
