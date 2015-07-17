@@ -1,6 +1,6 @@
 # Minimal tests for dis module
 
-from test.support import run_unittest, captured_stdout
+from test.support import run_unittest, captured_stdout, check_impl_detail
 import unittest
 import sys
 import dis
@@ -209,7 +209,8 @@ class DisTests(unittest.TestCase):
     def test_disassemble_str(self):
         self.do_disassembly_test(expr_str, dis_expr_str)
         self.do_disassembly_test(simple_stmt_str, dis_simple_stmt_str)
-        self.do_disassembly_test(compound_stmt_str, dis_compound_stmt_str)
+        if check_impl_detail():
+            self.do_disassembly_test(compound_stmt_str, dis_compound_stmt_str)
 
 code_info_code_info = """\
 Name:              code_info
