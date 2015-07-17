@@ -746,9 +746,8 @@ def index_of_first(opnum, operations):
 
 class LoopVersion(object):
 
-    def __init__(self, operations, aligned=False):
+    def __init__(self, operations):
         self.operations = operations
-        self.aligned = aligned
         self.faildescrs = []
         #
         idx = index_of_first(rop.LABEL, operations)
@@ -795,9 +794,6 @@ class LoopVersion(object):
         self.faildescrs.append(descr)
         op.setfailargs(self.inputargs)
         op.rd_snapshot = None
-
-    def copy_operations(self):
-        return [op.clone() for op in self.operations]
 
     def update_token(self, jitcell_token):
         label = self.operations[self.label_pos]
@@ -858,18 +854,20 @@ class TreeLoop(object):
         return index_of_first(opnum, self.operations)
 
     def snapshot(self):
-        version = LoopVersion(self.copy_operations(), [])
+        version = LoopVersion(self.copy_operations())
         self.versions.append(version)
         return version
 
     def copy_operations(self):
+        from rpython.jit.metainterp.compile import ResumeGuardDescr
         operations = []
         for op in self.operations:
             cloned = op.clone()
             operations.append(cloned)
-            if cloned.getdescr():
-                descr = cloned.getdescr().clone()
-                cloned.setdescr(descr)
+            descr = cloned.getdescr()
+            if cloned.is_guard() and descr:
+                assert isinstance(descr, ResumeGuardDescr)
+                cloned.setdescr(descr.clone())
         return operations
 
     def get_display_text(self):    # for graphpage.py

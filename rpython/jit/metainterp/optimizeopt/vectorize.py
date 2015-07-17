@@ -94,20 +94,6 @@ def cmp_pack_lt(a,b):
     return a.left.getindex() < b.left.getindex()
 packsort = listsort.make_timsort_class(lt=cmp_pack_lt)
 
-def copy_fail_descr(op, optimizer):
-    olddescr = op.getdescr()
-    exits_early = olddescr.guard_opnum == rop.GUARD_EARLY_EXIT
-    if exits_early:
-        if isinstance(olddescr, CompileLoopVersionDescr):
-            descr = CompileLoopVersionDescr()
-        else:
-            descr = ResumeAtLoopHeaderDescr()
-    else:
-        descr = invent_fail_descr_for_op(op.getopnum(), optimizer)
-    if olddescr:
-        descr.copy_all_attributes_from(olddescr)
-    return descr
-
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
@@ -195,15 +181,9 @@ class VectorizingOptimizer(Optimizer):
         self.emit_unrolled_operation(label_op)
 
         renamer = Renamer()
-        pure = True
         operations = []
-        ee_pos = -1
         for i in range(1,op_count-1):
             op = loop.operations[i].clone()
-            opnum = op.getopnum()
-            if opnum == rop.GUARD_EARLY_EXIT:
-                ee_pos = i
-
             if op.is_guard():
                 assert isinstance(op, GuardResOp)
                 failargs = renamer.rename_failargs(op, clone=True)
@@ -249,7 +229,9 @@ class VectorizingOptimizer(Optimizer):
                 if copied_op.is_guard():
                     assert isinstance(copied_op, GuardResOp)
                     target_guard = copied_op
-                    copied_op.setdescr(copy_fail_descr(copied_op, self))
+                    descr = copied_op.getdescr()
+                    assert isinstance(descr, ResumeGuardDescr)
+                    copied_op.setdescr(descr.clone())
                     descr = target_guard.getdescr()
                     # copy failargs/snapshot
                     copied_op.rd_snapshot = \

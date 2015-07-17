@@ -68,6 +68,12 @@ class VecTestHelper(DependencyBaseTest):
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
             print ""
             print "unroll factor: ", unroll_factor, opt.smallest_type_bytes
+        if opt.loop.find_first_index(rop.GUARD_EARLY_EXIT) == -1:
+            idx = loop.find_first_index(rop.LABEL)
+            guard = ResOperation(rop.GUARD_EARLY_EXIT, [], None)
+            guard.setfailargs([])
+            guard.setdescr(compile.ResumeAtLoopHeaderDescr())
+            loop.operations.insert(idx+1, guard)
         opt.analyse_index_calculations()
         if opt.dependency_graph is not None:
             self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
@@ -216,7 +222,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_vectorize_empty_with_early_exit(self):
         ops = """
         []
-        guard_early_exit() []
         jump()
         """
         try:
