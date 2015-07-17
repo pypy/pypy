@@ -78,7 +78,6 @@ class Module(MixedModule):
         'int_info'              : 'system.get_int_info(space)',
         'hash_info'             : 'system.get_hash_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)',
-        'thread_info'           : 'system.get_thread_info(space)',
         }
 
     if sys.platform == 'win32':
@@ -113,6 +112,11 @@ class Module(MixedModule):
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
                 space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+
+        from pypy.module.sys import system
+        thread_info = system.get_thread_info(space)
+        if thread_info is not None:
+            space.setitem(self.w_dict, space.wrap('thread_info'), thread_info)
 
     def setup_after_space_initialization(self):
         space = self.space
