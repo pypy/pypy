@@ -222,18 +222,18 @@ class BaseConcreteArray(object):
         if space.isinstance_w(w_idx, space.w_slice):
             if len(self.get_shape()) == 0:
                 raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
-            return [SliceChunk(w_idx)]
+            return [SliceChunk(w_idx), EllipsisChunk()]
         elif space.isinstance_w(w_idx, space.w_int):
-            return [IntegerChunk(w_idx)]
+            return [IntegerChunk(w_idx), EllipsisChunk()]
         elif isinstance(w_idx, W_NDimArray) and w_idx.is_scalar():
             w_idx = w_idx.get_scalar_value().item(space)
             if not space.isinstance_w(w_idx, space.w_int) and \
                     not space.isinstance_w(w_idx, space.w_bool):
                 raise OperationError(space.w_IndexError, space.wrap(
                     "arrays used as indices must be of integer (or boolean) type"))
-            return [IntegerChunk(w_idx)]
+            return [IntegerChunk(w_idx), EllipsisChunk()]
         elif space.is_w(w_idx, space.w_None):
-            return [NewAxisChunk()]
+            return [NewAxisChunk(), EllipsisChunk()]
         result = []
         i = 0
         has_ellipsis = False
@@ -254,6 +254,8 @@ class BaseConcreteArray(object):
             else:
                 result.append(IntegerChunk(w_item))
                 i += 1
+        if not has_ellipsis:
+            result.append(EllipsisChunk())
         return result
 
     def descr_getitem(self, space, orig_arr, w_index):

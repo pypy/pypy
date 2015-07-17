@@ -59,12 +59,7 @@ class SliceChunk(BaseChunk):
         backstride = base_stride * max(0, length - 1) * step
         return start, length, stride, backstride
 
-
 class NewAxisChunk(Chunk):
-    start = 0
-    stop = 1
-    step = 1
-    lgt = 1
     input_dim = 0
     out_dim = 1
 
@@ -75,8 +70,14 @@ class NewAxisChunk(Chunk):
         return 0, 1, 0, 0
 
 class EllipsisChunk(BaseChunk):
+    input_dim = 0
+    out_dim = 0
     def __init__(self):
         pass
+
+    def compute(self, space, base_length, base_stride):
+        backstride = base_stride * max(0, base_length - 1)
+        return 0, base_length, base_stride, backstride
 
 
 def new_view(space, w_arr, chunks):
@@ -127,38 +128,48 @@ def enumerate_chunks(chunks):
 @jit.look_inside_iff(lambda space, shape, start, strides, backstrides, chunks:
                      jit.isconstant(len(chunks)))
 def calculate_slice_strides(space, shape, start, strides, backstrides, chunks):
+    """
+    Note: `chunks` must contain exactly one EllipsisChunk object.
+    """
     size = 0
+    used_dims = 0
     for chunk in chunks:
+        used_dims += chunk.input_dim
         size += chunk.out_dim
-    rstrides = [0] * size
-    rbackstrides = [0] * size
+    if used_dims > len(shape):
+        raise oefmt(space.w_IndexError, "too many indices for array")
+    else:
+        extra_dims = len(shape) - used_dims
+    rstrides = [0] * (size + extra_dims)
+    rbackstrides = [0] * (size + extra_dims)
     rstart = start
-    rshape = [0] * size
-    i = -1  # index of the current dimension in the input array
+    rshape = [0] * (size + extra_dims)
+    rstart = start
+    i = 0  # index of the current dimension in the input array
     j = 0  # index of the current dimension in the result view
     for chunk in chunks:
-        i += chunk.input_dim
         if isinstance(chunk, NewAxisChunk):
             rshape[j] = 1
             j += 1
             continue
-        try:
-            s_i = strides[i]
-        except IndexError:
+        elif isinstance(chunk, EllipsisChunk):
+            for k in range(extra_dims):
+                start, length, stride, backstride = chunk.compute(
+                        space, shape[i], strides[i])
+                rshape[j] = length
+                rstrides[j] = stride
+                rbackstrides[j] = backstride
+                j += 1
+                i += 1
             continue
         start, length, stride, backstride = chunk.compute(space, shape[i], strides[i])
         if chunk.out_dim == 1:
+            rshape[j] = length
             rstrides[j] = stride
             rbackstrides[j] = backstride
-            rshape[j] = length
             j += chunk.out_dim
-        rstart += s_i * start
-    # add a reminder
-    s = i + 1
-    assert s >= 0
-    rstrides += strides[s:]
-    rbackstrides += backstrides[s:]
-    rshape += shape[s:]
+        rstart += strides[i] * start
+        i += chunk.input_dim
     return rshape, rstart, rstrides, rbackstrides
 
 

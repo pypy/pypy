@@ -4,7 +4,7 @@ import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.strides import Chunk, new_view
+from pypy.module.micronumpy.strides import Chunk, new_view, EllipsisChunk
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
@@ -22,6 +22,8 @@ class MockDtype(object):
 
 
 def create_slice(space, a, chunks):
+    if not any(isinstance(c, EllipsisChunk) for c in chunks):
+        chunks.append(EllipsisChunk())
     return new_view(space, W_NDimArray(a), chunks).implementation
 
 
@@ -2490,6 +2492,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.arange(6).reshape(2, 3)
         if '__pypy__' in sys.builtin_module_names:
             raises(ValueError, "a[..., ...]")
+        b = a [..., 0]
+        assert (b == [0, 3]).all()
+        assert b.base is a
 
     def test_empty_indexing(self):
         import numpy as np
