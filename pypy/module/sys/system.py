@@ -88,8 +88,6 @@ def get_float_repr_style(space):
     return space.wrap("short")
 
 def get_thread_info(space):
-    # TODO: implement this instead of returning None (which means unknown) for
-    # every field
     if not space.config.objspace.usemodules.thread:
         return None
     from rpython.rlib import rthread
