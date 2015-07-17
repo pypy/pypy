@@ -537,9 +537,9 @@ class AppTestInterpObjectPickling:
             yield 0
 
         x = f()
-        x.next()
+        next(x)
         try:
-            x.next()
+            next(x)
         except StopIteration:
             y = pickle.loads(pickle.dumps(x))
         assert 'finished' in y.__name__
