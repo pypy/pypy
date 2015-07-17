@@ -1,4 +1,5 @@
 class AppTestZipPickle:
+    spaceconfig = dict(usemodules=['struct'])
 
     def test_zip_pickle(self):
         import pickle
