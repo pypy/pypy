@@ -10,7 +10,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (
-    Chunk, new_view, NewAxisChunk, EllipsisChunk,
+    IntegerChunk, SliceChunk, NewAxisChunk, EllipsisChunk, new_view,
     calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
@@ -219,18 +219,19 @@ class BaseConcreteArray(object):
             raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")
-        if (space.isinstance_w(w_idx, space.w_int) or
-                space.isinstance_w(w_idx, space.w_slice)):
+        if space.isinstance_w(w_idx, space.w_slice):
             if len(self.get_shape()) == 0:
                 raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
-            return [Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))]
+            return [SliceChunk(w_idx, space, self.get_shape()[0])]
+        elif space.isinstance_w(w_idx, space.w_int):
+            return [IntegerChunk(w_idx, space, self.get_shape()[0])]
         elif isinstance(w_idx, W_NDimArray) and w_idx.is_scalar():
             w_idx = w_idx.get_scalar_value().item(space)
             if not space.isinstance_w(w_idx, space.w_int) and \
                     not space.isinstance_w(w_idx, space.w_bool):
                 raise OperationError(space.w_IndexError, space.wrap(
                     "arrays used as indices must be of integer (or boolean) type"))
-            return [Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))]
+            return [IntegerChunk(w_idx, space, self.get_shape()[0])]
         elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk()]
         result = []
@@ -247,9 +248,11 @@ class BaseConcreteArray(object):
                 has_ellipsis = True
             elif space.is_w(w_item, space.w_None):
                 result.append(NewAxisChunk())
+            elif space.isinstance_w(w_item, space.w_slice):
+                result.append(SliceChunk(w_item, space, self.get_shape()[i]))
+                i += 1
             else:
-                result.append(Chunk(*space.decode_index4(w_item,
-                                                         self.get_shape()[i])))
+                result.append(IntegerChunk(w_item, space, self.get_shape()[i]))
                 i += 1
         return result
 

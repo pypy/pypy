@@ -23,6 +23,19 @@ class Chunk(BaseChunk):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
                                           self.lgt)
 
+class IntegerChunk(Chunk):
+    def __init__(self, w_idx, space, base_length):
+        self.w_idx = w_idx
+        args = space.decode_index4(w_idx, base_length)
+        Chunk.__init__(self, *args)
+
+
+class SliceChunk(Chunk):
+    def __init__(self, w_slice, space, base_length):
+        self.w_slice = w_slice
+        args = space.decode_index4(w_slice, base_length)
+        Chunk.__init__(self, *args)
+
 
 class NewAxisChunk(Chunk):
     start = 0
