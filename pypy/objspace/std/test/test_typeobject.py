@@ -678,7 +678,7 @@ class AppTestTypeObject:
         globals()['__name__'] = 'a'
         class A(object):
             pass
-        assert repr(A) == "<class 'a.A'>"
+        assert repr(A) == "<class 'a.test_repr.<locals>.A'>"
         A.__module__ = 123
         assert repr(A) == "<class 'A'>"
         assert repr(type(type)) == "<class 'type'>" 
