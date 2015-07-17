@@ -2,7 +2,7 @@ class AppTestMemory:
     spaceconfig = dict(usemodules=('_multiprocessing', 'mmap',
                                    '_rawffi',
                                    'signal', 'select', 'fcntl',
-                                   'binascii'))
+                                   'binascii', '_posixsubprocess'))
 
     def test_address_of(self):
         import _multiprocessing

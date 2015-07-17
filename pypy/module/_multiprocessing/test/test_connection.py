@@ -9,7 +9,8 @@ class TestImport:
 
 class AppTestBufferTooShort:
     spaceconfig = {'usemodules': ['_multiprocessing', 'thread', 'signal',
-                                  'select', 'struct', 'binascii']}
+                                  'select', 'struct', 'binascii',
+                                  '_posixsubprocess']}
     if sys.platform == 'win32':
         spaceconfig['usemodules'].append('_rawffi')
     else:
@@ -105,7 +106,7 @@ class AppTestSocketConnection(BaseConnectionTest):
     spaceconfig = {
         "usemodules": [
             '_multiprocessing', 'thread', 'signal', 'struct', 'array',
-            '_socket', 'binascii', 'select' ]
+            '_socket', 'binascii', 'select', '_posixsubprocess']
     }
     if sys.platform == 'win32':
         spaceconfig['usemodules'].append('_rawffi')

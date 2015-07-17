@@ -5,7 +5,7 @@ from pypy.module._multiprocessing.interp_semaphore import (
 class AppTestSemaphore:
     spaceconfig = dict(usemodules=('_multiprocessing', 'thread',
                                    'signal', 'select', 'fcntl',
-                                   'binascii', 'struct'))
+                                   'binascii', 'struct', '_posixsubprocess'))
 
     def setup_class(cls):
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
