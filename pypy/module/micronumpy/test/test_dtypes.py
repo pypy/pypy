@@ -1067,6 +1067,12 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            cls.w_test_for_core_internal = cls.space.wrap(True)
+        else:
+            cls.w_test_for_core_internal = cls.space.wrap(False)
 
     def test_create(self):
         from numpy import dtype, void
@@ -1307,6 +1313,11 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
     def test_aligned_size(self):
         import numpy as np
+        if self.test_for_core_internal:
+            try:
+                from numpy.core import _internal
+            except ImportError:
+                skip ('no numpy.core._internal available')
         # Check that structured dtypes get padded to an aligned size
         dt = np.dtype('i4, i1', align=True)
         assert dt.itemsize == 8

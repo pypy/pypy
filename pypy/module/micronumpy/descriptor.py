@@ -950,7 +950,7 @@ def _get_shape(space, w_shape):
                 raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple.")
             else:
                 raise
-        if dim > int(0x7fffffff):
+        if dim > 0x7fffffff:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                       "dimension does not fit into a C int.")
         elif dim < 0:
@@ -977,7 +977,7 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
         assert isinstance(subdtype, W_Dtype)
         size = support.product(shape)
         size *= subdtype.elsize
-        if size > int(0x7fffffff):
+        if size > 0x7fffffff:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                   "dtype size in bytes must fit into a C int.")
         

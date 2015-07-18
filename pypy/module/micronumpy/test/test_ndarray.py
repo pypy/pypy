@@ -764,8 +764,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[1:] == b).all()
         assert (a[1:,newaxis] == d).all()
         assert (a[newaxis,1:] == c).all()
-        assert a.strides == (8,)
-        assert a[:, newaxis].strides == (8, 0)
+        n = a.dtype.itemsize
+        assert a.strides == (n,)
+        assert a[:, newaxis].strides == (n, 0)
 
     def test_newaxis_assign(self):
         from numpy import array, newaxis
