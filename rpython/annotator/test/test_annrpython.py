@@ -4433,6 +4433,35 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f2, [int])
 
+    @py.test.mark.xfail("'__pypy__' in sys.modules")
+    def test_property_union_2(self):
+        class Base(object):
+            pass
+
+        class A(Base):
+            def __init__(self):
+                pass
+
+            @property
+            def x(self):
+                return 42
+
+        class B(Base):
+            def __init__(self, x):
+                self.x = x
+
+        def f(n):
+            if n < 0:
+                obj = A()
+            else:
+                obj = B(n)
+            return obj.x
+        a = self.RPythonAnnotator()
+        # Ideally, this should translate to something sensible,
+        # but for now, UnionError is better than silently mistranslating.
+        with py.test.raises(annmodel.UnionError):
+            a.build_types(f, [int])
+
 
 def g(n):
     return [0, 1, 2, n]
