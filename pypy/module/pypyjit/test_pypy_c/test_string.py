@@ -252,6 +252,8 @@ class TestString(BaseTestPyPyC):
         guard_no_exception(descr=...)
         p53 = call(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
         guard_no_exception(descr=...)
+        guard_nonnull(p53, descr=...)
         --TICK--
         jump(..., descr=...)
         """)
+        # XXX remove the guard_nonnull above?
