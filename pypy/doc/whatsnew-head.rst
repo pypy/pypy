@@ -43,3 +43,6 @@ Partial implementation of unicode dtype and unicode scalars.
 Improve compatibility with numpy dtypes; handle offsets to create unions,
 fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
 allow subclassing dtype
+
+.. branch: indexing
+Refactor array indexing to support ellipses.
