@@ -1273,7 +1273,9 @@ class Transformer(object):
             return
 
         result = []
-        if min2:
+        if v_result.concretetype is lltype.Bool:
+            result.append(SpaceOperation('int_is_true', [v_arg], v_result))
+        elif min2:
             c_bytes = Constant(size2, lltype.Signed)
             result.append(SpaceOperation('int_signext', [v_arg, c_bytes],
                                          v_result))

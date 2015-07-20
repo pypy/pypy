@@ -795,6 +795,7 @@ class TestFlatten:
             (rffi.ULONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.ULONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.ULONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.LONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.ULONG, rffi.LONG, ""),
             (rffi.ULONG, rffi.ULONG, ""),
             ]:
@@ -1022,6 +1023,7 @@ def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""
     import re
     r = re.compile('(\w+) \%i\d, \$(-?\d+)')
+    r2 = re.compile('(\w+) \%i\d')
     #
     value = rffi.cast(FROM, value)
     value = rffi.cast(lltype.Signed, value)
@@ -1031,6 +1033,8 @@ def check_force_cast(FROM, TO, operations, value):
     #
     for op in operations:
         match = r.match(op)
+        if match is None:
+            match = r2.match(op)
         assert match, "line %r does not match regexp" % (op,)
         opname = match.group(1)
         if opname == 'int_and':
@@ -1038,6 +1042,8 @@ def check_force_cast(FROM, TO, operations, value):
         elif opname == 'int_signext':
             numbytes = int(match.group(2))
             value = int_signext(value, numbytes)
+        elif opname == 'int_is_true':
+            value = bool(value)
         else:
             assert 0, opname
     #
