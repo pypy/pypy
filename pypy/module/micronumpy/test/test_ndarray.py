@@ -2479,6 +2479,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
+        assert a[..., 0] == 4
 
         b = np.arange(24).reshape(2,3,4)
         b[...] = 100

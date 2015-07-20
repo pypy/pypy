@@ -187,17 +187,8 @@ class BaseConcreteArray(object):
             raise ArrayArgumentException
         if space.isinstance_w(w_idx, space.w_tuple):
             view_w = space.fixedview(w_idx)
-            if len(view_w) < shape_len:
+            if len(view_w) != shape_len:
                 raise IndexError
-            if len(view_w) > shape_len:
-                # we can allow for one extra None
-                count = len(view_w)
-                for w_item in view_w:
-                    if space.is_w(w_item, space.w_None):
-                        count -= 1
-                if count == shape_len:
-                    raise IndexError # but it's still not a single item
-                raise oefmt(space.w_IndexError, "invalid index")
             # check for arrays
             for w_item in view_w:
                 if (isinstance(w_item, W_NDimArray) or
