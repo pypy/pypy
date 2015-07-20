@@ -16,13 +16,19 @@ import time
 
 
 if not _WIN32:
-    eci = ExternalCompilationInfo(includes=['string.h', 'assert.h', 'sys/prctl.h'],
-                                  post_include_bits=["""
+    import sys
+    if sys.platform.startswith('linux'):
+        # Only necessary on Linux
+        eci = ExternalCompilationInfo(includes=['string.h', 'assert.h', 'sys/prctl.h'],
+                                      post_include_bits=["""
 static void pypy__allow_attach(void) {
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
     return;
 }
-    """])
+        """])
+    else:
+        # Do nothing, there's no prctl
+        eci = ExternalCompilationInfo(post_include_bits=["static void pypy__allow_attach(void) { return; }"])
 
     allow_attach= rffi.llexternal(
         "pypy__allow_attach", [], lltype.Void,

@@ -67,9 +67,9 @@ class Darwin(posix.BasePosix):
 
 class Darwin_i386(Darwin):
     name = "darwin_i386"
-    link_flags = ('-arch', 'i386', '-mmacosx-version-min=10.4')
-    cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer',
-              '-mmacosx-version-min=10.4')
+    DEFAULT_CC = 'clang -arch i386'
+    link_flags = ('-mmacosx-version-min=10.4',)
+    cflags = ('-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.4')
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp
     name = "darwin_powerpc"
@@ -78,6 +78,6 @@ class Darwin_PowerPC(Darwin):#xxx fixme, mwp
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
-    link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.5')
-    cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
-              '-mmacosx-version-min=10.5')
+    DEFAULT_CC = 'clang -arch x86_64'
+    link_flags = ('-mmacosx-version-min=10.5',)
+    cflags = ('-O3', '-fomit-frame-pointer', '-mmacosx-version-min=10.5')
