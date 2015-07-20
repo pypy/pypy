@@ -358,8 +358,7 @@ class Bool(BaseType, Primitive):
 
     @specialize.argtype(1)
     def box(self, value):
-        box = Primitive.box(self, value)
-        if box.value:
+        if value:
             return self._True
         else:
             return self._False
