@@ -5,7 +5,7 @@ from pypy.module.micronumpy import constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.converters import clipmode_converter
 from pypy.module.micronumpy.strides import (
-    Chunk, Chunks, shape_agreement, shape_agreement_multiple)
+    Chunk, new_view, shape_agreement, shape_agreement_multiple)
 from .casting import find_binop_result_dtype, find_result_type
 
 
@@ -148,7 +148,8 @@ def concatenate(space, w_args, w_axis=None):
             continue
         chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
                              arr.get_shape()[axis])
-        Chunks(chunks).apply(space, res).implementation.setslice(space, arr)
+        view = new_view(space, res, chunks)
+        view.implementation.setslice(space, arr)
         axis_start += arr.get_shape()[axis]
     return res
 
@@ -162,8 +163,9 @@ def repeat(space, w_arr, repeats, w_axis):
         shape = [arr.get_shape()[0] * repeats]
         w_res = W_NDimArray.from_shape(space, shape, arr.get_dtype(), w_instance=arr)
         for i in range(repeats):
-            Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                 orig_size)]).apply(space, w_res).implementation.setslice(space, arr)
+            chunks = [Chunk(i, shape[0] - repeats + i, repeats, orig_size)]
+            view = new_view(space, w_res, chunks)
+            view.implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
@@ -174,7 +176,8 @@ def repeat(space, w_arr, repeats, w_axis):
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(space, w_res).implementation.setslice(space, arr)
+            view = new_view(space, w_res, chunks)
+            view.implementation.setslice(space, arr)
     return w_res
 
 

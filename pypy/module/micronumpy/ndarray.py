@@ -18,8 +18,9 @@ from pypy.module.micronumpy.concrete import BaseConcreteArray
 from pypy.module.micronumpy.converters import multi_axis_converter, \
     order_converter, shape_converter, searchside_converter
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.strides import get_shape_from_iterable, \
-    shape_agreement, shape_agreement_multiple, is_c_contiguous, is_f_contiguous
+from pypy.module.micronumpy.strides import (
+    get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
+    is_c_contiguous, is_f_contiguous, calc_strides, new_view)
 from pypy.module.micronumpy.casting import can_cast_array
 
 
@@ -178,7 +179,7 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices, return a view
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            return chunks.apply(space, self)
+            return new_view(space, self, chunks)
         shape = res_shape + self.get_shape()[len(indexes):]
         w_res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
                                        self.get_order(), w_instance=self)
@@ -194,7 +195,7 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            view = chunks.apply(space, self)
+            view = new_view(space, self, chunks)
             view.implementation.setslice(space, val_arr)
             return
         if support.product(iter_shape) == 0:
@@ -203,6 +204,10 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
+        if self.get_dtype().is_record():
+            if space.isinstance_w(w_idx, space.w_str):
+                idx = space.str_w(w_idx)
+                return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
@@ -229,6 +234,13 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
+        if self.get_dtype().is_record():
+            if space.isinstance_w(w_idx, space.w_str):
+                idx = space.str_w(w_idx)
+                view = self.getfield(space, idx)
+                w_value = convert_to_array(space, w_value)
+                view.implementation.setslice(space, w_value)
+                return
         if space.is_w(w_idx, space.w_Ellipsis):
             self.implementation.setslice(space, convert_to_array(space, w_value))
             return
@@ -240,6 +252,28 @@ class __extend__(W_NDimArray):
             self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:
             self.setitem_array_int(space, w_idx, w_value)
+
+    def getfield(self, space, field):
+        dtype = self.get_dtype()
+        if field not in dtype.fields:
+            raise oefmt(space.w_ValueError, "field named %s not found", field)
+        arr = self.implementation
+        ofs, subdtype = arr.dtype.fields[field][:2]
+        # ofs only changes start
+        # create a view of the original array by extending
+        # the shape, strides, backstrides of the array
+        strides, backstrides = calc_strides(subdtype.shape,
+                                            subdtype.subdtype, arr.order)
+        final_shape = arr.shape + subdtype.shape
+        final_strides = arr.get_strides() + strides
+        final_backstrides = arr.get_backstrides() + backstrides
+        final_dtype = subdtype
+        if subdtype.subdtype:
+            final_dtype = subdtype.subdtype
+        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
+                                     final_backstrides,
+                                     final_shape, arr, self, final_dtype)
+
 
     def descr_delitem(self, space, w_idx):
         raise OperationError(space.w_ValueError, space.wrap(
@@ -1298,7 +1332,6 @@ class __extend__(W_NDimArray):
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.concrete import ConcreteArray
-    from pypy.module.micronumpy.strides import calc_strides
     dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
         space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
