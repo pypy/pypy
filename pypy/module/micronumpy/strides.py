@@ -18,13 +18,10 @@ class Chunk(BaseChunk):
         self.stop = stop
         self.step = step
         self.lgt = lgt
-
-    @property
-    def out_dim(self):
         if self.step == 0:
-            return 0
+            self.out_dim = 0
         else:
-            return 1
+            self.out_dim = 1
 
     def compute(self, space, base_length, base_stride):
         stride = base_stride * self.step
