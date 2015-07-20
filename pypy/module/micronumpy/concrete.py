@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
-from rpython.rlib.debug import make_sure_not_resized, debug_print
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
     raw_storage_getitem, raw_storage_setitem, RAW_STORAGE
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
@@ -9,13 +9,12 @@ from pypy.module.micronumpy import support, loop, constants as NPY
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray, \
     ArrayArgumentException, W_NumpyObject
 from pypy.module.micronumpy.iterators import ArrayIter
-from pypy.module.micronumpy.strides import (Chunk, Chunks, NewAxisChunk,
-    RecordChunk, calc_strides, calc_new_strides, shape_agreement,
+from pypy.module.micronumpy.strides import (
+    IntegerChunk, SliceChunk, NewAxisChunk, EllipsisChunk, new_view,
+    calc_strides, calc_new_strides, shape_agreement,
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from pypy.interpreter.baseobjspace import W_Root
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
@@ -204,6 +203,8 @@ class BaseConcreteArray(object):
                 if (isinstance(w_item, W_NDimArray) or
                     space.isinstance_w(w_item, space.w_list)):
                     raise ArrayArgumentException
+                elif space.is_w(w_item, space.w_Ellipsis):
+                    raise IndexError
             return self._lookup_by_index(space, view_w)
         if shape_len == 0:
             raise oefmt(space.w_IndexError, "too many indices for array")
@@ -215,39 +216,47 @@ class BaseConcreteArray(object):
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         if space.isinstance_w(w_idx, space.w_str):
-            idx = space.str_w(w_idx)
-            dtype = self.dtype
-            if not dtype.is_record():
-                raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
-                    "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
-                    "boolean arrays are valid indices")
-            elif idx not in dtype.fields:
-                raise oefmt(space.w_ValueError, "field named %s not found", idx)
-            return RecordChunk(idx)
-        elif (space.isinstance_w(w_idx, space.w_int) or
-                space.isinstance_w(w_idx, space.w_slice)):
+            raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
+                "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
+                "boolean arrays are valid indices")
+        if space.isinstance_w(w_idx, space.w_slice):
             if len(self.get_shape()) == 0:
                 raise oefmt(space.w_ValueError, "cannot slice a 0-d array")
-            return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
+            return [SliceChunk(w_idx), EllipsisChunk()]
+        elif space.isinstance_w(w_idx, space.w_int):
+            return [IntegerChunk(w_idx), EllipsisChunk()]
         elif isinstance(w_idx, W_NDimArray) and w_idx.is_scalar():
             w_idx = w_idx.get_scalar_value().item(space)
             if not space.isinstance_w(w_idx, space.w_int) and \
                     not space.isinstance_w(w_idx, space.w_bool):
                 raise OperationError(space.w_IndexError, space.wrap(
                     "arrays used as indices must be of integer (or boolean) type"))
-            return Chunks([Chunk(*space.decode_index4(w_idx, self.get_shape()[0]))])
+            return [IntegerChunk(w_idx), EllipsisChunk()]
         elif space.is_w(w_idx, space.w_None):
-            return Chunks([NewAxisChunk()])
+            return [NewAxisChunk(), EllipsisChunk()]
         result = []
         i = 0
+        has_ellipsis = False
         for w_item in space.fixedview(w_idx):
-            if space.is_w(w_item, space.w_None):
+            if space.is_w(w_item, space.w_Ellipsis):
+                if has_ellipsis:
+                    # in CNumPy, this is only a deprecation warning
+                    raise oefmt(space.w_ValueError,
+                        "an index can only have a single Ellipsis (`...`); "
+                        "replace all but one with slices (`:`).")
+                result.append(EllipsisChunk())
+                has_ellipsis = True
+            elif space.is_w(w_item, space.w_None):
                 result.append(NewAxisChunk())
-            else:
-                result.append(Chunk(*space.decode_index4(w_item,
-                                                         self.get_shape()[i])))
+            elif space.isinstance_w(w_item, space.w_slice):
+                result.append(SliceChunk(w_item))
                 i += 1
-        return Chunks(result)
+            else:
+                result.append(IntegerChunk(w_item))
+                i += 1
+        if not has_ellipsis:
+            result.append(EllipsisChunk())
+        return result
 
     def descr_getitem(self, space, orig_arr, w_index):
         try:
@@ -256,7 +265,7 @@ class BaseConcreteArray(object):
         except IndexError:
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
-            return chunks.apply(space, orig_arr)
+            return new_view(space, orig_arr, chunks)
 
     def descr_setitem(self, space, orig_arr, w_index, w_value):
         try:
@@ -265,7 +274,7 @@ class BaseConcreteArray(object):
         except IndexError:
             w_value = convert_to_array(space, w_value)
             chunks = self._prepare_slice_args(space, w_index)
-            view = chunks.apply(space, orig_arr)
+            view = new_view(space, orig_arr, chunks)
             view.implementation.setslice(space, w_value)
 
     def transpose(self, orig_array, axes=None):
