@@ -127,6 +127,7 @@ class AppTestStruct(object):
                   <= calcsize('l') == calcsize('L')
                   <= calcsize('q') == calcsize('Q'))
         assert 4 <= calcsize('f') <= 8 <= calcsize('d')
+        assert calcsize('n') == calcsize('N') >= calcsize('P')
         assert calcsize('13s') == 13
         assert calcsize('500p') == 500
         assert 4 <= calcsize('P') <= 8
