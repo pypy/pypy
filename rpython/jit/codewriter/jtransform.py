@@ -1220,6 +1220,15 @@ class Transformer(object):
         if longlong_arg and longlong_res:
             return
         elif longlong_arg:
+            if v_result.concretetype is lltype.Bool:
+                longlong_zero = rffi.cast(v_arg.concretetype, 0)
+                c_longlong_zero = Constant(longlong_zero, v_arg.concretetype)
+                if unsigned1:
+                    name = 'ullong_ne'
+                else:
+                    name = 'llong_ne'
+                op1 = SpaceOperation(name, [v_arg, c_longlong_zero], v_result)
+                return self.rewrite_operation(op1)
             v = varoftype(lltype.Signed)
             op1 = self.rewrite_operation(
                 SpaceOperation('truncate_longlong_to_int', [v_arg], v)

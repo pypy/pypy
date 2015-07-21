@@ -789,6 +789,7 @@ class TestFlatten:
             (rffi.LONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.LONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.LONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.LONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.LONG, rffi.LONG, ""),
             (rffi.LONG, rffi.ULONG, ""),
 
@@ -796,7 +797,7 @@ class TestFlatten:
             (rffi.ULONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.ULONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.ULONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
-            (rffi.LONG, lltype.Bool, "int_is_true %i0 -> %i1"),
+            (rffi.ULONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.ULONG, rffi.LONG, ""),
             (rffi.ULONG, rffi.ULONG, ""),
             ]:
@@ -818,8 +819,15 @@ class TestFlatten:
                         FROM = rffi.LONGLONG
                     else:
                         FROM = rffi.ULONGLONG
-                    expected.insert(0,
-                        "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
+                    if TO == lltype.Bool:
+                        prefix = 'u' if FROM == rffi.ULONGLONG else ''
+                        expected = [
+                            "residual_call_irf_i $<* fn %sllong_ne>, I[], R[], F[%%f0, $0L], <Descr> -> %%i0" % prefix,
+                            "int_return %i0",
+                        ]
+                    else:
+                        expected.insert(0,
+                            "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
