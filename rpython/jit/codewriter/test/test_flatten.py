@@ -783,6 +783,7 @@ class TestFlatten:
             (rffi.USHORT, rffi.USHORT, ""),
             (rffi.USHORT, rffi.LONG, ""),
             (rffi.USHORT, rffi.ULONG, ""),
+            (rffi.USHORT, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.LONG, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.LONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
