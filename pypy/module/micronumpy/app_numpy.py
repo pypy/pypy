@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import math
 
 import _numpypy
+from _numpypy.multiarray import set_docstring
 
 def arange(start, stop=None, step=1, dtype=None):
     '''arange([start], stop[, step], dtype=None)
@@ -22,3 +23,13 @@ def arange(start, stop=None, step=1, dtype=None):
         arr[j] = i
         i += step
     return arr
+
+
+def add_docstring(obj, docstring):
+    old_doc = getattr(obj, '__doc__', None)
+    if old_doc is not None:
+        raise RuntimeError("%s already has a docstring" % obj)
+    try:
+        set_docstring(obj, docstring)
+    except:
+        raise TypeError("Cannot set a docstring for %s" % obj)
