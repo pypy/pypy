@@ -981,3 +981,13 @@ class TestLowLevelType(object):
         assert fn(0) == 3
         assert fn(10) == 42
         assert fn(100) == -10
+
+    def test_cast_to_bool(self):
+        def f(n):
+            return rffi.cast(Bool, n)
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == False
+        assert fn(1) == True
+        assert fn(256) == True
+        assert fn(-2**24) == True
