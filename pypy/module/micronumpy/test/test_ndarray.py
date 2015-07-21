@@ -267,6 +267,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         y = array(x.T, copy=False)
         assert (y == x.T).all()
 
+        exc = raises(ValueError, ndarray, [1,2,256]*10000)
+        assert exc.value[0] == 'sequence too large; must be smaller than 32'
+        exc = raises(ValueError, ndarray, [1,2,256]*10)
+        assert exc.value[0] == 'array is too big'
+
     def test_ndmin(self):
         from numpy import array
 
