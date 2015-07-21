@@ -45,4 +45,9 @@ fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
 allow subclassing dtype
 
 .. branch: indexing
+
 Refactor array indexing to support ellipses.
+
+.. branch: numpy-docstrings
+
+Allow the docstrings of built-in numpy objects to be set at run-time.
