@@ -982,7 +982,27 @@ class TestLowLevelType(object):
         assert fn(10) == 42
         assert fn(100) == -10
 
-    def test_cast_to_bool(self):
+    def test_cast_to_bool_1(self):
+        def f(n):
+            return cast_primitive(Bool, n)
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == False
+        assert fn(1) == True
+        assert fn(256) == True
+        assert fn(-2**24) == True
+
+    def test_cast_to_bool_1_longlong(self):
+        def f(n):
+            return cast_primitive(Bool, n)
+
+        fn = self.getcompiled(f, [r_longlong])
+        assert fn(r_longlong(0)) == False
+        assert fn(r_longlong(1)) == True
+        assert fn(r_longlong(256)) == True
+        assert fn(r_longlong(2**32)) == True
+
+    def test_cast_to_bool_2(self):
         def f(n):
             return rffi.cast(Bool, n)
 
@@ -991,3 +1011,13 @@ class TestLowLevelType(object):
         assert fn(1) == True
         assert fn(256) == True
         assert fn(-2**24) == True
+
+    def test_cast_to_bool_2_longlong(self):
+        def f(n):
+            return rffi.cast(Bool, n)
+
+        fn = self.getcompiled(f, [r_longlong])
+        assert fn(r_longlong(0)) == False
+        assert fn(r_longlong(1)) == True
+        assert fn(r_longlong(256)) == True
+        assert fn(r_longlong(2**32)) == True

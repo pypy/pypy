@@ -480,7 +480,8 @@ _cast_to_Signed = {
     }
 _cast_from_Signed = {
     lltype.Signed:         None,
-    lltype.Bool:           'int_is_true',
+    #lltype.Bool:           'int_is_true', ---disabled, see test_cast_to_bool_1
+    #                                      in translator/c/test/test_lltyped.py
     lltype.Char:           'cast_int_to_char',
     lltype.UniChar:        'cast_int_to_unichar',
     lltype.Float:          'cast_int_to_float',
