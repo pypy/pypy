@@ -710,10 +710,14 @@ class W_Ufunc2(W_Ufunc):
                           ((w_arg1.is_scalar() and not w_arg2.is_scalar()) or
                            (not w_arg1.is_scalar() and w_arg2.is_scalar())))
         in_casting = safe_casting_mode(casting)
+        if use_min_scalar:
+            w_arg1 = convert_to_array(space, w_arg1)
+            w_arg2 = convert_to_array(space, w_arg2)
+        elif in_casting == 'safe' and l_dtype.num == 7 and r_dtype.num == 7:
+            # while long (7) can be cast to int32 (5) on 32 bit, don't do it
+            return l_dtype, l_dtype
         for dt_in, dt_out in self.dtypes:
             if use_min_scalar:
-                w_arg1 = convert_to_array(space, w_arg1)
-                w_arg2 = convert_to_array(space, w_arg2)
                 if not (can_cast_array(space, w_arg1, dt_in, in_casting) and
                         can_cast_array(space, w_arg2, dt_in, in_casting)):
                     continue
