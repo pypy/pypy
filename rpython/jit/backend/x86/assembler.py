@@ -128,15 +128,50 @@ class Assembler386(BaseAssembler):
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
 
+
+    def _stm_save_regs_and_leave_transactional_zone(self, mc):
+        assert IS_X86_64 and self.cpu.supports_floats
+        # cannot save regs to frame as we are outside a transactional
+        # zone after "leaving". Thus, the frame must not be accessed afterwards.
+        # (there should also be no unsaved references left in registers)
+        gpr_regs = [gpr for gpr in gpr_reg_mgr_cls.save_around_call_regs if gpr != eax]
+        xmm_regs = xmm_reg_mgr_cls.all_regs
+
+        # Push the general purpose registers
+        for gpr in gpr_regs:
+            mc.PUSH(gpr)
+        # Push the XMM regs
+        xmm_space = len(xmm_regs) * WORD
+        mc.SUB_ri(esp.value, xmm_space)
+        for off, xmm in enumerate(xmm_regs):
+            mc.MOVSD_sx(off * WORD, xmm.value)
+
+        # align stack and CALL
+        pushed = len(gpr_regs) + len(xmm_regs) + 1  # +1 bc we are not aligned initially
+        aligned = bool(pushed % 2 == 0) # works for X86_64
+        if not aligned:
+            mc.SUB_ri(esp.value, WORD)
+        mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
+        if not aligned:
+            mc.ADD_ri(esp.value, WORD)
+
+        # Push the XMM regs
+        for off, xmm in enumerate(xmm_regs):
+            mc.MOVSD_xs(xmm.value, off * WORD)
+        mc.ADD_ri(esp.value, xmm_space)
+
+        # POP the general purpose registers
+        for gpr in reversed(gpr_regs):
+            mc.POP(gpr)
+
+
     def _build_stm_enter_leave_transactional_zone_helpers(self):
         assert IS_X86_64 and self.cpu.supports_floats
         # a helper to call _stm_leave_noninevitable_transactional_zone(),
         # preserving all registers that are used to pass arguments.
         # (Push an odd total number of registers, to align the stack.)
         mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [eax], True, callee_only=True)
-        mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
-        self._pop_all_regs_from_frame(mc, [eax], True, callee_only=True)
+        self._stm_save_regs_and_leave_transactional_zone(mc)
         mc.RET()
         self._stm_leave_noninevitable_tr_slowpath = mc.materialize(
             self.cpu, [])
@@ -146,12 +181,12 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         mc.SUB_ri(esp.value, 3 * WORD)     # 3 instead of 2 to align the stack
         mc.MOV_sr(0, eax.value)     # not edx, we're not running 32-bit
-        mc.MOVSD_sx(1, xmm0.value)
+        mc.MOVSD_sx(1 * WORD, xmm0.value)
         # load the value of 'tl->self_or_0_if_atomic' into edi as argument
         mc.MOV(edi, self.heap_stm_thread_local_self_or_0_if_atomic())
         mc.CALL(imm(rstm.adr_stm_reattach_transaction))
         # pop
-        mc.MOVSD_xs(xmm0.value, 1)
+        mc.MOVSD_xs(xmm0.value, 1 * WORD)
         mc.MOV_rs(eax.value, 0)
         mc.ADD_ri(esp.value, 3 * WORD)
         mc.RET()
