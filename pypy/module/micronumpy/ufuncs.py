@@ -25,6 +25,8 @@ from .casting import (
     find_result_type, promote_types)
 from .boxes import W_GenericBox, W_ObjectBox
 
+REDUCE, ACCUMULATE, REDUCEAT = range(3)
+
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
 
@@ -171,7 +173,7 @@ class W_Ufunc(W_Root):
         else:
             out = w_out
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
-                           out, w_dtype, cumulative=True)
+                           out, w_dtype, variant=ACCUMULATE)
 
     @unwrap_spec(keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
@@ -241,7 +243,7 @@ class W_Ufunc(W_Root):
         return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
-               cumulative=False):
+               variant=REDUCE):
         if self.nin != 2:
             raise oefmt(space.w_ValueError,
                         "reduce only supported for binary functions")
@@ -292,7 +294,7 @@ class W_Ufunc(W_Root):
                             "zero-size array to reduction operation %s "
                             "which has no identity", self.name)
 
-        if cumulative:
+        if variant == ACCUMULATE:
             dtype = self.find_binop_type(space, dtype)
         else:
             _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
@@ -300,7 +302,7 @@ class W_Ufunc(W_Root):
         call__array_wrap__ = True
         if shapelen > 1 and axis < shapelen:
             temp = None
-            if cumulative:
+            if variant == ACCUMULATE:
                 shape = obj_shape[:]
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
@@ -339,13 +341,13 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            loop.do_axis_reduce(space, shape, self.func, obj, dtype,
-                                       axis, out, self.identity, cumulative,
-                                       temp)
+            loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis,
+                                out, self.identity, (variant == ACCUMULATE),
+                                temp)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
-        if cumulative:
+        if variant == ACCUMULATE:
             if out:
                 call__array_wrap__ = False
                 if out.get_shape() != [obj.get_size()]:
@@ -786,7 +788,7 @@ class W_UfuncGeneric(W_Ufunc):
         self.external_loop = external_loop
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
-               cumulative=False):
+               variant=REDUCE):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w, sig, casting, extobj):

@@ -1149,7 +1149,7 @@ class __extend__(W_NDimArray):
 
     # ----------------------- reduce -------------------------------
 
-    def _reduce_ufunc_impl(ufunc_name, cumulative=False, bool_result=False):
+    def _reduce_ufunc_impl(ufunc_name, name, variant=ufuncs.REDUCE, bool_result=False):
         @unwrap_spec(keepdims=bool)
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             if space.is_none(w_out):
@@ -1161,18 +1161,19 @@ class __extend__(W_NDimArray):
             if bool_result:
                 w_dtype = descriptor.get_dtype_cache(space).w_booldtype
             return getattr(ufuncs.get(space), ufunc_name).reduce(
-                space, self, w_axis, keepdims, out, w_dtype, cumulative=cumulative)
-        return func_with_new_name(impl, "reduce_%s_impl_%d" % (ufunc_name, cumulative))
+                space, self, w_axis, keepdims, out, w_dtype, variant=variant)
+        impl.__name__ = name
+        return impl
 
-    descr_sum = _reduce_ufunc_impl("add")
-    descr_prod = _reduce_ufunc_impl("multiply")
-    descr_max = _reduce_ufunc_impl("maximum")
-    descr_min = _reduce_ufunc_impl("minimum")
-    descr_all = _reduce_ufunc_impl('logical_and', bool_result=True)
-    descr_any = _reduce_ufunc_impl('logical_or', bool_result=True)
+    descr_sum = _reduce_ufunc_impl("add", "descr_sum")
+    descr_prod = _reduce_ufunc_impl("multiply", "descr_prod")
+    descr_max = _reduce_ufunc_impl("maximum", "descr_max")
+    descr_min = _reduce_ufunc_impl("minimum", "descr_min")
+    descr_all = _reduce_ufunc_impl('logical_and', "descr_all", bool_result=True)
+    descr_any = _reduce_ufunc_impl('logical_or', "descr_any", bool_result=True)
 
-    descr_cumsum = _reduce_ufunc_impl('add', cumulative=True)
-    descr_cumprod = _reduce_ufunc_impl('multiply', cumulative=True)
+    descr_cumsum = _reduce_ufunc_impl('add', "descr_cumsum", variant=ufuncs.ACCUMULATE)
+    descr_cumprod = _reduce_ufunc_impl('multiply', "descr_cumprod", variant=ufuncs.ACCUMULATE)
 
     def _reduce_argmax_argmin_impl(raw_name):
         op_name = "arg%s" % raw_name
