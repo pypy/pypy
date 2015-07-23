@@ -684,6 +684,16 @@ class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
 
+class __extend__(pairtype(SomeStringBuilder, SomeStringBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
+class __extend__(pairtype(SomeUnicodeBuilder, SomeUnicodeBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
 class PrebuiltStringBuilderEntry(ExtRegistryEntry):
     _type_ = StringBuilder
 

@@ -214,3 +214,15 @@ class TestStringBuilder(BaseRtypingTest):
 
         res = self.interpret(f, [])
         assert res == 3
+
+    def test_string_builder_union(self):
+        s = StringBuilder()
+
+        def f(i):
+            if i % 2:
+                s2 = StringBuilder()
+            else:
+                s2 = s
+            return s2.build()
+
+        self.interpret(f, [3])
