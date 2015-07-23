@@ -449,7 +449,10 @@ LL_OPERATIONS = {
     # stm_memclearinit(gcref, offset, size) clears the memory in this address space
     'stm_memclearinit': LLOp(),
 
-    'stm_hint_commit_soon':   LLOp(canrun=True),
+    # if it stays that way, should be renamed to something like
+    # try_break_transaction(). (before, it would also work in an
+    # atomic transaction)
+    'stm_hint_commit_soon':   LLOp(canrun=True, canmallocgc=True),
 
     'stm_increment_atomic':   LLOp(),
     'stm_decrement_atomic':   LLOp(),

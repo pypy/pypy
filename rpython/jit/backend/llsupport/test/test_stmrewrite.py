@@ -88,9 +88,14 @@ class TestStm(RewriteTests):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
         inev = ("call(ConstClass(stm_try_inevitable),"
                 " descr=stm_try_inevitable_descr)")
+        hcs  = ("call(ConstClass(stm_hint_commit_soon),"
+                " descr=stm_hint_commit_soon_descr)")
+
         dummyalloc = "p999 = call_malloc_nursery(16)"
         frm_operations = frm_operations.replace('$INEV', inev)
+        frm_operations = frm_operations.replace('$HCS', hcs)
         to_operations  = to_operations .replace('$INEV', inev)
+        to_operations  = to_operations .replace('$HCS', hcs)
         to_operations  = to_operations .replace('$DUMMYALLOC', dummyalloc)
         for name, value in self.gc_ll_descr.__dict__.items():
             if name.endswith('descr') and name[1] == '2' and len(name) == 8:
@@ -704,6 +709,39 @@ class TestStm(RewriteTests):
             $DUMMYALLOC
             jump()
         """)
+
+    def test_hint_commit_soon(self):
+        T = rffi.CArrayPtr(rffi.TIME_T)
+        calldescr2 = get_call_descr(self.gc_ll_descr, [T], rffi.TIME_T)
+        self.check_rewrite("""
+            [i2, p7, p1]
+            i1 = getfield_gc(p1, descr=tydescr) # noptr
+            setfield_gc(p7, 10, descr=tydescr) #noptr
+            stm_hint_commit_soon()
+            setfield_gc(p7, 20, descr=tydescr) #noptr
+            i3 = getfield_gc(p1, descr=tydescr) # noptr
+            jump(i2, p7, i1)
+        """, """
+            [i2, p7, p1]
+            i1 = getfield_gc(p1, descr=tydescr)
+            stm_read(p1)
+
+            cond_call_gc_wb(p7, descr=wbdescr)
+            setfield_gc(p7, 10, descr=tydescr)
+
+            $HCS
+
+            cond_call_gc_wb(p7, descr=wbdescr)
+            setfield_gc(p7, 20, descr=tydescr)
+
+            i3 = getfield_gc(p1, descr=tydescr) # noptr
+            stm_read(p1)
+
+            $DUMMYALLOC
+            jump(i2, p7, i1)
+        """, calldescr2=calldescr2)
+
+
 
     def test_call_release_gil(self):
         T = rffi.CArrayPtr(rffi.TIME_T)
