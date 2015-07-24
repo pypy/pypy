@@ -212,6 +212,30 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.default(hop)
         self.pop_roots(hop, livevars)
 
+
+    # sync with lloperation.py:
+    # These operations need roots pushed around their execution.
+    # stm_allocate_* should never be seen here and are handled by
+    # the super class through gct_malloc_** and similar.
+    gct_stm_unregister_thread_local  = _gct_with_roots_pushed
+    gct_stm_collect                  = _gct_with_roots_pushed
+    gct_stm_become_inevitable        = _gct_with_roots_pushed
+    gct_stm_enter_transactional_zone = _gct_with_roots_pushed
+    gct_stm_leave_transactional_zone = _gct_with_roots_pushed
+    gct_stm_abort_and_retry          = _gct_with_roots_pushed
+    gct_stm_enter_callback_call      = _gct_with_roots_pushed
+    gct_stm_leave_callback_call      = _gct_with_roots_pushed
+    gct_stm_transaction_break        = _gct_with_roots_pushed
+    gct_stm_stop_all_other_threads   = _gct_with_roots_pushed
+    gct_stm_hint_commit_soon         = _gct_with_roots_pushed
+    gct_stm_hashtable_read           = _gct_with_roots_pushed
+    gct_stm_hashtable_write          = _gct_with_roots_pushed
+    gct_stm_hashtable_lookup         = _gct_with_roots_pushed
+    gct_stm_queue_get                = _gct_with_roots_pushed
+    gct_stm_queue_put                = _gct_with_roots_pushed
+    gct_stm_queue_join               = _gct_with_roots_pushed
+
+
     def gct_stm_malloc_nonmovable(self, hop):
         op = hop.spaceop
         PTRTYPE = op.result.concretetype
@@ -229,14 +253,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.pop_roots(hop, livevars)
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
 
-    # sync with lloperation.py
-    gct_stm_become_inevitable                       = _gct_with_roots_pushed
-    gct_stm_hint_commit_soon                        = _gct_with_roots_pushed
-    gct_stm_stop_all_other_threads                  = _gct_with_roots_pushed
-    gct_stm_transaction_break                       = _gct_with_roots_pushed
-    gct_stm_collect                                 = _gct_with_roots_pushed
-    gct_stm_queue_get                               = _gct_with_roots_pushed
-    gct_stm_queue_join                              = _gct_with_roots_pushed
+
 
 
 class StmRootWalker(BaseRootWalker):

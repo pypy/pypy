@@ -414,7 +414,7 @@ LL_OPERATIONS = {
     # (some ops like stm_commit_transaction don't need it because there
     #  must be no gc-var access afterwards anyway)
     'stm_register_thread_local': LLOp(),
-    'stm_unregister_thread_local': LLOp(),
+    'stm_unregister_thread_local': LLOp(canmallocgc=True),
     'stm_read':               LLOp(),
     'stm_write':              LLOp(),
     'stm_can_move':           LLOp(),
@@ -438,7 +438,7 @@ LL_OPERATIONS = {
     'stm_leave_transactional_zone':       LLOp(canmallocgc=True),
     'stm_abort_and_retry':                LLOp(canmallocgc=True),
     'stm_enter_callback_call':            LLOp(canmallocgc=True),
-    'stm_leave_callback_call':            LLOp(),
+    'stm_leave_callback_call':            LLOp(canmallocgc=True),
     'stm_transaction_break':              LLOp(canmallocgc=True, canrun=True),
     'stm_should_break_transaction':       LLOp(sideeffects=False),
     'stm_rewind_jmp_frame':               LLOp(canrun=True),
@@ -474,9 +474,9 @@ LL_OPERATIONS = {
 
     'stm_hashtable_create':   LLOp(),
     'stm_hashtable_free':     LLOp(),
-    'stm_hashtable_read':     LLOp(),
-    'stm_hashtable_write':    LLOp(),
-    'stm_hashtable_lookup':   LLOp(),
+    'stm_hashtable_read':     LLOp(canmallocgc=True),
+    'stm_hashtable_write':    LLOp(canmallocgc=True),
+    'stm_hashtable_lookup':   LLOp(canmallocgc=True),
     'stm_hashtable_write_entry':        LLOp(),
     'stm_hashtable_length_upper_bound': LLOp(),
     'stm_hashtable_list'  :   LLOp(),
@@ -485,7 +485,7 @@ LL_OPERATIONS = {
     'stm_queue_create':       LLOp(),
     'stm_queue_free':         LLOp(),
     'stm_queue_get':          LLOp(canmallocgc=True),   # push roots!
-    'stm_queue_put':          LLOp(),
+    'stm_queue_put':          LLOp(canmallocgc=True),
     'stm_queue_task_done':    LLOp(),
     'stm_queue_join':         LLOp(canmallocgc=True),   # push roots!
     'stm_queue_tracefn':      LLOp(),
