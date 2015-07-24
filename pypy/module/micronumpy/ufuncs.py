@@ -345,9 +345,12 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis,
-                                out, self.identity, (variant == ACCUMULATE),
-                                temp)
+            if variant == REDUCE:
+                loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis,
+                                    out, self.identity)
+            elif variant == ACCUMULATE:
+                loop.do_accumulate(space, shape, self.func, obj, dtype, axis,
+                                    out, self.identity, temp)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out

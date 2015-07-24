@@ -242,6 +242,40 @@ def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
         out_state = out_iter.next(out_state)
         obj_state = obj_iter.next(obj_state)
 
+accumulate_driver = jit.JitDriver(name='numpy_accumulate_flat',
+                                  greens=['shapelen', 'func', 'dtype'],
+                                  reds='auto')
+
+def do_accumulate(space, shape, func, arr, dtype, axis, out, identity, temp):
+    out_iter = AxisIter(out.implementation, arr.get_shape(), axis, cumulative=True)
+    out_state = out_iter.reset()
+    temp_iter = AxisIter(temp.implementation, arr.get_shape(), axis, False)
+    temp_state = temp_iter.reset()
+    arr_iter, arr_state = arr.create_iter()
+    arr_iter.track_index = False
+    if identity is not None:
+        identity = identity.convert_to(space, dtype)
+    shapelen = len(shape)
+    while not out_iter.done(out_state):
+        accumulate_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                          dtype=dtype)
+        w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
+        arr_state = arr_iter.next(arr_state)
+
+        out_indices = out_iter.indices(out_state)
+        if out_indices[axis] == 0:
+            if identity is not None:
+                w_val = func(dtype, identity, w_val)
+        else:
+            cur = temp_iter.getitem(temp_state)
+            w_val = func(dtype, cur, w_val)
+
+        out_iter.setitem(out_state, w_val)
+        out_state = out_iter.next(out_state)
+        temp_iter.setitem(temp_state, w_val)
+        temp_state = temp_iter.next(temp_state)
+    return out
+
 def fill(arr, box):
     arr_iter, arr_state = arr.create_iter()
     while not arr_iter.done(arr_state):
@@ -302,16 +336,9 @@ axis_reduce_driver = jit.JitDriver(name='numpy_axis_reduce',
                                    greens=['shapelen', 'func', 'dtype'],
                                    reds='auto')
 
-def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulative,
-                   temp):
-    out_iter = AxisIter(out.implementation, arr.get_shape(), axis, cumulative)
+def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity):
+    out_iter = AxisIter(out.implementation, arr.get_shape(), axis, cumulative=False)
     out_state = out_iter.reset()
-    if cumulative:
-        temp_iter = AxisIter(temp.implementation, arr.get_shape(), axis, False)
-        temp_state = temp_iter.reset()
-    else:
-        temp_iter = out_iter  # hack
-        temp_state = out_state
     arr_iter, arr_state = arr.create_iter()
     arr_iter.track_index = False
     if identity is not None:
@@ -328,16 +355,11 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
         else:
-            cur = temp_iter.getitem(temp_state)
+            cur = out_iter.getitem(out_state)
             w_val = func(dtype, cur, w_val)
 
         out_iter.setitem(out_state, w_val)
         out_state = out_iter.next(out_state)
-        if cumulative:
-            temp_iter.setitem(temp_state, w_val)
-            temp_state = temp_iter.next(temp_state)
-        else:
-            temp_state = out_state
     return out
 
 
