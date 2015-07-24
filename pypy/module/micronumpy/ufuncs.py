@@ -713,7 +713,8 @@ class W_Ufunc2(W_Ufunc):
         if use_min_scalar:
             w_arg1 = convert_to_array(space, w_arg1)
             w_arg2 = convert_to_array(space, w_arg2)
-        elif in_casting == 'safe' and l_dtype.num == 7 and r_dtype.num == 7:
+        elif (in_casting == 'safe' and l_dtype.num == 7 and r_dtype.num == 7 and
+              out is None and not self.promote_to_float):
             # while long (7) can be cast to int32 (5) on 32 bit, don't do it
             return l_dtype, l_dtype
         for dt_in, dt_out in self.dtypes:
