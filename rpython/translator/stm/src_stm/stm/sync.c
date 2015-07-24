@@ -14,8 +14,7 @@ static union {
         pthread_mutex_t global_mutex;
         pthread_cond_t cond[_C_TOTAL];
         /* some additional pieces of global state follow */
-        uint8_t in_use1[NB_SEGMENTS];   /* 1 if running a pthread, idx=0 unused,
-                                           2 if soon_finished_or_inevitable_thread_segment */
+        uint8_t in_use1[NB_SEGMENTS];   /* 1 if running a pthread, idx=0 unused */
     };
     char reserved[192];
 } sync_ctl __attribute__((aligned(64)));

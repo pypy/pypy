@@ -437,10 +437,6 @@ static inline int stm_is_inevitable(stm_thread_local_t *tl) {
 
    stm_enter_transactional_zone() and stm_leave_transactional_zone()
    preserve the value of errno.
-
-   stm_leave_transactional_zone_final() commits the transaction
-   unconditionally and allows the caller to teardown the whole
-   thread (unregister thread local, etc.).
 */
 #ifdef STM_DEBUGPRINT
 #include <stdio.h>
@@ -472,11 +468,6 @@ static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
         _stm_leave_noninevitable_transactional_zone();
     }
 }
-static inline void stm_leave_transactional_zone_final(stm_thread_local_t *tl) {
-    assert(STM_SEGMENT->running_thread == tl);
-    _stm_commit_transaction();
-}
-
 
 /* stm_force_transaction_break() is in theory equivalent to
    stm_leave_transactional_zone() immediately followed by
