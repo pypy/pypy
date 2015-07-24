@@ -98,16 +98,19 @@ long pypy_stm_enter_callback_call(void *rjbuf)
 
 void pypy_stm_leave_callback_call(void *rjbuf, long token)
 {
-    stm_leave_transactional_zone(&stm_thread_local);
-    stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
-
     if (token == 1) {
         /* if we're returning into foreign C code that was not itself
            called from Python code, then we're ignoring the atomic
            status and committing anyway. */
+        stm_leave_transactional_zone_final(&stm_thread_local);
+        stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
+
         int e = errno;
         pypy_stm_unregister_thread_local();
         errno = e;
+    } else {
+        stm_leave_transactional_zone(&stm_thread_local);
+        stm_rewind_jmp_leaveframe(&stm_thread_local, (rewind_jmp_buf *)rjbuf);
     }
 }
 
