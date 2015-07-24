@@ -1335,7 +1335,9 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
         space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
-
+    if len(shape) > NPY.MAXDIMS:
+        raise oefmt(space.w_ValueError,
+            "sequence too large; must be smaller than %d", NPY.MAXDIMS)
     if not space.is_none(w_buffer):
         if (not space.is_none(w_strides)):
             strides = [space.int_w(w_i) for w_i in
@@ -1372,6 +1374,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
+    try:
+        totalsize = support.product(shape) * dtype.base.elsize
+    except OverflowError as e:
+        raise oefmt(space.w_ValueError, "array is too big")
     impl = ConcreteArray(shape, dtype.base, order, strides, backstrides)
     w_ret = space.allocate_instance(W_NDimArray, w_subtype)
     W_NDimArray.__init__(w_ret, impl)
