@@ -83,3 +83,9 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         a = 'a'
         a += 'b'
         raises(TypeError, "a += 5")
+
+    def test_mix_strings_format(self):
+        a = 'a'
+        a += 'b'
+        assert 'foo%s' % a == 'fooab'
+        assert (a + '%s') % ('foo',) == 'bfoo'

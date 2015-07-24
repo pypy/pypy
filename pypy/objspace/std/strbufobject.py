@@ -67,7 +67,6 @@ class W_StringBufferObject(W_AbstractBytesObject):
         return self
 
 
-delegation_dict = {}
 for key, value in W_BytesObject.typedef.rawdict.iteritems():
     if not isinstance(value, interp2app):
         continue
