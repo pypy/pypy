@@ -29,7 +29,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_true(i15, descr=...)
             guard_not_invalidated(descr=...)
             i17 = cast_float_to_int(f16)
-            i19 = int_and(i17, 255)
+            i19 = int_is_true(i17)
             guard_true(i19, descr=...)
             i20 = getfield_gc_pure(p2, descr=<FieldU pypy.module.micronumpy.boxes.W_BoolBox.inst_value \d+>)
             i21 = int_is_true(i20)
