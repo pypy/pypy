@@ -9,7 +9,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rawstorage import (
     raw_storage_setitem, free_raw_storage, alloc_raw_storage)
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
 
 from pypy.module.micronumpy import loop, constants as NPY
 from pypy.module.micronumpy.descriptor import (
@@ -26,6 +26,7 @@ from .casting import (
 from .boxes import W_GenericBox, W_ObjectBox
 
 REDUCE, ACCUMULATE, REDUCEAT = range(3)
+_reduce_type = ["reduce", "acccumulate", "reduceat"]
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -242,16 +243,19 @@ class W_Ufunc(W_Root):
             out = w_out
         return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
+    @specialize.arg(7)
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
                variant=REDUCE):
         if self.nin != 2:
             raise oefmt(space.w_ValueError,
-                        "reduce only supported for binary functions")
+                        "%s only supported for binary functions",
+                        _reduce_type[variant])
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if obj.get_dtype().is_flexible():
             raise oefmt(space.w_TypeError,
-                        "cannot perform reduce with flexible type")
+                        "cannot perform %s with flexible type",
+                        _reduce_type[variant])
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
