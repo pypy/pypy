@@ -300,20 +300,66 @@ class W_Ufunc(W_Root):
 
         if variant == ACCUMULATE:
             dtype = self.find_binop_type(space, dtype)
-        else:
-            _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
-                                                   casting='unsafe')
-        call__array_wrap__ = True
-        if shapelen > 1 and axis < shapelen:
-            temp = None
-            if variant == ACCUMULATE:
+            call__array_wrap__ = True
+            if shapelen > 1 and axis < shapelen:
+                temp = None
                 shape = obj_shape[:]
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
                 if out:
                     dtype = out.get_dtype()
                 temp = W_NDimArray.from_shape(space, temp_shape, dtype,
-                                              w_instance=obj)
-            elif keepdims:
+                                            w_instance=obj)
+                if out:
+                    # Test for shape agreement
+                    # XXX maybe we need to do broadcasting here, although I must
+                    #     say I don't understand the details for axis reduce
+                    if out.ndims() > len(shape):
+                        raise oefmt(space.w_ValueError,
+                                    "output parameter for reduction operation %s "
+                                    "has too many dimensions", self.name)
+                    elif out.ndims() < len(shape):
+                        raise oefmt(space.w_ValueError,
+                                    "output parameter for reduction operation %s "
+                                    "does not have enough dimensions", self.name)
+                    elif out.get_shape() != shape:
+                        raise oefmt(space.w_ValueError,
+                                    "output parameter shape mismatch, expecting "
+                                    "[%s], got [%s]",
+                                    ",".join([str(x) for x in shape]),
+                                    ",".join([str(x) for x in out.get_shape()]),
+                                    )
+                    call__array_wrap__ = False
+                    dtype = out.get_dtype()
+                else:
+                    out = W_NDimArray.from_shape(space, shape, dtype,
+                                                w_instance=obj)
+                if obj.get_size() == 0:
+                    if self.identity is not None:
+                        out.fill(space, self.identity.convert_to(space, dtype))
+                    return out
+                loop.do_accumulate(space, shape, self.func, obj, dtype, axis,
+                                    out, self.identity, temp)
+            else:
+                if out:
+                    call__array_wrap__ = False
+                    if out.get_shape() != [obj.get_size()]:
+                        raise OperationError(space.w_ValueError, space.wrap(
+                            "out of incompatible size"))
+                else:
+                    out = W_NDimArray.from_shape(space, [obj.get_size()], dtype,
+                                                w_instance=obj)
+                loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
+                                            self.identity)
+            if call__array_wrap__:
+                out = space.call_method(obj, '__array_wrap__', out)
+            return out
+
+        _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
+                                                   casting='unsafe')
+        call__array_wrap__ = True
+        if shapelen > 1 and axis < shapelen:
+            temp = None
+            if keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
                 shape = obj_shape[:axis] + obj_shape[axis + 1:]
@@ -345,26 +391,8 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            if variant == REDUCE:
-                loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis,
-                                    out, self.identity)
-            elif variant == ACCUMULATE:
-                loop.do_accumulate(space, shape, self.func, obj, dtype, axis,
-                                    out, self.identity, temp)
-            if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out)
-            return out
-        if variant == ACCUMULATE:
-            if out:
-                call__array_wrap__ = False
-                if out.get_shape() != [obj.get_size()]:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "out of incompatible size"))
-            else:
-                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype,
-                                             w_instance=obj)
-            loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
-                                           self.identity)
+            loop.do_axis_reduce(space, shape, self.func, obj, dtype, axis,
+                                out, self.identity)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
