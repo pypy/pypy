@@ -138,7 +138,7 @@ class VectorizingOptimizer(Optimizer):
         self.clear_newoperations();
 
         # vectorize
-        self.build_dependency_graph()
+        self.dependency_graph = DependencyGraph(self.loop)
         self.find_adjacent_memory_refs()
         self.extend_packset()
         self.combine_packset()
@@ -193,7 +193,8 @@ class VectorizingOptimizer(Optimizer):
             operations.append(op)
             self.emit_unrolled_operation(op)
 
-        prohibit_opnums = (rop.GUARD_FUTURE_CONDITION, rop.GUARD_EARLY_EXIT,
+        prohibit_opnums = (rop.GUARD_FUTURE_CONDITION,
+                           rop.GUARD_EARLY_EXIT,
                            rop.GUARD_NOT_INVALIDATED)
 
         orig_jump_args = jump_op.getarglist()[:]
@@ -272,9 +273,6 @@ class VectorizingOptimizer(Optimizer):
             return 0
         unroll_count = simd_vec_reg_bytes // byte_count
         return unroll_count-1 # it is already unrolled once
-
-    def build_dependency_graph(self):
-        self.dependency_graph = DependencyGraph(self.loop)
 
     def find_adjacent_memory_refs(self):
         """ the pre pass already builds a hash of memory references and the
