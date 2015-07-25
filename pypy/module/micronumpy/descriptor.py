@@ -9,7 +9,7 @@ from rpython.annotator.model import SomeChar
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import (
         specialize, compute_hash, we_are_translated, enforceargs)
-from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
+from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, ovfcheck
 from pypy.module.micronumpy import types, boxes, support, constants as NPY
 from .base import W_NDimArray
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -975,8 +975,12 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     if shape is not None:
         subdtype = make_new_dtype(space, w_subtype, w_dtype, alignment, copy, w_metadata=w_metadata)
         assert isinstance(subdtype, W_Dtype)
-        size = support.product(shape)
-        size *= subdtype.elsize
+        try:
+            size = support.product(shape)
+            size = ovfcheck(size * subdtype.elsize)
+        except OverflowError:
+            raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
+                  "dtype size in bytes must fit into a C int.")
         if size > 0x7fffffff:
             raise oefmt(space.w_ValueError, "invalid shape in fixed-type tuple: "
                   "dtype size in bytes must fit into a C int.")
