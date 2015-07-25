@@ -248,8 +248,6 @@ class AppTestTime:
         raises(TypeError, time.strftime, ())
         raises(TypeError, time.strftime, (1,))
         raises(TypeError, time.strftime, range(8))
-        exp = '0 01 01 00 00 00 1 001'
-        assert time.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
 
         # Guard against invalid/non-supported format string
         # so that Python don't crash (Windows crashes when the format string
@@ -260,8 +258,15 @@ class AppTestTime:
             # darwin strips % of unknown format codes
             # http://bugs.python.org/issue9811
             assert time.strftime('%f') == 'f'
+
+            # Darwin always use four digits for %Y, Linux uses as many as needed.
+            expected_year = '0000'
         else:
             assert time.strftime('%f') == '%f'
+            expected_year = '0'
+
+        expected_formatted_date = expected_year + ' 01 01 00 00 00 1 001'
+        assert time.strftime("%Y %m %d %H %M %S %w %j", (0,) * 9) == expected_formatted_date
 
     def test_strftime_ext(self):
         import time
