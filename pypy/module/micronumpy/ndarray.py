@@ -15,8 +15,9 @@ from pypy.module.micronumpy.arrayops import repeat, choose, put
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
-from pypy.module.micronumpy.converters import multi_axis_converter, \
-    order_converter, shape_converter, searchside_converter
+from pypy.module.micronumpy.converters import (
+    multi_axis_converter, order_converter, shape_converter,
+    searchside_converter, out_converter)
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
 from pypy.module.micronumpy.strides import (
     get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
@@ -1090,12 +1091,7 @@ class __extend__(W_NDimArray):
 
     def descr_dot(self, space, w_other, w_out=None):
         from .casting import find_result_type
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise oefmt(space.w_TypeError, 'output must be an array')
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         other = convert_to_array(space, w_other)
         if other.is_scalar():
             #Note: w_out is not modified, this is numpy compliant.
@@ -1152,12 +1148,7 @@ class __extend__(W_NDimArray):
     def _reduce_ufunc_impl(ufunc_name, name, variant=ufuncs.REDUCE, bool_result=False):
         @unwrap_spec(keepdims=bool)
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
-            if space.is_none(w_out):
-                out = None
-            elif not isinstance(w_out, W_NDimArray):
-                raise oefmt(space.w_TypeError, 'output must be an array')
-            else:
-                out = w_out
+            out = out_converter(space, w_out)
             if bool_result:
                 w_dtype = descriptor.get_dtype_cache(space).w_booldtype
             return getattr(ufuncs.get(space), ufunc_name).reduce(
@@ -1336,7 +1327,9 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
         space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
-
+    if len(shape) > NPY.MAXDIMS:
+        raise oefmt(space.w_ValueError,
+            "sequence too large; must be smaller than %d", NPY.MAXDIMS)
     if not space.is_none(w_buffer):
         if (not space.is_none(w_strides)):
             strides = [space.int_w(w_i) for w_i in
@@ -1373,6 +1366,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
+    try:
+        totalsize = support.product(shape) * dtype.base.elsize
+    except OverflowError as e:
+        raise oefmt(space.w_ValueError, "array is too big")
     impl = ConcreteArray(shape, dtype.base, order, strides, backstrides)
     w_ret = space.allocate_instance(W_NDimArray, w_subtype)
     W_NDimArray.__init__(w_ret, impl)

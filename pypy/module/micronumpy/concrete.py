@@ -400,17 +400,11 @@ def _create_objectstore(storage, length, elsize):
 
 class ConcreteArrayNotOwning(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides, storage, start=0):
-        if len(shape) > NPY.MAXDIMS:
-            raise oefmt(dtype.itemtype.space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
         make_sure_not_resized(shape)
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
         self.shape = shape
-        try:
-            self.size = support.product(shape) * dtype.elsize
-        except OverflowError as e:
-            raise oefmt(dtype.itemtype.space.w_ValueError, "array is too big")
+        self.size = support.product(shape) * dtype.elsize
         self.order = order
         self.dtype = dtype
         self.strides = strides
@@ -425,6 +419,13 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
             box, 0, self.size, 0, self.gcstruct)
 
     def set_shape(self, space, orig_array, new_shape):
+        if len(new_shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        try:
+            support.product(new_shape) * self.dtype.elsize
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big")
         strides, backstrides = calc_strides(new_shape, self.dtype,
                                                     self.order)
         return SliceArray(self.start, strides, backstrides, new_shape, self,
@@ -451,14 +452,9 @@ class ConcreteArray(ConcreteArrayNotOwning):
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
         gcstruct = V_OBJECTSTORE
         flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
-        if len(shape) > NPY.MAXDIMS:
-            raise oefmt(dtype.itemtype.space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        length = support.product(shape)
+        self.size = length * dtype.elsize
         if storage == lltype.nullptr(RAW_STORAGE):
-            try:
-                length = support.product(shape)
-            except OverflowError as e:
-                raise oefmt(dtype.itemtype.space.w_ValueError, "array is too big")
             if dtype.num == NPY.OBJECT:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
                 gcstruct = _create_objectstore(storage, length, dtype.elsize)
@@ -559,6 +555,13 @@ class SliceArray(BaseConcreteArray):
         loop.fill(self, box.convert_to(space, self.dtype))
 
     def set_shape(self, space, orig_array, new_shape):
+        if len(new_shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        try:
+            support.product(new_shape) * self.dtype.elsize
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big")
         if len(self.get_shape()) < 2 or self.size == 0:
             # TODO: this code could be refactored into calc_strides
             # but then calc_strides would have to accept a stepping factor
