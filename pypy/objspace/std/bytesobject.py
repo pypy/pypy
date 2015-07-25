@@ -942,9 +942,9 @@ W_BytesObject.typedef = TypeDef(
     upper = interpindirect2app(W_AbstractBytesObject.descr_upper),
     zfill = interpindirect2app(W_AbstractBytesObject.descr_zfill),
 
-    format = interpindirect2app(W_BytesObject.descr_format),
-    __format__ = interpindirect2app(W_BytesObject.descr__format__),
-    __mod__ = interpindirect2app(W_BytesObject.descr_mod),
+    format = interpindirect2app(W_AbstractBytesObject.descr_format),
+    __format__ = interpindirect2app(W_AbstractBytesObject.descr__format__),
+    __mod__ = interpindirect2app(W_AbstractBytesObject.descr_mod),
     __getnewargs__ = interpindirect2app(
         W_AbstractBytesObject.descr_getnewargs),
     _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),

@@ -88,4 +88,4 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         a = 'a'
         a += 'b'
         assert 'foo%s' % a == 'fooab'
-        assert (a + '%s') % ('foo',) == 'bfoo'
+        assert (a + '%s') % ('foo',) == 'abfoo'
