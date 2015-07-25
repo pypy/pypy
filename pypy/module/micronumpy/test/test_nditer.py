@@ -149,19 +149,39 @@ class AppTestNDIter(BaseNumpyAppTest):
         # assert str(exc.value).startswith("Iterator flag EXTERNAL_LOOP cannot")
 
     def test_buffered(self):
-        from numpy import arange, nditer, array
-        a = arange(6).reshape(2,3)
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['buffered'])
-            skip('nditer buffered not implmented')
+        from numpy import arange, nditer, array, isscalar
+        a = arange(24).reshape(2, 3, 4)
         r = []
-        for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
+        for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
         array_r = array(r)
         assert len(array_r.shape) == 2
-        assert array_r.shape == (1, 6)
-        assert (array_r == [0, 3, 1, 4, 2, 5]).all()
+        assert array_r.shape == (12, 2)
+        assert (array_r == [[0, 12], [4, 16], [8, 20], [1, 13], [5, 17], [9, 21],
+                      [2, 14], [6, 18], [10, 22], [3, 15], [7, 19], [11, 23]]).all
+        assert (a == arange(24).reshape(2, 3, 4)).all()
+
+        r = []
+        for x in nditer(a, flags=['buffered'], order='F'):
+            r.append(x)
+        array_r = array(r)
+        assert len(array_r.shape) == 1
+        assert array_r.shape == (24,)
+        assert r[0].shape == ()
+        assert not isscalar(r[0])
+        assert (array_r == [0, 12, 4, 16, 8, 20, 1, 13, 5, 17, 9, 21,
+                      2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23]).all
+        assert a.shape == (2, 3, 4)
+        assert (a == arange(24).reshape(2, 3, 4)).all()
+
+        r = []
+        for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
+            r.append(x)
+        assert r[0].shape == (24,)
+        assert (array_r == [0, 12, 4, 16, 8, 20, 1, 13, 5, 17, 9, 21,
+                      2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23]).all
+        assert a.shape == (2, 3, 4)
+        assert (a == arange(24).reshape(2, 3, 4)).all()
 
     def test_op_dtype(self):
         from numpy import arange, nditer, sqrt, array
