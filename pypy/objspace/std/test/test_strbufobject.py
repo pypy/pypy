@@ -94,3 +94,8 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         a = 'abc'
         a += 'bc'
         print a
+
+    def test_formatter_parser(self):
+        a = 'abc'
+        a += 'bc'
+        assert list(a._formatter_parser()) == [('abcbc', None, None, None)]

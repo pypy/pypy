@@ -49,69 +49,89 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""
+        raise NotImplementedError
 
     def descr_contains(self, space, w_sub):
         """x.__contains__(y) <==> y in x"""
+        raise NotImplementedError
 
     def descr_eq(self, space, w_other):
         """x.__eq__(y) <==> x==y"""
+        raise NotImplementedError
 
     def descr__format__(self, space, w_format_spec):
         """S.__format__(format_spec) -> string
 
         Return a formatted version of S as described by format_spec.
         """
+        raise NotImplementedError
 
     def descr_ge(self, space, w_other):
         """x.__ge__(y) <==> x>=y"""
+        raise NotImplementedError
 
     def descr_getitem(self, space, w_index):
         """x.__getitem__(y) <==> x[y]"""
+        raise NotImplementedError
 
     def descr_getnewargs(self, space):
         ""
+        raise NotImplementedError
 
     def descr_getslice(self, space, w_start, w_stop):
         """x.__getslice__(i, j) <==> x[i:j]
 
         Use of negative indices is not supported.
         """
+        raise NotImplementedError
 
     def descr_gt(self, space, w_other):
         """x.__gt__(y) <==> x>y"""
+        raise NotImplementedError
 
     def descr_hash(self, space):
         """x.__hash__() <==> hash(x)"""
+        raise NotImplementedError
 
     def descr_le(self, space, w_other):
         """x.__le__(y) <==> x<=y"""
+        raise NotImplementedError
 
     def descr_len(self, space):
         """x.__len__() <==> len(x)"""
+        raise NotImplementedError
 
     def descr_lt(self, space, w_other):
         """x.__lt__(y) <==> x<y"""
+        raise NotImplementedError
 
     def descr_mod(self, space, w_values):
         """x.__mod__(y) <==> x%y"""
+        raise NotImplementedError
 
     def descr_mul(self, space, w_times):
         """x.__mul__(n) <==> x*n"""
+        raise NotImplementedError
 
     def descr_ne(self, space, w_other):
         """x.__ne__(y) <==> x!=y"""
+        raise NotImplementedError
 
     def descr_repr(self, space):
         """x.__repr__() <==> repr(x)"""
+        raise NotImplementedError
 
     def descr_rmod(self, space, w_values):
         """x.__rmod__(y) <==> y%x"""
+        raise NotImplementedError
 
     def descr_rmul(self, space, w_times):
         """x.__rmul__(n) <==> n*x"""
+        raise NotImplementedError
 
     def descr_str(self, space):
         """x.__str__() <==> str(x)"""
+        raise NotImplementedError
 
     def descr_capitalize(self, space):
         """S.capitalize() -> string
@@ -119,6 +139,7 @@ class W_AbstractBytesObject(W_Root):
         Return a capitalized version of S, i.e. make the first character
         have upper case and the rest lower case.
         """
+        raise NotImplementedError
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_center(self, space, width, w_fillchar):
@@ -127,6 +148,7 @@ class W_AbstractBytesObject(W_Root):
         Return S centered in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
+        raise NotImplementedError
 
     def descr_count(self, space, w_sub, w_start=None, w_end=None):
         """S.count(sub[, start[, end]]) -> int
@@ -135,6 +157,7 @@ class W_AbstractBytesObject(W_Root):
         string S[start:end].  Optional arguments start and end are interpreted
         as in slice notation.
         """
+        raise NotImplementedError
 
     def descr_decode(self, space, w_encoding=None, w_errors=None):
         """S.decode(encoding=None, errors='strict') -> object
@@ -146,6 +169,7 @@ class W_AbstractBytesObject(W_Root):
         as well as any other name registered with codecs.register_error that is
         able to handle UnicodeDecodeErrors.
         """
+        raise NotImplementedError
 
     def descr_encode(self, space, w_encoding=None, w_errors=None):
         """S.encode(encoding=None, errors='strict') -> object
@@ -157,6 +181,7 @@ class W_AbstractBytesObject(W_Root):
         'xmlcharrefreplace' as well as any other name registered with
         codecs.register_error that is able to handle UnicodeEncodeErrors.
         """
+        raise NotImplementedError
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
         """S.endswith(suffix[, start[, end]]) -> bool
@@ -166,6 +191,7 @@ class W_AbstractBytesObject(W_Root):
         With optional end, stop comparing S at that position.
         suffix can also be a tuple of strings to try.
         """
+        raise NotImplementedError
 
     @unwrap_spec(tabsize=int)
     def descr_expandtabs(self, space, tabsize=8):
@@ -174,6 +200,7 @@ class W_AbstractBytesObject(W_Root):
         Return a copy of S where all tab characters are expanded using spaces.
         If tabsize is not given, a tab size of 8 characters is assumed.
         """
+        raise NotImplementedError
 
     def descr_find(self, space, w_sub, w_start=None, w_end=None):
         """S.find(sub[, start[, end]]) -> int
@@ -184,6 +211,7 @@ class W_AbstractBytesObject(W_Root):
 
         Return -1 on failure.
         """
+        raise NotImplementedError
 
     def descr_format(self, space, __args__):
         """S.format(*args, **kwargs) -> string
@@ -191,12 +219,14 @@ class W_AbstractBytesObject(W_Root):
         Return a formatted version of S, using substitutions from args and
         kwargs.  The substitutions are identified by braces ('{' and '}').
         """
+        raise NotImplementedError
 
     def descr_index(self, space, w_sub, w_start=None, w_end=None):
         """S.index(sub[, start[, end]]) -> int
 
         Like S.find() but raise ValueError when the substring is not found.
         """
+        raise NotImplementedError
 
     def descr_isalnum(self, space):
         """S.isalnum() -> bool
@@ -204,6 +234,7 @@ class W_AbstractBytesObject(W_Root):
         Return True if all characters in S are alphanumeric
         and there is at least one character in S, False otherwise.
         """
+        raise NotImplementedError
 
     def descr_isalpha(self, space):
         """S.isalpha() -> bool
@@ -211,6 +242,7 @@ class W_AbstractBytesObject(W_Root):
         Return True if all characters in S are alphabetic
         and there is at least one character in S, False otherwise.
         """
+        raise NotImplementedError
 
     def descr_isdigit(self, space):
         """S.isdigit() -> bool
@@ -218,6 +250,7 @@ class W_AbstractBytesObject(W_Root):
         Return True if all characters in S are digits
         and there is at least one character in S, False otherwise.
         """
+        raise NotImplementedError
 
     def descr_islower(self, space):
         """S.islower() -> bool
@@ -225,6 +258,7 @@ class W_AbstractBytesObject(W_Root):
         Return True if all cased characters in S are lowercase and there is
         at least one cased character in S, False otherwise.
         """
+        raise NotImplementedError
 
     def descr_isspace(self, space):
         """S.isspace() -> bool
@@ -232,6 +266,7 @@ class W_AbstractBytesObject(W_Root):
         Return True if all characters in S are whitespace
         and there is at least one character in S, False otherwise.
         """
+        raise NotImplementedError
 
     def descr_istitle(self, space):
         """S.istitle() -> bool
@@ -241,6 +276,7 @@ class W_AbstractBytesObject(W_Root):
         characters and lowercase characters only cased ones. Return False
         otherwise.
         """
+        raise NotImplementedError
 
     def descr_isupper(self, space):
         """S.isupper() -> bool
@@ -248,6 +284,7 @@ class W_AbstractBytesObject(W_Root):
         Return True if all cased characters in S are uppercase and there is
         at least one cased character in S, False otherwise.
         """
+        raise NotImplementedError
 
     def descr_join(self, space, w_list):
         """S.join(iterable) -> string
@@ -255,6 +292,7 @@ class W_AbstractBytesObject(W_Root):
         Return a string which is the concatenation of the strings in the
         iterable.  The separator between elements is S.
         """
+        raise NotImplementedError
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_ljust(self, space, width, w_fillchar):
@@ -263,12 +301,14 @@ class W_AbstractBytesObject(W_Root):
         Return S left-justified in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
+        raise NotImplementedError
 
     def descr_lower(self, space):
         """S.lower() -> string
 
         Return a copy of the string S converted to lowercase.
         """
+        raise NotImplementedError
 
     def descr_lstrip(self, space, w_chars=None):
         """S.lstrip([chars]) -> string or unicode
@@ -277,6 +317,7 @@ class W_AbstractBytesObject(W_Root):
         If chars is given and not None, remove characters in chars instead.
         If chars is unicode, S will be converted to unicode before stripping
         """
+        raise NotImplementedError
 
     def descr_partition(self, space, w_sub):
         """S.partition(sep) -> (head, sep, tail)
@@ -285,6 +326,7 @@ class W_AbstractBytesObject(W_Root):
         the separator itself, and the part after it.  If the separator is not
         found, return S and two empty strings.
         """
+        raise NotImplementedError
 
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
@@ -294,6 +336,7 @@ class W_AbstractBytesObject(W_Root):
         old replaced by new.  If the optional argument count is
         given, only the first count occurrences are replaced.
         """
+        raise NotImplementedError
 
     def descr_rfind(self, space, w_sub, w_start=None, w_end=None):
         """S.rfind(sub[, start[, end]]) -> int
@@ -304,12 +347,14 @@ class W_AbstractBytesObject(W_Root):
 
         Return -1 on failure.
         """
+        raise NotImplementedError
 
     def descr_rindex(self, space, w_sub, w_start=None, w_end=None):
         """S.rindex(sub[, start[, end]]) -> int
 
         Like S.rfind() but raise ValueError when the substring is not found.
         """
+        raise NotImplementedError
 
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(' '))
     def descr_rjust(self, space, width, w_fillchar):
@@ -318,6 +363,7 @@ class W_AbstractBytesObject(W_Root):
         Return S right-justified in a string of length width. Padding is
         done using the specified fill character (default is a space).
         """
+        raise NotImplementedError
 
     def descr_rpartition(self, space, w_sub):
         """S.rpartition(sep) -> (head, sep, tail)
@@ -326,6 +372,7 @@ class W_AbstractBytesObject(W_Root):
         the part before it, the separator itself, and the part after it.  If
         the separator is not found, return two empty strings and S.
         """
+        raise NotImplementedError
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
@@ -337,6 +384,7 @@ class W_AbstractBytesObject(W_Root):
         done. If sep is not specified or is None, any whitespace string
         is a separator.
         """
+        raise NotImplementedError
 
     def descr_rstrip(self, space, w_chars=None):
         """S.rstrip([chars]) -> string or unicode
@@ -345,6 +393,7 @@ class W_AbstractBytesObject(W_Root):
         If chars is given and not None, remove characters in chars instead.
         If chars is unicode, S will be converted to unicode before stripping
         """
+        raise NotImplementedError
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
@@ -356,6 +405,7 @@ class W_AbstractBytesObject(W_Root):
         whitespace string is a separator and empty strings are removed
         from the result.
         """
+        raise NotImplementedError
 
     @unwrap_spec(keepends=bool)
     def descr_splitlines(self, space, keepends=False):
@@ -365,6 +415,7 @@ class W_AbstractBytesObject(W_Root):
         Line breaks are not included in the resulting list unless keepends
         is given and true.
         """
+        raise NotImplementedError
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
         """S.startswith(prefix[, start[, end]]) -> bool
@@ -374,6 +425,7 @@ class W_AbstractBytesObject(W_Root):
         With optional end, stop comparing S at that position.
         prefix can also be a tuple of strings to try.
         """
+        raise NotImplementedError
 
     def descr_strip(self, space, w_chars=None):
         """S.strip([chars]) -> string or unicode
@@ -383,6 +435,7 @@ class W_AbstractBytesObject(W_Root):
         If chars is given and not None, remove characters in chars instead.
         If chars is unicode, S will be converted to unicode before stripping
         """
+        raise NotImplementedError
 
     def descr_swapcase(self, space):
         """S.swapcase() -> string
@@ -390,6 +443,7 @@ class W_AbstractBytesObject(W_Root):
         Return a copy of the string S with uppercase characters
         converted to lowercase and vice versa.
         """
+        raise NotImplementedError
 
     def descr_title(self, space):
         """S.title() -> string
@@ -397,6 +451,7 @@ class W_AbstractBytesObject(W_Root):
         Return a titlecased version of S, i.e. words start with uppercase
         characters, all remaining cased characters have lowercase.
         """
+        raise NotImplementedError
 
     @unwrap_spec(w_deletechars=WrappedDefault(''))
     def descr_translate(self, space, w_table, w_deletechars):
@@ -409,12 +464,14 @@ class W_AbstractBytesObject(W_Root):
         If the table argument is None, no translation is applied and
         the operation simply removes the characters in deletechars.
         """
+        raise NotImplementedError
 
     def descr_upper(self, space):
         """S.upper() -> string
 
         Return a copy of the string S converted to uppercase.
         """
+        raise NotImplementedError
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
@@ -423,6 +480,7 @@ class W_AbstractBytesObject(W_Root):
         Pad a numeric string S with zeros on the left, to fill a field
         of the specified width. The string S is never truncated.
         """
+        raise NotImplementedError
 
     def writebuf_w(self, space):
         raise OperationError(space.w_TypeError, space.wrap(
@@ -438,6 +496,16 @@ class W_AbstractBytesObject(W_Root):
                         "ord() expected a character, but string of length %d "
                         "found", len(value))
         return space.wrap(ord(value[0]))
+
+    def descr_formatter_parser(self, space):
+        from pypy.objspace.std.newformat import str_template_formatter
+        tformat = str_template_formatter(space, space.str_w(self))
+        return tformat.formatter_parser()
+
+    def descr_formatter_field_name_split(self, space):
+        from pypy.objspace.std.newformat import str_template_formatter
+        tformat = str_template_formatter(space, space.str_w(self))
+        return tformat.formatter_field_name_split()
 
 
 class W_BytesObject(W_AbstractBytesObject):
@@ -832,16 +900,6 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
-    def descr_formatter_parser(self, space):
-        from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
-        return tformat.formatter_parser()
-
-    def descr_formatter_field_name_split(self, space):
-        from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
-        return tformat.formatter_field_name_split()
-
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
@@ -950,9 +1008,10 @@ W_BytesObject.typedef = TypeDef(
     __mod__ = interpindirect2app(W_AbstractBytesObject.descr_mod),
     __getnewargs__ = interpindirect2app(
         W_AbstractBytesObject.descr_getnewargs),
-    _formatter_parser = interp2app(W_BytesObject.descr_formatter_parser),
+    _formatter_parser =
+        interp2app(W_AbstractBytesObject.descr_formatter_parser),
     _formatter_field_name_split =
-        interp2app(W_BytesObject.descr_formatter_field_name_split),
+        interp2app(W_AbstractBytesObject.descr_formatter_field_name_split),
 )
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
