@@ -217,12 +217,17 @@ class TestStringBuilder(BaseRtypingTest):
 
     def test_string_builder_union(self):
         s = StringBuilder()
+        s.append('foo')
 
         def f(i):
             if i % 2:
                 s2 = StringBuilder()
+                s2.append('x')
             else:
                 s2 = s
-            return s2.build()
+            return len(s2.build())
 
-        self.interpret(f, [3])
+        res = self.interpret(f, [33])
+        assert res == 1
+        res = self.interpret(f, [34])
+        assert res == 3
