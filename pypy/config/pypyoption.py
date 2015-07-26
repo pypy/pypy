@@ -297,6 +297,7 @@ def set_pypy_opt_level(config, level):
         #config.objspace.std.suggest(newshortcut=True)
         config.objspace.std.suggest(withspecialisedtuple=True)
         config.objspace.std.suggest(withidentitydict=True)
+        config.objspace.std.suggest(withstrbuf=True)
         #if not IS_64_BITS:
         #    config.objspace.std.suggest(withsmalllong=True)
 
