@@ -293,13 +293,7 @@ class W_Ufunc(W_Root):
             dtype = self.find_binop_type(space, dtype)
             call__array_wrap__ = True
             if shapelen > 1:
-                temp = None
                 shape = obj_shape[:]
-                temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
-                if out:
-                    dtype = out.get_dtype()
-                temp = W_NDimArray.from_shape(space, temp_shape, dtype,
-                                            w_instance=obj)
                 if out:
                     # Test for shape agreement
                     # XXX maybe we need to do broadcasting here, although I must
@@ -329,7 +323,7 @@ class W_Ufunc(W_Root):
                         out.fill(space, self.identity.convert_to(space, dtype))
                     return out
                 loop.do_accumulate(space, shape, self.func, obj, dtype, axis,
-                                    out, self.identity, temp)
+                                    out, self.identity)
             else:
                 if out:
                     call__array_wrap__ = False
