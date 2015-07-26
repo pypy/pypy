@@ -482,6 +482,13 @@ class W_AbstractBytesObject(W_Root):
         """
         raise NotImplementedError
 
+    def buffer_w(self, space, flags):
+        space.check_buf_flags(flags, True)
+        return StringBuffer(self.str_w(space))
+
+    def readbuf_w(self, space):
+        return StringBuffer(self.str_w(space))
+
     def writebuf_w(self, space):
         raise OperationError(space.w_TypeError, space.wrap(
             "Cannot use string as modifiable buffer"))
@@ -499,12 +506,12 @@ class W_AbstractBytesObject(W_Root):
 
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
+        tformat = str_template_formatter(space, self.str_w(space))
         return tformat.formatter_parser()
 
     def descr_formatter_field_name_split(self, space):
         from pypy.objspace.std.newformat import str_template_formatter
-        tformat = str_template_formatter(space, space.str_w(self))
+        tformat = str_template_formatter(space, self.str_w(space))
         return tformat.formatter_field_name_split()
 
 
@@ -526,18 +533,20 @@ class W_BytesObject(W_AbstractBytesObject):
     def str_w(self, space):
         return self._value
 
-    def buffer_w(self, space, flags):
-        space.check_buf_flags(flags, True)
-        return StringBuffer(self._value)
-
-    def readbuf_w(self, space):
-        return StringBuffer(self._value)
-
     def listview_bytes(self):
         return _create_list_from_bytes(self._value)
 
     def _new(self, value):
         return W_BytesObject(value)
+
+    def _new_concat(self, space, value1, value2):
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.strbufobject import W_StringBufferObject
+            builder = StringBuilder(len(value1) + len(value2))
+            builder.append(value1)
+            builder.append(value2)
+            return W_StringBufferObject(builder)
+        return self._new(value1 + value2)
 
     def _new_from_list(self, value):
         return W_BytesObject(''.join(value))
@@ -726,18 +735,6 @@ class W_BytesObject(W_AbstractBytesObject):
             from .bytearrayobject import W_BytearrayObject, _make_data
             self_as_bytearray = W_BytearrayObject(_make_data(self._value))
             return space.add(self_as_bytearray, w_other)
-        if space.config.objspace.std.withstrbuf:
-            from pypy.objspace.std.strbufobject import W_StringBufferObject
-            try:
-                other = self._op_val(space, w_other)
-            except OperationError as e:
-                if e.match(space, space.w_TypeError):
-                    return space.w_NotImplemented
-                raise
-            builder = StringBuilder()
-            builder.append(self._value)
-            builder.append(other)
-            return W_StringBufferObject(builder)
         return self._StringMethods_descr_add(space, w_other)
 
     _StringMethods__startswith = _startswith

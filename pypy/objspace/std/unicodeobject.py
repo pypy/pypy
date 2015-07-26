@@ -495,14 +495,22 @@ class W_AbstractUnicodeObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
+    def readbuf_w(self, space):
+        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
+        value = self.unicode_w(space)
+        builder = StringBuilder(len(value) * UNICODE_SIZE)
+        for unich in value:
+            pack_unichar(unich, builder)
+        return StringBuffer(builder.build())
+
     def descr_formatter_parser(self, space):
         from pypy.objspace.std.newformat import unicode_template_formatter
-        tformat = unicode_template_formatter(space, space.unicode_w(self))
+        tformat = unicode_template_formatter(space, self.unicode_w(space))
         return tformat.formatter_parser()
 
     def descr_formatter_field_name_split(self, space):
         from pypy.objspace.std.newformat import unicode_template_formatter
-        tformat = unicode_template_formatter(space, space.unicode_w(self))
+        tformat = unicode_template_formatter(space, self.unicode_w(space))
         return tformat.formatter_field_name_split()
 
 
@@ -530,13 +538,6 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
     def unicode_w(self, space):
         return self._value
 
-    def readbuf_w(self, space):
-        from rpython.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
-        builder = StringBuilder(len(self._value) * UNICODE_SIZE)
-        for unich in self._value:
-            pack_unichar(unich, builder)
-        return StringBuffer(builder.build())
-
     def writebuf_w(self, space):
         raise OperationError(space.w_TypeError, space.wrap(
             "cannot use unicode as modifiable buffer"))
@@ -553,6 +554,15 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
 
     def _new(self, value):
         return W_UnicodeObject(value)
+
+    def _new_concat(self, space, value1, value2):
+        if space.config.objspace.std.withstrbuf:
+            from pypy.objspace.std.unibufobject import W_UnicodeBufferObject
+            builder = UnicodeBuilder(len(value1) + len(value2))
+            builder.append(value1)
+            builder.append(value2)
+            return W_UnicodeBufferObject(builder)
+        return self._new(value1 + value2)
 
     def _new_from_list(self, value):
         return W_UnicodeObject(u''.join(value))
@@ -573,9 +583,11 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
 
     @staticmethod
     def _op_val(space, w_other):
-        if isinstance(w_other, W_UnicodeObject):
-            return w_other._value
-        if space.isinstance_w(w_other, space.w_str):
+        from pypy.objspace.std.bytesobject import W_AbstractBytesObject
+
+        if isinstance(w_other, W_AbstractUnicodeObject):
+            return w_other.unicode_w(space)
+        if isinstance(w_other, W_AbstractBytesObject):
             return unicode_from_string(space, w_other)._value
         return unicode_from_encoded_object(
             space, w_other, None, "strict")._value
@@ -664,9 +676,9 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
             if space.is_w(w_unicodetype, space.w_unicode):
                 return w_value
 
-        assert isinstance(w_value, W_UnicodeObject)
+        value = w_value.unicode_w(space)
         w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)
-        W_UnicodeObject.__init__(w_newobj, w_value._value)
+        W_UnicodeObject.__init__(w_newobj, value)
         return w_newobj
 
     def descr_repr(self, space):
@@ -1035,7 +1047,7 @@ W_UnicodeObject.typedef = TypeDef(
 
     __add__ = interpindirect2app(W_AbstractUnicodeObject.descr_add),
     __mul__ = interpindirect2app(W_AbstractUnicodeObject.descr_mul),
-    __rmul__ = interpindirect2app(W_AbstractUnicodeObject.descr_mul),
+    __rmul__ = interpindirect2app(W_AbstractUnicodeObject.descr_rmul),
 
     __getitem__ = interpindirect2app(W_AbstractUnicodeObject.descr_getitem),
     __getslice__ = interpindirect2app(W_AbstractUnicodeObject.descr_getslice),

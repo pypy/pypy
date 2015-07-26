@@ -31,7 +31,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 from pypy.objspace.std.typeobject import W_TypeObject, TypeCache
-from pypy.objspace.std.unicodeobject import W_UnicodeObject, wrapunicode
+from pypy.objspace.std.unicodeobject import W_AbstractUnicodeObject, W_UnicodeObject, wrapunicode
 
 
 class StdObjSpace(ObjSpace):
@@ -82,6 +82,8 @@ class StdObjSpace(ObjSpace):
         }
         if self.config.objspace.std.withstrbuf:
             builtin_type_classes[W_BytesObject.typedef] = W_AbstractBytesObject
+            builtin_type_classes[W_UnicodeObject.typedef] = (
+                W_AbstractUnicodeObject)
 
         self.builtin_types = {}
         self._interplevel_classes = {}

@@ -84,6 +84,13 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         a += 'b'
         raises(TypeError, "a += 5")
 
+    def test_add_unicode(self):
+        a = 'a'
+        a += 'b'
+        a += u'\u1234'
+        assert a == u'ab\u1234'
+        assert isinstance(a, unicode)
+
     def test_mix_strings_format(self):
         a = 'a'
         a += 'b'
@@ -99,3 +106,9 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         a = 'abc'
         a += 'bc'
         assert list(a._formatter_parser()) == [('abcbc', None, None, None)]
+
+    def test_startswith_u(self):
+        a = 'abc'
+        a += 'bc'
+        assert a.startswith(u'abcb')
+        assert not a.startswith(u'\u1234')

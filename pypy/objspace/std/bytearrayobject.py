@@ -47,6 +47,9 @@ class W_BytearrayObject(W_Root):
             value = value[:]
         return W_BytearrayObject(value)
 
+    def _new_concat(self, space, value1, value2):
+        return self._new(value1 + value2)
+
     def _new_from_buffer(self, buffer):
         return W_BytearrayObject([buffer[i] for i in range(len(buffer))])
 

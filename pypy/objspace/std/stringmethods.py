@@ -62,7 +62,7 @@ class StringMethods(object):
                 if e.match(space, space.w_TypeError):
                     return space.w_NotImplemented
                 raise
-            return self._new(self._val(space) + other)
+            return self._new_concat(space, self._val(space), other)
 
         # Bytearray overrides this method, CPython doesn't support contacting
         # buffers and strs, and unicodes are always handled above
