@@ -77,11 +77,13 @@ class W_BytearrayObject(W_Root):
     def _op_val(space, w_other):
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
-    def _chr(self, char):
+    @staticmethod
+    def _chr(char):
         assert len(char) == 1
-        return str(char)[0]
+        return char[0]
 
-    def _multi_chr(self, char):
+    @staticmethod
+    def _multi_chr(char):
         return [char]
 
     @staticmethod

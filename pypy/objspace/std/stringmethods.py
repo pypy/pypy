@@ -28,7 +28,8 @@ class StringMethods(object):
         start, end = unwrap_start_stop(space, lenself, w_start, w_end)
         return (value, start, end)
 
-    def _multi_chr(self, c):
+    @staticmethod
+    def _multi_chr(c):
         return c
 
     def descr_len(self, space):

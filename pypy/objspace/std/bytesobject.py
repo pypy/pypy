@@ -483,7 +483,7 @@ class W_BytesObject(W_AbstractBytesObject):
     @staticmethod
     def _use_rstr_ops(space, w_other):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        return (isinstance(w_other, W_BytesObject) or
+        return (isinstance(w_other, W_AbstractBytesObject) or
                 isinstance(w_other, W_UnicodeObject))
 
     @staticmethod
@@ -495,9 +495,10 @@ class W_BytesObject(W_AbstractBytesObject):
                 raise
         return space.charbuf_w(w_other)
 
-    def _chr(self, char):
+    @staticmethod
+    def _chr(char):
         assert len(char) == 1
-        return str(char)[0]
+        return char[0]
 
     _builder = StringBuilder
 

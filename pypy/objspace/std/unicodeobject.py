@@ -117,9 +117,10 @@ class W_UnicodeObject(W_Root):
         return unicode_from_encoded_object(
             space, w_other, None, "strict")._value
 
-    def _chr(self, char):
+    @staticmethod
+    def _chr(char):
         assert len(char) == 1
-        return unicode(char)[0]
+        return unichr(ord(char[0]))
 
     _builder = UnicodeBuilder
 
