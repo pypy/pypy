@@ -424,6 +424,21 @@ class W_AbstractBytesObject(W_Root):
         of the specified width. The string S is never truncated.
         """
 
+    def writebuf_w(self, space):
+        raise OperationError(space.w_TypeError, space.wrap(
+            "Cannot use string as modifiable buffer"))
+
+    def charbuf_w(self, space):
+        return self.str_w(space)
+
+    def ord(self, space):
+        value = self.str_w(space)
+        if len(value) != 1:
+            raise oefmt(space.w_TypeError,
+                        "ord() expected a character, but string of length %d "
+                        "found", len(value))
+        return space.wrap(ord(value[0]))
+
 
 class W_BytesObject(W_AbstractBytesObject):
     import_from_mixin(StringMethods)
@@ -450,21 +465,8 @@ class W_BytesObject(W_AbstractBytesObject):
     def readbuf_w(self, space):
         return StringBuffer(self._value)
 
-    def writebuf_w(self, space):
-        raise OperationError(space.w_TypeError, space.wrap(
-            "Cannot use string as modifiable buffer"))
-
-    charbuf_w = str_w
-
     def listview_bytes(self):
         return _create_list_from_bytes(self._value)
-
-    def ord(self, space):
-        if len(self._value) != 1:
-            raise oefmt(space.w_TypeError,
-                        "ord() expected a character, but string of length %d "
-                        "found", len(self._value))
-        return space.wrap(ord(self._value[0]))
 
     def _new(self, value):
         return W_BytesObject(value)

@@ -89,3 +89,8 @@ class AppTestStringObject(test_bytesobject.AppTestBytesObject):
         a += 'b'
         assert 'foo%s' % a == 'fooab'
         assert (a + '%s') % ('foo',) == 'abfoo'
+
+    def test_print(self):
+        a = 'abc'
+        a += 'bc'
+        print a
