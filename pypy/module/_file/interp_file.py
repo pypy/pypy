@@ -12,6 +12,7 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.baseobjspace import BufferInterfaceNotFound
 from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
 
 
@@ -499,7 +500,7 @@ producing strings. This is equivalent to calling write() for each string."""
                         line = w_line.readbuf_w(space).as_str()
                     else:
                         line = w_line.charbuf_w(space)
-                except TypeError:
+                except BufferInterfaceNotFound:
                     raise OperationError(space.w_TypeError, space.wrap(
                         "writelines() argument must be a sequence of strings"))
                 else:
