@@ -64,18 +64,15 @@ class AppTestNDIter(BaseNumpyAppTest):
         a = arange(24).reshape(2, 3, 4)
         import sys
         r = []
-        n = 0
         for x in nditer(a, flags=['external_loop']):
             r.append(x)
-            n += 1
-        assert n == 1
+        assert len(r) == 1
+        assert r[0].shape == (24,)
         assert (array(r) == range(24)).all()
         r = []
-        n = 0
         for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
-            n += 1
-        assert n == 12
+        assert len(r) == 12
         assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21],
                              [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23],
                             ]).all()
@@ -160,9 +157,16 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (array_r == [[0, 12], [4, 16], [8, 20], [1, 13], [5, 17], [9, 21],
                       [2, 14], [6, 18], [10, 22], [3, 15], [7, 19], [11, 23]]).all
         assert (a == arange(24).reshape(2, 3, 4)).all()
+        a[0,0,0] = 100
+        assert r[0][0] == 100
 
         r = []
-        for x in nditer(a, flags=['buffered'], order='F'):
+        try:
+            it = nditer(a, flags=['buffered'], order='F')
+        except NotImplementedError as e:
+            assert 'unsupported value for order' in str(e)
+            skip('buffered with order="F" requires fortran tmp array creation')
+        for x in it:
             r.append(x)
         array_r = array(r)
         assert len(array_r.shape) == 1
@@ -172,6 +176,9 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (array_r == [0, 12, 4, 16, 8, 20, 1, 13, 5, 17, 9, 21,
                       2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23]).all
         assert a.shape == (2, 3, 4)
+        a[0,0,0] = 0
+        # buffered copies the data into a tmp array
+        assert r[0] == 100
         assert (a == arange(24).reshape(2, 3, 4)).all()
 
         r = []
@@ -208,11 +215,10 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import arange, nditer
         import sys
         a = arange(6.)
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
-            skip('nditer casting not implemented yet')
         exc = raises(TypeError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
-        assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
+        assert str(exc.value) == "Iterator operand 0 dtype could not be " + \
+            "cast from dtype('float64') to dtype('float32') according to the" +\
+            " rule 'safe'"
         r = []
         for x in nditer(a, flags=['buffered'], op_dtypes=['float32'],
                                 casting='same_kind'):
@@ -223,6 +229,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
         b = arange(6)
+        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         exc = raises(TypeError, nditer, b, flags=['buffered'], op_dtypes=['float64'],
                                 op_flags=['readwrite'], casting='same_kind')
         assert str(exc.value).startswith("Iterator requested dtype could not be cast")
