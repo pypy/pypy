@@ -424,8 +424,15 @@ class W_NDIter(W_NumpyObject):
                     self.seq[i] = W_NDimArray.from_shape(space, self.shape, out_dtype)
                 else:
                     if not self.op_flags[i].broadcast:
-                        # Raises if ooutput cannot be broadcast
-                        shape_agreement(space, self.shape, self.seq[i], False)
+                        # Raises if output cannot be broadcast
+                        try:
+                            shape_agreement(space, self.shape, self.seq[i], False)
+                        except OperationError as e:
+                            raise oefmt(space.w_ValueError, "non-broadcastable"
+                                " output operand with shape %s doesn't match "
+                                "the broadcast shape %s", 
+                                str(self.seq[i].get_shape()),
+                                str(self.shape)) 
 
         if self.tracked_index != "":
             if self.order == "K":
@@ -474,7 +481,10 @@ class W_NDIter(W_NumpyObject):
                                     space.str_w(seq_d.descr_repr(space)),
                                     i, self.casting)
         elif self.buffered:
-            self.seq = [s.descr_copy(space, w_order=space.wrap(self.order)) for s in self.seq]
+            for i in range(len(self.seq)):
+                if i not in outargs:
+                    self.seq[i] = self.seq[i].descr_copy(space,
+                                     w_order=space.wrap(self.order))
             self.dtypes = [s.get_dtype() for s in self.seq]
         else:
             #copy them from seq

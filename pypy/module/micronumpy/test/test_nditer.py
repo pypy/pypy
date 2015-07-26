@@ -229,7 +229,6 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
         r = []
         b = arange(6)
-        print 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         exc = raises(TypeError, nditer, b, flags=['buffered'], op_dtypes=['float64'],
                                 op_flags=['readwrite'], casting='same_kind')
         assert str(exc.value).startswith("Iterator requested dtype could not be cast")
@@ -259,9 +258,6 @@ class AppTestNDIter(BaseNumpyAppTest):
             return it.operands[1]
         assert (square1([1, 2, 3]) == [1, 4, 9]).all()
 
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, [1, 2], flags=['buffered'])
-            skip('nditer buffered not implmented')
         def square2(a, out=None):
             it = nditer([a, out], flags=['external_loop', 'buffered'],
                         op_flags=[['readonly'],
