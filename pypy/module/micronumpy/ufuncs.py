@@ -159,7 +159,7 @@ class W_Ufunc(W_Root):
         return retval
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
-        if space.is_none(w_axis):
+        if w_axis is None:
             w_axis = space.wrap(0)
         out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
@@ -243,7 +243,9 @@ class W_Ufunc(W_Root):
         if obj.is_scalar():
             return obj.get_scalar_value()
         shapelen = len(obj_shape)
+
         if space.is_none(w_axis):
+            axes = range(shapelen)
             axis = maxint
         else:
             if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
@@ -253,6 +255,7 @@ class W_Ufunc(W_Root):
                 raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
             if axis < 0:
                 axis += shapelen
+            axes = [axis]
         assert axis >= 0
         dtype = decode_w_dtype(space, dtype)
 
@@ -282,9 +285,14 @@ class W_Ufunc(W_Root):
                             "which has no identity", self.name)
 
         if variant == ACCUMULATE:
+            if len(axes) != 1:
+                raise oefmt(space.w_ValueError,
+                    "accumulate does not allow multiple axes")
+            axis = axes[0]
+            assert axis >= 0
             dtype = self.find_binop_type(space, dtype)
             call__array_wrap__ = True
-            if shapelen > 1 and axis < shapelen:
+            if shapelen > 1:
                 temp = None
                 shape = obj_shape[:]
                 temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]

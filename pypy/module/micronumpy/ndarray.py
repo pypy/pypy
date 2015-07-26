@@ -1145,14 +1145,14 @@ class __extend__(W_NDimArray):
 
     # ----------------------- reduce -------------------------------
 
-    def _reduce_ufunc_impl(ufunc_name, name, variant=ufuncs.REDUCE, bool_result=False):
+    def _reduce_ufunc_impl(ufunc_name, name, bool_result=False):
         @unwrap_spec(keepdims=bool)
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             out = out_converter(space, w_out)
             if bool_result:
                 w_dtype = descriptor.get_dtype_cache(space).w_booldtype
             return getattr(ufuncs.get(space), ufunc_name).reduce(
-                space, self, w_axis, keepdims, out, w_dtype, variant=variant)
+                space, self, w_axis, keepdims, out, w_dtype)
         impl.__name__ = name
         return impl
 
@@ -1163,8 +1163,23 @@ class __extend__(W_NDimArray):
     descr_all = _reduce_ufunc_impl('logical_and', "descr_all", bool_result=True)
     descr_any = _reduce_ufunc_impl('logical_or', "descr_any", bool_result=True)
 
-    descr_cumsum = _reduce_ufunc_impl('add', "descr_cumsum", variant=ufuncs.ACCUMULATE)
-    descr_cumprod = _reduce_ufunc_impl('multiply', "descr_cumprod", variant=ufuncs.ACCUMULATE)
+
+    def _accumulate_method(ufunc_name, name):
+        def method(self, space, w_axis=None, w_dtype=None, w_out=None):
+            out = out_converter(space, w_out)
+            if space.is_none(w_axis):
+                w_axis = space.wrap(0)
+                arr = self.reshape(space, space.wrap(-1))
+            else:
+                arr = self
+            ufunc = getattr(ufuncs.get(space), ufunc_name)
+            return ufunc.reduce(space, arr, w_axis, False, out, w_dtype,
+                                variant=ufuncs.ACCUMULATE)
+        method.__name__ = name
+        return method
+
+    descr_cumsum = _accumulate_method('add', 'descr_cumsum')
+    descr_cumprod = _accumulate_method('multiply', 'descr_cumprod')
 
     def _reduce_argmax_argmin_impl(raw_name):
         op_name = "arg%s" % raw_name
