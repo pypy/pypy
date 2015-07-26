@@ -303,6 +303,8 @@ def coalesce_iter(old_iter, op_flags, it, order, flat=True):
         _shape = [shape[-1]]  + old_iter.slice_shape
         _backstride = [(shape[-1] - 1) * strides[-1]] + old_iter.slice_backstride
         fastest = shape[-1]
+    if fastest == 0:
+        return old_iter
     if flat:
         _shape = [support.product(_shape)]
         if len(_stride) > 1:

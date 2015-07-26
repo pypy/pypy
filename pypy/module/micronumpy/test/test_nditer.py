@@ -190,6 +190,17 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert a.shape == (2, 3, 4)
         assert (a == arange(24).reshape(2, 3, 4)).all()
 
+    def test_zerosize(self):
+        from numpy import nditer, array
+        for a in [ array([]), array([1]), array([1, 2]) ]:
+            buffersize = max(16 * 1024 ** 2 // a.itemsize, 1)
+            r = []
+            for chunk in nditer(a, 
+                    flags=['external_loop', 'buffered', 'zerosize_ok'],
+                    buffersize=buffersize, order='C'):
+                r.append(chunk)
+            assert (r == a).all()
+
     def test_op_dtype(self):
         from numpy import arange, nditer, sqrt, array
         a = arange(6).reshape(2,3) - 3
