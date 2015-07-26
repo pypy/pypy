@@ -1275,16 +1275,9 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                             "unicodeescape", errorhandler, message, errors)
 
         # \N{name}
-        elif ch == 'N':
+        elif ch == 'N' and unicodedata_handler is not None:
             message = "malformed \\N character escape"
             look = pos
-            if unicodedata_handler is None:
-                message = ("\\N escapes not supported "
-                           "(can't load unicodedata module)")
-                res, pos = errorhandler(errors, "unicodeescape",
-                                        message, s, pos-1, size)
-                builder.append(res)
-                continue
 
             if look < size and s[look] == '{':
                 # look for the closing brace
