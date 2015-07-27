@@ -61,6 +61,8 @@ abort: force quasi-immut: 3
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
+vecopt tried:           12
+vecopt success:         4
 Total # of loops:       100
 Total # of bridges:     300
 Freed # of loops:       99
@@ -88,3 +90,5 @@ def test_parse():
     assert info.nvirtuals == 13
     assert info.nvholes == 14
     assert info.nvreused == 15
+    assert info.vecopt_tried == 12
+    assert info.vecopt_success == 4

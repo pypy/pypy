@@ -579,14 +579,20 @@ class Operator(Node):
 
 class NumberConstant(Node):
     def __init__(self, v):
-        assert len(v) > 0
-        c = v[-1]
-        if c == 'f':
-            self.v = float(v[:-1])
-        elif c == 'i':
-            self.v = int(v[:-1])
+        if isinstance(v, int):
+            self.v = v
+        elif isinstance(v, float):
+            self.v = v
         else:
-            self.v = float(v)
+            assert isinstance(v, str)
+            assert len(v) > 0
+            c = v[-1]
+            if c == 'f':
+                self.v = float(v[:-1])
+            elif c == 'i':
+                self.v = int(v[:-1])
+            else:
+                self.v = float(v)
 
     def __repr__(self):
         return "Const(%s)" % self.v

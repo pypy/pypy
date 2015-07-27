@@ -873,7 +873,7 @@ class LLFrame(object):
                 value = self.env[box]
             else:
                 value = None
-            if box.getaccum():
+            if box and box.getaccum():
                 if box.getaccum().operator == '+':
                     value = sum(value)
                 elif box.getaccum().operator == '*':
