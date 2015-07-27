@@ -339,10 +339,44 @@ class W_Ufunc(W_Root):
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
 
+        axis_flags = [False] * shapelen
+        for i in axes:
+            if axis_flags[i]:
+                raise oefmt(space.w_ValueError, "duplicate value in 'axis'")
+            axis_flags[i] = True
+
+
         _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
                                                    casting='unsafe')
         call__array_wrap__ = True
-        if shapelen > 1 and axis < shapelen:
+        if shapelen == len(axes):
+            if out:
+                call__array_wrap__ = False
+                if out.ndims() > 0:
+                    raise oefmt(space.w_ValueError,
+                                "output parameter for reduction operation %s has "
+                                "too many dimensions", self.name)
+                dtype = out.get_dtype()
+            res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
+                                    self.identity)
+            if out:
+                out.set_scalar_value(res)
+                return out
+            if keepdims:
+                shape = [1] * len(obj_shape)
+                out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
+                out.implementation.setitem(0, res)
+                res = out
+            elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
+                # subtypes return a ndarray subtype, not a scalar
+                out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
+                out.implementation.setitem(0, res)
+                res = out
+            if call__array_wrap__:
+                res = space.call_method(obj, '__array_wrap__', res)
+            return res
+
+        else:
             temp = None
             if keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
@@ -381,31 +415,6 @@ class W_Ufunc(W_Root):
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
-        if out:
-            call__array_wrap__ = False
-            if out.ndims() > 0:
-                raise oefmt(space.w_ValueError,
-                            "output parameter for reduction operation %s has "
-                            "too many dimensions", self.name)
-            dtype = out.get_dtype()
-        res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
-                                  self.identity)
-        if out:
-            out.set_scalar_value(res)
-            return out
-        if keepdims:
-            shape = [1] * len(obj_shape)
-            out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
-            out.implementation.setitem(0, res)
-            res = out
-        elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
-            # subtypes return a ndarray subtype, not a scalar
-            out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
-            out.implementation.setitem(0, res)
-            res = out
-        if call__array_wrap__:
-            res = space.call_method(obj, '__array_wrap__', res)
-        return res
 
     def descr_outer(self, space, __args__):
         return self._outer(space, __args__)
