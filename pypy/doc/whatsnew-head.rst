@@ -51,3 +51,7 @@ Refactor array indexing to support ellipses.
 .. branch: numpy-docstrings
 
 Allow the docstrings of built-in numpy objects to be set at run-time.
+
+.. branch: nditer-revisited
+
+Implement nditer 'buffered' flag and fix some edge cases
