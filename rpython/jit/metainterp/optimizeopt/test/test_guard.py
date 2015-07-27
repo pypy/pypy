@@ -1,5 +1,6 @@
 import py
 
+from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
@@ -32,6 +33,9 @@ class FakeMemoryRef(object):
 
 class GuardBaseTest(SchedulerBaseTest):
     def optguards(self, loop, user_code=False):
+        for op in loop.operations:
+            if op.is_guard():
+                op.setdescr(compile.CompileLoopVersionDescr())
         dep = DependencyGraph(loop)
         opt = GuardStrengthenOpt(dep.index_vars)
         opt.propagate_all_forward(loop, user_code)
