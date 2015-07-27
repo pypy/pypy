@@ -204,17 +204,16 @@ class ArrayIter(object):
         self.array.setitem(state.offset, elem)
 
 
-def AxisIter(array, shape, axis, cumulative):
+def AxisIter(array, shape, axis):
     strides = array.get_strides()
     backstrides = array.get_backstrides()
-    if not cumulative:
-        if len(shape) == len(strides):
-            # keepdims = True
-            strides = strides[:axis] + [0] + strides[axis + 1:]
-            backstrides = backstrides[:axis] + [0] + backstrides[axis + 1:]
-        else:
-            strides = strides[:axis] + [0] + strides[axis:]
-            backstrides = backstrides[:axis] + [0] + backstrides[axis:]
+    if len(shape) == len(strides):
+        # keepdims = True
+        strides = strides[:axis] + [0] + strides[axis + 1:]
+        backstrides = backstrides[:axis] + [0] + backstrides[axis + 1:]
+    else:
+        strides = strides[:axis] + [0] + strides[axis:]
+        backstrides = backstrides[:axis] + [0] + backstrides[axis:]
     return ArrayIter(array, support.product(shape), shape, strides, backstrides)
 
 

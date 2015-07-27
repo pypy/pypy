@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
-    AllButAxisIter
+    AllButAxisIter, ArrayIter
 from pypy.interpreter.argument import Arguments
 
 
@@ -246,13 +246,13 @@ accumulate_driver = jit.JitDriver(name='numpy_accumulate_flat',
                                   greens=['shapelen', 'func', 'dtype'],
                                   reds='auto')
 
+
 def do_accumulate(space, shape, func, arr, dtype, axis, out, identity):
-    out_iter = AxisIter(out.implementation, arr.get_shape(), axis, cumulative=True)
-    out_state = out_iter.reset()
+    out_iter, out_state = out.create_iter()
     obj_shape = arr.get_shape()
     temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
     temp = W_NDimArray.from_shape(space, temp_shape, dtype, w_instance=arr)
-    temp_iter = AxisIter(temp.implementation, arr.get_shape(), axis, False)
+    temp_iter = AxisIter(temp.implementation, arr.get_shape(), axis)
     temp_state = temp_iter.reset()
     arr_iter, arr_state = arr.create_iter()
     arr_iter.track_index = False
@@ -340,7 +340,7 @@ axis_reduce_driver = jit.JitDriver(name='numpy_axis_reduce',
                                    reds='auto')
 
 def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity):
-    out_iter = AxisIter(out.implementation, arr.get_shape(), axis, cumulative=False)
+    out_iter = AxisIter(out.implementation, arr.get_shape(), axis)
     out_state = out_iter.reset()
     arr_iter, arr_state = arr.create_iter()
     arr_iter.track_index = False
