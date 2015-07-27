@@ -283,6 +283,8 @@ def coalesce_iter(old_iter, op_flags, it, order, flat=True):
     of shape (4,3) by setting the offset to the beginning of the data at each iteration
     '''
     shape = [s+1 for s in old_iter.shape_m1]
+    if len(shape) < 1:
+        return old_iter
     strides = old_iter.strides
     backstrides = old_iter.backstrides
     if order == 'F':
