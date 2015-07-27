@@ -339,14 +339,14 @@ axis_reduce_driver = jit.JitDriver(name='numpy_axis_reduce',
                                    greens=['shapelen', 'func', 'dtype'],
                                    reds='auto')
 
-def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity):
+def do_axis_reduce(space, func, arr, dtype, axis, out, identity):
     out_iter = AxisIter(out.implementation, arr.get_shape(), axis)
     out_state = out_iter.reset()
     arr_iter, arr_state = arr.create_iter()
     arr_iter.track_index = False
     if identity is not None:
         identity = identity.convert_to(space, dtype)
-    shapelen = len(shape)
+    shapelen = len(out.get_shape())
     while not out_iter.done(out_state):
         axis_reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
                                            dtype=dtype)
