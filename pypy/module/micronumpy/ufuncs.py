@@ -322,7 +322,7 @@ class W_Ufunc(W_Root):
                     if self.identity is not None:
                         out.fill(space, self.identity.convert_to(space, dtype))
                     return out
-                loop.do_accumulate(space, shape, self.func, obj, dtype, axis,
+                loop.do_accumulate(space, self.func, obj, dtype, axis,
                                     out, self.identity)
             else:
                 if out:

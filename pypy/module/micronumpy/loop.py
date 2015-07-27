@@ -247,7 +247,7 @@ accumulate_driver = jit.JitDriver(name='numpy_accumulate_flat',
                                   reds='auto')
 
 
-def do_accumulate(space, shape, func, arr, dtype, axis, out, identity):
+def do_accumulate(space, func, arr, dtype, axis, out, identity):
     out_iter, out_state = out.create_iter()
     obj_shape = arr.get_shape()
     temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
@@ -258,7 +258,7 @@ def do_accumulate(space, shape, func, arr, dtype, axis, out, identity):
     arr_iter.track_index = False
     if identity is not None:
         identity = identity.convert_to(space, dtype)
-    shapelen = len(shape)
+    shapelen = len(obj_shape)
     while not out_iter.done(out_state):
         accumulate_driver.jit_merge_point(shapelen=shapelen, func=func,
                                           dtype=dtype)
