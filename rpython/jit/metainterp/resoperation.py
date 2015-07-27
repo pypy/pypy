@@ -497,6 +497,7 @@ _oplist = [
     'VEC_FLOAT_ABS/1',
     '_VEC_ARITHMETIC_LAST',
     'VEC_FLOAT_EQ/2',
+    'VEC_INT_IS_TRUE/1b',
 
     '_VEC_CAST_FIRST',
     'VEC_INT_SIGNEXT/2',
@@ -805,6 +806,7 @@ _opvector = {
     rop.FLOAT_ABS: rop.VEC_FLOAT_ABS,
     rop.FLOAT_NEG: rop.VEC_FLOAT_NEG,
     rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
+    rop.INT_IS_TRUE: rop.VEC_INT_IS_TRUE,
 
     # casts
     rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,

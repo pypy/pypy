@@ -69,7 +69,7 @@ class BaseAssembler(object):
         self.rtyper = cpu.rtyper
         self._debug = False
 
-    def stitch_bridge(self, failargs, token):
+    def stitch_bridge(self, faildescr, token):
         raise NotImplementedError
 
     def setup_once(self):

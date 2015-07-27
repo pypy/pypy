@@ -609,7 +609,7 @@ class LocationCodeBuilder(object):
 
         possible_instr_unrolled = unrolling_iterable([(1,'B_xx'),(2,'W_xx'),(4,'D_xx'),(8,'Q_xx')])
 
-        def INSN(self, size, loc1, loc2):
+        def INSN(self, loc1, loc2, size):
             code1 = loc1.location_code()
             code2 = loc2.location_code()
             assert code1 == code2 == 'x'

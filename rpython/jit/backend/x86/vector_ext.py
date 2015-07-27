@@ -52,8 +52,11 @@ class VectorAssemblerMixin(object):
             # reset to zeros
             self.mc.PXOR(temp, temp)
 
-        self.mc.PCMPEQ(size, loc, temp)
+        # cmp with zeros (in temp) creates ones at each slot where it is zero
+        self.mc.PCMPEQ(loc, temp, size)
+        # temp converted to ones
         self.mc.PCMPEQQ(temp, temp)
+        # test if all slots are zero
         self.mc.PTEST(loc, temp)
 
     # vector operations
@@ -162,6 +165,21 @@ class VectorAssemblerMixin(object):
                 self.mc.MOVUPS(dest_loc, value_loc)
             elif itemsize == 8:
                 self.mc.MOVUPD(dest_loc, value_loc)
+
+    def genop_vec_int_is_true(self, op, arglocs, resloc):
+        loc, size = arglocs
+        temp = X86_64_XMM_SCRATCH_REG
+        self.mc.PXOR(temp, temp)
+        # every entry that is non zero -> becomes zero
+        # zero entries become ones
+        self.mc.PCMPEQ(loc, temp, size)
+        # a second time -> every zero entry (corresponding to non zero
+        # entries before) become ones
+        self.mc.PCMPEQ(loc, temp, size)
+
+    def genop_guard_vec_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
+        self._guard_vector_true(op, arglocs[0])
+        self.implement_guard(guard_token, 'NZ')
 
     def genop_vec_int_mul(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -604,6 +622,17 @@ class VectorRegallocMixin(object):
         size = sizearg.getsize()
         tosize = result.getsize()
         self.perform(op, [resloc, imm(size), imm(tosize)], resloc)
+
+    def consider_vec_int_is_true(self, op, guard_op):
+        args = op.getarglist()
+        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        sizearg = op.getarg(0)
+        assert isinstance(sizearg, BoxVector)
+        size = sizearg.getsize()
+        if guard_op is not None:
+            self.perform_with_guard(op, guard_op, [resloc,imm(size)], None)
+        else:
+            self.perform(op, [resloc,imm(size)], None)
 
     def consider_vec_box(self, op):
         # pseudo instruction, needed to create a new variable

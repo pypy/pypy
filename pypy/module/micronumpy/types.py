@@ -358,7 +358,8 @@ class Bool(BaseType, Primitive):
 
     @specialize.argtype(1)
     def box(self, value):
-        if value:
+        boolean = rffi.cast(self.T, value)
+        if boolean:
             return self._True
         else:
             return self._False
