@@ -7,6 +7,7 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.conftest import option
 
 class DependencyBaseTest(BaseTest):
 
@@ -16,7 +17,7 @@ class DependencyBaseTest(BaseTest):
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
         self.last_graph = DependencyGraph(loop)
-        self._write_dot_and_convert_to_svg(self.last_graph, self.test_name)
+        self.show_dot_graph(self.last_graph, self.test_name)
         for node in self.last_graph.nodes:
             assert node.independent(node)
         return self.last_graph
@@ -45,7 +46,7 @@ class DependencyBaseTest(BaseTest):
                 node_b = graph.getnode(idx_b)
                 dependency = node_a.getedge_to(node_b)
                 if dependency is None and idx_b not in exceptions.setdefault(idx,[]):
-                    self._write_dot_and_convert_to_svg(graph, 'except')
+                    self.show_dot_graph(graph, self.test_name + '_except')
                     assert dependency is not None, \
                        " it is expected that instruction at index" + \
                        " %s depends on instr on index %s but it does not.\n%s" \
@@ -92,13 +93,13 @@ class DependencyBaseTest(BaseTest):
         b = self.last_graph.getnode(b)
         assert not a.independent(b), "{a} and {b} are independent!".format(a=a,b=b)
 
-    def _write_dot_and_convert_to_svg(self, graph, filename):
-        dot = graph.as_dot()
-        with open('/tmp/_'+filename+'.dot', 'w') as fd:
-            fd.write(dot)
-        with open('/tmp/'+filename+'.svg', 'w') as fd:
-            import subprocess
-            subprocess.Popen(['dot', '-Tsvg', '/tmp/_'+filename+'.dot'], stdout=fd).communicate()
+    def show_dot_graph(self, graph, name):
+        if option and option.viewdeps:
+            from rpython.translator.tool.graphpage import GraphPage
+            page = GraphPage()
+            page.source = graph.as_dot()
+            page.links = []
+            page.display()
 
     def debug_print_operations(self, loop):
         print('--- loop instr numbered ---')

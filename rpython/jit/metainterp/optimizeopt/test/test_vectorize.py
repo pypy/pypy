@@ -76,7 +76,7 @@ class VecTestHelper(DependencyBaseTest):
             loop.operations.insert(idx+1, guard)
         opt.analyse_index_calculations()
         if opt.dependency_graph is not None:
-            self._write_dot_and_convert_to_svg(opt.dependency_graph, "ee" + self.test_name)
+            self.show_dot_graph(opt.dependency_graph, "early_exit_" + self.test_name)
             opt.schedule(False)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
@@ -84,7 +84,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.clear_newoperations()
         opt.build_dependency_graph()
         self.last_graph = opt.dependency_graph
-        self._write_dot_and_convert_to_svg(self.last_graph, self.test_name)
+        self.show_dot_graph(self.last_graph, self.test_name)
         return opt
 
     def init_packset(self, loop, unroll_factor = -1):
