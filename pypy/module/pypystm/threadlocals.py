@@ -4,7 +4,6 @@ An STM-friendly subclass of OSThreadLocals.
 
 from pypy.module.thread.threadlocals import OSThreadLocals
 from rpython.rlib import rstm
-from rpython.rlib.objectmodel import invoke_around_extcall
 
 
 class STMThreadLocals(OSThreadLocals):
@@ -29,11 +28,14 @@ class STMThreadLocals(OSThreadLocals):
         if not self.threads_running:
             # invalidate quasi-immutable if we have threads:
             self.threads_running = True
-        self.configure_transaction_length(space)
-        invoke_around_extcall(rstm.before_external_call,
-                              rstm.after_external_call,
-                              rstm.enter_callback_call,
-                              rstm.leave_callback_call)
+
+            # already done by rthread.ll_start_new_thread:
+            # from rpython.rlib.objectmodel import invoke_around_extcall
+            # self.configure_transaction_length(space)
+            # invoke_around_extcall(rstm.before_external_call,
+            #                       rstm.after_external_call,
+            #                       rstm.enter_callback_call,
+            #                       rstm.leave_callback_call)
 
     def configure_transaction_length(self, space):
         if self.threads_running:
