@@ -410,7 +410,7 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            loop.do_axis_reduce(space, self.func, obj, dtype, axis,
+            loop.do_axis_reduce(space, self.func, obj, dtype, axis_flags,
                                 out, self.identity)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
