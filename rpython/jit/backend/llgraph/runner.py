@@ -876,20 +876,21 @@ class LLFrame(object):
                 value = self.env[box]
             else:
                 value = None
-            accum = descr.rd_accum_list
-            while accum != None:
-                if accum.position != i:
-                    accum = accum.prev
-                    continue
-                if accum.operation == '+':
-                    value = sum(value)
-                    break
-                elif accum.operation == '*':
-                    def prod(acc, x): return acc * x
-                    value = reduce(prod, value, 1)
-                    break
-                else:
-                    raise NotImplementedError("accum operator in fail guard")
+            if hasattr(descr, 'rd_accum_list'):
+                accum = descr.rd_accum_list
+                while accum != None:
+                    if accum.position != i:
+                        accum = accum.prev
+                        continue
+                    if accum.operation == '+':
+                        value = sum(value)
+                        break
+                    elif accum.operation == '*':
+                        def prod(acc, x): return acc * x
+                        value = reduce(prod, value, 1)
+                        break
+                    else:
+                        raise NotImplementedError("accum operator in fail guard")
             values.append(value)
         if hasattr(descr, '_llgraph_bridge'):
             target = (descr._llgraph_bridge, -1)
