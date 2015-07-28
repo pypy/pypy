@@ -82,7 +82,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.loop.operations = opt.get_newoperations()
         self.debug_print_operations(opt.loop)
         opt.clear_newoperations()
-        opt.build_dependency_graph()
+        opt.dependency_graph = DependencyGraph(loop)
         self.last_graph = opt.dependency_graph
         self.show_dot_graph(self.last_graph, self.test_name)
         return opt
@@ -278,20 +278,20 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt_ops = """
         [p0,p1,p2,i0]
+        i4 = int_add(i0, 1)
+        i5 = int_le(i4, 10)
+        guard_true(i5) []
         i1 = raw_load(p1, i0, descr=floatarraydescr)
         i2 = raw_load(p2, i0, descr=floatarraydescr)
         i3 = int_add(i1,i2)
         raw_store(p0, i0, i3, descr=floatarraydescr)
-        i4 = int_add(i0, 1)
-        i5 = int_le(i4, 10)
-        guard_true(i5) []
+        i9 = int_add(i4, 1)
+        i10 = int_le(i9, 10)
+        guard_true(i10) []
         i6 = raw_load(p1, i4, descr=floatarraydescr)
         i7 = raw_load(p2, i4, descr=floatarraydescr)
         i8 = int_add(i6,i7)
         raw_store(p0, i4, i8, descr=floatarraydescr)
-        i9 = int_add(i4, 1)
-        i10 = int_le(i9, 10)
-        guard_true(i10) []
         jump(p0,p1,p2,i9)
         """
         self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(opt_ops), 1)
@@ -334,8 +334,8 @@ class BaseTestVectorize(VecTestHelper):
         i4 = raw_load(p0,i1,descr=chararraydescr)
         jump(p0,i3,i4)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.build_dependency_graph()
+        loop = self.parse_loop(ops)
+        vopt = self.vectoroptimizer_unrolled(loop,0)
         assert len(vopt.dependency_graph.memory_refs) == 2
         self.assert_has_memory_ref_at(1)
         self.assert_has_memory_ref_at(2)
@@ -571,7 +571,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(3)
+        mref = self.getmemref(5)
         mref2 = self.getmemref(6)
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
@@ -591,7 +591,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(3)
+        mref = self.getmemref(6)
         mref2 = self.getmemref(7)
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
@@ -611,7 +611,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
         vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(3)
+        mref = self.getmemref(6)
         mref2 = self.getmemref(7)
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
@@ -628,7 +628,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt = self.init_packset(loop,1)
-        self.assert_independent(1,5)
+        self.assert_independent(4,8)
         assert vopt.packset is not None
         assert len(vopt.dependency_graph.memory_refs) == 2
         assert len(vopt.packset.packs) == 1
@@ -748,18 +748,18 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt = self.extend_packset(loop,1)
         assert len(vopt.dependency_graph.memory_refs) == 4
+        self.assert_independent(4,10)
         self.assert_independent(5,11)
         self.assert_independent(6,12)
-        self.assert_independent(7,13)
         assert len(vopt.packset.packs) == 3
         self.assert_packset_empty(vopt.packset, len(loop.operations),
-                                  [(6,12), (5,11), (7,13)])
+                                  [(6,12), (5,11), (4,10)])
 
     @pytest.mark.parametrize("descr,packs,packidx", 
-                             [('char',1,  [(0,(1,3,5,7))]),
-                              ('float',2, [(0,(1,3)),(1,(5,7))]),
-                              ('int',2,   [(0,(1,3)),(1,(5,7))]),
-                              ('singlefloat',1,[(0,(1,3,5,7))])])
+                             [('char',1,  [(0,(2,4,6,8))]),
+                              ('float',2, [(0,(2,4)),(1,(6,8))]),
+                              ('int',2,   [(0,(2,4)),(1,(6,8))]),
+                              ('singlefloat',1,[(0,(2,4,6,8))])])
     def test_packset_combine_simple(self,descr,packs,packidx):
         ops = """
         [p0,i0]
@@ -849,7 +849,7 @@ class BaseTestVectorize(VecTestHelper):
             assert len(vopt.packset.packs) == 4
 
         for opindices in [(5,12,19,26),(6,13,20,27),
-                          (7,14,21,28),(8,15,22,29)]:
+                          (7,14,21,28),(4,11,18,25)]:
             self.assert_has_pack_with(vopt.packset, opindices)
 
     @pytest.mark.parametrize('op,descr,stride',
@@ -874,7 +874,6 @@ class BaseTestVectorize(VecTestHelper):
         """.format(op=op,descr=descr,stride=1) # stride getarray is always 1
         vops = """
         [p0,p1,p2,i0]
-        guard_early_exit() []
         i10 = int_le(i0, 128)
         guard_true(i10) []
         i1 = int_add(i0, {stride})
@@ -907,7 +906,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [i0, i1, i2, i3, i4]
-        guard_early_exit() []
         i11 = int_add(i0, 1) 
         i6 = int_mul(i0, 8) 
         i12 = int_lt(i11, i1) 
@@ -941,7 +939,6 @@ class BaseTestVectorize(VecTestHelper):
           for i in range(0,14)])
         opt="""
         [p0,i0]
-        guard_early_exit() [p0,i0]
         i200 = int_add(i0, 1)
         i400 = int_lt(i200, 102)
         i2 = int_add(i0, 16)
@@ -989,7 +986,6 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         v3 = vec_int_expand(42)
         label(p0,i0,v3)
-        guard_early_exit() [p0,i0]
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
         i2 = int_add(i0, 2)
@@ -1019,7 +1015,6 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0,f3]
         v3 = vec_float_expand(f3)
         label(p0,i0,f3,v3)
-        guard_early_exit() [p0,i0]
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
         i2 = int_add(i0, 2)
@@ -1047,7 +1042,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         trace_opt = """
         [p0, i0, v2[f64|2]]
-        guard_early_exit() [p0, i0, v2[f64|2]]
         i1 = int_add(i0, 16)
         i2 = int_lt(i1, 100)
         guard_false(i2) [p0, i0, v[f64|2]]
@@ -1103,7 +1097,6 @@ class BaseTestVectorize(VecTestHelper):
         opt = """
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
         guard_not_invalidated() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
-        guard_early_exit() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
         i50 = int_add(i28, 1) 
         i46 = int_add(i44, 8) 
         i48 = int_add(i41, 8) 
@@ -1142,7 +1135,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt = """
         [p0, p1, i1]
-        guard_early_exit() []
         i3 = int_add(i1, 1)
         i4 = int_ge(i3, 36)
         i50 = int_add(i1, 4)
@@ -1184,7 +1176,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt = """
         [p0, p1, p2, i0, i4]
-        guard_early_exit() []
         i5 = int_add(i4, 4)
         i1 = int_add(i0, 4)
         i186 = int_lt(i5, 100)
@@ -1218,39 +1209,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         vopt = self.vectorize(self.parse_loop(ops))
         self.assert_equal(vopt.loop, self.parse_loop(opt))
-
-    def test_call_prohibits_vectorization(self):
-        # think about this
-        py.test.skip("")
-        ops = """
-        [p31, i32, p3, i33, f10, p24, p34, p35, i19, p5, i36, p37, i28, f13, i29, i15]
-        guard_early_exit() [p5,p37,p34,p3,p24,i32,p35,i36,i33,f10,p31,i19]
-        f38 = raw_load(i28, i33, descr=floatarraydescr)
-        guard_not_invalidated()[p5,p37,p34,p3,p24,f38,i32,p35,i36,i33,None,p31,i19]
-        i39 = int_add(i33, 8) 
-        f40 = float_mul(f38, 0.0)
-        i41 = float_eq(f40, f40)
-        guard_true(i41) [p5,p37,p34,p3,p24,f13,f38,i39,i32,p35,i36,None,None,p31,i19]
-        f42 = call(111, f38, f13, descr=writeadescr)
-        i43 = call(222, 333, descr=writeadescr)
-        f44 = float_mul(f42, 0.0)
-        i45 = float_eq(f44, f44)
-        guard_true(i45) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
-        i46 = int_is_true(i43)
-        guard_false(i46) [p5,p37,p34,p3,p24,f13,f38,i43,f42,i39,i32,p35,i36,None,None,p31,i19]
-        raw_store(i29, i36, f42, descr=floatarraydescr)
-        i47 = int_add(i19, 1)
-        i48 = int_add(i36, 8)
-        i49 = int_ge(i47, i15)
-        guard_false(i49) [p5,p37,p34,p3,p24,i47,f38,i48,i39,i32,p35,None,None,None,p31,None]
-        jump(p31, i32, p3, i39, f38, p24, p34, p35, i47, p5, i48, p37, i28, f13, i29, i15)
-        """
-        try:
-            vopt = self.vectorize(self.parse_loop(ops))
-            self.debug_print_operations(vopt.loop)
-            py.test.fail("this loop should not be vectorized")
-        except NotAVectorizeableLoop:
-            pass
 
     def test_truediv_abs_neg_float(self):
         ops = """

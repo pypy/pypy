@@ -4,7 +4,7 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
         Pack, NotAProfitableLoop, VectorizingOptimizer)
-from rpython.jit.metainterp.optimizeopt.dependency import Node
+from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
 from rpython.jit.metainterp.optimizeopt.test.test_vectorize import (FakeMetaInterpStaticData,
@@ -35,8 +35,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, [])
-        opt.build_dependency_graph()
-        graph = opt.dependency_graph
+        graph = opt.dependency_graph = DependencyGraph(loop)
         for k,m in graph.memory_refs.items():
             graph.memory_refs[k] = FakeMemoryRef(m.array, m.index_var)
         opt.find_adjacent_memory_refs()

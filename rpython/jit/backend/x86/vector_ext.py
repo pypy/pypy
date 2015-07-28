@@ -11,6 +11,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
@@ -170,19 +171,23 @@ class VectorAssemblerMixin(object):
                 self.mc.MOVUPD(dest_loc, value_loc)
 
     def genop_vec_int_is_true(self, op, arglocs, resloc):
-        loc, size = arglocs
+        loc, sizeloc = arglocs
         temp = X86_64_XMM_SCRATCH_REG
         self.mc.PXOR(temp, temp)
         # every entry that is non zero -> becomes zero
         # zero entries become ones
-        self.mc.PCMPEQ(loc, temp, size)
+        self.mc.PCMPEQ(loc, temp, sizeloc.value)
         # a second time -> every zero entry (corresponding to non zero
         # entries before) become ones
-        self.mc.PCMPEQ(loc, temp, size)
+        self.mc.PCMPEQ(loc, temp, sizeloc.value)
 
     def genop_guard_vec_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         self._guard_vector_true(op, arglocs[0])
-        self.implement_guard(guard_token, 'NZ')
+        guard_opnum = guard_op.getopnum()
+        if guard_opnum == rop.GUARD_TRUE:
+            self.implement_guard(guard_token, 'NZ')
+        else:
+            self.implement_guard(guard_token, 'Z')
 
     def genop_vec_int_mul(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs

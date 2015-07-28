@@ -229,18 +229,17 @@ class VectorizingOptimizer(Optimizer):
                 # that are needed to resume.
                 if copied_op.is_guard():
                     assert isinstance(copied_op, GuardResOp)
-                    target_guard = copied_op
                     descr = copied_op.getdescr()
-                    assert isinstance(descr, ResumeGuardDescr)
-                    copied_op.setdescr(descr.clone())
-                    descr = target_guard.getdescr()
-                    # copy failargs/snapshot
-                    copied_op.rd_snapshot = \
-                      renamer.rename_rd_snapshot(copied_op.rd_snapshot,
-                                                 clone=True)
-                    renamed_failargs = \
-                        renamer.rename_failargs(copied_op, clone=True)
-                    copied_op.setfailargs(renamed_failargs)
+                    if descr:
+                        assert isinstance(descr, ResumeGuardDescr)
+                        copied_op.setdescr(descr.clone())
+                        # copy failargs/snapshot
+                        copied_op.rd_snapshot = \
+                          renamer.rename_rd_snapshot(copied_op.rd_snapshot,
+                                                     clone=True)
+                        renamed_failargs = \
+                            renamer.rename_failargs(copied_op, clone=True)
+                        copied_op.setfailargs(renamed_failargs)
                 #
                 self.emit_unrolled_operation(copied_op)
 
