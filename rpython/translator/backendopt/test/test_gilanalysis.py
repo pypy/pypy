@@ -9,7 +9,7 @@ from rpython.translator.translator import graphof
 def test_canrelease_external():
     for rel in ['auto', True, False]:
         for sbxs in [True, False]:
-            fext = rffi.llexternal('fext2', [], lltype.Void, 
+            fext = rffi.llexternal('fext2', [], lltype.Void,
                                    releasegil=rel, sandboxsafe=sbxs)
             def g():
                 fext()
@@ -18,6 +18,19 @@ def test_canrelease_external():
 
             releases = (rel == 'auto' and not sbxs) or rel is True
             assert releases == gilanalysis.GilAnalyzer(t).analyze_direct_call(gg)
+
+
+def test_jit_assembler_call():
+    fext = rffi.llexternal('fext2', [], lltype.Void,
+                           releasegil=True)
+
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    def g():
+        llop.jit_assembler_call(lltype.Void, fext)
+    t = rtype(g, [])
+    gg = graphof(t, g)
+
+    assert gilanalysis.GilAnalyzer(t).analyze_direct_call(gg)
 
 def test_canrelease_instantiate():
     class O:
@@ -49,7 +62,7 @@ def test_no_release_gil():
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     gilanalysis.analyze(t.graphs, t)
 
@@ -69,7 +82,7 @@ def test_no_release_gil_detect(gc="minimark"):
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     f = py.test.raises(Exception, gilanalysis.analyze, t.graphs, t)
     expected = "'no_release_gil' function can release the GIL: <function g at "
