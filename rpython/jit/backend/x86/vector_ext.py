@@ -1,4 +1,5 @@
 import py
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
     ConstFloat, BoxInt, BoxFloat, BoxVector, INT, REF,
     FLOAT, VECTOR, TargetToken)
@@ -65,6 +66,8 @@ class VectorAssemblerMixin(object):
     def _accum_update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
         """ If accumulation is done in this loop, at the guard exit
         some vector registers must be adjusted to yield the correct value"""
+        if not isinstance(faildescr, ResumeGuardDescr):
+            return
         assert regalloc is not None
         accum_info = faildescr.rd_accum_list
         while accum_info:

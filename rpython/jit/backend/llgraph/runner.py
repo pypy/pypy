@@ -258,6 +258,9 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
+    def stitch_bridge(self, faildescr, jitcell_token):
+        pass
+
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
@@ -868,17 +871,23 @@ class LLFrame(object):
 
     def fail_guard(self, descr, saved_data=None):
         values = []
-        for box in self.current_op.getfailargs():
+        for i,box in enumerate(self.current_op.getfailargs()):
             if box is not None:
                 value = self.env[box]
             else:
                 value = None
-            if box and box.getaccum():
-                if box.getaccum().operator == '+':
+            accum = descr.rd_accum_list
+            while accum != None:
+                if accum.position != i:
+                    accum = accum.prev
+                    continue
+                if accum.operation == '+':
                     value = sum(value)
-                elif box.getaccum().operator == '*':
+                    break
+                elif accum.operation == '*':
                     def prod(acc, x): return acc * x
                     value = reduce(prod, value, 1)
+                    break
                 else:
                     raise NotImplementedError("accum operator in fail guard")
             values.append(value)
