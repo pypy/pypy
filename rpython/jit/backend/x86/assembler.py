@@ -140,20 +140,18 @@ class Assembler386(BaseAssembler):
         # Push the general purpose registers
         for gpr in gpr_regs:
             mc.PUSH(gpr)
+
         # Push the XMM regs
-        xmm_space = len(xmm_regs) * WORD
+        # and align stack
+        pushed = len(gpr_regs) + len(xmm_regs) + 1  # +1 bc we are not aligned initially
+        not_aligned = bool(pushed % 2 == 1) # works for X86_64
+        xmm_space = (len(xmm_regs) + (1 if not_aligned else 0)) * WORD
         mc.SUB_ri(esp.value, xmm_space)
         for off, xmm in enumerate(xmm_regs):
             mc.MOVSD_sx(off * WORD, xmm.value)
 
-        # align stack and CALL
-        pushed = len(gpr_regs) + len(xmm_regs) + 1  # +1 bc we are not aligned initially
-        aligned = bool(pushed % 2 == 0) # works for X86_64
-        if not aligned:
-            mc.SUB_ri(esp.value, WORD)
+        # call
         mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
-        if not aligned:
-            mc.ADD_ri(esp.value, WORD)
 
         # Push the XMM regs
         for off, xmm in enumerate(xmm_regs):
