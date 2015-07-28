@@ -1044,6 +1044,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert np.equal.reduce([1, 2], dtype=dtype) == True
             assert np.equal.reduce([1, 2, 0], dtype=dtype) == False
 
+    def test_reduce_axes(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        b = np.add.reduce(a, axis=(0, 1))
+        assert b.shape == (4,)
+        assert (b == [60, 66, 72, 78]).all()
+
     def test_reduce_fmax(self):
         import numpy as np
         assert np.fmax.reduce(np.arange(11).astype('b')) == 10

@@ -247,6 +247,18 @@ class W_Ufunc(W_Root):
         if space.is_none(w_axis):
             axes = range(shapelen)
             axis = maxint
+        elif space.isinstance_w(w_axis, space.w_tuple):
+            axes_w = space.listview(w_axis)
+            axes = [0] * len(axes_w)
+            for i in range(len(axes_w)):
+                x = space.int_w(axes_w[i])
+                if x < 0:
+                    x += shapelen
+                if x < 0 or x >= shapelen:
+                    raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
+                axes[i] = x
+
+
         else:
             if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
                 w_axis = space.getitem(w_axis, space.wrap(0))
@@ -256,7 +268,6 @@ class W_Ufunc(W_Root):
             if axis < 0:
                 axis += shapelen
             axes = [axis]
-        assert axis >= 0
         dtype = decode_w_dtype(space, dtype)
 
         if dtype is None and out is not None:
@@ -277,12 +288,11 @@ class W_Ufunc(W_Root):
             dtype = num2dtype(space, num)
 
         if self.identity is None:
-            for i in range(shapelen):
-                if space.is_none(w_axis) or i == axis:
-                    if obj_shape[i] == 0:
-                        raise oefmt(space.w_ValueError,
-                            "zero-size array to reduction operation %s "
-                            "which has no identity", self.name)
+            for i in axes:
+                if obj_shape[i] == 0:
+                    raise oefmt(space.w_ValueError,
+                        "zero-size array to reduction operation %s "
+                        "which has no identity", self.name)
 
         if variant == ACCUMULATE:
             if len(axes) != 1:
@@ -379,9 +389,16 @@ class W_Ufunc(W_Root):
         else:
             temp = None
             if keepdims:
-                shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
+                shape = obj_shape[:]
+                for axis in axes:
+                    shape[axis] = 1
             else:
-                shape = obj_shape[:axis] + obj_shape[axis + 1:]
+                shape = [0] * (shapelen - len(axes))
+                j = 0
+                for i in range(shapelen):
+                    if not axis_flags[i]:
+                        shape[j] = obj_shape[i]
+                        j += 1
             if out:
                 # Test for shape agreement
                 # XXX maybe we need to do broadcasting here, although I must
