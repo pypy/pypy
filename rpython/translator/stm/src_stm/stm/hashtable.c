@@ -379,11 +379,13 @@ void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
                    will make the other transaction check that it didn't
                    do any stm_hashtable_list() on the complete hashtable.
             */
+            acquire_modification_lock_wr(STM_SEGMENT->segment_num);
             STM_PSEGMENT->modified_old_objects = list_append3(
                 STM_PSEGMENT->modified_old_objects,
                 TYPE_POSITION_MARKER,      /* type1 */
                 TYPE_MODIFIED_HASHTABLE,   /* type2 */
                 (uintptr_t)hobj);          /* modif_hashtable */
+            release_modification_lock_wr(STM_SEGMENT->segment_num);
         }
     }
     entry->object = nvalue;

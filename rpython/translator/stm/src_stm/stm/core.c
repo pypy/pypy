@@ -119,6 +119,7 @@ static void copy_bk_objs_in_page_from(int from_segnum, uintptr_t pagenum,
     dprintf(("copy_bk_objs_in_page_from(%d, %ld, %d)\n",
              from_segnum, (long)pagenum, only_if_not_modified));
 
+    assert(modification_lock_check_rdlock(from_segnum));
     struct list_s *list = get_priv_segment(from_segnum)->modified_old_objects;
     struct stm_undo_s *undo = (struct stm_undo_s *)list->items;
     struct stm_undo_s *end = (struct stm_undo_s *)(list->items + list->count);

@@ -73,12 +73,14 @@ static void _timing_record_write_position(void)
     /* -2 is not odd */
     assert(marker.odd_number != (uintptr_t)TYPE_MODIFIED_HASHTABLE);
 
+    acquire_modification_lock_wr(STM_SEGMENT->segment_num);
     STM_PSEGMENT->position_markers_last = list_count(list);
     STM_PSEGMENT->modified_old_objects = list_append3(
         list,
         TYPE_POSITION_MARKER,         /* type */
         marker.odd_number,            /* marker_odd_number */
         (uintptr_t)marker.object);    /* marker_object */
+    release_modification_lock_wr(STM_SEGMENT->segment_num);
 }
 
 static void timing_write_read_contention(struct stm_undo_s *start,
