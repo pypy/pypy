@@ -197,9 +197,10 @@ class VectorAssemblerMixin(object):
         guard_opnum = guard_op.getopnum()
         if guard_opnum == rop.GUARD_TRUE:
             self._guard_vector_true(op, arglocs[0])
+            self.implement_guard(guard_token, 'NZ')
         else:
             self._guard_vector_false(op, arglocs[0])
-        self.implement_guard(guard_token, 'NZ')
+            self.implement_guard(guard_token, 'NZ')
 
     def genop_vec_int_mul(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -289,16 +290,6 @@ class VectorAssemblerMixin(object):
         elif size == 8:
             self.mc.XORPD(src, heap(self.float_const_neg_addr))
 
-    def genop_guard_vec_float_eq(self, op, guard_op, guard_token, arglocs, resloc):
-        lhsloc, rhsloc, sizeloc = arglocs
-        self.genop_vec_float_eq(op, arglocs, lhsloc) # yields one bits if they are equal
-        self.mc.PTEST(lhsloc, lhsloc)
-        guard_opnum = guard_op.getopnum()
-        if guard_opnum == rop.GUARD_TRUE:
-            self.implement_guard(guard_token, 'NZ')
-        else:
-            self.implement_guard(guard_token, 'Z')
-
     def genop_vec_float_eq(self, op, arglocs, resloc):
         _, rhsloc, sizeloc = arglocs
         size = sizeloc.value
@@ -306,16 +297,6 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 0) # 0 means equal
         else:
             self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 0)
-
-    def genop_guard_vec_float_ne(self, op, guard_op, guard_token, arglocs, resloc):
-        lhsloc, rhsloc, sizeloc = arglocs
-        self.genop_vec_float_ne(op, arglocs, lhsloc) # yields one bits if they are equal
-        self.mc.PTEST(lhsloc, lhsloc)
-        guard_opnum = guard_op.getopnum()
-        if guard_opnum == rop.GUARD_TRUE:
-            self.implement_guard(guard_token, 'NZ')
-        else:
-            self.implement_guard(guard_token, 'Z')
 
     def genop_vec_float_ne(self, op, arglocs, resloc):
         _, rhsloc, sizeloc = arglocs
@@ -325,6 +306,28 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 1 << 2)
         else:
             self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
+
+    def gen_float_cmp(func):
+        def genop_float_cmp(self, op, guard_op, guard_token, arglocs, resloc):
+            lhsloc, rhsloc, sizeloc = arglocs
+            size = sizeloc.value
+            func(self, op, arglocs, lhsloc) # yields one bits if they are equal
+            guard_opnum = guard_op.getopnum()
+            if guard_opnum == rop.GUARD_TRUE:
+                temp = X86_64_XMM_SCRATCH_REG
+                self.mc.PXOR(temp, temp) # set all to zero
+                self.mc.PCMPEQ(lhsloc, temp, size)
+                self.mc.PCMPEQQ(temp, temp) # set all bits to 1
+                self.mc.PTEST(lhsloc, temp)
+                self.implement_guard(guard_token, 'NZ')
+            else:
+                self.mc.PTEST(lhsloc, lhsloc)
+                self.implement_guard(guard_token, 'NZ')
+        return genop_float_cmp
+
+    genop_guard_vec_float_eq = gen_float_cmp(genop_vec_float_eq)
+    genop_guard_vec_float_ne = gen_float_cmp(genop_vec_float_ne)
+    del gen_float_cmp
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
