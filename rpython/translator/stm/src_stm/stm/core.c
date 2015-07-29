@@ -1341,7 +1341,9 @@ static void _core_commit_transaction(bool external)
     /* before releasing _stm_detached_inevitable_from_thread, perform
        the commit. Otherwise, the same thread whose (inev) transaction we try
        to commit here may start a new one in another segment *but* w/o
-       the committed data from its previous inev transaction. */
+       the committed data from its previous inev transaction. (the
+       stm_validate() at the start of a new transaction is happy even
+       if there is an inevitable tx running) */
     bool was_inev = STM_PSEGMENT->transaction_state == TS_INEVITABLE;
     _validate_and_add_to_commit_log();
 
@@ -1636,6 +1638,16 @@ void _stm_become_inevitable(const char *msg)
         if (!_validate_and_turn_inevitable())
             return;
     }
+
+    /* There may be a concurrent commit of a detached Tx going on.
+       Here, we may be right after the _validate_and_add_to_commit_log
+       and before resetting _stm_detached_inevitable_from_thread to
+       0. We have to wait for this to happen bc. otherwise, eg.
+       _stm_detach_inevitable_transaction is not safe to do yet */
+    while (_stm_detached_inevitable_from_thread == -1)
+        spin_loop();
+    assert(_stm_detached_inevitable_from_thread == 0);
+
     soon_finished_or_inevitable_thread_segment();
     STM_PSEGMENT->transaction_state = TS_INEVITABLE;
 
