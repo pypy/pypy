@@ -357,17 +357,13 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0,1)
         jump(p0,i1)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
-        self.assert_edges(vopt.dependency_graph,
-                [ [1,2,3,5], [5], [3,4], [5], [5], [] ], {})
-
+        loop = self.parse_loop(ops)
+        vopt = self.vectoroptimizer_unrolled(loop,1)
         vopt.find_adjacent_memory_refs()
-        self.assert_has_memory_ref_at(1)
-        self.assert_has_memory_ref_at(3)
         assert len(vopt.dependency_graph.memory_refs) == 2
 
-        mref1 = self.getmemref(1)
-        mref3 = self.getmemref(3)
+        mref1 = self.getmemref(loop.find_first_index(rop.RAW_LOAD))
+        mref3 = self.getmemref(loop.find_first_index(rop.RAW_LOAD,1))
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
 
@@ -493,37 +489,17 @@ class BaseTestVectorize(VecTestHelper):
         i6 = int_add(i4,1)
         jump(p0,i1,i6)
         """
-        ops2 = """
-        [p0,i0,i4]
-        i3 = raw_load(p0,i0,descr=chararraydescr)
-        i1 = int_add(i0,1)
-        i5 = raw_load(p0,i4,descr=chararraydescr)
-        i6 = int_add(i4,1)
-        i3 = raw_load(p0,i1,descr=chararraydescr)
-        i8 = int_add(i1,1)
-        i9 = raw_load(p0,i6,descr=chararraydescr)
-        i7 = int_add(i6,1)
-        jump(p0,i8,i7)
-        """
-
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
-        self.assert_edges(vopt.dependency_graph,
-                [ [1,2,3,4,5,7,9], 
-                    [9], [5,6], [9], [7,8],
-                    [9],  [9], [9], [9], 
-                  [],
-                ], {})
-
+        loop = self.parse_loop(ops)
+        vopt = self.vectoroptimizer_unrolled(loop,1)
         vopt.find_adjacent_memory_refs()
 
-        for i in [1,3,5,7]:
+        f = lambda x: loop.find_first_index(rop.RAW_LOAD, x)
+        indices = [f(0),f(1),f(2),f(3)]
+        for i in indices:
             self.assert_has_memory_ref_at(i)
         assert len(vopt.dependency_graph.memory_refs) == 4
 
-        mref1 = self.getmemref(1)
-        mref3 = self.getmemref(3)
-        mref5 = self.getmemref(5)
-        mref7 = self.getmemref(7)
+        mref1, mref3, mref5, mref7 = [self.getmemref(i) for i in indices]
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
         assert isinstance(mref5, MemoryRef)
@@ -1055,27 +1031,6 @@ class BaseTestVectorize(VecTestHelper):
         assert len(opt.packset.accum_vars) == 1
         assert opt.loop.inputargs[2] in opt.packset.accum_vars
         self.debug_print_operations(opt.loop)
-
-    def test_accumulate_int16(self):
-        py.test.skip("only sum int64 on x64 is supported")
-        trace = """
-        [p3, i4, p1, i5, i6, i7, i8]
-        guard_early_exit() [p1, i4, i5, i6, p3]
-        i9 = raw_load(i7, i5, descr=int16arraydescr)
-        guard_not_invalidated() [p1, i9, i4, i5, i6, p3]
-        i10 = int_add(i6, i9)
-        i12 = int_add(i4, 1)
-        i14 = int_add(i5, 2)
-        i15 = int_ge(i12, i8)
-        guard_false(i15) [p1, i14, i10, i12, None, None, None, p3]
-        jump(p3, i12, p1, i14, i10, i7, i8)
-        """
-        opt = self.schedule(self.parse_loop(trace))
-        assert len(opt.packset.packs) == 2
-        assert len(opt.packset.accum_vars) == 1
-        assert opt.loop.inputargs[4] in opt.packset.accum_vars
-        self.debug_print_operations(opt.loop)
-
 
     def test_element_f45_in_guard_failargs(self):
         ops = """

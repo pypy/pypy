@@ -734,13 +734,16 @@ class TargetToken(AbstractDescr):
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)
 
-def index_of_first(opnum, operations):
+def index_of_first(opnum, operations, pass_by=0):
     """ returns the position of the first operation matching the opnum.
     Or -1 if non is found
     """
     for i,op in enumerate(operations):
         if op.getopnum() == opnum:
-            return i
+            if pass_by == 0:
+                return i
+            else:
+                pass_by -= 1
     return -1
 
 
@@ -849,9 +852,9 @@ class TreeLoop(object):
     def get_operations(self):
         return self.operations
 
-    def find_first_index(self, opnum):
+    def find_first_index(self, opnum, pass_by=0):
         """ return the first operation having the same opnum or -1 """
-        return index_of_first(opnum, self.operations)
+        return index_of_first(opnum, self.operations, pass_by)
 
     def snapshot(self):
         version = LoopVersion(self.copy_operations())
