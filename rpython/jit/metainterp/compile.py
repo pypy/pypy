@@ -348,6 +348,12 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
+
+    if rgc.stm_is_enabled():
+        # become inevitable to avoid interleaving concurrent "{jit-backend"
+        # (fine bc. we become inevitable in assembler.setup() anyway)
+        rstm.become_inevitable()
+
     debug_start("jit-backend")
     try:
         loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
@@ -395,6 +401,12 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         debug_info = None
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
+
+    if rgc.stm_is_enabled():
+        # become inevitable to avoid interleaving concurrent "{jit-backend"
+        # (fine bc. we become inevitable in assembler.setup() anyway)
+        rstm.become_inevitable()
+
     debug_start("jit-backend")
     try:
         asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
@@ -612,12 +624,12 @@ class ResumeGuardDescr(ResumeDescr):
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         result = jitcounter.tick(hash, increment)
         if rgc.stm_is_enabled():
-            # The call to guard_already_patched is necessary because it is 
-            # possible that the current transaction didn't see the 
+            # The call to guard_already_patched is necessary because it is
+            # possible that the current transaction didn't see the
             # patched JMP yet, but already sees the ST_BUSY_FLAG as 0 (because
             # the patching is in raw-memory).
             # Thus it may try to compile a trace too and also patch the assembler.
-            # However, this would trigger the assertion in 
+            # However, this would trigger the assertion in
             #     x86.assembler.patch_jump_for_descr.
             result = result and not metainterp_sd.cpu.guard_already_patched(self)
         return result
