@@ -272,6 +272,14 @@ class TestRunner(object):
         """)
         assert interp.results[0].value == 3
 
+    def test_any(self):
+        interp = self.run("""
+        a = [0,0,0,0,0.1,0,0,0,0]
+        b = any(a)
+        b -> 0
+        """)
+        assert interp.results[0].value == 1
+
     def test_where(self):
         interp = self.run('''
         a = [1, 0, 3, 0]

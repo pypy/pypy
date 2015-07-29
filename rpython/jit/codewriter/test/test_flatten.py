@@ -858,6 +858,12 @@ class TestFlatten:
             cast_int_to_float %i0 -> %f0
             float_return %f0
         """, transform=True)
+        def f(n):
+            return rffi.cast(lltype.Bool, n)
+        self.encoding_test(f, [0.1], """
+            float_ne %f0, $0.0 -> %i0
+            int_return %i0
+        """, transform=True)
 
         # Casts to lltype.SingleFloat
         def g(n):

@@ -1178,7 +1178,12 @@ class Transformer(object):
             else:
                 v1 = v_arg
             sizesign = rffi.size_and_sign(v_result.concretetype)
-            if sizesign <= rffi.size_and_sign(lltype.Signed):
+            if v_result.concretetype is lltype.Bool:
+                op = self.rewrite_operation(
+                        SpaceOperation('float_is_true', [v1], v_result)
+                )
+                ops.append(op)
+            elif sizesign <= rffi.size_and_sign(lltype.Signed):
                 # cast to a type that fits in an int: either the size is
                 # smaller, or it is equal and it is not unsigned
                 v2 = varoftype(lltype.Signed)

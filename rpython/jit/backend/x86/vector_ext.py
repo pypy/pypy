@@ -289,6 +289,43 @@ class VectorAssemblerMixin(object):
         elif size == 8:
             self.mc.XORPD(src, heap(self.float_const_neg_addr))
 
+    def genop_guard_vec_float_eq(self, op, guard_op, guard_token, arglocs, resloc):
+        lhsloc, rhsloc, sizeloc = arglocs
+        self.genop_vec_float_eq(op, arglocs, lhsloc) # yields one bits if they are equal
+        self.mc.PTEST(lhsloc, lhsloc)
+        guard_opnum = guard_op.getopnum()
+        if guard_opnum == rop.GUARD_TRUE:
+            self.implement_guard(guard_token, 'NZ')
+        else:
+            self.implement_guard(guard_token, 'Z')
+
+    def genop_vec_float_eq(self, op, arglocs, resloc):
+        _, rhsloc, sizeloc = arglocs
+        size = sizeloc.value
+        if size == 4:
+            self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 0) # 0 means equal
+        else:
+            self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 0)
+
+    def genop_guard_vec_float_ne(self, op, guard_op, guard_token, arglocs, resloc):
+        lhsloc, rhsloc, sizeloc = arglocs
+        self.genop_vec_float_ne(op, arglocs, lhsloc) # yields one bits if they are equal
+        self.mc.PTEST(lhsloc, lhsloc)
+        guard_opnum = guard_op.getopnum()
+        if guard_opnum == rop.GUARD_TRUE:
+            self.implement_guard(guard_token, 'NZ')
+        else:
+            self.implement_guard(guard_token, 'Z')
+
+    def genop_vec_float_ne(self, op, arglocs, resloc):
+        _, rhsloc, sizeloc = arglocs
+        size = sizeloc.value
+        # b(100) == 1 << 2 means not equal
+        if size == 4:
+            self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 1 << 2)
+        else:
+            self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
+
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
         size = sizeloc.value
@@ -556,7 +593,20 @@ class VectorRegallocMixin(object):
         result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [source, imm(size)], result)
 
-    consider_vec_float_eq = consider_vec_logic
+    def consider_vec_float_eq(self, op, guard_op):
+        lhs = op.getarg(0)
+        assert isinstance(lhs, BoxVector)
+        size = lhs.item_size
+        args = op.getarglist()
+        lhsloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
+        if guard_op:
+            self.perform_with_guard(op, guard_op, [lhsloc, rhsloc, imm(size)], None)
+        else:
+            self.perform(op, [lhsloc, rhsloc, imm(size)], lhsloc)
+
+    consider_vec_float_ne = consider_vec_float_eq
+
     consider_vec_int_and = consider_vec_logic
     consider_vec_int_or = consider_vec_logic
     consider_vec_int_xor = consider_vec_logic

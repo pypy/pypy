@@ -389,7 +389,8 @@ class TestRx86_32(object):
            instrname.find('EXTRACT') != -1 or \
            instrname.find('SRLDQ') != -1 or \
            instrname.find('SHUF') != -1 or \
-           instrname.find('PBLEND') != -1:
+           instrname.find('PBLEND') != -1 or \
+           instrname.find('CMPP') != -1:
             realargmodes = []
             for mode in argmodes:
                 if mode == 'i':
