@@ -113,7 +113,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_true(i11, descr=...)
             guard_not_invalidated(descr=...)
             i12 = cast_float_to_int(f10)
-            i14 = int_and(i12, 255)
+            i14 = int_is_true(i12)
             guard_true(i14, descr=...)
             i15 = getfield_gc_pure(p1, descr=<FieldU pypy.module.micronumpy.boxes.W_BoolBox.inst_value \d+>)
             i16 = int_is_true(i15)

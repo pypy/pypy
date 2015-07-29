@@ -1741,24 +1741,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.IMUL(arglocs[0], arglocs[1])
         return self._gen_guard_overflow(guard_op, guard_token)
 
-    def _guard_vector_false(self, guard_op, loc):
-        arg = guard_op.getarg(0)
-        assert isinstance(arg, BoxVector)
-        #
-        # if the vector is not fully packed blend 1s
-        if not arg.fully_packed(self.cpu.vector_register_size):
-            temp = X86_64_XMM_SCRATCH_REG
-            self.mc.PXOR(temp, temp)
-            select = 0
-            bits_used = (arg.item_count * arg.item_size * 8)
-            index = bits_used // 16
-            while index < 8:
-                select |= (1 << index)
-                index += 1
-            self.mc.PBLENDW_xxi(loc.value, temp.value, select)
-
-        self.mc.PTEST(loc, loc)
-
     def genop_guard_guard_false(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
         if isinstance(loc, RegLoc):

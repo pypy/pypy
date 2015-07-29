@@ -34,6 +34,15 @@ def not_implemented(msg):
 class VectorAssemblerMixin(object):
     _mixin_ = True
 
+    def _blend_unused_slots(self, loc, arg, temp):
+        select = 0
+        bits_used = (arg.item_count * arg.item_size * 8)
+        index = bits_used // 16
+        while index < 8:
+            select |= (1 << index)
+            index += 1
+        self.mc.PBLENDW_xxi(loc.value, temp.value, select)
+
     def _guard_vector_true(self, guard_op, loc, zero=False):
         arg = guard_op.getarg(0)
         assert isinstance(arg, BoxVector)
@@ -44,13 +53,7 @@ class VectorAssemblerMixin(object):
         # if the vector is not fully packed blend 1s
         if not arg.fully_packed(self.cpu.vector_register_size):
             self.mc.PCMPEQQ(temp, temp) # fill with ones
-            select = 0
-            bits_used = (arg.item_count * arg.item_size * 8)
-            index = bits_used // 16
-            while index < 8:
-                select |= (1 << index)
-                index += 1
-            self.mc.PBLENDW_xxi(loc.value, temp.value, select)
+            self._blend_unused_slots(loc, arg, temp)
             # reset to zeros
             self.mc.PXOR(temp, temp)
 
@@ -61,8 +64,17 @@ class VectorAssemblerMixin(object):
         # test if all slots are zero
         self.mc.PTEST(loc, temp)
 
-    # vector operations
-    # ________________________________________
+    def _guard_vector_false(self, guard_op, loc):
+        arg = guard_op.getarg(0)
+        assert isinstance(arg, BoxVector)
+        #
+        # if the vector is not fully packed blend 1s
+        if not arg.fully_packed(self.cpu.vector_register_size):
+            temp = X86_64_XMM_SCRATCH_REG
+            self.mc.PXOR(temp, temp)
+            self._blend_unused_slots(loc, arg, temp)
+        #
+        self.mc.PTEST(loc, loc)
 
     def _accum_update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
         """ If accumulation is done in this loop, at the guard exit
@@ -182,12 +194,12 @@ class VectorAssemblerMixin(object):
         self.mc.PCMPEQ(loc, temp, sizeloc.value)
 
     def genop_guard_vec_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
-        self._guard_vector_true(op, arglocs[0])
         guard_opnum = guard_op.getopnum()
         if guard_opnum == rop.GUARD_TRUE:
-            self.implement_guard(guard_token, 'NZ')
+            self._guard_vector_true(op, arglocs[0])
         else:
-            self.implement_guard(guard_token, 'Z')
+            self._guard_vector_false(op, arglocs[0])
+        self.implement_guard(guard_token, 'NZ')
 
     def genop_vec_int_mul(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs

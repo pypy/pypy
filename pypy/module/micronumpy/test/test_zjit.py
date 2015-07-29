@@ -580,13 +580,13 @@ class TestNumpyJit(Jit386Mixin):
 
     def define_float_any():
         return """
-        a = [0,0,0,0,0,0,0,1,0,0,0]
+        a = [0,0,0,0,0,0,0,0.9,0,0,0]
         any(a)
         """
 
     def define_float32_any():
         return """
-        a = astype([0,0,0,0,0,0,0,1,0,0,0], float32)
+        a = astype([0,0,0,0,0,0,0,0.1,0,0,0], float32)
         any(a)
         """
 
