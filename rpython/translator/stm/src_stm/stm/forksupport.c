@@ -87,7 +87,7 @@ static void fork_abort_thread(long i)
     assert(tl->last_associated_segment_num == i);
     assert(in_transaction(tl));
     assert(pr->transaction_state != TS_INEVITABLE);
-    set_gs_register(get_segment_base(i));
+    ensure_gs_register(i);
     assert(STM_SEGMENT->segment_num == i);
 
     s_mutex_lock();
@@ -155,7 +155,7 @@ static void forksupport_child(void)
     int segnum = fork_this_tl->last_associated_segment_num;
     assert(1 <= segnum && segnum < NB_SEGMENTS);
     *_get_cpth(fork_this_tl) = pthread_self();
-    set_gs_register(get_segment_base(segnum));
+    ensure_gs_register(segnum);
     assert(STM_SEGMENT->segment_num == segnum);
 
     if (!fork_was_in_transaction) {

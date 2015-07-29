@@ -615,7 +615,8 @@ static void _validate_and_add_to_commit_log(void)
 
     new = _create_commit_log_entry();
     if (STM_PSEGMENT->transaction_state == TS_INEVITABLE) {
-        assert(_stm_detached_inevitable_from_thread == 0);  /* running it */
+        assert(_stm_detached_inevitable_from_thread == 0  /* running it */
+               || _stm_detached_inevitable_from_thread == -1);  /* committing external */
 
         old = STM_PSEGMENT->last_commit_log_entry;
         new->rev_num = old->rev_num + 1;
@@ -1336,6 +1337,14 @@ static void _core_commit_transaction(bool external)
     push_large_overflow_objects_to_other_segments();
     /* push before validate. otherwise they are reachable too early */
 
+
+    /* before releasing _stm_detached_inevitable_from_thread, perform
+       the commit. Otherwise, the same thread whose (inev) transaction we try
+       to commit here may start a new one in another segment *but* w/o
+       the committed data from its previous inev transaction. */
+    bool was_inev = STM_PSEGMENT->transaction_state == TS_INEVITABLE;
+    _validate_and_add_to_commit_log();
+
     if (external) {
         /* from this point on, unlink the original 'stm_thread_local_t *'
            from its segment.  Better do it as soon as possible, because
@@ -1347,8 +1356,6 @@ static void _core_commit_transaction(bool external)
         _stm_detached_inevitable_from_thread = 0;
     }
 
-    bool was_inev = STM_PSEGMENT->transaction_state == TS_INEVITABLE;
-    _validate_and_add_to_commit_log();
 
     if (!was_inev) {
         assert(!external);

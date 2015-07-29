@@ -723,7 +723,7 @@ static void major_do_validation_and_minor_collections(void)
 
     /* including the sharing seg0 */
     for (i = 0; i < NB_SEGMENTS; i++) {
-        set_gs_register(get_segment_base(i));
+        ensure_gs_register(i);
 
         bool ok = _stm_validate();
         assert(get_priv_segment(i)->last_commit_log_entry->next == NULL
@@ -769,7 +769,7 @@ static void major_do_validation_and_minor_collections(void)
         }
     }
 
-    set_gs_register(get_segment_base(original_num));
+    ensure_gs_register(original_num);
 }
 
 

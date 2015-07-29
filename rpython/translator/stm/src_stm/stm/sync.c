@@ -66,7 +66,6 @@ static void set_gs_register(char *value)
 
 static void ensure_gs_register(long segnum)
 {
-    /* XXX use this instead of set_gs_register() in many places */
     if (STM_SEGMENT->segment_num != segnum) {
         set_gs_register(get_segment_base(segnum));
         assert(STM_SEGMENT->segment_num == segnum);
@@ -211,16 +210,12 @@ static void acquire_thread_segment(stm_thread_local_t *tl)
     assert(_has_mutex());
     assert(_is_tl_registered(tl));
 
-    int num = tl->last_associated_segment_num - 1; // 0..NB_SEG-1
+    int num = tl->last_associated_segment_num - 1; // 0..NB_SEG-2
     OPT_ASSERT(num >= 0);
     if (sync_ctl.in_use1[num+1] == 0) {
         /* fast-path: we can get the same segment number than the one
-           we had before.  The value stored in GS is still valid. */
-#ifdef STM_TESTS
-        /* that can be optimized away, except during tests, because
-           they use only one thread */
-        set_gs_register(get_segment_base(num+1));
-#endif
+           we had before.  The value stored in GS may still be valid. */
+        ensure_gs_register(num+1);
         dprintf(("acquired same segment: %d\n", num+1));
         goto got_num;
     }
@@ -234,7 +229,7 @@ static void acquire_thread_segment(stm_thread_local_t *tl)
             int old_num = tl->last_associated_segment_num;
             dprintf(("acquired different segment: %d->%d\n", old_num, num+1));
             tl->last_associated_segment_num = num+1;
-            set_gs_register(get_segment_base(num+1));
+            ensure_gs_register(num+1);
             dprintf(("                            %d->%d\n", old_num, num+1));
             (void)old_num;
             goto got_num;
@@ -313,14 +308,14 @@ bool _stm_in_transaction(stm_thread_local_t *tl)
 void _stm_test_switch(stm_thread_local_t *tl)
 {
     assert(_stm_in_transaction(tl));
-    set_gs_register(get_segment_base(tl->last_associated_segment_num));
+    ensure_gs_register(tl->last_associated_segment_num);
     assert(STM_SEGMENT->running_thread == tl);
     exec_local_finalizers();
 }
 
 void _stm_test_switch_segment(int segnum)
 {
-    set_gs_register(get_segment_base(segnum+1));
+    ensure_gs_register(segnum+1);
 }
 
 #if STM_TESTS
