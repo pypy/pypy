@@ -561,9 +561,10 @@ class W_BytesObject(W_AbstractBytesObject):
 
     @staticmethod
     def _use_rstr_ops(space, w_other):
-        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        from pypy.objspace.std.unicodeobject import W_AbstractUnicodeObject
+        W_AbstractUnicodeObject
         return (isinstance(w_other, W_AbstractBytesObject) or
-                isinstance(w_other, W_UnicodeObject))
+                isinstance(w_other, W_AbstractUnicodeObject))
 
     @staticmethod
     def _op_val(space, w_other):
@@ -760,12 +761,12 @@ class W_BytesObject(W_AbstractBytesObject):
     _StringMethods_descr_contains = descr_contains
     def descr_contains(self, space, w_sub):
         if space.isinstance_w(w_sub, space.w_unicode):
-            from pypy.objspace.std.unicodeobject import W_UnicodeObject
-            assert isinstance(w_sub, W_UnicodeObject)
+            from pypy.objspace.std.unicodeobject import W_AbstractUnicodeObject
+            assert isinstance(w_sub, W_AbstractUnicodeObject)
             self_as_unicode = unicode_from_encoded_object(space, self, None,
                                                           None)
             return space.newbool(
-                self_as_unicode._value.find(w_sub._value) >= 0)
+                self_as_unicode._value.find(w_sub.unicode_w(space)) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
     _StringMethods_descr_replace = descr_replace

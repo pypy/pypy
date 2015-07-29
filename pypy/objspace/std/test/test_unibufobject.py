@@ -108,3 +108,15 @@ class AppTestUnicodeObject(test_unicodeobject.AppTestUnicodeString):
         a += u'bc'
         assert a.startswith('abcb')
         assert not a.startswith('1234')
+
+    def test_str_contains_u(self):
+        a = u'abc'
+        a += u'bc'
+        assert a in '--abcbc--'
+        assert a not in '--abcBc--'
+
+    def test_int_unicode(self):
+        a = u'12'
+        a += u'3'
+        assert int(a) == 123
+        assert long(a) == 123

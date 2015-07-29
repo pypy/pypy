@@ -771,8 +771,7 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         spec = space.unicode_w(w_format_spec)
         formatter = newformat.unicode_formatter(space, spec)
         self2 = unicode_from_object(space, self)
-        assert isinstance(self2, W_UnicodeObject)
-        return formatter.format_string(self2._value)
+        return formatter.format_string(self2.unicode_w(space))
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, do_unicode=True)
@@ -977,11 +976,12 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
         raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
 
     w_retval = decode_object(space, w_obj, encoding, errors)
-    if not space.isinstance_w(w_retval, space.w_unicode):
-        raise oefmt(space.w_TypeError,
-                    "decoder did not return an unicode object (type '%T')",
-                    w_retval)
-    assert isinstance(w_retval, W_UnicodeObject)
+    if not isinstance(w_retval, W_UnicodeObject):
+        if not space.isinstance_w(w_retval, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                        "decoder did not return an unicode object (type '%T')",
+                        w_retval)
+        w_retval = W_UnicodeObject(w_retval.unicode_w(space))
     return w_retval
 
 
@@ -1115,9 +1115,9 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
 # Helper for converting int/long
 def unicode_to_decimal_w(space, w_unistr):
-    if not isinstance(w_unistr, W_UnicodeObject):
+    if not space.isinstance_w(w_unistr, space.w_unicode):
         raise oefmt(space.w_TypeError, "expected unicode, got '%T'", w_unistr)
-    unistr = w_unistr._value
+    unistr = w_unistr.unicode_w(space)
     result = ['\0'] * len(unistr)
     digits = ['0', '1', '2', '3', '4',
               '5', '6', '7', '8', '9']

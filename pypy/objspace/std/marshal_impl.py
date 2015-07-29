@@ -8,7 +8,7 @@ from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import unicodehelper
 from pypy.objspace.std.boolobject import W_BoolObject
-from pypy.objspace.std.bytesobject import W_BytesObject
+from pypy.objspace.std.bytesobject import W_AbstractBytesObject
 from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.intobject import W_IntObject
@@ -19,7 +19,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.setobject import W_FrozensetObject, W_SetObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from pypy.objspace.std.unicodeobject import W_AbstractUnicodeObject
 
 
 TYPE_NULL      = '0'
@@ -244,7 +244,7 @@ def unmarshal_complex_bin(space, u, tc):
     return space.newcomplex(real, imag)
 
 
-@marshaller(W_BytesObject)
+@marshaller(W_AbstractBytesObject)
 def marshal_bytes(space, w_str, m):
     s = space.str_w(w_str)
     if m.version >= 1 and space.is_interned_str(s):
@@ -394,7 +394,7 @@ def unmarshal_pycode(space, u, tc):
                   name, firstlineno, lnotab, freevars, cellvars)
 
 
-@marshaller(W_UnicodeObject)
+@marshaller(W_AbstractUnicodeObject)
 def marshal_unicode(space, w_unicode, m):
     s = unicodehelper.encode_utf8(space, space.unicode_w(w_unicode))
     m.atom_str(TYPE_UNICODE, s)

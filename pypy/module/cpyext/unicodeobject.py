@@ -196,7 +196,6 @@ def PyUnicode_GET_DATA_SIZE(space, w_obj):
 def PyUnicode_GET_SIZE(space, w_obj):
     """Return the size of the object.  o has to be a PyUnicodeObject (not
     checked)."""
-    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.CWCHARP, error=CANNOT_FAIL)
