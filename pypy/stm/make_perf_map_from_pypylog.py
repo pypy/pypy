@@ -19,8 +19,9 @@ class SymbolMapParser(SimpleParser):
             if dump_start not in global_dumps:
                 global_dumps[dump_start] = (loop, backend_dump)
             start_offset = loop.operations[0].offset
+            last_offset = loop.operations[-1].offset
             loop_to_asm[loop] = (dump_start + start_offset,
-                                 loop.last_offset - start_offset)
+                                 last_offset - start_offset)
         return loop
 
 
