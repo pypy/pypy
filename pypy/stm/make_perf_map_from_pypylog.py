@@ -8,20 +8,22 @@ from collections import OrderedDict
 import argparse
 import os
 
-
-loop_to_asm = OrderedDict()
-global_dumps = OrderedDict()
+extended_ranges = {}
 
 class SymbolMapParser(SimpleParser):
     def postprocess(self, loop, backend_dump=None, backend_tp=None,
                     dump_start=0, symbols=None):
         if backend_dump is not None:
-            if dump_start not in global_dumps:
-                global_dumps[dump_start] = (loop, backend_dump)
+            loop.backend_dump = backend_dump
+            loop.dump_start = dump_start
+
             start_offset = loop.operations[0].offset
             last_offset = loop.operations[-1].offset
-            loop_to_asm[loop] = (dump_start + start_offset,
-                                 last_offset - start_offset)
+            loop.range = (start_offset, last_offset)
+
+            prev = extended_ranges.get(backend_dump, loop.range)
+            extended_ranges[backend_dump] = (min(start_offset, prev[0]),
+                                             max(last_offset, prev[1]))
         return loop
 
 
@@ -62,24 +64,24 @@ def main():
         loop.name = comment[start+1:stop] + " (ran %sx)" % count
 
     with open('/tmp/perf-%s.map' % args.pid, 'w') as f:
-        lines = []
         fmt = "%x %x %s\n"
-        # fine-grained first seems to work:
-        # output last entries first
-        for loop, (start, size) in reversed(loop_to_asm.items()):
-            lines.append(fmt % (start, size,
-                                "JIT: " + loop.name))
 
-        # coarse loop-pieces: they include e.g. frame-reallocation
-        # in compiled bridge (whatever jitviewer also doesn't show
-        # but is still part of a loop)
-        for start, (loop, dump) in reversed(global_dumps.items()):
-            lines.append(fmt % (start, len(dump.decode('hex')),
-                                "JIT-ext: " + loop.name))
+        for loop in storage.loops:
+            if hasattr(loop, 'backend_dump'):
+                lower, upper = loop.range
+                min_offset, max_offset = extended_ranges[loop.backend_dump]
+                if lower == min_offset:
+                    # include loop-setup
+                    lower = 0
+                if upper == max_offset:
+                    # include loop-teardown
+                    upper = loop.last_offset
 
-        for line in lines:
-            os.write(1, line)
-            f.write(line)
+                line = fmt % (lower + loop.dump_start,
+                              upper - lower,
+                              "JIT: " + loop.name)
+                f.write(line)
+                os.write(1, line)
 
 
 
