@@ -186,7 +186,7 @@ if _WIN:
                              "RPY_EXTERN "
                              "char** pypy_get_tzname();\n"
                              "RPY_EXTERN "
-                             "void* pypy__tzset();"],
+                             "void pypy__tzset();"],
         separate_module_sources = ["""
         long pypy_get_timezone() { return timezone; }
         int pypy_get_daylight() { return daylight; }
