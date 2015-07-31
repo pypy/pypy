@@ -10,6 +10,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.history import (ConstInt, BoxVector, 
         BoxFloat, BoxInt, ConstFloat, Box, Const)
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rlib.objectmodel import we_are_translated
 
 class Guard(object):
@@ -90,6 +91,9 @@ class Guard(object):
         opt.emit_operation(ResOperation(opnum, [box_rhs, other_rhs], box_result))
         # guard
         guard = self.op.clone()
+        descr = guard.getdescr()
+        assert isinstance(descr, ResumeGuardDescr)
+        guard.setdescr(descr.clone())
         guard.setarg(0, box_result)
         opt.emit_operation(guard)
 
