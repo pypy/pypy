@@ -1,7 +1,7 @@
 import sys
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, intmask, widen
 from rpython.rlib.unicodedata import unicodedb
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
@@ -74,7 +74,7 @@ if MAXUNICODE > 0xFFFF:
 else:
     def code_to_unichr(code):
         # generate surrogates for large codes
-        return unichr_returns_surrogate(code)
+        return unichr_returns_surrogate(widen(code))
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)
