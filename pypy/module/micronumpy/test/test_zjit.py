@@ -466,8 +466,6 @@ class TestNumpyJit(Jit386Mixin):
     def test_cumsum(self):
         result = self.run("cumsum")
         assert result == 15
-        # not vectorizable, has one back edge
-        self.check_vectorized(1, 0)
 
     def define_axissum():
         return """
@@ -803,7 +801,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_flat_getitem(self):
         result = self.run("flat_getitem")
         assert result == 10.0
-        self.check_vectorized(0,0)
+        self.check_vectorized(1,1)
 
     def define_flat_setitem():
         return '''

@@ -107,10 +107,12 @@ class VectorizingOptimizer(Optimizer):
         self.cpu = metainterp_sd.cpu
         self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
         self.appended_arg_count = 0
+        self.orig_label_args = None
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
         label = self.loop.operations[0]
+        self.orig_label_args = label.getarglist()[:]
         jump = self.loop.operations[-1]
         if jump.getopnum() not in (rop.LABEL, rop.JUMP) or \
            label.getopnum() != rop.LABEL:
@@ -463,7 +465,8 @@ class VectorizingOptimizer(Optimizer):
                     if accum:
                         accum.save_to_descr(op.getdescr(),i)
         self.loop.operations = \
-            sched_data.prepend_invariant_operations(self._newoperations)
+            sched_data.prepend_invariant_operations(self._newoperations,
+                                                    self.orig_label_args)
         self.clear_newoperations()
 
     def unpack_from_vector(self, op, sched_data, renamer):
@@ -577,7 +580,7 @@ class VectorizingOptimizer(Optimizer):
         #
         tgt_op.setdescr(descr)
         tgt_op.rd_snapshot = op.rd_snapshot
-        tgt_op.setfailargs(op.getfailargs())
+        tgt_op.setfailargs(op.getfailargs()[:])
 
 
 class CostModel(object):

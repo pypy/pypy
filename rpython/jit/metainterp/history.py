@@ -761,7 +761,10 @@ class LoopVersion(object):
 
     def register_all_guards(self, opt_ops, invariant_arg_count=0):
         from rpython.jit.metainterp.compile import CompileLoopVersionDescr
+        pass_by = 0
         idx = index_of_first(rop.LABEL, opt_ops)
+        if opt_ops[idx].getdescr() is not opt_ops[-1].getdescr():
+            idx = index_of_first(rop.LABEL, opt_ops, pass_by=1)
         assert idx >= 0
         version_failargs = opt_ops[idx].getarglist()
         if invariant_arg_count > 0:
@@ -799,6 +802,7 @@ class LoopVersion(object):
         op.rd_snapshot = None
 
     def update_token(self, jitcell_token):
+        # this is only invoked for versioned loops!
         label = self.operations[self.label_pos]
         jump = self.operations[-1]
         #
@@ -848,6 +852,29 @@ class TreeLoop(object):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return insns
+
+    def append_loop(self, loop, all_target_tokens):
+        # append e.g. the peeled loop to this loop!
+        label, jump = loop.operations[0], loop.operations[-1]
+        assert label.getopnum() == rop.LABEL
+        assert jump.getopnum() == rop.JUMP
+        target_token = None
+        i = 0
+        # adds all target token until the one is found that jumps from the 
+        # last instruction to the label
+        while target_token is not jump.getdescr():
+            # there is another label
+            op = loop.operations[i]
+            if op.getopnum() == rop.LABEL:
+                target_token = op.getdescr()
+                assert isinstance(target_token, TargetToken)
+                all_target_tokens.append(target_token)
+            i += 1
+        #
+        self.operations = self.operations[:-1] + loop.operations
+        self.versions = loop.versions
+        if loop.quasi_immutable_deps:
+            self.quasi_immutable_deps.update(loop.quasi_immutable_deps)
 
     def get_operations(self):
         return self.operations

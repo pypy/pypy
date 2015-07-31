@@ -1,6 +1,6 @@
 
 from rpython.jit.metainterp.history import (VECTOR,FLOAT,INT,ConstInt,BoxVector,
-        BoxFloat,BoxInt,ConstFloat)
+        BoxFloat,BoxInt,ConstFloat,TargetToken)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
@@ -839,24 +839,32 @@ class VecScheduleData(SchedulerData):
         assert off < vector.getcount()
         self.box_to_vbox[box] = (off, vector)
 
-    def prepend_invariant_operations(self, oplist):
+    def prepend_invariant_operations(self, oplist, orig_label_args):
         if len(self.invariant_oplist) > 0:
             label = oplist[0]
             assert label.getopnum() == rop.LABEL
+            #
             jump = oplist[-1]
             assert jump.getopnum() == rop.JUMP
-
-            label_args = label.getarglist()
+            #
+            label_args = label.getarglist()[:]
             jump_args = jump.getarglist()
             for var in self.invariant_vector_vars:
                 label_args.append(var)
                 jump_args.append(var)
-
-            oplist[0] = label.copy_and_change(label.getopnum(), label_args, None, label.getdescr())
-            oplist[-1] = jump.copy_and_change(jump.getopnum(), jump_args, None, jump.getdescr())
-
-            return self.invariant_oplist + oplist
-
+            #
+            # in case of any invariant_vector_vars, the label is restored
+            # and the invariant operations are added between the original label
+            # and the new label
+            descr = label.getdescr()
+            assert isinstance(descr, TargetToken)
+            token = TargetToken(descr.targeting_jitcell_token)
+            oplist[0] = label.copy_and_change(label.getopnum(), label_args, None, token)
+            oplist[-1] = jump.copy_and_change(jump.getopnum(), jump_args, None, token)
+            #
+            return [ResOperation(rop.LABEL, orig_label_args, None, descr)] + \
+                   self.invariant_oplist + oplist
+        #
         return oplist
 
 class Pack(object):

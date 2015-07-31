@@ -119,8 +119,8 @@ class Guard(object):
         descr = myop.getdescr()
         descr.copy_all_attributes_from(other.op.getdescr())
         myop.rd_frame_info_list = otherop.rd_frame_info_list
-        myop.rd_snapshot = otherop.rd_snapshot
         myop.setfailargs(otherop.getfailargs())
+        myop.rd_snapshot = otherop.rd_snapshot
 
     def emit_varops(self, opt, var, old_arg):
         assert isinstance(var, IndexVar)

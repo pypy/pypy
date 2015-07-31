@@ -85,7 +85,7 @@ def call1(space, shape, func, calc_dtype, w_obj, w_ret):
 call_many_to_one_driver = jit.JitDriver(
     name='numpy_call_many_to_one',
     greens=['shapelen', 'nin', 'func', 'res_dtype'],
-    reds='auto', vectorize=True)
+    reds='auto')
 
 def call_many_to_one(space, shape, func, res_dtype, in_args, out):
     # out must hav been built. func needs no calc_type, is usually an
@@ -119,7 +119,7 @@ def call_many_to_one(space, shape, func, res_dtype, in_args, out):
 call_many_to_many_driver = jit.JitDriver(
     name='numpy_call_many_to_many',
     greens=['shapelen', 'nin', 'nout', 'func', 'res_dtype'],
-    reds='auto', vectorize=True)
+    reds='auto')
 
 def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
     # out must hav been built. func needs no calc_type, is usually an
@@ -228,7 +228,7 @@ def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
 reduce_cum_driver = jit.JitDriver(
     name='numpy_reduce_cum_driver',
     greens=['shapelen', 'func', 'dtype', 'out_dtype'],
-    reds='auto', vectorize=True)
+    reds='auto')
 
 def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
     obj_iter, obj_state = obj.create_iter()
@@ -356,7 +356,7 @@ def do_axis_reduce(space, shape, func, arr, dtype, axis, out, identity, cumulati
 def _new_argmin_argmax(op_name):
     arg_driver = jit.JitDriver(name='numpy_' + op_name,
                                greens = ['shapelen', 'dtype'],
-                               reds = 'auto', vectorize=True)
+                               reds = 'auto')
 
     def argmin_argmax(arr):
         result = 0
@@ -536,7 +536,7 @@ def setitem_filter(space, arr, index, value):
 
 flatiter_getitem_driver = jit.JitDriver(name = 'numpy_flatiter_getitem',
                                         greens = ['dtype'],
-                                        reds = 'auto')
+                                        reds = 'auto', vectorize=True)
 
 def flatiter_getitem(res, base_iter, base_state, step):
     ri, rs = res.create_iter()
@@ -570,7 +570,7 @@ def flatiter_setitem(space, dtype, val, arr_iter, arr_state, step, length):
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
                                   greens = ['itemsize', 'dtype'],
-                                  reds = 'auto', vectorize=True)
+                                  reds = 'auto')
 
 def fromstring_loop(space, a, dtype, itemsize, s):
     i = 0
@@ -604,7 +604,7 @@ def tostring(space, arr):
 getitem_int_driver = jit.JitDriver(name = 'numpy_getitem_int',
                                    greens = ['shapelen', 'indexlen',
                                              'prefixlen', 'dtype'],
-                                   reds = 'auto', vectorize=True)
+                                   reds = 'auto')
 
 def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     shapelen = len(iter_shape)
@@ -632,7 +632,7 @@ def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
 setitem_int_driver = jit.JitDriver(name = 'numpy_setitem_int',
                                    greens = ['shapelen', 'indexlen',
                                              'prefixlen', 'dtype'],
-                                   reds = 'auto', vectorize=True)
+                                   reds = 'auto')
 
 def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
                       prefix_w):
@@ -762,7 +762,7 @@ def round(space, arr, dtype, shape, decimals, out):
 
 diagonal_simple_driver = jit.JitDriver(name='numpy_diagonal_simple_driver',
                                        greens = ['axis1', 'axis2'],
-                                       reds = 'auto', vectorize=True)
+                                       reds = 'auto')
 
 def diagonal_simple(space, arr, out, offset, axis1, axis2, size):
     out_iter, out_state = out.create_iter()
@@ -806,7 +806,7 @@ def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
 def _new_binsearch(side, op_name):
     binsearch_driver = jit.JitDriver(name='numpy_binsearch_' + side,
                                      greens=['dtype'],
-                                     reds='auto', vectorize=True)
+                                     reds='auto')
 
     def binsearch(space, arr, key, ret):
         assert len(arr.get_shape()) == 1
