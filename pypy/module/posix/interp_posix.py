@@ -524,7 +524,7 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.wrap(key), space.wrap(value))
+            space.setitem(w_env, space.wrap(key.upper()), space.wrap(value))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
