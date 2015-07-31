@@ -208,7 +208,6 @@ class AppTestAbstractInst:
         
         class M(type):
             def __instancecheck__(self, obj):
-                saddsadsa
                 called.append("called")
 
         class C:
