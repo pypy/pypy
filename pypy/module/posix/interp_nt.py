@@ -79,7 +79,7 @@ def make__getfileinformation_impl(traits):
         with lltype.scoped_alloc(
             win32traits.BY_HANDLE_FILE_INFORMATION) as info:
             if win32traits.GetFileInformationByHandle(hFile, info) == 0:
-                raise rwin32.lastWindowsError("_getfileinformation")
+                raise rwin32.lastSavedWindowsError("_getfileinformation")
             return (rffi.cast(lltype.Signed, info.c_dwVolumeSerialNumber),
                     rffi.cast(lltype.Signed, info.c_nFileIndexHigh),
                     rffi.cast(lltype.Signed, info.c_nFileIndexLow))
@@ -101,7 +101,7 @@ def make__getfinalpathname_impl(traits):
                                        win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                                        rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastWindowsError("CreateFile")
+            raise rwin32.lastSavedWindowsError("CreateFile")
 
         VOLUME_NAME_DOS = rffi.cast(rwin32.DWORD, win32traits.VOLUME_NAME_DOS)
         try:
@@ -111,7 +111,7 @@ def make__getfinalpathname_impl(traits):
                 rffi.cast(rwin32.DWORD, 0),
                 VOLUME_NAME_DOS)
             if usize == 0:
-                raise rwin32.lastWindowsError("GetFinalPathNameByHandle")
+                raise rwin32.lastSavedWindowsError("GetFinalPathNameByHandle")
 
             size = rffi.cast(lltype.Signed, usize)
             with rffi.scoped_alloc_unicodebuffer(size + 1) as buf:
@@ -121,7 +121,7 @@ def make__getfinalpathname_impl(traits):
                     usize,
                     VOLUME_NAME_DOS)
                 if result == 0:
-                    raise rwin32.lastWindowsError("GetFinalPathNameByHandle")
+                    raise rwin32.lastSavedWindowsError("GetFinalPathNameByHandle")
                 return buf.str(rffi.cast(lltype.Signed, result))
         finally:
             rwin32.CloseHandle(hFile)
