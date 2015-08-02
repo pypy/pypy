@@ -1,5 +1,10 @@
+import py
 from rpython.rlib.rvmprof import get_vmprof, vmprof_execute_code
 from rpython.translator.c.test.test_genc import compile
+from rpython.jit.backend import detect_cpu
+
+if detect_cpu.autodetect() != detect_cpu.MODEL_X86_64:
+    py.test.skip("rvmprof only supports x86-64 CPUs for now")
 
 
 def test_vmprof_execute_code_1():
