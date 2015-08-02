@@ -349,6 +349,11 @@ def absolute_import_try(space, modulename, baselevel, fromlist_w):
                 w_all = try_getattr(space, w_mod, space.wrap('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
+                else:
+                    fromlist_w = []
+                    # "from x import *" with x already imported and no x.__all__
+                    # always succeeds without doing more imports.  It will
+                    # just copy everything from x.__dict__ as it is now.
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
                     return None
@@ -389,6 +394,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                 w_all = try_getattr(space, w_mod, w('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
+                else:
+                    fromlist_w = []
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
                     load_part(space, w_path, prefix, space.str0_w(w_name),

@@ -157,6 +157,8 @@ class CodemapBuilder(object):
         self.l.append(0) # second marker
 
     def leave_portal_frame(self, jd_id, relpos):
+        if len(self.patch_position) < 1:
+            return     # XXX should not occur, but does (issue #2102)
         to_patch = self.patch_position.pop()
         self.l[to_patch] = relpos
         self.l[to_patch + 1] = len(self.l)

@@ -24,7 +24,7 @@ GOALS = [
     ("annotate", "do type inference", "-a --annotate", ""),
     ("rtype", "do rtyping", "-t --rtype", ""),
     ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
-    ("jittest", "JIT test with llgraph backend", "--jittest", ""),
+    ("jittest", "JIT test with llgraph backend", "--pyjittest", ""),
     ("backendopt", "do backend optimizations", "--backendopt", ""),
     ("source", "create source", "-s --source", ""),
     ("compile", "compile", "-c --compile", " (default goal)"),

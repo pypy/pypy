@@ -345,7 +345,10 @@ class Connection(object):
 
     def _finalize_raw_statement(self, _statement):
         if self.__rawstatements is not None:
-            self.__rawstatements.remove(_statement)
+            try:
+                self.__rawstatements.remove(_statement)
+            except KeyError:
+                return    # rare case: already finalized, see issue #2097
             _lib.sqlite3_finalize(_statement)
 
     def __do_all_statements(self, action, reset_cursors):

@@ -33,6 +33,9 @@
 //#include <libunwind.h>
 
 #include "vmprof.h"
+#if defined(__FreeBSD__) || defined(__APPLE__)
+#define sighandler_t sig_t
+#endif
 
 #define _unused(x) ((void)x)
 
@@ -259,13 +262,31 @@ static int close_profile(void) {
 	int marker = MARKER_TRAILER;
 	write(profile_file, &marker, 1);
 
+#ifdef __linux__
     // copy /proc/PID/maps to the end of the profile file
     sprintf(buf, "/proc/%d/maps", getpid());
-    src = fopen(buf, "r");    
+    src = fopen(buf, "r");
+    if (!src) {
+        vmprof_error = "error opening proc maps";
+        return -1;
+    }
     while ((size = fread(buf, 1, BUFSIZ, src))) {
         write(profile_file, buf, size);
     }
     fclose(src);
+#else
+    // freebsd and mac
+    sprintf(buf, "procstat -v %d", getpid());
+    src = popen(buf, "r");
+    if (!src) {
+        vmprof_error = "error calling procstat";
+        return -1;
+    }
+    while ((size = fread(buf, 1, BUFSIZ, src))) {
+        write(profile_file, buf, size);
+    }
+    pclose(src);
+#endif
     close(profile_file);
 	return 0;
 }
@@ -316,11 +337,15 @@ static int remove_sigprof_timer(void) {
 }
 
 static void atfork_disable_timer(void) {
-    remove_sigprof_timer();
+    if (last_period_usec) {
+        remove_sigprof_timer();
+    }
 }
 
 static void atfork_enable_timer(void) {
-    install_sigprof_timer(last_period_usec);
+    if (last_period_usec) {
+        install_sigprof_timer(last_period_usec);
+    }
 }
 
 static int install_pthread_atfork_hooks(void) {
@@ -411,6 +436,7 @@ int vmprof_disable(void) {
     if (remove_sigprof_timer() == -1) {
 		return -1;
 	}
+    last_period_usec = 0;
     if (remove_sigprof_handler() == -1) {
 		return -1;
 	}

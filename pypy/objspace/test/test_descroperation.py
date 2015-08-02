@@ -639,10 +639,10 @@ class AppTest_Descroperation:
             pass
         a = A()
         b = B()
-        assert isinstance(a, A)
+        assert isinstance(a, A) # "shortcut" does not go through metaclass
         assert not isinstance(a, B)
         assert isinstance(b, A)
-        assert not isinstance(b, B)
+        assert isinstance(b, B) # "shortcut" does not go through metaclass
         assert isinstance(4, A)
         assert not issubclass(A, A)
         assert not issubclass(B, A)

@@ -156,7 +156,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     if s_type.is_constant():
         typ = s_type.const
         if issubclass(typ, rpython.rlib.rarithmetic.base_int):
-            r.const = issubclass(s_obj.knowntype, typ)
+            try:
+                r.const = issubclass(s_obj.knowntype, typ)
+            except TypeError:    # s_obj.knowntype is not a Python type at all
+                r.const = False
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")

@@ -196,7 +196,12 @@ class W_GenericBox(W_NumpyObject):
                     "'%T' object is not iterable", self)
 
     def descr_str(self, space):
-        return space.wrap(self.get_dtype(space).itemtype.str_format(self, add_quotes=False))
+        tp = self.get_dtype(space).itemtype
+        return space.wrap(tp.str_format(self, add_quotes=False))
+
+    def descr_repr(self, space):
+        tp = self.get_dtype(space).itemtype
+        return space.wrap(tp.str_format(self, add_quotes=True))
 
     def descr_format(self, space, w_spec):
         return space.format(self.item(space), w_spec)
@@ -558,7 +563,7 @@ class W_VoidBox(W_FlexibleBox):
         elif space.isinstance_w(w_item, space.w_int):
             indx = space.int_w(w_item)
             try:
-                item = self.dtype.names[indx]
+                item = self.dtype.names[indx][0]
             except IndexError:
                 if indx < 0:
                     indx += len(self.dtype.names)
@@ -591,7 +596,7 @@ class W_VoidBox(W_FlexibleBox):
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise oefmt(space.w_IndexError, "222only integers, slices (`:`), "
+            raise oefmt(space.w_IndexError, "only integers, slices (`:`), "
                 "ellipsis (`...`), numpy.newaxis (`None`) and integer or "
                 "boolean arrays are valid indices")
         dtype.store(self.arr, self.ofs, ofs,
@@ -618,16 +623,25 @@ class W_StringBox(W_CharacterBox):
         return W_StringBox(arr, 0, arr.dtype)
 
 class W_UnicodeBox(W_CharacterBox):
-    def descr__new__unicode_box(space, w_subtype, w_arg):
-        raise oefmt(space.w_NotImplementedError, "Unicode is not supported yet")
+    def __init__(self, value):
+        self._value = value
+
+    def convert_to(self, space, dtype):
+        if dtype.is_unicode():
+            return self
+        elif dtype.is_object():
+            return W_ObjectBox(space.wrap(self._value))
+        else:
+            raise oefmt(space.w_NotImplementedError,
+                        "Conversion from unicode not implemented yet")
+
+    def get_dtype(self, space):
         from pypy.module.micronumpy.descriptor import new_unicode_dtype
-        arg = space.unicode_w(space.unicode_from_object(w_arg))
-        # XXX size computations, we need tests anyway
-        arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
-        # XXX not this way, we need store
-        #for i in range(len(arg)):
-        #    arr.storage[i] = arg[i]
-        return W_UnicodeBox(arr, 0, arr.dtype)
+        return new_unicode_dtype(space, len(self._value))
+
+    def descr__new__unicode_box(space, w_subtype, w_arg):
+        value = space.unicode_w(space.unicode_from_object(w_arg))
+        return W_UnicodeBox(value)
 
 class W_ObjectBox(W_GenericBox):
     descr__new__, _get_dtype, descr_reduce = new_dtype_getter(NPY.OBJECT)
@@ -649,7 +663,7 @@ W_GenericBox.typedef = TypeDef("numpy.generic",
     __getitem__ = interp2app(W_GenericBox.descr_getitem),
     __iter__ = interp2app(W_GenericBox.descr_iter),
     __str__ = interp2app(W_GenericBox.descr_str),
-    __repr__ = interp2app(W_GenericBox.descr_str),
+    __repr__ = interp2app(W_GenericBox.descr_repr),
     __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
     __long__ = interp2app(W_GenericBox.descr_long),

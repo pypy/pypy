@@ -1715,6 +1715,6 @@ class TestNewFFI1:
         assert myvar == -5     # but can't be changed, so not very useful
         py.test.raises(ImportError, "from _test_import_from_lib.lib import bar")
         d = {}
-        exec "from _test_import_from_lib.lib import *" in d
+        exec("from _test_import_from_lib.lib import *", d)
         assert (set(key for key in d if not key.startswith('_')) ==
                 set(['myfunc', 'MYFOO']))

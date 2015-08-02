@@ -20,6 +20,7 @@ from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
+from .converters import out_converter
 from .casting import (
     can_cast_type, can_cast_array, can_cast_to,
     find_result_type, promote_types)
@@ -86,6 +87,7 @@ class W_Ufunc(W_Root):
         "identity", "int_only", "allow_bool", "allow_complex",
         "complex_to_float", "nargs", "nout", "signature"
     ]
+    w_doc = None
 
     def __init__(self, name, promote_to_largest, promote_to_float, promote_bools,
                  identity, int_only, allow_bool, allow_complex, complex_to_float):
@@ -105,6 +107,15 @@ class W_Ufunc(W_Root):
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
 
+    def get_doc(self, space):
+        # Note: allows any object to be set as docstring, because why not?
+        if self.w_doc is None:
+            return space.w_None
+        return self.w_doc
+
+    def set_doc(self, space, w_doc):
+        self.w_doc = w_doc
+
     def descr_get_identity(self, space):
         if self.identity is None:
             return space.w_None
@@ -114,10 +125,7 @@ class W_Ufunc(W_Root):
         args_w, kwds_w = __args__.unpack()
         # sig, extobj are used in generic ufuncs
         w_subok, w_out, sig, w_casting, extobj = self.parse_kwargs(space, kwds_w)
-        if space.is_w(w_out, space.w_None):
-            out = None
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         if (w_subok is not None and space.is_true(w_subok)):
             raise oefmt(space.w_NotImplementedError, "parameter subok unsupported")
         if kwds_w:
@@ -139,9 +147,6 @@ class W_Ufunc(W_Root):
             out = args_w[-1]
         else:
             args_w = args_w + [out]
-        if out is not None and not isinstance(out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                                            'output must be an array'))
         if w_casting is None:
             casting = 'unsafe'
         else:
@@ -153,13 +158,7 @@ class W_Ufunc(W_Root):
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
         if space.is_none(w_axis):
             w_axis = space.wrap(0)
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                                                'output must be an array'))
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
                            out, w_dtype, cumulative=True)
 
@@ -221,13 +220,7 @@ class W_Ufunc(W_Root):
         from pypy.module.micronumpy.ndarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                'output must be an array'))
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
@@ -450,11 +443,7 @@ class W_Ufunc1(W_Ufunc):
         w_obj = args_w[0]
         out = None
         if len(args_w) > 1:
-            out = args_w[1]
-            if space.is_w(out, space.w_None):
-                out = None
-            elif out is not None and not isinstance(out, W_NDimArray):
-                raise oefmt(space.w_TypeError, 'output must be an array')
+            out = out_converter(space, args_w[1])
         w_obj = numpify(space, w_obj)
         dtype = w_obj.get_dtype(space)
         calc_dtype, dt_out, func = self.find_specialization(space, dtype, out, casting)
@@ -552,10 +541,7 @@ class W_Ufunc2(W_Ufunc):
     def call(self, space, args_w, sig, casting, extobj):
         if len(args_w) > 2:
             [w_lhs, w_rhs, out] = args_w
-            if space.is_none(out):
-                out = None
-            elif not isinstance(out, W_NDimArray):
-                raise oefmt(space.w_TypeError, 'output must be an array')
+            out = out_converter(space, out)
         else:
             [w_lhs, w_rhs] = args_w
             out = None
@@ -700,10 +686,15 @@ class W_Ufunc2(W_Ufunc):
                           ((w_arg1.is_scalar() and not w_arg2.is_scalar()) or
                            (not w_arg1.is_scalar() and w_arg2.is_scalar())))
         in_casting = safe_casting_mode(casting)
+        if use_min_scalar:
+            w_arg1 = convert_to_array(space, w_arg1)
+            w_arg2 = convert_to_array(space, w_arg2)
+        elif (in_casting == 'safe' and l_dtype.num == 7 and r_dtype.num == 7 and
+              out is None and not self.promote_to_float):
+            # while long (7) can be cast to int32 (5) on 32 bit, don't do it
+            return l_dtype, l_dtype
         for dt_in, dt_out in self.dtypes:
             if use_min_scalar:
-                w_arg1 = convert_to_array(space, w_arg1)
-                w_arg2 = convert_to_array(space, w_arg2)
                 if not (can_cast_array(space, w_arg1, dt_in, in_casting) and
                         can_cast_array(space, w_arg2, dt_in, in_casting)):
                     continue
@@ -1144,6 +1135,7 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
     __name__ = GetSetProperty(W_Ufunc.descr_get_name),
+    __doc__ = GetSetProperty(W_Ufunc.get_doc, W_Ufunc.set_doc),
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
@@ -1155,8 +1147,6 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     reduce = interp2app(W_Ufunc.descr_reduce),
     outer = interp2app(W_Ufunc.descr_outer),
 )
-
-
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, nin, bool_result):
@@ -1481,7 +1471,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if w_ret.external_loop:
         _parse_signature(space, w_ret, w_ret.signature)
     if doc:
-        w_ret.w_doc = space.wrap(doc)
+        w_ret.set_doc(space, space.wrap(doc))
     return w_ret
 
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls

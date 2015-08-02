@@ -238,7 +238,7 @@ class TestString(BaseTestPyPyC):
         log = self.run("""
         def main(n):
             for i in xrange(n):
-                unicode('abc')
+                unicode(str(i))
             return i
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
@@ -248,10 +248,12 @@ class TestString(BaseTestPyPyC):
         i50 = int_add(i47, 1)
         setfield_gc(p15, i50, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
         guard_not_invalidated(descr=...)
-        p52 = call(ConstClass(str_decode_ascii__raise_unicode_exception_decode), ConstPtr(ptr38), 3, 1, descr=<Callr . rii EF=5>)
+        p80 = call(ConstClass(ll_str__IntegerR_SignedConst_Signed), i47, descr=<Callr . i EF=3>)
         guard_no_exception(descr=...)
-        p53 = getfield_gc_pure(p52, descr=<FieldP tuple2.item0 .>)
+        p53 = call(ConstClass(fast_str_decode_ascii), p80, descr=<Callr . r EF=4>)
+        guard_no_exception(descr=...)
         guard_nonnull(p53, descr=...)
         --TICK--
         jump(..., descr=...)
         """)
+        # XXX remove the guard_nonnull above?
