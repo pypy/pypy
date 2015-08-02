@@ -168,58 +168,6 @@ class W_Ufunc(W_Root):
     @unwrap_spec(keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      w_out=None, keepdims=False):
-        """reduce(...)
-        reduce(a, axis=0)
-
-        Reduces `a`'s dimension by one, by applying ufunc along one axis.
-
-        Let :math:`a.shape = (N_0, ..., N_i, ..., N_{M-1})`.  Then
-        :math:`ufunc.reduce(a, axis=i)[k_0, ..,k_{i-1}, k_{i+1}, .., k_{M-1}]` =
-        the result of iterating `j` over :math:`range(N_i)`, cumulatively applying
-        ufunc to each :math:`a[k_0, ..,k_{i-1}, j, k_{i+1}, .., k_{M-1}]`.
-        For a one-dimensional array, reduce produces results equivalent to:
-        ::
-
-         r = op.identity # op = ufunc
-         for i in xrange(len(A)):
-           r = op(r, A[i])
-         return r
-
-        For example, add.reduce() is equivalent to sum().
-
-        Parameters
-        ----------
-        a : array_like
-            The array to act on.
-        axis : int, optional
-            The axis along which to apply the reduction.
-
-        Examples
-        --------
-        >>> np.multiply.reduce([2,3,5])
-        30
-
-        A multi-dimensional array example:
-
-        >>> X = np.arange(8).reshape((2,2,2))
-        >>> X
-        array([[[0, 1],
-                [2, 3]],
-               [[4, 5],
-                [6, 7]]])
-        >>> np.add.reduce(X, 0)
-        array([[ 4,  6],
-               [ 8, 10]])
-        >>> np.add.reduce(X) # confirm: default axis value is 0
-        array([[ 4,  6],
-               [ 8, 10]])
-        >>> np.add.reduce(X, 1)
-        array([[ 2,  4],
-               [10, 12]])
-        >>> np.add.reduce(X, 2)
-        array([[ 1,  5],
-               [ 9, 13]])
-        """
         from pypy.module.micronumpy.ndarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
@@ -257,8 +205,6 @@ class W_Ufunc(W_Root):
                 if x < 0 or x >= shapelen:
                     raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
                 axes[i] = x
-
-
         else:
             if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
                 w_axis = space.getitem(w_axis, space.wrap(0))
