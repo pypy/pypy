@@ -90,8 +90,8 @@ void rpython_vmprof_ignore_signals(int ignored)
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
 
-static int profile_file;
-static long profile_interval_usec;
+static int profile_file = -1;
+static long profile_interval_usec = 0;
 static char atfork_hook_installed = 0;
 
 static int _write_all(const void *buf, size_t bufsize)
@@ -204,25 +204,26 @@ int rpython_vmprof_enable(int fd, long interval_usec)
     profile_interval_usec = interval_usec;
 
     if (install_pthread_atfork_hooks() == -1)
-        return -1;
+        goto error;
     if (install_sigprof_handler() == -1)
-        return -1;
+        goto error;
     if (install_sigprof_timer() == -1)
-        return -1;
+        goto error;
     rpython_vmprof_ignore_signals(0);
     return 0;
+
+ error:
+    profile_file = -1;
+    profile_interval_usec = 0;
+    return -1;
 }
 
-RPY_EXTERN
-int rpython_vmprof_disable(void)
+static int close_profile(void)
 {
     int srcfd;
     char buf[4096];
     ssize_t size;
     unsigned char marker = MARKER_TRAILER;
-
-    rpython_vmprof_ignore_signals(1);
-    profile_interval_usec = 0;
 
     if (_write_all(&marker, 1) < 0)
         return -1;
@@ -235,7 +236,10 @@ int rpython_vmprof_disable(void)
         return -1;
 
     while ((size = read(srcfd, buf, sizeof buf)) > 0) {
-        _write_all(buf, size);
+        if (_write_all(buf, size) < 0) {
+            close(srcfd);
+            return -1;
+        }
     }
     close(srcfd);
 #else
@@ -253,5 +257,20 @@ int rpython_vmprof_disable(void)
     pclose(src);
 #endif
 
+    /* don't close() the file descriptor from here */
+    profile_file = -1;
     return 0;
+}
+
+RPY_EXTERN
+int rpython_vmprof_disable(void)
+{
+    rpython_vmprof_ignore_signals(1);
+    profile_interval_usec = 0;
+
+    if (remove_sigprof_timer() == -1)
+        return -1;
+    if (remove_sigprof_handler() == -1)
+        return -1;
+    return close_profile();
 }
