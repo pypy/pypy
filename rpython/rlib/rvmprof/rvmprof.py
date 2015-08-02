@@ -1,10 +1,11 @@
 import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+from rpython.rtyper.lltypesystem import rffi
 
 MAX_CODES = 8000
 
@@ -126,7 +127,7 @@ class VMProf(object):
         self._carefully_write(buf)
 
     def _carefully_write(self, buf):
-        fd = self._fileno
+        fd = self.fileno
         assert fd >= 0
         if not buf:
             return
