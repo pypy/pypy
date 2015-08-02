@@ -42,9 +42,12 @@ vmprof_init = rffi.llexternal("rpython_vmprof_init", [], rffi.CCHARP,
 ##     [rffi.CCHARP, rffi.VOIDP, rffi.VOIDP], lltype.Void,
 ##     compilation_info=eci, _nowrapper=True)
 
+vmprof_ignore_signals = rffi.llexternal("rpython_vmprof_ignore_signals",
+                                        [rffi.INT], lltype.Void,
+                                        compilation_info=eci)
+
 
 def vmprof_enable(fileno, interval_usec): return 0
-def vmprof_ignore_signals(ignore): pass
 
 
 def token2lltype(tok):
