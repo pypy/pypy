@@ -84,18 +84,17 @@ class VMProf(object):
     def enable(self, fileno, interval):
         """Enable vmprof.  Writes go to the given 'fileno'.
         The sampling interval is given by 'interval' as a number of
-        seconds, as a float which must be not greater than 1.0.
+        seconds, as a float which must be smaller than 1.0.
         Raises VMProfError if something goes wrong.
         """
         assert fileno >= 0
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
-        if not (1e-6 <= interval <= 1.0):
+        if not (1e-6 <= interval < 1.0):
             raise VMProfError("bad value for 'interval'")
         interval_usec = int(interval * 1000000.0)
         #
         self.fileno = fileno
-        self.is_enabled = True
         self._write_header(interval_usec)
         if not self.ever_enabled:
             if we_are_translated():
@@ -107,6 +106,22 @@ class VMProf(object):
         if we_are_translated():
             # does not work untranslated
             res = cintf.vmprof_enable(fileno, interval_usec)
+            if res < 0:
+                raise VMProfError(os.strerror(rposix.get_saved_errno()))
+        self.is_enabled = True
+
+    def disable(self):
+        """Disable vmprof.
+        Raises VMProfError if something goes wrong.
+        """
+        if not self.is_enabled:
+            raise VMProfError("vmprof is not enabled")
+        self.is_enabled = False
+        self._flush_codes()
+        self.fileno = -1
+        if we_are_translated():
+           # does not work untranslated
+            res = cintf.vmprof_disable()
             if res < 0:
                 raise VMProfError(os.strerror(rposix.get_saved_errno()))
 

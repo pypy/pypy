@@ -19,6 +19,15 @@
 #include "rvmprof_getpc.h"
 #include "rvmprof_base.h"
 #include <dlfcn.h>
+#include <assert.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 
 /************************************************************/
@@ -56,7 +65,7 @@ char *rpython_vmprof_init(void)
 
 /************************************************************/
 
-static long volatile ignore_signals = 0;
+static long volatile ignore_signals = 1;
 
 RPY_EXTERN
 void rpython_vmprof_ignore_signals(int ignored)
@@ -69,4 +78,180 @@ void rpython_vmprof_ignore_signals(int ignored)
 #else
     _InterlockedExchange(&ignore_signals, (long)ignored);
 #endif
+}
+
+
+/* *************************************************************
+ * functions to write a profile file compatible with gperftools
+ * *************************************************************
+ */
+
+#define MARKER_STACKTRACE '\x01'
+#define MARKER_VIRTUAL_IP '\x02'
+#define MARKER_TRAILER '\x03'
+
+static int profile_file;
+static long profile_interval_usec;
+static char atfork_hook_installed = 0;
+
+static int _write_all(const void *buf, size_t bufsize)
+{
+    while (bufsize > 0) {
+        ssize_t count = write(profile_file, buf, bufsize);
+        if (count <= 0)
+            return -1;   /* failed */
+        buf += count;
+        bufsize -= count;
+    }
+    return 0;
+}
+
+static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
+    int saved_errno = errno;
+    /*
+    void* stack[MAX_STACK_DEPTH];
+    stack[0] = GetPC((ucontext_t*)ucontext);
+    int depth = frame_forcer(get_stack_trace(stack+1, MAX_STACK_DEPTH-1, ucontext));
+    depth++;  // To account for pc value in stack[0];
+    prof_write_stacktrace(stack, depth, 1);
+    */
+    errno = saved_errno;
+}
+
+
+/************************************************************/
+
+static int install_sigprof_handler(void)
+{
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = sigprof_handler;
+    sa.sa_flags = SA_RESTART | SA_SIGINFO;
+    if (sigemptyset(&sa.sa_mask) == -1 ||
+        sigaction(SIGPROF, &sa, NULL) == -1)
+        return -1;
+    return 0;
+}
+
+static int remove_sigprof_handler(void)
+{
+    sighandler_t res = signal(SIGPROF, SIG_DFL);
+    if (res == SIG_ERR)
+        return -1;
+    return 0;
+}
+
+static int install_sigprof_timer(void)
+{
+    static struct itimerval timer;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = profile_interval_usec;
+    timer.it_value = timer.it_interval;
+    if (setitimer(ITIMER_PROF, &timer, NULL) != 0)
+        return -1;
+    return 0;
+}
+
+static int remove_sigprof_timer(void) {
+    static struct itimerval timer;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 0;
+    if (setitimer(ITIMER_PROF, &timer, NULL) != 0)
+        return -1;
+    return 0;
+}
+
+static void atfork_disable_timer(void) {
+    if (profile_interval_usec > 0) {
+        remove_sigprof_timer();
+    }
+}
+
+static void atfork_enable_timer(void) {
+    if (profile_interval_usec > 0) {
+        install_sigprof_timer();
+    }
+}
+
+static int install_pthread_atfork_hooks(void) {
+    /* this is needed to prevent the problems described there:
+         - http://code.google.com/p/gperftools/issues/detail?id=278
+         - http://lists.debian.org/debian-glibc/2010/03/msg00161.html
+
+        TL;DR: if the RSS of the process is large enough, the clone() syscall
+        will be interrupted by the SIGPROF before it can complete, then
+        retried, interrupted again and so on, in an endless loop.  The
+        solution is to disable the timer around the fork, and re-enable it
+        only inside the parent.
+    */
+    if (atfork_hook_installed)
+        return 0;
+    int ret = pthread_atfork(atfork_disable_timer, atfork_enable_timer, NULL);
+    if (ret != 0)
+        return -1;
+    atfork_hook_installed = 1;
+    return 0;
+}
+
+RPY_EXTERN
+int rpython_vmprof_enable(int fd, long interval_usec)
+{
+    assert(fd >= 0);
+    assert(interval_usec > 0);
+    profile_file = fd;
+    profile_interval_usec = interval_usec;
+
+    if (install_pthread_atfork_hooks() == -1)
+        return -1;
+    if (install_sigprof_handler() == -1)
+        return -1;
+    if (install_sigprof_timer() == -1)
+        return -1;
+    rpython_vmprof_ignore_signals(0);
+    return 0;
+}
+
+RPY_EXTERN
+int rpython_vmprof_disable(void)
+{
+    int srcfd;
+    char buf[4096];
+    ssize_t size;
+    unsigned char marker = MARKER_TRAILER;
+
+    rpython_vmprof_ignore_signals(1);
+    profile_interval_usec = 0;
+
+    if (_write_all(&marker, 1) < 0)
+        return -1;
+
+#ifdef __linux__
+    // copy /proc/PID/maps to the end of the profile file
+    sprintf(buf, "/proc/%d/maps", getpid());
+    srcfd = open(buf, O_RDONLY);
+    if (srcfd < 0)
+        return -1;
+
+    while ((size = read(srcfd, buf, sizeof buf)) > 0) {
+        _write_all(buf, size);
+    }
+    close(srcfd);
+#else
+    // freebsd and mac
+#   error "REVIEW AND FIX ME"
+    sprintf(buf, "procstat -v %d", getpid());
+    src = popen(buf, "r");
+    if (!src) {
+        vmprof_error = "error calling procstat";
+        return -1;
+    }
+    while ((size = fread(buf, 1, sizeof buf, src))) {
+        write(profile_file, buf, size);
+    }
+    pclose(src);
+#endif
+
+    return 0;
 }

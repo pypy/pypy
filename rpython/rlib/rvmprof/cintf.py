@@ -28,14 +28,13 @@ platform.verify_eci(eci)
 
 vmprof_init = rffi.llexternal("rpython_vmprof_init", [], rffi.CCHARP,
                               compilation_info=eci)
-## vmprof_enable = rffi.llexternal("vmprof_enable",
-##                                 [rffi.INT, rffi.LONG, rffi.INT,
-##                                  rffi.CCHARP, rffi.INT],
-##                                 rffi.INT, compilation_info=eci,
-##                                 save_err=rffi.RFFI_SAVE_ERRNO)
-## vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
-##                                  compilation_info=eci,
-##                                 save_err=rffi.RFFI_SAVE_ERRNO)
+vmprof_enable = rffi.llexternal("rpython_vmprof_enable",
+                                [rffi.INT, rffi.LONG],
+                                rffi.INT, compilation_info=eci,
+                                save_err=rffi.RFFI_SAVE_ERRNO)
+vmprof_disable = rffi.llexternal("rpython_vmprof_disable", [], rffi.INT,
+                                 compilation_info=eci,
+                                 save_err=rffi.RFFI_SAVE_ERRNO)
 
 ## vmprof_register_virtual_function = rffi.llexternal(
 ##     "vmprof_register_virtual_function",
@@ -45,9 +44,6 @@ vmprof_init = rffi.llexternal("rpython_vmprof_init", [], rffi.CCHARP,
 vmprof_ignore_signals = rffi.llexternal("rpython_vmprof_ignore_signals",
                                         [rffi.INT], lltype.Void,
                                         compilation_info=eci)
-
-
-def vmprof_enable(fileno, interval_usec): return 0
 
 
 def token2lltype(tok):

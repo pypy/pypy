@@ -96,6 +96,8 @@ def test_enable():
         get_vmprof().enable(fd, 0.5)
         res = main(code, 5)
         assert res == 42
+        get_vmprof().disable()
+        os.close(fd)
         return 0
 
     assert f() == 0
