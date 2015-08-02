@@ -194,8 +194,6 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
 
         @specialize.memo()
         def get_ll_trampoline(token):
-            assert len(token) <= 5, (
-                "not supported: %r takes more than 5 arguments" % (func,))
             if result_class is None:
                 restok = "i"
             else:

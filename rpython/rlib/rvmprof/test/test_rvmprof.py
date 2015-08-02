@@ -50,3 +50,26 @@ def test_vmprof_execute_code_2():
     assert f() == 0
     fn = compile(f, [])
     assert fn() == 0
+
+
+def test_register_code():
+
+    class MyCode:
+        pass
+    get_vmprof().register_code_object_class(MyCode, lambda code: 'some code')
+
+    @vmprof_execute_code("xcode1", lambda code, num: code)
+    def main(code, num):
+        print num
+        return 42
+
+    def f():
+        code = MyCode()
+        get_vmprof().register_code(code, 'some code')
+        res = main(code, 5)
+        assert res == 42
+        return 0
+
+    assert f() == 0
+    fn = compile(f, [])
+    assert fn() == 0

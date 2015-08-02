@@ -1,6 +1,46 @@
+import py
+import sys
 from rpython.tool.udir import udir
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform as platform
+
+
+ROOT = py.path.local(__file__).join('..')
+SRC = ROOT.join('src')
+
+
+if sys.platform.startswith('linux'):
+    libs = ['dl']
+else:
+    libs = []
+
+eci_kwds = dict(
+    include_dirs = [SRC],
+    includes = ['rvmprof.h'],
+    libraries = libs,
+    separate_module_files = [SRC.join('rvmprof.c')],
+    )
+eci = ExternalCompilationInfo(**eci_kwds)
+
+platform.verify_eci(eci)
+
+
+vmprof_init = rffi.llexternal("rpython_vmprof_init", [], rffi.CCHARP,
+                              compilation_info=eci)
+## vmprof_enable = rffi.llexternal("vmprof_enable",
+##                                 [rffi.INT, rffi.LONG, rffi.INT,
+##                                  rffi.CCHARP, rffi.INT],
+##                                 rffi.INT, compilation_info=eci,
+##                                 save_err=rffi.RFFI_SAVE_ERRNO)
+## vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
+##                                  compilation_info=eci,
+##                                 save_err=rffi.RFFI_SAVE_ERRNO)
+
+## vmprof_register_virtual_function = rffi.llexternal(
+##     "vmprof_register_virtual_function",
+##     [rffi.CCHARP, rffi.VOIDP, rffi.VOIDP], lltype.Void,
+##     compilation_info=eci, _nowrapper=True)
 
 
 def vmprof_init(): pass
@@ -36,7 +76,11 @@ def make_trampoline_function(name, func, token, restok):
            4: '%r8',
            5: '%r9',
            }
-    reg = reg[len(token)]
+    try:
+        reg = reg[len(token)]
+    except KeyError:
+        raise NotImplementedError(
+            "not supported: %r takes more than 5 arguments" % (func,))
 
     target = udir.join('module_cache')
     target.ensure(dir=1)
@@ -68,6 +112,19 @@ def make_trampoline_function(name, func, token, restok):
         tok2cname(restok),
         tramp_name,
         ', '.join([tok2cname(tok) for tok in token] + ['long']))
+
+    header += """\
+static int cmp_%s(void *addr) {
+    if (addr == %s) return 1;
+#ifdef VMPROF_ADDR_OF_TRAMPOLINE
+    return VMPROF_ADDR_OF_TRAMPOLINE(addr);
+#undef VMPROF_ADDR_OF_TRAMPOLINE
+#else
+    return 0;
+#endif
+#define VMPROF_ADDR_OF_TRAMPOLINE cmp_%s
+}
+""" % (tramp_name, tramp_name, tramp_name)
 
     eci = ExternalCompilationInfo(
         post_include_bits = [header],
