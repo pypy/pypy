@@ -11,12 +11,13 @@ MAX_CODES = 8000
 class VMProf(object):
 
     def __init__(self):
+        "NOT_RPYTHON: use get_vmprof()"
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
 
     def _cleanup_(self):
-        self._current_codes = StringBuilder()
+        self._current_codes = None
         if sys.maxint == 2147483647:
             self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
         else:
@@ -26,11 +27,15 @@ class VMProf(object):
     def register_code(self, code, name):
         """Register the code object.  Call when a new code object is made.
         """
-        uid = self._code_unique_id
-        self._code_unique_id = uid + 4    # so we have two bits to mark stuff
+        if code._vmprof_unique_id != 0:
+            return
+        uid = self._code_unique_id + 4    # so we have two bits to mark stuff
         code._vmprof_unique_id = uid
+        self._code_unique_id = uid
         #
         b = self._current_codes
+        if b is None:
+            b = self._current_codes = StringBuilder()
         b.append('\x02')
         write_long_to_string_builder(uid, b)
         write_long_to_string_builder(len(name), b)
@@ -71,16 +76,11 @@ class VMProf(object):
 
 
 def write_long_to_string_builder(l, b):
-    if sys.maxint == 2147483647:
-        b.append(chr(l & 0xff))
-        b.append(chr((l >> 8) & 0xff))
-        b.append(chr((l >> 16) & 0xff))
-        b.append(chr((l >> 24) & 0xff))
-    else:
-        b.append(chr(l & 0xff))
-        b.append(chr((l >> 8) & 0xff))
-        b.append(chr((l >> 16) & 0xff))
-        b.append(chr((l >> 24) & 0xff))
+    b.append(chr(l & 0xff))
+    b.append(chr((l >> 8) & 0xff))
+    b.append(chr((l >> 16) & 0xff))
+    b.append(chr((l >> 24) & 0xff))
+    if sys.maxint > 2147483647:
         b.append(chr((l >> 32) & 0xff))
         b.append(chr((l >> 40) & 0xff))
         b.append(chr((l >> 48) & 0xff))
