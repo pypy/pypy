@@ -3,6 +3,8 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit, rgc
 from rpython.rlib.rvmprof import cintf
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 
 MAX_CODES = 8000
 
@@ -161,10 +163,12 @@ def _write_long_to_string_builder(l, b):
         b.append(chr((l >> 56) & 0xff))
 
 
-def vmprof_execute_code(get_code_fn, result_class=None):
+def vmprof_execute_code(name, get_code_fn, result_class=None):
     """Decorator to be used on the function that interprets a code object.
 
-    get_code_fn(*args) is called to extract the code object from the
+    'name' must be a unique name.
+
+    'get_code_fn(*args)' is called to extract the code object from the
     arguments given to the decorated function.
 
     The original function can return None, an integer, or an instance.
@@ -174,23 +178,30 @@ def vmprof_execute_code(get_code_fn, result_class=None):
     instances or plain integer arguments, and at most 5 of them
     (including 'self' if applicable).
     """
-    def lower(*args):
-        if len(args) == 0:
-            return (), ""
-        ll_args, token = lower(*args[1:])
-        ll_arg = args[0]
-        if isintance(ll_arg, int):
-            tok = "i"
-        else:
-            tok = "r"
-            ll_arg = cast_instance_to_gcref(ll_arg)
-        return (ll_arg,) + ll_args, tok + token
-
-    @specialize.memo()
-    def get_ll_trampoline(func, token):
-        xxx
-
     def decorate(func):
+
+        def lower(*args):
+            if len(args) == 0:
+                return (), ""
+            ll_args, token = lower(*args[1:])
+            ll_arg = args[0]
+            if isinstance(ll_arg, int):
+                tok = "i"
+            else:
+                tok = "r"
+                ll_arg = cast_instance_to_gcref(ll_arg)
+            return (ll_arg,) + ll_args, tok + token
+
+        @specialize.memo()
+        def get_ll_trampoline(token):
+            assert len(token) <= 5, (
+                "not supported: %r takes more than 5 arguments" % (func,))
+            if result_class is None:
+                restok = "i"
+            else:
+                restok = "r"
+            return cintf.make_trampoline_function(name, func, token, restok)
+
         def decorated_function(*args):
             # go through the asm trampoline ONLY if we are translated but not
             # being JITted.
@@ -205,7 +216,7 @@ def vmprof_execute_code(get_code_fn, result_class=None):
                 # if we are translated, call the trampoline
                 unique_id = get_code_fn(*args)._vmprof_unique_id
                 ll_args, token = lower(*args)
-                ll_trampoline = get_ll_trampoline(func, token)
+                ll_trampoline = get_ll_trampoline(token)
                 ll_result = ll_trampoline(*ll_args + (unique_id,))
                 if result_class is not None:
                     return cast_base_ptr_to_instance(result_class, ll_result)
@@ -215,6 +226,7 @@ def vmprof_execute_code(get_code_fn, result_class=None):
                 return func(*args)
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         return decorated_function
+
     return decorate
 
 
