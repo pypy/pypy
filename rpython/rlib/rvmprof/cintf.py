@@ -43,7 +43,6 @@ vmprof_init = rffi.llexternal("rpython_vmprof_init", [], rffi.CCHARP,
 ##     compilation_info=eci, _nowrapper=True)
 
 
-def vmprof_init(): pass
 def vmprof_enable(fileno, interval_usec): return 0
 def vmprof_ignore_signals(ignore): pass
 
