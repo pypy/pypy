@@ -1,11 +1,19 @@
-import sys
-from rpython.rlib.objectmodel import specialize
+import sys, os
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import rgc
+from rpython.rlib import jit, rgc
+from rpython.rlib.rvmprof import cintf
 
 MAX_CODES = 8000
 
 # ____________________________________________________________
+
+
+class VMProfError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return self.msg
 
 
 class VMProf(object):
@@ -17,6 +25,9 @@ class VMProf(object):
         self._cleanup_()
 
     def _cleanup_(self):
+        self.is_enabled = False
+        self.ever_enabled = False
+        self.fileno = -1
         self._current_codes = None
         if sys.maxint == 2147483647:
             self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
@@ -27,21 +38,12 @@ class VMProf(object):
     def register_code(self, code, name):
         """Register the code object.  Call when a new code object is made.
         """
-        if code._vmprof_unique_id != 0:
-            return
-        uid = self._code_unique_id + 4    # so we have two bits to mark stuff
-        code._vmprof_unique_id = uid
-        self._code_unique_id = uid
-        #
-        b = self._current_codes
-        if b is None:
-            b = self._current_codes = StringBuilder()
-        b.append('\x02')
-        write_long_to_string_builder(uid, b)
-        write_long_to_string_builder(len(name), b)
-        b.append(name)
-        if b.getlength() >= MAX_CODES:
-            self._flush_codes()
+        if code._vmprof_unique_id == 0:
+            uid = self._code_unique_id + 1
+            code._vmprof_unique_id = uid
+            self._code_unique_id = uid
+            if self.is_enabled:
+                self._write_code_registration(uid, name)
 
     def register_code_object_class(self, CodeClass, full_name_func):
         """NOT_RPYTHON
@@ -61,21 +63,93 @@ class VMProf(object):
         CodeClass._vmprof_unique_id = 0     # default value: "unknown"
         self._code_classes.add(CodeClass)
         #
-        def try_cast_to_pycode(gcref):
+        def try_cast_to_code(gcref):
             return rgc.try_cast_gcref_to_instance(CodeClass, gcref)
         #
         def gather_all_code_objs():
-            all_code_objs = rgc.do_get_objects(try_cast_to_pycode)
+            all_code_objs = rgc.do_get_objects(try_cast_to_code)
             for code in all_code_objs:
-                self.register_code(code, full_name_func(code))
+                uid = code._vmprof_unique_id
+                if uid != 0:
+                    self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
         # the types of code objects
         prev = self._gather_all_code_objs
         self._gather_all_code_objs = gather_all_code_objs
 
+    def enable(self, fileno, interval):
+        """Enable vmprof.  Writes go to the given 'fileno'.
+        The sampling interval is given by 'interval' as a number of
+        seconds, as a float which must be not greater than 1.0.
+        Raises VMProfError if something goes wrong.
+        """
+        assert fileno >= 0
+        if self.is_enabled:
+            raise VMProfError("vmprof is already enabled")
+        if not (1e-6 <= interval <= 1.0):
+            raise VMProfError("bad value for 'interval'")
+        interval_usec = int(interval * 1000000.0)
+        #
+        self.fileno = fileno
+        self.is_enabled = True
+        self._write_header(interval_usec)
+        if not self.ever_enabled:
+            if we_are_translated():
+                p_error = cintf.vmprof_init()
+                if p_error:
+                    raise VMProfError(rffi.charp2str(p_error))
+            self.ever_enabled = True
+        self._gather_all_code_objs()
+        if we_are_translated():
+            # does not work untranslated
+            res = cintf.vmprof_enable(fileno, interval_usec)
+            if res < 0:
+                raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
-def write_long_to_string_builder(l, b):
+    def _write_code_registration(self, uid, name):
+        b = self._current_codes
+        if b is None:
+            b = self._current_codes = StringBuilder()
+        b.append('\x02')
+        _write_long_to_string_builder(uid, b)
+        _write_long_to_string_builder(len(name), b)
+        b.append(name)
+        if b.getlength() >= MAX_CODES:
+            self._flush_codes()
+
+    def _flush_codes(self):
+        buf = self._current_codes.build()
+        self._current_codes = None
+        self._carefully_write(buf)
+
+    def _carefully_write(self, buf):
+        fd = self._fileno
+        assert fd >= 0
+        if not buf:
+            return
+        cintf.vmprof_ignore_signals(True)
+        try:
+            while len(buf) > 0:
+                num = os.write(fd, buf)
+                buf = buf[num:]
+        finally:
+            cintf.vmprof_ignore_signals(False)
+
+    def _write_header(self, interval_usec):
+        b = StringBuilder()
+        _write_long_to_string_builder(0, b)
+        _write_long_to_string_builder(3, b)
+        _write_long_to_string_builder(0, b)
+        _write_long_to_string_builder(interval_usec, b)
+        _write_long_to_string_builder(0, b)
+        b.append('\x04') # interp name
+        b.append(chr(len('pypy')))
+        b.append('pypy')
+        self._carefully_write(b.build())
+
+
+def _write_long_to_string_builder(l, b):
     b.append(chr(l & 0xff))
     b.append(chr((l >> 8) & 0xff))
     b.append(chr((l >> 16) & 0xff))
@@ -87,6 +161,68 @@ def write_long_to_string_builder(l, b):
         b.append(chr((l >> 56) & 0xff))
 
 
+def vmprof_execute_code(get_code_fn, result_class=None):
+    """Decorator to be used on the function that interprets a code object.
+
+    get_code_fn(*args) is called to extract the code object from the
+    arguments given to the decorated function.
+
+    The original function can return None, an integer, or an instance.
+    In the latter case (only), 'result_class' must be set.
+
+    NOTE: for now, this assumes that the decorated functions only takes
+    instances or plain integer arguments, and at most 5 of them
+    (including 'self' if applicable).
+    """
+    def lower(*args):
+        if len(args) == 0:
+            return (), ""
+        ll_args, token = lower(*args[1:])
+        ll_arg = args[0]
+        if isintance(ll_arg, int):
+            tok = "i"
+        else:
+            tok = "r"
+            ll_arg = cast_instance_to_gcref(ll_arg)
+        return (ll_arg,) + ll_args, tok + token
+
+    @specialize.memo()
+    def get_ll_trampoline(func, token):
+        xxx
+
+    def decorate(func):
+        def decorated_function(*args):
+            # go through the asm trampoline ONLY if we are translated but not
+            # being JITted.
+            #
+            # If we are not translated, we obviously don't want to go through
+            # the trampoline because there is no C function it can call.
+            #
+            # If we are being JITted, we want to skip the trampoline, else the
+            # JIT cannot see through it.
+            #
+            if we_are_translated() and not jit.we_are_jitted():
+                # if we are translated, call the trampoline
+                unique_id = get_code_fn(*args)._vmprof_unique_id
+                ll_args, token = lower(*args)
+                ll_trampoline = get_ll_trampoline(func, token)
+                ll_result = ll_trampoline(*ll_args + (unique_id,))
+                if result_class is not None:
+                    return cast_base_ptr_to_instance(result_class, ll_result)
+                else:
+                    return ll_result
+            else:
+                return func(*args)
+        decorated_function.__name__ = func.__name__ + '_rvmprof'
+        return decorated_function
+    return decorate
+
+
+_vmprof_instance = None
+
 @specialize.memo()
 def get_vmprof():
-    return VMProf()
+    global _vmprof_instance
+    if _vmprof_instance is None:
+        _vmprof_instance = VMProf()
+    return _vmprof_instance
