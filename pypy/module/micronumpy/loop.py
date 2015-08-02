@@ -214,68 +214,68 @@ def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
         obj_state = obj_iter.next(obj_state)
     return cur_value
 
-reduce_cum_driver = jit.JitDriver(
-    name='numpy_reduce_cum_driver',
+accumulate_flat_driver = jit.JitDriver(
+    name='numpy_accumulate_flat',
     greens=['shapelen', 'func', 'dtype', 'out_dtype'],
     reds='auto')
 
-def compute_reduce_cumulative(space, obj, out, calc_dtype, func, identity):
-    obj_iter, obj_state = obj.create_iter()
+def accumulate_flat(space, func, w_arr, calc_dtype, out, identity):
+    arr_iter, arr_state = w_arr.create_iter()
     out_iter, out_state = out.create_iter()
     out_iter.track_index = False
     if identity is None:
-        cur_value = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
+        cur_value = arr_iter.getitem(arr_state).convert_to(space, calc_dtype)
         out_iter.setitem(out_state, cur_value)
         out_state = out_iter.next(out_state)
-        obj_state = obj_iter.next(obj_state)
+        arr_state = arr_iter.next(arr_state)
     else:
         cur_value = identity.convert_to(space, calc_dtype)
-    shapelen = len(obj.get_shape())
+    shapelen = len(w_arr.get_shape())
     out_dtype = out.get_dtype()
-    while not obj_iter.done(obj_state):
-        reduce_cum_driver.jit_merge_point(
-            shapelen=shapelen, func=func,
-            dtype=calc_dtype, out_dtype=out_dtype)
-        rval = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
-        cur_value = func(calc_dtype, cur_value, rval)
+    while not arr_iter.done(arr_state):
+        accumulate_flat_driver.jit_merge_point(
+            shapelen=shapelen, func=func, dtype=calc_dtype,
+            out_dtype=out_dtype)
+        w_item = arr_iter.getitem(arr_state).convert_to(space, calc_dtype)
+        cur_value = func(calc_dtype, cur_value, w_item)
         out_iter.setitem(out_state, out_dtype.coerce(space, cur_value))
         out_state = out_iter.next(out_state)
-        obj_state = obj_iter.next(obj_state)
+        arr_state = arr_iter.next(arr_state)
 
-accumulate_driver = jit.JitDriver(name='numpy_accumulate_flat',
-                                  greens=['shapelen', 'func', 'dtype'],
-                                  reds='auto')
+accumulate_driver = jit.JitDriver(
+    name='numpy_accumulate',
+    greens=['shapelen', 'func', 'calc_dtype'], reds='auto')
 
 
-def do_accumulate(space, func, arr, dtype, axis, out, identity):
+def accumulate(space, func, w_arr, axis, calc_dtype, out, identity):
     out_iter, out_state = out.create_iter()
-    obj_shape = arr.get_shape()
-    temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
-    temp = W_NDimArray.from_shape(space, temp_shape, dtype, w_instance=arr)
-    temp_iter = AxisIter(temp.implementation, arr.get_shape(), axis)
+    arr_shape = w_arr.get_shape()
+    temp_shape = arr_shape[:axis] + arr_shape[axis + 1:]
+    temp = W_NDimArray.from_shape(space, temp_shape, calc_dtype, w_instance=w_arr)
+    temp_iter = AxisIter(temp.implementation, w_arr.get_shape(), axis)
     temp_state = temp_iter.reset()
-    arr_iter, arr_state = arr.create_iter()
+    arr_iter, arr_state = w_arr.create_iter()
     arr_iter.track_index = False
     if identity is not None:
-        identity = identity.convert_to(space, dtype)
-    shapelen = len(obj_shape)
+        identity = identity.convert_to(space, calc_dtype)
+    shapelen = len(arr_shape)
     while not out_iter.done(out_state):
         accumulate_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                          dtype=dtype)
-        w_val = arr_iter.getitem(arr_state).convert_to(space, dtype)
+                                          calc_dtype=calc_dtype)
+        w_item = arr_iter.getitem(arr_state).convert_to(space, calc_dtype)
         arr_state = arr_iter.next(arr_state)
 
         out_indices = out_iter.indices(out_state)
         if out_indices[axis] == 0:
             if identity is not None:
-                w_val = func(dtype, identity, w_val)
+                w_item = func(calc_dtype, identity, w_item)
         else:
-            cur = temp_iter.getitem(temp_state)
-            w_val = func(dtype, cur, w_val)
+            cur_value = temp_iter.getitem(temp_state)
+            w_item = func(calc_dtype, cur_value, w_item)
 
-        out_iter.setitem(out_state, w_val)
+        out_iter.setitem(out_state, w_item)
         out_state = out_iter.next(out_state)
-        temp_iter.setitem(temp_state, w_val)
+        temp_iter.setitem(temp_state, w_item)
         temp_state = temp_iter.next(temp_state)
     return out
 

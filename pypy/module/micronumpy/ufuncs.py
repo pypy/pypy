@@ -270,11 +270,11 @@ class W_Ufunc(W_Root):
                     if self.identity is not None:
                         out.fill(space, self.identity.convert_to(space, dtype))
                     return out
-                loop.do_accumulate(space, self.func, obj, dtype, axis,
-                                    out, self.identity)
+                loop.accumulate(
+                    space, self.func, obj, axis, dtype, out, self.identity)
             else:
-                loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
-                                            self.identity)
+                loop.accumulate_flat(
+                    space, self.func, obj, dtype, out, self.identity)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
