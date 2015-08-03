@@ -8,6 +8,7 @@ from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import rffi
 
 MAX_CODES = 8000
+MAX_FUNC_NAME = 128
 
 # ____________________________________________________________
 
@@ -29,7 +30,6 @@ class VMProf(object):
 
     def _cleanup_(self):
         self.is_enabled = False
-        self.ever_enabled = False
         self.fileno = -1
         self._current_codes = None
         if sys.maxint == 2147483647:
@@ -93,15 +93,13 @@ class VMProf(object):
         if not (1e-6 <= interval < 1.0):
             raise VMProfError("bad value for 'interval'")
         interval_usec = int(interval * 1000000.0)
-        #
+
+        p_error = cintf.vmprof_init()
+        if p_error:
+            raise VMProfError(rffi.charp2str(p_error))
+
         self.fileno = fileno
         self._write_header(interval_usec)
-        if not self.ever_enabled:
-            if we_are_translated():
-                p_error = cintf.vmprof_init()
-                if p_error:
-                    raise VMProfError(rffi.charp2str(p_error))
-            self.ever_enabled = True
         self._gather_all_code_objs()
         if we_are_translated():
             # does not work untranslated
@@ -126,6 +124,8 @@ class VMProf(object):
                 raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
     def _write_code_registration(self, uid, name):
+        if len(name) > MAX_FUNC_NAME:
+            name = name[:MAX_FUNC_NAME]
         b = self._current_codes
         if b is None:
             b = self._current_codes = StringBuilder()
@@ -139,20 +139,7 @@ class VMProf(object):
     def _flush_codes(self):
         buf = self._current_codes.build()
         self._current_codes = None
-        self._carefully_write(buf)
-
-    def _carefully_write(self, buf):
-        fd = self.fileno
-        assert fd >= 0
-        if not buf:
-            return
-        cintf.vmprof_ignore_signals(True)
-        try:
-            while len(buf) > 0:
-                num = os.write(fd, buf)
-                buf = buf[num:]
-        finally:
-            cintf.vmprof_ignore_signals(False)
+        cintf.vmprof_write_buf(buf, len(buf))
 
     def _write_header(self, interval_usec):
         b = StringBuilder()
@@ -164,7 +151,8 @@ class VMProf(object):
         b.append('\x04') # interp name
         b.append(chr(len('pypy')))
         b.append('pypy')
-        self._carefully_write(b.build())
+        buf = b.build()
+        cintf.vmprof_write_buf(buf, len(buf))
 
 
 def _write_long_to_string_builder(l, b):

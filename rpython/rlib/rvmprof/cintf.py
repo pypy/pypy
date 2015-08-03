@@ -35,6 +35,9 @@ vmprof_enable = rffi.llexternal("rpython_vmprof_enable",
 vmprof_disable = rffi.llexternal("rpython_vmprof_disable", [], rffi.INT,
                                  compilation_info=eci,
                                  save_err=rffi.RFFI_SAVE_ERRNO)
+vmprof_write_buf = rffi.llexternal("rpython_vmprof_write_buf",
+                                   [rffi.CCHARP, rffi.LONG],
+                                   lltype.Void, compilation_info=eci)
 
 ## vmprof_register_virtual_function = rffi.llexternal(
 ##     "vmprof_register_virtual_function",
