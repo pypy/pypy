@@ -461,6 +461,8 @@ class VectorizingOptimizer(Optimizer):
                 op = guard_node.getoperation()
                 failargs = op.getfailargs()
                 for i,arg in enumerate(failargs):
+                    if arg is None:
+                        continue
                     accum = arg.getaccum()
                     if accum:
                         accum.save_to_descr(op.getdescr(),i)
