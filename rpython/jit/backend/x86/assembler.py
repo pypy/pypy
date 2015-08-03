@@ -38,6 +38,7 @@ from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib import rstm, nonconst
+from rpython.jit.backend.x86 import perf_map
 
 
 class Assembler386(BaseAssembler):
@@ -629,9 +630,13 @@ class Assembler386(BaseAssembler):
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
+        #
+        name = "Loop %d (%s)" % (looptoken.number, loopname)
+        perf_map.write_perf_map_entry(
+            name, r_uint(rawstart), r_uint(rawstart + full_size))
         debug_start("jit-backend-addr")
-        debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
-            looptoken.number, loopname,
+        debug_print("%s has address 0x%x to 0x%x (bootstrap 0x%x)" % (
+            name,
             r_uint(rawstart + looppos),
             r_uint(rawstart + size_excluding_failure_stuff),
             r_uint(rawstart)))
