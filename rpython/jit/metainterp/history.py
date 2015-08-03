@@ -855,14 +855,13 @@ class TreeLoop(object):
 
     def append_loop(self, loop, all_target_tokens):
         # append e.g. the peeled loop to this loop!
-        label, jump = loop.operations[0], loop.operations[-1]
-        assert label.getopnum() == rop.LABEL
-        assert jump.getopnum() == rop.JUMP
+        jump = loop.operations[-1]
+        assert jump.getdescr() is not None
         target_token = None
         i = 0
         # adds all target token until the one is found that jumps from the 
         # last instruction to the label
-        while target_token is not jump.getdescr():
+        while i < len(loop.operations) and target_token is not jump.getdescr():
             # there is another label
             op = loop.operations[i]
             if op.getopnum() == rop.LABEL:
