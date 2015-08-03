@@ -57,6 +57,8 @@ class VecTestHelper(DependencyBaseTest):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
+        label_index = loop.find_first_index(rop.LABEL)
+        opt.orig_label_args = loop.operations[label_index].getarglist()[:]
         return opt
 
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
@@ -960,6 +962,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0]
+        label(p0,i0)
         v3 = vec_int_expand(42)
         label(p0,i0,v3)
         i20 = int_add(i0, 1)
@@ -989,6 +992,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0,f3]
+        label(p0,i0,f3)
         v3 = vec_float_expand(f3)
         label(p0,i0,f3,v3)
         i20 = int_add(i0, 1)
@@ -1321,6 +1325,35 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0, p1, p5, p6, p7, p12, p13, i31, i15, i16, i17, i18, i19, i20)
         """
         # schedule 885 -> ptype is non for raw_load?
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
+    def test_bug1(self):
+        trace="""
+        [p0, p1, p4, p6, p7, p9, p10, p11, p12, i18, p17, i19, p20, i21, p22, i23, i24, p25, i26, i27, p28, i29]
+        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7ffff7efd520>) [p1, p0, p4, p6, p7, p9, p10, p11, p12, p17, i18]
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7ffff7efd580>) [p1, p0, p9, p4, p6, p7, p10, p11, p12, p17, i18]
+        i30 = int_lt(i18, i19)
+        guard_true(i30, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd5e0>) [p1, p0, p20, p4, p6, p7, p9, p10, p11, p12, p17, i18]
+        i31 = int_lt(i18, i21)
+        guard_true(i31, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd640>) [p1, p0, p22, i18, p4, p6, p7, p9, p10, p11, p12, p17, None]
+        i33 = getarrayitem_raw(i23, i18, descr=chararraydescr)
+        i34 = int_lt(i18, i24)
+        guard_true(i34, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd6a0>) [p1, p0, p25, i18, p4, p6, p7, p9, p10, p11, p12, p17, i33, None]
+        i35 = getarrayitem_raw(i26, i18, descr=chararraydescr)
+        i36 = int_add(i33, i35)
+        i37 = int_lt(i18, i27)
+        guard_true(i37, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd700>) [p1, p0, p28, i18, p4, p6, p7, p9, p10, p11, p12, p17, i36, None, None]
+        i39 = int_signext(i36, 1)
+        i40 = int_ne(i39, i36)
+        guard_false(i40, descr=<ResumeGuardFalseDescr object at 0x7ffff7efd760>) [p1, p0, p28, i18, i36, i39, p4, p6, p7, p9, p10, p11, p12, p17, None, None, None]
+        setarrayitem_raw(i29, i18, i39, descr=chararraydescr)
+        i42 = int_add(i18, 1)
+        i44 = getfield_raw(140737351872096, descr=<FieldS pypysig_long_struct.c_value 0>)
+        i46 = int_lt(i44, 0)
+        guard_false(i46, descr=<ResumeGuardFalseDescr object at 0x7ffff7efd7c0>) [p1, p0, p4, p6, p7, p9, p10, p11, p12, p17, i42, None, None, None]
+        jump(p0, p1, p4, p6, p7, p9, p10, p11, p12, i42, p17, i19, p20, i21, p22, i23, i24, p25, i26, i27, p28, i29)
+        """
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
 
