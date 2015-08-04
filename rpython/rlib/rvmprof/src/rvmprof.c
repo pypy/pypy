@@ -311,7 +311,13 @@ int rpython_vmprof_disable(void)
 RPY_EXTERN
 void rpython_vmprof_write_buf(char *buf, long size)
 {
-    struct profbuf_s *p = reserve_buffer(profile_file);
+    struct profbuf_s *p;
+
+    while ((p = reserve_buffer(profile_file)) == NULL) {
+        /* spin loop waiting for a buffer to be ready; should almost never
+           be the case */
+        usleep(1);
+    }
 
     if (size > SINGLE_BUF_SIZE)
         size = SINGLE_BUF_SIZE;
