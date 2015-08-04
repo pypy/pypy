@@ -187,7 +187,7 @@ static int vmprof_unw_step(unw_cursor_t *cp, int first_run)
  * *************************************************************
  */
 
-int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
+static int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
 {
     void *ip;
     int n = 0;
@@ -224,9 +224,8 @@ int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
         int first_run = (n == 0);
         result[n++] = ip;
         n = vmprof_write_header_for_jit_addr(result, n, ip, max_depth);
-        if (vmprof_unw_step(&cursor, first_run) <= 0) {
+        if (vmprof_unw_step(&cursor, first_run) <= 0)
             break;
-        }
     }
     return n;
 }
