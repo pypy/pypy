@@ -212,9 +212,9 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        numargs = args.parse_into_scope(None, fresh_frame.locals_cells_stack_w,
-                                        func.name, sig, func.defs_w)
-        for arg in range(numargs):
+        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w,
+                              func.name, sig, func.defs_w)
+        for arg in range(self.co_nlocals):
             fresh_frame._value_profile_local(
                     arg, fresh_frame.locals_cells_stack_w[arg])
         fresh_frame.init_cells()
@@ -228,9 +228,9 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        numargs = args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
+        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
-        for arg in range(numargs):
+        for arg in range(self.co_nlocals):
             fresh_frame._value_profile_local(
                     arg, fresh_frame.locals_cells_stack_w[arg])
         fresh_frame.init_cells()
