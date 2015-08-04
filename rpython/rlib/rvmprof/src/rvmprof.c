@@ -23,6 +23,7 @@
 #if defined(RPY_EXTERN) && !defined(RPY_EXPORTED)
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 #  define RPY_EXPORTED  extern __attribute__((visibility("default")))
+#  define VMPROF_ADDR_OF_TRAMPOLINE(addr)  0
 
 #else
 
@@ -87,19 +88,23 @@ char *rpython_vmprof_init(void)
 
 /************************************************************/
 
-static long volatile ignore_signals = 1;
+/* value: last bit is 1 if signals must be ignored; all other bits
+   are a counter for how many threads are currently in a signal handler */
+static long volatile signal_handler_value = 1;
 
 RPY_EXTERN
 void rpython_vmprof_ignore_signals(int ignored)
 {
-#ifndef _MSC_VER
-    if (ignored)
-        __sync_lock_test_and_set(&ignore_signals, 1);
-    else
-        __sync_lock_release(&ignore_signals);
-#else
-    _InterlockedExchange(&ignore_signals, (long)ignored);
-#endif
+    if (!ignored) {
+        __sync_fetch_and_and(&signal_handler_value, ~1L);
+    }
+    else {
+        /* set the last bit, and wait until concurrently-running signal
+           handlers finish */
+        while (__sync_or_and_fetch(&signal_handler_value, 1L) != 1L) {
+            usleep(1);
+        }
+    }
 }
 
 
@@ -109,29 +114,162 @@ void rpython_vmprof_ignore_signals(int ignored)
  */
 
 #define MAX_FUNC_NAME 128
-#define MAX_STACK_DEPTH ((SINGLE_BUF_SIZE / sizeof(void *)) - 4)
+#define MAX_STACK_DEPTH   \
+    ((SINGLE_BUF_SIZE - sizeof(struct prof_stacktrace_s)) / sizeof(void *))
 
 #define MARKER_STACKTRACE '\x01'
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
+
+struct prof_stacktrace_s {
+    char padding[sizeof(long) - 1];
+    char marker;
+    long count, depth;
+    void *stack[];
+};
 
 static int profile_file = -1;
 static long profile_interval_usec = 0;
 static char atfork_hook_installed = 0;
 
 
-static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext) {
-    if (ignore_signals)
-        return;
-    int saved_errno = errno;
-#if 0
-    void* stack[MAX_STACK_DEPTH];
-    stack[0] = GetPC((ucontext_t*)ucontext);
-    int depth = get_stack_trace(stack+1, MAX_STACK_DEPTH-1, ucontext);
-    depth++;  // To account for pc value in stack[0];
-    prof_write_stacktrace(stack, depth, 1);
-#endif
-    errno = saved_errno;
+/* ******************************************************
+ * libunwind workaround for process JIT frames correctly
+ * ******************************************************
+ */
+
+#include "rvmprof_get_custom_offset.h"
+
+typedef struct {
+    void* _unused1;
+    void* _unused2;
+    void* sp;
+    void* ip;
+    void* _unused3[sizeof(unw_cursor_t)/sizeof(void*) - 4];
+} vmprof_hacked_unw_cursor_t;
+
+static int vmprof_unw_step(unw_cursor_t *cp, int first_run)
+{
+    void* ip;
+    void* sp;
+    ptrdiff_t sp_offset;
+    unw_get_reg (cp, UNW_REG_IP, (unw_word_t*)&ip);
+    unw_get_reg (cp, UNW_REG_SP, (unw_word_t*)&sp);
+    if (!first_run) {
+        // make sure we're pointing to the CALL and not to the first
+        // instruction after. If the callee adjusts the stack for us
+        // it's not safe to be at the instruction after
+        ip -= 1;
+    }
+    sp_offset = vmprof_unw_get_custom_offset(ip, cp);
+
+    if (sp_offset == -1) {
+        // it means that the ip is NOT in JITted code, so we can use the
+        // stardard unw_step
+        return unw_step(cp);
+    }
+    else {
+        // this is a horrible hack to manually walk the stack frame, by
+        // setting the IP and SP in the cursor
+        vmprof_hacked_unw_cursor_t *cp2 = (vmprof_hacked_unw_cursor_t*)cp;
+        void* bp = (void*)sp + sp_offset;
+        cp2->sp = bp;
+        bp -= sizeof(void*);
+        cp2->ip = ((void**)bp)[0];
+        // the ret is on the top of the stack minus WORD
+        return 1;
+    }
+}
+
+
+/* *************************************************************
+ * functions to dump the stack trace
+ * *************************************************************
+ */
+
+int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
+{
+    void *ip;
+    int n = 0;
+    unw_cursor_t cursor;
+    unw_context_t uc = *ucontext;
+
+    int ret = unw_init_local(&cursor, &uc);
+    assert(ret >= 0);
+    (void)ret;
+
+    while (n < max_depth) {
+        if (unw_get_reg(&cursor, UNW_REG_IP, (unw_word_t *) &ip) < 0) {
+            break;
+        }
+
+        unw_proc_info_t pip;
+        unw_get_proc_info(&cursor, &pip);
+
+        /* if n==0, it means that the signal handler interrupted us while we
+           were in the trampoline, so we are not executing (yet) the real main
+           loop function; just skip it */
+        if (VMPROF_ADDR_OF_TRAMPOLINE((void*)pip.start_ip) && n > 0) {
+            // found main loop stack frame
+            void* sp;
+            unw_get_reg(&cursor, UNW_REG_SP, (unw_word_t *) &sp);
+            void *arg_addr = (char*)sp /* + mainloop_sp_offset */;
+            void **arg_ptr = (void**)arg_addr;
+            /* if (mainloop_get_virtual_ip) {
+               ip = mainloop_get_virtual_ip(*arg_ptr);
+               } else { */
+            ip = *arg_ptr;
+        }
+
+        int first_run = (n == 0);
+        result[n++] = ip;
+        n = vmprof_write_header_for_jit_addr(result, n, ip, max_depth);
+        if (vmprof_unw_step(&cursor, first_run) <= 0) {
+            break;
+        }
+    }
+    return n;
+}
+
+
+/* *************************************************************
+ * the signal handler
+ * *************************************************************
+ */
+
+static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
+{
+    long val = __sync_fetch_and_add(&signal_handler_value, 2L);
+
+    if ((val & 1) == 0) {
+        int saved_errno = errno;
+        int fd = profile_file;
+        assert(fd >= 0);
+
+        struct profbuf_s *p = reserve_buffer(fd);
+        if (p == NULL) {
+            /* ignore this signal: there are no free buffers right now */
+        }
+        else {
+            int depth;
+            struct prof_stacktrace_s *st = p->data;
+            st->marker = MARKER_STACKTRACE;
+            st->count = 1;
+            st->stack[0] = GetPC((ucontext_t*)ucontext);
+            depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-1, ucontext);
+            depth++;  // To account for pc value in stack[0];
+            st->depth = depth;
+            p->data_offset = offsetof(struct prof_stacktrace_s, marker);
+            p->data_size = (depth * sizeof(void *) +
+                            sizeof(struct prof_stacktrace_s) -
+                            offsetof(struct prof_stacktrace_s, marker));
+            commit_buffer(fd, p);
+        }
+
+        errno = saved_errno;
+    }
+
+    __sync_sub_and_fetch(&signal_handler_value, 2L);
 }
 
 

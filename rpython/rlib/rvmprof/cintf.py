@@ -59,8 +59,8 @@ def token2lltype(tok):
 def make_trampoline_function(name, func, token, restok):
     from rpython.jit.backend import detect_cpu
 
-    cont_name = 'vmprof_f_%s_%s' % (name, token)
-    tramp_name = 'vmprof_t_%s_%s' % (name, token)
+    cont_name = 'rpyvmprof_f_%s_%s' % (name, token)
+    tramp_name = 'rpyvmprof_t_%s_%s' % (name, token)
 
     func.c_name = cont_name
     func._dont_inline_ = True
@@ -109,7 +109,7 @@ def make_trampoline_function(name, func, token, restok):
             return 'void *'
         raise NotImplementedError(repr(tok))
 
-    header = '%s %s(%s);\n' % (
+    header = 'RPY_EXTERN %s %s(%s);\n' % (
         tok2cname(restok),
         tramp_name,
         ', '.join([tok2cname(tok) for tok in token] + ['long']))

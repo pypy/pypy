@@ -1,6 +1,5 @@
 /* Support for multithreaded write() operations */
 
-#include <unistd.h>
 #include <sys/mman.h>
 #include <string.h>
 
@@ -31,14 +30,19 @@ static int volatile profbuf_write_lock = 2;
 static long profbuf_pending_write;
 
 
-static int prepare_concurrent_bufs(void)
+static void unprepare_concurrent_bufs(void)
 {
-    assert(sizeof(struct profbuf_s) == 8192);
-
     if (profbuf_all_buffers != NULL) {
         munmap(profbuf_all_buffers, sizeof(struct profbuf_s) * MAX_NUM_BUFFERS);
         profbuf_all_buffers = NULL;
     }
+}
+
+static int prepare_concurrent_bufs(void)
+{
+    assert(sizeof(struct profbuf_s) == 8192);
+
+    unprepare_concurrent_bufs();
     profbuf_all_buffers = mmap(NULL, sizeof(struct profbuf_s) * MAX_NUM_BUFFERS,
                                PROT_READ | PROT_WRITE,
                                MAP_PRIVATE | MAP_ANONYMOUS,
@@ -155,12 +159,10 @@ static void commit_buffer(int fd, struct profbuf_s *buf)
 
 static int shutdown_concurrent_bufs(int fd)
 {
- retry:
-    usleep(1);
-    if (!__sync_bool_compare_and_swap(&profbuf_write_lock, 0, 2)) {
-        /* spin loop */
-        goto retry;
-    }
+    /* no signal handler can be running concurrently here, because we
+       already did rpython_vmprof_ignore_signals(1) */
+    assert(profbuf_write_lock == 0);
+    profbuf_write_lock = 2;
 
     /* last attempt to flush buffers */
     int i;
@@ -170,5 +172,6 @@ static int shutdown_concurrent_bufs(int fd)
                 return -1;
         }
     }
+    unprepare_concurrent_bufs();
     return 0;
 }

@@ -140,6 +140,9 @@ class VMProf(object):
         buf = self._current_codes.build()
         self._current_codes = None
         cintf.vmprof_write_buf(buf, len(buf))
+        # NOTE: keep in mind that vmprof_write_buf() can only write
+        # a maximum of 8184 bytes.  This should be guaranteed here because:
+        assert MAX_CODES + 17 + MAX_FUNC_NAME <= 8184
 
     def _write_header(self, interval_usec):
         b = StringBuilder()
