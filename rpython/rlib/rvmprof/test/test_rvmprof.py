@@ -80,7 +80,7 @@ def test_enable():
 
     class MyCode:
         pass
-    get_vmprof().register_code_object_class(MyCode, lambda code: 'some code')
+    get_vmprof().register_code_object_class(MyCode, lambda code: 'py:code:52:x')
 
     @vmprof_execute_code("xcode1", lambda code, num: code)
     def main(code, num):

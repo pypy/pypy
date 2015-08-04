@@ -7,8 +7,8 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import rffi
 
-MAX_CODES = 8000
-MAX_FUNC_NAME = 128
+MAX_CODES = 8000 - 255
+MAX_FUNC_NAME = 255
 
 # ____________________________________________________________
 
@@ -57,6 +57,12 @@ class VMProf(object):
         instance of CodeClass and it should return a string.  This
         is the string stored in the vmprof file identifying the code
         object.  It can be directly an unbound method of CodeClass.
+        IMPORTANT: the name returned must be at most MAX_FUNC_NAME
+        characters long, and with exactly 3 colons, i.e. of the form
+
+            class:func_name:func_line:filename
+
+        where 'class' is 'py' for PyPy.
 
         Instances of the CodeClass will have a new attribute called
         '_vmprof_unique_id', but that's managed internally.
@@ -124,8 +130,9 @@ class VMProf(object):
                 raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
     def _write_code_registration(self, uid, name):
-        if len(name) > MAX_FUNC_NAME:
-            name = name[:MAX_FUNC_NAME]
+        assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (
+            "the name must be 'class:func_name:func_line:filename' "
+            "and at most %d characters; got '%s'" % (MAX_FUNC_NAME, name))
         b = self._current_codes
         if b is None:
             b = self._current_codes = StringBuilder()
