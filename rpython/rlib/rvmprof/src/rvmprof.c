@@ -22,6 +22,9 @@
 
 #ifdef RPYTHON_LL2CTYPES
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
+#  ifndef RPY_EXTERN
+#    define RPY_EXTERN RPY_EXPORTED
+#  endif
 #  define RPY_EXPORTED  extern __attribute__((visibility("default")))
 #  define VMPROF_ADDR_OF_TRAMPOLINE(addr)  0
 

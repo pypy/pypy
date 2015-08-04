@@ -23,7 +23,9 @@ eci_kwds = dict(
     )
 eci = ExternalCompilationInfo(**eci_kwds)
 
-platform.verify_eci(eci)
+platform.verify_eci(ExternalCompilationInfo(
+    compile_extra=['-DRPYTHON_LL2CTYPES'],
+    **eci_kwds))
 
 
 vmprof_init = rffi.llexternal("rpython_vmprof_init", [rffi.INT], rffi.CCHARP,
