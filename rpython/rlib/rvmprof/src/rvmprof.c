@@ -60,9 +60,11 @@ static int (*unw_step)(unw_cursor_t*) = NULL;
 static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
 static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
 
+static int profile_file = -1;
+
 
 RPY_EXTERN
-char *rpython_vmprof_init(void)
+char *rpython_vmprof_init(int fd)
 {
     if (!unw_get_reg) {
         void *libhandle;
@@ -80,6 +82,9 @@ char *rpython_vmprof_init(void)
     }
     if (prepare_concurrent_bufs() < 0)
         return "out of memory";
+
+    assert(fd >= 0);
+    profile_file = fd;
     return NULL;
 
  error:
@@ -128,7 +133,6 @@ struct prof_stacktrace_s {
     void *stack[];
 };
 
-static int profile_file = -1;
 static long profile_interval_usec = 0;
 static char atfork_hook_installed = 0;
 
@@ -251,7 +255,7 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
         }
         else {
             int depth;
-            struct prof_stacktrace_s *st = p->data;
+            struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
             st->marker = MARKER_STACKTRACE;
             st->count = 1;
             st->stack[0] = GetPC((ucontext_t*)ucontext);
@@ -352,11 +356,10 @@ static int install_pthread_atfork_hooks(void) {
 }
 
 RPY_EXTERN
-int rpython_vmprof_enable(int fd, long interval_usec)
+int rpython_vmprof_enable(long interval_usec)
 {
-    assert(fd >= 0);
+    assert(profile_file >= 0);
     assert(interval_usec > 0);
-    profile_file = fd;
     profile_interval_usec = interval_usec;
 
     if (install_pthread_atfork_hooks() == -1)

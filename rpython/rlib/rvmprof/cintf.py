@@ -26,11 +26,10 @@ eci = ExternalCompilationInfo(**eci_kwds)
 platform.verify_eci(eci)
 
 
-vmprof_init = rffi.llexternal("rpython_vmprof_init", [], rffi.CCHARP,
+vmprof_init = rffi.llexternal("rpython_vmprof_init", [rffi.INT], rffi.CCHARP,
                               compilation_info=eci)
-vmprof_enable = rffi.llexternal("rpython_vmprof_enable",
-                                [rffi.INT, rffi.LONG],
-                                rffi.INT, compilation_info=eci,
+vmprof_enable = rffi.llexternal("rpython_vmprof_enable", [rffi.LONG], rffi.INT,
+                                compilation_info=eci,
                                 save_err=rffi.RFFI_SAVE_ERRNO)
 vmprof_disable = rffi.llexternal("rpython_vmprof_disable", [], rffi.INT,
                                  compilation_info=eci,

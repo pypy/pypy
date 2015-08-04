@@ -38,15 +38,14 @@ class VMProf(object):
             self._code_unique_id = 0x7000000000000000
 
     @specialize.argtype(1)
-    def register_code(self, code, name):
+    def register_code(self, code, full_name_func):
         """Register the code object.  Call when a new code object is made.
         """
-        if code._vmprof_unique_id == 0:
+        if self.is_enabled and code._vmprof_unique_id == 0:
             uid = self._code_unique_id + 1
             code._vmprof_unique_id = uid
             self._code_unique_id = uid
-            if self.is_enabled:
-                self._write_code_registration(uid, name)
+            self._write_code_registration(uid, full_name_func(code))
 
     def register_code_object_class(self, CodeClass, full_name_func):
         """NOT_RPYTHON
@@ -79,8 +78,11 @@ class VMProf(object):
             all_code_objs = rgc.do_get_objects(try_cast_to_code)
             for code in all_code_objs:
                 uid = code._vmprof_unique_id
-                if uid != 0:
-                    self._write_code_registration(uid, full_name_func(code))
+                if uid == 0:
+                    uid = self._code_unique_id + 1
+                    code._vmprof_unique_id = uid
+                    self._code_unique_id = uid
+                self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
         # the types of code objects
@@ -100,18 +102,16 @@ class VMProf(object):
             raise VMProfError("bad value for 'interval'")
         interval_usec = int(interval * 1000000.0)
 
-        p_error = cintf.vmprof_init()
+        p_error = cintf.vmprof_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self.fileno = fileno
         self._write_header(interval_usec)
         self._gather_all_code_objs()
-        if we_are_translated():
-            # does not work untranslated
-            res = cintf.vmprof_enable(fileno, interval_usec)
-            if res < 0:
-                raise VMProfError(os.strerror(rposix.get_saved_errno()))
+        res = cintf.vmprof_enable(interval_usec)
+        if res < 0:
+            raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
 
     def disable(self):
@@ -121,13 +121,12 @@ class VMProf(object):
         if not self.is_enabled:
             raise VMProfError("vmprof is not enabled")
         self.is_enabled = False
-        self._flush_codes()
+        if self._current_codes is not None:
+            self._flush_codes()
         self.fileno = -1
-        if we_are_translated():
-           # does not work untranslated
-            res = cintf.vmprof_disable()
-            if res < 0:
-                raise VMProfError(os.strerror(rposix.get_saved_errno()))
+        res = cintf.vmprof_disable()
+        if res < 0:
+            raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
     def _write_code_registration(self, uid, name):
         assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (

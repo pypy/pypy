@@ -7,12 +7,14 @@ from rpython.translator.c.test.test_genc import compile
 class MyCode:
     def __init__(self, count):
         self.count = count
-        rvmprof.register_code(self, self.get_name())
+        rvmprof.register_code(self, MyCode.get_name)
 
     def get_name(self):
         return 'test:mycode%d:%d:test_ztranslation' % (self.count, self.count)
 
-rvmprof.register_code_object_class(MyCode, MyCode.get_name)
+
+def setup_module(mod):
+    rvmprof.register_code_object_class(MyCode, MyCode.get_name)
 
 
 @rvmprof.vmprof_execute_code("interp", lambda code: code)

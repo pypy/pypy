@@ -1,6 +1,6 @@
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rvmprof.rvmprof import _get_vmprof, VMProfError
-from rpython.rlib.rvmprof.rvmprof import vmprof_execute_code
+from rpython.rlib.rvmprof.rvmprof import vmprof_execute_code, MAX_FUNC_NAME
 
 #
 # See README.txt.

@@ -67,7 +67,7 @@ def test_register_code():
 
     def f():
         code = MyCode()
-        rvmprof.register_code(code, 'some code')
+        rvmprof.register_code(code, lambda code: 'some code')
         res = main(code, 5)
         assert res == 42
         return 0
@@ -81,7 +81,9 @@ def test_enable():
 
     class MyCode:
         pass
-    rvmprof.register_code_object_class(MyCode, lambda code: 'py:code:52:x')
+    def get_name(code):
+        return 'py:code:52:x'
+    rvmprof.register_code_object_class(MyCode, get_name)
 
     @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
     def main(code, num):
@@ -92,7 +94,7 @@ def test_enable():
 
     def f():
         code = MyCode()
-        rvmprof.register_code(code, 'some code')
+        rvmprof.register_code(code, get_name)
         fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
         rvmprof.enable(fd, 0.5)
         res = main(code, 5)

@@ -2,7 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     """
-    Write me :)
+    VMProf for PyPy: a statistical profiler
     """
     appleveldefs = {
     }
@@ -10,9 +10,5 @@ class Module(MixedModule):
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',
         'disable': 'interp_vmprof.disable',
+        'error': 'space.fromcache(interp_vmprof.Cache).w_error',
     }
-
-    def setup_after_space_initialization(self):
-        # force the __extend__ hacks to occur early
-        from pypy.module._vmprof.interp_vmprof import VMProf
-        self.vmprof = VMProf()
