@@ -20,7 +20,7 @@
 #define _GNU_SOURCE 1
 
 
-#if defined(RPY_EXTERN) && !defined(RPY_EXPORTED)
+#ifdef RPYTHON_LL2CTYPES
    /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 #  define RPY_EXPORTED  extern __attribute__((visibility("default")))
 #  define VMPROF_ADDR_OF_TRAMPOLINE(addr)  0
