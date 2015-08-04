@@ -3,8 +3,29 @@
 #include <sys/mman.h>
 #include <string.h>
 
+/* The idea is that we have MAX_NUM_BUFFERS available, all of size
+   SINGLE_BUF_SIZE.  Threads and signal handlers can ask to reserve a
+   buffer, fill it, and finally "commit" it, at which point its
+   content is written into the profile file.  There is no hard
+   guarantee about the order in which the committed blocks are
+   actually written.  We do this with two constrains:
+
+   - write() calls should not overlap; only one thread can be
+     currently calling it.
+
+   - the code needs to be multithread-safe *and* signal-handler-safe,
+     which means it must be written in a wait-free style: never have
+     spin loops waiting for some lock to be released, from any of
+     the functions that can be called from the signal handler!  The
+     code holding the lock could be running in the same thread,
+     currently interrupted by the signal handler.
+
+   The value of MAX_NUM_BUFFERS is a trade-off between too high
+   (lots of unnecessary memory, lots of checking all of them)
+   and too low (risk that there is none left).
+*/
+#define MAX_NUM_BUFFERS  20
 #define SINGLE_BUF_SIZE  (8192 - 2 * sizeof(unsigned int))
-#define MAX_NUM_BUFFERS  32
 
 #if defined(__i386__) || defined(__amd64__)
   static inline void write_fence(void) { asm("" : : : "memory"); }
