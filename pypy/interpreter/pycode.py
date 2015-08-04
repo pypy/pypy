@@ -56,7 +56,7 @@ class PyCode(eval.Code):
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
                           "co_freevars[*]", "co_cellvars[*]",
-                          "_args_as_cellvars[*]"]
+                          "_args_as_cellvars[*]", "vprof"]
     
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,

@@ -485,7 +485,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.locals_cells_stack_w[varindex]
+        w_value = self._getlocal(varindex)
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)

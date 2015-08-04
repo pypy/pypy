@@ -145,6 +145,25 @@ class PyFrame(W_Root):
         assert isinstance(cell, Cell)
         return cell
 
+    def _getlocal(self, varindex):
+        from pypy.objspace.std.intobject import W_IntObject
+        w_res = self.locals_cells_stack_w[varindex]
+        if we_are_jitted():
+            vprof = self.pycode.vprof
+            # some careful logic there
+            vprof.freeze()
+            if vprof.is_variable_constant(varindex):
+                if vprof.is_variable_int(varindex):
+                    res_prof = vprof.variable_value_int(varindex)
+                    if isinstance(w_res, W_IntObject):
+                        if w_res.intval == res_prof:
+                            return W_IntObject(res_prof)
+                else:
+                    w_res_prof = vprof.variable_value_object(varindex)
+                    if w_res is w_res_prof:
+                        return w_res_prof
+        return w_res
+
     def _setlocal(self, varindex, value):
         self._value_profile_local(varindex, value)
         self.locals_cells_stack_w[varindex] = value
