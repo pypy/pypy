@@ -172,7 +172,8 @@ class ShortBoxes(object):
         self.potential_ops[op] = PureOp(op)
 
     def add_heap_op(self, op, getfield_op):
-        if isinstance(op, Const):
+        # or an inputarg
+        if isinstance(op, Const) or op in self.produced_short_boxes:
             self.const_short_boxes.append(HeapOp(op, getfield_op))
             return # we should not be called from anywhere
         self.potential_ops[op] = HeapOp(op, getfield_op)
@@ -228,9 +229,9 @@ class ShortPreambleBuilder(object):
             optimizer.setinfo_from_preamble(box, info)
         return preamble_op
 
-    def add_preamble_op(self, op, preamble_op):
-        self.used_boxes.append(op)
-        self.short_preamble_jump.append(preamble_op)        
+    def add_preamble_op(self, preamble_op):
+        self.used_boxes.append(preamble_op.op)
+        self.short_preamble_jump.append(preamble_op.preamble_op)
 
     def build_short_preamble(self):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])

@@ -196,11 +196,11 @@ class TestUnroll(BaseTestUnroll):
         jump(p0, p1)
         """
         es, loop, preamble = self.optimize(loop)
-        p0, p1 = preamble.inputargs
-        assert es.short_boxes[0][0].getint() == 5
-        assert es.short_boxes[1][0].getint() == 5
-        assert es.short_boxes[0][2].getarg(0) is p0
-        assert es.short_boxes[1][2].getarg(0) is p1
+        p0, p1 = es.short_inputargs
+        assert es.short_boxes[0].short_op.res.getint() == 5
+        assert es.short_boxes[1].short_op.res.getint() == 5
+        assert es.short_boxes[0].preamble_op.getarg(0) is p0
+        assert es.short_boxes[1].preamble_op.getarg(0) is p1
 
     def test_double_getfield_plus_pure(self):
         loop = """
@@ -229,4 +229,4 @@ class TestUnroll(BaseTestUnroll):
         jump(i1, p1, p2)
         """
         es, loop, preamble = self.optimize(loop)
-        xxx
+        assert len(es.short_boxes) == 2

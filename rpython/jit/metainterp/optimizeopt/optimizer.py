@@ -306,12 +306,12 @@ class Optimizer(Optimization):
         if self.optunroll and self.optunroll.potential_extra_ops:
             # XXX hack
             try:
-                 preamble_op = self.optunroll.potential_extra_ops.popitem(op)
+                preamble_op = self.optunroll.potential_extra_ops.pop(op)
             except KeyError:
                 pass
             else:
                 sb = self.optunroll.short_preamble_producer
-                sb.add_preamble_op(op, preamble_op)
+                sb.add_preamble_op(preamble_op)
         if info is not None:
             return info.force_box(op, self)
         return op

@@ -9,7 +9,7 @@ class SettingForwardedOnAbstractValue(Exception):
     pass
 
 class AbstractValue(object):
-    _repr_memo = weakref.WeakKeyDictionary()
+    _repr_memo = {} # weakref.WeakKeyDictionary()
     is_info_class = False
     _attrs_ = ()
     namespace = None

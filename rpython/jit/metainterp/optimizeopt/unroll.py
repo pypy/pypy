@@ -21,7 +21,7 @@ class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
         op = preamble_op.op
         self.optunroll.short_preamble_producer.use_box(op, self)
-        self.potential_extra_ops[op] = preamble_op
+        self.optunroll.potential_extra_ops[op] = preamble_op
         return op
 
     def setinfo_from_preamble(self, op, preamble_info):
@@ -86,7 +86,7 @@ class UnrollOptimizer(Optimization):
     def optimize_peeled_loop(self, start_label, end_jump, ops, state):
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
-        self.optimizer.potential_extra_ops = {}
+        self.potential_extra_ops = {}
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
                                              rename_inputargs=False)
         jump_args = [self.get_box_replacement(op)
@@ -95,8 +95,8 @@ class UnrollOptimizer(Optimization):
                                                     jump_args)
         jump_args = state.virtual_state.make_inputargs(jump_args,
                                     self.optimizer, force_boxes=True)
-        jump_args += self.inline_short_preamble(pass_to_short)
-        
+        extra_jump_args = self.inline_short_preamble(pass_to_short)
+        jump_args += extra_jump_args
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
@@ -235,6 +235,7 @@ class UnrollOptimizer(Optimization):
                              sb.short_inputargs)
 
     def filter_short_inputargs(self, virtual_state, inputargs):
+        return inputargs
         assert len(inputargs) == len(virtual_state.state)
         short_inp = []
         for i in range(len(inputargs)):
