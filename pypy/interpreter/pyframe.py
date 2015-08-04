@@ -149,7 +149,7 @@ class PyFrame(W_Root):
         from pypy.objspace.std.intobject import W_IntObject
         w_res = self.locals_cells_stack_w[varindex]
         if we_are_jitted():
-            vprof = self.pycode.vprof
+            vprof = self.getcode().vprof
             # some careful logic there
             vprof.freeze()
             if vprof.is_variable_constant(varindex):
