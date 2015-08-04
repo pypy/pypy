@@ -101,6 +101,9 @@ class W_Dtype(W_Root):
 
     @specialize.argtype(1)
     def box(self, value):
+        if self.is_record():
+            raise oefmt(self.itemtype.space.w_NotImplementedError,
+                "cannot box a value into a 'record' dtype, this is a bug please report it")
         return self.itemtype.box(value)
 
     @specialize.argtype(1, 2)
