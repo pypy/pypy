@@ -1144,7 +1144,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
-        p2 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(descr=nodesize2)
         setfield_gc(p2, i1, descr=valuedescr)
         p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i2, descr=valuedescr)
