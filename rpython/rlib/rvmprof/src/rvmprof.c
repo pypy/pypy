@@ -303,7 +303,8 @@ int rpython_vmprof_disable(void)
         return -1;
     if (remove_sigprof_handler() == -1)
         return -1;
-    shutdown_concurrent_bufs(profile_file);
+    if (shutdown_concurrent_bufs(profile_file) < 0)
+        return -1;
     return close_profile();
 }
 

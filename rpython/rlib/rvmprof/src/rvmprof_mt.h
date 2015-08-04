@@ -28,6 +28,7 @@ struct profbuf_s {
 static char volatile profbuf_state[MAX_NUM_BUFFERS];
 static struct profbuf_s *profbuf_all_buffers = NULL;
 static int volatile profbuf_write_lock = 2;
+static long profbuf_pending_write;
 
 
 static int prepare_concurrent_bufs(void)
@@ -48,20 +49,34 @@ static int prepare_concurrent_bufs(void)
     }
     memset((char *)profbuf_state, PROFBUF_UNUSED, sizeof(profbuf_state));
     profbuf_write_lock = 0;
+    profbuf_pending_write = -1;
     return 0;
 }
 
-static void _write_single_ready_buffer(int fd, long i)
+static int _write_single_ready_buffer(int fd, long i)
 {
+    int err;
+    if (profbuf_pending_write >= 0 && profbuf_pending_write != i) {
+        err = _write_single_ready_buffer(fd, profbuf_pending_write);
+        if (err < 0 || profbuf_pending_write >= 0)
+            return err;
+    }
     struct profbuf_s *p = &profbuf_all_buffers[i];
     ssize_t count = write(fd, p->data + p->data_offset, p->data_size);
     if (count == p->data_size) {
         profbuf_state[i] = PROFBUF_UNUSED;
+        profbuf_pending_write = -1;
     }
-    else if (count > 0) {
-        p->data_offset += count;
-        p->data_size -= count;
+    else {
+        if (count > 0) {
+            p->data_offset += count;
+            p->data_size -= count;
+        }
+        profbuf_pending_write = i;
+        if (count < 0)
+            return -1;
     }
+    return 0;
 }
 
 static void _write_ready_buffers(int fd)
@@ -76,7 +91,8 @@ static void _write_ready_buffers(int fd)
                     return;   /* can't acquire the write lock, give up */
                 has_write_lock = 1;
             }
-            _write_single_ready_buffer(fd, i);
+            if (_write_single_ready_buffer(fd, i) < 0)
+                break;
         }
     }
     if (has_write_lock)
@@ -137,7 +153,7 @@ static void commit_buffer(int fd, struct profbuf_s *buf)
     }
 }
 
-static void shutdown_concurrent_bufs(int fd)
+static int shutdown_concurrent_bufs(int fd)
 {
  retry:
     usleep(1);
@@ -150,7 +166,9 @@ static void shutdown_concurrent_bufs(int fd)
     int i;
     for (i = 0; i < MAX_NUM_BUFFERS; i++) {
         if (profbuf_state[i] == PROFBUF_READY) {
-            _write_single_ready_buffer(fd, i);
+            if (_write_single_ready_buffer(fd, i) < 0)
+                return -1;
         }
     }
+    return 0;
 }
