@@ -1,3 +1,4 @@
+from rpython.annotator.policy import AnnotatorPolicy
 from rpython.jit.tl import tiny1
 from rpython.jit.backend.hlinfo import highleveljitinfo
 
@@ -24,9 +25,7 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from rpython.annotator import policy
-
-class MyHintAnnotatorPolicy(policy.AnnotatorPolicy):
+class MyHintAnnotatorPolicy(AnnotatorPolicy):
     novirtualcontainer = True
     oopspec = True
     entrypoint_returns_red = True
