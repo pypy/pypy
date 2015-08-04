@@ -25,7 +25,7 @@ def test_simple():
     v.see_object(0, val1)
     v.see_object(0, val1)
     v.see_object(0, val1)
-    assert v.values[0]() is val1
+    assert v.values_wref[0]() is val1
     assert v.counters[0] == 4
 
     v.see_object(0, None)

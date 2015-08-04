@@ -3,7 +3,7 @@ from rpython.rlib.rweakref import ref, dead_ref
 
 class ValueProf(object):
     def __init__(self, size, threshold=200):
-        self.values = [dead_ref] * size
+        self.values_wref = [dead_ref] * size
         self.values_int = [-1] * size
         self.counters = [0] * size
         self.threshold = 200
@@ -23,22 +23,22 @@ class ValueProf(object):
         else:
             self.values_int[index] = value
             self.counters[index] = -1
-            self.values[index] = dead_ref
+            self.values_wref[index] = dead_ref
             return 1
 
     def see_object(self, index, value):
         if self.frozen:
             return
         if value is None:
-            self.values[index] = dead_ref
+            self.values_wref[index] = dead_ref
             self.counters[index] = 0
             return 0
-        if self.values[index]() is value:
+        if self.values_wref[index]() is value:
             assert self.counters[index] > 0
             self.counters[index] += 1
             return self.counters[index]
         else:
-            self.values[index] = ref(value)
+            self.values_wref[index] = ref(value)
             self.counters[index] = 1
             self.values_int[index] = -1
             return 1
@@ -66,4 +66,4 @@ class ValueProf(object):
     @jit.elidable
     def variable_value_object(self, index):
         assert self.is_variable_constant(index) and not self.is_variable_int(index)
-        return self.values[index]
+        return self.values_wref[index]()
