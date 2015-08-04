@@ -210,8 +210,6 @@ class UnrollOptimizer(Optimization):
         return stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
 
     def export_state(self, start_label, end_label, renamed_inputargs):
-        import pdb
-        pdb.set_trace()
         original_label_args = end_label.getarglist()
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)

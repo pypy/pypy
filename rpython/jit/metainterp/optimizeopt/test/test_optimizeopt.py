@@ -878,7 +878,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p1, p2]
-        i1 = getfield_gc(p1, descr=valuedescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr)
         jump(i1)
         """
         preamble = """
