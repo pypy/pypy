@@ -244,7 +244,9 @@ class TestUnroll(BaseTestUnroll):
         sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
                                   es.exported_infos)
         assert len(sb.producable_ops) == 1
-        sb.use_box(sb.producable_ops.keys()[0])
+        op = sb.producable_ops.keys()[0]
+        pop = sb.use_box(op)
+        sb.add_preamble_op(PreambleOp(op, pop))
         exp_short = """
         [p0, p1]
         i1 = getfield_gc_i(p0, descr=valuedescr)
