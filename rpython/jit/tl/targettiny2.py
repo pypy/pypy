@@ -1,5 +1,6 @@
+from rpython.annotator.policy import AnnotatorPolicy
 from rpython.jit.tl import tiny2
-from rpython.jit.codegen.hlinfo import highleveljitinfo
+from rpython.jit.backend.hlinfo import highleveljitinfo
 
 
 def entry_point(args):
@@ -24,11 +25,10 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from rpython.jit.hintannotator.policy import HintAnnotatorPolicy
-
-class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
+class MyHintAnnotatorPolicy(AnnotatorPolicy):
     novirtualcontainer = True
     oopspec = True
+    entrypoint_returns_red = True
 
     def look_inside_graph(self, graph):
         # temporary workaround

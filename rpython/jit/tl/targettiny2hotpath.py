@@ -1,5 +1,7 @@
+from rpython.annotator.policy import AnnotatorPolicy
 from rpython.jit.tl import tiny2_hotpath as tiny2
-from rpython.jit.codegen.hlinfo import highleveljitinfo
+from rpython.jit.backend.hlinfo import highleveljitinfo
+from rpython.rlib.jit import set_user_param
 
 
 def help(err="Invalid command line arguments."):
@@ -22,7 +24,7 @@ def entry_point(args):
         if len(args) < 3:
             return help()
         try:
-            tiny2.tinyjitdriver.set_user_param(args[1])
+            set_user_param(tiny2.tinyjitdriver, args[1])
         except ValueError:
             return help("Bad argument to -j.")
         args = args[2:]
@@ -37,11 +39,10 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from rpython.jit.hintannotator.policy import HintAnnotatorPolicy
-
-class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
+class MyHintAnnotatorPolicy(AnnotatorPolicy):
     novirtualcontainer = True
     oopspec = True
+    entrypoint_returns_red = True
     hotpath = True
 
     def look_inside_graph(self, graph):

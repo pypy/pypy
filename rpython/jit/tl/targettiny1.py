@@ -1,5 +1,5 @@
 from rpython.jit.tl import tiny1
-from rpython.jit.codegen.hlinfo import highleveljitinfo
+from rpython.jit.backend.hlinfo import highleveljitinfo
 
 
 def entry_point(args):
@@ -24,11 +24,15 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from rpython.jit.hintannotator.policy import HintAnnotatorPolicy
+from rpython.annotator import policy
 
-class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
+class MyHintAnnotatorPolicy(policy.AnnotatorPolicy):
     novirtualcontainer = True
     oopspec = True
+    entrypoint_returns_red = True
+
+    def look_inside_graph(self, graph):
+        return True
 
 def portal(driver):
     """Return the 'portal' function, and the hint-annotator policy.
