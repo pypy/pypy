@@ -16,7 +16,7 @@ class ValueProf(object):
 
     def see_int(self, index, value):
         if self.frozen:
-            return
+            return 0
         if self.counters[index] < 0 and self.values_int[index] == value:
             self.counters[index] -= 1
             return -self.counters[index]
@@ -28,7 +28,7 @@ class ValueProf(object):
 
     def see_object(self, index, value):
         if self.frozen:
-            return
+            return 0
         if value is None:
             self.values_wref[index] = dead_ref
             self.counters[index] = 0
