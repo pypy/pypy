@@ -23,20 +23,9 @@ def entry_point(args):
 def target(driver, args):
     return entry_point, None
 
-# ____________________________________________________________
-
-class MyHintAnnotatorPolicy(AnnotatorPolicy):
-    novirtualcontainer = True
-    oopspec = True
-    entrypoint_returns_red = True
-
-    def look_inside_graph(self, graph):
-        # temporary workaround
-        return getattr(graph, 'func', None) is not tiny2.myint_internal
-
 def portal(driver):
     """Return the 'portal' function, and the hint-annotator policy.
     The portal is the function that gets patched with a call to the JIT
     compiler.
     """
-    return tiny2.interpret, MyHintAnnotatorPolicy()
+    return tiny2.interpret, AnnotatorPolicy()

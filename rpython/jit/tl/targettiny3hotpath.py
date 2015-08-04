@@ -1,4 +1,3 @@
-from rpython.annotator.policy import AnnotatorPolicy
 from rpython.jit.tl import tiny3_hotpath as tiny3
 from rpython.jit.backend.hlinfo import highleveljitinfo
 from rpython.rlib.jit import set_user_param
@@ -40,26 +39,6 @@ def entry_point(args):
 
 def target(driver, args):
     return entry_point, None
-
-# ____________________________________________________________
-
-class MyHintAnnotatorPolicy(AnnotatorPolicy):
-    novirtualcontainer = True
-    oopspec = True
-    entrypoint_returns_red = True
-    hotpath = True
-
-    def look_inside_graph(self, graph):
-        # temporary workaround
-        return getattr(graph, 'func', None) not in (tiny3.myint_internal,
-                                                    tiny3.myfloat)
-
-def portal(driver):
-    """Return the 'portal' function, and the hint-annotator policy.
-    The portal is the function that gets patched with a call to the JIT
-    compiler.
-    """
-    return None, MyHintAnnotatorPolicy()
 
 if __name__ == '__main__':
     import sys
