@@ -2908,6 +2908,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         exc = raises(IndexError, "b[0, 1] = 42")
         assert str(exc.value) == "unsupported iterator index"
         assert b.index == 1
+        a = array([(False, False, False), 
+                   (False, False, False), 
+                   (False, False, False),
+                  ], 
+                   dtype=[('a', '|b1'), ('b', '|b1'), ('c', '|b1')])
+        a.flat = [(True, True, True), 
+                  (True, True, True), 
+                  (True, True, True)] 
+        assert (a.view(bool) == True).all()
 
     def test_flatiter_ops(self):
         from numpy import arange, array

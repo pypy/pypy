@@ -544,8 +544,10 @@ class __extend__(W_NDimArray):
     def descr_set_flatiter(self, space, w_obj):
         iter, state = self.create_iter()
         dtype = self.get_dtype()
-        arr = convert_to_array(space, w_obj)
-        loop.flatiter_setitem(space, dtype, arr, iter, state, 1, iter.size)
+        w_arr = convert_to_array(space, w_obj)
+        if dtype.is_record():
+            return self.implementation.setslice(space, w_arr)
+        loop.flatiter_setitem(space, dtype, w_arr, iter, state, 1, iter.size)
 
     def descr_get_flatiter(self, space):
         from .flatiter import W_FlatIterator
