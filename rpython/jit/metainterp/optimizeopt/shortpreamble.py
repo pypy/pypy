@@ -141,9 +141,10 @@ class ShortBoxes(object):
             return None
 
     def add_op_to_short(self, shortop):
+        if shortop.res in self.produced_short_boxes:
+            return # already added due to dependencies
         self.boxes_in_production[shortop.res] = None
         try:
-            assert shortop.res not in self.produced_short_boxes
             op = shortop.res
             if isinstance(shortop, HeapOp):
                 sop = shortop.getfield_op
