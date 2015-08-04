@@ -245,7 +245,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
 _vmprof_instance = None
 
 @specialize.memo()
-def get_vmprof():
+def _get_vmprof():
     global _vmprof_instance
     if _vmprof_instance is None:
         _vmprof_instance = VMProf()

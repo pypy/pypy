@@ -1,21 +1,21 @@
 import time, os
 from rpython.tool.udir import udir
-from rpython.rlib.rvmprof import get_vmprof, vmprof_execute_code
+from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
 
 
 class MyCode:
     def __init__(self, count):
         self.count = count
-        get_vmprof().register_code(self, self.get_name())
+        rvmprof.register_code(self, self.get_name())
 
     def get_name(self):
         return 'test:mycode%d:%d:test_ztranslation' % (self.count, self.count)
 
-get_vmprof().register_code_object_class(MyCode, MyCode.get_name)
+rvmprof.register_code_object_class(MyCode, MyCode.get_name)
 
 
-@vmprof_execute_code("interp", lambda code: code)
+@rvmprof.vmprof_execute_code("interp", lambda code: code)
 def interpret(code):
     n = code.count
     while n > 0:
@@ -32,7 +32,7 @@ PROF_FILE = str(udir.join('test_ztranslation.prof'))
 def main(argv=[]):
     code1 = MyCode(6500)
     fd = os.open(PROF_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
-    get_vmprof().enable(fd, 0.01)
+    rvmprof.enable(fd, 0.01)
     #
     code2 = MyCode(9100)
     stop = time.time() + 1
@@ -40,7 +40,8 @@ def main(argv=[]):
         interpret(code1)
         interpret(code2)
     #
-    get_vmprof().disable()
+    rvmprof.disable()
+    os.close(fd)
     return 0
 
 # ____________________________________________________________
