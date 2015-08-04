@@ -11,7 +11,8 @@ from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      InputArgRef
-from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortPreambleBuilder
+from rpython.jit.metainterp.optimizeopt.shortpreamble import \
+     ShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
@@ -168,7 +169,7 @@ class TestUnroll(BaseTestUnroll):
                                   es.exported_infos)
         op = preamble.operations[0]
         short_op = sb.use_box(op)
-        sb.add_preamble_op(op, short_op)
+        sb.add_preamble_op(PreambleOp(op, short_op))
         exp_short = """
         [p0, i1]
         i0 = getfield_gc_i(p0, descr=valuedescr)
@@ -230,3 +231,23 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         assert len(es.short_boxes) == 2
+
+    def test_setfield_forced_virtual(self):
+        loop = """
+        [p1, p2]
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        setfield_gc(p2, i1, descr=valuedescr)
+        p3 = new_with_vtable(descr=nodesize)
+        jump(p2, p3)
+        """
+        es, loop, preamble = self.optimize(loop)
+        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
+                                  es.exported_infos)
+        assert len(sb.producable_ops) == 1
+        sb.use_box(sb.producable_ops.keys()[0])
+        exp_short = """
+        [p0, p1]
+        i1 = getfield_gc_i(p0, descr=valuedescr)
+        jump(i1)
+        """
+        self.compare_short(sb.build_short_preamble(), exp_short)

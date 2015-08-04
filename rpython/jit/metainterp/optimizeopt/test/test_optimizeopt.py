@@ -876,6 +876,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = new_with_vtable(descr=nodesize)
         jump(p2, p3)
         """
+        short = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        jump(i1)
+        """
         preamble = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
@@ -894,7 +899,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p3, i2, descr=valuedescr)
         jump(p3, i2)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     # ----------
 

@@ -17,7 +17,7 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('virtualize', OptVirtualize),
             ('string', OptString),
             ('pure', OptPure),
-            #('earlyforce', OptEarlyForce), # XXX why do we have this hack?
+            ('earlyforce', OptEarlyForce),
             ('heap', OptHeap),
             ('unroll', None)]
 # no direct instantiation of unroll
