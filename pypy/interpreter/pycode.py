@@ -6,7 +6,7 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 
 import dis, imp, struct, types, new, sys, os
 
-from pypy.interpreter import eval
+from pypy.interpreter import eval, valueprof
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
@@ -86,6 +86,8 @@ class PyCode(eval.Code):
         self._signature = cpython_code_signature(self)
         self._initialize()
         space.register_code_object(self)
+        self.vprof = valueprof.ValueProf(self.co_nlocals)
+        self.printed = [False] * self.co_nlocals
 
     def _initialize(self):
         if self.co_cellvars:
@@ -202,6 +204,7 @@ class PyCode(eval.Code):
 
         self.fast_natural_arity = eval.Code.FLATPYCALL | self.co_argcount
 
+    @jit.unroll_safe
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func)
@@ -209,11 +212,15 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
-                              sig, func.defs_w)
+        numargs = args.parse_into_scope(None, fresh_frame.locals_cells_stack_w,
+                                        func.name, sig, func.defs_w)
+        for arg in range(numargs):
+            fresh_frame._value_profile_local(
+                    arg, fresh_frame.locals_cells_stack_w[arg])
         fresh_frame.init_cells()
         return frame.run()
 
+    @jit.unroll_safe
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func)
@@ -221,8 +228,11 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
+        numargs = args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
+        for arg in range(numargs):
+            fresh_frame._value_profile_local(
+                    arg, fresh_frame.locals_cells_stack_w[arg])
         fresh_frame.init_cells()
         return frame.run()
 

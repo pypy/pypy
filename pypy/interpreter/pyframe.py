@@ -3,7 +3,7 @@
 
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
-from rpython.rlib.jit import hint
+from rpython.rlib.jit import hint, we_are_jitted
 from rpython.rlib.objectmodel import we_are_translated, instantiate
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
@@ -144,6 +144,27 @@ class PyFrame(W_Root):
         cell = self.locals_cells_stack_w[varindex + self.pycode.co_nlocals]
         assert isinstance(cell, Cell)
         return cell
+
+    def _setlocal(self, varindex, value):
+        self._value_profile_local(varindex, value)
+        self.locals_cells_stack_w[varindex] = value
+
+    def _value_profile_local(self, varindex, value):
+        from pypy.objspace.std.intobject import W_IntObject
+        if we_are_jitted():
+            return
+        vprof = self.pycode.vprof
+        if isinstance(value, W_IntObject):
+            times = vprof.see_int(varindex, value.intval)
+            if times > 50 and not self.pycode.printed[varindex]:
+                self.pycode.printed[varindex] = True
+                print "COMMON VALUE:", self.pycode.co_name, varindex, self.pycode.co_varnames[varindex], value.intval
+        else:
+            times = self.pycode.vprof.see_object(varindex, value)
+            if times > 50 and not self.pycode.printed[varindex]:
+                self.pycode.printed[varindex] = True
+                print "COMMON VALUE:", self.pycode.co_name, varindex, self.pycode.co_varnames[varindex], self.space.str_w(self.space.repr(value))
+
 
     def mark_as_escaped(self):
         """
@@ -545,7 +566,7 @@ class PyFrame(W_Root):
         # don't assign directly to 'locals_cells_stack_w[:scope_len]' to be
         # virtualizable-friendly
         for i in range(scope_len):
-            self.locals_cells_stack_w[i] = scope_w[i]
+            self._setlocal(i, scope_w[i])
         self.init_cells()
 
     def getdictscope(self):

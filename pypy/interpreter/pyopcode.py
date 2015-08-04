@@ -505,7 +505,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.locals_cells_stack_w[varindex] = w_newvalue
+        self._setlocal(varindex, w_newvalue)
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
@@ -922,7 +922,7 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(self.space.w_UnboundLocalError,
                         "local variable '%s' referenced before assignment",
                         varname)
-        self.locals_cells_stack_w[varindex] = None
+        self._setlocal(varindex, None)
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
