@@ -133,11 +133,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
-        if optimizer is not None:
-            info = optimizer.getptrinfo(box)
-            box = optimizer.get_box_replacement(box)
-            if info is None or not info.is_virtual():
-                raise BadVirtualState()
+        box = optimizer.get_box_replacement(box)
+        info = optimizer.getptrinfo(box)
+        if info is None or not info.is_virtual():
+            raise BadVirtualState()
         for i in range(len(self.fielddescrs)):
             state = self.fieldstate[i]
             if not state:
@@ -153,6 +152,9 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
 
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
+    def is_virtual(self):
+        return True
+
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
         self.known_class = known_class
@@ -319,6 +321,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         self.position_in_notvirtuals = -1
         self.lenbound = value.getlenbound()
 
+    def is_virtual(self):
+        return False
 
     def _generate_guards(self, other, value, state):
         if value is None or self.is_opaque:

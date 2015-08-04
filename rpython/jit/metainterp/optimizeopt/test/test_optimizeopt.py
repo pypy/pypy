@@ -851,8 +851,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        i3 = same_as(i1)
-        jump(i1, p2, i3)
+        i4 = same_as_i(i1)
+        jump(i1, p2, i4)
         """
         expected = """
         [i1, p2, i3]

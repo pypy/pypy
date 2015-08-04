@@ -8,11 +8,13 @@ from rpython.jit.metainterp.jitexc import JitException
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
      AbstractResOp
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
+        
 
 
 class BogusImmutableField(JitException):
@@ -151,8 +153,6 @@ class CachedField(object):
         return op.getarg(1)
 
     def _getfield(self, opinfo, descr, optheap):
-        from rpython.jit.metainterp.optimizeopt.unroll import PreambleOp
-        
         res = opinfo.getfield(descr, optheap)
         if isinstance(res, PreambleOp):
             res = optheap.optimizer.force_op_from_preamble(res)

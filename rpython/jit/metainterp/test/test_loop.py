@@ -657,8 +657,8 @@ class LoopTest(object):
             self.check_jitcell_token_count(1)   # 1 loop, callable from the interp
 
     def test_example(self):
-        myjitdriver = JitDriver(greens = ['i'],
-                                reds = ['res', 'a'])
+        myjitdriver = JitDriver(greens = [], #['i'],
+                                reds = ['i', 'res', 'a'])
         CO_INCREASE = 0
         CO_JUMP_BACK_3 = 1
         CO_DECREASE = 2

@@ -91,7 +91,7 @@ class TestUnroll(BaseTestUnroll):
         self.compare_short(sp, exp)
         sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
                                   es.exported_infos)
-        sb.use_box(es.short_boxes[0][0])
+        sb.use_box(es.short_boxes[0].short_op.res)
         assert len(es.short_boxes) == 1
         exp = """
         [i0]
@@ -112,7 +112,7 @@ class TestUnroll(BaseTestUnroll):
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         assert vs.state[0].level == LEVEL_UNKNOWN
         op = preamble.operations[0]
-        assert es.short_boxes[0][0] == op
+        assert es.short_boxes[0].short_op.res is op
 
     def test_guard_class(self):
         loop = """
@@ -163,10 +163,12 @@ class TestUnroll(BaseTestUnroll):
         es, loop, preamble = self.optimize(loop)
         op = preamble.operations[0]
         assert len(es.short_boxes) == 1
-        assert es.short_boxes[0][0] is op
+        assert es.short_boxes[0].short_op.res is op
         sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
                                   es.exported_infos)
-        sb.use_box(preamble.operations[0])
+        op = preamble.operations[0]
+        short_op = sb.use_box(op)
+        sb.add_preamble_op(op, short_op)
         exp_short = """
         [p0, i1]
         i0 = getfield_gc_i(p0, descr=valuedescr)
@@ -183,7 +185,7 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         op = preamble.operations[0]
-        assert es.short_boxes[0][0] is op
+        assert es.short_boxes[0].short_op.res is op
         assert es.exported_infos[op].is_constant()
 
     def test_only_setfield(self):
@@ -197,8 +199,8 @@ class TestUnroll(BaseTestUnroll):
         p0, p1 = preamble.inputargs
         assert es.short_boxes[0][0].getint() == 5
         assert es.short_boxes[1][0].getint() == 5
-        assert es.short_boxes[0][1].getarg(0) is p0
-        assert es.short_boxes[1][1].getarg(0) is p1
+        assert es.short_boxes[0][2].getarg(0) is p0
+        assert es.short_boxes[1][2].getarg(0) is p1
 
     def test_double_getfield_plus_pure(self):
         loop = """

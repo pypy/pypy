@@ -2,7 +2,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from rpython.jit.metainterp.optimizeopt.unroll import PreambleOp
+from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 
 
 class RecentPureOps(object):
