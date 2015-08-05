@@ -13,6 +13,7 @@ class ValueProf(object):
     def freeze(self):
         # this works because we only ever change it in one direction
         self.frozen = True
+        return True
 
     def see_int(self, index, value):
         if self.frozen:

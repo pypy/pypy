@@ -151,7 +151,8 @@ class PyFrame(W_Root):
         if we_are_jitted():
             vprof = self.getcode().vprof
             # some careful logic there
-            vprof.freeze()
+            frozen = vprof.freeze()
+            assert frozen
             if vprof.is_variable_constant(varindex):
                 if vprof.is_variable_int(varindex):
                     res_prof = vprof.variable_value_int(varindex)
