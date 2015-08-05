@@ -172,12 +172,9 @@ class ShortBoxes(object):
         short_inpargs = []
         for i in range(len(label_args)):
             inparg = self.produced_short_boxes.get(label_args[i], None)
-            if inparg is None or not isinstance(inparg, ShortInputArg):
+            if not isinstance(inparg, ShortInputArg):
                 renamed = OpHelpers.inputarg_from_tp(label_args[i].type)
                 short_inpargs.append(renamed)
-            elif not isinstance(inparg, ShortInputArg):
-                import pdb
-                pdb.set_trace()
             else:
                 short_inpargs.append(inparg.preamble_op)
         return short_inpargs
