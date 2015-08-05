@@ -231,7 +231,7 @@ class OpToVectorOp(object):
     def __init__(self, arg_ptypes, result_ptype):
         self.arg_ptypes = [a for a in arg_ptypes] # do not use a tuple. rpython cannot union
         self.result_ptype = result_ptype
-        self.preamble_ops = None
+        self.vecops = None
         self.sched_data = None
         self.pack = None
         self.input_type = None
@@ -256,7 +256,7 @@ class OpToVectorOp(object):
 
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
-        self.preamble_ops = oplist
+        self.vecops = oplist
         self.costmodel = sched_data.costmodel
         #
         self.input_type = pack.input_type
@@ -267,14 +267,14 @@ class OpToVectorOp(object):
         #
         if self.must_be_full_but_is_not(pack):
             for op in pack.operations:
-                self.preamble_ops.append(op.getoperation())
+                self.vecops.append(op.getoperation())
         else:
             self.pack = pack
             self.transform_pack()
         #
         self.pack = None
         self.costmodel = None
-        self.preamble_ops = None
+        self.vecops = None
         self.sched_data = None
         self.input_type = None
         self.output_type = None
@@ -300,7 +300,7 @@ class OpToVectorOp(object):
             assert isinstance(vop, GuardResOp)
             vop.setfailargs(op.getfailargs())
             vop.rd_snapshot = op.rd_snapshot
-        self.preamble_ops.append(vop)
+        self.vecops.append(vop)
         self.costmodel.record_pack_savings(self.pack, self.pack.opcount())
 
     def transform_result(self, result):
@@ -387,12 +387,6 @@ class OpToVectorOp(object):
                                    box2, box2_pos, box2.getcount())
             i += 1
         return box
-        pass
-                # OLD
-                #args = [op.getoperation().getarg(argidx) for op in ops]
-                #vbox = self._pack(vbox, packed, args, packable)
-                #self.update_input_output(self.pack)
-                #box_pos = 0
 
     def update_arg_in_vector_pos(self, argidx, box):
         arguments = [op.getoperation().getarg(argidx) for op in self.getoperations()]
@@ -429,7 +423,7 @@ class OpToVectorOp(object):
                           [vbox, ConstInt(newsize)],
                           vbox_cloned)
         self.costmodel.record_cast_int(vbox.getsize(), newtype.getsize(), vbox.getcount())
-        self.preamble_ops.append(op)
+        self.vecops.append(op)
         return vbox_cloned
 
     def unpack(self, vbox, index, count, arg_ptype):
@@ -440,7 +434,7 @@ class OpToVectorOp(object):
         opnum = getunpackopnum(vbox.gettype())
         op = ResOperation(opnum, [vbox, ConstInt(index), ConstInt(count)], vbox_cloned)
         self.costmodel.record_vector_unpack(vbox, index, count)
-        self.preamble_ops.append(op)
+        self.vecops.append(op)
         #
         return vbox_cloned
 
@@ -454,7 +448,7 @@ class OpToVectorOp(object):
         new_box = vectorbox_clone_set(tgt, count=count)
         opnum = getpackopnum(tgt.gettype())
         op = ResOperation(opnum, [tgt, src, ConstInt(tidx), ConstInt(scount)], new_box)
-        self.preamble_ops.append(op)
+        self.vecops.append(op)
         self.costmodel.record_vector_pack(src, sidx, scount)
         if not we_are_translated():
             self._check_vec_pack(op)
@@ -484,15 +478,18 @@ class OpToVectorOp(object):
         vbox = self.input_type.new_vector_box(elem_count)
         box_type = arg.type
         expanded_map = self.sched_data.expanded_map
-        invariant_ops = self.sched_data.invariant_oplist
-        invariant_vars = self.sched_data.invariant_vector_vars
-        if isinstance(arg, BoxVector):
-            box_type = arg.gettype()
-
         # note that heterogenous nodes are not yet tracked
         already_expanded = expanded_map.get(arg, None)
         if already_expanded:
             return already_expanded
+
+        ops = self.sched_data.invariant_oplist
+        variables = self.sched_data.invariant_vector_vars
+        if arg not in self.sched_data.inputargs:
+            ops = self.vecops
+            variables = None
+        if isinstance(arg, BoxVector):
+            box_type = arg.gettype()
 
         for i, node in enumerate(self.getoperations()):
             op = node.getoperation()
@@ -502,13 +499,14 @@ class OpToVectorOp(object):
         else:
             expand_opnum = getexpandopnum(box_type)
             op = ResOperation(expand_opnum, [arg], vbox)
-            invariant_ops.append(op)
-            invariant_vars.append(vbox)
+            ops.append(op)
+            if variables is not None:
+                variables.append(vbox)
             expanded_map[arg] = vbox
             return vbox
 
         op = ResOperation(rop.VEC_BOX, [ConstInt(elem_count)], vbox)
-        invariant_ops.append(op)
+        ops.append(op)
         opnum = getpackopnum(arg.type)
         for i,node in enumerate(self.getoperations()):
             op = node.getoperation()
@@ -518,9 +516,10 @@ class OpToVectorOp(object):
             c1 = ConstInt(1)
             op = ResOperation(opnum, [vbox,arg,ci,c1], new_box)
             vbox = new_box
-            invariant_ops.append(op)
+            ops.append(op)
 
-        invariant_vars.append(vbox)
+        if variables is not None:
+            variables.append(vbox)
         return vbox
 
     def is_vector_arg(self, i):
@@ -539,33 +538,6 @@ class OpToVectorOp(object):
             they can force the input type here!
         """
         return ptype
-
-    # OLD
-    def determine_input_type(self, op):
-        arg = op.getarg(0)
-        _, vbox = self.sched_data.getvector_of_box(arg)
-        return packtype_outof_box(vbox or arg)
-
-    def determine_output_type(self, op):
-        return self.determine_input_type(op)
-
-    def update_input_output(self, pack):
-        op0 = pack.operations[0].getoperation()
-        self.input_type = self.determine_input_type(op0)
-        self.output_type = self.determine_output_type(op0)
-
-    def split_pack(self, pack, vec_reg_size):
-        """ Returns how many items of the pack should be
-            emitted as vector operation. """
-        bytes = pack.opcount() * self.getscalarsize()
-        if bytes > vec_reg_size:
-            # too many bytes. does not fit into the vector register
-            return vec_reg_size // self.getscalarsize()
-        return pack.opcount()
-
-    def getscalarsize(self):
-        """ return how many bytes a scalar operation processes """
-        return self.input_type.getsize()
 
 class OpToVectorOpConv(OpToVectorOp):
     def __init__(self, intype, outtype):
@@ -594,20 +566,6 @@ class OpToVectorOpConv(OpToVectorOp):
 
     def force_input(self, ptype):
         return self.arg_ptypes[0]
-
-    # OLD
-    def determine_input_type(self, op):
-        return self.arg_ptypes[0]
-
-    def determine_output_type(self, op):
-        return self.result_ptype
-
-    def split_pack(self, pack, vec_reg_size):
-        count = self.arg_ptypes[0].getcount()
-        bytes = pack.opcount() * self.getscalarsize()
-        if bytes > count * self.from_size:
-            return bytes // (count * self.from_size)
-        return pack.opcount()
 
 class SignExtToVectorOp(OpToVectorOp):
     def __init__(self, intype, outtype):
@@ -655,16 +613,6 @@ class LoadToVectorLoad(OpToVectorOp):
     def get_input_type_given(self, output_type, op):
         return None
 
-    # OLD
-    def getscalarsize(self):
-        return self.output_type.getsize()
-
-    def determine_input_type(self, op):
-        return None
-
-    def determine_output_type(self, op):
-        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
 class StoreToVectorStore(OpToVectorOp):
     """
     Storing operations are special because they are not allowed
@@ -685,27 +633,6 @@ class StoreToVectorStore(OpToVectorOp):
 
     def get_input_type_given(self, output_type, op):
         return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
-    # OLD
-    def determine_input_type(self, op):
-        return PackType.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
-    def determine_output_type(self, op):
-        return None
-
-    def split_pack(self, pack, vec_reg_size):
-        """ Returns how many items of the pack should be
-            emitted as vector operation. """
-        bytes = pack.opcount() * self.getscalarsize()
-        if bytes > vec_reg_size:
-            # too many bytes. does not fit into the vector register
-            return vec_reg_size // self.getscalarsize()
-        if bytes < vec_reg_size:
-            # special case for store, even though load is allowed
-            # to load more, store is not!
-            # not enough to fill the vector register
-            return 1
-        return pack.opcount()
 
 class PassThroughOp(OpToVectorOp):
     """ This pass through is only applicable if the target
@@ -740,6 +667,9 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_INT_AND:     INT_OP_TO_VOP,
     rop.VEC_INT_OR:      INT_OP_TO_VOP,
     rop.VEC_INT_XOR:     INT_OP_TO_VOP,
+
+    rop.VEC_INT_EQ:      INT_OP_TO_VOP,
+    rop.VEC_INT_NE:      INT_OP_TO_VOP,
 
     rop.VEC_INT_SIGNEXT: SignExtToVectorOp((PT_INT_GENERIC,), INT_RES),
 
@@ -799,13 +729,15 @@ def determine_trans(op):
     return op2vecop
 
 class VecScheduleData(SchedulerData):
-    def __init__(self, vec_reg_size, costmodel):
+    def __init__(self, vec_reg_size, costmodel, inputargs):
         self.box_to_vbox = {}
         self.vec_reg_size = vec_reg_size
         self.invariant_oplist = []
         self.invariant_vector_vars = []
         self.expanded_map = {}
         self.costmodel = costmodel
+        self.inputargs = dict.fromkeys(inputargs)
+        self.seen = {}
 
     def _prevent_signext(self, outsize, insize):
         if insize != outsize:

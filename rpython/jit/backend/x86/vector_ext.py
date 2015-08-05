@@ -307,27 +307,50 @@ class VectorAssemblerMixin(object):
         else:
             self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
 
-    def gen_float_cmp(func):
-        def genop_float_cmp(self, op, guard_op, guard_token, arglocs, resloc):
+    def genop_vec_int_eq(self, op, arglocs, resloc):
+        _, rhsloc, sizeloc = arglocs
+        size = sizeloc.value
+        self.mc.PCMPEQ(resloc, rhsloc, size)
+
+    def genop_vec_int_ne(self, op, arglocs, resloc):
+        _, rhsloc, sizeloc = arglocs
+        size = sizeloc.value
+        self.mc.PCMPEQ(resloc, rhsloc, size)
+        temp = X86_64_XMM_SCRATCH_REG
+        self.mc.PCMPEQQ(temp, temp) # set all bits to one
+        # need to invert the value in resloc
+        self.mc.PXOR(resloc, temp)
+        # 11 00 11 11
+        # 11 11 11 11
+        # ----------- pxor
+        # 00 11 00 00
+
+    def gen_cmp(func):
+        """ The requirement for func is that it must return one bits for each
+        entry that matches the query, zero otherwise.
+        """
+        def generate_assembler(self, op, guard_op, guard_token, arglocs, resloc):
             lhsloc, rhsloc, sizeloc = arglocs
             size = sizeloc.value
-            func(self, op, arglocs, lhsloc) # yields one bits if they are equal
+            func(self, op, arglocs, lhsloc)
             guard_opnum = guard_op.getopnum()
             if guard_opnum == rop.GUARD_TRUE:
                 temp = X86_64_XMM_SCRATCH_REG
                 self.mc.PXOR(temp, temp) # set all to zero
-                self.mc.PCMPEQ(lhsloc, temp, size)
+                self.mc.PCMPEQ(lhsloc, temp, size) # compare
                 self.mc.PCMPEQQ(temp, temp) # set all bits to 1
                 self.mc.PTEST(lhsloc, temp)
                 self.implement_guard(guard_token, 'NZ')
             else:
                 self.mc.PTEST(lhsloc, lhsloc)
                 self.implement_guard(guard_token, 'NZ')
-        return genop_float_cmp
+        return generate_assembler
 
-    genop_guard_vec_float_eq = gen_float_cmp(genop_vec_float_eq)
-    genop_guard_vec_float_ne = gen_float_cmp(genop_vec_float_ne)
-    del gen_float_cmp
+    genop_guard_vec_float_eq = gen_cmp(genop_vec_float_eq)
+    genop_guard_vec_float_ne = gen_cmp(genop_vec_float_ne)
+    genop_guard_vec_int_eq = gen_cmp(genop_vec_int_eq)
+    genop_guard_vec_int_ne = gen_cmp(genop_vec_int_ne)
+    del gen_cmp
 
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
@@ -593,7 +616,7 @@ class VectorRegallocMixin(object):
         size = lhs.item_size
         args = op.getarglist()
         source = self.make_sure_var_in_reg(op.getarg(1), args)
-        result = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        result = self.force_result_in_reg(op.result, op.getarg(0), args)
         self.perform(op, [source, imm(size)], result)
 
     def consider_vec_float_eq(self, op, guard_op):
@@ -601,7 +624,7 @@ class VectorRegallocMixin(object):
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
-        lhsloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        lhsloc = self.force_result_in_reg(op.result, op.getarg(0), args)
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
         if guard_op:
             self.perform_with_guard(op, guard_op, [lhsloc, rhsloc, imm(size)], None)
@@ -609,6 +632,8 @@ class VectorRegallocMixin(object):
             self.perform(op, [lhsloc, rhsloc, imm(size)], lhsloc)
 
     consider_vec_float_ne = consider_vec_float_eq
+    consider_vec_int_eq = consider_vec_float_eq
+    consider_vec_int_ne = consider_vec_float_eq
 
     consider_vec_int_and = consider_vec_logic
     consider_vec_int_or = consider_vec_logic

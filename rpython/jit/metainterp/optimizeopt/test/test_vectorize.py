@@ -3,7 +3,8 @@ import pytest
 
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp.optimizeopt.test.test_util import (LLtypeMixin,
-        FakeMetaInterpStaticData, convert_old_style_to_targets)
+        FakeMetaInterpStaticData, convert_old_style_to_targets,
+        FakeWarmState)
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt import optimize_trace
@@ -1330,31 +1331,58 @@ class BaseTestVectorize(VecTestHelper):
 
     def test_bug1(self):
         trace="""
-        [p0, p1, p4, p6, p7, p9, p10, p11, p12, i18, p17, i19, p20, i21, p22, i23, i24, p25, i26, i27, p28, i29]
-        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7ffff7efd520>) [p1, p0, p4, p6, p7, p9, p10, p11, p12, p17, i18]
-        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7ffff7efd580>) [p1, p0, p9, p4, p6, p7, p10, p11, p12, p17, i18]
+        [p0, p1, p6, p7, p8, p9, p10, p11, p12, i18, p17, i19, p20, i21, p22, i23, i24, p25, i26, i27, p28, i29]
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #124 LOAD_FAST')
+        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7f425285b400>) [p1, p0, p6, p7, p8, p9, p10, p11, p12, p17, i18]
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #127 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #130 LOAD_ATTR')
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7f425285b460>) [p1, p0, p9, p6, p7, p8, p10, p11, p12, p17, i18]
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #133 COMPARE_OP')
         i30 = int_lt(i18, i19)
-        guard_true(i30, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd5e0>) [p1, p0, p20, p4, p6, p7, p9, p10, p11, p12, p17, i18]
+        guard_true(i30, descr=<ResumeGuardTrueDescr object at 0x7f425285b4c0>) [p1, p0, p20, p6, p7, p8, p9, p10, p11, p12, p17, i18]
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #136 POP_JUMP_IF_FALSE')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #139 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #142 LOAD_ATTR')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #145 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #148 BINARY_SUBSCR')
         i31 = int_lt(i18, i21)
-        guard_true(i31, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd640>) [p1, p0, p22, i18, p4, p6, p7, p9, p10, p11, p12, p17, None]
-        i33 = getarrayitem_raw(i23, i18, descr=chararraydescr)
+        guard_true(i31, descr=<ResumeGuardTrueDescr object at 0x7f425285b520>) [p1, p0, p22, i18, p6, p7, p8, p9, p10, p11, p12, p17, None]
+        i33 = getarrayitem_raw(i23, i18, descr=int32arraydescr)
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #149 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #152 LOAD_ATTR')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #155 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #158 BINARY_SUBSCR')
         i34 = int_lt(i18, i24)
-        guard_true(i34, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd6a0>) [p1, p0, p25, i18, p4, p6, p7, p9, p10, p11, p12, p17, i33, None]
-        i35 = getarrayitem_raw(i26, i18, descr=chararraydescr)
+        guard_true(i34, descr=<ResumeGuardTrueDescr object at 0x7f425285b580>) [p1, p0, p25, i18, p6, p7, p8, p9, p10, p11, p12, p17, i33, None]
+        i35 = getarrayitem_raw(i26, i18, descr=int32arraydescr)
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #159 BINARY_ADD')
         i36 = int_add(i33, i35)
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #160 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #163 LOAD_ATTR')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #166 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #169 STORE_SUBSCR')
         i37 = int_lt(i18, i27)
-        guard_true(i37, descr=<ResumeGuardTrueDescr object at 0x7ffff7efd700>) [p1, p0, p28, i18, p4, p6, p7, p9, p10, p11, p12, p17, i36, None, None]
-        i39 = int_signext(i36, 1)
+        guard_true(i37, descr=<ResumeGuardTrueDescr object at 0x7f425285b5e0>) [p1, p0, p28, i18, p6, p7, p8, p9, p10, p11, p12, p17, i36, None, None]
+        i39 = int_signext(i36, 4)
         i40 = int_ne(i39, i36)
-        guard_false(i40, descr=<ResumeGuardFalseDescr object at 0x7ffff7efd760>) [p1, p0, p28, i18, i36, i39, p4, p6, p7, p9, p10, p11, p12, p17, None, None, None]
-        setarrayitem_raw(i29, i18, i39, descr=chararraydescr)
+        guard_false(i40, descr=<ResumeGuardFalseDescr object at 0x7f425285b640>) [p1, p0, p28, i18, i36, i39, p6, p7, p8, p9, p10, p11, p12, p17, None, None, None]
+        setarrayitem_raw(i29, i18, i39, descr=int32arraydescr)
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #170 LOAD_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #173 LOAD_CONST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #176 INPLACE_ADD')
         i42 = int_add(i18, 1)
-        i44 = getfield_raw(140737351872096, descr=<FieldS pypysig_long_struct.c_value 0>)
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #177 STORE_FAST')
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #180 JUMP_ABSOLUTE')
+        i44 = getfield_raw(139922827849888, descr=<FieldS pypysig_long_struct.c_value 0>)
         i46 = int_lt(i44, 0)
-        guard_false(i46, descr=<ResumeGuardFalseDescr object at 0x7ffff7efd7c0>) [p1, p0, p4, p6, p7, p9, p10, p11, p12, p17, i42, None, None, None]
-        jump(p0, p1, p4, p6, p7, p9, p10, p11, p12, i42, p17, i19, p20, i21, p22, i23, i24, p25, i26, i27, p28, i29)
+        guard_false(i46, descr=<ResumeGuardFalseDescr object at 0x7f425285b6a0>) [p1, p0, p6, p7, p8, p9, p10, p11, p12, p17, i42, None, None, None]
+        debug_merge_point(0, 0, '<code object add. file '/home/rich/src/da/thesis/bench/vec.py'. line 18> #124 LOAD_FAST')
+        jump(p0, p1, p6, p7, p8, p9, p10, p11, p12, i42, p17, i19, p20, i21, p22, i23, i24, p25, i26, i27, p28, i29)
         """
         opt = self.vectorize(self.parse_loop(trace))
+        optimize_trace(FakeMetaInterpStaticData(self.cpu),
+                FakeJitDriverStaticData(),
+                opt.loop, FakeWarmState(self.enable_opts), start_state=None, export_state=True, try_disabling_unroll=True)
         self.debug_print_operations(opt.loop)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

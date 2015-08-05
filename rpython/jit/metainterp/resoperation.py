@@ -198,6 +198,9 @@ class AbstractResOp(object):
     def cast_from(self):
         return ('\x00',-1)
 
+    def is_label(self):
+        return self.getopnum() == rop.LABEL
+
 # ===================
 # Top of the hierachy
 # ===================
@@ -499,6 +502,8 @@ _oplist = [
     'VEC_FLOAT_EQ/2b',
     'VEC_FLOAT_NE/2b',
     'VEC_INT_IS_TRUE/1b',
+    'VEC_INT_NE/2b',
+    'VEC_INT_EQ/2b',
 
     '_VEC_CAST_FIRST',
     'VEC_INT_SIGNEXT/2',
@@ -809,6 +814,8 @@ _opvector = {
     rop.FLOAT_EQ:  rop.VEC_FLOAT_EQ,
     rop.FLOAT_NE:  rop.VEC_FLOAT_NE,
     rop.INT_IS_TRUE: rop.VEC_INT_IS_TRUE,
+    rop.INT_EQ:  rop.VEC_INT_EQ,
+    rop.INT_NE:  rop.VEC_INT_NE,
 
     # casts
     rop.INT_SIGNEXT: rop.VEC_INT_SIGNEXT,
@@ -821,7 +828,6 @@ _opvector = {
     rop.GUARD_TRUE: rop.GUARD_TRUE,
     rop.GUARD_FALSE: rop.GUARD_FALSE,
 }
-
 
 def setup2():
     for cls in opclasses:

@@ -434,12 +434,19 @@ class VectorizingOptimizer(Optimizer):
 
     def schedule(self, vector=False):
         self.clear_newoperations()
-        sched_data = VecScheduleData(self.cpu.vector_register_size, self.costmodel)
+        sched_data = VecScheduleData(self.cpu.vector_register_size,
+                                     self.costmodel, self.orig_label_args)
         scheduler = Scheduler(self.dependency_graph, sched_data)
         renamer = Renamer()
         #
         if vector:
             self.packset.accumulate_prepare(sched_data, renamer)
+        #
+        for node in scheduler.schedulable_nodes:
+            op = node.getoperation()
+            if op.is_label():
+                sched_data.seen = dict.fromkeys(op.getarglist())
+                break
         #
         while scheduler.has_more():
             position = len(self._newoperations)
@@ -474,12 +481,15 @@ class VectorizingOptimizer(Optimizer):
     def unpack_from_vector(self, op, sched_data, renamer):
         renamer.rename(op)
         args = op.getarglist()
+
         # unpack for an immediate use
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
                 argument = self._unpack_from_vector(i, arg, sched_data, renamer)
                 if arg is not argument:
                     op.setarg(i, argument)
+        if op.result:
+            sched_data.seen[op.result] = None
         # unpack for a guard exit
         if op.is_guard():
             fail_args = op.getfailargs()
@@ -490,12 +500,16 @@ class VectorizingOptimizer(Optimizer):
                         fail_args[i] = argument
 
     def _unpack_from_vector(self, i, arg, sched_data, renamer):
-        (j, vbox) = sched_data.box_to_vbox.get(arg, (-1, None))
+        if arg in sched_data.seen:
+            return arg
+        (j, vbox) = sched_data.getvector_of_box(arg)
         if vbox:
             if vbox in sched_data.invariant_vector_vars:
                 return arg
             arg_cloned = arg.clonebox()
+            sched_data.seen[arg_cloned] = None
             renamer.start_renaming(arg, arg_cloned)
+            sched_data.setvector_of_box(arg_cloned, j, vbox)
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = getunpackopnum(vbox.gettype())

@@ -412,3 +412,24 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """, False)
         self.assert_equal(loop2, loop3)
 
+    def test_no_vec_impl(self):
+        py.test.skip()
+        loop1 = self.parse("""
+        i10 = int_and(255, i1)
+        i11 = int_and(255, i2)
+        i12 = op(i10)
+        i13 = op(i11)
+        i14 = int_and(i1, i12)
+        i15 = int_and(i2, i13)
+        """)
+        pack1 = self.pack(loop1, 0, 2, I64, I64)
+        pack2 = self.pack(loop1, 2, 3, I64, I64)
+        pack3 = self.pack(loop1, 3, 4, I64, I64)
+        pack4 = self.pack(loop1, 4, 6, I64, I64)
+        loop2 = self.schedule(loop1, [pack1,pack2,pack3,pack4], prepend_invariant=True)
+        loop3 = self.parse("""
+        v1[i64|2] = vec_int_expand(255)
+        v2[i64|2] = vec_int_expand(i1)
+        v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
+        """, False)
+        self.assert_equal(loop2, loop3)

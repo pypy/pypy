@@ -241,6 +241,13 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
 
+    def force_result_in_reg(self, result_var, var, forbidden_vars):
+        assert result_var.type == var.type
+        if result_var.type in (FLOAT, VECTOR):
+            return self.xrm.force_result_in_reg(result_var, var, forbidden_vars)
+        else:
+            return self.rm.force_result_in_reg(result_var, var, forbidden_vars)
+
     def force_spill_var(self, var):
         if var.type == FLOAT:
             return self.xrm.force_spill_var(var)

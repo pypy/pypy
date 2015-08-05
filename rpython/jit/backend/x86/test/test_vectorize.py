@@ -16,10 +16,6 @@ class TestBasic(test_vectorize.VectorizeLLtypeTests, test_basic.Jit386Mixin):
     # ====> ../../../metainterp/test/test_basic.py
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
-    pass
-
-
-
 class TestAssembler(BaseTestAssembler):
     def imm_4_int32(self, a, b, c, d):
         adr = self.xrm.assembler.datablockwrapper.malloc_aligned(16, 16)
