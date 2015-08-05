@@ -1,7 +1,8 @@
 
 from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp
-from rpython.jit.metainterp.history import Const, make_hashable_int
+from rpython.jit.metainterp.history import Const, make_hashable_int,\
+     TreeLoop
 from rpython.jit.metainterp.optimizeopt import info
 
 class PreambleOp(AbstractResOp):
@@ -44,7 +45,7 @@ class HeapOp(AbstractShortOp):
         opinfo = opt.optimizer.ensure_ptr_info_arg0(g)
         pop = PreambleOp(self.res, preamble_op)
         assert not opinfo.is_virtual()
-        opinfo._fields[preamble_op.getdescr().get_index()] = pop
+        opinfo.setfield(preamble_op.getdescr(), self.res, pop, optheap=optheap)
 
     def __repr__(self):
         return "HeapOp(%r)" % (self.res,)
@@ -252,7 +253,7 @@ class ShortPreambleBuilder(object):
                 if info is not empty_info:
                     info.make_guards(arg, self.short)
                 arg.set_forwarded(None)
-                self.force_info_from(arg)
+                #self.force_info_from(arg) <- XXX?
         self.short.append(preamble_op)
         info = preamble_op.get_forwarded()
         preamble_op.set_forwarded(None)
@@ -269,4 +270,6 @@ class ShortPreambleBuilder(object):
     def build_short_preamble(self):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
         jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
+        TreeLoop.check_consistency_of(self.short_inputargs,
+                                      self.short + [jump_op])
         return [label_op] + self.short + [jump_op]

@@ -1161,10 +1161,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i3, i1, i2)
         """
         expected = """
-        [i0, i1, i1bis]
+        [i0, i1bis, i1]
         i2 = int_sub(i1bis, 1)
         i3 = int_add(i0, i1bis)
-        jump(i3, i1bis, i2)
+        jump(i3, i2, i1bis)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -1173,8 +1173,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         p41 = getfield_gc_r(p0, descr=nextdescr)
         i0 = getfield_gc_i(p41, descr=valuedescr)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
+        p1 = new_with_vtable(descr=nodesize2)
+        p2 = new_with_vtable(descr=nodesize2)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         i1 = int_add(i0, 1)
@@ -1200,8 +1200,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         p41 = getfield_gc_r(p0, descr=nextdescr)
         i0 = getfield_gc_i(p41, descr=valuedescr)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
+        p1 = new_with_vtable(descr=nodesize2)
+        p2 = new_with_vtable(descr=nodesize2)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         i1 = int_add(i0, 1)
@@ -1214,8 +1214,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p41 = getfield_gc_r(p0, descr=nextdescr)
         i0 = getfield_gc_i(p41, descr=valuedescr)
         i1 = int_add(i0, 1)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
+        p1 = new_with_vtable(descr=nodesize2)
+        p2 = new_with_vtable(descr=nodesize2)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
@@ -1227,8 +1227,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p41 = getfield_gc_r(p0, descr=nextdescr)
         i0 = getfield_gc_i(p41, descr=valuedescr)
         i1 = int_add(i0, 1)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
+        p1 = new_with_vtable(descr=nodesize2)
+        p2 = new_with_vtable(descr=nodesize2)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
@@ -2776,7 +2776,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull(12) []
         guard_class(p3, ConstClass(node_vtable)) []
         setfield_gc(p3, p2, descr=otherdescr)
-        p1a = new_with_vtable(ConstClass(node_vtable2))
+        p1a = new_with_vtable(descr=nodesize2)
         p2a = new_with_vtable(descr=nodesize)
         p3a = new_with_vtable(descr=nodesize)
         escape_n(p3a)
@@ -2802,7 +2802,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # p2 = getfield_gc(p1, descr=nextdescr) # p2a
         # p3 = getfield_gc(p1, descr=otherdescr)# p3a
         # setfield_gc(p3, p2, descr=otherdescr) # p3a.other = p2a
-        # p1a = new_with_vtable(ConstClass(node_vtable2))
+        # p1a = new_with_vtable(descr=nodesize2)
         # p2a = new_with_vtable(descr=nodesize)
         p3anew = new_with_vtable(descr=nodesize)
         p2 = new_with_vtable(descr=nodesize)
@@ -2824,7 +2824,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_nonnull(12) []
         guard_class(p3, ConstClass(node_vtable)) []
-        p1a = new_with_vtable(ConstClass(node_vtable2))
+        p1a = new_with_vtable(descr=nodesize2)
         p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
         p3a = new_with_vtable(descr=nodesize)
@@ -2840,7 +2840,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_class(p2, ConstClass(node_vtable)) []
         p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
-        # p1a = new_with_vtable(ConstClass(node_vtable2))
+        # p1a = new_with_vtable(descr=nodesize2)
         p3a = new_with_vtable(descr=nodesize)
         p2a = new_with_vtable(descr=nodesize)
         setfield_gc(p3, p2a, descr=otherdescr)
