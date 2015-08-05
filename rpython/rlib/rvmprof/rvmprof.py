@@ -47,6 +47,20 @@ class VMProf(object):
             self._code_unique_id = uid
             self._write_code_registration(uid, full_name_func(code))
 
+    @specialize.argtype(1)
+    def get_unique_id(self, code):
+        """Return the internal unique ID of a code object.  Can only be
+        called after register_code().  Call this in the jitdriver's
+        method 'get_unique_id(*greenkey)'.  Always returns 0 if we
+        didn't call register_code_object_class() on the class.
+        """
+        uid = code._vmprof_unique_id
+        if uid == 0:
+            uid = self._code_unique_id + 1
+            code._vmprof_unique_id = uid
+            self._code_unique_id = uid
+        return uid
+
     def register_code_object_class(self, CodeClass, full_name_func):
         """NOT_RPYTHON
         Register statically the class 'CodeClass' as containing user
@@ -77,11 +91,7 @@ class VMProf(object):
         def gather_all_code_objs():
             all_code_objs = rgc.do_get_objects(try_cast_to_code)
             for code in all_code_objs:
-                uid = code._vmprof_unique_id
-                if uid == 0:
-                    uid = self._code_unique_id + 1
-                    code._vmprof_unique_id = uid
-                    self._code_unique_id = uid
+                uid = self.get_unique_id(code)
                 self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
@@ -242,6 +252,10 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
         return decorated_function
 
     return decorate
+
+@specialize.memo()
+def _was_registered(CodeClass):
+    return hasattr(CodeClass, '_vmprof_unique_id')
 
 
 _vmprof_instance = None

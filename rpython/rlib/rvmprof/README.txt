@@ -63,6 +63,14 @@ object is instantiated, call this function:
         """Register the code object.  Call when a new code object is made.
         """
 
+    @specialize.argtype(1)
+    def get_unique_id(code):
+        """Return the internal unique ID of a code object.  Can only be
+        called after register_code().  Call this in the jitdriver's
+        method 'get_unique_id(*greenkey)'.  Always returns 0 if we
+        didn't call register_code_object_class() on the class.
+        """
+
 
 Enable the profiler with:
 
