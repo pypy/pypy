@@ -22,6 +22,9 @@ class OptRewrite(Optimization):
         self.loop_invariant_results = {}
         self.loop_invariant_producer = {}
 
+    def setup(self):
+        self.optimizer.optrewrite = self
+
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_loopinvariant_op(op)
@@ -416,15 +419,16 @@ class OptRewrite(Optimization):
 
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
+            resvalue = self.optimizer.force_op_from_preamble(resvalue)
             self.make_equal_to(op, resvalue)
             self.last_emitted_operation = REMOVED
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
-        self.loop_invariant_producer[key] = op
         newop = self.replace_op_with(op,
                                      OpHelpers.call_for_descr(op.getdescr()))
         self.emit_operation(newop)
+        self.loop_invariant_producer[key] = self.optimizer.getlastop()
         self.loop_invariant_results[key] = op
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I

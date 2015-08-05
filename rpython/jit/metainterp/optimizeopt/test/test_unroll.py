@@ -264,3 +264,14 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         assert not es.short_boxes
+
+    def test_loopinvariant(self):
+        loop = """
+        [i1]
+        i2 = call_loopinvariant_i(1, i1, descr=nonwritedescr)
+        guard_no_exception() []
+        guard_value(i2, 1) []
+        jump(i1)
+        """
+        es, loop, preamble = self.optimize(loop)
+        assert len(es.short_boxes) == 1

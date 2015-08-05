@@ -851,17 +851,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        i4 = same_as_i(i1)
-        jump(i1, p2, i4)
+        # i4 = same_as_i(i1) <- investigate
+        jump(i1, p2, p2sub)
         """
         expected = """
-        [i1, p2, i3]
-        escape_n(i3)
+        [i1, p2, p10]
+        escape_n(i1)
         p1 = new_with_vtable(descr=nodesize)
         p3sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        jump(i1, p1, i1)
+        jump(i1, p1, p3sub)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -877,7 +877,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p2, p3)
         """
         short = """
-        [p1, p2]
+        [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
         jump(i1)
         """

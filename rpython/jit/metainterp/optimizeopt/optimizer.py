@@ -237,6 +237,7 @@ class Optimizer(Optimization):
         self.optimizer = self
         self.optpure = None
         self.optheap = None
+        self.optrewrite = None
         self.optearlyforce = None
         self.optunroll = None
 

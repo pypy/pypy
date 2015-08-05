@@ -2,7 +2,7 @@ import sys
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
-     ShortPreambleBuilder
+     ShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
@@ -19,10 +19,12 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
-        op = preamble_op.op
-        self.optunroll.short_preamble_producer.use_box(op, self)
-        self.optunroll.potential_extra_ops[op] = preamble_op
-        return op
+        if isinstance(preamble_op, PreambleOp):
+            op = preamble_op.op
+            self.optunroll.short_preamble_producer.use_box(op, self)
+            self.optunroll.potential_extra_ops[op] = preamble_op
+            return op
+        return preamble_op
 
     def setinfo_from_preamble(self, op, preamble_info):
         op = self.get_box_replacement(op)
@@ -94,12 +96,29 @@ class UnrollOptimizer(Optimization):
         jump_args = state.virtual_state.make_inputargs(jump_args,
                                     self.optimizer, force_boxes=True)
         extra_jump_args = self.inline_short_preamble(jump_args)
+        # remove duplicates, removes stuff from used boxes too
+        extra_jump_args, used_boxes = self.filter_extra_jump_args(
+            self.short_preamble_producer, jump_args,
+            extra_jump_args)
         jump_args += extra_jump_args
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
-                           self.short_preamble_producer.used_boxes),
+                           used_boxes),
                 self.optimizer._newoperations)
+
+    def filter_extra_jump_args(self, sp, jump_args, extra_jump_args):
+        d = {}
+        for arg in jump_args:
+            d[arg] = None
+        new_jump_args = []
+        new_used_boxes = []
+        for i in range(len(extra_jump_args)):
+            if extra_jump_args[i] in d:
+                continue
+            new_jump_args.append(extra_jump_args[i])
+            new_used_boxes.append(sp.used_boxes[i])
+        return new_jump_args, new_used_boxes
 
     def inline_short_preamble(self, jump_args):
         sb = self.short_preamble_producer

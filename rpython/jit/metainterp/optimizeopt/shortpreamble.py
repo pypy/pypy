@@ -1,7 +1,7 @@
 
 from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp
-from rpython.jit.metainterp.history import Const
+from rpython.jit.metainterp.history import Const, make_hashable_int
 from rpython.jit.metainterp.optimizeopt import info
 
 class PreambleOp(AbstractResOp):
@@ -62,6 +62,21 @@ class PureOp(AbstractShortOp):
 
     def __repr__(self):
         return "PureOp(%r)" % (self.res,)
+
+class LoopInvariantOp(AbstractShortOp):
+    def __init__(self, res):
+        self.res = res
+
+    def produce_op(self, opt, preamble_op):
+        optrewrite = opt.optimizer.optrewrite
+        if optrewrite is None:
+            return
+        op = self.res
+        key = make_hashable_int(op.getarg(0).getint())
+        optrewrite.loop_invariant_results[key] = PreambleOp(op, preamble_op)
+
+    def __repr__(self):
+        return "LoopInvariantOp(%r)" % (self.res,)
 
 class AbstractProducedShortOp(object):
     pass
@@ -154,14 +169,18 @@ class ShortBoxes(object):
                 preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
                                            descr=sop.getdescr())
             else:
-                assert isinstance(shortop, PureOp)
                 arglist = []
                 for arg in op.getarglist():
                     newarg = self.produce_arg(arg)
                     if newarg is None:
                         return None
                     arglist.append(newarg)
-                preamble_op = op.copy_and_change(op.getopnum(), args=arglist)
+                if isinstance(shortop, PureOp):
+                    opnum = op.getopnum()
+                else:
+                    opnum = OpHelpers.call_loopinvariant_for_descr(
+                        op.getdescr())
+                preamble_op = op.copy_and_change(opnum, args=arglist)
             self.produced_short_boxes[op] = ProducedShortOp(shortop,
                                                             preamble_op)
         finally:
