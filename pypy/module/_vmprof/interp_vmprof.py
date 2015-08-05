@@ -20,8 +20,8 @@ class __extend__(PyFrame):
 
 
 def _safe(s):
-    if len(s) > 90:
-        s = s[:80] + '...'
+    if len(s) > 110:
+        s = s[:107] + '...'
     return s.replace(':', ';')
 
 def _get_full_name(pycode):
