@@ -297,8 +297,8 @@ class W_Ufunc(W_Root):
                                 "output parameter for reduction operation %s has "
                                 "too many dimensions", self.name)
                 dtype = out.get_dtype()
-            res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
-                                    self.identity)
+            res = loop.reduce_flat(
+                space, self.func, obj, dtype, self.done_func, self.identity)
             if out:
                 out.set_scalar_value(res)
                 return out
@@ -357,8 +357,8 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            loop.do_axis_reduce(space, self.func, obj, dtype, axis_flags,
-                                out, self.identity)
+            loop.reduce(
+                space, self.func, obj, axis_flags, dtype, out, self.identity)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
