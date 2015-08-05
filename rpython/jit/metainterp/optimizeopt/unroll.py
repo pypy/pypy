@@ -91,11 +91,9 @@ class UnrollOptimizer(Optimization):
                                              rename_inputargs=False)
         jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
-        pass_to_short = self.filter_short_inputargs(state.virtual_state,
-                                                    jump_args)
         jump_args = state.virtual_state.make_inputargs(jump_args,
                                     self.optimizer, force_boxes=True)
-        extra_jump_args = self.inline_short_preamble(pass_to_short)
+        extra_jump_args = self.inline_short_preamble(jump_args)
         jump_args += extra_jump_args
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
@@ -214,9 +212,7 @@ class UnrollOptimizer(Optimization):
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
         sb = ShortBoxes()
-        #short_inputargs = self.filter_short_inputargs(virtual_state,
-        #                                              renamed_inputargs)
-        short_boxes = sb.create_short_boxes(self.optimizer, end_args)
+        short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs)
         inparg_mapping = [(start_label.getarg(i), end_args[i])
                           for i in range(len(end_args)) if
                           start_label.getarg(i) is not end_args[i]]
@@ -228,20 +224,13 @@ class UnrollOptimizer(Optimization):
             if not isinstance(op, Const):
                 infos[op] = self.optimizer.getinfo(op)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        short_inputargs = sb.create_short_inputargs(label_args)
         self.optimizer._clean_optimization_info(end_args)
         self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, inparg_mapping, virtual_state, infos,
                              short_boxes, renamed_inputargs,
-                             sb.short_inputargs)
+                             short_inputargs)
 
-    def filter_short_inputargs(self, virtual_state, inputargs):
-        return inputargs
-        assert len(inputargs) == len(virtual_state.state)
-        short_inp = []
-        for i in range(len(inputargs)):
-            if not virtual_state.state[i].is_virtual():
-                short_inp.append(inputargs[i])
-        return short_inp
 
         inputargs = virtual_state.make_inputargs(jump_args, self.optimizer)
         short_inputargs = virtual_state.make_inputargs(jump_args,

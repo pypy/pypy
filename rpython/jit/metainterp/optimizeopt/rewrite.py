@@ -24,7 +24,7 @@ class OptRewrite(Optimization):
 
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
-            sb.add_potential(op, op)
+            sb.add_loopinvariant_op(op)
 
     def propagate_forward(self, op):
         if op.boolinverse != -1 or op.boolreflex != -1:
