@@ -80,6 +80,11 @@ static int prepare_concurrent_bufs(void)
 
 static int _write_single_ready_buffer(int fd, long i)
 {
+    if (profbuf_state[i] != PROFBUF_READY) {
+        /* this used to be a race condition: the buffer was written by a
+           different thread already */
+        return 0;
+    }
     int err;
     if (profbuf_pending_write >= 0 && profbuf_pending_write != i) {
         err = _write_single_ready_buffer(fd, profbuf_pending_write);
